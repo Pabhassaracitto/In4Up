@@ -5,9 +5,9 @@ plugins {
 }
 
 android {
-    namespace = "com.ultramusic.player"
-    compileSdk = 34
-    ndkVersion = "26.1.10909125"
+    namespace = "com.vipsound"
+    compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -19,14 +19,14 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ultramusic.player"
+        applicationId = "com.vipsound"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
     }
 

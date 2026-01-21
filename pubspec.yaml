@@ -1,0 +1,51 @@
+name: ultra_music_player
+description: Music Player with UltraTimeStretch Engine - Speed 0.05x to 10.0x
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.2
+
+  # Audio Playback
+  just_audio: ^0.9.39
+  audio_session: ^0.1.21
+
+  # FFI for Native C++ Engine
+  ffi: ^2.1.3
+
+  # File & Storage
+  file_picker: ^8.1.2
+  path_provider: ^2.1.4
+  permission_handler: ^11.3.1
+
+  # Utilities
+  rxdart: ^0.28.0  # Stream utilities
+  equatable: ^2.0.5
+
+  cupertino_icons: ^1.0.8
+
+  # NEW
+  hive: ^2.2.3                    # Local database
+  hive_flutter: ^1.1.0            # Hive cho Flutter
+  audio_service: ^0.18.12         # Background playback
+                
+  uuid: ^4.2.1                    # Generate unique IDs
+  share_plus: ^7.2.1              # Share segments
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1          # Generate Hive adapters
+  build_runner: ^2.4.7            # Code generation
+flutter:
+  uses-material-design: true

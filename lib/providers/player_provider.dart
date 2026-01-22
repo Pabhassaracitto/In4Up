@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../audio/audio_player_service.dart';
+import '../models/segment.dart';
 
 class PlayerProvider extends ChangeNotifier {
   final AudioPlayerService _audioService = AudioPlayerService();
@@ -10,26 +11,27 @@ class PlayerProvider extends ChangeNotifier {
   String? _currentSongArtist;
   String? _currentSongPath;
 
-  // === A-B LOOP VARIABLES ===
+  // === A-B LOOP ===
   Duration? _loopStart;
   Duration? _loopEnd;
   bool _isLooping = false;
   int _loopCount = 0;
-  int _maxLoopCount = 0; // 0 = vô hạn
-  StreamSubscription? _loopSubscription;
+  int _maxLoopCount = 0;
 
-  // === SLEEP TIMER VARIABLES ===
+  // === SLEEP TIMER ===
   Timer? _sleepTimer;
   Duration? _sleepDuration;
   DateTime? _sleepEndTime;
 
-  // === POSITION SAVER ===
+  // === SAVED POSITIONS ===
+  final Map<String, int> _savedPositions = {};
   Timer? _positionSaverTimer;
-  final Map<String, int> _savedPositions = {}; // path -> milliseconds
 
-  // ========== GETTERS ==========
+  // === SEGMENTS ===
+  final List<Segment> _segments = [];
 
-  // Basic getters
+  // ==================== GETTERS ====================
+
   PlaybackState get state => _state;
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
@@ -48,8 +50,7 @@ class PlayerProvider extends ChangeNotifier {
 
   // Sleep timer getters
   Duration? get sleepDuration => _sleepDuration;
-  DateTime? get sleepEndTime => _sleepEndTime;
-  bool get hasSleepTimer => _sleepTimer != null && _sleepEndTime != null;
+  bool get hasSleepTimer => _sleepTimer != null;
 
   Duration? get sleepRemaining {
     if (_sleepEndTime == null) return null;
@@ -57,17 +58,14 @@ class PlayerProvider extends ChangeNotifier {
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
-  // Speed presets
+  // Segments
+  List<Segment> get segments => List.unmodifiable(_segments);
+
   List<double> get speedPresets => AudioPlayerService.speedPresets;
 
-  // ========== CONSTRUCTOR ==========
+  // ==================== CONSTRUCTOR ====================
 
   PlayerProvider() {
-    _initListeners();
-  }
-
-  void _initListeners() {
-    // Listen to playback state
     _audioService.stateStream.listen((state) {
       _state = state;
 
@@ -79,13 +77,15 @@ class PlayerProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Start position saver
-    _startPositionSaver();
+    // Auto save position every 10 seconds
+    _positionSaverTimer = Timer.periodic(
+      const Duration(seconds: 10),
+          (_) => _saveCurrentPosition(),
+    );
   }
 
-  // ========== BASIC PLAYBACK ==========
+  // ==================== BASIC PLAYBACK ====================
 
-  /// Load and optionally play a song
   Future<void> loadSong({
     required String path,
     String? title,
@@ -96,16 +96,17 @@ class PlayerProvider extends ChangeNotifier {
     _currentSongTitle = title ?? path.split('/').last;
     _currentSongArtist = artist;
 
-    // Clear any existing loop
     clearLoop();
-
     notifyListeners();
 
     final success = await _audioService.loadFile(path);
 
     if (success) {
-      // Restore saved position if exists
-      await _restoreSavedPosition(path);
+      // Restore saved position
+      final savedMs = _savedPositions[path];
+      if (savedMs != null && savedMs > 10000) {
+        await seek(Duration(milliseconds: savedMs));
+      }
 
       if (autoPlay) {
         await play();
@@ -119,7 +120,6 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> pause() async {
     await _audioService.pause();
-    // Save position when paused
     _saveCurrentPosition();
   }
 
@@ -150,16 +150,14 @@ class PlayerProvider extends ChangeNotifier {
     await seek(position);
   }
 
-  // ========== QUICK SEEK (TUA NHANH) ==========
+  // ==================== QUICK SEEK ====================
 
-  /// Seek relative to current position (seconds can be negative)
   Future<void> seekRelative(int seconds) async {
     final currentPosition = _state.position;
     final duration = _state.duration;
 
     var newPosition = currentPosition + Duration(seconds: seconds);
 
-    // Clamp to valid range
     if (newPosition < Duration.zero) {
       newPosition = Duration.zero;
     } else if (duration != Duration.zero && newPosition > duration) {
@@ -169,47 +167,40 @@ class PlayerProvider extends ChangeNotifier {
     await seek(newPosition);
   }
 
-  /// Quick replay buttons
-  Future<void> replay5() async => await seekRelative(-5);
-  Future<void> replay10() async => await seekRelative(-10);
-  Future<void> replay30() async => await seekRelative(-30);
+  Future<void> replay5() async => seekRelative(-5);
+  Future<void> replay10() async => seekRelative(-10);
+  Future<void> replay30() async => seekRelative(-30);
 
-  Future<void> forward5() async => await seekRelative(5);
-  Future<void> forward10() async => await seekRelative(10);
-  Future<void> forward30() async => await seekRelative(30);
+  Future<void> forward5() async => seekRelative(5);
+  Future<void> forward10() async => seekRelative(10);
+  Future<void> forward30() async => seekRelative(30);
 
-  // ========== SPEED & PITCH ==========
+  // ==================== SPEED & PITCH ====================
 
-  /// Set speed (0.05 - 10.0)
   Future<void> setSpeed(double speed) async {
     await _audioService.setSpeed(speed);
   }
 
-  /// Set pitch in semitones (-24 to +24)
   Future<void> setPitch(double semitones) async {
     await _audioService.setPitch(semitones);
   }
 
-  /// Set volume (0.0 - 1.0)
   Future<void> setVolume(double volume) async {
     await _audioService.setVolume(volume);
   }
 
-  // ========== A-B LOOP ==========
+  // ==================== A-B LOOP ====================
 
-  /// Set loop start point (A)
   void setLoopStart() {
     _loopStart = _state.position;
     notifyListeners();
   }
 
-  /// Set loop end point (B) and start looping
   void setLoopEnd() {
     if (_loopStart == null) return;
 
     _loopEnd = _state.position;
 
-    // Ensure A < B
     if (_loopEnd! <= _loopStart!) {
       final temp = _loopStart;
       _loopStart = _loopEnd;
@@ -221,44 +212,36 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set A-B loop with specific positions
   void setLoop(Duration start, Duration end, {int repeatCount = 0}) {
     _loopStart = start;
     _loopEnd = end;
     _maxLoopCount = repeatCount;
     _isLooping = true;
     _loopCount = 0;
-
-    // Seek to start
     seek(start);
     notifyListeners();
   }
 
-  /// Set maximum loop count (0 = infinite)
   void setMaxLoopCount(int count) {
     _maxLoopCount = count;
     notifyListeners();
   }
 
-  /// Check if we need to loop back
   void _checkLoopPosition(Duration currentPosition) {
     if (!_isLooping || _loopEnd == null || _loopStart == null) return;
 
     if (currentPosition >= _loopEnd!) {
       _loopCount++;
 
-      // Check if reached max loops
       if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
         clearLoop();
         return;
       }
 
-      // Seek back to start
       seek(_loopStart!);
     }
   }
 
-  /// Clear A-B loop
   void clearLoop() {
     _loopStart = null;
     _loopEnd = null;
@@ -268,15 +251,68 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get loop duration
   Duration? get loopDuration {
     if (_loopStart == null || _loopEnd == null) return null;
     return _loopEnd! - _loopStart!;
   }
 
-  // ========== SLEEP TIMER ==========
+  // ==================== SAVE LOOP AS SEGMENT ====================
 
-  /// Set sleep timer
+  Segment? saveLoopAsSegment({
+    required String title,
+    SegmentType type = SegmentType.favorite,
+    DifficultyLevel difficulty = DifficultyLevel.medium,
+    String? note,
+    List<String> tags = const [],
+  }) {
+    if (_loopStart == null || _loopEnd == null || _currentSongPath == null) {
+      return null;
+    }
+
+    final segment = Segment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      audioPath: _currentSongPath!,
+      title: title,
+      startTime: _loopStart!,
+      endTime: _loopEnd!,
+      type: type,
+      difficulty: difficulty,
+      repeatCount: difficulty == DifficultyLevel.hard
+          ? 5
+          : difficulty == DifficultyLevel.medium
+          ? 3
+          : 1,
+      note: note,
+      createdAt: DateTime.now(),
+      tags: tags,
+    );
+
+    _segments.add(segment);
+    notifyListeners();
+
+    return segment;
+  }
+
+  void deleteSegment(String id) {
+    _segments.removeWhere((s) => s.id == id);
+    notifyListeners();
+  }
+
+  List<Segment> getSegmentsForCurrentSong() {
+    if (_currentSongPath == null) return [];
+    return _segments.where((s) => s.audioPath == _currentSongPath).toList();
+  }
+
+  Future<void> playSegment(Segment segment) async {
+    setLoop(
+      segment.startTime,
+      segment.endTime,
+      repeatCount: segment.repeatCount,
+    );
+  }
+
+  // ==================== SLEEP TIMER ====================
+
   void setSleepTimer(Duration duration) {
     cancelSleepTimer();
 
@@ -296,12 +332,10 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set sleep timer by minutes
   void setSleepTimerMinutes(int minutes) {
     setSleepTimer(Duration(minutes: minutes));
   }
 
-  /// Cancel sleep timer
   void cancelSleepTimer() {
     _sleepTimer?.cancel();
     _sleepTimer = null;
@@ -310,18 +344,9 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sleep timer presets (in minutes)
   static const List<int> sleepTimerPresets = [15, 30, 45, 60, 90, 120];
 
-  // ========== REMEMBER POSITION ==========
-
-  void _startPositionSaver() {
-    _positionSaverTimer?.cancel();
-    _positionSaverTimer = Timer.periodic(
-      const Duration(seconds: 10),
-          (_) => _saveCurrentPosition(),
-    );
-  }
+  // ==================== POSITION SAVER ====================
 
   void _saveCurrentPosition() {
     if (_currentSongPath != null && _state.position.inSeconds > 5) {
@@ -329,36 +354,24 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _restoreSavedPosition(String path) async {
-    final savedMs = _savedPositions[path];
-    if (savedMs != null && savedMs > 10000) { // > 10 seconds
-      final savedPosition = Duration(milliseconds: savedMs);
-      await seek(savedPosition);
-    }
-  }
-
-  /// Get saved position for a path
   Duration? getSavedPosition(String path) {
     final savedMs = _savedPositions[path];
     if (savedMs == null) return null;
     return Duration(milliseconds: savedMs);
   }
 
-  /// Clear saved position for a path
   void clearSavedPosition(String path) {
     _savedPositions.remove(path);
   }
 
-  /// Clear all saved positions
   void clearAllSavedPositions() {
     _savedPositions.clear();
   }
 
-  // ========== DISPOSE ==========
+  // ==================== DISPOSE ====================
 
   @override
   void dispose() {
-    _loopSubscription?.cancel();
     _sleepTimer?.cancel();
     _positionSaverTimer?.cancel();
     _audioService.dispose();

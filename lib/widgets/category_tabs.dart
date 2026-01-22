@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import '../models/audio_category.dart';
+
 class CategoryTabs extends StatelessWidget {
   final AudioCategory selected;
   final Function(AudioCategory) onSelect;
@@ -28,7 +31,7 @@ class CategoryTabs extends StatelessWidget {
                   Text(category.label),
                 ],
               ),
-              selectedColor: category.color.withOpacity(0.3),
+              selectedColor: category.color.withValues(alpha: 0.3),
               checkmarkColor: category.color,
               onSelected: (_) => onSelect(category),
             ),

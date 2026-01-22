@@ -12,46 +12,34 @@ class QuickReplayButtons extends StatelessWidget {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Tua lại 30 giây
             _ReplayButton(
               seconds: 30,
-              onTap: () => player.seekRelative(-30),
+              onTap: () => player.replay30(),
             ),
             const SizedBox(width: 8),
-            
-            // Tua lại 10 giây
             _ReplayButton(
               seconds: 10,
-              onTap: () => player.seekRelative(-10),
+              onTap: () => player.replay10(),
             ),
             const SizedBox(width: 8),
-            
-            // Tua lại 5 giây
             _ReplayButton(
               seconds: 5,
-              onTap: () => player.seekRelative(-5),
+              onTap: () => player.replay5(),
             ),
-            
             const SizedBox(width: 24),
-            
-            // Tua tới 5 giây
             _ForwardButton(
               seconds: 5,
-              onTap: () => player.seekRelative(5),
+              onTap: () => player.forward5(),
             ),
             const SizedBox(width: 8),
-            
-            // Tua tới 10 giây
             _ForwardButton(
               seconds: 10,
-              onTap: () => player.seekRelative(10),
+              onTap: () => player.forward10(),
             ),
             const SizedBox(width: 8),
-            
-            // Tua tới 30 giây
             _ForwardButton(
               seconds: 30,
-              onTap: () => player.seekRelative(30),
+              onTap: () => player.forward30(),
             ),
           ],
         );
@@ -73,7 +61,7 @@ class _ReplayButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -108,7 +96,7 @@ class _ForwardButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(

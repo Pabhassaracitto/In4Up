@@ -1,42 +1,15 @@
-// lib/models/segment.dart
-import 'package:hive/hive.dart';
-
-part 'segment.g.dart';
-
-@HiveType(typeId: 0)
-class Segment extends HiveObject {
-  @HiveField(0)
-  String id;
-
-  @HiveField(1)
-  String audioPath; // File audio chứa segment này
-
-  @HiveField(2)
-  String title; // "Tứ Diệu Đế", "Câu khó số 1"
-
-  @HiveField(3)
-  Duration startTime;
-
-  @HiveField(4)
-  Duration endTime;
-
-  @HiveField(5)
-  SegmentType type; // pháp, english, favorite
-
-  @HiveField(6)
-  DifficultyLevel difficulty; // easy, medium, hard
-
-  @HiveField(7)
-  int repeatCount; // Số lần lặp mặc định: 1, 3, 5
-
-  @HiveField(8)
-  String? note; // Ghi chú
-
-  @HiveField(9)
-  DateTime createdAt;
-
-  @HiveField(10)
-  List<String> tags; // ["từ vựng", "ngữ pháp", "phát âm"]
+class Segment {
+  final String id;
+  final String audioPath;
+  final String title;
+  final Duration startTime;
+  final Duration endTime;
+  final SegmentType type;
+  final DifficultyLevel difficulty;
+  final int repeatCount;
+  final String? note;
+  final DateTime createdAt;
+  final List<String> tags;
 
   Segment({
     required this.id,
@@ -53,6 +26,38 @@ class Segment extends HiveObject {
   });
 
   Duration get duration => endTime - startTime;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'audioPath': audioPath,
+      'title': title,
+      'startTime': startTime.inMilliseconds,
+      'endTime': endTime.inMilliseconds,
+      'type': type.name,
+      'difficulty': difficulty.name,
+      'repeatCount': repeatCount,
+      'note': note,
+      'createdAt': createdAt.toIso8601String(),
+      'tags': tags,
+    };
+  }
+
+  factory Segment.fromJson(Map<String, dynamic> json) {
+    return Segment(
+      id: json['id'],
+      audioPath: json['audioPath'],
+      title: json['title'],
+      startTime: Duration(milliseconds: json['startTime']),
+      endTime: Duration(milliseconds: json['endTime']),
+      type: SegmentType.values.firstWhere((e) => e.name == json['type']),
+      difficulty: DifficultyLevel.values.firstWhere((e) => e.name == json['difficulty']),
+      repeatCount: json['repeatCount'],
+      note: json['note'],
+      createdAt: DateTime.parse(json['createdAt']),
+      tags: List<String>.from(json['tags'] ?? []),
+    );
+  }
 }
 
 enum SegmentType {

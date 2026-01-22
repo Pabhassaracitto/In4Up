@@ -40,6 +40,7 @@ dependencies:
 
   uuid: ^4.2.1                    # Generate unique IDs
   share_plus: ^7.2.1              # Share segments
+  shared_preferences: ^2.2.2  # THÊM DÒNG NÀY
 
 dev_dependencies:
   flutter_test:

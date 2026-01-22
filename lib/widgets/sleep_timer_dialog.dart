@@ -1,25 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/player_provider.dart';
 
-class SleepTimerDialog extends StatefulWidget {
-  final Function(Duration?) onTimerSet;
-  
-  const SleepTimerDialog({super.key, required this.onTimerSet});
-
-  @override
-  State<SleepTimerDialog> createState() => _SleepTimerDialogState();
-}
-
-class _SleepTimerDialogState extends State<SleepTimerDialog> {
-  final List<SleepOption> options = [
-    SleepOption('Tắt', Duration.zero),
-    SleepOption('15 phút', const Duration(minutes: 15)),
-    SleepOption('30 phút', const Duration(minutes: 30)),
-    SleepOption('45 phút', const Duration(minutes: 45)),
-    SleepOption('1 giờ', const Duration(hours: 1)),
-    SleepOption('1.5 giờ', const Duration(minutes: 90)),
-    SleepOption('2 giờ', const Duration(hours: 2)),
-    SleepOption('Hết bài', null), // null = end of track
-  ];
+class SleepTimerSheet extends StatelessWidget {
+  const SleepTimerSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +16,6 @@ class _SleepTimerDialogState extends State<SleepTimerDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
           Container(
             width: 40,
             height: 4,
@@ -42,8 +25,6 @@ class _SleepTimerDialogState extends State<SleepTimerDialog> {
             ),
           ),
           const SizedBox(height: 20),
-          
-          // Title
           const Row(
             children: [
               Icon(Icons.bedtime, color: Color(0xFF6C63FF)),
@@ -59,30 +40,62 @@ class _SleepTimerDialogState extends State<SleepTimerDialog> {
             ],
           ),
           const SizedBox(height: 20),
-          
-          // Options
-          ...options.map((option) => ListTile(
-            title: Text(
-              option.label,
-              style: const TextStyle(color: Colors.white),
-            ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-            onTap: () {
-              widget.onTimerSet(option.duration);
-              Navigator.pop(context);
+          Consumer<PlayerProvider>(
+            builder: (context, player, child) {
+              return Column(
+                children: [
+                  if (player.hasSleepTimer)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Còn lại: ${_formatDuration(player.sleepRemaining)}',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              player.cancelSleepTimer();
+                              Navigator.pop(context);
+                            },
+                            child: const Text('Hủy'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ...PlayerProvider.sleepTimerPresets.map((minutes) {
+                    return ListTile(
+                      title: Text(
+                        '$minutes phút',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                      onTap: () {
+                        player.setSleepTimerMinutes(minutes);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }),
+                ],
+              );
             },
-          )),
-          
+          ),
           const SizedBox(height: 20),
         ],
       ),
     );
   }
-}
 
-class SleepOption {
-  final String label;
-  final Duration? duration;
-  
-  SleepOption(this.label, this.duration);
+  String _formatDuration(Duration? duration) {
+    if (duration == null) return '--:--';
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60);
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
 }

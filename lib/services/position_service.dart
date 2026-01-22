@@ -1,26 +1,46 @@
-import 'package:hive/hive.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PositionService {
-  static const String _boxName = 'positions';
-  late Box<int> _box;
+  static const String _key = 'saved_positions';
+
+  SharedPreferences? _prefs;
+  Map<String, int> _positions = {};
 
   Future<void> init() async {
-    _box = await Hive.openBox<int>(_boxName);
+    _prefs = await SharedPreferences.getInstance();
+    _loadPositions();
   }
 
-  // Lưu vị trí (milliseconds)
+  void _loadPositions() {
+    final String? data = _prefs?.getString(_key);
+    if (data != null) {
+      _positions = Map<String, int>.from(json.decode(data));
+    }
+  }
+
+  Future<void> _savePositions() async {
+    await _prefs?.setString(_key, json.encode(_positions));
+  }
+
   Future<void> savePosition(String audioPath, Duration position) async {
-    await _box.put(audioPath, position.inMilliseconds);
+    _positions[audioPath] = position.inMilliseconds;
+    await _savePositions();
   }
 
-  // Lấy vị trí đã lưu
   Duration? getPosition(String audioPath) {
-    final ms = _box.get(audioPath);
+    final ms = _positions[audioPath];
     if (ms == null) return null;
     return Duration(milliseconds: ms);
   }
 
-  // Xóa vị trí
   Future<void> clearPosition(String audioPath) async {
-    await _box.delete(audioPath);
+    _positions.remove(audioPath);
+    await _savePositions();
   }
+
+  Future<void> clearAll() async {
+    _positions.clear();
+    await _savePositions();
+  }
+}

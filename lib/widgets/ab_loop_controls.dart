@@ -12,7 +12,7 @@ class ABLoopControls extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -26,7 +26,7 @@ class ABLoopControls extends StatelessWidget {
                 onTap: () => player.setLoopStart(),
                 color: Colors.green,
               ),
-              
+
               // Trạng thái loop
               if (player.isLooping) ...[
                 Container(
@@ -50,7 +50,7 @@ class ABLoopControls extends StatelessWidget {
                   ),
                 ),
               ],
-              
+
               // Nút B
               _LoopButton(
                 label: 'B',
@@ -59,7 +59,7 @@ class ABLoopControls extends StatelessWidget {
                 onTap: () => player.setLoopEnd(),
                 color: Colors.red,
               ),
-              
+
               // Nút xóa loop
               if (player.isLooping)
                 IconButton(
@@ -67,29 +67,10 @@ class ABLoopControls extends StatelessWidget {
                   icon: const Icon(Icons.close, color: Colors.white70),
                   tooltip: 'Xóa loop',
                 ),
-              
-              // Nút lưu thành segment
-              if (player.isLooping)
-                IconButton(
-                  onPressed: () => _showSaveDialog(context, player),
-                  icon: const Icon(Icons.bookmark_add, color: Colors.amber),
-                  tooltip: 'Lưu đoạn này',
-                ),
             ],
           ),
         );
       },
-    );
-  }
-
-  void _showSaveDialog(BuildContext context, PlayerProvider player) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SaveSegmentSheet(player: player),
     );
   }
 }

@@ -101,7 +101,7 @@ class PlayerProvider extends ChangeNotifier {
     _audioService.dispose();
     super.dispose();
   }
-  // === A-B LOOP ===
+ // === A-B LOOP ===
   Duration? _loopStart;
   Duration? _loopEnd;
   bool _isLooping = false;
@@ -186,7 +186,7 @@ class PlayerProvider extends ChangeNotifier {
       type: type,
       difficulty: difficulty,
       repeatCount: difficulty == DifficultyLevel.hard ? 5
-          : difficulty == DifficultyLevel.medium ? 3 : 1,
+                 : difficulty == DifficultyLevel.medium ? 3 : 1,
       createdAt: DateTime.now(),
     );
 
@@ -195,4 +195,80 @@ class PlayerProvider extends ChangeNotifier {
 
     return segment;
   }
+  void seekRelative(int seconds) {
+  final newPosition = _player.position + Duration(seconds: seconds);
+
+  // Không cho seek quá đầu hoặc cuối
+  if (newPosition < Duration.zero) {
+    _player.seek(Duration.zero);
+  } else if (_player.duration != null && newPosition > _player.duration!) {
+    _player.seek(_player.duration!);
+  } else {
+    _player.seek(newPosition);
+  }
+  Timer? sleepTimer;
+Duration? sleepDuration;
+DateTime? sleepEndTime;
+
+Duration? get sleepDuration => sleepDuration;
+Duration? get sleepRemaining {
+  if (sleepEndTime == null) return;
+  final remaining = sleepEndTime.difference(DateTime.now());
+  return remaining.isNegative ? Duration.zero : remaining;
+}
+
+void setSleepTimer(Duration? duration) {
+  sleepTimer?.cancel();
+
+  if (duration == null || duration == Duration.zero) {
+    sleepDuration = null;
+    sleepEndTime = null;
+    notifyListeners();
+    return;
+  }
+
+  sleepDuration = duration;
+  sleepEndTime = DateTime.now().add(duration);
+
+  sleepTimer = Timer(duration, () {
+    pause();
+    sleepDuration = null;
+    sleepEndTime = null;
+    notifyListeners();
+  });
+
+  notifyListeners();
+}
+
+void cancelSleepTimer() {
+  sleepTimer?.cancel();
+  sleepDuration = null;
+  sleepEndTime = null;
+  notifyListeners();
+final PositionService positionService = PositionService();
+
+// Khi load audio
+Future<void> loadAudio(String path) async {
+  await _player.setFilePath(path);
+  _currentAudioPath = path;
+
+  // Khôi phục vị trí đã lưu
+  final savedPosition = positionService.getPosition(path);
+  if (savedPosition != null && savedPosition.inSeconds > 10) {
+    // Chỉ khôi phục nếu đã nghe > 10 giây
+    await _player.seek(savedPosition);
+    // Hiển thị thông báo
+    _showResumeSnackbar(savedPosition);
+  }
+
+  notifyListeners();
+}
+
+// Tự động lưu mỗi 10 giây
+void startPositionSaver() {
+  Timer.periodic(const Duration(seconds: 10), (timer) {
+    if (_currentAudioPath != null && isPlaying) {
+      positionService.savePosition(_currentAudioPath!, _player.position);
+    }
+  });
 }

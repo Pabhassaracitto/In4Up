@@ -1,7 +1,6 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:math';
 
 /// Quality levels for UltraTimeStretch Engine
 enum UltraQuality {

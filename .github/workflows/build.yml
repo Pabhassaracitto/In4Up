@@ -1,0 +1,48 @@
+name: Flutter Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Sẽ tự động chạy khi bạn thực hiện: git tag v1.0 && git push origin v1.0
+
+jobs:
+  build:
+    name: Build APK and IPA
+    runs-on: macos-latest # Dùng máy Mac để build được cả iOS
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Nếu dự án vipsound có dùng Hive hoặc code generation, hãy bỏ dấu # ở dòng dưới:
+      # - name: Run Build Runner
+      #   run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Build iOS App (No Sign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

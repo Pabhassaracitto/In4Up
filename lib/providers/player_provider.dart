@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../audio/audio_player_service.dart';
 
@@ -9,7 +10,26 @@ class PlayerProvider extends ChangeNotifier {
   String? _currentSongArtist;
   String? _currentSongPath;
 
-  // Getters
+  // === A-B LOOP VARIABLES ===
+  Duration? _loopStart;
+  Duration? _loopEnd;
+  bool _isLooping = false;
+  int _loopCount = 0;
+  int _maxLoopCount = 0; // 0 = vô hạn
+  StreamSubscription? _loopSubscription;
+
+  // === SLEEP TIMER VARIABLES ===
+  Timer? _sleepTimer;
+  Duration? _sleepDuration;
+  DateTime? _sleepEndTime;
+
+  // === POSITION SAVER ===
+  Timer? _positionSaverTimer;
+  final Map<String, int> _savedPositions = {}; // path -> milliseconds
+
+  // ========== GETTERS ==========
+
+  // Basic getters
   PlaybackState get state => _state;
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
@@ -19,12 +39,51 @@ class PlayerProvider extends ChangeNotifier {
   bool get isStopped => _state.status == PlaybackStatus.stopped;
   bool get isLoading => _state.status == PlaybackStatus.loading;
 
+  // A-B Loop getters
+  Duration? get loopStart => _loopStart;
+  Duration? get loopEnd => _loopEnd;
+  bool get isLooping => _isLooping;
+  int get loopCount => _loopCount;
+  int get maxLoopCount => _maxLoopCount;
+
+  // Sleep timer getters
+  Duration? get sleepDuration => _sleepDuration;
+  DateTime? get sleepEndTime => _sleepEndTime;
+  bool get hasSleepTimer => _sleepTimer != null && _sleepEndTime != null;
+
+  Duration? get sleepRemaining {
+    if (_sleepEndTime == null) return null;
+    final remaining = _sleepEndTime!.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  // Speed presets
+  List<double> get speedPresets => AudioPlayerService.speedPresets;
+
+  // ========== CONSTRUCTOR ==========
+
   PlayerProvider() {
+    _initListeners();
+  }
+
+  void _initListeners() {
+    // Listen to playback state
     _audioService.stateStream.listen((state) {
       _state = state;
+
+      // Check A-B loop
+      if (_isLooping && _loopEnd != null) {
+        _checkLoopPosition(state.position);
+      }
+
       notifyListeners();
     });
+
+    // Start position saver
+    _startPositionSaver();
   }
+
+  // ========== BASIC PLAYBACK ==========
 
   /// Load and optionally play a song
   Future<void> loadSong({
@@ -36,11 +95,21 @@ class PlayerProvider extends ChangeNotifier {
     _currentSongPath = path;
     _currentSongTitle = title ?? path.split('/').last;
     _currentSongArtist = artist;
+
+    // Clear any existing loop
+    clearLoop();
+
     notifyListeners();
 
     final success = await _audioService.loadFile(path);
-    if (success && autoPlay) {
-      await play();
+
+    if (success) {
+      // Restore saved position if exists
+      await _restoreSavedPosition(path);
+
+      if (autoPlay) {
+        await play();
+      }
     }
   }
 
@@ -50,6 +119,8 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> pause() async {
     await _audioService.pause();
+    // Save position when paused
+    _saveCurrentPosition();
   }
 
   Future<void> togglePlayPause() async {
@@ -62,6 +133,7 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> stop() async {
     await _audioService.stop();
+    _saveCurrentPosition();
   }
 
   Future<void> seek(Duration position) async {
@@ -78,6 +150,36 @@ class PlayerProvider extends ChangeNotifier {
     await seek(position);
   }
 
+  // ========== QUICK SEEK (TUA NHANH) ==========
+
+  /// Seek relative to current position (seconds can be negative)
+  Future<void> seekRelative(int seconds) async {
+    final currentPosition = _state.position;
+    final duration = _state.duration;
+
+    var newPosition = currentPosition + Duration(seconds: seconds);
+
+    // Clamp to valid range
+    if (newPosition < Duration.zero) {
+      newPosition = Duration.zero;
+    } else if (duration != Duration.zero && newPosition > duration) {
+      newPosition = duration;
+    }
+
+    await seek(newPosition);
+  }
+
+  /// Quick replay buttons
+  Future<void> replay5() async => await seekRelative(-5);
+  Future<void> replay10() async => await seekRelative(-10);
+  Future<void> replay30() async => await seekRelative(-30);
+
+  Future<void> forward5() async => await seekRelative(5);
+  Future<void> forward10() async => await seekRelative(10);
+  Future<void> forward30() async => await seekRelative(30);
+
+  // ========== SPEED & PITCH ==========
+
   /// Set speed (0.05 - 10.0)
   Future<void> setSpeed(double speed) async {
     await _audioService.setSpeed(speed);
@@ -93,39 +195,21 @@ class PlayerProvider extends ChangeNotifier {
     await _audioService.setVolume(volume);
   }
 
-  /// Get speed presets
-  List<double> get speedPresets => AudioPlayerService.speedPresets;
+  // ========== A-B LOOP ==========
 
-  @override
-  void dispose() {
-    _audioService.dispose();
-    super.dispose();
-  }
- // === A-B LOOP ===
-  Duration? _loopStart;
-  Duration? _loopEnd;
-  bool _isLooping = false;
-  int _loopCount = 0;
-  int _maxLoopCount = 0; // 0 = vô hạn
-
-  Duration? get loopStart => _loopStart;
-  Duration? get loopEnd => _loopEnd;
-  bool get isLooping => _isLooping;
-  int get loopCount => _loopCount;
-
-  // Đặt điểm A (bắt đầu)
+  /// Set loop start point (A)
   void setLoopStart() {
-    _loopStart = _player.position;
+    _loopStart = _state.position;
     notifyListeners();
   }
 
-  // Đặt điểm B (kết thúc) và bắt đầu loop
+  /// Set loop end point (B) and start looping
   void setLoopEnd() {
     if (_loopStart == null) return;
 
-    _loopEnd = _player.position;
+    _loopEnd = _state.position;
 
-    // Đảm bảo A < B
+    // Ensure A < B
     if (_loopEnd! <= _loopStart!) {
       final temp = _loopStart;
       _loopStart = _loopEnd;
@@ -134,36 +218,47 @@ class PlayerProvider extends ChangeNotifier {
 
     _isLooping = true;
     _loopCount = 0;
-    _startLoopListener();
     notifyListeners();
   }
 
-  // Đặt loop với số lần lặp cụ thể
-  void setLoopWithCount(int count) {
+  /// Set A-B loop with specific positions
+  void setLoop(Duration start, Duration end, {int repeatCount = 0}) {
+    _loopStart = start;
+    _loopEnd = end;
+    _maxLoopCount = repeatCount;
+    _isLooping = true;
+    _loopCount = 0;
+
+    // Seek to start
+    seek(start);
+    notifyListeners();
+  }
+
+  /// Set maximum loop count (0 = infinite)
+  void setMaxLoopCount(int count) {
     _maxLoopCount = count;
     notifyListeners();
   }
 
-  void _startLoopListener() {
-    _player.positionStream.listen((position) {
-      if (_isLooping && _loopEnd != null) {
-        if (position >= _loopEnd!) {
-          _loopCount++;
+  /// Check if we need to loop back
+  void _checkLoopPosition(Duration currentPosition) {
+    if (!_isLooping || _loopEnd == null || _loopStart == null) return;
 
-          // Nếu đạt số lần lặp tối đa
-          if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
-            clearLoop();
-            return;
-          }
+    if (currentPosition >= _loopEnd!) {
+      _loopCount++;
 
-          // Quay lại điểm A
-          _player.seek(_loopStart!);
-        }
+      // Check if reached max loops
+      if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
+        clearLoop();
+        return;
       }
-    });
+
+      // Seek back to start
+      seek(_loopStart!);
+    }
   }
 
-  // Xóa loop
+  /// Clear A-B loop
   void clearLoop() {
     _loopStart = null;
     _loopEnd = null;
@@ -173,102 +268,100 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Lưu loop thành Segment
-  Future<Segment?> saveLoopAsSegment(String title, SegmentType type, DifficultyLevel difficulty) async {
+  /// Get loop duration
+  Duration? get loopDuration {
     if (_loopStart == null || _loopEnd == null) return null;
+    return _loopEnd! - _loopStart!;
+  }
 
-    final segment = Segment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      audioPath: _currentAudioPath ?? '',
-      title: title,
-      startTime: _loopStart!,
-      endTime: _loopEnd!,
-      type: type,
-      difficulty: difficulty,
-      repeatCount: difficulty == DifficultyLevel.hard ? 5
-                 : difficulty == DifficultyLevel.medium ? 3 : 1,
-      createdAt: DateTime.now(),
+  // ========== SLEEP TIMER ==========
+
+  /// Set sleep timer
+  void setSleepTimer(Duration duration) {
+    cancelSleepTimer();
+
+    if (duration == Duration.zero) return;
+
+    _sleepDuration = duration;
+    _sleepEndTime = DateTime.now().add(duration);
+
+    _sleepTimer = Timer(duration, () {
+      pause();
+      _sleepDuration = null;
+      _sleepEndTime = null;
+      _sleepTimer = null;
+      notifyListeners();
+    });
+
+    notifyListeners();
+  }
+
+  /// Set sleep timer by minutes
+  void setSleepTimerMinutes(int minutes) {
+    setSleepTimer(Duration(minutes: minutes));
+  }
+
+  /// Cancel sleep timer
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepDuration = null;
+    _sleepEndTime = null;
+    notifyListeners();
+  }
+
+  /// Sleep timer presets (in minutes)
+  static const List<int> sleepTimerPresets = [15, 30, 45, 60, 90, 120];
+
+  // ========== REMEMBER POSITION ==========
+
+  void _startPositionSaver() {
+    _positionSaverTimer?.cancel();
+    _positionSaverTimer = Timer.periodic(
+      const Duration(seconds: 10),
+          (_) => _saveCurrentPosition(),
     );
-
-    // Lưu vào Hive
-    await _segmentBox.add(segment);
-
-    return segment;
-  }
-  void seekRelative(int seconds) {
-  final newPosition = _player.position + Duration(seconds: seconds);
-
-  // Không cho seek quá đầu hoặc cuối
-  if (newPosition < Duration.zero) {
-    _player.seek(Duration.zero);
-  } else if (_player.duration != null && newPosition > _player.duration!) {
-    _player.seek(_player.duration!);
-  } else {
-    _player.seek(newPosition);
-  }
-  Timer? sleepTimer;
-Duration? sleepDuration;
-DateTime? sleepEndTime;
-
-Duration? get sleepDuration => sleepDuration;
-Duration? get sleepRemaining {
-  if (sleepEndTime == null) return;
-  final remaining = sleepEndTime.difference(DateTime.now());
-  return remaining.isNegative ? Duration.zero : remaining;
-}
-
-void setSleepTimer(Duration? duration) {
-  sleepTimer?.cancel();
-
-  if (duration == null || duration == Duration.zero) {
-    sleepDuration = null;
-    sleepEndTime = null;
-    notifyListeners();
-    return;
   }
 
-  sleepDuration = duration;
-  sleepEndTime = DateTime.now().add(duration);
-
-  sleepTimer = Timer(duration, () {
-    pause();
-    sleepDuration = null;
-    sleepEndTime = null;
-    notifyListeners();
-  });
-
-  notifyListeners();
-}
-
-void cancelSleepTimer() {
-  sleepTimer?.cancel();
-  sleepDuration = null;
-  sleepEndTime = null;
-  notifyListeners();
-final PositionService positionService = PositionService();
-
-// Khi load audio
-Future<void> loadAudio(String path) async {
-  await _player.setFilePath(path);
-  _currentAudioPath = path;
-
-  // Khôi phục vị trí đã lưu
-  final savedPosition = positionService.getPosition(path);
-  if (savedPosition != null && savedPosition.inSeconds > 10) {
-    // Chỉ khôi phục nếu đã nghe > 10 giây
-    await _player.seek(savedPosition);
-    // Hiển thị thông báo
-    _showResumeSnackbar(savedPosition);
-  }
-
-  notifyListeners();
-}
-
-// Tự động lưu mỗi 10 giây
-void startPositionSaver() {
-  Timer.periodic(const Duration(seconds: 10), (timer) {
-    if (_currentAudioPath != null && isPlaying) {
-      positionService.savePosition(_currentAudioPath!, _player.position);
+  void _saveCurrentPosition() {
+    if (_currentSongPath != null && _state.position.inSeconds > 5) {
+      _savedPositions[_currentSongPath!] = _state.position.inMilliseconds;
     }
-  });
+  }
+
+  Future<void> _restoreSavedPosition(String path) async {
+    final savedMs = _savedPositions[path];
+    if (savedMs != null && savedMs > 10000) { // > 10 seconds
+      final savedPosition = Duration(milliseconds: savedMs);
+      await seek(savedPosition);
+    }
+  }
+
+  /// Get saved position for a path
+  Duration? getSavedPosition(String path) {
+    final savedMs = _savedPositions[path];
+    if (savedMs == null) return null;
+    return Duration(milliseconds: savedMs);
+  }
+
+  /// Clear saved position for a path
+  void clearSavedPosition(String path) {
+    _savedPositions.remove(path);
+  }
+
+  /// Clear all saved positions
+  void clearAllSavedPositions() {
+    _savedPositions.clear();
+  }
+
+  // ========== DISPOSE ==========
+
+  @override
+  void dispose() {
+    _loopSubscription?.cancel();
+    _sleepTimer?.cancel();
+    _positionSaverTimer?.cancel();
+    _audioService.dispose();
+    super.dispose();
+  }
 }

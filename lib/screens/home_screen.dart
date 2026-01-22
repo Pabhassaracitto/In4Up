@@ -9,6 +9,7 @@ import '../widgets/waveform_view.dart';
 import '../widgets/quick_replay_buttons.dart';
 import '../widgets/ab_loop_controls.dart';
 import '../widgets/sleep_timer_sheet.dart';
+import 'text_studio_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -82,6 +83,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const Spacer(),
 
+          // THÊM NÚT TEXT STUDIO
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TextStudioScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.text_fields, color: Colors.green),
+            tooltip: 'Text Studio',
+          ),
           // Sleep Timer Button
           if (player.currentSongPath != null) ...[
             _buildSleepTimerButton(context, player),

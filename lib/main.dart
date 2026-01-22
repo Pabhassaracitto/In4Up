@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'providers/player_provider.dart';
+import 'providers/text_provider.dart';  // THÊM DÒNG NÀY
 import 'screens/home_screen.dart';
 
 void main() async {
@@ -36,6 +37,7 @@ class UltraMusicApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ChangeNotifierProvider(create: (_) => TextProvider()),  // THÊM DÒNG NÀY
       ],
       child: MaterialApp(
         title: 'Ultra Music Player',

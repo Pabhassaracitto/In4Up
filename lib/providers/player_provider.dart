@@ -101,4 +101,98 @@ class PlayerProvider extends ChangeNotifier {
     _audioService.dispose();
     super.dispose();
   }
+  // === A-B LOOP ===
+  Duration? _loopStart;
+  Duration? _loopEnd;
+  bool _isLooping = false;
+  int _loopCount = 0;
+  int _maxLoopCount = 0; // 0 = vô hạn
+
+  Duration? get loopStart => _loopStart;
+  Duration? get loopEnd => _loopEnd;
+  bool get isLooping => _isLooping;
+  int get loopCount => _loopCount;
+
+  // Đặt điểm A (bắt đầu)
+  void setLoopStart() {
+    _loopStart = _player.position;
+    notifyListeners();
+  }
+
+  // Đặt điểm B (kết thúc) và bắt đầu loop
+  void setLoopEnd() {
+    if (_loopStart == null) return;
+
+    _loopEnd = _player.position;
+
+    // Đảm bảo A < B
+    if (_loopEnd! <= _loopStart!) {
+      final temp = _loopStart;
+      _loopStart = _loopEnd;
+      _loopEnd = temp;
+    }
+
+    _isLooping = true;
+    _loopCount = 0;
+    _startLoopListener();
+    notifyListeners();
+  }
+
+  // Đặt loop với số lần lặp cụ thể
+  void setLoopWithCount(int count) {
+    _maxLoopCount = count;
+    notifyListeners();
+  }
+
+  void _startLoopListener() {
+    _player.positionStream.listen((position) {
+      if (_isLooping && _loopEnd != null) {
+        if (position >= _loopEnd!) {
+          _loopCount++;
+
+          // Nếu đạt số lần lặp tối đa
+          if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
+            clearLoop();
+            return;
+          }
+
+          // Quay lại điểm A
+          _player.seek(_loopStart!);
+        }
+      }
+    });
+  }
+
+  // Xóa loop
+  void clearLoop() {
+    _loopStart = null;
+    _loopEnd = null;
+    _isLooping = false;
+    _loopCount = 0;
+    _maxLoopCount = 0;
+    notifyListeners();
+  }
+
+  // Lưu loop thành Segment
+  Future<Segment?> saveLoopAsSegment(String title, SegmentType type, DifficultyLevel difficulty) async {
+    if (_loopStart == null || _loopEnd == null) return null;
+
+    final segment = Segment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      audioPath: _currentAudioPath ?? '',
+      title: title,
+      startTime: _loopStart!,
+      endTime: _loopEnd!,
+      type: type,
+      difficulty: difficulty,
+      repeatCount: difficulty == DifficultyLevel.hard ? 5
+          : difficulty == DifficultyLevel.medium ? 3 : 1,
+      createdAt: DateTime.now(),
+    );
+
+    // Lưu vào Hive
+    await _segmentBox.add(segment);
+
+    return segment;
+  }
 }

@@ -10,7 +10,7 @@ import '../widgets/quick_replay_buttons.dart';
 import '../widgets/ab_loop_controls.dart';
 import '../widgets/sleep_timer_sheet.dart';
 import 'text_studio_screen.dart';
-
+import 'sync_hub_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -82,7 +82,26 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const Spacer(),
-
+          // NÚT SYNC HUB (MỚI)
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SyncHubScreen()),
+              );
+            },
+            icon: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF4CAF50)],
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.sync, color: Colors.white, size: 16),
+            ),
+            tooltip: 'Sync Hub',
+          ),
           // THÊM NÚT TEXT STUDIO
           IconButton(
             onPressed: () {

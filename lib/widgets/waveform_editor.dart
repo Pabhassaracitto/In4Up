@@ -1063,20 +1063,25 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
         child: CustomPaint(
           size: Size(double.infinity, widget.height),
           painter: AdvancedWaveformPainter(
+            //Dât cơ bản
             waveformData: widget.waveform.waveformData,
             zoomLevel: widget.waveform.zoomLevel,
             scrollOffset: widget.waveform.scrollOffset,
             audioDuration: widget.player.state.duration,
             currentPosition: widget.player.state.position,
+            // Selection
             selectionStart: widget.waveform.selectionStart,
             selectionEnd: widget.waveform.selectionEnd,
+            // Markers
             markers: widget.waveform.markers,
             selectedMarker: widget.waveform.selectedMarker,
-            // Theme colors
+            // Theme colors - SỬA LẠI CHO ĐÚNG TÊN THAM SỐ
             waveformColor: widget.theme.waveformColor,
             waveformPlayedColor: widget.theme.waveformPlayedColor,
             selectionColor: widget.theme.selectionColor,
             gridColor: widget.theme.gridColor,
+            playheadColor: widget.theme.secondary,  // Thêm dòng này
+            backgroundColor: widget.theme.backgroundColor,  // Thêm dòng này
             // Loop region highlight
             loopStart: widget.player.loopStart,
             loopEnd: widget.player.loopEnd,
@@ -1159,7 +1164,7 @@ class _ShadowingArea extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.waveform,
+                    Icons.graphic_eq,
                     size: 20,
                     color: Colors.grey[600],
                   ),

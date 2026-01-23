@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:ultra_music_player/screens/waveform_screen.dart';
 
 import '../providers/player_provider.dart';
 import '../widgets/player_controls.dart';
@@ -150,6 +151,16 @@ class _HomeScreenState extends State<HomeScreen> {
             color: player.hasSleepTimer ? const Color(0xFF6C63FF) : null,
           ),
           tooltip: 'Hẹn giờ tắt',
+        ),
+        IconButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const WaveformScreen()),
+            );
+          },
+          icon: const Icon(Icons.waves, color: Color(0xFF6C63FF)),
+          tooltip: 'Waveform Editor',
         ),
         if (player.hasSleepTimer)
           Positioned(

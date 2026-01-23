@@ -377,4 +377,5 @@ class PlayerProvider extends ChangeNotifier {
     _audioService.dispose();
     super.dispose();
   }
+
 }

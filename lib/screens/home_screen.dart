@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:ultra_music_player/screens/waveform_screen.dart';
 
 import '../providers/player_provider.dart';
 import '../widgets/player_controls.dart';
@@ -10,8 +10,10 @@ import '../widgets/waveform_view.dart';
 import '../widgets/quick_replay_buttons.dart';
 import '../widgets/ab_loop_controls.dart';
 import '../widgets/sleep_timer_sheet.dart';
+import 'waveform_screen.dart';
 import 'text_studio_screen.dart';
 import 'sync_hub_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,25 +21,87 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  late AnimationController _modeAnimationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _modeAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _modeAnimationController.dispose();
+    super.dispose();
+  }
+
+  // Get theme colors based on current mode
+  _ModeTheme _getThemeForMode(VipMode mode) {
+    switch (mode) {
+      case VipMode.buddhism:
+        return _ModeTheme(
+          primary: const Color(0xFFFFB300),
+          secondary: const Color(0xFFFF8F00),
+          accent: const Color(0xFFFFE082),
+          icon: Icons.self_improvement,
+          name: 'Phat Phap',
+          gradient: [const Color(0xFFFFB300), const Color(0xFFFF8F00)],
+        );
+      case VipMode.english:
+        return _ModeTheme(
+          primary: const Color(0xFF2196F3),
+          secondary: const Color(0xFF1976D2),
+          accent: const Color(0xFF90CAF9),
+          icon: Icons.school,
+          name: 'Tieng Anh',
+          gradient: [const Color(0xFF2196F3), const Color(0xFF1976D2)],
+        );
+      case VipMode.music:
+        return _ModeTheme(
+          primary: const Color(0xFF6C63FF),
+          secondary: const Color(0xFF5B52CC),
+          accent: const Color(0xFFB39DDB),
+          icon: Icons.music_note,
+          name: 'Am Nhac',
+          gradient: [const Color(0xFF6C63FF), const Color(0xFF5B52CC)],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Consumer<PlayerProvider>(
           builder: (context, player, child) {
-            return Column(
-              children: [
-                // App Bar
-                _buildAppBar(context, player),
+            final theme = _getThemeForMode(player.currentMode);
 
-                // Main Content
-                Expanded(
-                  child: player.currentSongPath == null
-                      ? _buildEmptyState(context)
-                      : _buildPlayerContent(context, player),
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.primary.withOpacity(0.05),
+                    Colors.transparent,
+                  ],
                 ),
-              ],
+              ),
+              child: Column(
+                children: [
+                  _buildAppBar(context, player, theme),
+                  Expanded(
+                    child: player.currentSongPath == null
+                        ? _buildEmptyState(context, theme)
+                        : _buildPlayerContent(context, player, theme),
+                  ),
+                ],
+              ),
             );
           },
         ),
@@ -45,113 +109,194 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, PlayerProvider player) {
+  Widget _buildAppBar(BuildContext context, PlayerProvider player, _ModeTheme theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Container(
+          // App Icon with mode color
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withOpacity(0.2),
+              color: theme.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.music_note,
-              color: Color(0xFF6C63FF),
+            child: Icon(
+              theme.icon,
+              color: theme.primary,
               size: 24,
             ),
           ),
           const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'VipSound Player',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+
+          // Title
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'VipSound Player',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              Text(
-                'Pháp thoại & Học tiếng Anh',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
+                Text(
+                  _getModeSubtitle(player.currentMode),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.primary,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          // NÚT SYNC HUB (MỚI)
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SyncHubScreen()),
-              );
-            },
-            icon: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF4CAF50)],
-                ),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.sync, color: Colors.white, size: 16),
+              ],
             ),
-            tooltip: 'Sync Hub',
           ),
-          // THÊM NÚT TEXT STUDIO
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TextStudioScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.text_fields, color: Colors.green),
-            tooltip: 'Text Studio',
-          ),
-          // Sleep Timer Button
+
+          // Mode Switcher
+          _buildModeSwitcher(context, player, theme),
+
+          const SizedBox(width: 8),
+
+          // Other buttons
           if (player.currentSongPath != null) ...[
-            _buildSleepTimerButton(context, player),
-            const SizedBox(width: 8),
+            _buildSleepTimerButton(context, player, theme),
           ],
 
           IconButton(
             onPressed: () => _pickAudioFile(context),
-            icon: const Icon(Icons.folder_open),
-            tooltip: 'Mở file audio',
+            icon: Icon(Icons.folder_open, color: theme.primary),
+            tooltip: 'Open audio file',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSleepTimerButton(BuildContext context, PlayerProvider player) {
-    return Stack(
+  String _getModeSubtitle(VipMode mode) {
+    switch (mode) {
+      case VipMode.buddhism:
+        return 'Lang nghe - Suy ngam - Tham nhuan';
+      case VipMode.english:
+        return 'Nghe - Noi - Doc - Viet';
+      case VipMode.music:
+        return 'Thuong thuc am thanh';
+    }
+  }
+
+  Widget _buildModeSwitcher(BuildContext context, PlayerProvider player, _ModeTheme theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: VipMode.values.map((mode) {
+          final isSelected = player.currentMode == mode;
+          final modeTheme = _getThemeForMode(mode);
+
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              player.setMode(mode);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? modeTheme.primary.withOpacity(0.2) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected ? modeTheme.primary : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                modeTheme.icon,
+                size: 20,
+                color: isSelected ? modeTheme.primary : Colors.grey,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSleepTimerButton(BuildContext context, PlayerProvider player, _ModeTheme theme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        // Sync Hub
         IconButton(
           onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: const Color(0xFF1A1A2E),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              builder: (context) => const SleepTimerSheet(),
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SyncHubScreen()),
             );
           },
-          icon: Icon(
-            Icons.bedtime,
-            color: player.hasSleepTimer ? const Color(0xFF6C63FF) : null,
+          icon: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: theme.gradient),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.sync, color: Colors.white, size: 16),
           ),
-          tooltip: 'Hẹn giờ tắt',
+          tooltip: 'Sync Hub',
         ),
+
+        // Text Studio
+        IconButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TextStudioScreen()),
+            );
+          },
+          icon: Icon(Icons.text_fields, color: theme.primary),
+          tooltip: 'Text Studio',
+        ),
+
+        // Sleep Timer
+        Stack(
+          children: [
+            IconButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: const Color(0xFF1A1A2E),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (context) => const SleepTimerSheet(),
+                );
+              },
+              icon: Icon(
+                Icons.bedtime,
+                color: player.hasSleepTimer ? theme.primary : Colors.grey,
+              ),
+              tooltip: 'Sleep Timer',
+            ),
+            if (player.hasSleepTimer)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: theme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.timer, size: 8, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
+
+        // Waveform Editor
         IconButton(
           onPressed: () {
             Navigator.push(
@@ -159,31 +304,14 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(builder: (context) => const WaveformScreen()),
             );
           },
-          icon: const Icon(Icons.waves, color: Color(0xFF6C63FF)),
+          icon: Icon(Icons.waves, color: theme.primary),
           tooltip: 'Waveform Editor',
         ),
-        if (player.hasSleepTimer)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                color: Color(0xFF6C63FF),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.timer,
-                size: 8,
-                color: Colors.white,
-              ),
-            ),
-          ),
       ],
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, _ModeTheme theme) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -193,18 +321,18 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.1),
+                color: theme.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.library_music,
                 size: 64,
-                color: Color(0xFF6C63FF),
+                color: theme.primary,
               ),
             ),
             const SizedBox(height: 24),
             const Text(
-              'Chưa có audio',
+              'No audio loaded',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -212,36 +340,36 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Chọn file audio để bắt đầu',
+              'Select an audio file to start',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () => _pickAudioFile(context),
               icon: const Icon(Icons.add),
-              label: const Text('Chọn file audio'),
+              label: const Text('Select Audio File'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
+                backgroundColor: theme.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
             ),
             const SizedBox(height: 48),
-            _buildFeaturesList(),
+            _buildFeaturesList(theme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFeaturesList() {
+  Widget _buildFeaturesList(_ModeTheme theme) {
     final features = [
-      ('🔁', 'A-B Loop: Lặp đoạn'),
-      ('⏪', 'Tua nhanh: ±5s, ±10s, ±30s'),
-      ('🛏️', 'Hẹn giờ tắt'),
-      ('📍', 'Lưu vị trí nghe'),
-      ('🎚️', 'Điều chỉnh tốc độ: 0.05x - 10x'),
+      ('🔁', 'A-B Loop with Gap'),
+      ('⏪', 'Quick seek: ±5s, ±10s, ±30s'),
+      ('🛏️', 'Sleep Timer'),
+      ('📍', 'Save position'),
+      ('🎚️', 'Speed: 0.05x - 10x'),
+      ('🙏', 'Buddhism Mode'),
+      ('📚', 'English Learning Mode'),
     ];
 
     return Column(
@@ -253,10 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(f.$1, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 8),
-              Text(
-                f.$2,
-                style: const TextStyle(color: Colors.grey),
-              ),
+              Text(f.$2, style: const TextStyle(color: Colors.grey)),
             ],
           ),
         );
@@ -264,23 +389,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPlayerContent(BuildContext context, PlayerProvider player) {
+  Widget _buildPlayerContent(BuildContext context, PlayerProvider player, _ModeTheme theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Album Art
-          _buildAlbumArt(player),
+          // Album Art with mode-aware colors
+          _buildAlbumArt(player, theme),
 
           const SizedBox(height: 24),
 
           // Song Info
-          _buildSongInfo(player),
+          _buildSongInfo(player, theme),
 
           const SizedBox(height: 16),
 
-          // Sleep Timer Display
-          if (player.hasSleepTimer) _buildSleepTimerDisplay(player),
+          // Mode & Status Display
+          _buildStatusDisplay(player, theme),
 
           const SizedBox(height: 24),
 
@@ -289,13 +414,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 16),
 
-          // A-B Loop Controls
+          // A-B Loop Controls (Updated with gap support)
           const ABLoopControls(),
 
           const SizedBox(height: 16),
 
+          // Gap Duration Control (NEW)
+          if (player.isLooping || player.loopStart != null)
+            _buildGapControl(player, theme),
+
+          const SizedBox(height: 16),
+
           // Progress Bar
-          _buildProgressBar(player),
+          _buildProgressBar(player, theme),
 
           const SizedBox(height: 16),
 
@@ -315,21 +446,43 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
 
           // Volume Control
-          _buildVolumeControl(player),
+          _buildVolumeControl(player, theme),
 
           const SizedBox(height: 24),
 
           // Saved Segments
-          _buildSegmentsList(player),
+          _buildSegmentsList(player, theme),
+
+          const SizedBox(height: 100),
         ],
       ),
     );
   }
 
-  Widget _buildAlbumArt(PlayerProvider player) {
+  Widget _buildAlbumArt(PlayerProvider player, _ModeTheme theme) {
     final isLooping = player.isLooping;
+    final isWaitingGap = player.isWaitingGap;
 
-    return Container(
+    Color primaryColor;
+    Color secondaryColor;
+    IconData icon;
+
+    if (isWaitingGap) {
+      primaryColor = const Color(0xFFFF9800);
+      secondaryColor = const Color(0xFFF57C00);
+      icon = Icons.hourglass_top;
+    } else if (isLooping) {
+      primaryColor = const Color(0xFF4CAF50);
+      secondaryColor = const Color(0xFF2E7D32);
+      icon = Icons.loop;
+    } else {
+      primaryColor = theme.primary;
+      secondaryColor = theme.secondary;
+      icon = theme.icon;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       width: 250,
       height: 250,
       decoration: BoxDecoration(
@@ -337,21 +490,11 @@ class _HomeScreenState extends State<HomeScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isLooping
-              ? [
-            const Color(0xFF4CAF50),
-            const Color(0xFF2E7D32),
-          ]
-              : [
-            const Color(0xFF6C63FF),
-            const Color(0xFF3F3D56),
-          ],
+          colors: [primaryColor, secondaryColor],
         ),
         boxShadow: [
           BoxShadow(
-            color: isLooping
-                ? const Color(0xFF4CAF50).withOpacity(0.3)
-                : const Color(0xFF6C63FF).withOpacity(0.3),
+            color: primaryColor.withOpacity(0.3),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
@@ -361,65 +504,51 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isLooping ? Icons.loop : Icons.music_note,
-              size: 100,
-              color: Colors.white,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Icon(
+                icon,
+                key: ValueKey(icon),
+                size: 80,
+                color: Colors.white,
+              ),
             ),
-            if (isLooping) ...[
-              const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            if (isWaitingGap)
               Text(
-                'Loop: ${player.loopCount}x',
+                'Gap: ${player.gapDuration.toStringAsFixed(1)}s',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
+              )
+            else if (isLooping)
+              Text(
+                player.maxLoopCount > 0
+                    ? 'Loop: ${player.loopCount}/${player.maxLoopCount}'
+                    : 'Loop: ${player.loopCount}x',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            else
+              Text(
+                theme.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
               ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSleepTimerDisplay(PlayerProvider player) {
-    final remaining = player.sleepRemaining;
-    if (remaining == null) return const SizedBox.shrink();
-
-    final minutes = remaining.inMinutes;
-    final seconds = remaining.inSeconds.remainder(60);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF6C63FF).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.bedtime, size: 16, color: Color(0xFF6C63FF)),
-          const SizedBox(width: 6),
-          Text(
-            'Tắt sau: ${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-            style: const TextStyle(
-              color: Color(0xFF6C63FF),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => player.cancelSleepTimer(),
-            child: const Icon(Icons.close, size: 16, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSongInfo(PlayerProvider player) {
-    // Hiển thị vị trí đã lưu nếu có
+  Widget _buildSongInfo(PlayerProvider player, _ModeTheme theme) {
     final savedPosition = player.getSavedPosition(player.currentSongPath ?? '');
 
     return Column(
@@ -445,10 +574,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (savedPosition != null && savedPosition.inSeconds > 10) ...[
           const SizedBox(height: 4),
           Text(
-            'Đã lưu: ${_formatDuration(savedPosition)}',
-            style: const TextStyle(
+            'Saved: ${_formatDuration(savedPosition)}',
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF6C63FF),
+              color: theme.primary,
             ),
           ),
         ],
@@ -456,7 +585,205 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProgressBar(PlayerProvider player) {
+  Widget _buildStatusDisplay(PlayerProvider player, _ModeTheme theme) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        // Sleep Timer Display
+        if (player.hasSleepTimer)
+          _buildStatusChip(
+            icon: Icons.bedtime,
+            label: _formatRemaining(player.sleepRemaining),
+            color: const Color(0xFF9C27B0),
+            onTap: () => player.cancelSleepTimer(),
+          ),
+
+        // Speed indicator
+        if (player.state.speed != 1.0)
+          _buildStatusChip(
+            icon: Icons.speed,
+            label: '${player.state.speed.toStringAsFixed(2)}x',
+            color: theme.primary,
+          ),
+
+        // Loop indicator
+        if (player.isLooping)
+          _buildStatusChip(
+            icon: Icons.loop,
+            label: player.maxLoopCount > 0
+                ? '${player.loopCount}/${player.maxLoopCount}'
+                : '${player.loopCount}x',
+            color: player.isWaitingGap
+                ? const Color(0xFFFF9800)
+                : const Color(0xFF4CAF50),
+          ),
+
+        // Gap indicator
+        if (player.gapDuration > 0 && (player.isLooping || player.loopStart != null))
+          _buildStatusChip(
+            icon: Icons.hourglass_empty,
+            label: '${player.gapDuration.toStringAsFixed(1)}s gap',
+            color: const Color(0xFFFF9800),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStatusChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.close, size: 12, color: color),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGapControl(PlayerProvider player, _ModeTheme theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF9800).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFFF9800).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hourglass_empty,
+                size: 18,
+                color: player.gapDuration > 0
+                    ? const Color(0xFFFF9800)
+                    : Colors.grey,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Gap Duration',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: player.gapDuration > 0
+                      ? const Color(0xFFFF9800).withOpacity(0.2)
+                      : Colors.grey.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  player.gapDuration > 0
+                      ? '${player.gapDuration.toStringAsFixed(1)}s'
+                      : 'Off',
+                  style: TextStyle(
+                    color: player.gapDuration > 0
+                        ? const Color(0xFFFF9800)
+                        : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [0.0, 1.0, 2.0, 3.0, 5.0].map((gap) {
+              final isActive = (player.gapDuration - gap).abs() < 0.01;
+              final color = gap > 0 ? const Color(0xFFFF9800) : Colors.grey;
+
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  player.setGapDuration(gap);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isActive ? color.withOpacity(0.25) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isActive ? color : Colors.grey.withOpacity(0.3),
+                      width: isActive ? 2 : 1,
+                    ),
+                  ),
+                  child: Text(
+                    gap == 0 ? 'Off' : '${gap.toInt()}s',
+                    style: TextStyle(
+                      color: isActive ? color : Colors.grey,
+                      fontSize: 12,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getGapTip(player.currentMode),
+            style: TextStyle(
+              color: const Color(0xFFFF9800).withOpacity(0.8),
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getGapTip(VipMode mode) {
+    switch (mode) {
+      case VipMode.buddhism:
+        return 'Gap helps you contemplate and absorb the teachings';
+      case VipMode.english:
+        return 'Gap gives you time to repeat after (Shadowing)';
+      case VipMode.music:
+        return 'Gap creates breathing space between loops';
+    }
+  }
+
+  Widget _buildProgressBar(PlayerProvider player, _ModeTheme theme) {
     final position = player.state.position;
     final duration = player.state.duration;
 
@@ -466,17 +793,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 6,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-          ),
-          child: Slider(
-            value: progress.clamp(0.0, 1.0),
-            onChanged: (value) {
-              player.seekToPercent(value);
-            },
-          ),
+        // Progress with loop region highlight
+        Stack(
+          children: [
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 6,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                activeTrackColor: theme.primary,
+                inactiveTrackColor: theme.primary.withOpacity(0.2),
+                thumbColor: theme.primary,
+              ),
+              child: Slider(
+                value: progress.clamp(0.0, 1.0),
+                onChanged: (value) {
+                  player.seekToPercent(value);
+                },
+              ),
+            ),
+          ],
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -488,11 +823,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(color: Colors.grey),
               ),
               if (player.isLooping && player.loopDuration != null)
-                Text(
-                  'Loop: ${_formatDuration(player.loopDuration!)}',
-                  style: const TextStyle(
-                    color: Color(0xFF4CAF50),
-                    fontSize: 12,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Loop: ${_formatDuration(player.loopDuration!)}',
+                    style: const TextStyle(
+                      color: Color(0xFF4CAF50),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               Text(
@@ -506,68 +849,114 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildVolumeControl(PlayerProvider player) {
+  Widget _buildVolumeControl(PlayerProvider player, _ModeTheme theme) {
     return Row(
       children: [
-        const Icon(Icons.volume_down, color: Colors.grey),
+        Icon(Icons.volume_down, color: theme.primary.withOpacity(0.7)),
         Expanded(
-          child: Slider(
-            value: player.state.volume,
-            onChanged: (value) {
-              player.setVolume(value);
-            },
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: theme.primary,
+              inactiveTrackColor: theme.primary.withOpacity(0.2),
+              thumbColor: theme.primary,
+            ),
+            child: Slider(
+              value: player.state.volume,
+              onChanged: (value) {
+                player.setVolume(value);
+              },
+            ),
           ),
         ),
-        const Icon(Icons.volume_up, color: Colors.grey),
+        Icon(Icons.volume_up, color: theme.primary.withOpacity(0.7)),
       ],
     );
   }
 
-  Widget _buildSegmentsList(PlayerProvider player) {
+  Widget _buildSegmentsList(PlayerProvider player, _ModeTheme theme) {
     final segments = player.getSegmentsForCurrentSong();
     if (segments.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Đoạn đã lưu',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          children: [
+            Icon(Icons.bookmark, color: theme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Saved Segments (${segments.length})',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
-        ...segments.map((segment) => Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: Icon(
-              Icons.bookmark,
-              color: segment.type.name == 'dharma'
-                  ? Colors.amber
-                  : segment.type.name == 'english'
-                  ? Colors.green
-                  : Colors.blue,
+        ...segments.map((segment) {
+          Color segmentColor;
+          switch (segment.type.name) {
+            case 'dharma':
+              segmentColor = const Color(0xFFFFB300);
+              break;
+            case 'english':
+              segmentColor = const Color(0xFF2196F3);
+              break;
+            default:
+              segmentColor = const Color(0xFF6C63FF);
+          }
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: segmentColor.withOpacity(0.3)),
             ),
-            title: Text(segment.title),
-            subtitle: Text(
-              '${_formatDuration(segment.startTime)} - ${_formatDuration(segment.endTime)}',
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${segment.repeatCount}x',
-                  style: const TextStyle(color: Colors.grey),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: segmentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.play_arrow),
-                  onPressed: () => player.playSegment(segment),
-                ),
-              ],
+                child: Icon(Icons.bookmark, color: segmentColor),
+              ),
+              title: Text(segment.title),
+              subtitle: Text(
+                '${_formatDuration(segment.startTime)} - ${_formatDuration(segment.endTime)}',
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: segmentColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${segment.repeatCount}x',
+                      style: TextStyle(
+                        color: segmentColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.play_arrow, color: segmentColor),
+                    onPressed: () => player.playSegment(segment),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, color: Colors.red.withOpacity(0.7)),
+                    onPressed: () => player.deleteSegment(segment.id),
+                  ),
+                ],
+              ),
             ),
-          ),
-        )),
+          );
+        }),
       ],
     );
   }
@@ -577,6 +966,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  String _formatRemaining(Duration? d) {
+    if (d == null) return '';
+    final mins = d.inMinutes;
+    final secs = d.inSeconds.remainder(60);
+    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
   Future<void> _pickAudioFile(BuildContext context) async {
@@ -602,9 +998,28 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi chọn file: $e')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
   }
+}
+
+// Helper class for mode theming
+class _ModeTheme {
+  final Color primary;
+  final Color secondary;
+  final Color accent;
+  final IconData icon;
+  final String name;
+  final List<Color> gradient;
+
+  const _ModeTheme({
+    required this.primary,
+    required this.secondary,
+    required this.accent,
+    required this.icon,
+    required this.name,
+    required this.gradient,
+  });
 }

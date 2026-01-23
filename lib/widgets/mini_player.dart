@@ -7,6 +7,11 @@ import 'package:provider/provider.dart';
 
 import '../providers/player_provider.dart';
 
+// =============================================================================
+// CONSTANTS & THEME DEFINITIONS
+// =============================================================================
+
+/// Theme colors for each mode
 class MiniPlayerTheme {
   final Color primaryColor;
   final Color secondaryColor;
@@ -32,7 +37,7 @@ class MiniPlayerTheme {
     accentColor: Color(0xFFFFE082),
     modeIcon: Icons.self_improvement,
     modeName: 'Phat Phap',
-    modeSubtitle: 'Lang nghe - Suy ngam',
+    modeSubtitle: 'Lang nghe - Suy ngam - Tham nhuan',
     gradientColors: [Color(0xFFFFB300), Color(0xFFFF8F00), Color(0xFFE65100)],
   );
 
@@ -68,6 +73,32 @@ class MiniPlayerTheme {
   }
 }
 
+/// Standard dimensions
+abstract class MiniPlayerDimensions {
+  static const double collapsedHeight = 72.0;
+  static const double expandedHeight = 340.0;
+  static const double borderRadius = 20.0;
+  static const double albumArtSize = 52.0;
+  static const double iconSizeSmall = 18.0;
+  static const double iconSizeMedium = 24.0;
+  static const double iconSizeLarge = 32.0;
+  static const double spacing = 12.0;
+  static const double paddingHorizontal = 16.0;
+  static const double paddingVertical = 12.0;
+}
+
+/// Standard animation durations
+abstract class MiniPlayerAnimations {
+  static const Duration fast = Duration(milliseconds: 150);
+  static const Duration normal = Duration(milliseconds: 300);
+  static const Duration slow = Duration(milliseconds: 500);
+  static const Curve defaultCurve = Curves.easeInOutCubic;
+}
+
+// =============================================================================
+// MAIN WIDGET
+// =============================================================================
+
 class MiniPlayer extends StatefulWidget {
   final VoidCallback? onTap;
   final ValueChanged<bool>? onExpandChanged;
@@ -92,11 +123,14 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   late final AnimationController _expandController;
   late final AnimationController _pulseController;
   late final AnimationController _rotateController;
+
   late final Animation<double> _expandAnimation;
   late final Animation<double> _fadeAnimation;
+  late final Animation<double> _scaleAnimation;
 
   bool _isExpanded = false;
   Timer? _sleepDisplayTimer;
+  Duration? _displayedSleepRemaining;
 
   @override
   void initState() {
@@ -104,19 +138,26 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
     _isExpanded = widget.initiallyExpanded;
 
     _expandController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: MiniPlayerAnimations.normal,
       vsync: this,
     );
 
     _expandAnimation = CurvedAnimation(
       parent: _expandController,
-      curve: Curves.easeInOutCubic,
+      curve: MiniPlayerAnimations.defaultCurve,
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _expandController,
         curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _expandController,
+        curve: MiniPlayerAnimations.defaultCurve,
       ),
     );
 
@@ -141,6 +182,21 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   }
 
   @override
+  void didUpdateWidget(MiniPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initiallyExpanded != oldWidget.initiallyExpanded) {
+      setState(() {
+        _isExpanded = widget.initiallyExpanded;
+      });
+      if (_isExpanded) {
+        _expandController.forward();
+      } else {
+        _expandController.reverse();
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _expandController.dispose();
     _pulseController.dispose();
@@ -151,19 +207,28 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
 
   void _updateSleepDisplay() {
     if (!mounted) return;
-    setState(() {});
+
+    final player = context.read<PlayerProvider>();
+    if (player.sleepRemaining != _displayedSleepRemaining) {
+      setState(() {
+        _displayedSleepRemaining = player.sleepRemaining;
+      });
+    }
   }
 
   void _toggleExpand() {
     HapticFeedback.selectionClick();
+
     setState(() {
       _isExpanded = !_isExpanded;
     });
+
     if (_isExpanded) {
       _expandController.forward();
     } else {
       _expandController.reverse();
     }
+
     widget.onExpandChanged?.call(_isExpanded);
   }
 
@@ -195,7 +260,12 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
         return AnimatedBuilder(
           animation: _expandAnimation,
           builder: (context, child) {
-            final height = lerpDouble(72.0, 320.0, _expandAnimation.value)!;
+            final height = lerpDouble(
+              MiniPlayerDimensions.collapsedHeight,
+              MiniPlayerDimensions.expandedHeight,
+              _expandAnimation.value,
+            )!;
+
             return Container(
               height: height,
               margin: widget.margin,
@@ -210,7 +280,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   Widget _buildPlayerContainer(PlayerProvider player, MiniPlayerTheme theme) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(MiniPlayerDimensions.borderRadius),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -224,24 +294,44 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
             offset: const Offset(0, 8),
             spreadRadius: -4,
           ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ]
             : null,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(MiniPlayerDimensions.borderRadius),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Material(
             color: Colors.transparent,
             child: Column(
               children: [
-                _buildHeader(player, theme),
+                _MiniPlayerHeader(
+                  player: player,
+                  theme: theme,
+                  isExpanded: _isExpanded,
+                  expandAnimation: _expandAnimation,
+                  rotateController: _rotateController,
+                  pulseController: _pulseController,
+                  onTap: widget.onTap,
+                  onToggleExpand: _toggleExpand,
+                ),
                 Expanded(
                   child: FadeTransition(
                     opacity: _fadeAnimation,
-                    child: _isExpanded || _expandAnimation.value > 0
-                        ? _MiniPlayerExpandedContent(player: player, theme: theme)
-                        : const SizedBox.shrink(),
+                    child: ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: _isExpanded || _expandAnimation.value > 0
+                          ? _MiniPlayerExpandedContent(
+                        player: player,
+                        theme: theme,
+                      )
+                          : const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ],
@@ -251,27 +341,57 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
       ),
     );
   }
+}
 
-  Widget _buildHeader(PlayerProvider player, MiniPlayerTheme theme) {
+// =============================================================================
+// HEADER SECTION
+// =============================================================================
+
+class _MiniPlayerHeader extends StatelessWidget {
+  final PlayerProvider player;
+  final MiniPlayerTheme theme;
+  final bool isExpanded;
+  final Animation<double> expandAnimation;
+  final AnimationController rotateController;
+  final AnimationController pulseController;
+  final VoidCallback? onTap;
+  final VoidCallback onToggleExpand;
+
+  const _MiniPlayerHeader({
+    required this.player,
+    required this.theme,
+    required this.isExpanded,
+    required this.expandAnimation,
+    required this.rotateController,
+    required this.pulseController,
+    this.onTap,
+    required this.onToggleExpand,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      height: 72,
+      height: MiniPlayerDimensions.collapsedHeight,
       child: InkWell(
-        onTap: widget.onTap,
+        onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(
+            horizontal: MiniPlayerDimensions.paddingHorizontal,
+          ),
           child: Row(
             children: [
               _AlbumArtWidget(
                 mode: player.currentMode,
                 isPlaying: player.isPlaying,
                 theme: theme,
-                rotateController: _rotateController,
-                pulseController: _pulseController,
+                rotateController: rotateController,
+                pulseController: pulseController,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: MiniPlayerDimensions.spacing),
               Expanded(
                 child: _SongInfoWidget(
                   title: player.currentSongTitle ?? 'Unknown',
+                  artist: player.currentSongArtist,
                   position: player.state.position,
                   duration: player.state.duration,
                   isLooping: player.isLooping,
@@ -279,6 +399,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                   maxLoopCount: player.maxLoopCount,
                   speed: player.state.speed,
                   isWaitingGap: player.isWaitingGap,
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 8),
@@ -289,13 +410,10 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                 onPrevious: () => player.replay10(),
                 onNext: () => player.forward10(),
               ),
-              IconButton(
-                icon: RotationTransition(
-                  turns: Tween(begin: 0.0, end: 0.5).animate(_expandAnimation),
-                  child: const Icon(Icons.keyboard_arrow_down),
-                ),
-                color: Colors.white,
-                onPressed: _toggleExpand,
+              _ExpandButton(
+                isExpanded: isExpanded,
+                expandAnimation: expandAnimation,
+                onTap: onToggleExpand,
               ),
             ],
           ),
@@ -304,6 +422,10 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
     );
   }
 }
+
+// =============================================================================
+// ALBUM ART WIDGET
+// =============================================================================
 
 class _AlbumArtWidget extends StatelessWidget {
   final VipMode mode;
@@ -326,23 +448,82 @@ class _AlbumArtWidget extends StatelessWidget {
       animation: pulseController,
       builder: (context, child) {
         final pulseValue = isPlaying ? 1.0 + (pulseController.value * 0.05) : 1.0;
+
         return Transform.scale(
           scale: pulseValue,
           child: Container(
-            width: 52,
-            height: 52,
+            width: MiniPlayerDimensions.albumArtSize,
+            height: MiniPlayerDimensions.albumArtSize,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1.5,
+              ),
+              boxShadow: isPlaying
+                  ? [
+                BoxShadow(
+                  color: theme.accentColor.withOpacity(0.3),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+              ]
+                  : null,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: RotationTransition(
-                turns: isPlaying
-                    ? Tween(begin: 0.0, end: 1.0).animate(rotateController)
-                    : const AlwaysStoppedAnimation(0),
-                child: Icon(theme.modeIcon, color: Colors.white, size: 26),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [
+                          theme.accentColor.withOpacity(0.3),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                  RotationTransition(
+                    turns: isPlaying
+                        ? Tween(begin: 0.0, end: 1.0).animate(rotateController)
+                        : const AlwaysStoppedAnimation(0),
+                    child: Icon(
+                      theme.modeIcon,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                  if (isPlaying)
+                    ...List.generate(2, (index) {
+                      return AnimatedBuilder(
+                        animation: pulseController,
+                        builder: (context, child) {
+                          final delay = index * 0.3;
+                          final progress = (pulseController.value + delay) % 1.0;
+
+                          return Opacity(
+                            opacity: (1.0 - progress) * 0.5,
+                            child: Container(
+                              width: MiniPlayerDimensions.albumArtSize *
+                                  (0.8 + progress * 0.4),
+                              height: MiniPlayerDimensions.albumArtSize *
+                                  (0.8 + progress * 0.4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }),
+                ],
               ),
             ),
           ),
@@ -352,8 +533,13 @@ class _AlbumArtWidget extends StatelessWidget {
   }
 }
 
+// =============================================================================
+// SONG INFO WIDGET
+// =============================================================================
+
 class _SongInfoWidget extends StatelessWidget {
   final String title;
+  final String? artist;
   final Duration position;
   final Duration duration;
   final bool isLooping;
@@ -361,9 +547,11 @@ class _SongInfoWidget extends StatelessWidget {
   final int maxLoopCount;
   final double speed;
   final bool isWaitingGap;
+  final MiniPlayerTheme theme;
 
   const _SongInfoWidget({
     required this.title,
+    this.artist,
     required this.position,
     required this.duration,
     required this.isLooping,
@@ -371,6 +559,7 @@ class _SongInfoWidget extends StatelessWidget {
     required this.maxLoopCount,
     required this.speed,
     required this.isWaitingGap,
+    required this.theme,
   });
 
   @override
@@ -385,6 +574,7 @@ class _SongInfoWidget extends StatelessWidget {
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 14,
+            letterSpacing: 0.2,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -394,13 +584,20 @@ class _SongInfoWidget extends StatelessWidget {
           children: [
             Text(
               '${_formatDuration(position)} / ${_formatDuration(duration)}',
-              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 11,
+              ),
             ),
             const SizedBox(width: 8),
             if (isLooping) _buildLoopBadge(),
             if (speed != 1.0) ...[
               const SizedBox(width: 4),
               _buildSpeedBadge(),
+            ],
+            if (isWaitingGap) ...[
+              const SizedBox(width: 4),
+              _buildWaitingBadge(),
             ],
           ],
         ),
@@ -409,12 +606,18 @@ class _SongInfoWidget extends StatelessWidget {
   }
 
   Widget _buildLoopBadge() {
-    final Color badgeColor = isWaitingGap ? const Color(0xFFFF9800) : const Color(0xFF4CAF50);
+    final Color badgeColor =
+    isWaitingGap ? const Color(0xFFFF9800) : const Color(0xFF4CAF50);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: badgeColor.withOpacity(0.25),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: badgeColor.withOpacity(0.5),
+          width: 0.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -423,7 +626,11 @@ class _SongInfoWidget extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             maxLoopCount > 0 ? '$loopCount/$maxLoopCount' : '${loopCount}x',
-            style: TextStyle(color: badgeColor, fontSize: 10, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: badgeColor,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -439,7 +646,36 @@ class _SongInfoWidget extends StatelessWidget {
       ),
       child: Text(
         '${speed.toStringAsFixed(speed.truncateToDouble() == speed ? 0 : 2)}x',
-        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWaitingBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF9800).withOpacity(0.25),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PulsingDot(color: const Color(0xFFFF9800)),
+          const SizedBox(width: 3),
+          const Text(
+            'Gap',
+            style: TextStyle(
+              color: Color(0xFFFF9800),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -450,6 +686,64 @@ class _SongInfoWidget extends StatelessWidget {
     return '$mins:$secs';
   }
 }
+
+// =============================================================================
+// PULSING DOT WIDGET
+// =============================================================================
+
+class _PulsingDot extends StatefulWidget {
+  final Color color;
+  final double size;
+
+  const _PulsingDot({
+    required this.color,
+    this.size = 6,
+  });
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color.withOpacity(0.5 + _controller.value * 0.5),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================================
+// PLAY CONTROLS WIDGET
+// =============================================================================
 
 class _PlayControlsWidget extends StatelessWidget {
   final bool isPlaying;
@@ -471,47 +765,184 @@ class _PlayControlsWidget extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          icon: const Icon(Icons.replay_10),
-          color: Colors.white.withOpacity(0.85),
-          iconSize: 20,
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            onPrevious();
-          },
+        _ControlButton(
+          icon: Icons.replay_10,
+          size: 20,
+          onTap: onPrevious,
         ),
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.mediumImpact();
-            onPlayPause();
-          },
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isPlaying ? Icons.pause : Icons.play_arrow,
-              color: theme.primaryColor,
-              size: 28,
-            ),
-          ),
+        const SizedBox(width: 4),
+        _PlayPauseButton(
+          isPlaying: isPlaying,
+          theme: theme,
+          onTap: onPlayPause,
         ),
-        IconButton(
-          icon: const Icon(Icons.forward_10),
-          color: Colors.white.withOpacity(0.85),
-          iconSize: 20,
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            onNext();
-          },
+        const SizedBox(width: 4),
+        _ControlButton(
+          icon: Icons.forward_10,
+          size: 20,
+          onTap: onNext,
         ),
       ],
     );
   }
 }
+
+class _ControlButton extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final VoidCallback onTap;
+
+  const _ControlButton({
+    required this.icon,
+    required this.size,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(
+            icon,
+            size: size,
+            color: Colors.white.withOpacity(0.85),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayPauseButton extends StatefulWidget {
+  final bool isPlaying;
+  final MiniPlayerTheme theme;
+  final VoidCallback onTap;
+
+  const _PlayPauseButton({
+    required this.isPlaying,
+    required this.theme,
+    required this.onTap,
+  });
+
+  @override
+  State<_PlayPauseButton> createState() => _PlayPauseButtonState();
+}
+
+class _PlayPauseButtonState extends State<_PlayPauseButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: MiniPlayerAnimations.fast,
+      vsync: this,
+      value: widget.isPlaying ? 1.0 : 0.0,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_PlayPauseButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPlaying != oldWidget.isPlaying) {
+      if (widget.isPlaying) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        widget.onTap();
+      },
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: AnimatedIcon(
+            icon: AnimatedIcons.play_pause,
+            progress: _controller,
+            color: widget.theme.primaryColor,
+            size: 28,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// EXPAND BUTTON
+// =============================================================================
+
+class _ExpandButton extends StatelessWidget {
+  final bool isExpanded;
+  final Animation<double> expandAnimation;
+  final VoidCallback onTap;
+
+  const _ExpandButton({
+    required this.isExpanded,
+    required this.expandAnimation,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: RotationTransition(
+            turns: Tween(begin: 0.0, end: 0.5).animate(expandAnimation),
+            child: Icon(
+              Icons.keyboard_arrow_down,
+              color: Colors.white.withOpacity(0.85),
+              size: 24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// EXPANDED CONTENT
+// =============================================================================
 
 class _MiniPlayerExpandedContent extends StatelessWidget {
   final PlayerProvider player;
@@ -534,40 +965,56 @@ class _MiniPlayerExpandedContent extends StatelessWidget {
             duration: player.state.duration,
             loopStart: player.loopStart,
             loopEnd: player.loopEnd,
+            isLooping: player.isLooping,
             onSeek: (position) => player.seek(position),
+            theme: theme,
           ),
           const SizedBox(height: 16),
           _SpeedControlWidget(
             speed: player.state.speed,
             onSpeedChanged: (speed) => player.setSpeed(speed),
+            theme: theme,
           ),
           const SizedBox(height: 16),
           if (player.isLooping || player.loopStart != null)
             _GapControlWidget(
               gapDuration: player.gapDuration,
               onGapChanged: (gap) => player.setGapDuration(gap),
+              theme: theme,
             ),
-          if (player.isLooping || player.loopStart != null) const SizedBox(height: 16),
-          _QuickActionsWidget(player: player, theme: theme),
+          if (player.isLooping || player.loopStart != null)
+            const SizedBox(height: 16),
+          _QuickActionsWidget(
+            player: player,
+            theme: theme,
+          ),
         ],
       ),
     );
   }
 }
 
+// =============================================================================
+// PROGRESS BAR WIDGET
+// =============================================================================
+
 class _ProgressBarWidget extends StatelessWidget {
   final Duration position;
   final Duration duration;
   final Duration? loopStart;
   final Duration? loopEnd;
+  final bool isLooping;
   final ValueChanged<Duration> onSeek;
+  final MiniPlayerTheme theme;
 
   const _ProgressBarWidget({
     required this.position,
     required this.duration,
     this.loopStart,
     this.loopEnd,
+    required this.isLooping,
     required this.onSeek,
+    required this.theme,
   });
 
   @override
@@ -578,55 +1025,150 @@ class _ProgressBarWidget extends StatelessWidget {
 
     return Column(
       children: [
-        SliderTheme(
-          data: SliderThemeData(
-            activeTrackColor: Colors.white,
-            inactiveTrackColor: Colors.white.withOpacity(0.3),
-            thumbColor: Colors.white,
-            overlayColor: Colors.white.withOpacity(0.2),
-            trackHeight: 4,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-          ),
-          child: Slider(
-            value: progress,
-            onChanged: (value) {
-              final newPosition = Duration(
-                milliseconds: (value * duration.inMilliseconds).round(),
+        SizedBox(
+          height: 32,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  final percent =
+                  (details.localPosition.dx / constraints.maxWidth)
+                      .clamp(0.0, 1.0);
+                  final newPosition = Duration(
+                    milliseconds: (percent * duration.inMilliseconds).round(),
+                  );
+                  onSeek(newPosition);
+                },
+                onTapDown: (details) {
+                  final percent =
+                  (details.localPosition.dx / constraints.maxWidth)
+                      .clamp(0.0, 1.0);
+                  final newPosition = Duration(
+                    milliseconds: (percent * duration.inMilliseconds).round(),
+                  );
+                  onSeek(newPosition);
+                  HapticFeedback.selectionClick();
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    if (loopStart != null &&
+                        loopEnd != null &&
+                        duration.inMilliseconds > 0)
+                      Positioned.fill(
+                        child: _buildLoopRegion(constraints.maxWidth),
+                      ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: progress,
+                        child: Container(
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.5),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: (constraints.maxWidth * progress) - 8,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               );
-              onSeek(newPosition);
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _formatDuration(position),
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _formatDuration(position),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
               ),
-              if (loopStart != null && loopEnd != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Loop: ${_formatDuration(loopEnd! - loopStart!)}',
-                    style: const TextStyle(
-                      color: Color(0xFF4CAF50),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+            ),
+            if (loopStart != null && loopEnd != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Loop: ${_formatDuration(loopEnd! - loopStart!)}',
+                  style: const TextStyle(
+                    color: Color(0xFF4CAF50),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              Text(
-                _formatDuration(duration),
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
               ),
-            ],
+            Text(
+              _formatDuration(duration),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoopRegion(double trackWidth) {
+    if (duration.inMilliseconds == 0) return const SizedBox.shrink();
+
+    final startPercent = loopStart!.inMilliseconds / duration.inMilliseconds;
+    final endPercent = loopEnd!.inMilliseconds / duration.inMilliseconds;
+
+    return Stack(
+      children: [
+        Positioned(
+          left: trackWidth * startPercent,
+          width: trackWidth * (endPercent - startPercent),
+          top: 0,
+          bottom: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: const Color(0xFF4CAF50).withOpacity(0.5),
+                width: 1,
+              ),
+            ),
           ),
         ),
       ],
@@ -640,13 +1182,19 @@ class _ProgressBarWidget extends StatelessWidget {
   }
 }
 
+// =============================================================================
+// SPEED CONTROL WIDGET
+// =============================================================================
+
 class _SpeedControlWidget extends StatelessWidget {
   final double speed;
   final ValueChanged<double> onSpeedChanged;
+  final MiniPlayerTheme theme;
 
   const _SpeedControlWidget({
     required this.speed,
     required this.onSpeedChanged,
+    required this.theme,
   });
 
   static const List<double> presets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -658,9 +1206,19 @@ class _SpeedControlWidget extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.speed, size: 16, color: Colors.white.withOpacity(0.7)),
+            Icon(
+              Icons.speed,
+              size: 16,
+              color: Colors.white.withOpacity(0.7),
+            ),
             const SizedBox(width: 8),
-            Text('Speed', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+            Text(
+              'Speed',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -670,7 +1228,11 @@ class _SpeedControlWidget extends StatelessWidget {
               ),
               child: Text(
                 '${speed.toStringAsFixed(2)}x',
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -680,24 +1242,32 @@ class _SpeedControlWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: presets.map((preset) {
             final isActive = (speed - preset).abs() < 0.01;
+
             return GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
                 onSpeedChanged(preset);
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: AnimatedContainer(
+                duration: MiniPlayerAnimations.fast,
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.white.withOpacity(0.25) : Colors.transparent,
+                  color: isActive
+                      ? Colors.white.withOpacity(0.25)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isActive ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.2),
+                    color: isActive
+                        ? Colors.white.withOpacity(0.5)
+                        : Colors.white.withOpacity(0.2),
                   ),
                 ),
                 child: Text(
                   '${preset}x',
                   style: TextStyle(
-                    color: isActive ? Colors.white : Colors.white.withOpacity(0.6),
+                    color:
+                    isActive ? Colors.white : Colors.white.withOpacity(0.6),
                     fontSize: 11,
                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -711,13 +1281,19 @@ class _SpeedControlWidget extends StatelessWidget {
   }
 }
 
+// =============================================================================
+// GAP CONTROL WIDGET
+// =============================================================================
+
 class _GapControlWidget extends StatelessWidget {
   final double gapDuration;
   final ValueChanged<double> onGapChanged;
+  final MiniPlayerTheme theme;
 
   const _GapControlWidget({
     required this.gapDuration,
     required this.onGapChanged,
+    required this.theme,
   });
 
   static const List<double> presets = [0, 1, 2, 3, 5];
@@ -732,10 +1308,18 @@ class _GapControlWidget extends StatelessWidget {
             Icon(
               Icons.hourglass_empty,
               size: 16,
-              color: gapDuration > 0 ? const Color(0xFFFF9800) : Colors.white.withOpacity(0.7),
+              color: gapDuration > 0
+                  ? const Color(0xFFFF9800)
+                  : Colors.white.withOpacity(0.7),
             ),
             const SizedBox(width: 8),
-            Text('Gap', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+            Text(
+              'Gap Duration',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -748,7 +1332,9 @@ class _GapControlWidget extends StatelessWidget {
               child: Text(
                 gapDuration > 0 ? '${gapDuration.toStringAsFixed(1)}s' : 'Off',
                 style: TextStyle(
-                  color: gapDuration > 0 ? const Color(0xFFFF9800) : Colors.white,
+                  color: gapDuration > 0
+                      ? const Color(0xFFFF9800)
+                      : Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -762,18 +1348,24 @@ class _GapControlWidget extends StatelessWidget {
           children: presets.map((preset) {
             final isActive = (gapDuration - preset).abs() < 0.01;
             final color = preset > 0 ? const Color(0xFFFF9800) : Colors.white;
+
             return GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
                 onGapChanged(preset);
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: AnimatedContainer(
+                duration: MiniPlayerAnimations.fast,
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isActive ? color.withOpacity(0.25) : Colors.transparent,
+                  color:
+                  isActive ? color.withOpacity(0.25) : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isActive ? color.withOpacity(0.5) : Colors.white.withOpacity(0.2),
+                    color: isActive
+                        ? color.withOpacity(0.5)
+                        : Colors.white.withOpacity(0.2),
                   ),
                 ),
                 child: Text(
@@ -788,10 +1380,63 @@ class _GapControlWidget extends StatelessWidget {
             );
           }).toList(),
         ),
+        const SizedBox(height: 8),
+        _buildModeTip(),
       ],
     );
   }
+
+  Widget _buildModeTip() {
+    String tip;
+    IconData icon;
+    Color color;
+
+    switch (theme.modeIcon) {
+      case Icons.self_improvement:
+        tip = 'Gap helps you contemplate the teachings';
+        icon = Icons.self_improvement;
+        color = const Color(0xFFFFB300);
+        break;
+      case Icons.school:
+        tip = 'Gap gives you time to repeat (Shadowing)';
+        icon = Icons.record_voice_over;
+        color = const Color(0xFF2196F3);
+        break;
+      default:
+        tip = 'Gap creates rhythm between sections';
+        icon = Icons.music_note;
+        color = const Color(0xFF9C27B0);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tip,
+              style: TextStyle(
+                color: color.withOpacity(0.8),
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+// =============================================================================
+// QUICK ACTIONS WIDGET
+// =============================================================================
 
 class _QuickActionsWidget extends StatelessWidget {
   final PlayerProvider player;
@@ -809,7 +1454,7 @@ class _QuickActionsWidget extends StatelessWidget {
       children: [
         _QuickActionButton(
           icon: Icons.loop,
-          label: player.isLooping ? 'Stop' : 'Loop',
+          label: player.isLooping ? 'Stop Loop' : 'Loop',
           isActive: player.isLooping,
           activeColor: const Color(0xFF4CAF50),
           onTap: () {
@@ -824,7 +1469,9 @@ class _QuickActionsWidget extends StatelessWidget {
         ),
         _QuickActionButton(
           icon: Icons.bedtime_outlined,
-          label: player.hasSleepTimer ? _formatRemaining(player.sleepRemaining) : 'Sleep',
+          label: player.hasSleepTimer
+              ? _formatRemaining(player.sleepRemaining)
+              : 'Sleep',
           isActive: player.hasSleepTimer,
           activeColor: const Color(0xFF9C27B0),
           onTap: () => _showSleepTimerSheet(context, player),
@@ -842,12 +1489,15 @@ class _QuickActionsWidget extends StatelessWidget {
 
   String _formatRemaining(Duration? d) {
     if (d == null) return 'Sleep';
-    if (d.inHours > 0) return '${d.inHours}h${d.inMinutes.remainder(60)}m';
+    if (d.inHours > 0) {
+      return '${d.inHours}h${d.inMinutes.remainder(60)}m';
+    }
     return '${d.inMinutes}m';
   }
 
   void _showSleepTimerSheet(BuildContext context, PlayerProvider player) {
     HapticFeedback.mediumImpact();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -857,6 +1507,7 @@ class _QuickActionsWidget extends StatelessWidget {
 
   void _showModeSheet(BuildContext context, PlayerProvider player) {
     HapticFeedback.mediumImpact();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -890,16 +1541,24 @@ class _QuickActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? activeColor.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          color: isActive
+              ? activeColor.withOpacity(0.2)
+              : Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isActive ? activeColor.withOpacity(0.5) : Colors.white.withOpacity(0.2),
+            color: isActive
+                ? activeColor.withOpacity(0.5)
+                : Colors.white.withOpacity(0.2),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: isActive ? activeColor : Colors.white.withOpacity(0.7)),
+            Icon(
+              icon,
+              size: 16,
+              color: isActive ? activeColor : Colors.white.withOpacity(0.7),
+            ),
             const SizedBox(width: 6),
             Text(
               label,
@@ -915,6 +1574,10 @@ class _QuickActionButton extends StatelessWidget {
     );
   }
 }
+
+// =============================================================================
+// BOTTOM SHEETS
+// =============================================================================
 
 class _SleepTimerSheet extends StatelessWidget {
   final PlayerProvider player;
@@ -944,7 +1607,19 @@ class _SleepTimerSheet extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               'Sleep Timer',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Auto pause after selected time',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 24),
             Padding(
@@ -957,20 +1632,25 @@ class _SleepTimerSheet extends StatelessWidget {
                   if (player.hasSleepTimer)
                     _TimerOption(
                       label: 'Cancel',
+                      icon: Icons.close,
+                      isSelected: false,
+                      color: Colors.red,
                       onTap: () {
                         player.cancelSleepTimer();
                         Navigator.pop(context);
                       },
                     ),
-                  ...PlayerProvider.sleepTimerPresets.map(
-                        (minutes) => _TimerOption(
+                  ...PlayerProvider.sleepTimerPresets.map((minutes) {
+                    return _TimerOption(
                       label: '$minutes min',
+                      icon: Icons.bedtime,
+                      isSelected: false,
                       onTap: () {
                         player.setSleepTimerMinutes(minutes);
                         Navigator.pop(context);
                       },
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -984,12 +1664,23 @@ class _SleepTimerSheet extends StatelessWidget {
 
 class _TimerOption extends StatelessWidget {
   final String label;
+  final IconData icon;
+  final bool isSelected;
+  final Color? color;
   final VoidCallback onTap;
 
-  const _TimerOption({required this.label, required this.onTap});
+  const _TimerOption({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final buttonColor = color ?? const Color(0xFF6C63FF);
+
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -998,11 +1689,33 @@ class _TimerOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: isSelected
+              ? buttonColor.withOpacity(0.2)
+              : Colors.white.withOpacity(0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.15)),
+          border: Border.all(
+            color: isSelected ? buttonColor : Colors.white.withOpacity(0.15),
+          ),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? buttonColor : Colors.white.withOpacity(0.7),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? buttonColor : Colors.white,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1036,12 +1749,17 @@ class _ModeSelectionSheet extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               'Select Mode',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 24),
             ...VipMode.values.map((mode) {
               final theme = MiniPlayerTheme.forMode(mode);
               final isSelected = player.currentMode == mode;
+
               return _ModeOption(
                 theme: theme,
                 isSelected: isSelected,
@@ -1077,20 +1795,24 @@ class _ModeOption extends StatelessWidget {
         HapticFeedback.mediumImpact();
         onTap();
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: MiniPlayerAnimations.fast,
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? LinearGradient(colors: [
-            theme.primaryColor.withOpacity(0.3),
-            theme.secondaryColor.withOpacity(0.2),
-          ])
+              ? LinearGradient(
+            colors: [
+              theme.primaryColor.withOpacity(0.3),
+              theme.secondaryColor.withOpacity(0.2),
+            ],
+          )
               : null,
           color: isSelected ? null : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? theme.primaryColor : Colors.white.withOpacity(0.1),
+            color:
+            isSelected ? theme.primaryColor : Colors.white.withOpacity(0.1),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1127,7 +1849,10 @@ class _ModeOption extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     theme.modeSubtitle,
-                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -1135,8 +1860,15 @@ class _ModeOption extends StatelessWidget {
             if (isSelected)
               Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: theme.primaryColor, shape: BoxShape.circle),
-                child: const Icon(Icons.check, color: Colors.white, size: 16),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
           ],
         ),

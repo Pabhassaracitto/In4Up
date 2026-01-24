@@ -1,4 +1,6 @@
 // lib/models/text_segment.dart
+// VipSound - Text Segment Model
+// Dùng cho việc đánh dấu và luyện tập đoạn văn bản
 
 import 'package:flutter/material.dart';
 
@@ -95,11 +97,11 @@ class TextSegment {
   Color get difficultyColor {
     switch (difficulty) {
       case TextSegmentDifficulty.easy:
-        return const Color(0xFF4CAF50);
+        return const Color(0xFF4CAF50); // Green
       case TextSegmentDifficulty.medium:
-        return const Color(0xFFFF9800);
+        return const Color(0xFFFF9800); // Orange
       case TextSegmentDifficulty.hard:
-        return const Color(0xFFF44336);
+        return const Color(0xFFF44336); // Red
     }
   }
 
@@ -121,14 +123,44 @@ class TextSegment {
     }
   }
 
-  /// Tính toán thời gian ôn tập tiếp theo (SRS)
+  /// Label tiếng Việt cho type
+  String get typeLabel {
+    switch (type) {
+      case TextSegmentType.vocabulary:
+        return 'Từ vựng';
+      case TextSegmentType.phrase:
+        return 'Cụm từ';
+      case TextSegmentType.sentence:
+        return 'Câu';
+      case TextSegmentType.paragraph:
+        return 'Đoạn';
+      case TextSegmentType.dharma:
+        return 'Phật Pháp';
+      case TextSegmentType.grammar:
+        return 'Ngữ pháp';
+    }
+  }
+
+  /// Label tiếng Việt cho difficulty
+  String get difficultyLabel {
+    switch (difficulty) {
+      case TextSegmentDifficulty.easy:
+        return 'Dễ';
+      case TextSegmentDifficulty.medium:
+        return 'Vừa';
+      case TextSegmentDifficulty.hard:
+        return 'Khó';
+    }
+  }
+
+  /// Tính toán thời gian ôn tập tiếp theo (SRS - Spaced Repetition)
   DateTime? get nextReviewDate {
     if (lastPracticed == null) return DateTime.now();
 
     // Fibonacci-like intervals based on mastery
     final intervals = [1, 1, 2, 3, 5, 8, 13, 21, 34]; // days
     final intervalIndex = (masteryLevel * (intervals.length - 1)).round();
-    final days = intervals[intervalIndex];
+    final days = intervals[intervalIndex.clamp(0, intervals.length - 1)];
 
     return lastPracticed!.add(Duration(days: days));
   }
@@ -136,7 +168,17 @@ class TextSegment {
   /// Cần ôn tập không?
   bool get needsReview {
     if (lastPracticed == null) return true;
-    return DateTime.now().isAfter(nextReviewDate!);
+    final nextDate = nextReviewDate;
+    if (nextDate == null) return true;
+    return DateTime.now().isAfter(nextDate);
+  }
+
+  /// Duration của segment (ước tính dựa trên số từ)
+  Duration get estimatedDuration {
+    final wordCount = content.split(' ').length;
+    // Trung bình 150 từ/phút ở tốc độ 1x
+    final seconds = (wordCount / 150 * 60 / ttsSpeed).round();
+    return Duration(seconds: seconds.clamp(1, 300));
   }
 }
 
@@ -145,7 +187,7 @@ class SelectedTextInfo {
   final String text;
   final int startOffset;
   final int endOffset;
-  final int lineIndex; // Dòng chứa đoạn chọn
+  final int lineIndex;
 
   SelectedTextInfo({
     required this.text,

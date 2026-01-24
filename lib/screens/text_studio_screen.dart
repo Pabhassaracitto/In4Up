@@ -24,31 +24,52 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     super.dispose();
   }
 
+  _ModeTheme _getModeTheme(VipMode mode) {
+    switch (mode) {
+      case VipMode.buddhism:
+        return const _ModeTheme(
+          primary: Color(0xFFFFB300),
+          secondary: Color(0xFFFF8F00),
+          icon: Icons.self_improvement,
+          name: 'Phat Phap',
+        );
+      case VipMode.english:
+        return const _ModeTheme(
+          primary: Color(0xFF2196F3),
+          secondary: Color(0xFF1976D2),
+          icon: Icons.school,
+          name: 'Tieng Anh',
+        );
+      case VipMode.music:
+        return const _ModeTheme(
+          primary: Color(0xFF6C63FF),
+          secondary: Color(0xFF5B52CC),
+          icon: Icons.music_note,
+          name: 'Am Nhac',
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F23),
       body: SafeArea(
-        child: Consumer<TextProvider>(
-          builder: (context, textProvider, child) {
+        child: Consumer2<PlayerProvider, TextProvider>(
+          builder: (context, player, textProvider, child) {
+            final theme = _getModeTheme(player.currentMode);
+
             return Column(
               children: [
-                // App Bar
-                _buildAppBar(context, textProvider),
-
-                // TTS Controls
-                _buildTtsControls(context, textProvider),
-
-                // Main Content
+                _buildAppBar(context, textProvider, theme),
+                _buildTtsControls(context, textProvider, theme),
                 Expanded(
                   child: textProvider.lines.isEmpty
-                      ? _buildEmptyState(context)
-                      : _buildTextContent(context, textProvider),
+                      ? _buildEmptyState(context, theme)
+                      : _buildTextContent(context, textProvider, theme),
                 ),
-
-                // Bottom Controls
                 if (textProvider.lines.isNotEmpty)
-                  _buildBottomControls(context, textProvider),
+                  _buildBottomControls(context, textProvider, theme),
               ],
             );
           },
@@ -57,9 +78,20 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, TextProvider textProvider) {
+  // ==================== APP BAR ====================
+
+  Widget _buildAppBar(
+      BuildContext context, TextProvider textProvider, _ModeTheme theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.primary.withOpacity(0.15),
+            Colors.transparent,
+          ],
+        ),
+      ),
       child: Row(
         children: [
           IconButton(
@@ -69,12 +101,12 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.2),
+              color: theme.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.text_fields,
-              color: Colors.green,
+              color: theme.primary,
               size: 24,
             ),
           ),
@@ -83,15 +115,15 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Text Studio',
-                  style: TextStyle(
+                Text(
+                  'Text Studio • ${theme.name}',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  textProvider.currentDocument?.title ?? 'Chưa có văn bản',
+                  textProvider.currentDocument?.title ?? 'Chua co van ban',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.grey,
@@ -104,27 +136,30 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
           // Import file button
           IconButton(
             onPressed: () => _importTextFile(context),
-            icon: const Icon(Icons.file_open),
-            tooltip: 'Mở file text',
+            icon: Icon(Icons.file_open, color: theme.primary),
+            tooltip: 'Mo file text',
           ),
           // Paste text button
           IconButton(
             onPressed: () => _showPasteDialog(context),
-            icon: const Icon(Icons.paste),
-            tooltip: 'Dán văn bản',
+            icon: Icon(Icons.paste, color: theme.primary),
+            tooltip: 'Dan van ban',
           ),
           // Settings button
           IconButton(
-            onPressed: () => _showSettingsSheet(context, textProvider),
-            icon: const Icon(Icons.settings),
-            tooltip: 'Cài đặt',
+            onPressed: () => _showSettingsSheet(context, textProvider, theme),
+            icon: Icon(Icons.settings, color: theme.primary),
+            tooltip: 'Cai dat',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTtsControls(BuildContext context, TextProvider textProvider) {
+  // ==================== TTS CONTROLS ====================
+
+  Widget _buildTtsControls(
+      BuildContext context, TextProvider textProvider, _ModeTheme theme) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(12),
@@ -139,15 +174,22 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             children: [
               const Icon(Icons.speed, size: 20, color: Colors.grey),
               const SizedBox(width: 8),
-              const Text('Tốc độ:', style: TextStyle(color: Colors.grey)),
+              const Text('Toc do:', style: TextStyle(color: Colors.grey)),
               Expanded(
-                child: Slider(
-                  value: textProvider.ttsSpeed,
-                  min: 0.25,
-                  max: 2.0,
-                  divisions: 7,
-                  label: '${textProvider.ttsSpeed.toStringAsFixed(2)}x',
-                  onChanged: (value) => textProvider.setTtsSpeed(value),
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: theme.primary,
+                    inactiveTrackColor: theme.primary.withOpacity(0.2),
+                    thumbColor: theme.primary,
+                  ),
+                  child: Slider(
+                    value: textProvider.ttsSpeed,
+                    min: 0.25,
+                    max: 2.0,
+                    divisions: 7,
+                    label: '${textProvider.ttsSpeed.toStringAsFixed(2)}x',
+                    onChanged: (value) => textProvider.setTtsSpeed(value),
+                  ),
                 ),
               ),
               Text(
@@ -166,7 +208,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             children: [
               _TtsButton(
                 icon: Icons.play_arrow,
-                label: 'Đọc tất cả',
+                label: 'Doc tat ca',
                 color: Colors.green,
                 onPressed: textProvider.lines.isEmpty
                     ? null
@@ -174,7 +216,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
               ),
               _TtsButton(
                 icon: Icons.record_voice_over,
-                label: 'Đọc dòng',
+                label: 'Doc dong',
                 color: Colors.blue,
                 onPressed: textProvider.currentLineIndex < 0
                     ? null
@@ -182,7 +224,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
               ),
               _TtsButton(
                 icon: Icons.select_all,
-                label: 'Đọc chọn',
+                label: 'Doc chon',
                 color: Colors.orange,
                 onPressed: textProvider.selectedText == null
                     ? null
@@ -190,7 +232,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
               ),
               _TtsButton(
                 icon: Icons.stop,
-                label: 'Dừng',
+                label: 'Dung',
                 color: Colors.red,
                 isActive: textProvider.isSpeaking,
                 onPressed: textProvider.isSpeaking
@@ -204,7 +246,9 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  // ==================== EMPTY STATE ====================
+
+  Widget _buildEmptyState(BuildContext context, _ModeTheme theme) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -214,18 +258,18 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: theme.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.text_snippet,
                 size: 64,
-                color: Colors.green,
+                color: theme.primary,
               ),
             ),
             const SizedBox(height: 24),
             const Text(
-              'Chưa có văn bản',
+              'Chua co van ban',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -233,7 +277,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Nhập hoặc mở file text để bắt đầu',
+              'Nhap hoac mo file text de bat dau',
               style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center,
             ),
@@ -244,9 +288,9 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
                 ElevatedButton.icon(
                   onPressed: () => _importTextFile(context),
                   icon: const Icon(Icons.file_open),
-                  label: const Text('Mở file'),
+                  label: const Text('Mo file'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: theme.primary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 16,
@@ -256,9 +300,13 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
                 const SizedBox(width: 16),
                 OutlinedButton.icon(
                   onPressed: () => _showPasteDialog(context),
-                  icon: const Icon(Icons.paste),
-                  label: const Text('Dán text'),
+                  icon: Icon(Icons.paste, color: theme.primary),
+                  label: Text(
+                    'Dan text',
+                    style: TextStyle(color: theme.primary),
+                  ),
                   style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: theme.primary),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 16,
@@ -273,7 +321,10 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     );
   }
 
-  Widget _buildTextContent(BuildContext context, TextProvider textProvider) {
+  // ==================== TEXT CONTENT ====================
+
+  Widget _buildTextContent(
+      BuildContext context, TextProvider textProvider, _ModeTheme theme) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: textProvider.lines.length,
@@ -290,7 +341,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             textProvider.speakCurrentLine();
           },
           onLongPress: () {
-            _showLineOptionsSheet(context, textProvider, index, line);
+            _showLineOptionsSheet(context, textProvider, index, line, theme);
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -298,13 +349,11 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isCurrentLine
-                  ? const Color(0xFF6C63FF).withOpacity(0.2)
+                  ? theme.primary.withOpacity(0.2)
                   : Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isCurrentLine
-                    ? const Color(0xFF6C63FF)
-                    : Colors.transparent,
+                color: isCurrentLine ? theme.primary : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -333,10 +382,10 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
                     ),
                     const Spacer(),
                     if (isCurrentLine && textProvider.isSpeaking)
-                      const Icon(
+                      Icon(
                         Icons.volume_up,
                         size: 16,
-                        color: Color(0xFF6C63FF),
+                        color: theme.primary,
                       ),
                   ],
                 ),
@@ -379,7 +428,10 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     );
   }
 
-  Widget _buildBottomControls(BuildContext context, TextProvider textProvider) {
+  // ==================== BOTTOM CONTROLS ====================
+
+  Widget _buildBottomControls(
+      BuildContext context, TextProvider textProvider, _ModeTheme theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -395,43 +447,44 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          // Font size
           _BottomButton(
             icon: Icons.text_decrease,
             label: 'A-',
-            onPressed: () => textProvider.setFontSize(textProvider.fontSize - 2),
+            onPressed: () =>
+                textProvider.setFontSize(textProvider.fontSize - 2),
           ),
           _BottomButton(
             icon: Icons.text_increase,
             label: 'A+',
-            onPressed: () => textProvider.setFontSize(textProvider.fontSize + 2),
+            onPressed: () =>
+                textProvider.setFontSize(textProvider.fontSize + 2),
           ),
-          // Difficulty marking
           _BottomButton(
             icon: Icons.flag,
-            label: 'Khó',
+            label: 'Kho',
             color: Colors.red,
             onPressed: textProvider.selectedText != null
-                ? () => textProvider.markSelectedDifficulty(DifficultyMark.hard)
+                ? () =>
+                textProvider.markSelectedDifficulty(DifficultyMark.hard)
                 : null,
           ),
-          // Sync with audio
           Consumer<PlayerProvider>(
             builder: (context, player, child) {
               return _BottomButton(
                 icon: Icons.sync,
                 label: 'Sync',
-                color: player.currentSongPath != null ? Colors.green : Colors.grey,
+                color: player.currentSongPath != null
+                    ? Colors.green
+                    : Colors.grey,
                 onPressed: player.currentSongPath != null
                     ? () => _syncWithAudio(context)
                     : null,
               );
             },
           ),
-          // Clear
           _BottomButton(
             icon: Icons.clear_all,
-            label: 'Xóa',
+            label: 'Xoa',
             onPressed: () => textProvider.clearText(),
           ),
         ],
@@ -460,7 +513,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi đọc file: $e')),
+          SnackBar(content: Text('Loi doc file: $e')),
         );
       }
     }
@@ -486,7 +539,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Nhập văn bản',
+              'Nhap van ban',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -499,7 +552,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
               maxLines: 8,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Dán hoặc nhập văn bản ở đây...',
+                hintText: 'Dan hoac nhap van ban o day...',
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
@@ -515,7 +568,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Hủy'),
+                    child: const Text('Huy'),
                   ),
                 ),
                 Expanded(
@@ -525,7 +578,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
                       if (_textController.text.trim().isNotEmpty) {
                         context.read<TextProvider>().loadText(
                           _textController.text,
-                          title: 'Văn bản mới',
+                          title: 'Van ban moi',
                         );
                         _textController.clear();
                         Navigator.pop(context);
@@ -534,7 +587,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                     ),
-                    child: const Text('Thêm văn bản'),
+                    child: const Text('Them van ban'),
                   ),
                 ),
               ],
@@ -546,7 +599,8 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
     );
   }
 
-  void _showSettingsSheet(BuildContext context, TextProvider textProvider) {
+  void _showSettingsSheet(
+      BuildContext context, TextProvider textProvider, _ModeTheme theme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -560,7 +614,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Cài đặt Text Studio',
+              'Cai dat Text Studio',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -573,7 +627,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
               children: [
                 const Icon(Icons.format_size, color: Colors.grey),
                 const SizedBox(width: 12),
-                const Text('Cỡ chữ:', style: TextStyle(color: Colors.white)),
+                const Text('Co chu:', style: TextStyle(color: Colors.white)),
                 Expanded(
                   child: Slider(
                     value: textProvider.fontSize,
@@ -593,14 +647,15 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             // TTS Language
             ListTile(
               leading: const Icon(Icons.language, color: Colors.grey),
-              title: const Text('Ngôn ngữ TTS', style: TextStyle(color: Colors.white)),
+              title:
+              const Text('Ngon ngu TTS', style: TextStyle(color: Colors.white)),
               trailing: DropdownButton<String>(
                 value: textProvider.ttsLanguage,
                 dropdownColor: const Color(0xFF1A1A2E),
                 items: const [
                   DropdownMenuItem(value: 'en-US', child: Text('English (US)')),
                   DropdownMenuItem(value: 'en-GB', child: Text('English (UK)')),
-                  DropdownMenuItem(value: 'vi-VN', child: Text('Tiếng Việt')),
+                  DropdownMenuItem(value: 'vi-VN', child: Text('Tieng Viet')),
                 ],
                 onChanged: (value) {
                   if (value != null) textProvider.setTtsLanguage(value);
@@ -610,7 +665,8 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             // Show translation toggle
             SwitchListTile(
               secondary: const Icon(Icons.translate, color: Colors.grey),
-              title: const Text('Hiện bản dịch', style: TextStyle(color: Colors.white)),
+              title: const Text('Hien ban dich',
+                  style: TextStyle(color: Colors.white)),
               value: textProvider.showTranslation,
               onChanged: (_) => textProvider.toggleTranslation(),
             ),
@@ -626,6 +682,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
       TextProvider textProvider,
       int index,
       TextItem line,
+      _ModeTheme theme,
       ) {
     showModalBottomSheet(
       context: context,
@@ -639,7 +696,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Dòng ${index + 1}',
+              'Dong ${index + 1}',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -648,8 +705,9 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.volume_up, color: Colors.blue),
-              title: const Text('Đọc dòng này', style: TextStyle(color: Colors.white)),
+              leading: Icon(Icons.volume_up, color: theme.primary),
+              title: const Text('Doc dong nay',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 textProvider.setCurrentLine(index);
@@ -658,7 +716,8 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.flag, color: Colors.red),
-              title: const Text('Đánh dấu KHÓ (5x)', style: TextStyle(color: Colors.white)),
+              title: const Text('Danh dau KHO (5x)',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 textProvider.markLineDifficulty(index, DifficultyMark.hard);
                 Navigator.pop(context);
@@ -666,7 +725,8 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.flag, color: Colors.orange),
-              title: const Text('Đánh dấu VỪA (3x)', style: TextStyle(color: Colors.white)),
+              title: const Text('Danh dau VUA (3x)',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 textProvider.markLineDifficulty(index, DifficultyMark.medium);
                 Navigator.pop(context);
@@ -674,7 +734,8 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.flag, color: Colors.green),
-              title: const Text('Đánh dấu DỄ (1x)', style: TextStyle(color: Colors.white)),
+              title: const Text('Danh dau DE (1x)',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 textProvider.markLineDifficulty(index, DifficultyMark.easy);
                 Navigator.pop(context);
@@ -690,7 +751,7 @@ class _TextStudioScreenState extends State<TextStudioScreen> {
   void _syncWithAudio(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Đã kết nối với Audio Player'),
+        content: Text('Da ket noi voi Audio Player'),
         backgroundColor: Colors.green,
       ),
     );
@@ -798,4 +859,20 @@ class _BottomButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// ==================== HELPER CLASSES ====================
+
+class _ModeTheme {
+  final Color primary;
+  final Color secondary;
+  final IconData icon;
+  final String name;
+
+  const _ModeTheme({
+    required this.primary,
+    required this.secondary,
+    required this.icon,
+    required this.name,
+  });
 }

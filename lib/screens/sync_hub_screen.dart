@@ -26,24 +26,68 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F23),
       body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            _buildAppBar(context),
+        child: Consumer<PlayerProvider>(
+          builder: (context, player, _) {
+            final theme = _getModeTheme(player.currentMode);
 
-            // Main Content - Split View
-            Expanded(
-              child: _buildSplitView(context),
-            ),
-          ],
+            return Column(
+              children: [
+                _buildAppBar(context, player, theme),
+                Expanded(
+                  child: _buildSplitView(context, theme),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  // ==================== THEME ====================
+
+  _ModeTheme _getModeTheme(VipMode mode) {
+    switch (mode) {
+      case VipMode.buddhism:
+        return const _ModeTheme(
+          primary: Color(0xFFFFB300),
+          secondary: Color(0xFFFF8F00),
+          accent: Color(0xFFFFE082),
+          icon: Icons.self_improvement,
+          name: 'Phat Phap',
+        );
+      case VipMode.english:
+        return const _ModeTheme(
+          primary: Color(0xFF2196F3),
+          secondary: Color(0xFF1976D2),
+          accent: Color(0xFF90CAF9),
+          icon: Icons.school,
+          name: 'Tieng Anh',
+        );
+      case VipMode.music:
+        return const _ModeTheme(
+          primary: Color(0xFF6C63FF),
+          secondary: Color(0xFF5B52CC),
+          accent: Color(0xFFB39DDB),
+          icon: Icons.music_note,
+          name: 'Am Nhac',
+        );
+    }
+  }
+
+  // ==================== APP BAR ====================
+
+  Widget _buildAppBar(BuildContext context, PlayerProvider player, _ModeTheme theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.primary.withOpacity(0.15),
+            Colors.transparent,
+          ],
+        ),
+      ),
       child: Row(
         children: [
           IconButton(
@@ -53,8 +97,8 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF4CAF50)],
+              gradient: LinearGradient(
+                colors: [theme.primary, theme.secondary],
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -65,11 +109,11 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Sync Hub',
                   style: TextStyle(
                     fontSize: 18,
@@ -77,10 +121,10 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
                   ),
                 ),
                 Text(
-                  'Music + Text đồng bộ',
+                  'Music + Text dong bo • ${theme.name}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey,
+                    color: theme.primary,
                   ),
                 ),
               ],
@@ -93,33 +137,35 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             },
             icon: Icon(
               _autoScroll ? Icons.vertical_align_center : Icons.vertical_align_top,
-              color: _autoScroll ? const Color(0xFF6C63FF) : Colors.grey,
+              color: _autoScroll ? theme.primary : Colors.grey,
             ),
-            tooltip: _autoScroll ? 'Tự động cuộn: BẬT' : 'Tự động cuộn: TẮT',
+            tooltip: _autoScroll ? 'Tu dong cuon: BAT' : 'Tu dong cuon: TAT',
           ),
           // Import text
           IconButton(
             onPressed: () => _showImportOptions(context),
-            icon: const Icon(Icons.add),
-            tooltip: 'Thêm text/lyrics',
+            icon: Icon(Icons.add, color: theme.primary),
+            tooltip: 'Them text/lyrics',
           ),
           // Settings
           IconButton(
             onPressed: () => _showSyncSettings(context),
-            icon: const Icon(Icons.tune),
-            tooltip: 'Cài đặt',
+            icon: Icon(Icons.tune, color: theme.primary),
+            tooltip: 'Cai dat',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSplitView(BuildContext context) {
+  // ==================== SPLIT VIEW ====================
+
+  Widget _buildSplitView(BuildContext context, _ModeTheme theme) {
     return Consumer2<PlayerProvider, TextProvider>(
       builder: (context, player, textProvider, child) {
         // Nếu chưa có audio hoặc text
         if (player.currentSongPath == null && textProvider.lines.isEmpty) {
-          return _buildEmptyState(context);
+          return _buildEmptyState(context, theme);
         }
 
         return Column(
@@ -135,7 +181,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 100),
                 height: MediaQuery.of(context).size.height * _splitRatio,
-                child: _buildMusicSection(context, player),
+                child: _buildMusicSection(context, player, theme),
               ),
             ),
 
@@ -152,7 +198,9 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  // ==================== EMPTY STATE ====================
+
+  Widget _buildEmptyState(BuildContext context, _ModeTheme theme) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -165,16 +213,16 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF6C63FF).withOpacity(0.2),
-                    const Color(0xFF4CAF50).withOpacity(0.2),
+                    theme.primary.withOpacity(0.2),
+                    theme.secondary.withOpacity(0.2),
                   ],
                 ),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.sync,
                 size: 64,
-                color: Color(0xFF6C63FF),
+                color: theme.primary,
               ),
             ),
             const SizedBox(height: 24),
@@ -187,7 +235,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Kết nối Audio và Text để học hiệu quả hơn',
+              'Ket noi Audio va Text de hoc hieu qua hon',
               style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center,
             ),
@@ -199,18 +247,18 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
               children: [
                 _ActionCard(
                   icon: Icons.music_note,
-                  title: 'Chọn Audio',
+                  title: 'Chon Audio',
                   subtitle: 'MP3, WAV, M4A...',
-                  color: const Color(0xFF6C63FF),
+                  color: theme.primary,
                   onTap: () => _pickAudioFile(context),
                 ),
                 const SizedBox(width: 16),
-                _ActionCard(
+                const _ActionCard(
                   icon: Icons.text_snippet,
-                  title: 'Thêm Text',
+                  title: 'Them Text',
                   subtitle: 'TXT, SRT, LRC...',
-                  color: const Color(0xFF4CAF50),
-                  onTap: () => _showImportOptions(context),
+                  color: Color(0xFF4CAF50),
+                  onTap: null, // se override ben ngoai
                 ),
               ],
             ),
@@ -228,19 +276,19 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
                 children: [
                   _FeatureItem(
                     icon: Icons.sync_alt,
-                    text: 'Audio và Text đồng bộ theo thời gian',
+                    text: 'Audio va Text dong bo theo thoi gian',
                   ),
                   _FeatureItem(
                     icon: Icons.touch_app,
-                    text: 'Bấm vào text để nhảy đến vị trí audio',
+                    text: 'Bam vao text de nhay den vi tri audio',
                   ),
                   _FeatureItem(
                     icon: Icons.record_voice_over,
-                    text: 'TTS đọc text với nhiều tốc độ',
+                    text: 'TTS doc text voi nhieu toc do',
                   ),
                   _FeatureItem(
                     icon: Icons.bookmark,
-                    text: 'Đánh dấu đoạn khó để ôn tập',
+                    text: 'Danh dau doan kho de on tap',
                   ),
                 ],
               ),
@@ -251,7 +299,13 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
     );
   }
 
-  Widget _buildMusicSection(BuildContext context, PlayerProvider player) {
+  // ==================== MUSIC SECTION ====================
+
+  Widget _buildMusicSection(
+      BuildContext context,
+      PlayerProvider player,
+      _ModeTheme theme,
+      ) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -268,11 +322,11 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
                   gradient: LinearGradient(
                     colors: player.isLooping
                         ? [const Color(0xFF4CAF50), const Color(0xFF2E7D32)]
-                        : [const Color(0xFF6C63FF), const Color(0xFF3F3D56)],
+                        : [theme.primary, theme.secondary],
                   ),
                 ),
                 child: Icon(
-                  player.isLooping ? Icons.loop : Icons.music_note,
+                  player.isLooping ? Icons.loop : theme.icon,
                   color: Colors.white,
                   size: 30,
                 ),
@@ -283,7 +337,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      player.currentSongTitle ?? 'Chưa chọn audio',
+                      player.currentSongTitle ?? 'Chua chon audio',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -293,7 +347,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      player.currentSongArtist ?? 'Bấm + để thêm audio',
+                      player.currentSongArtist ?? 'Bam + de them audio',
                       style: const TextStyle(
                         color: Colors.grey,
                         fontSize: 12,
@@ -315,7 +369,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
               if (player.currentSongPath == null)
                 IconButton(
                   onPressed: () => _pickAudioFile(context),
-                  icon: const Icon(Icons.add_circle, color: Color(0xFF6C63FF)),
+                  icon: Icon(Icons.add_circle, color: theme.primary),
                 ),
             ],
           ),
@@ -323,7 +377,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
           const SizedBox(height: 16),
 
           // Progress bar
-          _buildProgressBar(context, player),
+          _buildProgressBar(context, player, theme),
 
           const SizedBox(height: 8),
 
@@ -334,7 +388,11 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
     );
   }
 
-  Widget _buildProgressBar(BuildContext context, PlayerProvider player) {
+  Widget _buildProgressBar(
+      BuildContext context,
+      PlayerProvider player,
+      _ModeTheme theme,
+      ) {
     final position = player.state.position;
     final duration = player.state.duration;
     final progress = duration.inMilliseconds > 0
@@ -352,9 +410,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
           ),
           child: Slider(
             value: progress.clamp(0.0, 1.0),
-            activeColor: player.isLooping
-                ? const Color(0xFF4CAF50)
-                : const Color(0xFF6C63FF),
+            activeColor: player.isLooping ? const Color(0xFF4CAF50) : theme.primary,
             onChanged: (value) => player.seekToPercent(value),
           ),
         ),
@@ -394,30 +450,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
     );
   }
 
-  Widget _buildResizeDivider() {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          _splitRatio += details.delta.dy / MediaQuery.of(context).size.height;
-          _splitRatio = _splitRatio.clamp(0.2, 0.6);
-        });
-      },
-      child: Container(
-        height: 20,
-        color: Colors.transparent,
-        child: Center(
-          child: Container(
-            width: 60,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // ==================== TEXT SECTION ====================
 
   Widget _buildTextSection(
       BuildContext context,
@@ -431,21 +464,16 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
     return SyncedLyricsView(
       autoScroll: _autoScroll,
       onLineTap: (index, line) {
-        // Khi bấm vào dòng text
         textProvider.setCurrentLine(index);
-
-        // Nếu có timestamp, nhảy đến vị trí audio
         if (line.startTime != null) {
           player.seek(line.startTime!);
         }
       },
       onLineDoubleTap: (index, line) {
-        // Double tap để đọc TTS
         textProvider.setCurrentLine(index);
         textProvider.speakCurrentLine();
       },
       onLineLongPress: (index, line) {
-        // Long press để hiện options
         _showLineOptions(context, textProvider, player, index, line);
       },
     );
@@ -463,7 +491,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Chưa có text/lyrics',
+            'Chua co text/lyrics',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey,
@@ -471,19 +499,47 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Thêm text để hiển thị đồng bộ với audio',
+            'Them text de hien thi dong bo voi audio',
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => _showImportOptions(context),
             icon: const Icon(Icons.add),
-            label: const Text('Thêm Text'),
+            label: const Text('Them Text'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4CAF50),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ==================== DIVIDER ====================
+
+  Widget _buildResizeDivider() {
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          _splitRatio +=
+              details.delta.dy / MediaQuery.of(context).size.height;
+          _splitRatio = _splitRatio.clamp(0.2, 0.6);
+        });
+      },
+      child: Container(
+        height: 20,
+        color: Colors.transparent,
+        child: Center(
+          child: Container(
+            width: 60,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -512,7 +568,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Thêm Text/Lyrics',
+              'Them Text/Lyrics',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -522,7 +578,7 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             const SizedBox(height: 20),
             _ImportOption(
               icon: Icons.file_open,
-              title: 'Mở file',
+              title: 'Mo file',
               subtitle: 'TXT, SRT, LRC',
               onTap: () {
                 Navigator.pop(context);
@@ -531,8 +587,8 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             ),
             _ImportOption(
               icon: Icons.paste,
-              title: 'Dán văn bản',
-              subtitle: 'Từ clipboard',
+              title: 'Dan van ban',
+              subtitle: 'Tu clipboard',
               onTap: () {
                 Navigator.pop(context);
                 _showPasteDialog(context);
@@ -540,8 +596,8 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
             ),
             _ImportOption(
               icon: Icons.edit,
-              title: 'Nhập thủ công',
-              subtitle: 'Gõ từng dòng',
+              title: 'Nhap thu cong',
+              subtitle: 'Go tung dong',
               onTap: () {
                 Navigator.pop(context);
                 _showManualInputDialog(context);
@@ -914,14 +970,38 @@ class _SyncHubScreenState extends State<SyncHubScreen> {
   }
 }
 
-// ==================== HELPER WIDGETS ====================
+// ==================== HELPER ====================
+
+String _formatDuration(Duration d) {
+  String minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  String seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
+// ==================== HELPER CLASSES ====================
+
+class _ModeTheme {
+  final Color primary;
+  final Color secondary;
+  final Color accent;
+  final IconData icon;
+  final String name;
+
+  const _ModeTheme({
+    required this.primary,
+    required this.secondary,
+    required this.accent,
+    required this.icon,
+    required this.name,
+  });
+}
 
 class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _ActionCard({
     required this.icon,
@@ -934,7 +1014,7 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTap ?? () {},
       child: Container(
         width: 140,
         padding: const EdgeInsets.all(16),
@@ -1013,7 +1093,7 @@ class _ImportOption extends StatelessWidget {
           color: const Color(0xFF4CAF50).withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: const Color(0xFF4CAF50)),
+        child: const Icon(Icons.text_snippet, color: Color(0xFF4CAF50)),
       ),
       title: Text(title, style: const TextStyle(color: Colors.white)),
       subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),

@@ -1,7 +1,7 @@
 // lib/screens/text_studio_screen.dart
 // VipSound - Text Studio Screen
 // Version 3.0 - Enhanced for Buddhism & Language Learning
-// Features: Read, Study, Edit modes with Segment-based Learning
+// Features: Read/Study/Edit modes, Text Segments with SRS
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,11 +18,11 @@ import '../models/text_segment.dart';
 // ENUMS & CONSTANTS
 // ============================================================================
 
-/// Chế độ Text Studio
+/// Chế độ hoạt động của Text Studio
 enum TextStudioMode {
-  read,   // Đọc - Xem văn bản theo dòng
-  study,  // Học - Luyện tập các segments đã đánh dấu
-  edit,   // Sửa - Chỉnh sửa toàn văn bản tự do
+  read,   // Đọc văn bản, chọn đoạn
+  study,  // Luyện các đoạn đã đánh dấu (SRS)
+  edit,   // Chỉnh sửa toàn bộ văn bản
 }
 
 // ============================================================================
@@ -41,18 +41,17 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // === MODE STATE ===
   TextStudioMode _mode = TextStudioMode.read;
 
-  // === CONTROLLERS ===
+  // === EDIT STATE ===
   final TextEditingController _editController = TextEditingController();
-  final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  bool _hasUnsavedChanges = false;
 
   // === ANIMATION ===
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // === UI STATE ===
-  bool _showSearch = false;
-  String _searchQuery = '';
+  // === FILTER STATE ===
+  TextSegmentDifficulty? _difficultyFilter;
+  TextSegmentType? _typeFilter;
 
   @override
   void initState() {
@@ -66,7 +65,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
   }
@@ -74,8 +73,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   @override
   void dispose() {
     _editController.dispose();
-    _searchController.dispose();
-    _scrollController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -94,15 +91,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           background: Color(0xFF1A1612),
           surface: Color(0xFF2D2520),
           icon: Icons.spa,
-          name: 'Tịnh Tâm',
-          segmentCategories: [
-            TextSegmentCategory.sutra,
-            TextSegmentCategory.dharma,
-            TextSegmentCategory.mantra,
-            TextSegmentCategory.verse,
-          ],
+          name: 'Pháp Học',
+          defaultSegmentType: TextSegmentType.dharma,
         );
-
       case VipMode.english:
         return const _StudioTheme(
           primary: Color(0xFF64B5F6),
@@ -111,16 +102,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           background: Color(0xFF0D1117),
           surface: Color(0xFF161B22),
           icon: Icons.school,
-          name: 'Học Tập',
-          segmentCategories: [
-            TextSegmentCategory.vocabulary,
-            TextSegmentCategory.phrase,
-            TextSegmentCategory.idiom,
-            TextSegmentCategory.sentence,
-            TextSegmentCategory.grammar,
-          ],
+          name: 'Ngữ Học',
+          defaultSegmentType: TextSegmentType.vocabulary,
         );
-
       case VipMode.music:
         return const _StudioTheme(
           primary: Color(0xFF9C7CF4),
@@ -128,12 +112,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           accent: Color(0xFFD1C4E9),
           background: Color(0xFF0F0F1A),
           surface: Color(0xFF1A1A2E),
-          icon: Icons.music_note,
-          name: 'Âm Nhạc',
-          segmentCategories: [
-            TextSegmentCategory.favorite,
-            TextSegmentCategory.custom,
-          ],
+          icon: Icons.lyrics,
+          name: 'Lời Nhạc',
+          defaultSegmentType: TextSegmentType.sentence,
         );
     }
   }
@@ -145,7 +126,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   @override
   Widget build(BuildContext context) {
     return Consumer2<PlayerProvider, TextProvider>(
-      builder: (context, player, textProvider, _) {
+      builder: (context, player, textProvider, child) {
         final theme = _getTheme(player.currentMode);
 
         return Scaffold(
@@ -153,26 +134,16 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           body: SafeArea(
             child: Column(
               children: [
-                // App Bar
                 _buildAppBar(context, textProvider, player, theme),
-
-                // Mode Switcher
                 _buildModeSwitcher(theme),
-
-                // TTS Controls (chỉ hiện khi Read/Study mode)
-                if (_mode != TextStudioMode.edit)
-                  _buildTtsControls(context, textProvider, player, theme),
-
-                // Main Content
+                if (_mode == TextStudioMode.read)
+                  _buildTtsControls(context, textProvider, theme),
+                if (_mode == TextStudioMode.study)
+                  _buildStudyHeader(context, textProvider, theme),
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _buildMainContent(context, textProvider, player, theme),
-                  ),
+                  child: _buildContent(context, textProvider, player, theme),
                 ),
-
-                // Bottom Bar (chỉ hiện khi có text)
-                if (textProvider.hasText && _mode != TextStudioMode.edit)
+                if (_mode != TextStudioMode.edit && textProvider.lines.isNotEmpty)
                   _buildBottomBar(context, textProvider, player, theme),
               ],
             ),
@@ -208,7 +179,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
         children: [
           // Back button
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (_hasUnsavedChanges) {
+                _showUnsavedChangesDialog(context);
+              } else {
+                Navigator.pop(context);
+              }
+            },
             icon: const Icon(Icons.arrow_back_ios_new, size: 20),
             color: Colors.white70,
           ),
@@ -229,7 +206,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
               ],
             ),
-            child: const Icon(Icons.text_fields, color: Colors.white, size: 18),
+            child: Icon(Icons.text_fields, color: Colors.white, size: 18),
           ),
           const SizedBox(width: 12),
 
@@ -239,39 +216,19 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Text Studio',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: theme.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        theme.name,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: theme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Text Studio',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 Text(
                   textProvider.currentDocument?.title ?? 'Chưa có văn bản',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[400],
+                    color: theme.primary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -279,35 +236,43 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ),
           ),
 
-          // Search toggle
-          if (_mode == TextStudioMode.read)
-            IconButton(
-              onPressed: () {
-                setState(() => _showSearch = !_showSearch);
-                if (!_showSearch) {
-                  _searchController.clear();
-                  _searchQuery = '';
-                }
-              },
-              icon: Icon(
-                _showSearch ? Icons.search_off : Icons.search,
-                size: 22,
+          // Stats badge
+          if (textProvider.segments.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
               ),
-              color: _showSearch ? theme.primary : Colors.white70,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.bookmark, size: 12, color: theme.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${textProvider.segments.length}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
 
-          // Import file
+          // Import button
           IconButton(
             onPressed: () => _importTextFile(context),
-            icon: const Icon(Icons.file_open_outlined, size: 22),
+            icon: Icon(Icons.file_open_outlined, size: 22),
             color: theme.primary,
             tooltip: 'Mở file',
           ),
 
-          // Paste text
+          // Paste button
           IconButton(
-            onPressed: () => _showPasteDialog(context, textProvider, theme),
-            icon: const Icon(Icons.paste, size: 22),
+            onPressed: () => _showPasteDialog(context, theme),
+            icon: Icon(Icons.paste, size: 22),
             color: theme.primary,
             tooltip: 'Dán văn bản',
           ),
@@ -315,7 +280,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           // Settings
           IconButton(
             onPressed: () => _showSettingsSheet(context, textProvider, theme),
-            icon: const Icon(Icons.tune, size: 22),
+            icon: Icon(Icons.tune, size: 22),
             color: theme.primary,
             tooltip: 'Cài đặt',
           ),
@@ -333,53 +298,58 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: theme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          _buildModeChip(
-            'Đọc',
-            Icons.menu_book,
-            TextStudioMode.read,
-            theme,
+          _buildModeTab(
+            icon: Icons.chrome_reader_mode,
+            label: 'Đọc',
+            mode: TextStudioMode.read,
+            theme: theme,
           ),
-          _buildModeChip(
-            'Học',
-            Icons.school,
-            TextStudioMode.study,
-            theme,
+          _buildModeTab(
+            icon: Icons.school,
+            label: 'Luyện',
+            mode: TextStudioMode.study,
+            theme: theme,
+            badge: context.watch<TextProvider>().getSegmentsForReview().length,
           ),
-          _buildModeChip(
-            'Sửa',
-            Icons.edit_note,
-            TextStudioMode.edit,
-            theme,
+          _buildModeTab(
+            icon: Icons.edit_note,
+            label: 'Sửa',
+            mode: TextStudioMode.edit,
+            theme: theme,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildModeChip(
-      String label,
-      IconData icon,
-      TextStudioMode mode,
-      _StudioTheme theme,
-      ) {
+  Widget _buildModeTab({
+    required IconData icon,
+    required String label,
+    required TextStudioMode mode,
+    required _StudioTheme theme,
+    int badge = 0,
+  }) {
     final isSelected = _mode == mode;
 
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() => _mode = mode);
-          HapticFeedback.selectionClick();
-
-          // Nếu chuyển sang edit mode, load text vào controller
-          if (mode == TextStudioMode.edit) {
-            final text = context.read<TextProvider>().fullText;
-            _editController.text = text;
+          if (_mode == TextStudioMode.edit && _hasUnsavedChanges) {
+            _showUnsavedChangesDialog(context, onDiscard: () {
+              setState(() => _mode = mode);
+            });
+          } else {
+            setState(() => _mode = mode);
+            if (mode == TextStudioMode.edit) {
+              _editController.text = context.read<TextProvider>().fullText;
+            }
           }
+          HapticFeedback.selectionClick();
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -387,22 +357,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           decoration: BoxDecoration(
             color: isSelected ? theme.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected
-                ? [
-              BoxShadow(
-                color: theme.primary.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ]
-                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 16,
+                size: 18,
                 color: isSelected ? Colors.white : Colors.grey,
               ),
               const SizedBox(width: 6),
@@ -414,9 +375,902 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   color: isSelected ? Colors.white : Colors.grey,
                 ),
               ),
+              if (badge > 0) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$badge',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ============================================================================
+  // CONTENT ROUTER
+  // ============================================================================
+
+  Widget _buildContent(
+      BuildContext context,
+      TextProvider textProvider,
+      PlayerProvider player,
+      _StudioTheme theme,
+      ) {
+    if (textProvider.lines.isEmpty && _mode != TextStudioMode.edit) {
+      return _buildEmptyState(context, theme);
+    }
+
+    switch (_mode) {
+      case TextStudioMode.read:
+        return _buildReadMode(context, textProvider, player, theme);
+      case TextStudioMode.study:
+        return _buildStudyMode(context, textProvider, theme);
+      case TextStudioMode.edit:
+        return _buildEditMode(context, textProvider, theme);
+    }
+  }
+
+  // ============================================================================
+  // READ MODE - Đọc và đánh dấu đoạn
+  // ============================================================================
+
+  Widget _buildReadMode(
+      BuildContext context,
+      TextProvider textProvider,
+      PlayerProvider player,
+      _StudioTheme theme,
+      ) {
+    return Column(
+      children: [
+        // Selection hint
+        if (textProvider.selectedTextInfo != null)
+          _buildSelectionBar(context, textProvider, theme),
+
+        // Text content
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: textProvider.lines.length,
+            itemBuilder: (context, index) {
+              return _buildTextLine(
+                context,
+                textProvider,
+                index,
+                theme,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectionBar(
+      BuildContext context,
+      TextProvider textProvider,
+      _StudioTheme theme,
+      ) {
+    final info = textProvider.selectedTextInfo!;
+    final previewText = info.text.length > 50
+        ? '${info.text.substring(0, 50)}...'
+        : info.text;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.primary.withOpacity(0.2),
+            theme.secondary.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.primary.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.text_fields, size: 18, color: theme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Đã chọn ${info.text.split(' ').length} từ',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  previewText,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Quick action buttons
+          _SelectionActionButton(
+            icon: Icons.volume_up,
+            color: Colors.blue,
+            tooltip: 'Đọc TTS',
+            onTap: () => textProvider.speakSelected(),
+          ),
+          _SelectionActionButton(
+            icon: Icons.bookmark_add,
+            color: Colors.amber,
+            tooltip: 'Đánh dấu',
+            onTap: () => _showCreateSegmentSheet(context, textProvider, theme),
+          ),
+          _SelectionActionButton(
+            icon: Icons.close,
+            color: Colors.grey,
+            tooltip: 'Bỏ chọn',
+            onTap: () {
+              textProvider.clearSelection();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextLine(
+      BuildContext context,
+      TextProvider textProvider,
+      int index,
+      _StudioTheme theme,
+      ) {
+    final line = textProvider.lines[index];
+    final isCurrentLine = index == textProvider.currentLineIndex;
+
+    // Tính offset của dòng này trong fullText
+    int lineStartOffset = 0;
+    for (int i = 0; i < index; i++) {
+      lineStartOffset += textProvider.lines[i].content.length + 1;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        textProvider.setCurrentLine(index);
+        HapticFeedback.selectionClick();
+      },
+      onDoubleTap: () {
+        textProvider.setCurrentLine(index);
+        textProvider.speakCurrentLine();
+      },
+      onLongPress: () {
+        _showLineOptionsSheet(context, textProvider, index, line, theme);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isCurrentLine
+              ? theme.primary.withOpacity(0.15)
+              : theme.surface.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isCurrentLine ? theme.primary : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Line header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isCurrentLine
+                        ? theme.primary
+                        : Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: isCurrentLine ? Colors.white : Colors.grey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (isCurrentLine && textProvider.isSpeaking)
+                  _buildSpeakingIndicator(theme),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Selectable content
+            SelectableText(
+              line.content,
+              style: TextStyle(
+                fontSize: textProvider.fontSize,
+                color: Colors.white,
+                height: 1.6,
+              ),
+              onSelectionChanged: (selection, cause) {
+                if (selection.baseOffset != selection.extentOffset) {
+                  final start = selection.baseOffset < selection.extentOffset
+                      ? selection.baseOffset
+                      : selection.extentOffset;
+                  final end = selection.baseOffset < selection.extentOffset
+                      ? selection.extentOffset
+                      : selection.baseOffset;
+
+                  final selectedText = line.content.substring(start, end);
+
+                  textProvider.selectTextWithOffsets(
+                    text: selectedText,
+                    startOffset: lineStartOffset + start,
+                    endOffset: lineStartOffset + end,
+                    lineIndex: index,
+                  );
+                }
+              },
+            ),
+
+            // Translation
+            if (textProvider.showTranslation && line.translation != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  line.translation!,
+                  style: TextStyle(
+                    fontSize: textProvider.fontSize - 2,
+                    color: Colors.grey[400],
+                    fontStyle: FontStyle.italic,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpeakingIndicator(_StudioTheme theme) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: theme.primary.withOpacity(_pulseAnimation.value * 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.volume_up, size: 12, color: theme.primary),
+              const SizedBox(width: 4),
+              Text(
+                'Đang đọc',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: theme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================================
+  // STUDY MODE - Luyện các đoạn đã đánh dấu (SRS)
+  // ============================================================================
+
+  Widget _buildStudyHeader(
+      BuildContext context,
+      TextProvider textProvider,
+      _StudioTheme theme,
+      ) {
+    final stats = textProvider.getSegmentStats();
+    final needsReview = stats['needsReview'] as int;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.primary.withOpacity(0.1),
+            theme.secondary.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // Stats row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StudyStat(
+                label: 'Tổng',
+                value: '${stats['total']}',
+                color: theme.primary,
+              ),
+              _StudyStat(
+                label: 'Dễ',
+                value: '${stats['easy']}',
+                color: Colors.green,
+              ),
+              _StudyStat(
+                label: 'Vừa',
+                value: '${stats['medium']}',
+                color: Colors.orange,
+              ),
+              _StudyStat(
+                label: 'Khó',
+                value: '${stats['hard']}',
+                color: Colors.red,
+              ),
+              _StudyStat(
+                label: 'Cần ôn',
+                value: '$needsReview',
+                color: Colors.purple,
+                highlight: needsReview > 0,
+              ),
+            ],
+          ),
+
+          if (needsReview > 0) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: textProvider.isPlayingSegment
+                    ? textProvider.stopSegmentPlayback
+                    : () => _startReviewSession(context, textProvider, theme),
+                icon: Icon(
+                  textProvider.isPlayingSegment ? Icons.stop : Icons.play_arrow,
+                ),
+                label: Text(
+                  textProvider.isPlayingSegment
+                      ? 'Dừng ôn tập'
+                      : 'Bắt đầu ôn tập ($needsReview đoạn)',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                  textProvider.isPlayingSegment ? Colors.red : Colors.purple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          // Filter chips
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'Tất cả',
+                  isSelected: _difficultyFilter == null,
+                  onTap: () => setState(() => _difficultyFilter = null),
+                  theme: theme,
+                ),
+                _FilterChip(
+                  label: 'Dễ',
+                  isSelected: _difficultyFilter == TextSegmentDifficulty.easy,
+                  color: Colors.green,
+                  onTap: () => setState(
+                          () => _difficultyFilter = TextSegmentDifficulty.easy),
+                  theme: theme,
+                ),
+                _FilterChip(
+                  label: 'Vừa',
+                  isSelected: _difficultyFilter == TextSegmentDifficulty.medium,
+                  color: Colors.orange,
+                  onTap: () => setState(
+                          () => _difficultyFilter = TextSegmentDifficulty.medium),
+                  theme: theme,
+                ),
+                _FilterChip(
+                  label: 'Khó',
+                  isSelected: _difficultyFilter == TextSegmentDifficulty.hard,
+                  color: Colors.red,
+                  onTap: () => setState(
+                          () => _difficultyFilter = TextSegmentDifficulty.hard),
+                  theme: theme,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudyMode(
+      BuildContext context,
+      TextProvider textProvider,
+      _StudioTheme theme,
+      ) {
+    var segments = textProvider.segments;
+
+    // Apply filter
+    if (_difficultyFilter != null) {
+      segments = segments
+          .where((s) => s.difficulty == _difficultyFilter)
+          .toList();
+    }
+
+    if (segments.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.bookmark_border,
+              size: 64,
+              color: theme.primary.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _difficultyFilter != null
+                  ? 'Không có đoạn nào với độ khó này'
+                  : 'Chưa có đoạn học nào',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Chuyển sang chế độ Đọc và chọn đoạn văn bản để đánh dấu',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _mode = TextStudioMode.read),
+              icon: Icon(Icons.chrome_reader_mode, color: theme.primary),
+              label: Text('Chuyển sang Đọc', style: TextStyle(color: theme.primary)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: theme.primary),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: segments.length,
+      itemBuilder: (context, index) {
+        final segment = segments[index];
+        final isPlaying = textProvider.currentPlayingSegment?.id == segment.id;
+
+        return _buildSegmentCard(
+          context,
+          textProvider,
+          segment,
+          isPlaying,
+          theme,
+        );
+      },
+    );
+  }
+
+  Widget _buildSegmentCard(
+      BuildContext context,
+      TextProvider textProvider,
+      TextSegment segment,
+      bool isPlaying,
+      _StudioTheme theme,
+      ) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isPlaying
+            ? segment.difficultyColor.withOpacity(0.15)
+            : theme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPlaying
+              ? segment.difficultyColor
+              : segment.difficultyColor.withOpacity(0.3),
+          width: isPlaying ? 2 : 1,
+        ),
+        boxShadow: isPlaying
+            ? [
+          BoxShadow(
+            color: segment.difficultyColor.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Type icon
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: segment.difficultyColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    segment.typeIcon,
+                    size: 16,
+                    color: segment.difficultyColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Difficulty badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: segment.difficultyColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    segment.difficulty == TextSegmentDifficulty.hard
+                        ? 'Khó'
+                        : segment.difficulty == TextSegmentDifficulty.medium
+                        ? 'Vừa'
+                        : 'Dễ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: segment.difficultyColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Settings
+                Text(
+                  '${segment.repeatCount}x • ${segment.ttsSpeed.toStringAsFixed(1)}x',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[400],
+                  ),
+                ),
+
+                // Mastery indicator
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    value: segment.masteryLevel,
+                    strokeWidth: 3,
+                    backgroundColor: Colors.grey.withOpacity(0.2),
+                    color: segment.difficultyColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              segment.content,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+                height: 1.5,
+              ),
+            ),
+          ),
+
+          // Note
+          if (segment.note != null && segment.note!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.notes, size: 14, color: Colors.grey[500]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        segment.note!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[400],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Playing progress
+          if (isPlaying) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: textProvider.currentRepeatIndex / segment.repeatCount,
+                      backgroundColor: Colors.white12,
+                      color: segment.difficultyColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${textProvider.currentRepeatIndex}/${segment.repeatCount}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: segment.difficultyColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Actions
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Play button
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: isPlaying
+                        ? textProvider.stopSegmentPlayback
+                        : () => textProvider.speakSegment(segment),
+                    icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow, size: 18),
+                    label: Text(isPlaying ? 'Dừng' : 'Phát'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isPlaying
+                          ? Colors.red
+                          : segment.difficultyColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Edit button
+                IconButton(
+                  onPressed: () => _showEditSegmentSheet(
+                      context, textProvider, segment, theme),
+                  icon: Icon(Icons.edit_outlined, color: Colors.grey[400]),
+                  tooltip: 'Chỉnh sửa',
+                ),
+
+                // Delete button
+                IconButton(
+                  onPressed: () => _confirmDeleteSegment(
+                      context, textProvider, segment),
+                  icon: Icon(Icons.delete_outline, color: Colors.red[300]),
+                  tooltip: 'Xóa',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // EDIT MODE - Chỉnh sửa toàn bộ văn bản
+  // ============================================================================
+
+  Widget _buildEditMode(
+      BuildContext context,
+      TextProvider textProvider,
+      _StudioTheme theme,
+      ) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Info bar
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Chỉnh sửa văn bản sẽ xóa tất cả đoạn đã đánh dấu',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ),
+                if (_hasUnsavedChanges)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Chưa lưu',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Text editor
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.primary.withOpacity(0.2)),
+              ),
+              child: TextField(
+                controller: _editController,
+                maxLines: null,
+                expands: true,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: textProvider.fontSize,
+                  height: 1.6,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Nhập hoặc dán văn bản ở đây...\n\n'
+                      '• Mỗi dòng sẽ được tách riêng\n'
+                      '• Dòng trống sẽ bị bỏ qua\n'
+                      '• Sau khi lưu, chuyển sang chế độ Đọc để đánh dấu đoạn',
+                  hintStyle: TextStyle(
+                    color: Colors.white.withOpacity(0.2),
+                    height: 1.6,
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                  border: InputBorder.none,
+                ),
+                onChanged: (value) {
+                  setState(() => _hasUnsavedChanges = true);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    _editController.text = textProvider.fullText;
+                    setState(() {
+                      _hasUnsavedChanges = false;
+                      _mode = TextStudioMode.read;
+                    });
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.grey),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: _hasUnsavedChanges
+                      ? () {
+                    textProvider.updateFullText(_editController.text);
+                    setState(() {
+                      _hasUnsavedChanges = false;
+                      _mode = TextStudioMode.read;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã lưu văn bản!'),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                      : null,
+                  icon: const Icon(Icons.save),
+                  label: const Text('Lưu & Cập nhật'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -428,20 +1282,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   Widget _buildTtsControls(
       BuildContext context,
       TextProvider textProvider,
-      PlayerProvider player,
       _StudioTheme theme,
       ) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.primary.withOpacity(0.2)),
       ),
       child: Column(
         children: [
-          // Speed slider
+          // Speed control
           Row(
             children: [
               Icon(Icons.speed, size: 18, color: theme.primary),
@@ -453,12 +1305,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               Expanded(
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                     activeTrackColor: theme.primary,
                     inactiveTrackColor: theme.primary.withOpacity(0.2),
                     thumbColor: theme.primary,
+                    trackHeight: 3,
                   ),
                   child: Slider(
                     value: textProvider.ttsSpeed,
@@ -486,121 +1336,52 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               ),
             ],
           ),
+          const SizedBox(height: 8),
 
-          const SizedBox(height: 10),
-
-          // TTS Action buttons
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _TtsButton(
+          // TTS buttons
+          Row(
+            children: [
+              Expanded(
+                child: _TtsActionButton(
                   icon: Icons.play_arrow,
                   label: 'Tất cả',
                   color: Colors.green,
-                  isEnabled: textProvider.hasText && !textProvider.isSpeaking,
-                  onPressed: () => textProvider.speakAllLines(),
+                  enabled: textProvider.lines.isNotEmpty,
+                  onTap: () => textProvider.speakAllLines(),
                 ),
-                const SizedBox(width: 8),
-                _TtsButton(
-                  icon: Icons.record_voice_over,
-                  label: 'Dòng này',
-                  color: Colors.blue,
-                  isEnabled: textProvider.currentLineIndex >= 0 && !textProvider.isSpeaking,
-                  onPressed: () => textProvider.speakCurrentLine(),
-                ),
-                const SizedBox(width: 8),
-                _TtsButton(
-                  icon: Icons.select_all,
-                  label: 'Đã chọn',
-                  color: Colors.orange,
-                  isEnabled: textProvider.hasSelection && !textProvider.isSpeaking,
-                  onPressed: () => textProvider.speakSelected(),
-                ),
-                const SizedBox(width: 8),
-                if (textProvider.isSpeaking || textProvider.isStudyingSegment)
-                  _TtsButton(
-                    icon: Icons.stop,
-                    label: 'Dừng',
-                    color: Colors.red,
-                    isEnabled: true,
-                    isActive: true,
-                    onPressed: () => textProvider.stopSpeaking(),
-                  ),
-                if (_mode == TextStudioMode.study && textProvider.hasSegments) ...[
-                  const SizedBox(width: 8),
-                  _TtsButton(
-                    icon: Icons.refresh,
-                    label: 'Ôn tập',
-                    color: Colors.purple,
-                    isEnabled: textProvider.dueForReview.isNotEmpty,
-                    onPressed: () => textProvider.speakAllDueSegments(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // Study progress (nếu đang study segment)
-          if (textProvider.isStudyingSegment && textProvider.currentSegment != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: _buildStudyProgress(textProvider, theme),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStudyProgress(TextProvider textProvider, _StudioTheme theme) {
-    final segment = textProvider.currentSegment!;
-    final progress = textProvider.currentRepeatCount / segment.repeatCount;
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.primary.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              ScaleTransition(
-                scale: _pulseAnimation,
-                child: Icon(Icons.volume_up, size: 16, color: theme.primary),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  segment.content.length > 40
-                      ? '${segment.content.substring(0, 40)}...'
-                      : segment.content,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: _TtsActionButton(
+                  icon: Icons.record_voice_over,
+                  label: 'Dòng',
+                  color: Colors.blue,
+                  enabled: textProvider.currentLineIndex >= 0,
+                  onTap: () => textProvider.speakCurrentLine(),
                 ),
               ),
-              Text(
-                '${textProvider.currentRepeatCount}/${segment.repeatCount}',
-                style: TextStyle(
-                  color: theme.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TtsActionButton(
+                  icon: Icons.select_all,
+                  label: 'Chọn',
+                  color: Colors.orange,
+                  enabled: textProvider.selectedText != null,
+                  onTap: () => textProvider.speakSelected(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TtsActionButton(
+                  icon: Icons.stop,
+                  label: 'Dừng',
+                  color: Colors.red,
+                  enabled: textProvider.isSpeaking,
+                  isActive: textProvider.isSpeaking,
+                  onTap: () => textProvider.stopSpeaking(),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: theme.primary.withOpacity(0.2),
-              valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
-              minHeight: 4,
-            ),
           ),
         ],
       ),
@@ -608,868 +1389,60 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   // ============================================================================
-  // MAIN CONTENT
+  // BOTTOM BAR
   // ============================================================================
 
-  Widget _buildMainContent(
+  Widget _buildBottomBar(
       BuildContext context,
       TextProvider textProvider,
       PlayerProvider player,
       _StudioTheme theme,
       ) {
-    switch (_mode) {
-      case TextStudioMode.read:
-        return _buildReadMode(context, textProvider, player, theme);
-      case TextStudioMode.study:
-        return _buildStudyMode(context, textProvider, theme);
-      case TextStudioMode.edit:
-        return _buildEditMode(context, textProvider, theme);
-    }
-  }
-
-  // ============================================================================
-  // READ MODE
-  // ============================================================================
-
-  Widget _buildReadMode(
-      BuildContext context,
-      TextProvider textProvider,
-      PlayerProvider player,
-      _StudioTheme theme,
-      ) {
-    if (!textProvider.hasText) {
-      return _buildEmptyState(context, theme);
-    }
-
-    return Column(
-      children: [
-        // Search bar (nếu hiện)
-        if (_showSearch)
-          _buildSearchBar(theme),
-
-        // Text content
-        Expanded(
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(16),
-            itemCount: textProvider.lines.length,
-            itemBuilder: (context, index) {
-              final line = textProvider.lines[index];
-
-              // Filter by search
-              if (_searchQuery.isNotEmpty &&
-                  !line.content.toLowerCase().contains(_searchQuery.toLowerCase())) {
-                return const SizedBox.shrink();
-              }
-
-              final isCurrentLine = index == textProvider.currentLineIndex;
-
-              // Kiểm tra xem line này có segment nào không
-              final lineSegments = _getSegmentsInLine(textProvider, index);
-
-              return _buildTextLine(
-                context,
-                textProvider,
-                index,
-                line,
-                isCurrentLine,
-                lineSegments,
-                theme,
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchBar(_StudioTheme theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TextField(
-        controller: _searchController,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          hintText: 'Tìm kiếm trong văn bản...',
-          hintStyle: TextStyle(color: Colors.grey[500]),
-          prefixIcon: Icon(Icons.search, color: theme.primary),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-            onPressed: () {
-              _searchController.clear();
-              setState(() => _searchQuery = '');
-            },
-            icon: const Icon(Icons.clear, size: 18),
-            color: Colors.grey,
-          )
-              : null,
-          filled: true,
-          fillColor: theme.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: theme.primary),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        onChanged: (value) => setState(() => _searchQuery = value),
-      ),
-    );
-  }
-
-  List<TextSegment> _getSegmentsInLine(TextProvider textProvider, int lineIndex) {
-    // Tính offset của line trong fullText
-    int lineStartOffset = 0;
-    for (int i = 0; i < lineIndex && i < textProvider.lines.length; i++) {
-      lineStartOffset += textProvider.lines[i].content.length + 1;
-    }
-    final lineEndOffset = lineStartOffset + textProvider.lines[lineIndex].content.length;
-
-    // Tìm segments nằm trong line này
-    return textProvider.segments.where((s) {
-      return (s.startOffset >= lineStartOffset && s.startOffset < lineEndOffset) ||
-          (s.endOffset > lineStartOffset && s.endOffset <= lineEndOffset) ||
-          (s.startOffset < lineStartOffset && s.endOffset > lineEndOffset);
-    }).toList();
-  }
-
-  Widget _buildTextLine(
-      BuildContext context,
-      TextProvider textProvider,
-      int index,
-      TextItem line,
-      bool isCurrentLine,
-      List<TextSegment> lineSegments,
-      _StudioTheme theme,
-      ) {
-    return GestureDetector(
-      onTap: () {
-        textProvider.setCurrentLine(index);
-        HapticFeedback.selectionClick();
-      },
-      onDoubleTap: () {
-        textProvider.setCurrentLine(index);
-        textProvider.speakCurrentLine();
-      },
-      onLongPress: () {
-        textProvider.setCurrentLine(index);
-        _showLineOptionsSheet(context, textProvider, index, line, theme);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isCurrentLine
-              ? theme.primary.withOpacity(0.15)
-              : lineSegments.isNotEmpty
-              ? _getSegmentColor(lineSegments.first.difficulty).withOpacity(0.08)
-              : theme.surface.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isCurrentLine
-                ? theme.primary
-                : lineSegments.isNotEmpty
-                ? _getSegmentColor(lineSegments.first.difficulty).withOpacity(0.3)
-                : Colors.transparent,
-            width: isCurrentLine ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header row
-            Row(
-              children: [
-                // Line number
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isCurrentLine
-                        ? theme.primary.withOpacity(0.3)
-                        : Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: isCurrentLine ? theme.primary : Colors.grey,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                // Segment badges
-                if (lineSegments.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  ...lineSegments.take(3).map((seg) => Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: _SegmentBadge(
-                      segment: seg,
-                      onTap: () => _showSegmentDetails(context, textProvider, seg, theme),
-                    ),
-                  )),
-                  if (lineSegments.length > 3)
-                    Text(
-                      '+${lineSegments.length - 3}',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 10,
-                      ),
-                    ),
-                ],
-
-                const Spacer(),
-
-                // Speaking indicator
-                if (isCurrentLine && textProvider.isSpeaking)
-                  ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: Icon(Icons.volume_up, size: 16, color: theme.primary),
-                  ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Text content with selection support
-            _buildSelectableText(context, textProvider, index, line, theme),
-
-            // Translation
-            if (textProvider.showTranslation && line.translation != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.03),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  line.translation!,
-                  style: TextStyle(
-                    fontSize: textProvider.fontSize - 2,
-                    color: Colors.grey[400],
-                    fontStyle: FontStyle.italic,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectableText(
-      BuildContext context,
-      TextProvider textProvider,
-      int lineIndex,
-      TextItem line,
-      _StudioTheme theme,
-      ) {
-    return SelectableText(
-      line.content,
-      style: TextStyle(
-        fontSize: textProvider.fontSize,
-        color: Colors.white,
-        height: 1.6,
-      ),
-      onSelectionChanged: (selection, cause) {
-        if (selection.baseOffset != selection.extentOffset) {
-          final selectedText = line.content.substring(
-            selection.baseOffset,
-            selection.extentOffset,
-          );
-
-          // Tính global offset
-          final globalStart = textProvider.calculateGlobalOffset(
-            lineIndex,
-            selection.baseOffset,
-          );
-          final globalEnd = textProvider.calculateGlobalOffset(
-            lineIndex,
-            selection.extentOffset,
-          );
-
-          textProvider.selectTextWithOffsets(
-            text: selectedText,
-            startOffset: globalStart,
-            endOffset: globalEnd,
-            lineIndex: lineIndex,
-          );
-        }
-      },
-    );
-  }
-
-  Color _getSegmentColor(TextSegmentDifficulty difficulty) {
-    return Color(TextSegment.difficultyColorValue(difficulty));
-  }
-
-  // ============================================================================
-  // STUDY MODE
-  // ============================================================================
-
-  Widget _buildStudyMode(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
-    if (!textProvider.hasSegments) {
-      return _buildNoSegmentsState(context, theme);
-    }
-
-    final segments = textProvider.segments;
-    final stats = textProvider.getStats();
-
-    return Column(
-      children: [
-        // Stats summary
-        _buildStudyStats(stats, theme),
-
-        // Filter chips
-        _buildSegmentFilters(textProvider, theme),
-
-        // Segments list
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: segments.length,
-            itemBuilder: (context, index) {
-              final segment = segments[index];
-              return _buildSegmentCard(context, textProvider, segment, index, theme);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStudyStats(TextLearningStats stats, _StudioTheme theme) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.primary.withOpacity(0.15),
-            theme.secondary.withOpacity(0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.primary.withOpacity(0.2)),
+        color: theme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatItem(
-            icon: Icons.bookmark,
-            value: '${stats.totalSegments}',
-            label: 'Đoạn',
-            color: theme.primary,
+          _BottomAction(
+            icon: Icons.text_decrease,
+            label: 'A-',
+            onTap: () => textProvider.setFontSize(textProvider.fontSize - 2),
           ),
-          _StatItem(
-            icon: Icons.flag,
-            value: '${stats.hardCount}',
-            label: 'Khó',
+          _BottomAction(
+            icon: Icons.text_increase,
+            label: 'A+',
+            onTap: () => textProvider.setFontSize(textProvider.fontSize + 2),
+          ),
+          _BottomAction(
+            icon: Icons.translate,
+            label: 'Dịch',
+            isActive: textProvider.showTranslation,
+            color: textProvider.showTranslation ? theme.primary : null,
+            onTap: () => textProvider.toggleTranslation(),
+          ),
+          _BottomAction(
+            icon: Icons.sync,
+            label: 'Sync',
+            color: player.currentSongPath != null ? Colors.green : null,
+            onTap: player.currentSongPath != null
+                ? () => Navigator.pushNamed(context, '/sync-hub')
+                : null,
+          ),
+          _BottomAction(
+            icon: Icons.delete_sweep,
+            label: 'Xóa',
             color: Colors.red,
-          ),
-          _StatItem(
-            icon: Icons.refresh,
-            value: '${stats.totalReviews}',
-            label: 'Ôn tập',
-            color: Colors.orange,
-          ),
-          _StatItem(
-            icon: Icons.check_circle,
-            value: '${(stats.completionRate * 100).toInt()}%',
-            label: 'Hoàn thành',
-            color: Colors.green,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegmentFilters(TextProvider textProvider, _StudioTheme theme) {
-    return Container(
-      height: 40,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _FilterChip(
-            label: 'Tất cả (${textProvider.segments.length})',
-            isSelected: true,
-            color: theme.primary,
-            onTap: () {},
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Khó (${textProvider.hardSegments.length})',
-            isSelected: false,
-            color: Colors.red,
-            onTap: () {},
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Cần ôn (${textProvider.dueForReview.length})',
-            isSelected: false,
-            color: Colors.orange,
-            onTap: () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegmentCard(
-      BuildContext context,
-      TextProvider textProvider,
-      TextSegment segment,
-      int index,
-      _StudioTheme theme,
-      ) {
-    final diffColor = _getSegmentColor(segment.difficulty);
-    final isStudying = textProvider.isStudyingSegment &&
-        textProvider.currentSegmentIndex == index;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: isStudying
-            ? diffColor.withOpacity(0.15)
-            : theme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isStudying ? diffColor : diffColor.withOpacity(0.3),
-          width: isStudying ? 2 : 1,
-        ),
-        boxShadow: isStudying
-            ? [
-          BoxShadow(
-            color: diffColor.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showSegmentDetails(context, textProvider, segment, theme),
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    // Difficulty badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: diffColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _getDifficultyLabel(segment.difficulty),
-                        style: TextStyle(
-                          color: diffColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Category badge
-                    Icon(
-                      IconData(
-                        TextSegment.categoryIconCodePoint(segment.category),
-                        fontFamily: 'MaterialIcons',
-                      ),
-                      size: 14,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _getCategoryLabel(segment.category),
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 10,
-                      ),
-                    ),
-                    const Spacer(),
-                    // Settings
-                    Text(
-                      '${segment.repeatCount}x • ${segment.ttsSpeed.toStringAsFixed(1)}x',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 10),
-
-                // Content
-                Text(
-                  segment.content,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                // Note
-                if (segment.note != null && segment.note!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.notes, size: 12, color: Colors.grey[500]),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            segment.note!,
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 10),
-
-                // Action buttons
-                Row(
-                  children: [
-                    // Play button
-                    _SegmentActionButton(
-                      icon: isStudying ? Icons.stop : Icons.play_arrow,
-                      color: isStudying ? Colors.red : Colors.green,
-                      onTap: () {
-                        if (isStudying) {
-                          textProvider.skipCurrentSegment();
-                        } else {
-                          textProvider.speakSegment(segment);
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    // Edit button
-                    _SegmentActionButton(
-                      icon: Icons.edit,
-                      color: Colors.blue,
-                      onTap: () => _showEditSegmentDialog(context, textProvider, segment, theme),
-                    ),
-                    const SizedBox(width: 8),
-                    // Delete button
-                    _SegmentActionButton(
-                      icon: Icons.delete_outline,
-                      color: Colors.red,
-                      onTap: () => _confirmDeleteSegment(context, textProvider, segment),
-                    ),
-                    const Spacer(),
-                    // Review count
-                    if (segment.reviewCount > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check, size: 12, color: Colors.green[400]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${segment.reviewCount} lần',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-
-                // Study progress (if studying this segment)
-                if (isStudying)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: textProvider.currentRepeatCount / segment.repeatCount,
-                        backgroundColor: diffColor.withOpacity(0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(diffColor),
-                        minHeight: 4,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNoSegmentsState(BuildContext context, _StudioTheme theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    theme.primary.withOpacity(0.2),
-                    theme.secondary.withOpacity(0.1),
-                  ],
-                ),
-              ),
-              child: Icon(
-                Icons.bookmark_border,
-                size: 48,
-                color: theme.primary.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Chưa có đoạn học nào',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Chọn văn bản trong chế độ Đọc,\nsau đó bấm "Đánh dấu" để tạo đoạn học.',
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => setState(() => _mode = TextStudioMode.read),
-              icon: const Icon(Icons.menu_book, size: 18),
-              label: const Text('Đến chế độ Đọc'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getDifficultyLabel(TextSegmentDifficulty difficulty) {
-    switch (difficulty) {
-      case TextSegmentDifficulty.easy:
-        return 'Dễ';
-      case TextSegmentDifficulty.medium:
-        return 'Vừa';
-      case TextSegmentDifficulty.hard:
-        return 'Khó';
-      case TextSegmentDifficulty.master:
-        return 'Thuộc lòng';
-    }
-  }
-
-  String _getCategoryLabel(TextSegmentCategory category) {
-    switch (category) {
-      case TextSegmentCategory.sutra:
-        return 'Kinh';
-      case TextSegmentCategory.dharma:
-        return 'Pháp';
-      case TextSegmentCategory.mantra:
-        return 'Chú';
-      case TextSegmentCategory.verse:
-        return 'Kệ';
-      case TextSegmentCategory.vocabulary:
-        return 'Từ vựng';
-      case TextSegmentCategory.phrase:
-        return 'Cụm từ';
-      case TextSegmentCategory.idiom:
-        return 'Thành ngữ';
-      case TextSegmentCategory.sentence:
-        return 'Câu';
-      case TextSegmentCategory.grammar:
-        return 'Ngữ pháp';
-      case TextSegmentCategory.favorite:
-        return 'Yêu thích';
-      case TextSegmentCategory.difficult:
-        return 'Điểm mù';
-      case TextSegmentCategory.review:
-        return 'Ôn tập';
-      case TextSegmentCategory.custom:
-        return 'Tùy chỉnh';
-    }
-  }
-
-  // ============================================================================
-  // EDIT MODE
-  // ============================================================================
-
-  Widget _buildEditMode(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Hint
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: theme.primary.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, size: 18, color: theme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Chỉnh sửa tự do. Các đoạn học đã đánh dấu có thể bị lệch offset.',
-                    style: TextStyle(
-                      color: theme.primary,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Text editor
-          Expanded(
-            child: TextField(
-              controller: _editController,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: textProvider.fontSize,
-                height: 1.6,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Nhập hoặc chỉnh sửa văn bản tự do...\n\nMỗi dòng sẽ được hiển thị riêng trong chế độ Đọc.',
-                hintStyle: TextStyle(
-                  color: Colors.white.withOpacity(0.2),
-                  height: 1.6,
-                ),
-                filled: true,
-                fillColor: theme.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: theme.primary),
-                ),
-                contentPadding: const EdgeInsets.all(16),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    _editController.text = textProvider.fullText;
-                    setState(() => _mode = TextStudioMode.read);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey,
-                    side: const BorderSide(color: Colors.grey),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Hủy'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    textProvider.updateFullText(_editController.text);
-                    setState(() => _mode = TextStudioMode.read);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã cập nhật văn bản'),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.save, size: 18),
-                  label: const Text('Lưu & Cập nhật'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            onTap: () => _confirmClearAll(context, textProvider),
           ),
         ],
       ),
@@ -1499,12 +1472,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
               ),
               child: Icon(
-                Icons.text_snippet,
-                size: 56,
+                Icons.text_snippet_outlined,
+                size: 64,
                 color: theme.primary,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             const Text(
               'Chưa có văn bản',
               style: TextStyle(
@@ -1515,22 +1488,26 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Nhập hoặc mở file text để bắt đầu',
+              'Nhập văn bản để bắt đầu học',
               style: TextStyle(color: Colors.grey[400]),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
+
+            // Action buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton.icon(
                   onPressed: () => _importTextFile(context),
-                  icon: const Icon(Icons.file_open, size: 18),
+                  icon: const Icon(Icons.file_open),
                   label: const Text('Mở file'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1538,12 +1515,17 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
                 const SizedBox(width: 16),
                 OutlinedButton.icon(
-                  onPressed: () => setState(() => _mode = TextStudioMode.edit),
-                  icon: Icon(Icons.edit, color: theme.primary, size: 18),
+                  onPressed: () {
+                    setState(() => _mode = TextStudioMode.edit);
+                  },
+                  icon: Icon(Icons.edit, color: theme.primary),
                   label: Text('Nhập text', style: TextStyle(color: theme.primary)),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: theme.primary),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1552,46 +1534,31 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               ],
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
 
-            // Features
+            // Tips
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
+                color: theme.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
               ),
               child: Column(
                 children: [
-                  Text(
-                    'Tính năng vượt trội',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: theme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _FeatureItem(
-                    icon: Icons.bookmark,
-                    text: 'Đánh dấu từ/cụm/câu với độ khó riêng',
+                  _TipItem(
+                    icon: Icons.touch_app,
+                    text: 'Chạm vào dòng để chọn, chạm đúp để đọc TTS',
                     color: theme.primary,
                   ),
-                  _FeatureItem(
-                    icon: Icons.speed,
-                    text: 'Tốc độ TTS riêng cho từng đoạn',
-                    color: Colors.orange,
+                  _TipItem(
+                    icon: Icons.text_fields,
+                    text: 'Bôi đen văn bản để đánh dấu đoạn học',
+                    color: Colors.amber,
                   ),
-                  _FeatureItem(
-                    icon: Icons.loop,
-                    text: 'Số lần lặp tùy chỉnh (1-20 lần)',
-                    color: Colors.green,
-                  ),
-                  _FeatureItem(
+                  _TipItem(
                     icon: Icons.school,
-                    text: 'Study mode như Anki với TTS',
-                    color: Colors.blue,
+                    text: 'Chuyển sang Luyện để ôn tập theo SRS',
+                    color: Colors.purple,
                   ),
                 ],
               ),
@@ -1603,106 +1570,141 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   // ============================================================================
-  // BOTTOM BAR
+  // DIALOGS & SHEETS
   // ============================================================================
 
-  Widget _buildBottomBar(
-      BuildContext context,
-      TextProvider textProvider,
-      PlayerProvider player,
-      _StudioTheme theme,
-      ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.surface,
-        border: Border(
-          top: BorderSide(color: theme.primary.withOpacity(0.2)),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
+  Future<void> _importTextFile(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt', 'srt', 'lrc'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = File(result.files.first.path!);
+        final content = await file.readAsString();
+        final title = result.files.first.name;
+
+        if (context.mounted) {
+          context.read<TextProvider>().loadText(content, title: title);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Đã tải: $title'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
-        ],
+        );
+      }
+    }
+  }
+
+  void _showPasteDialog(BuildContext context, _StudioTheme theme) {
+    final controller = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Font size decrease
-          _BottomButton(
-            icon: Icons.text_decrease,
-            label: 'A-',
-            color: theme.primary,
-            onPressed: () => textProvider.setFontSize(textProvider.fontSize - 2),
-          ),
-
-          // Font size increase
-          _BottomButton(
-            icon: Icons.text_increase,
-            label: 'A+',
-            color: theme.primary,
-            onPressed: () => textProvider.setFontSize(textProvider.fontSize + 2),
-          ),
-
-          // Mark segment (main action)
-          _BottomButton(
-            icon: Icons.bookmark_add,
-            label: 'Đánh dấu',
-            color: textProvider.hasSelection ? Colors.amber : Colors.grey,
-            isHighlighted: textProvider.hasSelection,
-            onPressed: textProvider.hasSelection
-                ? () => _showCreateSegmentDialog(context, textProvider, player, theme)
-                : null,
-          ),
-
-          // Sync with audio
-          _BottomButton(
-            icon: Icons.sync,
-            label: 'Sync',
-            color: player.currentSongPath != null ? Colors.green : Colors.grey,
-            onPressed: player.currentSongPath != null
-                ? () => _syncWithAudio(context)
-                : null,
-          ),
-
-          // Clear all
-          _BottomButton(
-            icon: Icons.delete_sweep,
-            label: 'Xóa',
-            color: Colors.red,
-            onPressed: () => _confirmClearAll(context, textProvider),
-          ),
-        ],
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Dán văn bản',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: theme.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              maxLines: 8,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Dán văn bản ở đây...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Hủy'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (controller.text.trim().isNotEmpty) {
+                        context.read<TextProvider>().loadText(
+                          controller.text,
+                          title: 'Văn bản mới',
+                        );
+                        Navigator.pop(context);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primary,
+                    ),
+                    child: const Text('Thêm'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
 
-  // ============================================================================
-  // DIALOGS
-  // ============================================================================
-
-  void _showCreateSegmentDialog(
+  void _showCreateSegmentSheet(
       BuildContext context,
       TextProvider textProvider,
-      PlayerProvider player,
       _StudioTheme theme,
       ) {
     final info = textProvider.selectedTextInfo;
     if (info == null) return;
 
     TextSegmentDifficulty difficulty = TextSegmentDifficulty.medium;
-    TextSegmentCategory category = theme.segmentCategories.first;
-    final repeatController = TextEditingController(
-      text: TextSegment.suggestedRepeatCount(difficulty).toString(),
-    );
+    TextSegmentType type = theme.defaultSegmentType;
+    final repeatController = TextEditingController(text: '3');
     final speedController = TextEditingController(
-      text: TextSegment.suggestedTtsSpeed(difficulty).toStringAsFixed(2),
+      text: textProvider.ttsSpeed.toStringAsFixed(2),
     );
-    final gapController = TextEditingController(text: '1.0');
     final noteController = TextEditingController();
-    final translationController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -1724,20 +1726,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Title
+                // Header
                 Row(
                   children: [
                     Icon(Icons.bookmark_add, color: theme.primary),
@@ -1759,85 +1748,83 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: theme.primary.withOpacity(0.3)),
                   ),
                   child: Text(
                     info.text.length > 100
                         ? '${info.text.substring(0, 100)}...'
                         : info.text,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      height: 1.4,
-                    ),
+                    style: const TextStyle(color: Colors.white70),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // Difficulty selection
+                // Difficulty selector
                 const Text(
-                  'Độ khó',
+                  'Độ khó:',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
-                  children: TextSegmentDifficulty.values.map((d) {
-                    final isSelected = difficulty == d;
-                    final color = _getSegmentColor(d);
-                    return ChoiceChip(
-                      label: Text(_getDifficultyLabel(d)),
-                      selected: isSelected,
-                      selectedColor: color.withOpacity(0.3),
-                      labelStyle: TextStyle(
-                        color: isSelected ? color : Colors.grey,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? color : Colors.grey.withOpacity(0.3),
-                      ),
-                      onSelected: (_) {
-                        setModalState(() {
-                          difficulty = d;
-                          repeatController.text =
-                              TextSegment.suggestedRepeatCount(d).toString();
-                          speedController.text =
-                              TextSegment.suggestedTtsSpeed(d).toStringAsFixed(2);
-                        });
-                      },
-                    );
-                  }).toList(),
+                  children: [
+                    _DifficultyChip(
+                      label: 'Dễ (1x)',
+                      value: TextSegmentDifficulty.easy,
+                      current: difficulty,
+                      onSelected: (d) => setModalState(() {
+                        difficulty = d;
+                        repeatController.text = '1';
+                        speedController.text = '1.0';
+                      }),
+                    ),
+                    _DifficultyChip(
+                      label: 'Vừa (3x)',
+                      value: TextSegmentDifficulty.medium,
+                      current: difficulty,
+                      onSelected: (d) => setModalState(() {
+                        difficulty = d;
+                        repeatController.text = '3';
+                        speedController.text = '0.85';
+                      }),
+                    ),
+                    _DifficultyChip(
+                      label: 'Khó (5x)',
+                      value: TextSegmentDifficulty.hard,
+                      current: difficulty,
+                      onSelected: (d) => setModalState(() {
+                        difficulty = d;
+                        repeatController.text = '5';
+                        speedController.text = '0.7';
+                      }),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
-                // Category selection
+                // Type selector
                 const Text(
-                  'Phân loại',
+                  'Loại:',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: theme.segmentCategories.map((c) {
-                    final isSelected = category == c;
+                  children: TextSegmentType.values.map((t) {
+                    final isSelected = type == t;
                     return ChoiceChip(
-                      label: Text(_getCategoryLabel(c)),
+                      label: Text(_getTypeLabel(t)),
                       selected: isSelected,
-                      selectedColor: theme.primary.withOpacity(0.3),
-                      labelStyle: TextStyle(
-                        color: isSelected ? theme.primary : Colors.grey,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? theme.primary : Colors.grey.withOpacity(0.3),
-                      ),
-                      onSelected: (_) => setModalState(() => category = c),
+                      selectedColor: theme.primary,
+                      onSelected: (_) => setModalState(() => type = t),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
 
-                // Repeat & Speed
+                // Custom settings
                 Row(
                   children: [
                     Expanded(
@@ -1848,11 +1835,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                         decoration: InputDecoration(
                           labelText: 'Số lần lặp',
                           labelStyle: TextStyle(color: Colors.grey[400]),
-                          prefixIcon: Icon(Icons.loop, color: theme.primary, size: 20),
+                          prefixIcon: Icon(Icons.repeat, color: Colors.grey[400]),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -1867,11 +1854,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                         decoration: InputDecoration(
                           labelText: 'Tốc độ TTS',
                           labelStyle: TextStyle(color: Colors.grey[400]),
-                          prefixIcon: Icon(Icons.speed, color: theme.primary, size: 20),
+                          prefixIcon: Icon(Icons.speed, color: Colors.grey[400]),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -1881,62 +1868,25 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
                 const SizedBox(height: 12),
 
-                // Gap duration
-                TextField(
-                  controller: gapController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Khoảng nghỉ giữa các lần (giây)',
-                    labelStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: Icon(Icons.timer, color: theme.primary, size: 20),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
                 // Note
                 TextField(
                   controller: noteController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: 'Ghi chú (nghĩa, giải thích...)',
+                    labelText: 'Ghi chú (VD: Tứ Diệu Đế, Phrasal verb...)',
                     labelStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: Icon(Icons.notes, color: theme.primary, size: 20),
+                    prefixIcon: Icon(Icons.notes, color: Colors.grey[400]),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.05),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Translation
-                TextField(
-                  controller: translationController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Bản dịch (tùy chọn)',
-                    labelStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: Icon(Icons.translate, color: theme.primary, size: 20),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Buttons
+                // Actions
                 Row(
                   children: [
                     Expanded(
@@ -1951,39 +1901,35 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       child: ElevatedButton.icon(
                         onPressed: () {
                           final repeat = int.tryParse(repeatController.text) ?? 3;
-                          final speed = double.tryParse(speedController.text) ?? 1.0;
-                          final gap = double.tryParse(gapController.text) ?? 1.0;
+                          final speed = double.tryParse(speedController.text) ??
+                              textProvider.ttsSpeed;
 
                           textProvider.createSegmentFromSelection(
                             difficulty: difficulty,
-                            category: category,
-                            repeatCountOverride: repeat.clamp(1, 20),
-                            ttsSpeedOverride: speed.clamp(0.25, 2.0),
-                            gapDurationOverride: gap.clamp(0.5, 10.0),
+                            type: type,
+                            repeatCountOverride: repeat,
+                            ttsSpeedOverride: speed,
                             note: noteController.text.trim().isEmpty
                                 ? null
                                 : noteController.text.trim(),
-                            translation: translationController.text.trim().isEmpty
-                                ? null
-                                : translationController.text.trim(),
                           );
 
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Đã tạo đoạn học!'),
-                                ],
-                              ),
+                              content: const Text('Đã lưu đoạn học!'),
                               backgroundColor: Colors.green,
                               behavior: SnackBarBehavior.floating,
+                              action: SnackBarAction(
+                                label: 'Xem',
+                                textColor: Colors.white,
+                                onPressed: () =>
+                                    setState(() => _mode = TextStudioMode.study),
+                              ),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.bookmark_add, size: 18),
+                        icon: const Icon(Icons.save),
                         label: const Text('Lưu đoạn học'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: theme.primary,
@@ -2024,15 +1970,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
             Text(
               'Dòng ${index + 1}',
               style: TextStyle(
@@ -2041,11 +1978,24 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 color: theme.primary,
               ),
             ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                line.content,
+                style: const TextStyle(color: Colors.white70),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const SizedBox(height: 16),
-
-            _LineOptionTile(
+            _LineOption(
               icon: Icons.volume_up,
-              title: 'Đọc dòng này',
+              title: 'Đọc TTS',
               color: Colors.blue,
               onTap: () {
                 Navigator.pop(context);
@@ -2053,274 +2003,40 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 textProvider.speakCurrentLine();
               },
             ),
-            _LineOptionTile(
-              icon: Icons.select_all,
-              title: 'Chọn toàn bộ dòng',
-              color: Colors.green,
-              onTap: () {
-                Navigator.pop(context);
-                final globalStart = textProvider.calculateGlobalOffset(index, 0);
-                final globalEnd = textProvider.calculateGlobalOffset(
-                  index,
-                  line.content.length,
-                );
-                textProvider.selectTextWithOffsets(
-                  text: line.content,
-                  startOffset: globalStart,
-                  endOffset: globalEnd,
-                  lineIndex: index,
-                );
-              },
-            ),
-            _LineOptionTile(
+            _LineOption(
               icon: Icons.bookmark_add,
-              title: 'Đánh dấu toàn dòng',
-              subtitle: 'Tạo đoạn học từ dòng này',
+              title: 'Đánh dấu toàn bộ dòng',
               color: Colors.amber,
               onTap: () {
                 Navigator.pop(context);
-                final globalStart = textProvider.calculateGlobalOffset(index, 0);
-                final globalEnd = textProvider.calculateGlobalOffset(
-                  index,
-                  line.content.length,
-                );
+                // Select entire line
+                int offset = 0;
+                for (int i = 0; i < index; i++) {
+                  offset += textProvider.lines[i].content.length + 1;
+                }
                 textProvider.selectTextWithOffsets(
                   text: line.content,
-                  startOffset: globalStart,
-                  endOffset: globalEnd,
+                  startOffset: offset,
+                  endOffset: offset + line.content.length,
                   lineIndex: index,
                 );
-                // Mở dialog tạo segment
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  _showCreateSegmentDialog(
-                    context,
-                    textProvider,
-                    context.read<PlayerProvider>(),
-                    theme,
-                  );
-                });
+                _showCreateSegmentSheet(context, textProvider, theme);
               },
             ),
-
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSegmentDetails(
-      BuildContext context,
-      TextProvider textProvider,
-      TextSegment segment,
-      _StudioTheme theme,
-      ) {
-    final diffColor = _getSegmentColor(segment.difficulty);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: diffColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+            _LineOption(
+              icon: Icons.copy,
+              title: 'Sao chép',
+              color: Colors.grey,
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: line.content));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã sao chép!'),
+                    behavior: SnackBarBehavior.floating,
                   ),
-                  child: Text(
-                    _getDifficultyLabel(segment.difficulty),
-                    style: TextStyle(
-                      color: diffColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  'Ôn: ${segment.reviewCount} lần',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Content
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: diffColor.withOpacity(0.3)),
-              ),
-              child: Text(
-                segment.content,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  height: 1.6,
-                ),
-              ),
-            ),
-
-            // Translation
-            if (segment.translation != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.03),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.translate, size: 14, color: Colors.grey[500]),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Bản dịch',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      segment.translation!,
-                      style: TextStyle(
-                        color: Colors.grey[300],
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // Note
-            if (segment.note != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.03),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.notes, size: 14, color: Colors.grey[500]),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Ghi chú',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      segment.note!,
-                      style: TextStyle(color: Colors.grey[300]),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 16),
-
-            // Settings info
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _DetailChip(
-                  icon: Icons.loop,
-                  label: '${segment.repeatCount} lần',
-                  color: theme.primary,
-                ),
-                _DetailChip(
-                  icon: Icons.speed,
-                  label: '${segment.ttsSpeed.toStringAsFixed(1)}x',
-                  color: Colors.orange,
-                ),
-                _DetailChip(
-                  icon: Icons.timer,
-                  label: '${segment.gapDuration.toStringAsFixed(1)}s',
-                  color: Colors.cyan,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Actions
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      textProvider.speakSegment(segment);
-                    },
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('Học ngay'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                IconButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showEditSegmentDialog(context, textProvider, segment, theme);
-                  },
-                  icon: const Icon(Icons.edit),
-                  color: Colors.blue,
-                ),
-                IconButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _confirmDeleteSegment(context, textProvider, segment);
-                  },
-                  icon: const Icon(Icons.delete),
-                  color: Colors.red,
-                ),
-              ],
+                );
+              },
             ),
             const SizedBox(height: 10),
           ],
@@ -2329,18 +2045,20 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showEditSegmentDialog(
+  void _showEditSegmentSheet(
       BuildContext context,
       TextProvider textProvider,
       TextSegment segment,
       _StudioTheme theme,
       ) {
     TextSegmentDifficulty difficulty = segment.difficulty;
-    final repeatController = TextEditingController(text: segment.repeatCount.toString());
-    final speedController = TextEditingController(text: segment.ttsSpeed.toStringAsFixed(2));
-    final gapController = TextEditingController(text: segment.gapDuration.toStringAsFixed(1));
+    final repeatController = TextEditingController(
+      text: segment.repeatCount.toString(),
+    );
+    final speedController = TextEditingController(
+      text: segment.ttsSpeed.toStringAsFixed(2),
+    );
     final noteController = TextEditingController(text: segment.note ?? '');
-    final translationController = TextEditingController(text: segment.translation ?? '');
 
     showModalBottomSheet(
       context: context,
@@ -2352,162 +2070,221 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             left: 20,
             right: 20,
             top: 20,
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Chỉnh sửa đoạn học',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
-                Row(
-                  children: [
-                    Icon(Icons.edit, color: theme.primary),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Chỉnh sửa đoạn học',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+              // Difficulty
+              const Text('Độ khó:', style: TextStyle(color: Colors.white)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: TextSegmentDifficulty.values.map((d) {
+                  return ChoiceChip(
+                    label: Text(d == TextSegmentDifficulty.hard
+                        ? 'Khó'
+                        : d == TextSegmentDifficulty.medium
+                        ? 'Vừa'
+                        : 'Dễ'),
+                    selected: difficulty == d,
+                    selectedColor: d == TextSegmentDifficulty.hard
+                        ? Colors.red
+                        : d == TextSegmentDifficulty.medium
+                        ? Colors.orange
+                        : Colors.green,
+                    onSelected: (_) => setModalState(() => difficulty = d),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Settings
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: repeatController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Số lần lặp',
+                        labelStyle: TextStyle(color: Colors.grey),
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: speedController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Tốc độ TTS',
+                        labelStyle: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Note
+              TextField(
+                controller: noteController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú',
+                  labelStyle: TextStyle(color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Hủy'),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final updated = segment.copyWith(
+                          difficulty: difficulty,
+                          repeatCount: int.tryParse(repeatController.text) ??
+                              segment.repeatCount,
+                          ttsSpeed: double.tryParse(speedController.text) ??
+                              segment.ttsSpeed,
+                          note: noteController.text.trim().isEmpty
+                              ? null
+                              : noteController.text.trim(),
+                        );
+                        textProvider.updateSegment(updated);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primary,
+                      ),
+                      child: const Text('Cập nhật'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSettingsSheet(
+      BuildContext context,
+      TextProvider textProvider,
+      _StudioTheme theme,
+      ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cài đặt Text Studio',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: theme.primary,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Font size
+              Row(
+                children: [
+                  const Icon(Icons.format_size, color: Colors.grey),
+                  const SizedBox(width: 12),
+                  const Text('Cỡ chữ:', style: TextStyle(color: Colors.white)),
+                  Expanded(
+                    child: Slider(
+                      value: textProvider.fontSize,
+                      min: 12,
+                      max: 32,
+                      activeColor: theme.primary,
+                      onChanged: (value) {
+                        textProvider.setFontSize(value);
+                        setModalState(() {});
+                      },
+                    ),
+                  ),
+                  Text(
+                    '${textProvider.fontSize.toInt()}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+
+              // TTS Language
+              ListTile(
+                leading: const Icon(Icons.language, color: Colors.grey),
+                title: const Text('Ngôn ngữ TTS',
+                    style: TextStyle(color: Colors.white)),
+                trailing: DropdownButton<String>(
+                  value: textProvider.ttsLanguage,
+                  dropdownColor: theme.surface,
+                  items: const [
+                    DropdownMenuItem(value: 'en-US', child: Text('English (US)')),
+                    DropdownMenuItem(value: 'en-GB', child: Text('English (UK)')),
+                    DropdownMenuItem(value: 'vi-VN', child: Text('Tiếng Việt')),
                   ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      textProvider.setTtsLanguage(value);
+                      setModalState(() {});
+                    }
+                  },
                 ),
-                const SizedBox(height: 16),
+              ),
 
-                // Difficulty
-                const Text('Độ khó', style: TextStyle(color: Colors.white)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: TextSegmentDifficulty.values.map((d) {
-                    final isSelected = difficulty == d;
-                    final color = _getSegmentColor(d);
-                    return ChoiceChip(
-                      label: Text(_getDifficultyLabel(d)),
-                      selected: isSelected,
-                      selectedColor: color.withOpacity(0.3),
-                      labelStyle: TextStyle(
-                        color: isSelected ? color : Colors.grey,
-                      ),
-                      onSelected: (_) => setModalState(() => difficulty = d),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
+              // Show translation
+              SwitchListTile(
+                secondary: const Icon(Icons.translate, color: Colors.grey),
+                title: const Text('Hiện bản dịch',
+                    style: TextStyle(color: Colors.white)),
+                value: textProvider.showTranslation,
+                activeColor: theme.primary,
+                onChanged: (_) {
+                  textProvider.toggleTranslation();
+                  setModalState(() {});
+                },
+              ),
 
-                // Settings
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: repeatController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          labelText: 'Số lần lặp',
-                          labelStyle: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: speedController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          labelText: 'Tốc độ TTS',
-                          labelStyle: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: gapController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Khoảng nghỉ (giây)',
-                    labelStyle: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: noteController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú',
-                    labelStyle: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: translationController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Bản dịch',
-                    labelStyle: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Hủy'),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          textProvider.updateSegment(
-                            segment.id,
-                            difficulty: difficulty,
-                            repeatCount: int.tryParse(repeatController.text) ?? segment.repeatCount,
-                            ttsSpeed: double.tryParse(speedController.text) ?? segment.ttsSpeed,
-                            gapDuration: double.tryParse(gapController.text) ?? segment.gapDuration,
-                            note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-                            translation: translationController.text.trim().isEmpty
-                                ? null
-                                : translationController.text.trim(),
-                          );
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primary,
-                        ),
-                        child: const Text('Lưu thay đổi'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              const SizedBox(height: 10),
+            ],
           ),
         ),
       ),
@@ -2523,7 +2300,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xóa đoạn học?', style: TextStyle(color: Colors.white)),
         content: Text(
           'Bạn có chắc muốn xóa:\n"${segment.content.length > 50 ? '${segment.content.substring(0, 50)}...' : segment.content}"',
@@ -2552,10 +2328,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Xóa tất cả?', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'Bạn có chắc muốn xóa toàn bộ văn bản và các đoạn học đã đánh dấu?',
+          'Xóa toàn bộ văn bản và các đoạn đã đánh dấu?',
           style: TextStyle(color: Colors.grey),
         ),
         actions: [
@@ -2566,56 +2341,426 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           ElevatedButton(
             onPressed: () {
               textProvider.clearText();
-              textProvider.clearAllSegments();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa tất cả'),
+            child: const Text('Xóa'),
           ),
         ],
       ),
     );
   }
 
-  void _showSettingsSheet(
+  void _showUnsavedChangesDialog(BuildContext context, {VoidCallback? onDiscard}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Chưa lưu thay đổi',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Bạn có thay đổi chưa lưu. Bạn muốn làm gì?',
+          style: TextStyle(color: Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tiếp tục sửa'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _editController.text = context.read<TextProvider>().fullText;
+              setState(() => _hasUnsavedChanges = false);
+              onDiscard?.call();
+            },
+            child: const Text('Bỏ thay đổi', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              context.read<TextProvider>().updateFullText(_editController.text);
+              Navigator.pop(context);
+              setState(() => _hasUnsavedChanges = false);
+              onDiscard?.call();
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startReviewSession(
       BuildContext context,
       TextProvider textProvider,
       _StudioTheme theme,
       ) {
-    showModalBottomSheet(
-        context: context,
-        backgroundColor: theme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (context) => StatefulBuilder(
-            builder: (context, setModalState) => Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              Center(
-              child: Container(
-              width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Cài đặt Text Studio',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.primary,
-              ),
-            ),
-            const SizedBox(height: 20),
+    textProvider.startReviewSession();
+  }
 
-            // Font size
-            ListTile(
-                leading: 
+  String _getTypeLabel(TextSegmentType type) {
+    switch (type) {
+      case TextSegmentType.vocabulary:
+        return 'Từ vựng';
+      case TextSegmentType.phrase:
+        return 'Cụm từ';
+      case TextSegmentType.sentence:
+        return 'Câu';
+      case TextSegmentType.paragraph:
+        return 'Đoạn';
+      case TextSegmentType.dharma:
+        return 'Phật Pháp';
+      case TextSegmentType.grammar:
+        return 'Ngữ pháp';
+    }
+  }
+}
+
+// ============================================================================
+// HELPER WIDGETS
+// ============================================================================
+
+class _StudioTheme {
+  final Color primary;
+  final Color secondary;
+  final Color accent;
+  final Color background;
+  final Color surface;
+  final IconData icon;
+  final String name;
+  final TextSegmentType defaultSegmentType;
+
+  const _StudioTheme({
+    required this.primary,
+    required this.secondary,
+    required this.accent,
+    required this.background,
+    required this.surface,
+    required this.icon,
+    required this.name,
+    required this.defaultSegmentType,
+  });
+}
+
+class _SelectionActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _SelectionActionButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, size: 20),
+      color: color,
+      tooltip: tooltip,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      padding: EdgeInsets.zero,
+    );
+  }
+}
+
+class _StudyStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final bool highlight;
+
+  const _StudyStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(highlight ? 0.3 : 0.1),
+            shape: BoxShape.circle,
+            border: highlight ? Border.all(color: color, width: 2) : null,
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final Color? color;
+  final VoidCallback onTap;
+  final _StudioTheme theme;
+
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    this.color,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chipColor = color ?? theme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? chipColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? chipColor : Colors.grey.withOpacity(0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TtsActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool enabled;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _TtsActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.enabled,
+    this.isActive = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive
+              ? color.withOpacity(0.3)
+              : enabled
+              ? color.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? color : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: enabled ? color : Colors.grey,
+              size: 22,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: enabled ? color : Colors.grey,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final bool isActive;
+  final VoidCallback? onTap;
+
+  const _BottomAction({
+    required this.icon,
+    required this.label,
+    this.color,
+    this.isActive = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onTap != null;
+    final effectiveColor = color ?? Colors.white;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: isActive
+                ? BoxDecoration(
+              color: effectiveColor.withOpacity(0.2),
+              shape: BoxShape.circle,
+            )
+                : null,
+            child: Icon(
+              icon,
+              color: isEnabled ? effectiveColor : Colors.grey,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: isEnabled ? effectiveColor : Colors.grey,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipItem extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _TipItem({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DifficultyChip extends StatelessWidget {
+  final String label;
+  final TextSegmentDifficulty value;
+  final TextSegmentDifficulty current;
+  final void Function(TextSegmentDifficulty) onSelected;
+
+  const _DifficultyChip({
+    required this.label,
+    required this.value,
+    required this.current,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = value == current;
+    final color = value == TextSegmentDifficulty.hard
+        ? Colors.red
+        : value == TextSegmentDifficulty.medium
+        ? Colors.orange
+        : Colors.green;
+
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: color,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.grey,
+      ),
+      onSelected: (_) => onSelected(value),
+    );
+  }
+}
+
+class _LineOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _LineOption({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 18),
+      ),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
+    );
+  }
+}

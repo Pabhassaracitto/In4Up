@@ -1,14 +1,16 @@
 // lib/providers/text_provider.dart
-// VipSound - Text Provider
-// Version 3.0 - Enhanced with Text Segments & SRS
+// PHẦN CẬP NHẬT - Sửa lỗi TTS và thêm Word Analysis
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
+import '../models/word_analysis.dart';
 
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
+  final WordDatabase _wordDatabase = WordDatabase();
 
   // ==================== TEXT DATA ====================
   TextDocument? _currentDocument;
@@ -16,6 +18,10 @@ class TextProvider extends ChangeNotifier {
   int _currentLineIndex = -1;
   String? _selectedText;
   String _fullText = '';
+
+  // ==================== WORD ANALYSIS ====================
+  List<List<AnalyzedWord>> _analyzedLines = [];
+  ColorMode _colorMode = ColorMode.none;
 
   // ==================== TEXT SEGMENTS ====================
   final List<TextSegment> _segments = [];
@@ -26,6 +32,7 @@ class TextProvider extends ChangeNotifier {
   double _ttsPitch = 1.0;
   String _ttsLanguage = 'en-US';
   bool _isSpeaking = false;
+  Completer<void>? _ttsCompleter;
 
   // ==================== SEGMENT PLAYBACK ====================
   bool _isPlayingSegment = false;
@@ -45,6 +52,10 @@ class TextProvider extends ChangeNotifier {
   int get currentLineIndex => _currentLineIndex;
   String? get selectedText => _selectedText;
   String get fullText => _fullText;
+
+  // Word analysis
+  List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
+  ColorMode get colorMode => _colorMode;
 
   // Segments
   List<TextSegment> get segments => List.unmodifiable(_segments);
@@ -73,31 +84,51 @@ class TextProvider extends ChangeNotifier {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage(_ttsLanguage);
-    await _tts.setSpeechRate(_ttsSpeed);
-    await _tts.setPitch(_ttsPitch);
-    await _tts.setVolume(1.0);
+    try {
+      await _tts.setLanguage(_ttsLanguage);
+      // Flutter TTS sử dụng rate từ 0.0 đến 1.0, không phải 0.25-2.0
+      // 0.5 = tốc độ bình thường, 0.0 = chậm nhất, 1.0 = nhanh nhất
+      await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
+      await _tts.setPitch(_ttsPitch);
+      await _tts.setVolume(1.0);
 
-    _tts.setStartHandler(() {
-      _isSpeaking = true;
-      notifyListeners();
-    });
+      _tts.setStartHandler(() {
+        _isSpeaking = true;
+        notifyListeners();
+      });
 
-    _tts.setCompletionHandler(() {
-      _isSpeaking = false;
-      notifyListeners();
-    });
+      _tts.setCompletionHandler(() {
+        _isSpeaking = false;
+        _ttsCompleter?.complete();
+        _ttsCompleter = null;
+        notifyListeners();
+      });
 
-    _tts.setCancelHandler(() {
-      _isSpeaking = false;
-      notifyListeners();
-    });
+      _tts.setCancelHandler(() {
+        _isSpeaking = false;
+        _ttsCompleter?.complete();
+        _ttsCompleter = null;
+        notifyListeners();
+      });
 
-    _tts.setErrorHandler((msg) {
-      _isSpeaking = false;
-      debugPrint('TTS Error: $msg');
-      notifyListeners();
-    });
+      _tts.setErrorHandler((msg) {
+        _isSpeaking = false;
+        _ttsCompleter?.completeError(msg);
+        _ttsCompleter = null;
+        debugPrint('TTS Error: $msg');
+        notifyListeners();
+      });
+    } catch (e) {
+      debugPrint('TTS Init Error: $e');
+    }
+  }
+
+  /// Chuyển đổi từ tốc độ người dùng (0.25-2.0) sang rate của Flutter TTS (0.0-1.0)
+  double _convertSpeedToRate(double speed) {
+    // speed 1.0 = rate 0.5 (tốc độ bình thường)
+    // speed 0.25 = rate 0.125
+    // speed 2.0 = rate 1.0
+    return (speed / 2.0).clamp(0.0, 1.0);
   }
 
   // ==================== TEXT MANAGEMENT ====================
@@ -111,6 +142,11 @@ class TextProvider extends ChangeNotifier {
         id: 'line_${entry.key}',
         content: entry.value.trim(),
       );
+    }).toList();
+
+    // Phân tích từ vựng cho mỗi dòng
+    _analyzedLines = _lines.map((line) {
+      return _wordDatabase.analyzeSentence(line.content);
     }).toList();
 
     _currentDocument = TextDocument(
@@ -138,6 +174,11 @@ class TextProvider extends ChangeNotifier {
       );
     }).toList();
 
+    // Phân tích lại từ vựng
+    _analyzedLines = _lines.map((line) {
+      return _wordDatabase.analyzeSentence(line.content);
+    }).toList();
+
     if (_currentDocument != null) {
       _currentDocument = TextDocument(
         id: _currentDocument!.id,
@@ -148,7 +189,6 @@ class TextProvider extends ChangeNotifier {
       );
     }
 
-    // Clear segments vì offset có thể bị lệch
     _segments.clear();
     _selectedTextInfo = null;
     _selectedText = null;
@@ -159,6 +199,7 @@ class TextProvider extends ChangeNotifier {
 
   void clearText() {
     _lines = [];
+    _analyzedLines = [];
     _currentDocument = null;
     _currentLineIndex = -1;
     _selectedText = null;
@@ -186,6 +227,20 @@ class TextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ==================== COLOR MODE ====================
+
+  void setColorMode(ColorMode mode) {
+    _colorMode = mode;
+    notifyListeners();
+  }
+
+  void cycleColorMode() {
+    final modes = ColorMode.values;
+    final currentIndex = modes.indexOf(_colorMode);
+    _colorMode = modes[(currentIndex + 1) % modes.length];
+    notifyListeners();
+  }
+
   // ==================== TEXT SELECTION WITH OFFSETS ====================
 
   void selectTextWithOffsets({
@@ -207,7 +262,7 @@ class TextProvider extends ChangeNotifier {
   int calculateGlobalOffset(int lineIndex, int localOffset) {
     int globalOffset = 0;
     for (int i = 0; i < lineIndex && i < _lines.length; i++) {
-      globalOffset += _lines[i].content.length + 1; // +1 for newline
+      globalOffset += _lines[i].content.length + 1;
     }
     return globalOffset + localOffset;
   }
@@ -227,7 +282,6 @@ class TextProvider extends ChangeNotifier {
 
     final info = _selectedTextInfo!;
 
-    // Tính repeatCount theo độ khó nếu không override
     final repeatCount = repeatCountOverride ??
         (difficulty == TextSegmentDifficulty.hard
             ? 5
@@ -235,7 +289,6 @@ class TextProvider extends ChangeNotifier {
             ? 3
             : 1);
 
-    // Tính ttsSpeed theo độ khó nếu không override
     final speed = ttsSpeedOverride ??
         (difficulty == TextSegmentDifficulty.hard
             ? 0.7
@@ -290,12 +343,29 @@ class TextProvider extends ChangeNotifier {
     return _segments.where((s) => s.type == type).toList();
   }
 
-  // ==================== TTS FUNCTIONS ====================
+  // ==================== TTS FUNCTIONS (SỬA LỖI) ====================
 
+  /// Phát TTS và đợi cho đến khi hoàn thành
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
+
     await _tts.stop();
+
+    _ttsCompleter = Completer<void>();
+
     await _tts.speak(text);
+
+    // Đợi cho đến khi TTS hoàn thành
+    try {
+      await _ttsCompleter?.future.timeout(
+        Duration(seconds: text.length ~/ 2 + 10), // Timeout dựa trên độ dài text
+        onTimeout: () {
+          debugPrint('TTS timeout');
+        },
+      );
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+    }
   }
 
   Future<void> speakCurrentLine() async {
@@ -304,15 +374,28 @@ class TextProvider extends ChangeNotifier {
     }
   }
 
+  /// Đọc tất cả các dòng - ĐÃ SỬA
   Future<void> speakAllLines() async {
+    _isSpeaking = true;
+    notifyListeners();
+
     for (int i = 0; i < _lines.length; i++) {
-      if (!_isSpeaking && i > 0) break; // Cho phép dừng giữa chừng
+      if (!_isSpeaking) break; // Cho phép dừng giữa chừng
+
       _currentLineIndex = i;
       notifyListeners();
+
+      // Đợi TTS hoàn thành trước khi chuyển dòng
       await speak(_lines[i].content);
-      // Đợi TTS hoàn thành
-      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Khoảng nghỉ giữa các dòng
+      if (_isSpeaking && i < _lines.length - 1) {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
     }
+
+    _isSpeaking = false;
+    notifyListeners();
   }
 
   Future<void> speakSelected() async {
@@ -327,12 +410,16 @@ class TextProvider extends ChangeNotifier {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
+    _ttsCompleter?.complete();
+    _ttsCompleter = null;
     notifyListeners();
   }
 
+  /// Set tốc độ TTS - ĐÃ SỬA
   Future<void> setTtsSpeed(double speed) async {
-    _ttsSpeed = speed.clamp(0.1, 2.0);
-    await _tts.setSpeechRate(_ttsSpeed);
+    _ttsSpeed = speed.clamp(0.25, 2.0);
+    // Chuyển đổi sang rate của Flutter TTS
+    await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
     notifyListeners();
   }
 
@@ -356,24 +443,18 @@ class TextProvider extends ChangeNotifier {
     _currentRepeatIndex = 0;
     notifyListeners();
 
-    // Lưu tốc độ gốc
     final originalSpeed = _ttsSpeed;
 
-    // Set tốc độ của segment
     await setTtsSpeed(segment.ttsSpeed);
 
     for (int i = 0; i < segment.repeatCount; i++) {
-      if (!_isPlayingSegment) break; // Cho phép dừng giữa chừng
+      if (!_isPlayingSegment) break;
 
       _currentRepeatIndex = i + 1;
       notifyListeners();
 
       await speak(segment.content);
 
-      // Đợi TTS hoàn thành + khoảng nghỉ
-      await _waitForTtsComplete();
-
-      // Khoảng nghỉ giữa các lần lặp
       if (i < segment.repeatCount - 1 && _isPlayingSegment) {
         await Future.delayed(Duration(
           milliseconds: segment.difficulty == TextSegmentDifficulty.hard
@@ -383,10 +464,8 @@ class TextProvider extends ChangeNotifier {
       }
     }
 
-    // Khôi phục tốc độ gốc
     await setTtsSpeed(originalSpeed);
 
-    // Cập nhật thống kê
     if (_isPlayingSegment) {
       final updated = segment.copyWith(
         lastPracticed: DateTime.now(),
@@ -402,15 +481,6 @@ class TextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _waitForTtsComplete() async {
-    // Đợi tối đa 30 giây cho TTS hoàn thành
-    int waited = 0;
-    while (_isSpeaking && waited < 30000) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      waited += 100;
-    }
-  }
-
   void stopSegmentPlayback() {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
@@ -420,8 +490,6 @@ class TextProvider extends ChangeNotifier {
   }
 
   double _calculateNewMastery(TextSegment segment) {
-    // Tăng mastery mỗi lần luyện, tối đa 1.0
-    // Khó hơn = tăng chậm hơn
     final increment = 0.1 / (segment.difficulty.index + 1);
     return (segment.masteryLevel + increment).clamp(0.0, 1.0);
   }
@@ -439,6 +507,69 @@ class TextProvider extends ChangeNotifier {
       }
     }
 
+    _isPlayingSegment = false;
+    notifyListeners();
+  }
+
+  // ==================== WORD DIFFICULTY MARKING ====================
+
+  /// Đánh dấu độ khó cho một từ trong analyzed words
+  void markWordDifficulty(int lineIndex, int wordIndex, DifficultyLevel difficulty) {
+    if (lineIndex >= 0 && lineIndex < _analyzedLines.length) {
+      if (wordIndex >= 0 && wordIndex < _analyzedLines[lineIndex].length) {
+        _analyzedLines[lineIndex][wordIndex] =
+            _analyzedLines[lineIndex][wordIndex].copyWith(
+              userDifficulty: difficulty,
+            );
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Đọc TTS các từ khó trước theo thứ tự độ khó
+  Future<void> speakDifficultWordsFirst() async {
+    final difficultWords = <AnalyzedWord>[];
+
+    // Thu thập tất cả từ khó
+    for (final line in _analyzedLines) {
+      for (final word in line) {
+        if (word.userDifficulty != null &&
+            word.userDifficulty != DifficultyLevel.known) {
+          difficultWords.add(word);
+        }
+      }
+    }
+
+    // Sắp xếp theo độ khó (khó nhất trước)
+    difficultWords.sort((a, b) {
+      final aLevel = a.userDifficulty?.index ?? 0;
+      final bLevel = b.userDifficulty?.index ?? 0;
+      return bLevel.compareTo(aLevel);
+    });
+
+    _isPlayingSegment = true;
+    notifyListeners();
+
+    for (final word in difficultWords) {
+      if (!_isPlayingSegment) break;
+
+      final repeatCount = word.userDifficulty?.repeatCount ?? 1;
+      final speed = word.userDifficulty?.ttsSpeed ?? 1.0;
+
+      await setTtsSpeed(speed);
+
+      for (int i = 0; i < repeatCount; i++) {
+        if (!_isPlayingSegment) break;
+        await speak(word.word);
+        if (i < repeatCount - 1) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+
+      await Future.delayed(const Duration(milliseconds: 800));
+    }
+
+    await setTtsSpeed(1.0);
     _isPlayingSegment = false;
     notifyListeners();
   }
@@ -465,6 +596,38 @@ class TextProvider extends ChangeNotifier {
       'needsReview': needsReview,
       'averageMastery': avgMastery,
     };
+  }
+
+  /// Thống kê từ vựng theo CEFR
+  Map<CEFRLevel, int> getCEFRStats() {
+    final stats = <CEFRLevel, int>{};
+    for (final level in CEFRLevel.values) {
+      stats[level] = 0;
+    }
+
+    for (final line in _analyzedLines) {
+      for (final word in line) {
+        stats[word.cefrLevel] = (stats[word.cefrLevel] ?? 0) + 1;
+      }
+    }
+
+    return stats;
+  }
+
+  /// Thống kê từ vựng theo loại từ
+  Map<WordType, int> getWordTypeStats() {
+    final stats = <WordType, int>{};
+    for (final type in WordType.values) {
+      stats[type] = 0;
+    }
+
+    for (final line in _analyzedLines) {
+      for (final word in line) {
+        stats[word.wordType] = (stats[word.wordType] ?? 0) + 1;
+      }
+    }
+
+    return stats;
   }
 
   // ==================== DISPLAY SETTINGS ====================
@@ -500,7 +663,6 @@ class TextProvider extends ChangeNotifier {
 
   void markSelectedDifficulty(DifficultyMark difficulty) {
     if (_selectedText == null) return;
-    // Có thể mở rộng để lưu vào danh sách điểm mù
     notifyListeners();
   }
 

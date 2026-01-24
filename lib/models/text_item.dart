@@ -1,3 +1,7 @@
+// lib/models/text_item.dart
+// VipSound - Text Item Model
+// Không chứa WordType (được chuyển sang word_analysis.dart)
+
 class TextItem {
   final String id;
   final String content;
@@ -40,28 +44,14 @@ class TextItem {
 
 class WordItem {
   final String word;
-  final WordType type;
   final DifficultyMark difficulty;
   final String? note;
 
   WordItem({
     required this.word,
-    this.type = WordType.unknown,
     this.difficulty = DifficultyMark.none,
     this.note,
   });
-}
-
-enum WordType {
-  noun,       // Danh từ - Xanh dương
-  verb,       // Động từ - Đỏ
-  adjective,  // Tính từ - Xanh lá
-  adverb,     // Trạng từ - Cam
-  preposition,// Giới từ - Tím
-  determiner, // Mạo từ - Xám
-  conjunction,// Liên từ - Nâu
-  pronoun,    // Đại từ - Xanh ngọc
-  unknown,    // Không xác định
 }
 
 enum DifficultyMark {

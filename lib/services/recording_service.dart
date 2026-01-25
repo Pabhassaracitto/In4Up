@@ -1,0 +1,292 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+/// Service xử lý ghi âm
+class RecordingService {
+  // Singleton
+  static final RecordingService _instance = RecordingService._internal();
+  factory RecordingService() => _instance;
+  RecordingService._internal();
+
+  // State
+  bool _isRecording = false;
+  bool _isPaused = false;
+  String? _currentRecordingPath;
+  DateTime? _recordingStartTime;
+
+  // Streams
+  final _stateController = StreamController<RecordingState>.broadcast();
+  final _amplitudeController = StreamController<double>.broadcast();
+  final _durationController = StreamController<Duration>.broadcast();
+
+  Timer? _durationTimer;
+  Timer? _amplitudeTimer;
+
+  // Waveform data được thu thập trong quá trình ghi
+  final List<double> _recordingWaveform = [];
+
+  // Getters
+  bool get isRecording => _isRecording;
+  bool get isPaused => _isPaused;
+  String? get currentRecordingPath => _currentRecordingPath;
+  List<double> get recordingWaveform => List.unmodifiable(_recordingWaveform);
+
+  Stream<RecordingState> get stateStream => _stateController.stream;
+  Stream<double> get amplitudeStream => _amplitudeController.stream;
+  Stream<Duration> get durationStream => _durationController.stream;
+
+  Duration get currentDuration {
+    if (_recordingStartTime == null) return Duration.zero;
+    return DateTime.now().difference(_recordingStartTime!);
+  }
+
+  /// Kiểm tra quyền microphone
+  Future<bool> checkPermission() async {
+    final status = await Permission.microphone.status;
+    if (status.isGranted) return true;
+
+    final result = await Permission.microphone.request();
+    return result.isGranted;
+  }
+
+  /// Bắt đầu ghi âm
+  Future<bool> startRecording({String? customPath}) async {
+    if (_isRecording) {
+      debugPrint('RecordingService: Already recording');
+      return false;
+    }
+
+    // Check permission
+    final hasPermission = await checkPermission();
+    if (!hasPermission) {
+      debugPrint('RecordingService: Microphone permission denied');
+      _stateController.add(RecordingState.permissionDenied);
+      return false;
+    }
+
+    try {
+      // Generate file path
+      if (customPath != null) {
+        _currentRecordingPath = customPath;
+      } else {
+        final dir = await getTemporaryDirectory();
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        _currentRecordingPath = '${dir.path}/shadowing_$timestamp.m4a';
+      }
+
+      // Clear previous waveform data
+      _recordingWaveform.clear();
+
+      // TODO: Integrate với package 'record' thực tế
+      // Đây là placeholder - cần thêm package record
+      /*
+      await _recorder.start(
+        RecordConfig(encoder: AudioEncoder.aacLc),
+        path: _currentRecordingPath!,
+      );
+      */
+
+      _isRecording = true;
+      _isPaused = false;
+      _recordingStartTime = DateTime.now();
+
+      _stateController.add(RecordingState.recording);
+
+      // Start duration timer
+      _startDurationTimer();
+
+      // Start amplitude monitoring (simulated)
+      _startAmplitudeMonitoring();
+
+      debugPrint('RecordingService: Started recording to $_currentRecordingPath');
+      return true;
+
+    } catch (e) {
+      debugPrint('RecordingService: Error starting recording: $e');
+      _stateController.add(RecordingState.error);
+      return false;
+    }
+  }
+
+  /// Dừng ghi âm
+  Future<String?> stopRecording() async {
+    if (!_isRecording) {
+      debugPrint('RecordingService: Not recording');
+      return null;
+    }
+
+    try {
+      // TODO: Stop actual recording
+      /*
+      final path = await _recorder.stop();
+      */
+
+      _stopTimers();
+
+      _isRecording = false;
+      _isPaused = false;
+
+      _stateController.add(RecordingState.stopped);
+
+      final path = _currentRecordingPath;
+      debugPrint('RecordingService: Stopped recording. Path: $path');
+
+      return path;
+
+    } catch (e) {
+      debugPrint('RecordingService: Error stopping recording: $e');
+      _stateController.add(RecordingState.error);
+      return null;
+    }
+  }
+
+  /// Pause/Resume recording
+  Future<void> togglePause() async {
+    if (!_isRecording) return;
+
+    try {
+      if (_isPaused) {
+        // Resume
+        // await _recorder.resume();
+        _isPaused = false;
+        _stateController.add(RecordingState.recording);
+      } else {
+        // Pause
+        // await _recorder.pause();
+        _isPaused = true;
+        _stateController.add(RecordingState.paused);
+      }
+    } catch (e) {
+      debugPrint('RecordingService: Error toggling pause: $e');
+    }
+  }
+
+  /// Cancel recording and delete file
+  Future<void> cancelRecording() async {
+    await stopRecording();
+
+    if (_currentRecordingPath != null) {
+      try {
+        final file = File(_currentRecordingPath!);
+        if (await file.exists()) {
+          await file.delete();
+          debugPrint('RecordingService: Deleted recording file');
+        }
+      } catch (e) {
+        debugPrint('RecordingService: Error deleting file: $e');
+      }
+    }
+
+    _currentRecordingPath = null;
+    _recordingWaveform.clear();
+    _stateController.add(RecordingState.idle);
+  }
+
+  void _startDurationTimer() {
+    _durationTimer?.cancel();
+    _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (_isRecording && !_isPaused) {
+        _durationController.add(currentDuration);
+      }
+    });
+  }
+
+  void _startAmplitudeMonitoring() {
+    _amplitudeTimer?.cancel();
+
+    // Simulate amplitude monitoring
+    // TODO: Thay bằng đọc amplitude thật từ recorder
+    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (_isRecording && !_isPaused) {
+        // Simulated amplitude (0.0 - 1.0)
+        final simulatedAmplitude = 0.3 + (DateTime.now().millisecond % 100) / 150;
+        _amplitudeController.add(simulatedAmplitude.clamp(0.0, 1.0));
+        _recordingWaveform.add(simulatedAmplitude.clamp(0.0, 1.0));
+      }
+    });
+  }
+
+  void _stopTimers() {
+    _durationTimer?.cancel();
+    _amplitudeTimer?.cancel();
+    _durationTimer = null;
+    _amplitudeTimer = null;
+  }
+
+  /// Extract waveform từ file audio
+  Future<List<double>> extractWaveform(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return _generateSimulatedWaveform(100);
+      }
+
+      final bytes = await file.readAsBytes();
+      return _processAudioBytes(bytes);
+
+    } catch (e) {
+      debugPrint('RecordingService: Error extracting waveform: $e');
+      return _generateSimulatedWaveform(100);
+    }
+  }
+
+  List<double> _processAudioBytes(Uint8List bytes) {
+    const targetSamples = 500;
+
+    // Skip header (simplified - assumes WAV-like format)
+    int dataStart = 44;
+    if (bytes.length < dataStart + 100) {
+      return _generateSimulatedWaveform(targetSamples);
+    }
+
+    final dataLength = bytes.length - dataStart;
+    final bytesPerSample = (dataLength / targetSamples).ceil();
+
+    List<double> samples = [];
+    for (int i = dataStart; i < bytes.length && samples.length < targetSamples; i += bytesPerSample) {
+      int sum = 0;
+      int count = 0;
+
+      for (int j = 0; j < bytesPerSample && i + j < bytes.length; j++) {
+        sum += bytes[i + j];
+        count++;
+      }
+
+      if (count > 0) {
+        double value = ((sum / count) - 128).abs() / 128;
+        samples.add(value.clamp(0.05, 1.0));
+      }
+    }
+
+    return samples;
+  }
+
+  List<double> _generateSimulatedWaveform(int count) {
+    final random = DateTime.now().millisecond;
+    return List.generate(count, (i) {
+      double base = 0.3 + (((i + random) * 7) % 100) / 200;
+      return base.clamp(0.1, 0.9);
+    });
+  }
+
+  /// Cleanup
+  void dispose() {
+    _stopTimers();
+    _stateController.close();
+    _amplitudeController.close();
+    _durationController.close();
+  }
+}
+
+enum RecordingState {
+  idle,
+  recording,
+  paused,
+  stopped,
+  permissionDenied,
+  error,
+}

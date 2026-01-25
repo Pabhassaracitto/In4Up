@@ -7,6 +7,7 @@ import 'providers/waveform_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';  // THÊM DÒNG NÀY
 import 'screens/home_screen.dart';
+import 'providers/shadowing_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +41,7 @@ class UltraMusicApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),  // THÊM DÒNG NÀY
         ChangeNotifierProvider(create: (_) => WaveformProvider()),  // THÊM DÒNG NÀY
+        ChangeNotifierProvider(create: (_) => ShadowingProvider()),  // THÊM
       ],
       child: MaterialApp(
         title: 'Ultra Music Player',

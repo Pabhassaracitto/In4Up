@@ -1,7 +1,7 @@
 // lib/screens/text_studio_screen.dart
 // VipSound - Text Studio Screen
-// Version 3.0 - Enhanced for Buddhism & Language Learning
-// Features: Read/Study/Edit modes, Text Segments with SRS
+// Version 4.0 - Enhanced with Color Modes (WordType, CEFR, Difficulty)
+// Tham khảo: edward.io, Language Reactor
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,12 +13,12 @@ import '../providers/text_provider.dart';
 import '../providers/player_provider.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
+import '../models/word_analysis.dart';
 
 // ============================================================================
 // ENUMS & CONSTANTS
 // ============================================================================
 
-/// Chế độ hoạt động của Text Studio
 enum TextStudioMode {
   read,   // Đọc văn bản, chọn đoạn
   study,  // Luyện các đoạn đã đánh dấu (SRS)
@@ -49,9 +49,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // === FILTER STATE ===
-  TextSegmentDifficulty? _difficultyFilter;
-  TextSegmentType? _typeFilter;
+  // === LEGEND ===
+  bool _showLegend = false;
 
   @override
   void initState() {
@@ -136,8 +135,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               children: [
                 _buildAppBar(context, textProvider, player, theme),
                 _buildModeSwitcher(theme),
-                if (_mode == TextStudioMode.read)
+                if (_mode == TextStudioMode.read) ...[
+                  _buildColorModeBar(context, textProvider, theme),
                   _buildTtsControls(context, textProvider, theme),
+                ],
                 if (_mode == TextStudioMode.study)
                   _buildStudyHeader(context, textProvider, theme),
                 Expanded(
@@ -177,7 +178,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       ),
       child: Row(
         children: [
-          // Back button
           IconButton(
             onPressed: () {
               if (_hasUnsavedChanges) {
@@ -189,8 +189,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             icon: const Icon(Icons.arrow_back_ios_new, size: 20),
             color: Colors.white70,
           ),
-
-          // Logo
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -198,27 +196,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 colors: [theme.primary, theme.secondary],
               ),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Icon(Icons.text_fields, color: Colors.white, size: 18),
           ),
           const SizedBox(width: 12),
-
-          // Title
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Text Studio',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -226,17 +215,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
                 Text(
                   textProvider.currentDocument?.title ?? 'Chưa có văn bản',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.primary,
-                  ),
+                  style: TextStyle(fontSize: 11, color: theme.primary),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-
-          // Stats badge
           if (textProvider.segments.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -260,33 +244,175 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ],
               ),
             ),
-
-          // Import button
           IconButton(
             onPressed: () => _importTextFile(context),
             icon: Icon(Icons.file_open_outlined, size: 22),
             color: theme.primary,
-            tooltip: 'Mở file',
           ),
-
-          // Paste button
           IconButton(
             onPressed: () => _showPasteDialog(context, theme),
             icon: Icon(Icons.paste, size: 22),
             color: theme.primary,
-            tooltip: 'Dán văn bản',
           ),
-
-          // Settings
           IconButton(
             onPressed: () => _showSettingsSheet(context, textProvider, theme),
             icon: Icon(Icons.tune, size: 22),
             color: theme.primary,
-            tooltip: 'Cài đặt',
           ),
         ],
       ),
     );
+  }
+
+  // ============================================================================
+  // COLOR MODE BAR - Thanh chuyển đổi chế độ màu
+  // ============================================================================
+
+  Widget _buildColorModeBar(
+      BuildContext context,
+      TextProvider textProvider,
+      _StudioTheme theme,
+      ) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.palette, size: 16, color: theme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Chế độ màu:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ColorMode.values.map((mode) {
+                      final isSelected = textProvider.colorMode == mode;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _ColorModeChip(
+                          mode: mode,
+                          isSelected: isSelected,
+                          onTap: () => textProvider.setColorMode(mode),
+                          theme: theme,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              // Legend toggle
+              IconButton(
+                onPressed: () => setState(() => _showLegend = !_showLegend),
+                icon: Icon(
+                  _showLegend ? Icons.info : Icons.info_outline,
+                  size: 20,
+                ),
+                color: _showLegend ? theme.primary : Colors.grey,
+                tooltip: 'Hiển thị chú thích màu',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ],
+          ),
+          // Legend panel
+          if (_showLegend)
+            _buildLegendPanel(textProvider.colorMode, theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendPanel(ColorMode colorMode, _StudioTheme theme) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _getLegendTitle(colorMode),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: theme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _buildLegendItems(colorMode),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getLegendTitle(ColorMode mode) {
+    switch (mode) {
+      case ColorMode.none:
+        return 'Không tô màu';
+      case ColorMode.wordType:
+        return 'Màu theo loại từ (Tham khảo: edward.io)';
+      case ColorMode.cefrLevel:
+        return 'Màu theo cấp độ CEFR (Tham khảo: Language Reactor)';
+      case ColorMode.difficulty:
+        return 'Màu theo độ khó (Bạn tự đánh dấu)';
+    }
+  }
+
+  List<Widget> _buildLegendItems(ColorMode mode) {
+    switch (mode) {
+      case ColorMode.none:
+        return [
+          const Text('Văn bản hiển thị màu trắng bình thường',
+              style: TextStyle(color: Colors.grey, fontSize: 11))
+        ];
+      case ColorMode.wordType:
+        return WordType.values.where((t) => t != WordType.unknown).map((type) {
+          return _LegendItem(
+            color: type.color,
+            label: type.labelVi,
+            abbreviation: type.abbreviation,
+          );
+        }).toList();
+      case ColorMode.cefrLevel:
+        return CEFRLevel.values.where((l) => l != CEFRLevel.unknown).map((level) {
+          return _LegendItem(
+            color: level.color,
+            label: level.shortLabel,
+            abbreviation: level.descriptionVi,
+          );
+        }).toList();
+      case ColorMode.difficulty:
+        return DifficultyLevel.values.map((level) {
+          return _LegendItem(
+            color: level.color,
+            label: level.label,
+            abbreviation: '${level.repeatCount}x',
+          );
+        }).toList();
+    }
   }
 
   // ============================================================================
@@ -361,11 +487,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isSelected ? Colors.white : Colors.grey,
-              ),
+              Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.grey),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -425,7 +547,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   // ============================================================================
-  // READ MODE - Đọc và đánh dấu đoạn
+  // READ MODE - Với hiển thị màu sắc
   // ============================================================================
 
   Widget _buildReadMode(
@@ -436,17 +558,14 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       ) {
     return Column(
       children: [
-        // Selection hint
         if (textProvider.selectedTextInfo != null)
           _buildSelectionBar(context, textProvider, theme),
-
-        // Text content
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: textProvider.lines.length,
             itemBuilder: (context, index) {
-              return _buildTextLine(
+              return _buildColoredTextLine(
                 context,
                 textProvider,
                 index,
@@ -500,17 +619,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
                 Text(
                   previewText,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.white70,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          // Quick action buttons
           _SelectionActionButton(
             icon: Icons.volume_up,
             color: Colors.blue,
@@ -527,16 +642,15 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             icon: Icons.close,
             color: Colors.grey,
             tooltip: 'Bỏ chọn',
-            onTap: () {
-              textProvider.clearSelection();
-            },
+            onTap: () => textProvider.clearSelection(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTextLine(
+  /// Build dòng text với màu sắc theo ColorMode
+  Widget _buildColoredTextLine(
       BuildContext context,
       TextProvider textProvider,
       int index,
@@ -544,8 +658,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       ) {
     final line = textProvider.lines[index];
     final isCurrentLine = index == textProvider.currentLineIndex;
+    final analyzedWords = index < textProvider.analyzedLines.length
+        ? textProvider.analyzedLines[index]
+        : <AnalyzedWord>[];
 
-    // Tính offset của dòng này trong fullText
     int lineStartOffset = 0;
     for (int i = 0; i < index; i++) {
       lineStartOffset += textProvider.lines[i].content.length + 1;
@@ -607,34 +723,35 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ),
             const SizedBox(height: 8),
 
-            // Selectable content
-            SelectableText(
-              line.content,
-              style: TextStyle(
-                fontSize: textProvider.fontSize,
-                color: Colors.white,
-                height: 1.6,
-              ),
-              onSelectionChanged: (selection, cause) {
-                if (selection.baseOffset != selection.extentOffset) {
-                  final start = selection.baseOffset < selection.extentOffset
-                      ? selection.baseOffset
-                      : selection.extentOffset;
-                  final end = selection.baseOffset < selection.extentOffset
-                      ? selection.extentOffset
-                      : selection.baseOffset;
-
-                  final selectedText = line.content.substring(start, end);
-
-                  textProvider.selectTextWithOffsets(
-                    text: selectedText,
-                    startOffset: lineStartOffset + start,
-                    endOffset: lineStartOffset + end,
-                    lineIndex: index,
+            // Colored text content
+            if (textProvider.colorMode == ColorMode.none)
+            // Plain text mode với selection
+              SelectableText(
+                line.content,
+                style: TextStyle(
+                  fontSize: textProvider.fontSize,
+                  color: Colors.white,
+                  height: 1.6,
+                ),
+                onSelectionChanged: (selection, cause) {
+                  _handleTextSelection(
+                    selection,
+                    line.content,
+                    textProvider,
+                    lineStartOffset,
+                    index,
                   );
-                }
-              },
-            ),
+                },
+              )
+            else
+            // Colored text mode
+              _buildColoredText(
+                analyzedWords,
+                textProvider,
+                lineStartOffset,
+                index,
+                theme,
+              ),
 
             // Translation
             if (textProvider.showTranslation && line.translation != null) ...[
@@ -659,6 +776,71 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           ],
         ),
       ),
+    );
+  }
+
+  void _handleTextSelection(
+      TextSelection selection,
+      String content,
+      TextProvider textProvider,
+      int lineStartOffset,
+      int lineIndex,
+      ) {
+    if (selection.baseOffset != selection.extentOffset) {
+      final start = selection.baseOffset < selection.extentOffset
+          ? selection.baseOffset
+          : selection.extentOffset;
+      final end = selection.baseOffset < selection.extentOffset
+          ? selection.extentOffset
+          : selection.baseOffset;
+
+      final selectedText = content.substring(start, end);
+
+      textProvider.selectTextWithOffsets(
+        text: selectedText,
+        startOffset: lineStartOffset + start,
+        endOffset: lineStartOffset + end,
+        lineIndex: lineIndex,
+      );
+    }
+  }
+
+  /// Build văn bản với màu sắc
+  Widget _buildColoredText(
+      List<AnalyzedWord> words,
+      TextProvider textProvider,
+      int lineStartOffset,
+      int lineIndex,
+      _StudioTheme theme,
+      ) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: words.asMap().entries.map((entry) {
+        final wordIndex = entry.key;
+        final word = entry.value;
+
+        return _ColoredWordWidget(
+          word: word,
+          colorMode: textProvider.colorMode,
+          fontSize: textProvider.fontSize,
+          onTap: () {
+            // Tap vào từ để đọc TTS
+            textProvider.speak(word.word);
+          },
+          onLongPress: () {
+            // Long press để đánh dấu độ khó
+            _showWordOptionsSheet(
+              context,
+              textProvider,
+              word,
+              lineIndex,
+              wordIndex,
+              theme,
+            );
+          },
+        );
+      }).toList(),
     );
   }
 
@@ -693,7 +875,185 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   // ============================================================================
-  // STUDY MODE - Luyện các đoạn đã đánh dấu (SRS)
+  // WORD OPTIONS SHEET - Đánh dấu độ khó cho từ
+  // ============================================================================
+
+  void _showWordOptionsSheet(
+      BuildContext context,
+      TextProvider textProvider,
+      AnalyzedWord word,
+      int lineIndex,
+      int wordIndex,
+      _StudioTheme theme,
+      ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: word.wordType.color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    word.word,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: word.wordType.color,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _WordBadge(
+                            label: word.wordType.labelVi,
+                            color: word.wordType.color,
+                          ),
+                          const SizedBox(width: 6),
+                          _WordBadge(
+                            label: word.cefrLevel.shortLabel,
+                            color: word.cefrLevel.color,
+                          ),
+                        ],
+                      ),
+                      if (word.meaning != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            word.meaning!,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Difficulty buttons
+            const Text(
+              'Đánh dấu độ khó của bạn:',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: DifficultyLevel.values.map((level) {
+                final isSelected = word.userDifficulty == level;
+                return GestureDetector(
+                  onTap: () {
+                    textProvider.markWordDifficulty(lineIndex, wordIndex, level);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Đã đánh dấu "${word.word}" là ${level.label}'),
+                        backgroundColor: level.color,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? level.color
+                          : level.color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: level.color,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSelected ? Icons.check_circle : Icons.circle_outlined,
+                          size: 16,
+                          color: isSelected ? Colors.white : level.color,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${level.label} (${level.repeatCount}x)',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : level.color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Actions
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      textProvider.speak(word.word);
+                    },
+                    icon: const Icon(Icons.volume_up),
+                    label: const Text('Đọc TTS'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Tạo segment từ từ này
+                      textProvider.selectText(word.word);
+                      _showCreateSegmentSheet(context, textProvider, theme);
+                    },
+                    icon: const Icon(Icons.bookmark_add),
+                    label: const Text('Lưu học'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================================
+  // STUDY MODE
   // ============================================================================
 
   Widget _buildStudyHeader(
@@ -718,30 +1078,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       ),
       child: Column(
         children: [
-          // Stats row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StudyStat(
-                label: 'Tổng',
-                value: '${stats['total']}',
-                color: theme.primary,
-              ),
-              _StudyStat(
-                label: 'Dễ',
-                value: '${stats['easy']}',
-                color: Colors.green,
-              ),
-              _StudyStat(
-                label: 'Vừa',
-                value: '${stats['medium']}',
-                color: Colors.orange,
-              ),
-              _StudyStat(
-                label: 'Khó',
-                value: '${stats['hard']}',
-                color: Colors.red,
-              ),
+              _StudyStat(label: 'Tổng', value: '${stats['total']}', color: theme.primary),
+              _StudyStat(label: 'Dễ', value: '${stats['easy']}', color: Colors.green),
+              _StudyStat(label: 'Vừa', value: '${stats['medium']}', color: Colors.orange),
+              _StudyStat(label: 'Khó', value: '${stats['hard']}', color: Colors.red),
               _StudyStat(
                 label: 'Cần ôn',
                 value: '$needsReview',
@@ -750,75 +1093,44 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               ),
             ],
           ),
-
           if (needsReview > 0) ...[
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: textProvider.isPlayingSegment
-                    ? textProvider.stopSegmentPlayback
-                    : () => _startReviewSession(context, textProvider, theme),
-                icon: Icon(
-                  textProvider.isPlayingSegment ? Icons.stop : Icons.play_arrow,
-                ),
-                label: Text(
-                  textProvider.isPlayingSegment
-                      ? 'Dừng ôn tập'
-                      : 'Bắt đầu ôn tập ($needsReview đoạn)',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                  textProvider.isPlayingSegment ? Colors.red : Colors.purple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: textProvider.isPlayingSegment
+                        ? textProvider.stopSegmentPlayback
+                        : () => textProvider.startReviewSession(),
+                    icon: Icon(textProvider.isPlayingSegment ? Icons.stop : Icons.play_arrow),
+                    label: Text(
+                      textProvider.isPlayingSegment
+                          ? 'Dừng ôn tập'
+                          : 'Ôn tập ($needsReview)',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: textProvider.isPlayingSegment ? Colors.red : Colors.purple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
-
-          // Filter chips
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _FilterChip(
-                  label: 'Tất cả',
-                  isSelected: _difficultyFilter == null,
-                  onTap: () => setState(() => _difficultyFilter = null),
-                  theme: theme,
-                ),
-                _FilterChip(
-                  label: 'Dễ',
-                  isSelected: _difficultyFilter == TextSegmentDifficulty.easy,
-                  color: Colors.green,
-                  onTap: () => setState(
-                          () => _difficultyFilter = TextSegmentDifficulty.easy),
-                  theme: theme,
-                ),
-                _FilterChip(
-                  label: 'Vừa',
-                  isSelected: _difficultyFilter == TextSegmentDifficulty.medium,
-                  color: Colors.orange,
-                  onTap: () => setState(
-                          () => _difficultyFilter = TextSegmentDifficulty.medium),
-                  theme: theme,
-                ),
-                _FilterChip(
-                  label: 'Khó',
-                  isSelected: _difficultyFilter == TextSegmentDifficulty.hard,
-                  color: Colors.red,
-                  onTap: () => setState(
-                          () => _difficultyFilter = TextSegmentDifficulty.hard),
-                  theme: theme,
+                const SizedBox(width: 8),
+                // Đọc từ khó trước
+                ElevatedButton.icon(
+                  onPressed: textProvider.isPlayingSegment
+                      ? null
+                      : () => textProvider.speakDifficultWordsFirst(),
+                  icon: const Icon(Icons.fitness_center, size: 18),
+                  label: const Text('Từ khó'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -829,42 +1141,23 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       TextProvider textProvider,
       _StudioTheme theme,
       ) {
-    var segments = textProvider.segments;
-
-    // Apply filter
-    if (_difficultyFilter != null) {
-      segments = segments
-          .where((s) => s.difficulty == _difficultyFilter)
-          .toList();
-    }
+    final segments = textProvider.segments;
 
     if (segments.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.bookmark_border,
-              size: 64,
-              color: theme.primary.withOpacity(0.3),
-            ),
+            Icon(Icons.bookmark_border, size: 64, color: theme.primary.withOpacity(0.3)),
             const SizedBox(height: 16),
-            Text(
-              _difficultyFilter != null
-                  ? 'Không có đoạn nào với độ khó này'
-                  : 'Chưa có đoạn học nào',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+            const Text(
+              'Chưa có đoạn học nào',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 8),
             Text(
               'Chuyển sang chế độ Đọc và chọn đoạn văn bản để đánh dấu',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -872,10 +1165,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               onPressed: () => setState(() => _mode = TextStudioMode.read),
               icon: Icon(Icons.chrome_reader_mode, color: theme.primary),
               label: Text('Chuyển sang Đọc', style: TextStyle(color: theme.primary)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: theme.primary),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: theme.primary)),
             ),
           ],
         ),
@@ -888,14 +1178,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       itemBuilder: (context, index) {
         final segment = segments[index];
         final isPlaying = textProvider.currentPlayingSegment?.id == segment.id;
-
-        return _buildSegmentCard(
-          context,
-          textProvider,
-          segment,
-          isPlaying,
-          theme,
-        );
+        return _buildSegmentCard(context, textProvider, segment, isPlaying, theme);
       },
     );
   }
@@ -921,40 +1204,23 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               : segment.difficultyColor.withOpacity(0.3),
           width: isPlaying ? 2 : 1,
         ),
-        boxShadow: isPlaying
-            ? [
-          BoxShadow(
-            color: segment.difficultyColor.withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ]
-            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Type icon
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: segment.difficultyColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    segment.typeIcon,
-                    size: 16,
-                    color: segment.difficultyColor,
-                  ),
+                  child: Icon(segment.typeIcon, size: 16, color: segment.difficultyColor),
                 ),
                 const SizedBox(width: 8),
-
-                // Difficulty badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -962,11 +1228,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    segment.difficulty == TextSegmentDifficulty.hard
-                        ? 'Khó'
-                        : segment.difficulty == TextSegmentDifficulty.medium
-                        ? 'Vừa'
-                        : 'Dễ',
+                    segment.difficultyLabel,
                     style: TextStyle(
                       fontSize: 11,
                       color: segment.difficultyColor,
@@ -974,19 +1236,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     ),
                   ),
                 ),
-
                 const Spacer(),
-
-                // Settings
                 Text(
                   '${segment.repeatCount}x • ${segment.ttsSpeed.toStringAsFixed(1)}x',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[400],
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
-
-                // Mastery indicator
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 24,
@@ -1001,21 +1255,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               ],
             ),
           ),
-
-          // Content
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
               segment.content,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-                height: 1.5,
-              ),
+              style: const TextStyle(fontSize: 16, color: Colors.white, height: 1.5),
             ),
           ),
-
-          // Note
           if (segment.note != null && segment.note!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -1043,8 +1289,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
               ),
             ),
-
-          // Playing progress
           if (isPlaying) ...[
             const SizedBox(height: 8),
             Padding(
@@ -1071,13 +1315,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               ),
             ),
           ],
-
-          // Actions
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Play button
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: isPlaying
@@ -1086,33 +1327,20 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow, size: 18),
                     label: Text(isPlaying ? 'Dừng' : 'Phát'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isPlaying
-                          ? Colors.red
-                          : segment.difficultyColor,
+                      backgroundColor: isPlaying ? Colors.red : segment.difficultyColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Edit button
                 IconButton(
-                  onPressed: () => _showEditSegmentSheet(
-                      context, textProvider, segment, theme),
+                  onPressed: () => _showEditSegmentSheet(context, textProvider, segment, theme),
                   icon: Icon(Icons.edit_outlined, color: Colors.grey[400]),
-                  tooltip: 'Chỉnh sửa',
                 ),
-
-                // Delete button
                 IconButton(
-                  onPressed: () => _confirmDeleteSegment(
-                      context, textProvider, segment),
+                  onPressed: () => _confirmDeleteSegment(context, textProvider, segment),
                   icon: Icon(Icons.delete_outline, color: Colors.red[300]),
-                  tooltip: 'Xóa',
                 ),
               ],
             ),
@@ -1123,7 +1351,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   // ============================================================================
-  // EDIT MODE - Chỉnh sửa toàn bộ văn bản
+  // EDIT MODE
   // ============================================================================
 
   Widget _buildEditMode(
@@ -1135,7 +1363,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Info bar
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1150,10 +1377,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 const Expanded(
                   child: Text(
                     'Chỉnh sửa văn bản sẽ xóa tất cả đoạn đã đánh dấu',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.amber,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.amber),
                   ),
                 ),
                 if (_hasUnsavedChanges)
@@ -1165,19 +1389,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     ),
                     child: const Text(
                       'Chưa lưu',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-
-          // Text editor
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1195,26 +1413,16 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   height: 1.6,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Nhập hoặc dán văn bản ở đây...\n\n'
-                      '• Mỗi dòng sẽ được tách riêng\n'
-                      '• Dòng trống sẽ bị bỏ qua\n'
-                      '• Sau khi lưu, chuyển sang chế độ Đọc để đánh dấu đoạn',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.2),
-                    height: 1.6,
-                  ),
+                  hintText: 'Nhập hoặc dán văn bản ở đây...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
                   contentPadding: const EdgeInsets.all(16),
                   border: InputBorder.none,
                 ),
-                onChanged: (value) {
-                  setState(() => _hasUnsavedChanges = true);
-                },
+                onChanged: (value) => setState(() => _hasUnsavedChanges = true),
               ),
             ),
           ),
           const SizedBox(height: 12),
-
-          // Action buttons
           Row(
             children: [
               Expanded(
@@ -1229,9 +1437,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.grey),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                   child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
                 ),
@@ -1262,9 +1467,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     backgroundColor: theme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ),
               ),
@@ -1285,7 +1487,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       _StudioTheme theme,
       ) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.surface,
@@ -1293,15 +1495,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       ),
       child: Column(
         children: [
-          // Speed control
           Row(
             children: [
               Icon(Icons.speed, size: 18, color: theme.primary),
               const SizedBox(width: 8),
-              Text(
-                'TTS:',
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
-              ),
+              Text('TTS:', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
               Expanded(
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
@@ -1337,8 +1535,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ],
           ),
           const SizedBox(height: 8),
-
-          // TTS buttons
           Row(
             children: [
               Expanded(
@@ -1346,7 +1542,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   icon: Icons.play_arrow,
                   label: 'Tất cả',
                   color: Colors.green,
-                  enabled: textProvider.lines.isNotEmpty,
+                  enabled: textProvider.lines.isNotEmpty && !textProvider.isSpeaking,
+                  isActive: textProvider.isSpeaking,
                   onTap: () => textProvider.speakAllLines(),
                 ),
               ),
@@ -1424,6 +1621,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             onTap: () => textProvider.setFontSize(textProvider.fontSize + 2),
           ),
           _BottomAction(
+            icon: Icons.palette,
+            label: 'Màu',
+            color: textProvider.colorMode != ColorMode.none ? theme.primary : null,
+            onTap: () => textProvider.cycleColorMode(),
+          ),
+          _BottomAction(
             icon: Icons.translate,
             label: 'Dịch',
             isActive: textProvider.showTranslation,
@@ -1437,12 +1640,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             onTap: player.currentSongPath != null
                 ? () => Navigator.pushNamed(context, '/sync-hub')
                 : null,
-          ),
-          _BottomAction(
-            icon: Icons.delete_sweep,
-            label: 'Xóa',
-            color: Colors.red,
-            onTap: () => _confirmClearAll(context, textProvider),
           ),
         ],
       ),
@@ -1471,29 +1668,16 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   ],
                 ),
               ),
-              child: Icon(
-                Icons.text_snippet_outlined,
-                size: 64,
-                color: theme.primary,
-              ),
+              child: Icon(Icons.text_snippet_outlined, size: 64, color: theme.primary),
             ),
             const SizedBox(height: 24),
             const Text(
               'Chưa có văn bản',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Nhập văn bản để bắt đầu học',
-              style: TextStyle(color: Colors.grey[400]),
-            ),
+            Text('Nhập văn bản để bắt đầu học', style: TextStyle(color: Colors.grey[400])),
             const SizedBox(height: 32),
-
-            // Action buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1504,64 +1688,20 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   ),
                 ),
                 const SizedBox(width: 16),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => _mode = TextStudioMode.edit);
-                  },
+                  onPressed: () => setState(() => _mode = TextStudioMode.edit),
                   icon: Icon(Icons.edit, color: theme.primary),
                   label: Text('Nhập text', style: TextStyle(color: theme.primary)),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: theme.primary),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   ),
                 ),
               ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Tips
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  _TipItem(
-                    icon: Icons.touch_app,
-                    text: 'Chạm vào dòng để chọn, chạm đúp để đọc TTS',
-                    color: theme.primary,
-                  ),
-                  _TipItem(
-                    icon: Icons.text_fields,
-                    text: 'Bôi đen văn bản để đánh dấu đoạn học',
-                    color: Colors.amber,
-                  ),
-                  _TipItem(
-                    icon: Icons.school,
-                    text: 'Chuyển sang Luyện để ôn tập theo SRS',
-                    color: Colors.purple,
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -1599,11 +1739,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -1622,21 +1758,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 20,
-          right: 20,
-          top: 20,
+          left: 20, right: 20, top: 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Dán văn bản',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.primary,
-              ),
-            ),
+            Text('Dán văn bản', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.primary)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -1647,37 +1774,24 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Hủy'),
-                  ),
-                ),
+                Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy'))),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
                   child: ElevatedButton(
                     onPressed: () {
                       if (controller.text.trim().isNotEmpty) {
-                        context.read<TextProvider>().loadText(
-                          controller.text,
-                          title: 'Văn bản mới',
-                        );
+                        context.read<TextProvider>().loadText(controller.text, title: 'Văn bản mới');
                         Navigator.pop(context);
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primary,
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: theme.primary),
                     child: const Text('Thêm'),
                   ),
                 ),
@@ -1690,60 +1804,40 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showCreateSegmentSheet(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+  void _showCreateSegmentSheet(BuildContext context, TextProvider textProvider, _StudioTheme theme) {
     final info = textProvider.selectedTextInfo;
-    if (info == null) return;
+    if (info == null && textProvider.selectedText == null) return;
 
     TextSegmentDifficulty difficulty = TextSegmentDifficulty.medium;
     TextSegmentType type = theme.defaultSegmentType;
     final repeatController = TextEditingController(text: '3');
-    final speedController = TextEditingController(
-      text: textProvider.ttsSpeed.toStringAsFixed(2),
-    );
+    final speedController = TextEditingController(text: textProvider.ttsSpeed.toStringAsFixed(2));
     final noteController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            left: 20, right: 20, top: 20,
           ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   children: [
                     Icon(Icons.bookmark_add, color: theme.primary),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Tạo đoạn học',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    const Text('Tạo đoạn học', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // Selected text preview
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1752,79 +1846,31 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     border: Border.all(color: theme.primary.withOpacity(0.3)),
                   ),
                   child: Text(
-                    info.text.length > 100
-                        ? '${info.text.substring(0, 100)}...'
-                        : info.text,
+                    (info?.text ?? textProvider.selectedText ?? '').length > 100
+                        ? '${(info?.text ?? textProvider.selectedText ?? '').substring(0, 100)}...'
+                        : (info?.text ?? textProvider.selectedText ?? ''),
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Difficulty selector
-                const Text(
-                  'Độ khó:',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                ),
+                const Text('Độ khó:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
-                  children: [
-                    _DifficultyChip(
-                      label: 'Dễ (1x)',
-                      value: TextSegmentDifficulty.easy,
-                      current: difficulty,
-                      onSelected: (d) => setModalState(() {
-                        difficulty = d;
-                        repeatController.text = '1';
-                        speedController.text = '1.0';
-                      }),
-                    ),
-                    _DifficultyChip(
-                      label: 'Vừa (3x)',
-                      value: TextSegmentDifficulty.medium,
-                      current: difficulty,
-                      onSelected: (d) => setModalState(() {
-                        difficulty = d;
-                        repeatController.text = '3';
-                        speedController.text = '0.85';
-                      }),
-                    ),
-                    _DifficultyChip(
-                      label: 'Khó (5x)',
-                      value: TextSegmentDifficulty.hard,
-                      current: difficulty,
-                      onSelected: (d) => setModalState(() {
-                        difficulty = d;
-                        repeatController.text = '5';
-                        speedController.text = '0.7';
-                      }),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Type selector
-                const Text(
-                  'Loại:',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: TextSegmentType.values.map((t) {
-                    final isSelected = type == t;
+                  children: TextSegmentDifficulty.values.map((d) {
                     return ChoiceChip(
-                      label: Text(_getTypeLabel(t)),
-                      selected: isSelected,
-                      selectedColor: theme.primary,
-                      onSelected: (_) => setModalState(() => type = t),
+                      label: Text(d == TextSegmentDifficulty.hard ? 'Khó (5x)' : d == TextSegmentDifficulty.medium ? 'Vừa (3x)' : 'Dễ (1x)'),
+                      selected: difficulty == d,
+                      selectedColor: d == TextSegmentDifficulty.hard ? Colors.red : d == TextSegmentDifficulty.medium ? Colors.orange : Colors.green,
+                      onSelected: (_) => setModalState(() {
+                        difficulty = d;
+                        repeatController.text = d == TextSegmentDifficulty.hard ? '5' : d == TextSegmentDifficulty.medium ? '3' : '1';
+                        speedController.text = d == TextSegmentDifficulty.hard ? '0.70' : d == TextSegmentDifficulty.medium ? '0.85' : '1.00';
+                      }),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
-
-                // Custom settings
                 Row(
                   children: [
                     Expanded(
@@ -1833,15 +1879,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                         keyboardType: TextInputType.number,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          labelText: 'Số lần lặp',
+                          labelText: 'Lặp',
                           labelStyle: TextStyle(color: Colors.grey[400]),
-                          prefixIcon: Icon(Icons.repeat, color: Colors.grey[400]),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
                     ),
@@ -1852,98 +1894,56 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          labelText: 'Tốc độ TTS',
+                          labelText: 'Tốc độ',
                           labelStyle: TextStyle(color: Colors.grey[400]),
-                          prefixIcon: Icon(Icons.speed, color: Colors.grey[400]),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // Note
                 TextField(
                   controller: noteController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: 'Ghi chú (VD: Tứ Diệu Đế, Phrasal verb...)',
+                    labelText: 'Ghi chú',
                     labelStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: Icon(Icons.notes, color: Colors.grey[400]),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Actions
                 Row(
                   children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Hủy'),
-                      ),
-                    ),
+                    Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy'))),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          final repeat = int.tryParse(repeatController.text) ?? 3;
-                          final speed = double.tryParse(speedController.text) ??
-                              textProvider.ttsSpeed;
-
                           textProvider.createSegmentFromSelection(
                             difficulty: difficulty,
                             type: type,
-                            repeatCountOverride: repeat,
-                            ttsSpeedOverride: speed,
-                            note: noteController.text.trim().isEmpty
-                                ? null
-                                : noteController.text.trim(),
+                            repeatCountOverride: int.tryParse(repeatController.text),
+                            ttsSpeedOverride: double.tryParse(speedController.text),
+                            note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
                           );
-
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Đã lưu đoạn học!'),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
-                              action: SnackBarAction(
-                                label: 'Xem',
-                                textColor: Colors.white,
-                                onPressed: () =>
-                                    setState(() => _mode = TextStudioMode.study),
-                              ),
-                            ),
+                            SnackBar(content: const Text('Đã lưu!'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
                           );
                         },
                         icon: const Icon(Icons.save),
-                        label: const Text('Lưu đoạn học'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                        label: const Text('Lưu'),
+                        style: ElevatedButton.styleFrom(backgroundColor: theme.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -1952,64 +1952,32 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showLineOptionsSheet(
-      BuildContext context,
-      TextProvider textProvider,
-      int index,
-      TextItem line,
-      _StudioTheme theme,
-      ) {
+  void _showLineOptionsSheet(BuildContext context, TextProvider textProvider, int index, TextItem line, _StudioTheme theme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Dòng ${index + 1}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: theme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                line.content,
-                style: const TextStyle(color: Colors.white70),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            Text('Dòng ${index + 1}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.primary)),
             const SizedBox(height: 16),
-            _LineOption(
-              icon: Icons.volume_up,
-              title: 'Đọc TTS',
-              color: Colors.blue,
+            ListTile(
+              leading: const Icon(Icons.volume_up, color: Colors.blue),
+              title: const Text('Đọc TTS', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 textProvider.setCurrentLine(index);
                 textProvider.speakCurrentLine();
               },
             ),
-            _LineOption(
-              icon: Icons.bookmark_add,
-              title: 'Đánh dấu toàn bộ dòng',
-              color: Colors.amber,
+            ListTile(
+              leading: const Icon(Icons.bookmark_add, color: Colors.amber),
+              title: const Text('Đánh dấu toàn bộ dòng', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                // Select entire line
                 int offset = 0;
                 for (int i = 0; i < index; i++) {
                   offset += textProvider.lines[i].content.length + 1;
@@ -2023,97 +1991,57 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 _showCreateSegmentSheet(context, textProvider, theme);
               },
             ),
-            _LineOption(
-              icon: Icons.copy,
-              title: 'Sao chép',
-              color: Colors.grey,
+            ListTile(
+              leading: const Icon(Icons.copy, color: Colors.grey),
+              title: const Text('Sao chép', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: line.content));
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã sao chép!'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                  const SnackBar(content: Text('Đã sao chép!'), behavior: SnackBarBehavior.floating),
                 );
               },
             ),
-            const SizedBox(height: 10),
           ],
         ),
       ),
     );
   }
 
-  void _showEditSegmentSheet(
-      BuildContext context,
-      TextProvider textProvider,
-      TextSegment segment,
-      _StudioTheme theme,
-      ) {
+  void _showEditSegmentSheet(BuildContext context, TextProvider textProvider, TextSegment segment, _StudioTheme theme) {
     TextSegmentDifficulty difficulty = segment.difficulty;
-    final repeatController = TextEditingController(
-      text: segment.repeatCount.toString(),
-    );
-    final speedController = TextEditingController(
-      text: segment.ttsSpeed.toStringAsFixed(2),
-    );
+    final repeatController = TextEditingController(text: segment.repeatCount.toString());
+    final speedController = TextEditingController(text: segment.ttsSpeed.toStringAsFixed(2));
     final noteController = TextEditingController(text: segment.note ?? '');
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, left: 20, right: 20, top: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Chỉnh sửa đoạn học',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              const Text('Chỉnh sửa đoạn học', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 16),
-
-              // Difficulty
               const Text('Độ khó:', style: TextStyle(color: Colors.white)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 children: TextSegmentDifficulty.values.map((d) {
                   return ChoiceChip(
-                    label: Text(d == TextSegmentDifficulty.hard
-                        ? 'Khó'
-                        : d == TextSegmentDifficulty.medium
-                        ? 'Vừa'
-                        : 'Dễ'),
+                    label: Text(d == TextSegmentDifficulty.hard ? 'Khó' : d == TextSegmentDifficulty.medium ? 'Vừa' : 'Dễ'),
                     selected: difficulty == d,
-                    selectedColor: d == TextSegmentDifficulty.hard
-                        ? Colors.red
-                        : d == TextSegmentDifficulty.medium
-                        ? Colors.orange
-                        : Colors.green,
+                    selectedColor: d == TextSegmentDifficulty.hard ? Colors.red : d == TextSegmentDifficulty.medium ? Colors.orange : Colors.green,
                     onSelected: (_) => setModalState(() => difficulty = d),
                   );
                 }).toList(),
               ),
               const SizedBox(height: 16),
-
-              // Settings
               Row(
                 children: [
                   Expanded(
@@ -2121,10 +2049,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       controller: repeatController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Số lần lặp',
-                        labelStyle: TextStyle(color: Colors.grey),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Số lần lặp', labelStyle: TextStyle(color: Colors.grey)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -2133,56 +2058,35 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       controller: speedController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Tốc độ TTS',
-                        labelStyle: TextStyle(color: Colors.grey),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Tốc độ TTS', labelStyle: TextStyle(color: Colors.grey)),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Note
               TextField(
                 controller: noteController,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Ghi chú',
-                  labelStyle: TextStyle(color: Colors.grey),
-                ),
+                decoration: const InputDecoration(labelText: 'Ghi chú', labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 20),
-
-              // Actions
               Row(
                 children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Hủy'),
-                    ),
-                  ),
+                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy'))),
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
                       onPressed: () {
                         final updated = segment.copyWith(
                           difficulty: difficulty,
-                          repeatCount: int.tryParse(repeatController.text) ??
-                              segment.repeatCount,
-                          ttsSpeed: double.tryParse(speedController.text) ??
-                              segment.ttsSpeed,
-                          note: noteController.text.trim().isEmpty
-                              ? null
-                              : noteController.text.trim(),
+                          repeatCount: int.tryParse(repeatController.text) ?? segment.repeatCount,
+                          ttsSpeed: double.tryParse(speedController.text) ?? segment.ttsSpeed,
+                          note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
                         );
                         textProvider.updateSegment(updated);
                         Navigator.pop(context);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primary,
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: theme.primary),
                       child: const Text('Cập nhật'),
                     ),
                   ),
@@ -2195,17 +2099,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showSettingsSheet(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+  void _showSettingsSheet(BuildContext context, TextProvider textProvider, _StudioTheme theme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: const EdgeInsets.all(20),
@@ -2213,17 +2111,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Cài đặt Text Studio',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: theme.primary,
-                ),
-              ),
+              Text('Cài đặt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.primary)),
               const SizedBox(height: 20),
-
-              // Font size
               Row(
                 children: [
                   const Icon(Icons.format_size, color: Colors.grey),
@@ -2241,18 +2130,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       },
                     ),
                   ),
-                  Text(
-                    '${textProvider.fontSize.toInt()}',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  Text('${textProvider.fontSize.toInt()}', style: const TextStyle(color: Colors.white)),
                 ],
               ),
-
-              // TTS Language
               ListTile(
                 leading: const Icon(Icons.language, color: Colors.grey),
-                title: const Text('Ngôn ngữ TTS',
-                    style: TextStyle(color: Colors.white)),
+                title: const Text('Ngôn ngữ TTS', style: TextStyle(color: Colors.white)),
                 trailing: DropdownButton<String>(
                   value: textProvider.ttsLanguage,
                   dropdownColor: theme.surface,
@@ -2269,12 +2152,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   },
                 ),
               ),
-
-              // Show translation
               SwitchListTile(
                 secondary: const Icon(Icons.translate, color: Colors.grey),
-                title: const Text('Hiện bản dịch',
-                    style: TextStyle(color: Colors.white)),
+                title: const Text('Hiện bản dịch', style: TextStyle(color: Colors.white)),
                 value: textProvider.showTranslation,
                 activeColor: theme.primary,
                 onChanged: (_) {
@@ -2282,8 +2162,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   setModalState(() {});
                 },
               ),
-
-              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -2291,56 +2169,21 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _confirmDeleteSegment(
-      BuildContext context,
-      TextProvider textProvider,
-      TextSegment segment,
-      ) {
+  void _confirmDeleteSegment(BuildContext context, TextProvider textProvider, TextSegment segment) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text('Xóa đoạn học?', style: TextStyle(color: Colors.white)),
         content: Text(
-          'Bạn có chắc muốn xóa:\n"${segment.content.length > 50 ? '${segment.content.substring(0, 50)}...' : segment.content}"',
+          'Xóa: "${segment.content.length > 50 ? '${segment.content.substring(0, 50)}...' : segment.content}"?',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () {
               textProvider.deleteSegment(segment.id);
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmClearAll(BuildContext context, TextProvider textProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Xóa tất cả?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Xóa toàn bộ văn bản và các đoạn đã đánh dấu?',
-          style: TextStyle(color: Colors.grey),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              textProvider.clearText();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -2356,17 +2199,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Chưa lưu thay đổi',
-            style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Bạn có thay đổi chưa lưu. Bạn muốn làm gì?',
-          style: TextStyle(color: Colors.grey),
-        ),
+        title: const Text('Chưa lưu thay đổi', style: TextStyle(color: Colors.white)),
+        content: const Text('Bạn có thay đổi chưa lưu.', style: TextStyle(color: Colors.grey)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tiếp tục sửa'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tiếp tục sửa')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -2388,31 +2224,6 @@ class _TextStudioScreenState extends State<TextStudioScreen>
         ],
       ),
     );
-  }
-
-  void _startReviewSession(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
-    textProvider.startReviewSession();
-  }
-
-  String _getTypeLabel(TextSegmentType type) {
-    switch (type) {
-      case TextSegmentType.vocabulary:
-        return 'Từ vựng';
-      case TextSegmentType.phrase:
-        return 'Cụm từ';
-      case TextSegmentType.sentence:
-        return 'Câu';
-      case TextSegmentType.paragraph:
-        return 'Đoạn';
-      case TextSegmentType.dharma:
-        return 'Phật Pháp';
-      case TextSegmentType.grammar:
-        return 'Ngữ pháp';
-    }
   }
 }
 
@@ -2440,6 +2251,154 @@ class _StudioTheme {
     required this.name,
     required this.defaultSegmentType,
   });
+}
+
+class _ColorModeChip extends StatelessWidget {
+  final ColorMode mode;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final _StudioTheme theme;
+
+  const _ColorModeChip({
+    required this.mode,
+    required this.isSelected,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? theme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? theme.primary : Colors.grey.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(mode.icon, size: 14, color: isSelected ? Colors.white : Colors.grey),
+            const SizedBox(width: 4),
+            Text(
+              mode.label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected ? Colors.white : Colors.grey,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String abbreviation;
+
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.abbreviation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$label ($abbreviation)',
+            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ColoredWordWidget extends StatelessWidget {
+  final AnalyzedWord word;
+  final ColorMode colorMode;
+  final double fontSize;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _ColoredWordWidget({
+    required this.word,
+    required this.colorMode,
+    required this.fontSize,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = word.getColor(colorMode);
+    final bgColor = word.getBackgroundColor(colorMode);
+
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          word.word,
+          style: TextStyle(
+            fontSize: fontSize,
+            color: textColor,
+            fontWeight: word.userDifficulty != null ? FontWeight.bold : FontWeight.normal,
+            height: 1.6,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WordBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _WordBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+    );
+  }
 }
 
 class _SelectionActionButton extends StatelessWidget {
@@ -2492,67 +2451,11 @@ class _StudyStat extends StatelessWidget {
             shape: BoxShape.circle,
             border: highlight ? Border.all(color: color, width: 2) : null,
           ),
-          child: Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
+          child: Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 10,
-          ),
-        ),
+        Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 10)),
       ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final Color? color;
-  final VoidCallback onTap;
-  final _StudioTheme theme;
-
-  const _FilterChip({
-    required this.label,
-    required this.isSelected,
-    this.color,
-    required this.onTap,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final chipColor = color ?? theme.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        margin: const EdgeInsets.only(right: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? chipColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? chipColor : Colors.grey.withOpacity(0.3),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2582,34 +2485,16 @@ class _TtsActionButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isActive
-              ? color.withOpacity(0.3)
-              : enabled
-              ? color.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.05),
+          color: isActive ? color.withOpacity(0.3) : enabled ? color.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isActive ? color : Colors.transparent,
-            width: 2,
-          ),
+          border: Border.all(color: isActive ? color : Colors.transparent, width: 2),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: enabled ? color : Colors.grey,
-              size: 22,
-            ),
+            Icon(icon, color: enabled ? color : Colors.grey, size: 22),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: enabled ? color : Colors.grey,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(label, style: TextStyle(color: enabled ? color : Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -2645,122 +2530,14 @@ class _BottomAction extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: isActive
-                ? BoxDecoration(
-              color: effectiveColor.withOpacity(0.2),
-              shape: BoxShape.circle,
-            )
+                ? BoxDecoration(color: effectiveColor.withOpacity(0.2), shape: BoxShape.circle)
                 : null,
-            child: Icon(
-              icon,
-              color: isEnabled ? effectiveColor : Colors.grey,
-              size: 22,
-            ),
+            child: Icon(icon, color: isEnabled ? effectiveColor : Colors.grey, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isEnabled ? effectiveColor : Colors.grey,
-              fontSize: 10,
-            ),
-          ),
+          Text(label, style: TextStyle(color: isEnabled ? effectiveColor : Colors.grey, fontSize: 10)),
         ],
       ),
-    );
-  }
-}
-
-class _TipItem extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color color;
-
-  const _TipItem({
-    required this.icon,
-    required this.text,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DifficultyChip extends StatelessWidget {
-  final String label;
-  final TextSegmentDifficulty value;
-  final TextSegmentDifficulty current;
-  final void Function(TextSegmentDifficulty) onSelected;
-
-  const _DifficultyChip({
-    required this.label,
-    required this.value,
-    required this.current,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = value == current;
-    final color = value == TextSegmentDifficulty.hard
-        ? Colors.red
-        : value == TextSegmentDifficulty.medium
-        ? Colors.orange
-        : Colors.green;
-
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: color,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.grey,
-      ),
-      onSelected: (_) => onSelected(value),
-    );
-  }
-}
-
-class _LineOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _LineOption({
-    required this.icon,
-    required this.title,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 18),
-      ),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      onTap: onTap,
     );
   }
 }

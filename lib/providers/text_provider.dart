@@ -11,6 +11,27 @@ import '../models/word_analysis.dart';
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
   final WordDatabase _wordDatabase = WordDatabase();
+  /// Phát đoạn văn bản đã chọn (nếu có)
+  Future<void> speakSelected() async {
+    if (_selectedText == null || _selectedText!.isEmpty) {
+      debugPrint('No text selected to speak.');
+      return;
+    }
+
+    _isSpeaking = true;
+    notifyListeners();
+
+    try {
+      debugPrint('Speaking selected text: "${_selectedText!}"');
+      await speak(_selectedText!); // Gọi phương thức speak đã tồn tại
+    } catch (e) {
+      debugPrint('Error in speakSelected: $e');
+    } finally {
+      _isSpeaking = false;
+      // clearSelection(); // Có thể cân nhắc xóa lựa chọn sau khi đọc xong
+      notifyListeners();
+    }
+  }
 
   // ==================== TEXT DATA ====================
   TextDocument? _currentDocument;
@@ -345,73 +366,122 @@ class TextProvider extends ChangeNotifier {
 
   // ==================== TTS FUNCTIONS (SỬA LỖI) ====================
 
-  /// Phát TTS và đợi cho đến khi hoàn thành
-  Future<void> speak(String text) async {
-    if (text.isEmpty) return;
-
-    await _tts.stop();
-
-    _ttsCompleter = Completer<void>();
-
-    await _tts.speak(text);
-
-    // Đợi cho đến khi TTS hoàn thành
-    try {
-      await _ttsCompleter?.future.timeout(
-        Duration(seconds: text.length ~/ 2 + 10), // Timeout dựa trên độ dài text
-        onTimeout: () {
-          debugPrint('TTS timeout');
-        },
-      );
-    } catch (e) {
-      debugPrint('TTS speak error: $e');
-    }
-  }
-
-  Future<void> speakCurrentLine() async {
-    if (_currentLineIndex >= 0 && _currentLineIndex < _lines.length) {
-      await speak(_lines[_currentLineIndex].content);
-    }
-  }
-
-  /// Đọc tất cả các dòng - ĐÃ SỬA
+  /// Đọc tất cả các dòng - SỬA LỖI
   Future<void> speakAllLines() async {
+    if (_lines.isEmpty) return;
+
     _isSpeaking = true;
     notifyListeners();
 
-    for (int i = 0; i < _lines.length; i++) {
-      if (!_isSpeaking) break; // Cho phép dừng giữa chừng
+    try {
+      for (int i = 0; i < _lines.length; i++) {
+        // Kiểm tra nếu user đã dừng
+        if (!_isSpeaking) {
+          debugPrint('User stopped TTS at line ${i + 1}');
+          break;
+        }
 
-      _currentLineIndex = i;
-      notifyListeners();
+        // Cập nhật dòng hiện tại
+        _currentLineIndex = i;
+        notifyListeners();
 
-      // Đợi TTS hoàn thành trước khi chuyển dòng
-      await speak(_lines[i].content);
+        debugPrint('Speaking line ${i + 1}: ${_lines[i].content.substring(0, 30)}...');
 
-      // Khoảng nghỉ giữa các dòng
-      if (_isSpeaking && i < _lines.length - 1) {
-        await Future.delayed(const Duration(milliseconds: 300));
+        // Đọc dòng và đợi hoàn thành
+        await speak(_lines[i].content);
+
+        // Delay ngắn giữa các dòng (chỉ khi chưa phải dòng cuối)
+        if (_isSpeaking && i < _lines.length - 1) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
       }
+    } catch (e) {
+      debugPrint('Error in speakAllLines: $e');
+    } finally {
+      _isSpeaking = false;
+      notifyListeners();
+    }
+  }
+
+  /// Đọc dòng hiện tại - SỬA LỖI
+  Future<void> speakCurrentLine() async {
+    if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) {
+      debugPrint('Invalid line index: $_currentLineIndex');
+      return;
     }
 
-    _isSpeaking = false;
+    _isSpeaking = true;
     notifyListeners();
-  }
 
-  Future<void> speakSelected() async {
-    if (_selectedText != null && _selectedText!.isNotEmpty) {
-      await speak(_selectedText!);
+    try {
+      debugPrint('Speaking current line ${_currentLineIndex + 1}: ${_lines[_currentLineIndex].content}');
+      await speak(_lines[_currentLineIndex].content);
+    } catch (e) {
+      debugPrint('Error in speakCurrentLine: $e');
+    } finally {
+      _isSpeaking = false;
+      notifyListeners();
     }
   }
 
+  /// Phát TTS và đợi hoàn thành - SỬA LỖI
+  Future<void> speak(String text) async {
+    if (text.isEmpty) {
+      debugPrint('Empty text, skipping TTS');
+      return;
+    }
+
+    try {
+      // Dừng TTS cũ nếu đang chạy
+      await _tts.stop();
+
+      // Reset completer
+      _ttsCompleter = Completer<void>();
+
+      debugPrint('TTS speaking: "${text.substring(0, text.length > 50 ? 50 : text.length)}..."');
+
+      // Bắt đầu speak
+      final result = await _tts.speak(text);
+
+      if (result == 1) {
+        // Đợi TTS hoàn thành với timeout phù hợp
+        // Ước tính: 150 words/minute ở tốc độ 1.0x
+        final wordCount = text.split(' ').length;
+        final estimatedSeconds = (wordCount * 60 / 150 / _ttsSpeed).ceil();
+        final timeout = Duration(seconds: estimatedSeconds.clamp(3, 60));
+
+        await _ttsCompleter?.future.timeout(
+          timeout,
+          onTimeout: () {
+            debugPrint('TTS timeout after ${timeout.inSeconds}s');
+          },
+        );
+      } else {
+        debugPrint('TTS speak failed with result: $result');
+      }
+    } catch (e) {
+      debugPrint('Error in speak: $e');
+    }
+  }
+
+  /// Dừng TTS - SỬA LỖI
   Future<void> stopSpeaking() async {
-    await _tts.stop();
+    debugPrint('Stopping TTS...');
+
     _isSpeaking = false;
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
-    _ttsCompleter?.complete();
+
+    // Complete pending completer
+    if (_ttsCompleter != null && !_ttsCompleter!.isCompleted) {
+      _ttsCompleter!.complete();
+    }
     _ttsCompleter = null;
+
+    // Stop TTS
+    await _tts.stop();
+
     notifyListeners();
   }
 

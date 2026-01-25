@@ -1,6 +1,5 @@
 // lib/widgets/waveform_editor.dart
-// VipSound - Enhanced Waveform Editor
-// Version 2.0 - Optimized for Buddhism & English Learning
+// VipSound - Enhanced Waveform Editor với Shadowing Integration
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -8,8 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/waveform_provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/shadowing_provider.dart';  // THÊM IMPORT
 import '../models/audio_marker.dart';
 import 'advanced_waveform_painter.dart';
+import 'shadowing_widget.dart';  // THÊM IMPORT
 
 /// Theme colors cho từng mode
 class WaveformTheme {
@@ -35,37 +36,37 @@ class WaveformTheme {
 
   // Buddhism Mode - Warm, meditative colors
   static const buddhism = WaveformTheme(
-    primary: Color(0xFFFFB300),        // Amber
-    secondary: Color(0xFFFF8F00),       // Dark Amber
-    waveformColor: Color(0xFFFFE082),   // Light Amber
+    primary: Color(0xFFFFB300),
+    secondary: Color(0xFFFF8F00),
+    waveformColor: Color(0xFFFFE082),
     waveformPlayedColor: Color(0xFFFFB300),
     selectionColor: Color(0x40FFB300),
     markerColor: Color(0xFFFFD54F),
-    backgroundColor: Color(0xFF1A1510), // Warm dark
+    backgroundColor: Color(0xFF1A1510),
     gridColor: Color(0x20FFB300),
   );
 
   // English Mode - Cool, focused colors
   static const english = WaveformTheme(
-    primary: Color(0xFF2196F3),         // Blue
-    secondary: Color(0xFF1976D2),        // Dark Blue
-    waveformColor: Color(0xFF90CAF9),    // Light Blue
+    primary: Color(0xFF2196F3),
+    secondary: Color(0xFF1976D2),
+    waveformColor: Color(0xFF90CAF9),
     waveformPlayedColor: Color(0xFF2196F3),
     selectionColor: Color(0x402196F3),
     markerColor: Color(0xFF64B5F6),
-    backgroundColor: Color(0xFF0D1520),  // Cool dark
+    backgroundColor: Color(0xFF0D1520),
     gridColor: Color(0x202196F3),
   );
 
   // Music Mode - Vibrant, creative colors
   static const music = WaveformTheme(
-    primary: Color(0xFF6C63FF),          // Purple
-    secondary: Color(0xFF5B52CC),         // Dark Purple
-    waveformColor: Color(0xFFB39DDB),     // Light Purple
+    primary: Color(0xFF6C63FF),
+    secondary: Color(0xFF5B52CC),
+    waveformColor: Color(0xFFB39DDB),
     waveformPlayedColor: Color(0xFF6C63FF),
     selectionColor: Color(0x406C63FF),
     markerColor: Color(0xFF9575CD),
-    backgroundColor: Color(0xFF1A1A2E),   // Default dark
+    backgroundColor: Color(0xFF1A1A2E),
     gridColor: Color(0x206C63FF),
   );
 
@@ -103,14 +104,11 @@ class WaveformEditor extends StatefulWidget {
 
 class _WaveformEditorState extends State<WaveformEditor>
     with SingleTickerProviderStateMixin {
-  // Gesture tracking
-  double _startZoom = 1.0;
-  double _startScroll = 0.0;
-  Offset? _tapPosition;
-  bool _isDragging = false;
-
   // Animation
   late AnimationController _pulseController;
+
+  // Shadowing expanded state
+  bool _shadowingExpanded = false;
 
   @override
   void initState() {
@@ -129,8 +127,8 @@ class _WaveformEditorState extends State<WaveformEditor>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<PlayerProvider, WaveformProvider>(
-      builder: (context, player, waveform, child) {
+    return Consumer3<PlayerProvider, WaveformProvider, ShadowingProvider>(
+      builder: (context, player, waveform, shadowing, child) {
         final theme = WaveformTheme.forMode(player.currentMode);
 
         // Load waveform khi có file mới
@@ -164,7 +162,6 @@ class _WaveformEditorState extends State<WaveformEditor>
                 waveform: waveform,
                 theme: theme,
                 height: widget.height,
-                onTapPosition: (pos) => _tapPosition = pos,
                 onSeek: (time) => player.seek(time),
                 onMarkerTap: (marker) {
                   waveform.selectMarker(marker);
@@ -180,24 +177,65 @@ class _WaveformEditorState extends State<WaveformEditor>
                 },
               ),
 
-              // Shadowing Area (for English mode)
-              if (widget.showShadowingArea || player.isEnglishMode)
-                _ShadowingArea(player: player, theme: theme),
+              // Shadowing Toggle Button (cho English Mode)
+              if (player.isEnglishMode || widget.showShadowingArea)
+                _ShadowingToggle(
+                  isExpanded: _shadowingExpanded,
+                  hasLoop: player.loopStart != null && player.loopEnd != null,
+                  shadowingState: shadowing.state,
+                  theme: theme,
+                  onToggle: () {
+                    setState(() {
+                      _shadowingExpanded = !_shadowingExpanded;
+                    });
+
+                    // Auto-setup segment nếu có loop
+                    if (_shadowingExpanded &&
+                        player.loopStart != null &&
+                        player.loopEnd != null &&
+                        shadowing.state == ShadowingState.idle) {
+                      shadowing.setSegment(
+                        start: player.loopStart!,
+                        end: player.loopEnd!,
+                        audioPath: player.currentSongPath ?? '',
+                        waveform: waveform.waveformData,
+                      );
+                    }
+                  },
+                ),
+
+              // Shadowing Widget (Expandable)
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 300),
+                crossFadeState: _shadowingExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: const SizedBox.shrink(),
+                secondChild: const Padding(
+                  padding: EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  child: ShadowingWidget(),
+                ),
+              ),
 
               // Transcript Display
               if (widget.showTranscript || player.modeSettings.showTranscript)
                 _TranscriptDisplay(player: player, waveform: waveform, theme: theme),
 
               // Quick Actions (mode-specific)
-              if (widget.showControls)
+              if (widget.showControls && !_shadowingExpanded)
                 _QuickActions(
                   player: player,
                   waveform: waveform,
                   theme: theme,
+                  onShadowingTap: () {
+                    setState(() {
+                      _shadowingExpanded = true;
+                    });
+                  },
                 ),
 
               // Marker controls
-              if (widget.showControls)
+              if (widget.showControls && !_shadowingExpanded)
                 _MarkerControls(
                   waveform: waveform,
                   player: player,
@@ -205,7 +243,7 @@ class _WaveformEditorState extends State<WaveformEditor>
                 ),
 
               // Markers list
-              if (widget.showMarkersList && waveform.markers.isNotEmpty)
+              if (widget.showMarkersList && waveform.markers.isNotEmpty && !_shadowingExpanded)
                 _MarkersList(
                   waveform: waveform,
                   player: player,
@@ -227,7 +265,6 @@ class _WaveformEditorState extends State<WaveformEditor>
     final theme = WaveformTheme.forMode(player.currentMode);
     final controller = TextEditingController();
 
-    // Auto-suggest label based on mode
     String hintText;
     MarkerType defaultType;
 
@@ -267,7 +304,6 @@ class _WaveformEditorState extends State<WaveformEditor>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Time display
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -349,7 +385,6 @@ class _WaveformEditorState extends State<WaveformEditor>
     final controller = TextEditingController();
     MarkerType selectedType = MarkerType.region;
 
-    // Suggested types based on mode
     List<MarkerType> suggestedTypes;
     switch (player.currentMode) {
       case VipMode.buddhism:
@@ -397,7 +432,6 @@ class _WaveformEditorState extends State<WaveformEditor>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 children: [
                   Icon(Icons.bookmark_add, color: theme.primary),
@@ -413,8 +447,6 @@ class _WaveformEditorState extends State<WaveformEditor>
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Time range
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -454,8 +486,6 @@ class _WaveformEditorState extends State<WaveformEditor>
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Label input
               TextField(
                 controller: controller,
                 autofocus: true,
@@ -479,8 +509,6 @@ class _WaveformEditorState extends State<WaveformEditor>
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Type selection
               Text(
                 'Loại đánh dấu:',
                 style: TextStyle(color: Colors.grey[400], fontSize: 12),
@@ -540,8 +568,6 @@ class _WaveformEditorState extends State<WaveformEditor>
                 }).toList(),
               ),
               const SizedBox(height: 24),
-
-              // Action buttons
               Row(
                 children: [
                   Expanded(
@@ -608,6 +634,124 @@ class _WaveformEditorState extends State<WaveformEditor>
   }
 }
 
+// ==================== SHADOWING TOGGLE ====================
+
+class _ShadowingToggle extends StatelessWidget {
+  final bool isExpanded;
+  final bool hasLoop;
+  final ShadowingState shadowingState;
+  final WaveformTheme theme;
+  final VoidCallback onToggle;
+
+  const _ShadowingToggle({
+    required this.isExpanded,
+    required this.hasLoop,
+    required this.shadowingState,
+    required this.theme,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = shadowingState == ShadowingState.recording ||
+        shadowingState == ShadowingState.countdown ||
+        shadowingState == ShadowingState.waiting;
+
+    return GestureDetector(
+      onTap: onToggle,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isActive
+                ? [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)]
+                : isExpanded
+                ? [const Color(0xFF2196F3).withOpacity(0.3), const Color(0xFF2196F3).withOpacity(0.1)]
+                : [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive
+                ? Colors.red.withOpacity(0.5)
+                : isExpanded
+                ? const Color(0xFF2196F3).withOpacity(0.5)
+                : Colors.white.withOpacity(0.1),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Colors.red.withOpacity(0.2)
+                    : const Color(0xFF2196F3).withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isActive ? Icons.mic : Icons.record_voice_over,
+                size: 20,
+                color: isActive ? Colors.red : const Color(0xFF2196F3),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Shadowing Mode',
+                    style: TextStyle(
+                      color: isActive ? Colors.red : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    isActive
+                        ? _getStateText(shadowingState)
+                        : hasLoop
+                        ? 'Nhấn để luyện shadowing'
+                        : 'Chọn A-B Loop trước',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Status/Arrow
+            if (isActive)
+              const _PulsingDot(color: Colors.red)
+            else
+              Icon(
+                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: Colors.grey[500],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getStateText(ShadowingState state) {
+    switch (state) {
+      case ShadowingState.waiting: return 'Đang chờ...';
+      case ShadowingState.countdown: return 'Đếm ngược...';
+      case ShadowingState.recording: return 'Đang ghi âm...';
+      case ShadowingState.processing: return 'Đang xử lý...';
+      case ShadowingState.comparing: return 'Đang so sánh...';
+      default: return '';
+    }
+  }
+}
+
 // ==================== MODE HEADER ====================
 
 class _ModeHeader extends StatelessWidget {
@@ -631,7 +775,6 @@ class _ModeHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Mode Icon
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -645,8 +788,6 @@ class _ModeHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Mode Name & Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -669,8 +810,6 @@ class _ModeHeader extends StatelessWidget {
               ],
             ),
           ),
-
-          // Stats
           if (player.isLooping)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -694,10 +833,7 @@ class _ModeHeader extends StatelessWidget {
                 ],
               ),
             ),
-
           const SizedBox(width: 8),
-
-          // Speed indicator
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -806,23 +942,11 @@ class _ZoomControls extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _ZoomButton(
-            icon: Icons.remove,
-            onTap: () => waveform.zoomOut(),
-            theme: theme,
-          ),
+          _ZoomButton(icon: Icons.remove, onTap: () => waveform.zoomOut(), theme: theme),
           const SizedBox(width: 4),
-          _ZoomButton(
-            icon: Icons.add,
-            onTap: () => waveform.zoomIn(),
-            theme: theme,
-          ),
+          _ZoomButton(icon: Icons.add, onTap: () => waveform.zoomIn(), theme: theme),
           const SizedBox(width: 4),
-          _ZoomButton(
-            icon: Icons.fit_screen,
-            onTap: () => waveform.zoomToFit(),
-            theme: theme,
-          ),
+          _ZoomButton(icon: Icons.fit_screen, onTap: () => waveform.zoomToFit(), theme: theme),
         ],
       ),
     );
@@ -867,7 +991,6 @@ class _WaveformView extends StatelessWidget {
   final WaveformProvider waveform;
   final WaveformTheme theme;
   final double height;
-  final Function(Offset) onTapPosition;
   final Function(Duration) onSeek;
   final Function(AudioMarker) onMarkerTap;
   final VoidCallback onSelectionComplete;
@@ -878,7 +1001,6 @@ class _WaveformView extends StatelessWidget {
     required this.waveform,
     required this.theme,
     required this.height,
-    required this.onTapPosition,
     required this.onSeek,
     required this.onMarkerTap,
     required this.onSelectionComplete,
@@ -911,7 +1033,6 @@ class _WaveformView extends StatelessWidget {
           waveform: waveform,
           theme: theme,
           height: height,
-          onTapPosition: onTapPosition,
           onSeek: onSeek,
           onMarkerTap: onMarkerTap,
           onSelectionComplete: onSelectionComplete,
@@ -955,7 +1076,6 @@ class _InteractiveWaveform extends StatefulWidget {
   final WaveformProvider waveform;
   final WaveformTheme theme;
   final double height;
-  final Function(Offset) onTapPosition;
   final Function(Duration) onSeek;
   final Function(AudioMarker) onMarkerTap;
   final VoidCallback onSelectionComplete;
@@ -966,7 +1086,6 @@ class _InteractiveWaveform extends StatefulWidget {
     required this.waveform,
     required this.theme,
     required this.height,
-    required this.onTapPosition,
     required this.onSeek,
     required this.onMarkerTap,
     required this.onSelectionComplete,
@@ -988,18 +1107,15 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
         _startZoom = widget.waveform.zoomLevel;
       },
       onScaleUpdate: (details) {
-        // Pinch to zoom
         if (details.scale != 1.0) {
           widget.waveform.setZoom(_startZoom * details.scale);
         }
-        // Drag to scroll
         final delta = details.focalPointDelta.dx;
         final scrollDelta = delta / (context.size?.width ?? 300) / widget.waveform.zoomLevel;
         widget.waveform.scrollBy(-scrollDelta);
       },
       onTapDown: (details) {
         _lastTapPosition = details.localPosition;
-        widget.onTapPosition(details.localPosition);
       },
       onTapUp: (details) {
         if (_lastTapPosition != null) {
@@ -1008,8 +1124,6 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
             details.localPosition.dx,
             width,
           );
-
-          // Check if tapped on a marker
           final marker = widget.waveform.findMarkerAtPosition(time);
           if (marker != null) {
             widget.onMarkerTap(marker);
@@ -1051,7 +1165,6 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
       },
       child: Listener(
         onPointerSignal: (event) {
-          // Mouse wheel zoom
           if (event is PointerScrollEvent) {
             if (event.scrollDelta.dy < 0) {
               widget.waveform.zoomIn();
@@ -1063,214 +1176,25 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
         child: CustomPaint(
           size: Size(double.infinity, widget.height),
           painter: AdvancedWaveformPainter(
-            //Dât cơ bản
             waveformData: widget.waveform.waveformData,
             zoomLevel: widget.waveform.zoomLevel,
             scrollOffset: widget.waveform.scrollOffset,
             audioDuration: widget.player.state.duration,
             currentPosition: widget.player.state.position,
-            // Selection
             selectionStart: widget.waveform.selectionStart,
             selectionEnd: widget.waveform.selectionEnd,
-            // Markers
             markers: widget.waveform.markers,
             selectedMarker: widget.waveform.selectedMarker,
-            // Theme colors - SỬA LẠI CHO ĐÚNG TÊN THAM SỐ
             waveformColor: widget.theme.waveformColor,
             waveformPlayedColor: widget.theme.waveformPlayedColor,
             selectionColor: widget.theme.selectionColor,
             gridColor: widget.theme.gridColor,
-            playheadColor: widget.theme.secondary,  // Thêm dòng này
-            backgroundColor: widget.theme.backgroundColor,  // Thêm dòng này
-            // Loop region highlight
+            playheadColor: widget.theme.secondary,
+            backgroundColor: widget.theme.backgroundColor,
             loopStart: widget.player.loopStart,
             loopEnd: widget.player.loopEnd,
             isLooping: widget.player.isLooping,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ==================== SHADOWING AREA ====================
-
-class _ShadowingArea extends StatelessWidget {
-  final PlayerProvider player;
-  final WaveformTheme theme;
-
-  const _ShadowingArea({required this.player, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2196F3).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF2196F3).withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Row(
-            children: [
-              const Icon(
-                Icons.mic,
-                size: 18,
-                color: Color(0xFF2196F3),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Shadowing Mode',
-                style: TextStyle(
-                  color: Color(0xFF2196F3),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Coming Soon',
-                  style: TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Placeholder waveform comparison area
-          Container(
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.graphic_eq,
-                    size: 20,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Ghi âm và so sánh sóng âm của bạn',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: _ShadowingButton(
-                  icon: Icons.play_arrow,
-                  label: 'Nghe mẫu',
-                  onTap: () {
-                    if (player.hasLoop) {
-                      player.seek(player.loopStart!);
-                      player.play();
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ShadowingButton(
-                  icon: Icons.mic,
-                  label: 'Ghi âm',
-                  color: const Color(0xFFF44336),
-                  onTap: () {
-                    // TODO: Implement recording
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tính năng ghi âm đang phát triển...'),
-                        backgroundColor: Color(0xFF2196F3),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ShadowingButton(
-                  icon: Icons.compare_arrows,
-                  label: 'So sánh',
-                  onTap: () {
-                    // TODO: Implement comparison
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShadowingButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ShadowingButton({
-    required this.icon,
-    required this.label,
-    this.color = const Color(0xFF2196F3),
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.5)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1292,7 +1216,6 @@ class _TranscriptDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get current marker's label or note as transcript
     String? transcript;
     if (waveform.selectedMarker != null) {
       transcript = waveform.selectedMarker!.label;
@@ -1311,11 +1234,7 @@ class _TranscriptDisplay extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.subtitles,
-                size: 16,
-                color: theme.primary,
-              ),
+              Icon(Icons.subtitles, size: 16, color: theme.primary),
               const SizedBox(width: 8),
               Text(
                 'Transcript',
@@ -1348,11 +1267,13 @@ class _QuickActions extends StatelessWidget {
   final PlayerProvider player;
   final WaveformProvider waveform;
   final WaveformTheme theme;
+  final VoidCallback? onShadowingTap;
 
   const _QuickActions({
     required this.player,
     required this.waveform,
     required this.theme,
+    this.onShadowingTap,
   });
 
   @override
@@ -1375,7 +1296,6 @@ class _QuickActions extends StatelessWidget {
             label: 'Suy ngẫm',
             color: theme.primary,
             onTap: () {
-              // Pause và để thời gian suy ngẫm
               player.pause();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1417,14 +1337,10 @@ class _QuickActions extends StatelessWidget {
       case VipMode.english:
         return [
           _QuickActionButton(
-            icon: Icons.record_voice_over,
-            label: 'Lặp lại',
-            color: theme.primary,
-            onTap: () {
-              if (player.hasLoop) {
-                player.seek(player.loopStart!);
-              }
-            },
+            icon: Icons.mic,
+            label: 'Shadowing',
+            color: const Color(0xFF2196F3),
+            onTap: onShadowingTap,
           ),
           _QuickActionButton(
             icon: Icons.warning_amber,
@@ -1491,20 +1407,20 @@ class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _QuickActionButton({
     required this.icon,
     required this.label,
     required this.color,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        onTap();
+        onTap?.call();
         HapticFeedback.selectionClick();
       },
       child: Container(
@@ -1590,16 +1506,6 @@ class _MarkerControls extends StatelessWidget {
               }
             },
           ),
-          if (waveform.hasSelection)
-            _ControlButton(
-              icon: Icons.save,
-              label: 'Lưu',
-              color: const Color(0xFF4CAF50),
-              theme: theme,
-              onTap: () {
-                // Trigger save dialog will be called from parent
-              },
-            ),
           if (waveform.selectedMarker != null)
             _ControlButton(
               icon: Icons.delete,
@@ -1690,7 +1596,6 @@ class _MarkersList extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -1713,7 +1618,6 @@ class _MarkersList extends StatelessWidget {
                 if (waveform.markers.isNotEmpty)
                   GestureDetector(
                     onTap: () {
-                      // Show confirmation dialog
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
@@ -1756,8 +1660,6 @@ class _MarkersList extends StatelessWidget {
               ],
             ),
           ),
-
-          // List
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(8),
@@ -1836,7 +1738,6 @@ class _MarkerItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Type icon
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -1850,8 +1751,6 @@ class _MarkerItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1881,8 +1780,6 @@ class _MarkerItem extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Actions
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1935,6 +1832,61 @@ class _IconButton extends StatelessWidget {
         ),
         child: Icon(icon, size: 18, color: color),
       ),
+    );
+  }
+}
+
+// ==================== PULSING DOT ====================
+
+class _PulsingDot extends StatefulWidget {
+  final Color color;
+
+  const _PulsingDot({required this.color});
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color.withOpacity(0.5 + _controller.value * 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(0.5),
+                blurRadius: 6 * _controller.value,
+                spreadRadius: 2 * _controller.value,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

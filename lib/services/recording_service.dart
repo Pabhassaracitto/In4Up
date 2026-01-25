@@ -1,16 +1,21 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
 
-/// Service xử lý ghi âm
+/// Service xử lý ghi âm với package record
 class RecordingService {
   // Singleton
   static final RecordingService _instance = RecordingService._internal();
   factory RecordingService() => _instance;
   RecordingService._internal();
+
+  // Record instance
+  final AudioRecorder _recorder = AudioRecorder();
 
   // State
   bool _isRecording = false;
@@ -24,7 +29,7 @@ class RecordingService {
   final _durationController = StreamController<Duration>.broadcast();
 
   Timer? _durationTimer;
-  Timer? _amplitudeTimer;
+  StreamSubscription<Amplitude>? _amplitudeSubscription;
 
   // Waveform data được thu thập trong quá trình ghi
   final List<double> _recordingWaveform = [];
@@ -51,6 +56,11 @@ class RecordingService {
 
     final result = await Permission.microphone.request();
     return result.isGranted;
+  }
+
+  /// Kiểm tra recorder có sẵn sàng không
+  Future<bool> isRecorderReady() async {
+    return await _recorder.hasPermission();
   }
 
   /// Bắt đầu ghi âm
@@ -81,14 +91,16 @@ class RecordingService {
       // Clear previous waveform data
       _recordingWaveform.clear();
 
-      // TODO: Integrate với package 'record' thực tế
-      // Đây là placeholder - cần thêm package record
-      /*
-      await _recorder.start(
-        RecordConfig(encoder: AudioEncoder.aacLc),
-        path: _currentRecordingPath!,
+      // Configure recording
+      const config = RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        sampleRate: 44100,
+        bitRate: 128000,
+        numChannels: 1,
       );
-      */
+
+      // Start recording
+      await _recorder.start(config, path: _currentRecordingPath!);
 
       _isRecording = true;
       _isPaused = false;
@@ -99,7 +111,7 @@ class RecordingService {
       // Start duration timer
       _startDurationTimer();
 
-      // Start amplitude monitoring (simulated)
+      // Start amplitude monitoring
       _startAmplitudeMonitoring();
 
       debugPrint('RecordingService: Started recording to $_currentRecordingPath');
@@ -120,10 +132,8 @@ class RecordingService {
     }
 
     try {
-      // TODO: Stop actual recording
-      /*
+      // Stop recording
       final path = await _recorder.stop();
-      */
 
       _stopTimers();
 
@@ -132,10 +142,9 @@ class RecordingService {
 
       _stateController.add(RecordingState.stopped);
 
-      final path = _currentRecordingPath;
       debugPrint('RecordingService: Stopped recording. Path: $path');
 
-      return path;
+      return path ?? _currentRecordingPath;
 
     } catch (e) {
       debugPrint('RecordingService: Error stopping recording: $e');
@@ -144,24 +153,40 @@ class RecordingService {
     }
   }
 
-  /// Pause/Resume recording
-  Future<void> togglePause() async {
-    if (!_isRecording) return;
+  /// Pause recording
+  Future<void> pauseRecording() async {
+    if (!_isRecording || _isPaused) return;
 
     try {
-      if (_isPaused) {
-        // Resume
-        // await _recorder.resume();
-        _isPaused = false;
-        _stateController.add(RecordingState.recording);
-      } else {
-        // Pause
-        // await _recorder.pause();
-        _isPaused = true;
-        _stateController.add(RecordingState.paused);
-      }
+      await _recorder.pause();
+      _isPaused = true;
+      _stateController.add(RecordingState.paused);
+      debugPrint('RecordingService: Paused recording');
     } catch (e) {
-      debugPrint('RecordingService: Error toggling pause: $e');
+      debugPrint('RecordingService: Error pausing recording: $e');
+    }
+  }
+
+  /// Resume recording
+  Future<void> resumeRecording() async {
+    if (!_isRecording || !_isPaused) return;
+
+    try {
+      await _recorder.resume();
+      _isPaused = false;
+      _stateController.add(RecordingState.recording);
+      debugPrint('RecordingService: Resumed recording');
+    } catch (e) {
+      debugPrint('RecordingService: Error resuming recording: $e');
+    }
+  }
+
+  /// Toggle Pause/Resume
+  Future<void> togglePause() async {
+    if (_isPaused) {
+      await resumeRecording();
+    } else {
+      await pauseRecording();
     }
   }
 
@@ -196,55 +221,62 @@ class RecordingService {
   }
 
   void _startAmplitudeMonitoring() {
-    _amplitudeTimer?.cancel();
+    _amplitudeSubscription?.cancel();
 
-    // Simulate amplitude monitoring
-    // TODO: Thay bằng đọc amplitude thật từ recorder
-    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+    // Sử dụng amplitude stream từ recorder
+    _amplitudeSubscription = _recorder
+        .onAmplitudeChanged(const Duration(milliseconds: 50))
+        .listen((amp) {
       if (_isRecording && !_isPaused) {
-        // Simulated amplitude (0.0 - 1.0)
-        final simulatedAmplitude = 0.3 + (DateTime.now().millisecond % 100) / 150;
-        _amplitudeController.add(simulatedAmplitude.clamp(0.0, 1.0));
-        _recordingWaveform.add(simulatedAmplitude.clamp(0.0, 1.0));
+        // Chuyển đổi dBFS sang giá trị 0-1
+        // amp.current thường từ -60 (im lặng) đến 0 (max)
+        double normalizedAmp = 0.0;
+        if (amp.current > -60) {
+          normalizedAmp = (amp.current + 60) / 60; // Normalize to 0-1
+        }
+        normalizedAmp = normalizedAmp.clamp(0.0, 1.0);
+
+        _amplitudeController.add(normalizedAmp);
+        _recordingWaveform.add(normalizedAmp);
       }
     });
   }
 
   void _stopTimers() {
     _durationTimer?.cancel();
-    _amplitudeTimer?.cancel();
+    _amplitudeSubscription?.cancel();
     _durationTimer = null;
-    _amplitudeTimer = null;
+    _amplitudeSubscription = null;
   }
 
   /// Extract waveform từ file audio
-  Future<List<double>> extractWaveform(String filePath) async {
+  Future<List<double>> extractWaveform(String filePath, {int targetSamples = 500}) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        return _generateSimulatedWaveform(100);
+        debugPrint('RecordingService: File not found: $filePath');
+        return _generateSimulatedWaveform(targetSamples);
       }
 
       final bytes = await file.readAsBytes();
-      return _processAudioBytes(bytes);
+      return _processAudioBytes(bytes, targetSamples);
 
     } catch (e) {
       debugPrint('RecordingService: Error extracting waveform: $e');
-      return _generateSimulatedWaveform(100);
+      return _generateSimulatedWaveform(targetSamples);
     }
   }
 
-  List<double> _processAudioBytes(Uint8List bytes) {
-    const targetSamples = 500;
-
+  List<double> _processAudioBytes(Uint8List bytes, int targetSamples) {
     // Skip header (simplified - assumes WAV-like format)
+    // M4A/AAC files có header phức tạp hơn, đây là xử lý đơn giản
     int dataStart = 44;
     if (bytes.length < dataStart + 100) {
       return _generateSimulatedWaveform(targetSamples);
     }
 
     final dataLength = bytes.length - dataStart;
-    final bytesPerSample = (dataLength / targetSamples).ceil();
+    final bytesPerSample = math.max(1, dataLength ~/ targetSamples);
 
     List<double> samples = [];
     for (int i = dataStart; i < bytes.length && samples.length < targetSamples; i += bytesPerSample) {
@@ -262,6 +294,13 @@ class RecordingService {
       }
     }
 
+    // Smoothing
+    if (samples.length > 2) {
+      for (int i = 1; i < samples.length - 1; i++) {
+        samples[i] = (samples[i - 1] + samples[i] * 2 + samples[i + 1]) / 4;
+      }
+    }
+
     return samples;
   }
 
@@ -269,13 +308,15 @@ class RecordingService {
     final random = DateTime.now().millisecond;
     return List.generate(count, (i) {
       double base = 0.3 + (((i + random) * 7) % 100) / 200;
-      return base.clamp(0.1, 0.9);
+      double variation = math.sin(i * 0.1) * 0.15;
+      return (base + variation).clamp(0.1, 0.9);
     });
   }
 
   /// Cleanup
   void dispose() {
     _stopTimers();
+    _recorder.dispose();
     _stateController.close();
     _amplitudeController.close();
     _durationController.close();

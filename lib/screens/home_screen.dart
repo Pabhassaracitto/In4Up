@@ -414,9 +414,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
           const SizedBox(height: 16),
 
-          // A-B Loop Controls (Updated with gap support)
-          const ABLoopControls(),
-
           const SizedBox(height: 16),
 
           // Gap Duration Control (NEW)
@@ -438,6 +435,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
           // Player Controls
           const PlayerControls(),
+
+          // A-B Loop Controls (Updated with gap support)
+          const ABLoopControls(),
 
           const SizedBox(height: 24),
 
@@ -773,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
-*/
+
   String _getGapTip(VipMode mode) {
     switch (mode) {
       case VipMode.buddhism:
@@ -784,7 +784,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         return 'Gap creates breathing space between loops';
     }
   }
-
+*/
   Widget _buildProgressBar(PlayerProvider player, _ModeTheme theme) {
     final position = player.state.position;
     final duration = player.state.duration;

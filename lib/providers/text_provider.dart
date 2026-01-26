@@ -7,7 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/word_analysis.dart';
-
+import 'dart:io';
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
   final WordDatabase _wordDatabase = WordDatabase();
@@ -73,6 +73,25 @@ class TextProvider extends ChangeNotifier {
   int get currentLineIndex => _currentLineIndex;
   String? get selectedText => _selectedText;
   String get fullText => _fullText;
+
+  // Thêm biến này
+  String? _currentTextPath;
+
+  // BỔ SUNG CÁC GETTER BỊ THIẾU
+  bool get hasLyrics => _lines.isNotEmpty;
+  String? get currentTextPath => _currentTextPath;
+
+  // Thêm methods còn thiếu
+  void clearSelection() {
+    _selectedText = null;
+    _selectedTextInfo = null;
+    notifyListeners();
+  }
+
+  void selectText(String text) {
+    _selectedText = text;
+    notifyListeners();
+  }
 
   // Word analysis
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
@@ -154,70 +173,47 @@ class TextProvider extends ChangeNotifier {
 
   // ==================== TEXT MANAGEMENT ====================
 
+  /// Load text từ raw string (ví dụ nội dung copy/paste, nhập tay)
   void loadText(String content, {String? title}) {
-    _fullText = content;
-    final lineStrings = content.split('\n').where((l) => l.trim().isNotEmpty).toList();
-
-    _lines = lineStrings.asMap().entries.map((entry) {
-      return TextItem(
-        id: 'line_${entry.key}',
-        content: entry.value.trim(),
-      );
-    }).toList();
-
-    // Phân tích từ vựng cho mỗi dòng
-    _analyzedLines = _lines.map((line) {
-      return _wordDatabase.analyzeSentence(line.content);
-    }).toList();
-
-    _currentDocument = TextDocument(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title ?? 'Untitled',
-      lines: _lines,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    _currentLineIndex = -1;
-    _selectedTextInfo = null;
-    _selectedText = null;
-    notifyListeners();
+    _parsePlainText(content, title: title);
   }
 
-  void updateFullText(String newText) {
-    _fullText = newText;
-    final lineStrings = newText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+  /// Tiện ích: load trực tiếp từ String (dùng trong Text Studio / ReadMode)
+  void loadFromString(String content, {String? title}) {
+    _parsePlainText(content, title: title);
+  }
 
-    _lines = lineStrings.asMap().entries.map((entry) {
-      return TextItem(
-        id: 'line_${entry.key}',
-        content: entry.value.trim(),
-      );
-    }).toList();
+  /// Load text từ file (.txt / .lrc / .srt)
+  Future<void> loadTextFile(String path, {String? title}) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) {
+        debugPrint('TextProvider.loadTextFile: File not found: $path');
+        return;
+      }
 
-    // Phân tích lại từ vựng
-    _analyzedLines = _lines.map((line) {
-      return _wordDatabase.analyzeSentence(line.content);
-    }).toList();
+      final content = await file.readAsString();
+      final lower = path.toLowerCase();
+      final docTitle = title ?? _extractFileName(path);
 
-    if (_currentDocument != null) {
-      _currentDocument = TextDocument(
-        id: _currentDocument!.id,
-        title: _currentDocument!.title,
-        lines: _lines,
-        createdAt: _currentDocument!.createdAt,
-        updatedAt: DateTime.now(),
-      );
+      if (lower.endsWith('.lrc')) {
+        _parseLrc(content, title: docTitle);
+      } else if (lower.endsWith('.srt')) {
+        _parseSrt(content, title: docTitle);
+      } else {
+        // Mặc định: TXT thường
+        _parsePlainText(content, title: docTitle);
+      }
+    } catch (e) {
+      debugPrint('TextProvider.loadTextFile error: $e');
     }
-
-    _segments.clear();
-    _selectedTextInfo = null;
-    _selectedText = null;
-    _currentLineIndex = -1;
-
-    notifyListeners();
+  }
+  /// Cập nhật toàn bộ text (khi user sửa trong Text Studio)
+  void updateFullText(String newText) {
+    _parsePlainText(newText, title: _currentDocument?.title);
   }
 
+  /// Xóa toàn bộ text hiện tại
   void clearText() {
     _lines = [];
     _analyzedLines = [];
@@ -229,22 +225,188 @@ class TextProvider extends ChangeNotifier {
     _segments.clear();
     notifyListeners();
   }
-
+  // BỔ SUNG CÁC METHOD BỊ THIẾU
   void setCurrentLine(int index) {
     if (index >= 0 && index < _lines.length) {
       _currentLineIndex = index;
       notifyListeners();
     }
   }
+  /// Lấy tên file từ path
+  String _extractFileName(String path) {
+    return path.split(Platform.pathSeparator).last;
+  }
 
-  void selectText(String text) {
-    _selectedText = text;
+  /// Parse plain text: mỗi dòng -> 1 TextItem (chưa có timestamp)
+  void _parsePlainText(String content, {String? title}) {
+    _fullText = content;
+
+    final lineStrings = content
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+
+    _lines = lineStrings.asMap().entries.map((entry) {
+      return TextItem(
+        id: 'line_${entry.key}',
+        content: entry.value.trim(),
+        // translation: null,
+        // startTime/endTime: null (chưa sync),
+        // words: [] (WordItem) – sẽ được phân tích riêng,
+      );
+    }).toList();
+
+
+    // Phân tích từ vựng cho mỗi dòng
+    _analyzedLines = _lines.map((line) {
+      return _wordDatabase.analyzeSentence(line.content);
+    }).toList();
+
+    _currentDocument = TextDocument(
+      id: _currentDocument?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title ?? _currentDocument?.title ?? 'Untitled',
+      lines: _lines,
+      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
+    _selectedTextInfo = null;
+    _selectedText = null;
     notifyListeners();
   }
 
-  void clearSelection() {
-    _selectedText = null;
+  /// Parse LRC: [mm:ss.xx] câu
+  void _parseLrc(String content, {String? title}) {
+    _fullText = content;
+    _lines = [];
+
+    final regex = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)');
+    final rawLines = content.split('\n');
+
+    for (final raw in rawLines) {
+      final match = regex.firstMatch(raw);
+      if (match == null) continue;
+
+      final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
+      final seconds = int.tryParse(match.group(2) ?? '') ?? 0;
+      final fraction = match.group(3) ?? '00';
+      final text = (match.group(4) ?? '').trim();
+      if (text.isEmpty) continue;
+
+      // fraction: "12" -> 120ms, "123" -> 123ms
+      final ms = fraction.length == 2
+          ? int.parse(fraction) * 10
+          : int.parse(fraction);
+
+      final start = Duration(
+        minutes: minutes,
+        seconds: seconds,
+        milliseconds: ms,
+      );
+
+      _lines.add(TextItem(
+        id: 'line_${_lines.length}',
+        content: text,
+        startTime: start,
+      ));
+    }
+
+    // Set endTime = startTime của dòng kế tiếp
+    for (int i = 0; i < _lines.length - 1; i++) {
+      final nextStart = _lines[i + 1].startTime;
+      if (nextStart != null) {
+        _lines[i] = _lines[i].copyWith(endTime: nextStart);
+      }
+    }
+
+    _analyzedLines = _lines.map((line) {
+      return _wordDatabase.analyzeSentence(line.content);
+    }).toList();
+
+    _currentDocument = TextDocument(
+      id: _currentDocument?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title ?? _currentDocument?.title ?? 'Untitled',
+      lines: _lines,
+      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
     _selectedTextInfo = null;
+    _selectedText = null;
+    notifyListeners();
+  }
+
+  /// Parse SRT: block gồm index, time, text
+  void _parseSrt(String content, {String? title}) {
+    _fullText = content;
+    _lines = [];
+
+    final blocks = content.split(RegExp(r'\r?\n\r?\n+'));
+
+    final timeRegex = RegExp(
+      r'(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*'
+      r'(\d{2}):(\d{2}):(\d{2}),(\d{3})',
+    );
+
+    Duration _parseTime(int h, int m, int s, int ms) => Duration(
+      hours: h,
+      minutes: m,
+      seconds: s,
+      milliseconds: ms,
+    );
+
+    for (int i = 0; i < blocks.length; i++) {
+      final block = blocks[i].trim();
+      if (block.isEmpty) continue;
+
+      final linesBlock = block.split('\n');
+      if (linesBlock.length < 2) continue;
+
+      final timeMatch = timeRegex.firstMatch(linesBlock[1]);
+      if (timeMatch == null) continue;
+
+      final start = _parseTime(
+        int.parse(timeMatch.group(1)!),
+        int.parse(timeMatch.group(2)!),
+        int.parse(timeMatch.group(3)!),
+        int.parse(timeMatch.group(4)!),
+      );
+
+      final end = _parseTime(
+        int.parse(timeMatch.group(5)!),
+        int.parse(timeMatch.group(6)!),
+        int.parse(timeMatch.group(7)!),
+        int.parse(timeMatch.group(8)!),
+      );
+
+      final text = linesBlock.skip(2).join('\n').trim();
+      if (text.isEmpty) continue;
+
+      _lines.add(TextItem(
+        id: 'line_${_lines.length}',
+        content: text,
+        startTime: start,
+        endTime: end,
+      ));
+    }
+
+    _analyzedLines = _lines.map((line) {
+      return _wordDatabase.analyzeSentence(line.content);
+    }).toList();
+
+    _currentDocument = TextDocument(
+      id: _currentDocument?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title ?? _currentDocument?.title ?? 'Untitled',
+      lines: _lines,
+      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
+    _selectedTextInfo = null;
+    _selectedText = null;
     notifyListeners();
   }
 

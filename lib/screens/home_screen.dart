@@ -420,11 +420,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 16),
 
           // Gap Duration Control (NEW)
-          if (player.isLooping || player.loopStart != null)
+         // Loại do bị dư
+          /* if (player.isLooping || player.loopStart != null)
             _buildGapControl(player, theme),
 
           const SizedBox(height: 16),
-
+*/
           // Progress Bar
           _buildProgressBar(player, theme),
 
@@ -669,7 +670,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildGapControl(PlayerProvider player, _ModeTheme theme) {
+  //Phần Gap bị dư (english)
+/*  Widget _buildGapControl(PlayerProvider player, _ModeTheme theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -771,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
+*/
   String _getGapTip(VipMode mode) {
     switch (mode) {
       case VipMode.buddhism:

@@ -43,7 +43,7 @@ dependencies:
   shared_preferences: ^2.2.2  # THÊM DÒNG NÀY
   flutter_tts: ^4.0.2  # THÊM DÒNG NÀY
   just_waveform: ^0.0.7  # Đọc waveform từ audio file
-  record: ^5.1.2 # ghi âm
+  record: ^6.1.2 # ghi âm
 
 dev_dependencies:
   flutter_test:

@@ -11,10 +11,46 @@
  class ShadowingProvider extends ChangeNotifier {
    final RecordingService _recordingService = RecordingService();
 
+
    // === STATE ===
    ShadowingState _state = ShadowingState.idle;
    ShadowingSettings _settings = const ShadowingSettings();
 
+   // Thêm các biến còn thiếu nếu chưa có
+   String? get currentAudioPath => _originalAudioPath;
+   Duration? get startTime => _segmentStart;
+   Duration? get endTime => _segmentEnd;
+   String? get userRecordingPath => _recordedPath;
+   List<double> get waveform => _originalWaveform;
+   List<double> get userWaveform => _recordedWaveform;
+
+   int get completedRepetitions => _sessionResults.length;
+   int get repeatCount => _settings.repeatCount; // Cần thêm repeatCount vào ShadowingSettings
+   double get playbackSpeed => _settings.playbackSpeed; // Cần thêm playbackSpeed vào ShadowingSettings
+   double get similarityScore => _lastResult?.overallScore ?? 0.0;
+
+   bool get isIdle => _state == ShadowingState.idle;
+   bool get isListening => false; // Logic cũ không có state listening riêng, có thể thêm hoặc map từ state khác
+   bool get isPlayingUser => false; // Cần thêm state này nếu muốn nghe lại
+
+// Thêm các hàm setter settings
+   void setRepeatCount(int count) {
+     updateSettings(_settings.copyWith(repeatCount: count.clamp(1, 20)));
+   }
+
+   void setPlaybackSpeed(double speed) {
+     updateSettings(_settings.copyWith(playbackSpeed: speed.clamp(0.5, 1.5)));
+   }
+
+// Hàm nghe lại recording
+   Future<void> playUserRecording() async {
+     // Logic play file _recordedPath
+   }
+
+// Hàm nghe lại original
+   Future<void> playOriginal() async {
+     // Logic play đoạn gốc
+   }
    // Segment đang practice
    Duration? _segmentStart;
    Duration? _segmentEnd;

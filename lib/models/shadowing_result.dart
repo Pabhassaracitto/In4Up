@@ -174,6 +174,10 @@ class ShadowingSettings {
   final bool playBeepOnStart;      // Phát tiếng beep khi bắt đầu ghi
   final int countdownSeconds;      // Số giây đếm ngược
 
+  // NEW (optional)
+  final int repeatCount;
+  final double playbackSpeed;
+
   const ShadowingSettings({
     this.gapDuration = 2.0,
     this.maxRecordDuration = 30.0,
@@ -181,6 +185,10 @@ class ShadowingSettings {
     this.showRealTimeWaveform = true,
     this.playBeepOnStart = true,
     this.countdownSeconds = 3,
+
+    // NEW defaults
+    this.repeatCount = 3,
+    this.playbackSpeed = 1.0,
   });
 
   ShadowingSettings copyWith({
@@ -190,6 +198,9 @@ class ShadowingSettings {
     bool? showRealTimeWaveform,
     bool? playBeepOnStart,
     int? countdownSeconds,
+    // NEW
+    int? repeatCount,
+    double? playbackSpeed,
   }) {
     return ShadowingSettings(
       gapDuration: gapDuration ?? this.gapDuration,

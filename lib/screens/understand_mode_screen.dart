@@ -1,3 +1,7 @@
+// lib/screens/understand_mode_screen.dart
+// VipSound - Chế độ HIỂU (Sync Mode)
+// Kết hợp Text + Audio + Shadowing
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,9 +11,7 @@ import '../providers/waveform_provider.dart';
 import '../providers/shadowing_provider.dart';
 import '../widgets/waveform_editor.dart';
 import '../widgets/shadowing_widget.dart';
-
-/// Chế độ HIỂU - Sync Mode (Text + Audio + Shadowing)
-/// Focus: Split view, đồng bộ text-audio, shadowing, dictionary
+import '../screens/sync_hub_screen.dart';
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
 
@@ -19,11 +21,7 @@ class UnderstandModeScreen extends StatefulWidget {
 
 class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     with SingleTickerProviderStateMixin {
-  // View mode
-  bool _showShadowing = false;
-  double _splitRatio = 0.4; // 40% waveform, 60% text
-
-  // Tab controller for sub-features
+  double _splitRatio = 0.4;
   late TabController _tabController;
 
   @override
@@ -42,25 +40,23 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   Widget build(BuildContext context) {
     return Consumer4<PlayerProvider, TextProvider, WaveformProvider, ShadowingProvider>(
       builder: (context, player, textProvider, waveform, shadowing, child) {
-        // Check requirements
         final hasAudio = player.currentSongPath != null;
         final hasText = textProvider.hasLyrics;
 
-        // Empty state if nothing loaded
         if (!hasAudio && !hasText) {
           return _buildEmptyState(context);
         }
 
-        // Partial state (only audio or only text)
         if (!hasAudio || !hasText) {
           return _buildPartialState(context, hasAudio, hasText);
         }
 
-        // Full mode: both audio and text
         return _buildSyncMode(context, player, textProvider, waveform, shadowing);
       },
     );
   }
+
+  // ==================== EMPTY STATE ====================
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
@@ -69,7 +65,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icon
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
@@ -89,7 +84,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
             const SizedBox(height: 24),
 
-            // Title
             const Text(
               'Chế độ Hiểu',
               style: TextStyle(
@@ -106,7 +100,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
             const SizedBox(height: 32),
 
-            // Instructions
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -114,20 +107,18 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFFFB300).withOpacity(0.3)),
               ),
-              child: Column(
+              child: const Column(
                 children: [
                   _StepItem(number: 1, text: 'Vào Tab "Nghe" để chọn audio'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _StepItem(number: 2, text: 'Vào Tab "Đọc" để thêm văn bản'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _StepItem(number: 3, text: 'Quay lại đây để đồng bộ & học'),
                 ],
               ),
             ),
 
             const SizedBox(height: 32),
-
-            // Features preview
             _buildFeaturesList(),
           ],
         ),
@@ -142,7 +133,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Status icons
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -152,11 +142,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   isReady: hasAudio,
                 ),
                 const SizedBox(width: 16),
-                Icon(
-                  Icons.add,
-                  color: Colors.grey[600],
-                  size: 24,
-                ),
+                Icon(Icons.add, color: Colors.grey[600], size: 24),
                 const SizedBox(width: 16),
                 _StatusIcon(
                   icon: Icons.menu_book,
@@ -188,10 +174,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
             const SizedBox(height: 32),
 
-            // Quick action
             ElevatedButton.icon(
               onPressed: () {
-                // Navigate to appropriate tab
                 HapticFeedback.mediumImpact();
               },
               icon: Icon(hasAudio ? Icons.menu_book : Icons.headphones),
@@ -210,6 +194,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
+  // ==================== SYNC MODE ====================
+
   Widget _buildSyncMode(
       BuildContext context,
       PlayerProvider player,
@@ -219,22 +205,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       ) {
     return Column(
       children: [
-        // Mode tabs
         _buildModeTabs(),
-
-        // Content based on tab
         Expanded(
           child: TabBarView(
             controller: _tabController,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              // Tab 1: Sync View (Split)
               _buildSplitView(player, textProvider, waveform),
-
-              // Tab 2: Shadowing
               _buildShadowingView(player, shadowing),
-
-              // Tab 3: Dictionary/SRS
               _buildDictionaryView(textProvider),
             ],
           ),
@@ -252,22 +230,15 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         labelColor: const Color(0xFFFFB300),
         unselectedLabelColor: Colors.grey,
         tabs: const [
-          Tab(
-            icon: Icon(Icons.sync, size: 20),
-            text: 'Đồng bộ',
-          ),
-          Tab(
-            icon: Icon(Icons.mic, size: 20),
-            text: 'Shadowing',
-          ),
-          Tab(
-            icon: Icon(Icons.book, size: 20),
-            text: 'Từ điển',
-          ),
+          Tab(icon: Icon(Icons.sync, size: 20), text: 'Đồng bộ'),
+          Tab(icon: Icon(Icons.mic, size: 20), text: 'Shadowing'),
+          Tab(icon: Icon(Icons.book, size: 20), text: 'Từ điển'),
         ],
       ),
     );
   }
+
+  // ==================== SPLIT VIEW ====================
 
   Widget _buildSplitView(
       PlayerProvider player,
@@ -276,7 +247,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       ) {
     return Column(
       children: [
-        // Waveform section (adjustable)
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           height: MediaQuery.of(context).size.height * _splitRatio * 0.5,
@@ -287,11 +257,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ),
         ),
 
-        // Divider with drag handle
         GestureDetector(
           onVerticalDragUpdate: (details) {
             setState(() {
-              _splitRatio = (_splitRatio + details.primaryDelta! / MediaQuery.of(context).size.height)
+              _splitRatio = (_splitRatio +
+                  details.primaryDelta! / MediaQuery.of(context).size.height)
                   .clamp(0.2, 0.6);
             });
           },
@@ -311,7 +281,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ),
         ),
 
-        // Text section
         Expanded(
           child: Container(
             color: const Color(0xFF0D1520),
@@ -319,7 +288,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ),
         ),
 
-        // Mini controls
         _buildMiniControls(player),
       ],
     );
@@ -332,9 +300,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       itemBuilder: (context, index) {
         final line = textProvider.lines[index];
 
-        // Check if line is currently playing - SỬA LỖI
+        // SỬA LỖI: Kiểm tra null safety
         final isSynced = line.startTime != null;
         bool isActive = false;
+
         if (isSynced && line.startTime != null) {
           isActive = player.state.position >= line.startTime! &&
               (line.endTime == null || player.state.position <= line.endTime!);
@@ -343,15 +312,23 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            if (isSynced && line.startTime != null) { // SỬA LỖI
+            // SỬA LỖI: Kiểm tra null trước khi seek
+            if (isSynced && line.startTime != null) {
               player.seek(line.startTime!);
             }
           },
           onLongPress: () {
-            // Set A-B loop for this line - SỬA LỖI
+            // SỬA LỖI: Kiểm tra null safety cho setLoop
             if (isSynced && line.startTime != null && line.endTime != null) {
               player.setLoop(line.startTime!, line.endTime!);
               HapticFeedback.mediumImpact();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Đã set loop cho dòng ${index + 1}'),
+                  backgroundColor: const Color(0xFF4CAF50),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             }
           },
           child: AnimatedContainer(
@@ -370,8 +347,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Time badge
-                if (isSynced && line.startTime != null) // SỬA LỖI
+                // Time badge - SỬA LỖI: Kiểm tra null
+                if (isSynced && line.startTime != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     margin: const EdgeInsets.only(right: 12),
@@ -382,7 +359,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      _formatDuration(line.startTime!), // SỬA LỖI
+                      _formatDuration(line.startTime!),
                       style: TextStyle(
                         fontSize: 10,
                         color: isActive ? const Color(0xFFFFB300) : Colors.grey,
@@ -391,13 +368,13 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     ),
                   ),
 
-                // Text content
+                // Text content - SỬA LỖI: line.text -> line.content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        line.content, // SỬA LỖI: từ line.text thành line.content
+                        line.content, // SỬA: từ line.text thành line.content
                         style: TextStyle(
                           color: isActive ? Colors.white : Colors.white70,
                           fontSize: 16,
@@ -469,13 +446,44 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             color: Colors.white70,
             onPressed: () => player.forward10(),
           ),
+          const SizedBox(width: 24),
+          // Loop indicator
+          if (player.isLooping)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.loop, size: 16, color: Color(0xFF4CAF50)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${player.loopCount}x',
+                    style: const TextStyle(
+                      color: Color(0xFF4CAF50),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => player.clearLoop(),
+                    child: const Icon(Icons.close, size: 14, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
+  // ==================== SHADOWING VIEW ====================
+
   Widget _buildShadowingView(PlayerProvider player, ShadowingProvider shadowing) {
-    // Check if loop is set
     if (player.loopStart == null || player.loopEnd == null) {
       return Center(
         child: Padding(
@@ -483,8 +491,15 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.info_outline, size: 48, color: Colors.grey[600]),
-              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9C27B0).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.mic, size: 48, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
               const Text(
                 'Chọn đoạn để luyện Shadowing',
                 style: TextStyle(
@@ -493,11 +508,37 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Long press vào một câu trong tab "Đồng bộ"\nhoặc dùng A-B Loop trong Waveform',
                 style: TextStyle(color: Colors.grey[500]),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _HowToItem(
+                      icon: Icons.touch_app,
+                      text: 'Long press câu để chọn',
+                    ),
+                    const SizedBox(height: 8),
+                    _HowToItem(
+                      icon: Icons.loop,
+                      text: 'Hoặc set A-B Loop trong Waveform',
+                    ),
+                    const SizedBox(height: 8),
+                    _HowToItem(
+                      icon: Icons.mic,
+                      text: 'Sau đó quay lại đây để luyện',
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -505,8 +546,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       );
     }
 
-    // Auto-setup shadowing if not done
-    if (shadowing.state == ShadowingState.idle) {
+    // Auto-setup shadowing
+    if (shadowing.state == ShadowingState.idle && player.loopStart != null && player.loopEnd != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         shadowing.setSegment(
           start: player.loopStart!,
@@ -517,11 +558,195 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       });
     }
 
-    return const SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: ShadowingWidget(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Segment info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF9C27B0).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF9C27B0).withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.timer, color: Color(0xFF9C27B0)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Đoạn: ${_formatDuration(player.loopStart!)} - ${_formatDuration(player.loopEnd!)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Độ dài: ${_formatDuration(player.loopEnd! - player.loopStart!)}',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ShadowingStatItem(
+                        label: 'Lần lặp',
+                        value: '${shadowing.completedRepetitions}/${shadowing.repeatCount}',
+                        color: Colors.blue,
+                      ),
+                    ),
+                    Expanded(
+                      child: _ShadowingStatItem(
+                        label: 'Tốc độ',
+                        value: '${shadowing.playbackSpeed}x',
+                        color: Colors.orange,
+                      ),
+                    ),
+                    Expanded(
+                      child: _ShadowingStatItem(
+                        label: 'Điểm',
+                        value: '${(shadowing.similarityScore * 100).toInt()}%',
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Controls
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: shadowing.isIdle
+                      ? () => shadowing.playOriginal()
+                      : null,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Nghe mẫu'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: shadowing.isIdle
+                      ? () => shadowing.startShadowing()
+                      : shadowing.isRecording
+                      ? () => shadowing.stopRecording()
+                      : null,
+                  icon: Icon(shadowing.isRecording ? Icons.stop : Icons.mic),
+                  label: Text(shadowing.isRecording ? 'Dừng' : 'Ghi âm'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: shadowing.isRecording ? Colors.red : const Color(0xFF9C27B0),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (shadowing.userRecordingPath != null)
+            ElevatedButton.icon(
+              onPressed: () => shadowing.playUserRecording(),
+              icon: const Icon(Icons.headphones),
+              label: const Text('Nghe lại bản ghi của bạn'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // Settings
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cài đặt',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Số lần lặp:', style: TextStyle(color: Colors.grey)),
+                    const Spacer(),
+                    ...List.generate(5, (i) {
+                      final count = i + 1;
+                      final isSelected = shadowing.repeatCount == count;
+                      return GestureDetector(
+                        onTap: () => shadowing.setRepeatCount(count),
+                        child: Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF9C27B0)
+                                : Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Tốc độ:', style: TextStyle(color: Colors.grey)),
+                    Expanded(
+                      child: Slider(
+                        value: shadowing.playbackSpeed,
+                        min: 0.5,
+                        max: 1.5,
+                        divisions: 10,
+                        activeColor: const Color(0xFF9C27B0),
+                        onChanged: (value) => shadowing.setPlaybackSpeed(value),
+                      ),
+                    ),
+                    Text(
+                      '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  // ==================== DICTIONARY VIEW ====================
 
   Widget _buildDictionaryView(TextProvider textProvider) {
     return Center(
@@ -558,42 +783,87 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Column(
-                children: [
-                  _FeatureRow(icon: Icons.search, text: 'Tra cứu từ điển'),
-                  SizedBox(height: 12),
-                  _FeatureRow(icon: Icons.refresh, text: 'Spaced Repetition (SRS)'),
-                  SizedBox(height: 12),
-                  _FeatureRow(icon: Icons.collections_bookmark, text: 'Flashcards'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Coming Soon',
-                style: TextStyle(
-                  color: Color(0xFF4CAF50),
-                  fontWeight: FontWeight.bold,
+
+            // Stats
+            if (textProvider.segments.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _StatItem(
+                          label: 'Đoạn đã lưu',
+                          value: '${textProvider.segments.length}',
+                          color: Colors.amber,
+                        ),
+                        _StatItem(
+                          label: 'Cần ôn tập',
+                          value: '${textProvider.getSegmentsForReview().length}',
+                          color: Colors.red,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: textProvider.getSegmentsForReview().isNotEmpty
+                    ? () => textProvider.startReviewSession()
+                    : null,
+                icon: const Icon(Icons.school),
+                label: const Text('Bắt đầu ôn tập'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4CAF50),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Column(
+                  children: [
+                    _FeatureRow(icon: Icons.search, text: 'Tra cứu từ điển'),
+                    SizedBox(height: 12),
+                    _FeatureRow(icon: Icons.refresh, text: 'Spaced Repetition (SRS)'),
+                    SizedBox(height: 12),
+                    _FeatureRow(icon: Icons.collections_bookmark, text: 'Flashcards'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Coming Soon',
+                  style: TextStyle(
+                    color: Color(0xFF4CAF50),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  // ==================== HELPER WIDGETS ====================
 
   Widget _buildFeaturesList() {
     final features = [
@@ -618,10 +888,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               children: [
                 Icon(f.$1, color: const Color(0xFFFFB300), size: 20),
                 const SizedBox(width: 12),
-                Text(
-                  f.$2,
-                  style: TextStyle(color: Colors.grey[400]),
-                ),
+                Text(f.$2, style: TextStyle(color: Colors.grey[400])),
               ],
             ),
           );
@@ -637,7 +904,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   }
 }
 
-// Helper widgets
+// ============================================================================
+// HELPER WIDGETS
+// ============================================================================
+
 class _StepItem extends StatelessWidget {
   final int number;
   final String text;
@@ -667,10 +937,7 @@ class _StepItem extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white70),
-          ),
+          child: Text(text, style: const TextStyle(color: Colors.white70)),
         ),
       ],
     );
@@ -734,6 +1001,90 @@ class _FeatureRow extends StatelessWidget {
         Icon(icon, color: const Color(0xFF4CAF50), size: 18),
         const SizedBox(width: 12),
         Text(text, style: TextStyle(color: Colors.grey[400])),
+      ],
+    );
+  }
+}
+
+class _HowToItem extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _HowToItem({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF9C27B0), size: 18),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(text, style: TextStyle(color: Colors.grey[400])),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShadowingStatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ShadowingStatItem({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+        ),
       ],
     );
   }

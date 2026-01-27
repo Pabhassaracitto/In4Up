@@ -97,13 +97,15 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               ),
             ),
 
-            // Mini Player (luôn hiện)
+            // Mini Player (luôn hiện khi có audio)
             Consumer<PlayerProvider>(
               builder: (context, player, _) {
                 if (player.currentSongPath == null) {
                   return const SizedBox.shrink();
                 }
-                return const MiniPlayer();
+                return const MiniPlayer(
+                  margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                );
               },
             ),
           ],
@@ -360,14 +362,104 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 }
 
-// Placeholder screens - sẽ được implement sau
+// Placeholder screen - Quick Practice
 class QuickPracticeScreen extends StatelessWidget {
   const QuickPracticeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Quick Practice - Coming Soon', style: TextStyle(color: Colors.white)),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.flash_on,
+                size: 64,
+                color: Color(0xFF4CAF50),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Luyện tập nhanh',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ôn tập các đoạn đã lưu',
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _FeatureRow(icon: Icons.loop, text: 'Lặp lại các segment đã đánh dấu'),
+                  const SizedBox(height: 12),
+                  _FeatureRow(icon: Icons.shuffle, text: 'Ngẫu nhiên hoặc theo thứ tự'),
+                  const SizedBox(height: 12),
+                  _FeatureRow(icon: Icons.timer, text: 'Theo dõi thời gian luyện tập'),
+                  const SizedBox(height: 12),
+                  _FeatureRow(icon: Icons.trending_up, text: 'Thống kê tiến bộ'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Coming Soon',
+                style: TextStyle(
+                  color: Color(0xFF4CAF50),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeatureRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _FeatureRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF4CAF50), size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(color: Colors.grey[400]),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -8,30 +8,13 @@ import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/word_analysis.dart';
 import 'dart:io';
+// THÊM IMPORT NÀY NẾU CHƯA CÓ (cho WordDatabase)
+import '../models/word_analysis.dart'; // <-- SỬA ĐƯỜNG DẪN IMPORT TẠI ĐÂY
+// Đảm bảo đường dẫn chính xác đến WordDatabase
+
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
   final WordDatabase _wordDatabase = WordDatabase();
-  /// Phát đoạn văn bản đã chọn (nếu có)
-  Future<void> speakSelected() async {
-    if (_selectedText == null || _selectedText!.isEmpty) {
-      debugPrint('No text selected to speak.');
-      return;
-    }
-
-    _isSpeaking = true;
-    notifyListeners();
-
-    try {
-      debugPrint('Speaking selected text: "${_selectedText!}"');
-      await speak(_selectedText!); // Gọi phương thức speak đã tồn tại
-    } catch (e) {
-      debugPrint('Error in speakSelected: $e');
-    } finally {
-      _isSpeaking = false;
-      // clearSelection(); // Có thể cân nhắc xóa lựa chọn sau khi đọc xong
-      notifyListeners();
-    }
-  }
 
   // ==================== TEXT DATA ====================
   TextDocument? _currentDocument;
@@ -39,6 +22,9 @@ class TextProvider extends ChangeNotifier {
   int _currentLineIndex = -1;
   String? _selectedText;
   String _fullText = '';
+
+  // THÊM BIẾN NÀY (theo yêu cầu của bạn)
+  String? _currentTextPath; // <--- BIẾN MỚI
 
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
@@ -74,24 +60,9 @@ class TextProvider extends ChangeNotifier {
   String? get selectedText => _selectedText;
   String get fullText => _fullText;
 
-  // Thêm biến này
-  String? _currentTextPath;
-
-  // BỔ SUNG CÁC GETTER BỊ THIẾU
-  bool get hasLyrics => _lines.isNotEmpty;
-  String? get currentTextPath => _currentTextPath;
-
-  // Thêm methods còn thiếu
-  void clearSelection() {
-    _selectedText = null;
-    _selectedTextInfo = null;
-    notifyListeners();
-  }
-
-  void selectText(String text) {
-    _selectedText = text;
-    notifyListeners();
-  }
+  // BỔ SUNG CÁC GETTER BỊ THIẾU (theo yêu cầu của bạn và phân tích lỗi)
+  bool get hasLyrics => _lines.isNotEmpty; // <--- GETTER MỚI
+  String? get currentTextPath => _currentTextPath; // <--- GETTER MỚI
 
   // Word analysis
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
@@ -126,8 +97,6 @@ class TextProvider extends ChangeNotifier {
   Future<void> _initTts() async {
     try {
       await _tts.setLanguage(_ttsLanguage);
-      // Flutter TTS sử dụng rate từ 0.0 đến 1.0, không phải 0.25-2.0
-      // 0.5 = tốc độ bình thường, 0.0 = chậm nhất, 1.0 = nhanh nhất
       await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
       await _tts.setPitch(_ttsPitch);
       await _tts.setVolume(1.0);
@@ -165,9 +134,6 @@ class TextProvider extends ChangeNotifier {
 
   /// Chuyển đổi từ tốc độ người dùng (0.25-2.0) sang rate của Flutter TTS (0.0-1.0)
   double _convertSpeedToRate(double speed) {
-    // speed 1.0 = rate 0.5 (tốc độ bình thường)
-    // speed 0.25 = rate 0.125
-    // speed 2.0 = rate 1.0
     return (speed / 2.0).clamp(0.0, 1.0);
   }
 
@@ -176,11 +142,13 @@ class TextProvider extends ChangeNotifier {
   /// Load text từ raw string (ví dụ nội dung copy/paste, nhập tay)
   void loadText(String content, {String? title}) {
     _parsePlainText(content, title: title);
+    _currentTextPath = null; // Khi load từ string thì không có path
   }
 
   /// Tiện ích: load trực tiếp từ String (dùng trong Text Studio / ReadMode)
   void loadFromString(String content, {String? title}) {
     _parsePlainText(content, title: title);
+    _currentTextPath = null; // Khi load từ string thì không có path
   }
 
   /// Load text từ file (.txt / .lrc / .srt)
@@ -191,6 +159,8 @@ class TextProvider extends ChangeNotifier {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
         return;
       }
+
+      _currentTextPath = path; // <--- THÊM DÒNG NÀY (theo yêu cầu của bạn)
 
       final content = await file.readAsString();
       final lower = path.toLowerCase();
@@ -208,6 +178,7 @@ class TextProvider extends ChangeNotifier {
       debugPrint('TextProvider.loadTextFile error: $e');
     }
   }
+
   /// Cập nhật toàn bộ text (khi user sửa trong Text Studio)
   void updateFullText(String newText) {
     _parsePlainText(newText, title: _currentDocument?.title);
@@ -223,15 +194,29 @@ class TextProvider extends ChangeNotifier {
     _selectedTextInfo = null;
     _fullText = '';
     _segments.clear();
+    _currentTextPath = null; // Reset path khi xóa text
     notifyListeners();
   }
-  // BỔ SUNG CÁC METHOD BỊ THIẾU
-  void setCurrentLine(int index) {
+
+  // BỔ SUNG CÁC METHOD BỊ THIẾU (theo yêu cầu của bạn và phân tích lỗi)
+  void clearSelection() { // <--- METHOD MỚI
+    _selectedText = null;
+    _selectedTextInfo = null;
+    notifyListeners();
+  }
+
+  void selectText(String text) { // <--- METHOD MỚI
+    _selectedText = text;
+    notifyListeners();
+  }
+
+  void setCurrentLine(int index) { // <--- METHOD MỚI
     if (index >= 0 && index < _lines.length) {
       _currentLineIndex = index;
       notifyListeners();
     }
   }
+
   /// Lấy tên file từ path
   String _extractFileName(String path) {
     return path.split(Platform.pathSeparator).last;
@@ -526,9 +511,31 @@ class TextProvider extends ChangeNotifier {
     return _segments.where((s) => s.type == type).toList();
   }
 
-  // ==================== TTS FUNCTIONS (SỬA LỖI) ====================
+  // ==================== TTS FUNCTIONS ====================
 
-  /// Đọc tất cả các dòng - SỬA LỖI
+  /// Phát đoạn văn bản đã chọn (nếu có) // <--- Đã di chuyển lên đầu hoặc để ở đây cũng được
+  Future<void> speakSelected() async {
+    if (_selectedText == null || _selectedText!.isEmpty) {
+      debugPrint('No text selected to speak.');
+      return;
+    }
+
+    _isSpeaking = true;
+    notifyListeners();
+
+    try {
+      debugPrint('Speaking selected text: "${_selectedText!}"');
+      await speak(_selectedText!); // Gọi phương thức speak đã tồn tại
+    } catch (e) {
+      debugPrint('Error in speakSelected: $e');
+    } finally {
+      _isSpeaking = false;
+      // clearSelection(); // Có thể cân nhắc xóa lựa chọn sau khi đọc xong
+      notifyListeners();
+    }
+  }
+
+  /// Đọc tất cả các dòng
   Future<void> speakAllLines() async {
     if (_lines.isEmpty) return;
 
@@ -537,22 +544,17 @@ class TextProvider extends ChangeNotifier {
 
     try {
       for (int i = 0; i < _lines.length; i++) {
-        // Kiểm tra nếu user đã dừng
         if (!_isSpeaking) {
           debugPrint('User stopped TTS at line ${i + 1}');
           break;
         }
 
-        // Cập nhật dòng hiện tại
         _currentLineIndex = i;
         notifyListeners();
 
         debugPrint('Speaking line ${i + 1}: ${_lines[i].content.substring(0, 30)}...');
-
-        // Đọc dòng và đợi hoàn thành
         await speak(_lines[i].content);
 
-        // Delay ngắn giữa các dòng (chỉ khi chưa phải dòng cuối)
         if (_isSpeaking && i < _lines.length - 1) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
@@ -565,7 +567,7 @@ class TextProvider extends ChangeNotifier {
     }
   }
 
-  /// Đọc dòng hiện tại - SỬA LỖI
+  /// Đọc dòng hiện tại
   Future<void> speakCurrentLine() async {
     if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) {
       debugPrint('Invalid line index: $_currentLineIndex');
@@ -586,7 +588,7 @@ class TextProvider extends ChangeNotifier {
     }
   }
 
-  /// Phát TTS và đợi hoàn thành - SỬA LỖI
+  /// Phát TTS và đợi hoàn thành
   Future<void> speak(String text) async {
     if (text.isEmpty) {
       debugPrint('Empty text, skipping TTS');
@@ -594,20 +596,12 @@ class TextProvider extends ChangeNotifier {
     }
 
     try {
-      // Dừng TTS cũ nếu đang chạy
       await _tts.stop();
-
-      // Reset completer
       _ttsCompleter = Completer<void>();
-
       debugPrint('TTS speaking: "${text.substring(0, text.length > 50 ? 50 : text.length)}..."');
-
-      // Bắt đầu speak
       final result = await _tts.speak(text);
 
       if (result == 1) {
-        // Đợi TTS hoàn thành với timeout phù hợp
-        // Ước tính: 150 words/minute ở tốc độ 1.0x
         final wordCount = text.split(' ').length;
         final estimatedSeconds = (wordCount * 60 / 150 / _ttsSpeed).ceil();
         final timeout = Duration(seconds: estimatedSeconds.clamp(3, 60));
@@ -626,7 +620,7 @@ class TextProvider extends ChangeNotifier {
     }
   }
 
-  /// Dừng TTS - SỬA LỖI
+  /// Dừng TTS
   Future<void> stopSpeaking() async {
     debugPrint('Stopping TTS...');
 
@@ -635,22 +629,19 @@ class TextProvider extends ChangeNotifier {
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
 
-    // Complete pending completer
     if (_ttsCompleter != null && !_ttsCompleter!.isCompleted) {
       _ttsCompleter!.complete();
     }
     _ttsCompleter = null;
 
-    // Stop TTS
     await _tts.stop();
 
     notifyListeners();
   }
 
-  /// Set tốc độ TTS - ĐÃ SỬA
+  /// Set tốc độ TTS
   Future<void> setTtsSpeed(double speed) async {
     _ttsSpeed = speed.clamp(0.25, 2.0);
-    // Chuyển đổi sang rate của Flutter TTS
     await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
     notifyListeners();
   }
@@ -762,7 +753,6 @@ class TextProvider extends ChangeNotifier {
   Future<void> speakDifficultWordsFirst() async {
     final difficultWords = <AnalyzedWord>[];
 
-    // Thu thập tất cả từ khó
     for (final line in _analyzedLines) {
       for (final word in line) {
         if (word.userDifficulty != null &&
@@ -772,7 +762,6 @@ class TextProvider extends ChangeNotifier {
       }
     }
 
-    // Sắp xếp theo độ khó (khó nhất trước)
     difficultWords.sort((a, b) {
       final aLevel = a.userDifficulty?.index ?? 0;
       final bLevel = b.userDifficulty?.index ?? 0;

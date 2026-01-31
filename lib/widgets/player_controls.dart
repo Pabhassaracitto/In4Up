@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/player_provider.dart';
 import '../audio/audio_player_service.dart';
+import '../models/playback_state.dart';
 
 class PlayerControls extends StatelessWidget {
   const PlayerControls({super.key});
@@ -18,8 +19,8 @@ class PlayerControls extends StatelessWidget {
             _buildControlButton(
               icon: Icons.replay_10,
               onPressed: () {
-                final newPosition = player.state.position -
-                    const Duration(seconds: 10);
+                final newPosition =
+                    player.state.position - const Duration(seconds: 10);
                 player.seek(
                   newPosition < Duration.zero ? Duration.zero : newPosition,
                 );
@@ -60,8 +61,8 @@ class PlayerControls extends StatelessWidget {
             _buildControlButton(
               icon: Icons.forward_10,
               onPressed: () {
-                final newPosition = player.state.position +
-                    const Duration(seconds: 10);
+                final newPosition =
+                    player.state.position + const Duration(seconds: 10);
                 if (newPosition < player.state.duration) {
                   player.seek(newPosition);
                 }
@@ -126,18 +127,18 @@ class PlayerControls extends StatelessWidget {
           child: Center(
             child: isLoading
                 ? const SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 3,
-              ),
-            )
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  )
                 : Icon(
-              isPlaying ? Icons.pause : Icons.play_arrow,
-              size: 40,
-              color: Colors.white,
-            ),
+                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    size: 40,
+                    color: Colors.white,
+                  ),
           ),
         ),
       ),

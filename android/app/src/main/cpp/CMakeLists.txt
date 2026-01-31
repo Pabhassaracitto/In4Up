@@ -1,56 +1,49 @@
-cmake_minimum_required(VERSION 3.22.1)
+cmake_minimum_required(VERSION 3.10.2)
+project(ultratimestretch)
 
-project("ultra_time_stretch" VERSION 1.0.0 LANGUAGES CXX)
-
-# C++17 Standard
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Optimization flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -fPIC")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+# Point to shared native code
+set(NATIVE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../native)
 
-# NEON for ARM
-if(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon -mfloat-abi=softfp")
-elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+simd")
-endif()
-
-# Source files
-set(ULTRA_SOURCES
-        UltraTimeStretch.h
-        SIMDOptimizations.h
-        FFTProcessor.cpp
-        TransientDetector.cpp
-        PhaseVocoder.cpp
-        WSOLAProcessor.cpp
-        HybridStretcher.cpp
-        Engine.cpp
-        native_bridge.cpp
+# V1 Sources (from shared)
+set(V1_SOURCES
+    ${NATIVE_DIR}/src/V1/Engine.cpp
+    ${NATIVE_DIR}/src/V1/HybridStretcher.cpp
+    ${NATIVE_DIR}/src/V1/PhaseVocoder.cpp
+    ${NATIVE_DIR}/src/V1/WSOLAProcessor.cpp
+    ${NATIVE_DIR}/src/V1/FFTProcessor.cpp
+    ${NATIVE_DIR}/src/V1/TransientDetector.cpp
 )
 
-# Shared library
-add_library(ultra_time_stretch SHARED ${ULTRA_SOURCES})
+# V2 Sources (from shared)
+set(V2_SOURCES
+    ${NATIVE_DIR}/src/V2/MultiResolutionPV.cpp
+    ${NATIVE_DIR}/src/V2/HarmonicPercussiveSeparator.cpp
+    ${NATIVE_DIR}/src/V2/FormantPreserver.cpp
+    ${NATIVE_DIR}/src/V2/SpectralPeakInterpolator.cpp
+)
 
 # Include directories
-target_include_directories(ultra_time_stretch PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
+include_directories(${NATIVE_DIR}/include)
+
+# Build library
+add_library(
+    ultratimestretch
+    SHARED
+    native-lib.cpp          # Platform-specific wrapper
+    ${V1_SOURCES}
+    ${V2_SOURCES}
 )
 
-# Android libraries
+# NEON for ARM
+if(ANDROID_ABI MATCHES "^armeabi-v7a" OR ANDROID_ABI MATCHES "^arm64-v8a")
+    target_compile_definitions(ultratimestretch PRIVATE UTS_USE_NEON=1)
+    if(ANDROID_ABI MATCHES "^armeabi-v7a")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon")
+    endif()
+endif()
+
+# Link libraries
 find_library(log-lib log)
-find_library(android-lib android)
-find_library(OpenSLES-lib OpenSLES)
-
-target_link_libraries(ultra_time_stretch
-        ${log-lib}
-        ${android-lib}
-        ${OpenSLES-lib}
-)
-
-# Export symbols
-set_target_properties(ultra_time_stretch PROPERTIES
-        CXX_VISIBILITY_PRESET hidden
-        VISIBILITY_INLINES_HIDDEN ON
-)
+target_link_libraries(ultratimestretch ${log-lib})

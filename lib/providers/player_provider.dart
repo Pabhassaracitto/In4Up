@@ -6,12 +6,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../audio/audio_player_service.dart';
 import '../models/segment.dart';
+import '../models/playback_state.dart';
 
 /// Chế độ sử dụng app
 enum VipMode {
-  music,     // Nghe nhạc thông thường
-  buddhism,  // Nghe Pháp thoại
-  english,   // Học tiếng Anh
+  music, // Nghe nhạc thông thường
+  buddhism, // Nghe Pháp thoại
+  english, // Học tiếng Anh
 }
 
 /// Cấu hình mặc định cho từng chế độ
@@ -40,7 +41,7 @@ class ModeSettings {
 
   static const buddhism = ModeSettings(
     defaultSpeed: 0.9,
-    defaultGapDuration: 3.0,  // 3 giây suy ngẫm
+    defaultGapDuration: 3.0, // 3 giây suy ngẫm
     defaultLoopCount: 3,
     autoAdvanceSegments: false,
     showTranscript: true,
@@ -48,7 +49,7 @@ class ModeSettings {
 
   static const english = ModeSettings(
     defaultSpeed: 0.75,
-    defaultGapDuration: 2.0,  // 2 giây để lặp lại
+    defaultGapDuration: 2.0, // 2 giây để lặp lại
     defaultLoopCount: 5,
     autoAdvanceSegments: true,
     showTranscript: true,
@@ -87,7 +88,7 @@ class PlayerProvider extends ChangeNotifier {
   int _maxLoopCount = 0;
 
   // Gap Loop - Khoảng lặng giữa các lần loop
-  double _gapDuration = 0.0;  // Giây
+  double _gapDuration = 0.0; // Giây
   bool _isWaitingGap = false;
   Timer? _gapTimer;
 
@@ -182,7 +183,7 @@ class PlayerProvider extends ChangeNotifier {
     // Auto save position every 10 seconds
     _positionSaverTimer = Timer.periodic(
       const Duration(seconds: 10),
-          (_) => _saveCurrentPosition(),
+      (_) => _saveCurrentPosition(),
     );
 
     // Track listening time
@@ -389,12 +390,12 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Set loop với đầy đủ tham số
   void setLoop(
-      Duration start,
-      Duration end, {
-        int repeatCount = 0,
-        double? gapSeconds,
-        bool startImmediately = true,
-      }) {
+    Duration start,
+    Duration end, {
+    int repeatCount = 0,
+    double? gapSeconds,
+    bool startImmediately = true,
+  }) {
     // Đảm bảo start < end
     if (end <= start) {
       _loopStart = end;
@@ -404,7 +405,8 @@ class PlayerProvider extends ChangeNotifier {
       _loopEnd = end;
     }
 
-    _maxLoopCount = repeatCount > 0 ? repeatCount : _modeSettings.defaultLoopCount;
+    _maxLoopCount =
+        repeatCount > 0 ? repeatCount : _modeSettings.defaultLoopCount;
     _gapDuration = gapSeconds ?? _modeSettings.defaultGapDuration;
     _isLooping = true;
     _loopCount = 0;

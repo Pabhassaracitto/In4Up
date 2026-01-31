@@ -6,8 +6,8 @@ plugins {
 
 android {
     namespace = "com.vipsound"
-    compileSdk = 36
-    ndkVersion = "28.2.13676358"
+    compileSdk = 35
+    ndkVersion = "26.1.10909125"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,13 +21,13 @@ android {
     defaultConfig {
         applicationId = "com.vipsound"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 
-        ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
-        }
+        // ndk {
+        //     abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        // }
     }
 
     buildTypes {
@@ -41,6 +41,12 @@ android {
             isShrinkResources = false
         }
     }
+
+    // externalNativeBuild {
+    //     cmake {
+    //         path = file("src/main/cpp/CMakeLists.txt")
+    //     }
+    // }
 }
 
 flutter {

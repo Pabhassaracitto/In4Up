@@ -1,15 +1,32 @@
 #include <windows.h>
+#include <stdio.h> // <-- THÊM
 #include "UltraTimeStretch.h"
 #include "UltraTimeStretch_V2_Enhancements.h"
 
 using namespace UltraTimeStretch;
 using namespace UltraTimeStretch::V2;
 
+// Helper để ghi log ra file debug
+static void DebugLog(const char *msg)
+{
+    FILE *f = fopen("C:\\temp\\ultratimestretch_debug.log", "a");
+    if (f)
+    {
+        fprintf(f, "%s\n", msg);
+        fclose(f);
+    }
+    OutputDebugStringA(msg);
+    OutputDebugStringA("\n");
+}
+
 extern "C"
 {
-
     __declspec(dllexport) void *CreateEngine(int sampleRate, int channels)
     {
+        char buf[256];
+        sprintf(buf, "[CreateEngine] sampleRate=%d, channels=%d", sampleRate, channels);
+        DebugLog(buf);
+
         EngineV2 *engine = new EngineV2();
         Options options;
         options.quality = Quality::HighQuality;
@@ -17,15 +34,20 @@ extern "C"
 
         if (!engine->initialize(sampleRate, channels, options))
         {
+            DebugLog("[CreateEngine] initialize FAILED!");
             delete engine;
             return nullptr;
         }
+
+        sprintf(buf, "[CreateEngine] SUCCESS, engine=%p", (void *)engine);
+        DebugLog(buf);
 
         return engine;
     }
 
     __declspec(dllexport) void DestroyEngine(void *enginePtr)
     {
+        DebugLog("[DestroyEngine] called");
         EngineV2 *engine = static_cast<EngineV2 *>(enginePtr);
         if (engine)
         {
@@ -36,6 +58,10 @@ extern "C"
 
     __declspec(dllexport) void SetSpeed(void *enginePtr, float speed)
     {
+        char buf[128];
+        sprintf(buf, "[SetSpeed] speed=%.3f", speed);
+        DebugLog(buf);
+
         EngineV2 *engine = static_cast<EngineV2 *>(enginePtr);
         if (engine)
         {
@@ -48,9 +74,24 @@ extern "C"
     {
         EngineV2 *engine = static_cast<EngineV2 *>(enginePtr);
         if (!engine)
+        {
+            DebugLog("[ProcessAudio] engine is NULL!");
             return 0;
+        }
 
-        return engine->processV2(input, inputFrames, output, maxOutputFrames);
+        int result = engine->processV2(input, inputFrames, output, maxOutputFrames);
+
+        // Log mỗi 100 lần để không spam
+        static int callCount = 0;
+        if (++callCount % 100 == 0)
+        {
+            char buf[256];
+            sprintf(buf, "[ProcessAudio] inputFrames=%d, maxOutput=%d, result=%d",
+                    inputFrames, maxOutputFrames, result);
+            DebugLog(buf);
+        }
+
+        return result;
     }
 
 } // extern "C"

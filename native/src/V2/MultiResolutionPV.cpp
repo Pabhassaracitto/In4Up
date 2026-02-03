@@ -1,250 +1,258 @@
 // MultiResolutionPV.cpp - Multi-Resolution Phase Vocoder for Extreme Slow Stretching
-#include "UltraTimeStretch.h"
+
 #include "UltraTimeStretch_V2_Enhancements.h"
+
+#include <algorithm>
+#include <sstream>
+#include <vector>
+#include <cmath>
+
+// ---------------- Debug logging ----------------
+// Bật bằng cách define UTS_DEBUG hoặc UTS_DEBUG_LOG (qua CMake/NDK/Xcode)
+#if defined(UTS_DEBUG) || defined(UTS_DEBUG_LOG)
+  #if defined(__ANDROID__)
+    #include <android/log.h>
+    #include <sstream>
+    #define UTS_LOG(expr) do { \
+      std::ostringstream _oss; _oss << expr; \
+      __android_log_print(ANDROID_LOG_INFO, "UltraTimeStretch", "%s", _oss.str().c_str()); \
+    } while(0)
+  #else
+    #include <iostream>
+    #include <sstream>
+    #define UTS_LOG(expr) do { \
+      std::ostringstream _oss; _oss << expr; \
+      std::cout << _oss.str() << std::endl; \
+    } while(0)
+  #endif
+#else
+  #define UTS_LOG(expr) do {} while(0)
+#endif
 
 namespace UltraTimeStretch {
 namespace V2 {
 
-MultiResolutionPV::MultiResolutionPV(int sampleRate, float speed) 
-    : sampleRate_(sampleRate)
-    , currentSpeed_(speed)
-{
+MultiResolutionPV::MultiResolutionPV(int sampleRate, float speed)
+    : sampleRate_(sampleRate),
+      currentSpeed_(speed) {
     initializeResolutions(speed);
 }
 
-MultiResolutionPV::~MultiResolutionPV() = default;
-
 void MultiResolutionPV::initializeResolutions(float speed) {
     resolutions_.clear();
-    
+
     if (speed < 0.15f) {
-        // ═══════════════════════════════════════════════════════════════
-        // ULTRA SLOW MODE: Use 3 parallel resolutions
-        // ═══════════════════════════════════════════════════════════════
-        
-        // Large FFT: 16384 - For tonal clarity and pitch accuracy
-        Resolution large;
-        large.fftSize = 16384;
-        large.hopSize = 16384 / 16;  // 1024 samples hop
-        large.weight = 0.6f;  // 60% weight - emphasis on tonal content
-        large.processor = std::make_unique<PhaseVocoder>(
-            large.fftSize, large.hopSize, sampleRate_
-        );
-        large.processor->setTimeStretchRatio(speed);
-        
+        // ULTRA SLOW MODE: 3 parallel resolutions
+
+        // Large FFT: 16384
+        Resolution resLarge;
+        resLarge.fftSize = 16384;
+        resLarge.hopSize = 16384 / 16; // 1024
+        resLarge.weight  = 0.6f;
+        resLarge.processor = std::make_unique<PhaseVocoder>(
+            resLarge.fftSize, resLarge.hopSize, sampleRate_);
+        resLarge.processor->setTimeStretchRatio(speed);
+
         Options largeOpts;
         largeOpts.quality = Quality::UltraQuality;
         largeOpts.preserveFormants = true;
         largeOpts.antiAliasing = true;
-        large.processor->setOptions(largeOpts);
-        
-        resolutions_.push_back(std::move(large));
-        
-        // Medium FFT: 4096 - For balanced mid-range
-        Resolution medium;
-        medium.fftSize = 4096;
-        medium.hopSize = 4096 / 8;  // 512 samples hop
-        medium.weight = 0.3f;  // 30% weight - mid-frequency balance
-        medium.processor = std::make_unique<PhaseVocoder>(
-            medium.fftSize, medium.hopSize, sampleRate_
-        );
-        medium.processor->setTimeStretchRatio(speed);
-        
+        resLarge.processor->setOptions(largeOpts);
+
+        UTS_LOG("[MultiResolutionPV] Large:  FFT=" << resLarge.fftSize << ", Hop=" << resLarge.hopSize
+                                                   << ", Weight=" << resLarge.weight);
+
+        resolutions_.push_back(std::move(resLarge));
+
+        // Medium FFT: 4096
+        Resolution resMedium;
+        resMedium.fftSize = 4096;
+        resMedium.hopSize = 4096 / 8; // 512
+        resMedium.weight  = 0.3f;
+        resMedium.processor = std::make_unique<PhaseVocoder>(
+            resMedium.fftSize, resMedium.hopSize, sampleRate_);
+        resMedium.processor->setTimeStretchRatio(speed);
+
         Options mediumOpts;
         mediumOpts.quality = Quality::HighQuality;
         mediumOpts.preserveFormants = true;
-        medium.processor->setOptions(mediumOpts);
-        
-        resolutions_.push_back(std::move(medium));
-        
-        // Small FFT: 1024 - For transient preservation
-        Resolution small;
-        small.fftSize = 1024;
-        small.hopSize = 1024 / 4;  // 256 samples hop
-        small.weight = 0.1f;  // 10% weight - transient detail
-        small.processor = std::make_unique<PhaseVocoder>(
-            small.fftSize, small.hopSize, sampleRate_
-        );
-        small.processor->setTimeStretchRatio(speed);
-        
+        resMedium.processor->setOptions(mediumOpts);
+
+        UTS_LOG("[MultiResolutionPV] Medium: FFT=" << resMedium.fftSize << ", Hop=" << resMedium.hopSize
+                                                   << ", Weight=" << resMedium.weight);
+
+        resolutions_.push_back(std::move(resMedium));
+
+        // Small FFT: 1024 (transients)
+        Resolution resSmall;
+        resSmall.fftSize = 1024;
+        resSmall.hopSize = 1024 / 4; // 256
+        resSmall.weight  = 0.1f;
+        resSmall.processor = std::make_unique<PhaseVocoder>(
+            resSmall.fftSize, resSmall.hopSize, sampleRate_);
+        resSmall.processor->setTimeStretchRatio(speed);
+
         Options smallOpts;
         smallOpts.quality = Quality::Standard;
         smallOpts.preserveTransients = true;
-        small.processor->setOptions(smallOpts);
-        
-        resolutions_.push_back(std::move(small));
-        
-        std::cout << "[MultiResolutionPV] Initialized 3 resolutions for speed " 
-                  << speed << "x" << std::endl;
-        std::cout << "  Large:  FFT=" << large.fftSize << ", Weight=" << large.weight << std::endl;
-        std::cout << "  Medium: FFT=" << medium.fftSize << ", Weight=" << medium.weight << std::endl;
-        std::cout << "  Small:  FFT=" << small.fftSize << ", Weight=" << small.weight << std::endl;
-        
-    } else if (speed < 0.3f) {
-        // ═══════════════════════════════════════════════════════════════
-        // SLOW MODE: Use 2 resolutions
-        // ═══════════════════════════════════════════════════════════════
-        
-        Resolution large;
-        large.fftSize = 8192;
-        large.hopSize = 8192 / 8;
-        large.weight = 0.7f;
-        large.processor = std::make_unique<PhaseVocoder>(
-            large.fftSize, large.hopSize, sampleRate_
-        );
-        large.processor->setTimeStretchRatio(speed);
-        resolutions_.push_back(std::move(large));
-        
-        Resolution small;
-        small.fftSize = 2048;
-        small.hopSize = 2048 / 4;
-        small.weight = 0.3f;
-        small.processor = std::make_unique<PhaseVocoder>(
-            small.fftSize, small.hopSize, sampleRate_
-        );
-        small.processor->setTimeStretchRatio(speed);
-        resolutions_.push_back(std::move(small));
-        
-        std::cout << "[MultiResolutionPV] Initialized 2 resolutions for speed " 
-                  << speed << "x" << std::endl;
-        
-    } else {
-        // ═══════════════════════════════════════════════════════════════
-        // NORMAL MODE: Single resolution is sufficient
-        // ═══════════════════════════════════════════════════════════════
-        
+        resSmall.processor->setOptions(smallOpts);
+
+        UTS_LOG("[MultiResolutionPV] Small:  FFT=" << resSmall.fftSize << ", Hop=" << resSmall.hopSize
+                                                   << ", Weight=" << resSmall.weight);
+
+        resolutions_.push_back(std::move(resSmall));
+
+        UTS_LOG("[MultiResolutionPV] Initialized 3 resolutions for speed " << speed << "x");
+    }
+    else if (speed < 0.3f) {
+        // SLOW MODE: 2 resolutions
+
+        Resolution resLarge;
+        resLarge.fftSize = 8192;
+        resLarge.hopSize = 8192 / 8;
+        resLarge.weight  = 0.7f;
+        resLarge.processor = std::make_unique<PhaseVocoder>(
+            resLarge.fftSize, resLarge.hopSize, sampleRate_);
+        resLarge.processor->setTimeStretchRatio(speed);
+
+        UTS_LOG("[MultiResolutionPV] Large: FFT=" << resLarge.fftSize << ", Hop=" << resLarge.hopSize
+                                                 << ", Weight=" << resLarge.weight);
+
+        resolutions_.push_back(std::move(resLarge));
+
+        Resolution resSmall;
+        resSmall.fftSize = 2048;
+        resSmall.hopSize = 2048 / 4;
+        resSmall.weight  = 0.3f;
+        resSmall.processor = std::make_unique<PhaseVocoder>(
+            resSmall.fftSize, resSmall.hopSize, sampleRate_);
+        resSmall.processor->setTimeStretchRatio(speed);
+
+        UTS_LOG("[MultiResolutionPV] Small: FFT=" << resSmall.fftSize << ", Hop=" << resSmall.hopSize
+                                                 << ", Weight=" << resSmall.weight);
+
+        resolutions_.push_back(std::move(resSmall));
+
+        UTS_LOG("[MultiResolutionPV] Initialized 2 resolutions for speed " << speed << "x");
+    }
+    else {
+        // NORMAL MODE: single resolution
+
         Resolution single;
         single.fftSize = 2048;
         single.hopSize = 2048 / 4;
-        single.weight = 1.0f;
+        single.weight  = 1.0f;
         single.processor = std::make_unique<PhaseVocoder>(
-            single.fftSize, single.hopSize, sampleRate_
-        );
+            single.fftSize, single.hopSize, sampleRate_);
         single.processor->setTimeStretchRatio(speed);
-        
+
         Options opts;
         opts.quality = Quality::Standard;
         single.processor->setOptions(opts);
-        
+
         resolutions_.push_back(std::move(single));
-        
-        std::cout << "[MultiResolutionPV] Single resolution mode for speed " 
-                  << speed << "x" << std::endl;
+
+        UTS_LOG("[MultiResolutionPV] Single resolution mode for speed " << speed << "x");
     }
-    
+
     currentSpeed_ = speed;
 }
 
 void MultiResolutionPV::setSpeed(float speed) {
     speed = std::clamp(speed, MIN_SPEED, MAX_SPEED);
-    
-    // Check if we need to re-initialize resolutions
+
+    // Check if we need to re-initialize resolutions (threshold crossing)
     bool needsReinit = false;
-    
-    if (currentSpeed_ < 0.15f && speed >= 0.15f) needsReinit = true;
-    if (currentSpeed_ >= 0.15f && speed < 0.15f) needsReinit = true;
-    if (currentSpeed_ < 0.3f && speed >= 0.3f) needsReinit = true;
-    if (currentSpeed_ >= 0.3f && speed < 0.3f) needsReinit = true;
-    
-    if (needsReinit) {
-        std::cout << "[MultiResolutionPV] Speed change requires re-initialization: " 
-                  << currentSpeed_ << "x → " << speed << "x" << std::endl;
-        initializeResolutions(speed);
-    } else {
-        // Just update existing processors
-        for (auto& res : resolutions_) {
-            res.processor->setTimeStretchRatio(speed);
-        }
-        currentSpeed_ = speed;
+
+    if ((currentSpeed_ < 0.15f && speed >= 0.15f) ||
+        (currentSpeed_ >= 0.15f && speed < 0.15f) ||
+        (currentSpeed_ < 0.3f  && speed >= 0.3f)  ||
+        (currentSpeed_ >= 0.3f && speed < 0.3f)) {
+        needsReinit = true;
     }
+
+    if (needsReinit) {
+        UTS_LOG("[MultiResolutionPV] Speed change requires re-init: "
+                << currentSpeed_ << "x -> " << speed << "x");
+        initializeResolutions(speed);
+        return;
+    }
+
+    // Just update existing processors
+    for (auto& res : resolutions_) {
+        res.processor->setTimeStretchRatio(speed);
+    }
+    currentSpeed_ = speed;
 }
 
 void MultiResolutionPV::setOptions(const Options& options) {
+    options_ = options;
     for (auto& res : resolutions_) {
         res.processor->setOptions(options);
     }
 }
 
-void MultiResolutionPV::process(const float* input, int inputSamples, 
-                                 float* output, int& outputSamples) {
-    if (resolutions_.empty()) {
+void MultiResolutionPV::process(const float* input, int inputSamples,
+                                float* output, int& outputSamples) {
+    if (resolutions_.empty() || !input || inputSamples <= 0 || !output) {
         outputSamples = 0;
         return;
     }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // SINGLE RESOLUTION PATH (Fast)
-    // ═══════════════════════════════════════════════════════════════
+
+    // SINGLE RESOLUTION PATH
     if (resolutions_.size() == 1) {
         resolutions_[0].processor->processBlock(input, inputSamples, output, outputSamples);
         return;
     }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // MULTI-RESOLUTION PATH (High Quality)
-    // ═══════════════════════════════════════════════════════════════
-    
-    // Allocate buffers for each resolution
+
+    // MULTI-RESOLUTION PATH
+    const float stretch = 1.0f / (std::max)(currentSpeed_, MIN_SPEED);
+    const int maxExpectedOut =
+        static_cast<int>(inputSamples * stretch * 1.3f) + 8192; // safety margin
+
     std::vector<std::vector<float>> outputs(resolutions_.size());
-    std::vector<int> outSampleCounts(resolutions_.size());
-    
-    // Process each resolution in parallel (can be threaded in production)
+    std::vector<int> outSampleCounts(resolutions_.size(), 0);
+
     for (size_t i = 0; i < resolutions_.size(); ++i) {
-        outputs[i].resize(inputSamples * 10);  // Max stretch buffer
+        outputs[i].assign(maxExpectedOut, 0.0f);
         resolutions_[i].processor->processBlock(
             input, inputSamples,
-            outputs[i].data(), outSampleCounts[i]
-        );
+            outputs[i].data(), outSampleCounts[i]);
     }
-    
-    // Find minimum output length (all resolutions must match)
+
     outputSamples = *std::min_element(outSampleCounts.begin(), outSampleCounts.end());
-    
-    if (outputSamples <= 0) {
-        return;
-    }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // INTELLIGENT BLENDING
-    // ═══════════════════════════════════════════════════════════════
-    
-    // Weighted blend with adaptive mixing
+    if (outputSamples <= 0) return;
+
     for (int i = 0; i < outputSamples; ++i) {
         float blended = 0.0f;
         float totalWeight = 0.0f;
-        
+
         for (size_t r = 0; r < resolutions_.size(); ++r) {
-            float weight = resolutions_[r].weight;
-            
-            // Adaptive weighting based on signal characteristics
-            // (can be enhanced with spectral analysis)
-            float adaptiveWeight = weight;
-            
-            blended += outputs[r][i] * adaptiveWeight;
-            totalWeight += adaptiveWeight;
+            const float w = resolutions_[r].weight;
+            blended += outputs[r][i] * w;
+            totalWeight += w;
         }
-        
-        // Normalize
-        if (totalWeight > 1e-6f) {
-            output[i] = blended / totalWeight;
-        } else {
-            output[i] = 0.0f;
-        }
+
+        output[i] = (totalWeight > 1e-6f) ? (blended / totalWeight) : 0.0f;
     }
-    
-    // Optional: Apply smoothing to blend boundaries
+
+    // Optional smoothing (reduce tiny combing artifacts)
     if (outputSamples > 4) {
         applySmoothing(output, outputSamples);
     }
 }
 
-void MultiResolutionPV::applySmoothing(float* output, int samples) {
-    // Simple 3-point moving average for smoothing
+void MultiResolutionPV::applySmoothing(float* output, int samples) const {
+    // Simple 3-point moving average
     std::vector<float> temp(samples);
     std::copy(output, output + samples, temp.begin());
-    
+
+    // Keep endpoints unchanged
+    output[0] = temp[0];
+    output[samples - 1] = temp[samples - 1];
+
     for (int i = 1; i < samples - 1; ++i) {
-        output[i] = 0.25f * temp[i-1] + 0.5f * temp[i] + 0.25f * temp[i+1];
+        output[i] = 0.25f * temp[i - 1] + 0.5f * temp[i] + 0.25f * temp[i + 1];
     }
 }
 
@@ -255,32 +263,26 @@ void MultiResolutionPV::reset() {
 }
 
 int MultiResolutionPV::getLatency() const {
-    if (resolutions_.empty()) {
-        return 0;
-    }
-    
-    // Return latency of largest FFT (worst case)
     int maxLatency = 0;
     for (const auto& res : resolutions_) {
-        maxLatency = std::max(maxLatency, res.processor->getLatency());
+        maxLatency = (std::max)(maxLatency, res.processor->getLatency());
     }
     return maxLatency;
 }
 
 std::string MultiResolutionPV::getInfo() const {
     std::stringstream ss;
-    ss << "MultiResolutionPV Info:" << std::endl;
-    ss << "  Current Speed: " << currentSpeed_ << "x" << std::endl;
-    ss << "  Resolutions: " << resolutions_.size() << std::endl;
-    
+    ss << "MultiResolutionPV Info:\n";
+    ss << "  Current Speed: " << currentSpeed_ << "x\n";
+    ss << "  Resolutions: " << resolutions_.size() << "\n";
+
     for (size_t i = 0; i < resolutions_.size(); ++i) {
         ss << "    [" << i << "] FFT=" << resolutions_[i].fftSize
            << ", Hop=" << resolutions_[i].hopSize
-           << ", Weight=" << resolutions_[i].weight << std::endl;
+           << ", Weight=" << resolutions_[i].weight << "\n";
     }
-    
-    ss << "  Total Latency: " << getLatency() << " samples" << std::endl;
-    
+
+    ss << "  Total Latency: " << getLatency() << " samples\n";
     return ss.str();
 }
 

@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_tts
+  just_audio_windows
   permission_handler_windows
   record_windows
   share_plus

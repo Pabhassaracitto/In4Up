@@ -18,6 +18,7 @@ dependencies:
   # Audio Playback
   just_audio_platform_interface: ^4.0.0
   just_audio: ^0.10.5
+  just_audio_windows: ^0.2.1   # ← THÊM DÒNG NÀY!
   audio_session: ^0.2.2
 
   # FFI for Native C++ Engine

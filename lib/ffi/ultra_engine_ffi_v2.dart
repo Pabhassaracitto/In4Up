@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:ffi/ffi.dart';
 
 /// Quality levels for UltraTimeStretch V2 Engine
@@ -96,7 +97,11 @@ class UltraEngineFFIV2 {
       if (Platform.isAndroid) {
         _lib = DynamicLibrary.open('libultratimestretch.so');
       } else if (Platform.isWindows) {
-        _lib = DynamicLibrary.open('ultratimestretch.dll');
+        try {
+          _lib = DynamicLibrary.open('UltraTimeStretch_V2.dll');
+        } catch (e) {
+          _lib = DynamicLibrary.open('ultratimestretch.dll');
+        }
       } else if (Platform.isIOS || Platform.isMacOS) {
         _lib = DynamicLibrary.process();
       } else {

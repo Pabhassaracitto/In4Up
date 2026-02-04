@@ -45,6 +45,30 @@ extern "C"
         return engine;
     }
 
+    // Option B: Export CreateEngineV2 khớp với Dart FFI (5 tham số)
+    __declspec(dllexport) void *CreateEngineV2(int sampleRate, int channels, int quality, char preserveTransients, char preserveFormants)
+    {
+        char buf[256];
+        sprintf(buf, "[CreateEngineV2] sampleRate=%d, channels=%d, quality=%d", sampleRate, channels, quality);
+        DebugLog(buf);
+
+        EngineV2 *engine = new EngineV2();
+        Options options;
+        // Map int từ Dart sang Enum/Bool của C++
+        options.quality = static_cast<Quality>(quality);
+        options.preserveTransients = (preserveTransients != 0);
+        options.preserveFormants = (preserveFormants != 0);
+
+        if (!engine->initialize(sampleRate, channels, options))
+        {
+            DebugLog("[CreateEngineV2] initialize FAILED!");
+            delete engine;
+            return nullptr;
+        }
+
+        return engine;
+    }
+
     __declspec(dllexport) void DestroyEngine(void *enginePtr)
     {
         DebugLog("[DestroyEngine] called");

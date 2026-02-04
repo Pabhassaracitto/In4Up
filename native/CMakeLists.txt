@@ -131,6 +131,12 @@ set(V2_SOURCES
     src/V2/SpectralPeakInterpolator.cpp
 )
 
+# Wrapper sources for Dart FFI (Windows)
+set(WRAPPER_SOURCES "")
+if(PLATFORM_WINDOWS)
+    list(APPEND WRAPPER_SOURCES "../windows/runner/native/native_wrapper.cpp")
+endif()
+
 # Optional: Enhanced V1 files for V2
 set(V2_ENHANCED_SOURCES
     src/V2/HybridStretcher_V2.cpp
@@ -186,9 +192,9 @@ if(BUILD_V2)
     set(V2_ALL_SOURCES ${V1_SOURCES} ${V2_SOURCES})
     
     if(BUILD_SHARED)
-        add_library(UltraTimeStretch_V2 SHARED ${V2_ALL_SOURCES} ${HEADERS})
+        add_library(UltraTimeStretch_V2 SHARED ${V2_ALL_SOURCES} ${HEADERS} ${WRAPPER_SOURCES})
     else()
-        add_library(UltraTimeStretch_V2 STATIC ${V2_ALL_SOURCES} ${HEADERS})
+        add_library(UltraTimeStretch_V2 STATIC ${V2_ALL_SOURCES} ${HEADERS} ${WRAPPER_SOURCES})
     endif()
     
     target_include_directories(UltraTimeStretch_V2 PUBLIC

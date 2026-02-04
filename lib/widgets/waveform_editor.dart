@@ -7,10 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/waveform_provider.dart';
 import '../providers/player_provider.dart';
-import '../providers/shadowing_provider.dart';  // THÊM IMPORT
+import '../providers/shadowing_provider.dart'; // THÊM IMPORT
 import '../models/audio_marker.dart';
 import 'advanced_waveform_painter.dart';
-import 'shadowing_widget.dart';  // THÊM IMPORT
+import 'shadowing_widget.dart'; // THÊM IMPORT
 
 /// Theme colors cho từng mode
 class WaveformTheme {
@@ -219,7 +219,8 @@ class _WaveformEditorState extends State<WaveformEditor>
 
               // Transcript Display
               if (widget.showTranscript || player.modeSettings.showTranscript)
-                _TranscriptDisplay(player: player, waveform: waveform, theme: theme),
+                _TranscriptDisplay(
+                    player: player, waveform: waveform, theme: theme),
 
               // Quick Actions (mode-specific)
               if (widget.showControls && !_shadowingExpanded)
@@ -243,7 +244,9 @@ class _WaveformEditorState extends State<WaveformEditor>
                 ),
 
               // Markers list
-              if (widget.showMarkersList && waveform.markers.isNotEmpty && !_shadowingExpanded)
+              if (widget.showMarkersList &&
+                  waveform.markers.isNotEmpty &&
+                  !_shadowingExpanded)
                 _MarkersList(
                   waveform: waveform,
                   player: player,
@@ -257,11 +260,11 @@ class _WaveformEditorState extends State<WaveformEditor>
   }
 
   void _showQuickAddMarkerDialog(
-      BuildContext context,
-      WaveformProvider waveform,
-      Duration time,
-      PlayerProvider player,
-      ) {
+    BuildContext context,
+    WaveformProvider waveform,
+    Duration time,
+    PlayerProvider player,
+  ) {
     final theme = WaveformTheme.forMode(player.currentMode);
     final controller = TextEditingController();
 
@@ -377,10 +380,10 @@ class _WaveformEditorState extends State<WaveformEditor>
   }
 
   void _showAddMarkerDialog(
-      BuildContext context,
-      WaveformProvider waveform,
-      PlayerProvider player,
-      ) {
+    BuildContext context,
+    WaveformProvider waveform,
+    PlayerProvider player,
+  ) {
     final theme = WaveformTheme.forMode(player.currentMode);
     final controller = TextEditingController();
     MarkerType selectedType = MarkerType.region;
@@ -448,7 +451,8 @@ class _WaveformEditorState extends State<WaveformEditor>
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: theme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -461,19 +465,22 @@ class _WaveformEditorState extends State<WaveformEditor>
                     Text(
                       waveform.hasSelection
                           ? '${_formatDuration(waveform.selectionStart!)} → ${_formatDuration(waveform.selectionEnd!)}'
-                          : _formatDuration(waveform.selectionStart ?? Duration.zero),
+                          : _formatDuration(
+                              waveform.selectionStart ?? Duration.zero),
                       style: TextStyle(color: theme.primary),
                     ),
                     if (waveform.hasSelection) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: theme.primary.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          _formatDuration(waveform.selectionEnd! - waveform.selectionStart!),
+                          _formatDuration(waveform.selectionEnd! -
+                              waveform.selectionStart!),
                           style: TextStyle(
                             color: theme.primary,
                             fontSize: 11,
@@ -533,9 +540,8 @@ class _WaveformEditorState extends State<WaveformEditor>
                             : Colors.white.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected
-                              ? type.defaultColor
-                              : Colors.white24,
+                          color:
+                              isSelected ? type.defaultColor : Colors.white24,
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -545,17 +551,14 @@ class _WaveformEditorState extends State<WaveformEditor>
                           Icon(
                             type.icon,
                             size: 16,
-                            color: isSelected
-                                ? type.defaultColor
-                                : Colors.grey,
+                            color: isSelected ? type.defaultColor : Colors.grey,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             type.displayName,
                             style: TextStyle(
-                              color: isSelected
-                                  ? type.defaultColor
-                                  : Colors.grey,
+                              color:
+                                  isSelected ? type.defaultColor : Colors.grey,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -667,16 +670,22 @@ class _ShadowingToggle extends StatelessWidget {
             colors: isActive
                 ? [Colors.red.withOpacity(0.3), Colors.red.withOpacity(0.1)]
                 : isExpanded
-                ? [const Color(0xFF2196F3).withOpacity(0.3), const Color(0xFF2196F3).withOpacity(0.1)]
-                : [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)],
+                    ? [
+                        const Color(0xFF2196F3).withOpacity(0.3),
+                        const Color(0xFF2196F3).withOpacity(0.1)
+                      ]
+                    : [
+                        Colors.white.withOpacity(0.05),
+                        Colors.white.withOpacity(0.02)
+                      ],
           ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isActive
                 ? Colors.red.withOpacity(0.5)
                 : isExpanded
-                ? const Color(0xFF2196F3).withOpacity(0.5)
-                : Colors.white.withOpacity(0.1),
+                    ? const Color(0xFF2196F3).withOpacity(0.5)
+                    : Colors.white.withOpacity(0.1),
           ),
         ),
         child: Row(
@@ -715,8 +724,8 @@ class _ShadowingToggle extends StatelessWidget {
                     isActive
                         ? _getStateText(shadowingState)
                         : hasLoop
-                        ? 'Nhấn để luyện shadowing'
-                        : 'Chọn A-B Loop trước',
+                            ? 'Nhấn để luyện shadowing'
+                            : 'Chọn A-B Loop trước',
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 11,
@@ -731,7 +740,9 @@ class _ShadowingToggle extends StatelessWidget {
               const _PulsingDot(color: Colors.red)
             else
               Icon(
-                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                isExpanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
                 color: Colors.grey[500],
               ),
           ],
@@ -742,12 +753,18 @@ class _ShadowingToggle extends StatelessWidget {
 
   String _getStateText(ShadowingState state) {
     switch (state) {
-      case ShadowingState.waiting: return 'Đang chờ...';
-      case ShadowingState.countdown: return 'Đếm ngược...';
-      case ShadowingState.recording: return 'Đang ghi âm...';
-      case ShadowingState.processing: return 'Đang xử lý...';
-      case ShadowingState.comparing: return 'Đang so sánh...';
-      default: return '';
+      case ShadowingState.waiting:
+        return 'Đang chờ...';
+      case ShadowingState.countdown:
+        return 'Đếm ngược...';
+      case ShadowingState.recording:
+        return 'Đang ghi âm...';
+      case ShadowingState.processing:
+        return 'Đang xử lý...';
+      case ShadowingState.comparing:
+        return 'Đang so sánh...';
+      default:
+        return '';
     }
   }
 }
@@ -942,11 +959,18 @@ class _ZoomControls extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _ZoomButton(icon: Icons.remove, onTap: () => waveform.zoomOut(), theme: theme),
+          _ZoomButton(
+              icon: Icons.remove,
+              onTap: () => waveform.zoomOut(),
+              theme: theme),
           const SizedBox(width: 4),
-          _ZoomButton(icon: Icons.add, onTap: () => waveform.zoomIn(), theme: theme),
+          _ZoomButton(
+              icon: Icons.add, onTap: () => waveform.zoomIn(), theme: theme),
           const SizedBox(width: 4),
-          _ZoomButton(icon: Icons.fit_screen, onTap: () => waveform.zoomToFit(), theme: theme),
+          _ZoomButton(
+              icon: Icons.fit_screen,
+              onTap: () => waveform.zoomToFit(),
+              theme: theme),
         ],
       ),
     );
@@ -1029,15 +1053,15 @@ class _WaveformView extends StatelessWidget {
         child: waveform.isLoading
             ? _LoadingIndicator(theme: theme)
             : _InteractiveWaveform(
-          player: player,
-          waveform: waveform,
-          theme: theme,
-          height: height,
-          onSeek: onSeek,
-          onMarkerTap: onMarkerTap,
-          onSelectionComplete: onSelectionComplete,
-          onDoubleTap: onDoubleTap,
-        ),
+                player: player,
+                waveform: waveform,
+                theme: theme,
+                height: height,
+                onSeek: onSeek,
+                onMarkerTap: onMarkerTap,
+                onSelectionComplete: onSelectionComplete,
+                onDoubleTap: onDoubleTap,
+              ),
       ),
     );
   }
@@ -1111,7 +1135,8 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
           widget.waveform.setZoom(_startZoom * details.scale);
         }
         final delta = details.focalPointDelta.dx;
-        final scrollDelta = delta / (context.size?.width ?? 300) / widget.waveform.zoomLevel;
+        final scrollDelta =
+            delta / (context.size?.width ?? 300) / widget.waveform.zoomLevel;
         widget.waveform.scrollBy(-scrollDelta);
       },
       onTapDown: (details) {
@@ -1196,6 +1221,31 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
             isLooping: widget.player.isLooping,
           ),
         ),
+        child: widget.player.state.duration.inMilliseconds == 0
+            ? SizedBox(height: widget.height)
+            : CustomPaint(
+                size: Size(double.infinity, widget.height),
+                painter: AdvancedWaveformPainter(
+                  waveformData: widget.waveform.waveformData,
+                  zoomLevel: widget.waveform.zoomLevel,
+                  scrollOffset: widget.waveform.scrollOffset,
+                  audioDuration: widget.player.state.duration,
+                  currentPosition: widget.player.state.position,
+                  selectionStart: widget.waveform.selectionStart,
+                  selectionEnd: widget.waveform.selectionEnd,
+                  markers: widget.waveform.markers,
+                  selectedMarker: widget.waveform.selectedMarker,
+                  waveformColor: widget.theme.waveformColor,
+                  waveformPlayedColor: widget.theme.waveformPlayedColor,
+                  selectionColor: widget.theme.selectionColor,
+                  gridColor: widget.theme.gridColor,
+                  playheadColor: widget.theme.secondary,
+                  backgroundColor: widget.theme.backgroundColor,
+                  loopStart: widget.player.loopStart,
+                  loopEnd: widget.player.loopEnd,
+                  isLooping: widget.player.isLooping,
+                ),
+              ),
       ),
     );
   }
@@ -1600,7 +1650,8 @@ class _MarkersList extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: theme.primary.withOpacity(0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(11)),
             ),
             child: Row(
               children: [
@@ -1727,9 +1778,8 @@ class _MarkerItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? marker.color.withOpacity(0.2)
-              : Colors.transparent,
+          color:
+              isSelected ? marker.color.withOpacity(0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? marker.color : Colors.transparent,

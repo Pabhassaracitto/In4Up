@@ -40,3 +40,9 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 add_dependencies(${BINARY_NAME} flutter_assemble)
 # Add this line to existing CMakeLists.txt
 add_subdirectory(native)
+# Copy ultratimestretch.dll cạnh runner.exe sau mỗi lần build
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:ultratimestretch>
+    $<TARGET_FILE_DIR:${BINARY_NAME}>
+)

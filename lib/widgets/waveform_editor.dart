@@ -1198,29 +1198,6 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
             }
           }
         },
-        child: CustomPaint(
-          size: Size(double.infinity, widget.height),
-          painter: AdvancedWaveformPainter(
-            waveformData: widget.waveform.waveformData,
-            zoomLevel: widget.waveform.zoomLevel,
-            scrollOffset: widget.waveform.scrollOffset,
-            audioDuration: widget.player.state.duration,
-            currentPosition: widget.player.state.position,
-            selectionStart: widget.waveform.selectionStart,
-            selectionEnd: widget.waveform.selectionEnd,
-            markers: widget.waveform.markers,
-            selectedMarker: widget.waveform.selectedMarker,
-            waveformColor: widget.theme.waveformColor,
-            waveformPlayedColor: widget.theme.waveformPlayedColor,
-            selectionColor: widget.theme.selectionColor,
-            gridColor: widget.theme.gridColor,
-            playheadColor: widget.theme.secondary,
-            backgroundColor: widget.theme.backgroundColor,
-            loopStart: widget.player.loopStart,
-            loopEnd: widget.player.loopEnd,
-            isLooping: widget.player.isLooping,
-          ),
-        ),
         child: widget.player.state.duration.inMilliseconds == 0
             ? SizedBox(height: widget.height)
             : CustomPaint(

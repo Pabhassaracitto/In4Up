@@ -75,12 +75,12 @@ class UltraEngineFFIV2 {
   late CreateEngine _createEngine;
   late DestroyEngine _destroyEngine;
   late SetSpeed _setSpeed;
-  late GetSpeed _getSpeed;
-  late SetPitch _setPitch;
+  GetSpeed? _getSpeed;
+  SetPitch? _setPitch;
   late Process _process;
-  late GetLatency _getLatency;
-  late GetVersion _getVersion;
-  late Reset _reset;
+  GetLatency? _getLatency;
+  GetVersion? _getVersion;
+  Reset? _reset;
 
   UltraEngineFFIV2._internal();
 
@@ -121,9 +121,15 @@ class UltraEngineFFIV2 {
   void _bindFunctions() {
     if (_lib == null) return;
 
-    _createEngine = _lib!
-        .lookup<NativeFunction<NativeCreateEngine>>('CreateEngineV2')
-        .asFunction();
+    try {
+      _createEngine = _lib!
+          .lookup<NativeFunction<NativeCreateEngine>>('CreateEngineV2')
+          .asFunction();
+    } on ArgumentError {
+      _createEngine = _lib!
+          .lookup<NativeFunction<NativeCreateEngine>>('CreateEngine')
+          .asFunction();
+    }
 
     _destroyEngine = _lib!
         .lookup<NativeFunction<NativeDestroyEngine>>('DestroyEngine')
@@ -132,33 +138,54 @@ class UltraEngineFFIV2 {
     _setSpeed =
         _lib!.lookup<NativeFunction<NativeSetSpeed>>('SetSpeed').asFunction();
 
-    _getSpeed =
-        _lib!.lookup<NativeFunction<NativeGetSpeed>>('GetSpeed').asFunction();
+    try {
+      _getSpeed =
+          _lib!.lookup<NativeFunction<NativeGetSpeed>>('GetSpeed').asFunction();
+    } on ArgumentError {
+      _getSpeed = null;
+    }
 
-    _setPitch =
-        _lib!.lookup<NativeFunction<NativeSetPitch>>('SetPitch').asFunction();
+    try {
+      _setPitch =
+          _lib!.lookup<NativeFunction<NativeSetPitch>>('SetPitch').asFunction();
+    } on ArgumentError {
+      _setPitch = null;
+    }
 
     _process = _lib!
         .lookup<NativeFunction<NativeProcess>>('ProcessAudio')
         .asFunction();
 
-    _getLatency = _lib!
-        .lookup<NativeFunction<NativeGetLatency>>('GetLatency')
-        .asFunction();
+    try {
+      _getLatency = _lib!
+          .lookup<NativeFunction<NativeGetLatency>>('GetLatency')
+          .asFunction();
+    } on ArgumentError {
+      _getLatency = null;
+    }
 
-    _getVersion = _lib!
-        .lookup<NativeFunction<NativeGetVersion>>('GetVersion')
-        .asFunction();
+    try {
+      _getVersion = _lib!
+          .lookup<NativeFunction<NativeGetVersion>>('GetVersion')
+          .asFunction();
+    } on ArgumentError {
+      _getVersion = null;
+    }
 
-    _reset = _lib!.lookup<NativeFunction<NativeReset>>('Reset').asFunction();
+    try {
+      _reset = _lib!.lookup<NativeFunction<NativeReset>>('Reset').asFunction();
+    } on ArgumentError {
+      _reset = null;
+    }
   }
 
   /// Get library version
   String getVersion() {
     if (_lib == null) return 'V2.0.0 (Mock)';
+    if (_getVersion == null) return 'V2.0.0 (Native N/A)';
 
     try {
-      final versionPtr = _getVersion();
+      final versionPtr = _getVersion!();
       final version = versionPtr.toDartString();
       malloc.free(versionPtr);
       return version;
@@ -231,9 +258,10 @@ class UltraEngineFFIV2 {
   /// Get current speed
   double getSpeed() {
     if (_enginePtr == null) return 1.0;
+    if (_getSpeed == null) return 1.0;
 
     try {
-      return _getSpeed(_enginePtr!);
+      return _getSpeed!(_enginePtr!);
     } catch (e) {
       print('Error getting speed: $e');
       return 1.0;
@@ -243,11 +271,12 @@ class UltraEngineFFIV2 {
   /// Set pitch shift in semitones (-24 to +24)
   void setPitch(double semitones) {
     if (_enginePtr == null) return;
+    if (_setPitch == null) return;
 
     final clampedPitch = semitones.clamp(-24.0, 24.0);
 
     try {
-      _setPitch(_enginePtr!, clampedPitch);
+      _setPitch!(_enginePtr!, clampedPitch);
     } catch (e) {
       print('Error setting pitch: $e');
     }
@@ -302,9 +331,10 @@ class UltraEngineFFIV2 {
   /// Get engine latency in samples
   int getLatency() {
     if (_enginePtr == null) return 0;
+    if (_getLatency == null) return 0;
 
     try {
-      return _getLatency(_enginePtr!);
+      return _getLatency!(_enginePtr!);
     } catch (e) {
       print('Error getting latency: $e');
       return 0;
@@ -314,9 +344,10 @@ class UltraEngineFFIV2 {
   /// Reset engine state
   void reset() {
     if (_enginePtr == null) return;
+    if (_reset == null) return;
 
     try {
-      _reset(_enginePtr!);
+      _reset!(_enginePtr!);
     } catch (e) {
       print('Error resetting: $e');
     }

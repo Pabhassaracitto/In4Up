@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.10.2)
 project(ultratimestretch)
 
+if(ANDROID)
+    if(NOT DEFINED ANDROID_STL)
+        message(WARNING "ANDROID_STL is not defined. This can lead to runtime errors. It is recommended to set this in your app's build.gradle file. For example: android.defaultConfig.externalNativeBuild.cmake.arguments.add('-DANDROID_STL=c++_static')")
+    elseif(ANDROID_STL STREQUAL "c++_shared")
+        message(WARNING "You are using the shared C++ standard library (c++_shared). This requires you to load it manually in your application's Java/Kotlin code before loading the main native library. E.g., System.loadLibrary(\"c++_shared\"); System.loadLibrary(\"ultratimestretch\");. Using 'c++_static' is often simpler.")
+    endif()
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 
 # Point to shared native code

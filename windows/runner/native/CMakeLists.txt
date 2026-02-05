@@ -30,8 +30,12 @@ set(V1_SOURCES
 
 # V2 Sources
 set(V2_SOURCES
-    "${NATIVE_DIR}/src/V2/MultiResolutionPV.cpp"
-    "${NATIVE_DIR}/src/V2/EngineV2.cpp"
+  "${NATIVE_DIR}/src/V2/SpectralPeakInterpolator.cpp"
+    "${NATIVE_DIR}/src/V2/FormantPreserver.cpp"
+    "${NATIVE_DIR}/src/V2/HarmonicPercussiveSeparator.cpp"
+    "${NATIVE_DIR}/src/V2/MultiResolutionPV.cpp" #old
+    "${NATIVE_DIR}/src/V2/HybridStretcherV2.cpp"     # <-- PHẢI CÓ DÒNG NÀY
+    "${NATIVE_DIR}/src/V2/EngineV2.cpp" #old
 )
 
 # Debug: Kiểm tra file tồn tại

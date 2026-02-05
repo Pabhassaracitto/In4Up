@@ -1,480 +1,493 @@
- // # NEW - Quản lý shadowing state
- // shadowing_provider.dart
- import 'dart:async';
- import 'dart:math' as math;
- import 'package:flutter/foundation.dart';
- import 'package:flutter/material.dart';
- import '../models/shadowing_result.dart';
- import '../services/recording_service.dart';
+// # NEW - Quản lý shadowing state
+// shadowing_provider.dart
+import 'dart:async';
+import 'dart:math' as math;
 
- /// Quản lý toàn bộ flow Shadowing
- class ShadowingProvider extends ChangeNotifier {
-   final RecordingService _recordingService = RecordingService();
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../models/shadowing_result.dart';
+import '../services/recording_service.dart';
 
-   // === STATE ===
-   ShadowingState _state = ShadowingState.idle;
-   ShadowingSettings _settings = const ShadowingSettings();
+/// Quản lý toàn bộ flow Shadowing
+class ShadowingProvider extends ChangeNotifier {
+  final RecordingService _recordingService = RecordingService();
 
-   // Thêm các biến còn thiếu nếu chưa có
-   String? get currentAudioPath => _originalAudioPath;
-   Duration? get startTime => _segmentStart;
-   Duration? get endTime => _segmentEnd;
-   String? get userRecordingPath => _recordedPath;
-   List<double> get waveform => _originalWaveform;
-   List<double> get userWaveform => _recordedWaveform;
+  // === STATE ===
+  ShadowingState _state = ShadowingState.idle;
+  ShadowingSettings _settings = const ShadowingSettings();
 
-   int get completedRepetitions => _sessionResults.length;
-   int get repeatCount => _settings.repeatCount; // Cần thêm repeatCount vào ShadowingSettings
-   double get playbackSpeed => _settings.playbackSpeed; // Cần thêm playbackSpeed vào ShadowingSettings
-   double get similarityScore => _lastResult?.overallScore ?? 0.0;
+  // Thêm các biến còn thiếu nếu chưa có
+  String? get currentAudioPath => _originalAudioPath;
+  Duration? get startTime => _segmentStart;
+  Duration? get endTime => _segmentEnd;
+  String? get userRecordingPath => _recordedPath;
+  List<double> get waveform => _originalWaveform;
+  List<double> get userWaveform => _recordedWaveform;
 
-   bool get isIdle => _state == ShadowingState.idle;
-   bool get isListening => false; // Logic cũ không có state listening riêng, có thể thêm hoặc map từ state khác
-   bool get isPlayingUser => false; // Cần thêm state này nếu muốn nghe lại
+  int get completedRepetitions => _sessionResults.length;
+  int get repeatCount =>
+      _settings.repeatCount; // Cần thêm repeatCount vào ShadowingSettings
+  double get playbackSpeed =>
+      _settings.playbackSpeed; // Cần thêm playbackSpeed vào ShadowingSettings
+  double get similarityScore => _lastResult?.overallScore ?? 0.0;
+
+  bool get isIdle => _state == ShadowingState.idle;
+  bool get isListening =>
+      false; // Logic cũ không có state listening riêng, có thể thêm hoặc map từ state khác
+  bool get isPlayingUser => false; // Cần thêm state này nếu muốn nghe lại
 
 // Thêm các hàm setter settings
-   void setRepeatCount(int count) {
-     updateSettings(_settings.copyWith(repeatCount: count.clamp(1, 20)));
-   }
+  void setRepeatCount(int count) {
+    updateSettings(_settings.copyWith(repeatCount: count.clamp(1, 20)));
+  }
 
-   void setPlaybackSpeed(double speed) {
-     updateSettings(_settings.copyWith(playbackSpeed: speed.clamp(0.5, 1.5)));
-   }
+  void setPlaybackSpeed(double speed) {
+    updateSettings(_settings.copyWith(playbackSpeed: speed.clamp(0.5, 1.5)));
+  }
 
 // Hàm nghe lại recording
-   Future<void> playUserRecording() async {
-     // Logic play file _recordedPath
-   }
+  Future<void> playUserRecording() async {
+    // Logic play file _recordedPath
+  }
 
 // Hàm nghe lại original
-   Future<void> playOriginal() async {
-     // Logic play đoạn gốc
-   }
-   // Segment đang practice
-   Duration? _segmentStart;
-   Duration? _segmentEnd;
-   String? _originalAudioPath;
-   List<double> _originalWaveform = [];
-
-   // Recording
-   List<double> _recordedWaveform = [];
-   String? _recordedPath;
-   Duration _recordedDuration = Duration.zero;
-   double _currentAmplitude = 0.0;
-
-   // Countdown
-   int _countdownValue = 0;
-   Timer? _countdownTimer;
-
-   // Gap timer
-   Timer? _gapTimer;
-   double _gapProgress = 0.0;
-
-   // Results
-   ShadowingResult? _lastResult;
-   final List<ShadowingResult> _sessionResults = [];
-
-   // Subscriptions
-   StreamSubscription? _amplitudeSubscription;
-   StreamSubscription? _durationSubscription;
-
-   // === GETTERS ===
-   ShadowingState get state => _state;
-   ShadowingSettings get settings => _settings;
-   Duration? get segmentStart => _segmentStart;
-   Duration? get segmentEnd => _segmentEnd;
-   Duration get segmentDuration =>
-       (_segmentEnd != null && _segmentStart != null)
-           ? _segmentEnd! - _segmentStart!
-           : Duration.zero;
-
-   List<double> get originalWaveform => _originalWaveform;
-   List<double> get recordedWaveform => _recordedWaveform;
-
-   bool get isRecording => _state == ShadowingState.recording;
-   bool get isComparing => _state == ShadowingState.comparing;
-   bool get hasResult => _lastResult != null;
-
-   int get countdownValue => _countdownValue;
-   double get gapProgress => _gapProgress;
-   double get currentAmplitude => _currentAmplitude;
-   Duration get recordedDuration => _recordedDuration;
-
-   ShadowingResult? get lastResult => _lastResult;
-   List<ShadowingResult> get sessionResults => List.unmodifiable(_sessionResults);
-
-   double get sessionAverageScore {
-     if (_sessionResults.isEmpty) return 0;
-     return _sessionResults.map((r) => r.overallScore).reduce((a, b) => a + b) / _sessionResults.length;
-   }
-
-   // === SETTINGS ===
-
-   void updateSettings(ShadowingSettings newSettings) {
-     _settings = newSettings;
-     notifyListeners();
-   }
-
-   // === SETUP SEGMENT ===
-
-   void setSegment({
-     required Duration start,
-     required Duration end,
-     required String audioPath,
-     required List<double> waveform,
-   }) {
-     _segmentStart = start;
-     _segmentEnd = end;
-     _originalAudioPath = audioPath;
-     _originalWaveform = List.from(waveform);
-
-     // Extract waveform portion for this segment
-     if (waveform.isNotEmpty) {
-       // TODO: Extract segment portion từ full waveform
-     }
-
-     _state = ShadowingState.ready;
-     notifyListeners();
-   }
-
-   // === SHADOWING FLOW ===
-
-   /// Bước 1: Bắt đầu shadowing (sau khi nghe mẫu)
-   Future<void> startShadowing() async {
-     if (_segmentStart == null || _segmentEnd == null) {
-       debugPrint('ShadowingProvider: No segment set');
-       return;
-     }
-
-     // Start gap period
-     _state = ShadowingState.waiting;
-     _gapProgress = 0.0;
-     notifyListeners();
-
-     final gapMs = (_settings.gapDuration * 1000).round();
-     const updateInterval = 50;
-     int elapsed = 0;
-
-     _gapTimer?.cancel();
-     _gapTimer = Timer.periodic(const Duration(milliseconds: updateInterval), (timer) {
-       elapsed += updateInterval;
-       _gapProgress = elapsed / gapMs;
-
-       if (elapsed >= gapMs) {
-         timer.cancel();
-         _startCountdown();
-       }
-       notifyListeners();
-     });
-   }
-
-   /// Bước 2: Countdown
-   void _startCountdown() {
-     _state = ShadowingState.countdown;
-     _countdownValue = _settings.countdownSeconds;
-     notifyListeners();
-
-     _countdownTimer?.cancel();
-     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-       _countdownValue--;
-
-       if (_countdownValue <= 0) {
-         timer.cancel();
-         _startRecording();
-       }
-       notifyListeners();
-     });
-   }
-
-   /// Bước 3: Ghi âm
-   Future<void> _startRecording() async {
-     _state = ShadowingState.recording;
-     _recordedWaveform.clear();
-     _recordedDuration = Duration.zero;
-     _currentAmplitude = 0.0;
-     notifyListeners();
-
-     // Setup amplitude listener
-     _amplitudeSubscription?.cancel();
-     _amplitudeSubscription = _recordingService.amplitudeStream.listen((amp) {
-       _currentAmplitude = amp;
-       _recordedWaveform.add(amp);
-       notifyListeners();
-     });
-
-     // Setup duration listener
-     _durationSubscription?.cancel();
-     _durationSubscription = _recordingService.durationStream.listen((duration) {
-       _recordedDuration = duration;
-
-       // Auto-stop nếu vượt quá thời gian
-       final maxDuration = Duration(seconds: _settings.maxRecordDuration.round());
-       if (duration >= maxDuration) {
-         stopRecording();
-       }
-       notifyListeners();
-     });
-
-     // Start recording
-     await _recordingService.startRecording();
-   }
-
-   /// Dừng ghi âm thủ công
-   Future<void> stopRecording() async {
-     if (_state != ShadowingState.recording) return;
-
-     _state = ShadowingState.processing;
-     notifyListeners();
-
-     // Stop recording
-     _recordedPath = await _recordingService.stopRecording();
-
-     // Get final waveform
-     _recordedWaveform = List.from(_recordingService.recordingWaveform);
-
-     // Cancel subscriptions
-     _amplitudeSubscription?.cancel();
-     _durationSubscription?.cancel();
-
-     // Compare
-     await _compareWaveforms();
-   }
-
-   /// Bước 4: So sánh sóng âm
-   Future<void> _compareWaveforms() async {
-     _state = ShadowingState.comparing;
-     notifyListeners();
-
-     // Simulate processing delay
-     await Future.delayed(const Duration(milliseconds: 800));
-
-     // Tính toán các điểm số
-     final result = _calculateResult();
-
-     _lastResult = result;
-     _sessionResults.add(result);
-
-     _state = ShadowingState.result;
-     notifyListeners();
-   }
-
-   ShadowingResult _calculateResult() {
-     // === TÍNH ĐIỂM DURATION ===
-     final expectedDuration = segmentDuration;
-     final actualDuration = _recordedDuration;
-
-     double durationScore = 1.0;
-     if (expectedDuration.inMilliseconds > 0) {
-       final ratio = actualDuration.inMilliseconds / expectedDuration.inMilliseconds;
-       // Điểm cao nhất khi ratio = 1.0, giảm dần khi chênh lệch
-       durationScore = math.max(0, 1.0 - (ratio - 1.0).abs());
-     }
-
-     // === TÍNH ĐIỂM RHYTHM (so sánh pattern) ===
-     double rhythmScore = _comparePatterns(_originalWaveform, _recordedWaveform);
-
-     // === TÍNH ĐIỂM AMPLITUDE (năng lượng) ===
-     double amplitudeScore = _compareAmplitude(_originalWaveform, _recordedWaveform);
-
-     // === TỔNG ĐIỂM ===
-     // Trọng số: Rhythm 40%, Duration 30%, Amplitude 30%
-     final overallScore = (rhythmScore * 0.4) + (durationScore * 0.3) + (amplitudeScore * 0.3);
-
-     // === TẠO FEEDBACK ===
-     final feedbacks = _generateFeedbacks(
-       rhythmScore: rhythmScore,
-       durationScore: durationScore,
-       amplitudeScore: amplitudeScore,
-     );
-
-     return ShadowingResult(
-       id: DateTime.now().millisecondsSinceEpoch.toString(),
-       originalAudioPath: _originalAudioPath ?? '',
-       recordedAudioPath: _recordedPath ?? '',
-       originalDuration: expectedDuration,
-       recordedDuration: actualDuration,
-       segmentStart: _segmentStart!,
-       segmentEnd: _segmentEnd!,
-       originalWaveform: _originalWaveform,
-       recordedWaveform: _recordedWaveform,
-       rhythmScore: rhythmScore,
-       durationScore: durationScore,
-       amplitudeScore: amplitudeScore,
-       overallScore: overallScore.clamp(0.0, 1.0),
-       feedbacks: feedbacks,
-     );
-   }
-
-   double _comparePatterns(List<double> original, List<double> recorded) {
-     if (original.isEmpty || recorded.isEmpty) return 0.5;
-
-     // Normalize lengths
-     final targetLength = math.min(original.length, 100);
-     final normalizedOriginal = _resampleWaveform(original, targetLength);
-     final normalizedRecorded = _resampleWaveform(recorded, targetLength);
-
-     // Cross-correlation
-     double correlation = 0;
-     double sumOriginal = 0;
-     double sumRecorded = 0;
-
-     for (int i = 0; i < targetLength; i++) {
-       correlation += normalizedOriginal[i] * normalizedRecorded[i];
-       sumOriginal += normalizedOriginal[i] * normalizedOriginal[i];
-       sumRecorded += normalizedRecorded[i] * normalizedRecorded[i];
-     }
-
-     final denominator = math.sqrt(sumOriginal * sumRecorded);
-     if (denominator == 0) return 0.5;
-
-     // Normalize to 0-1
-     final score = (correlation / denominator + 1) / 2;
-     return score.clamp(0.0, 1.0);
-   }
-
-   double _compareAmplitude(List<double> original, List<double> recorded) {
-     if (original.isEmpty || recorded.isEmpty) return 0.5;
-
-     final avgOriginal = original.reduce((a, b) => a + b) / original.length;
-     final avgRecorded = recorded.reduce((a, b) => a + b) / recorded.length;
-
-     if (avgOriginal == 0) return avgRecorded == 0 ? 1.0 : 0.5;
-
-     final ratio = avgRecorded / avgOriginal;
-     // Score cao nhất khi ratio gần 1.0
-     final score = math.max(0.0, 1.0 - (ratio - 1.0).abs() * 0.5);
-     return score.clamp(0.0, 1.0);
-   }
-
-   List<double> _resampleWaveform(List<double> waveform, int targetLength) {
-     if (waveform.length == targetLength) return waveform;
-
-     final result = <double>[];
-     final ratio = waveform.length / targetLength;
-
-     for (int i = 0; i < targetLength; i++) {
-       final sourceIndex = (i * ratio).floor();
-       result.add(waveform[sourceIndex.clamp(0, waveform.length - 1)]);
-     }
-
-     return result;
-   }
-
-   List<ShadowingFeedback> _generateFeedbacks({
-     required double rhythmScore,
-     required double durationScore,
-     required double amplitudeScore,
-   }) {
-     final feedbacks = <ShadowingFeedback>[];
-
-     // Duration feedback
-     if (durationScore < 0.6) {
-       final diff = _recordedDuration - segmentDuration;
-       if (diff.isNegative) {
-         feedbacks.add(ShadowingFeedback(
-           type: FeedbackType.duration,
-           message: 'Bạn nói nhanh hơn mẫu ${diff.abs().inMilliseconds}ms',
-           suggestion: 'Thử nói chậm hơn một chút',
-         ));
-       } else {
-         feedbacks.add(ShadowingFeedback(
-           type: FeedbackType.duration,
-           message: 'Bạn nói chậm hơn mẫu ${diff.inMilliseconds}ms',
-           suggestion: 'Thử tăng tốc độ nói',
-         ));
-       }
-     }
-
-     // Rhythm feedback
-     if (rhythmScore < 0.7) {
-       feedbacks.add(ShadowingFeedback(
-         type: FeedbackType.rhythm,
-         message: 'Nhịp điệu chưa khớp với mẫu',
-         suggestion: 'Hãy chú ý đến ngắt nghỉ và nhấn nhá trong câu',
-       ));
-     }
-
-     // Energy feedback
-     if (amplitudeScore < 0.6) {
-       feedbacks.add(ShadowingFeedback(
-         type: FeedbackType.energy,
-         message: 'Năng lượng nói khác với mẫu',
-         suggestion: 'Thử điều chỉnh âm lượng và sự nhấn mạnh',
-       ));
-     }
-
-     // Positive feedback
-     if (rhythmScore >= 0.8 && durationScore >= 0.8) {
-       feedbacks.add(ShadowingFeedback(
-         type: FeedbackType.general,
-         message: 'Tuyệt vời! Bạn đã bắt chước rất tốt!',
-       ));
-     }
-
-     return feedbacks;
-   }
-
-   // === ACTIONS ===
-
-   /// Thử lại với cùng segment
-   void retry() {
-     _lastResult = null;
-     _recordedWaveform.clear();
-     _recordedPath = null;
-     _recordedDuration = Duration.zero;
-     _state = ShadowingState.ready;
-     notifyListeners();
-   }
-
-   /// Reset hoàn toàn
-   void reset() {
-     _cancelAllTimers();
-
-     _state = ShadowingState.idle;
-     _segmentStart = null;
-     _segmentEnd = null;
-     _originalAudioPath = null;
-     _originalWaveform.clear();
-     _recordedWaveform.clear();
-     _recordedPath = null;
-     _recordedDuration = Duration.zero;
-     _lastResult = null;
-     _currentAmplitude = 0.0;
-     _countdownValue = 0;
-     _gapProgress = 0.0;
-
-     notifyListeners();
-   }
-
-   /// Clear session results
-   void clearSession() {
-     _sessionResults.clear();
-     notifyListeners();
-   }
-
-   void _cancelAllTimers() {
-     _countdownTimer?.cancel();
-     _gapTimer?.cancel();
-     _amplitudeSubscription?.cancel();
-     _durationSubscription?.cancel();
-   }
-
-   @override
-   void dispose() {
-     _cancelAllTimers();
-     _recordingService.dispose();
-     super.dispose();
-   }
- }
-
- enum ShadowingState {
-   idle,        // Chưa bắt đầu
-   ready,       // Đã set segment, sẵn sàng
-   waiting,     // Đang chờ gap
-   countdown,   // Đang đếm ngược
-   recording,   // Đang ghi âm
-   processing,  // Đang xử lý
-   comparing,   // Đang so sánh
-   result,      // Hiển thị kết quả
- }
+  Future<void> playOriginal() async {
+    // Logic play đoạn gốc
+  }
+  // Segment đang practice
+  Duration? _segmentStart;
+  Duration? _segmentEnd;
+  String? _originalAudioPath;
+  List<double> _originalWaveform = [];
+
+  // Recording
+  List<double> _recordedWaveform = [];
+  String? _recordedPath;
+  Duration _recordedDuration = Duration.zero;
+  double _currentAmplitude = 0.0;
+
+  // Countdown
+  int _countdownValue = 0;
+  Timer? _countdownTimer;
+
+  // Gap timer
+  Timer? _gapTimer;
+  double _gapProgress = 0.0;
+
+  // Results
+  ShadowingResult? _lastResult;
+  final List<ShadowingResult> _sessionResults = [];
+
+  // Subscriptions
+  StreamSubscription? _amplitudeSubscription;
+  StreamSubscription? _durationSubscription;
+
+  // === GETTERS ===
+  ShadowingState get state => _state;
+  ShadowingSettings get settings => _settings;
+  Duration? get segmentStart => _segmentStart;
+  Duration? get segmentEnd => _segmentEnd;
+  Duration get segmentDuration => (_segmentEnd != null && _segmentStart != null)
+      ? _segmentEnd! - _segmentStart!
+      : Duration.zero;
+
+  List<double> get originalWaveform => _originalWaveform;
+  List<double> get recordedWaveform => _recordedWaveform;
+
+  bool get isRecording => _state == ShadowingState.recording;
+  bool get isComparing => _state == ShadowingState.comparing;
+  bool get hasResult => _lastResult != null;
+
+  int get countdownValue => _countdownValue;
+  double get gapProgress => _gapProgress;
+  double get currentAmplitude => _currentAmplitude;
+  Duration get recordedDuration => _recordedDuration;
+
+  ShadowingResult? get lastResult => _lastResult;
+  List<ShadowingResult> get sessionResults =>
+      List.unmodifiable(_sessionResults);
+
+  double get sessionAverageScore {
+    if (_sessionResults.isEmpty) return 0;
+    return _sessionResults.map((r) => r.overallScore).reduce((a, b) => a + b) /
+        _sessionResults.length;
+  }
+
+  // === SETTINGS ===
+
+  void updateSettings(ShadowingSettings newSettings) {
+    _settings = newSettings;
+    notifyListeners();
+  }
+
+  // === SETUP SEGMENT ===
+
+  void setSegment({
+    required Duration start,
+    required Duration end,
+    required String audioPath,
+    required List<double> waveform,
+  }) {
+    _segmentStart = start;
+    _segmentEnd = end;
+    _originalAudioPath = audioPath;
+    _originalWaveform = List.from(waveform);
+
+    // Extract waveform portion for this segment
+    if (waveform.isNotEmpty) {
+      // TODO: Extract segment portion từ full waveform
+    }
+
+    _state = ShadowingState.ready;
+    notifyListeners();
+  }
+
+  // === SHADOWING FLOW ===
+
+  /// Bước 1: Bắt đầu shadowing (sau khi nghe mẫu)
+  Future<void> startShadowing() async {
+    if (_segmentStart == null || _segmentEnd == null) {
+      debugPrint('ShadowingProvider: No segment set');
+      return;
+    }
+
+    // Start gap period
+    _state = ShadowingState.waiting;
+    _gapProgress = 0.0;
+    notifyListeners();
+
+    final gapMs = math.max(1, (_settings.gapDuration * 1000).round());
+    const updateInterval = 50;
+    int elapsed = 0;
+
+    _gapTimer?.cancel();
+    _gapTimer =
+        Timer.periodic(const Duration(milliseconds: updateInterval), (timer) {
+      elapsed += updateInterval;
+      _gapProgress = elapsed / gapMs;
+
+      if (elapsed >= gapMs) {
+        timer.cancel();
+        _startCountdown();
+      }
+      notifyListeners();
+    });
+  }
+
+  /// Bước 2: Countdown
+  void _startCountdown() {
+    _state = ShadowingState.countdown;
+    _countdownValue = _settings.countdownSeconds;
+    notifyListeners();
+
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _countdownValue--;
+
+      if (_countdownValue <= 0) {
+        timer.cancel();
+        _startRecording();
+      }
+      notifyListeners();
+    });
+  }
+
+  /// Bước 3: Ghi âm
+  Future<void> _startRecording() async {
+    _state = ShadowingState.recording;
+    _recordedWaveform.clear();
+    _recordedDuration = Duration.zero;
+    _currentAmplitude = 0.0;
+    notifyListeners();
+
+    // Setup amplitude listener
+    _amplitudeSubscription?.cancel();
+    _amplitudeSubscription = _recordingService.amplitudeStream.listen((amp) {
+      _currentAmplitude = amp;
+      _recordedWaveform.add(amp);
+      notifyListeners();
+    });
+
+    // Setup duration listener
+    _durationSubscription?.cancel();
+    _durationSubscription = _recordingService.durationStream.listen((duration) {
+      _recordedDuration = duration;
+
+      // Auto-stop nếu vượt quá thời gian
+      final maxDuration =
+          Duration(seconds: _settings.maxRecordDuration.round());
+      if (duration >= maxDuration) {
+        stopRecording();
+      }
+      notifyListeners();
+    });
+
+    // Start recording
+    await _recordingService.startRecording();
+  }
+
+  /// Dừng ghi âm thủ công
+  Future<void> stopRecording() async {
+    if (_state != ShadowingState.recording) return;
+
+    _state = ShadowingState.processing;
+    notifyListeners();
+
+    // Stop recording
+    _recordedPath = await _recordingService.stopRecording();
+
+    // Get final waveform
+    _recordedWaveform = List.from(_recordingService.recordingWaveform);
+
+    // Cancel subscriptions
+    _amplitudeSubscription?.cancel();
+    _durationSubscription?.cancel();
+
+    // Compare
+    await _compareWaveforms();
+  }
+
+  /// Bước 4: So sánh sóng âm
+  Future<void> _compareWaveforms() async {
+    _state = ShadowingState.comparing;
+    notifyListeners();
+
+    // Simulate processing delay
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Tính toán các điểm số
+    final result = _calculateResult();
+
+    _lastResult = result;
+    _sessionResults.add(result);
+
+    _state = ShadowingState.result;
+    notifyListeners();
+  }
+
+  ShadowingResult _calculateResult() {
+    // === TÍNH ĐIỂM DURATION ===
+    final expectedDuration = segmentDuration;
+    final actualDuration = _recordedDuration;
+
+    double durationScore = 1.0;
+    if (expectedDuration.inMilliseconds > 0) {
+      final ratio =
+          actualDuration.inMilliseconds / expectedDuration.inMilliseconds;
+      // Điểm cao nhất khi ratio = 1.0, giảm dần khi chênh lệch
+      durationScore = math.max(0, 1.0 - (ratio - 1.0).abs());
+    }
+
+    // === TÍNH ĐIỂM RHYTHM (so sánh pattern) ===
+    double rhythmScore = _comparePatterns(_originalWaveform, _recordedWaveform);
+
+    // === TÍNH ĐIỂM AMPLITUDE (năng lượng) ===
+    double amplitudeScore =
+        _compareAmplitude(_originalWaveform, _recordedWaveform);
+
+    // === TỔNG ĐIỂM ===
+    // Trọng số: Rhythm 40%, Duration 30%, Amplitude 30%
+    final overallScore =
+        (rhythmScore * 0.4) + (durationScore * 0.3) + (amplitudeScore * 0.3);
+    final safeOverallScore = overallScore.isNaN ? 0.0 : overallScore;
+
+    // === TẠO FEEDBACK ===
+    final feedbacks = _generateFeedbacks(
+      rhythmScore: rhythmScore,
+      durationScore: durationScore,
+      amplitudeScore: amplitudeScore,
+    );
+
+    return ShadowingResult(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      originalAudioPath: _originalAudioPath ?? '',
+      recordedAudioPath: _recordedPath ?? '',
+      originalDuration: expectedDuration,
+      recordedDuration: actualDuration,
+      segmentStart: _segmentStart!,
+      segmentEnd: _segmentEnd!,
+      originalWaveform: _originalWaveform,
+      recordedWaveform: _recordedWaveform,
+      rhythmScore: rhythmScore,
+      durationScore: durationScore,
+      amplitudeScore: amplitudeScore,
+      overallScore: safeOverallScore.clamp(0.0, 1.0),
+      feedbacks: feedbacks,
+    );
+  }
+
+  double _comparePatterns(List<double> original, List<double> recorded) {
+    if (original.isEmpty || recorded.isEmpty) return 0.5;
+
+    // Normalize lengths
+    final targetLength = math.min(original.length, 100);
+    final normalizedOriginal = _resampleWaveform(original, targetLength);
+    final normalizedRecorded = _resampleWaveform(recorded, targetLength);
+
+    // Cross-correlation
+    double correlation = 0;
+    double sumOriginal = 0;
+    double sumRecorded = 0;
+
+    for (int i = 0; i < targetLength; i++) {
+      correlation += normalizedOriginal[i] * normalizedRecorded[i];
+      sumOriginal += normalizedOriginal[i] * normalizedOriginal[i];
+      sumRecorded += normalizedRecorded[i] * normalizedRecorded[i];
+    }
+
+    final denominator = math.sqrt(sumOriginal * sumRecorded);
+    if (denominator == 0) return 0.5;
+
+    // Normalize to 0-1
+    final score = (correlation / denominator + 1) / 2;
+    if (score.isNaN) return 0.5;
+    return score.clamp(0.0, 1.0);
+  }
+
+  double _compareAmplitude(List<double> original, List<double> recorded) {
+    if (original.isEmpty || recorded.isEmpty) return 0.5;
+
+    final avgOriginal = original.reduce((a, b) => a + b) / original.length;
+    final avgRecorded = recorded.reduce((a, b) => a + b) / recorded.length;
+
+    if (avgOriginal == 0) return avgRecorded == 0 ? 1.0 : 0.5;
+
+    final ratio = avgRecorded / avgOriginal;
+    if (ratio.isNaN) return 0.0;
+    // Score cao nhất khi ratio gần 1.0
+    final score = math.max(0.0, 1.0 - (ratio - 1.0).abs() * 0.5);
+    return score.clamp(0.0, 1.0);
+  }
+
+  List<double> _resampleWaveform(List<double> waveform, int targetLength) {
+    if (waveform.length == targetLength) return waveform;
+
+    final result = <double>[];
+    final ratio = waveform.length / targetLength;
+
+    for (int i = 0; i < targetLength; i++) {
+      final sourceIndex = (i * ratio).floor();
+      result.add(waveform[sourceIndex.clamp(0, waveform.length - 1)]);
+    }
+
+    return result;
+  }
+
+  List<ShadowingFeedback> _generateFeedbacks({
+    required double rhythmScore,
+    required double durationScore,
+    required double amplitudeScore,
+  }) {
+    final feedbacks = <ShadowingFeedback>[];
+
+    // Duration feedback
+    if (durationScore < 0.6) {
+      final diff = _recordedDuration - segmentDuration;
+      if (diff.isNegative) {
+        feedbacks.add(ShadowingFeedback(
+          type: FeedbackType.duration,
+          message: 'Bạn nói nhanh hơn mẫu ${diff.abs().inMilliseconds}ms',
+          suggestion: 'Thử nói chậm hơn một chút',
+        ));
+      } else {
+        feedbacks.add(ShadowingFeedback(
+          type: FeedbackType.duration,
+          message: 'Bạn nói chậm hơn mẫu ${diff.inMilliseconds}ms',
+          suggestion: 'Thử tăng tốc độ nói',
+        ));
+      }
+    }
+
+    // Rhythm feedback
+    if (rhythmScore < 0.7) {
+      feedbacks.add(ShadowingFeedback(
+        type: FeedbackType.rhythm,
+        message: 'Nhịp điệu chưa khớp với mẫu',
+        suggestion: 'Hãy chú ý đến ngắt nghỉ và nhấn nhá trong câu',
+      ));
+    }
+
+    // Energy feedback
+    if (amplitudeScore < 0.6) {
+      feedbacks.add(ShadowingFeedback(
+        type: FeedbackType.energy,
+        message: 'Năng lượng nói khác với mẫu',
+        suggestion: 'Thử điều chỉnh âm lượng và sự nhấn mạnh',
+      ));
+    }
+
+    // Positive feedback
+    if (rhythmScore >= 0.8 && durationScore >= 0.8) {
+      feedbacks.add(ShadowingFeedback(
+        type: FeedbackType.general,
+        message: 'Tuyệt vời! Bạn đã bắt chước rất tốt!',
+      ));
+    }
+
+    return feedbacks;
+  }
+
+  // === ACTIONS ===
+
+  /// Thử lại với cùng segment
+  void retry() {
+    _lastResult = null;
+    _recordedWaveform.clear();
+    _recordedPath = null;
+    _recordedDuration = Duration.zero;
+    _state = ShadowingState.ready;
+    notifyListeners();
+  }
+
+  /// Reset hoàn toàn
+  void reset() {
+    _cancelAllTimers();
+
+    _state = ShadowingState.idle;
+    _segmentStart = null;
+    _segmentEnd = null;
+    _originalAudioPath = null;
+    _originalWaveform.clear();
+    _recordedWaveform.clear();
+    _recordedPath = null;
+    _recordedDuration = Duration.zero;
+    _lastResult = null;
+    _currentAmplitude = 0.0;
+    _countdownValue = 0;
+    _gapProgress = 0.0;
+
+    notifyListeners();
+  }
+
+  /// Clear session results
+  void clearSession() {
+    _sessionResults.clear();
+    notifyListeners();
+  }
+
+  void _cancelAllTimers() {
+    _countdownTimer?.cancel();
+    _gapTimer?.cancel();
+    _amplitudeSubscription?.cancel();
+    _durationSubscription?.cancel();
+  }
+
+  @override
+  void dispose() {
+    _cancelAllTimers();
+    _recordingService.dispose();
+    super.dispose();
+  }
+}
+
+enum ShadowingState {
+  idle, // Chưa bắt đầu
+  ready, // Đã set segment, sẵn sàng
+  waiting, // Đang chờ gap
+  countdown, // Đang đếm ngược
+  recording, // Đang ghi âm
+  processing, // Đang xử lý
+  comparing, // Đang so sánh
+  result, // Hiển thị kết quả
+}

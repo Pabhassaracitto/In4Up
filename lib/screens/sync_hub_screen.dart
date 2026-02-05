@@ -99,13 +99,13 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   _ModeTheme _getModeTheme(VipMode mode) {
     switch (mode) {
       case VipMode.buddhism:
-      // Warm Earth Tones - Kích hoạt sóng Alpha, giảm stress
+        // Warm Earth Tones - Kích hoạt sóng Alpha, giảm stress
         return const _ModeTheme(
-          primary: Color(0xFFD4A574),      // Warm Sand
-          secondary: Color(0xFF8B7355),    // Earth Brown
-          accent: Color(0xFFF5E6D3),       // Cream
-          background: Color(0xFF1A1612),   // Dark Warm
-          surface: Color(0xFF2D2520),      // Surface Warm
+          primary: Color(0xFFD4A574), // Warm Sand
+          secondary: Color(0xFF8B7355), // Earth Brown
+          accent: Color(0xFFF5E6D3), // Cream
+          background: Color(0xFF1A1612), // Dark Warm
+          surface: Color(0xFF2D2520), // Surface Warm
           icon: Icons.spa,
           name: 'Tịnh Tâm',
           speedPresets: [0.8, 0.85, 0.9, 0.95, 1.0],
@@ -113,13 +113,13 @@ class _SyncHubScreenState extends State<SyncHubScreen>
         );
 
       case VipMode.english:
-      // Cool Blue Tones - Tăng tập trung, hỗ trợ học tập
+        // Cool Blue Tones - Tăng tập trung, hỗ trợ học tập
         return const _ModeTheme(
-          primary: Color(0xFF64B5F6),      // Light Blue
-          secondary: Color(0xFF1976D2),    // Blue
-          accent: Color(0xFFBBDEFB),       // Pale Blue
-          background: Color(0xFF0D1117),   // Dark Cool
-          surface: Color(0xFF161B22),      // Surface Cool
+          primary: Color(0xFF64B5F6), // Light Blue
+          secondary: Color(0xFF1976D2), // Blue
+          accent: Color(0xFFBBDEFB), // Pale Blue
+          background: Color(0xFF0D1117), // Dark Cool
+          surface: Color(0xFF161B22), // Surface Cool
           icon: Icons.school,
           name: 'Học Tập',
           speedPresets: [0.5, 0.6, 0.7, 0.75, 0.85, 1.0],
@@ -127,13 +127,13 @@ class _SyncHubScreenState extends State<SyncHubScreen>
         );
 
       case VipMode.music:
-      // Purple Gradient - Thưởng thức âm nhạc
+        // Purple Gradient - Thưởng thức âm nhạc
         return const _ModeTheme(
-          primary: Color(0xFF9C7CF4),      // Soft Purple
-          secondary: Color(0xFF6C63FF),    // Vivid Purple
-          accent: Color(0xFFD1C4E9),       // Lavender
-          background: Color(0xFF0F0F1A),   // Dark Purple
-          surface: Color(0xFF1A1A2E),      // Surface Purple
+          primary: Color(0xFF9C7CF4), // Soft Purple
+          secondary: Color(0xFF6C63FF), // Vivid Purple
+          accent: Color(0xFFD1C4E9), // Lavender
+          background: Color(0xFF0F0F1A), // Dark Purple
+          surface: Color(0xFF1A1A2E), // Surface Purple
           icon: Icons.music_note,
           name: 'Âm Nhạc',
           speedPresets: [0.75, 1.0, 1.25, 1.5, 2.0],
@@ -147,10 +147,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildAppBar(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -243,10 +243,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   Widget _buildModeSwitcher(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return PopupMenuButton<VipMode>(
       offset: const Offset(0, 40),
       color: theme.surface,
@@ -298,13 +298,13 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   PopupMenuItem<VipMode> _buildModeMenuItem(
-      VipMode mode,
-      IconData icon,
-      String title,
-      String subtitle,
-      Color color,
-      bool isSelected,
-      ) {
+    VipMode mode,
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    bool isSelected,
+  ) {
     return PopupMenuItem(
       value: mode,
       child: Container(
@@ -328,7 +328,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                     title,
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                   Text(
@@ -341,8 +342,7 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check_circle, size: 18, color: color),
+            if (isSelected) Icon(Icons.check_circle, size: 18, color: color),
           ],
         ),
       ),
@@ -369,10 +369,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildSplitView(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return Consumer<TextProvider>(
       builder: (context, textProvider, child) {
         // Empty state
@@ -412,7 +412,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                 onHorizontalDragUpdate: (details) {
                   final delta = details.globalPosition.dx - _dragStartX;
                   final speedChange = delta / 200; // 200px = 1.0 speed
-                  final newSpeed = (_initialSpeed + speedChange).clamp(0.25, 2.0);
+                  final newSpeed =
+                      (_initialSpeed + speedChange).clamp(0.25, 2.0);
                   player.setSpeed(newSpeed);
                 },
                 onHorizontalDragEnd: (details) {
@@ -437,10 +438,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildMusicSection(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -460,8 +461,7 @@ class _SyncHubScreenState extends State<SyncHubScreen>
             _buildContemplationZone(context, player, theme),
 
           // === SHADOWING HINT (English mode) ===
-          if (player.isEnglishMode)
-            _buildShadowingHint(context, player, theme),
+          if (player.isEnglishMode) _buildShadowingHint(context, player, theme),
 
           const SizedBox(height: 8),
 
@@ -484,19 +484,20 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   Widget _buildSongInfo(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return Row(
       children: [
         // Album art / Mode icon
         AnimatedBuilder(
           animation: _breathingAnimation,
           builder: (context, child) {
-            final opacity = player.isBuddhismMode && player.isPlaying
-                ? _breathingAnimation.value
-                : 0.3;
+            final opacity = (player.isBuddhismMode && player.isPlaying
+                    ? _breathingAnimation.value
+                    : 0.3)
+                .clamp(0.0, 1.0);
             return Container(
               width: 56,
               height: 56,
@@ -512,8 +513,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                 boxShadow: [
                   BoxShadow(
                     color: (player.isLooping
-                        ? const Color(0xFF4CAF50)
-                        : theme.primary)
+                            ? const Color(0xFF4CAF50)
+                            : theme.primary)
                         .withOpacity(opacity),
                     blurRadius: 12,
                     spreadRadius: 2,
@@ -524,8 +525,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                 player.isLooping
                     ? Icons.loop
                     : player.isPlaying
-                    ? Icons.equalizer
-                    : theme.icon,
+                        ? Icons.equalizer
+                        : theme.icon,
                 color: Colors.white,
                 size: 28,
               ),
@@ -574,7 +575,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   if (player.isLooping)
                     _StatusChip(
                       icon: Icons.loop,
-                      label: '${player.loopCount}/${player.maxLoopCount > 0 ? player.maxLoopCount : "∞"}',
+                      label:
+                          '${player.loopCount}/${player.maxLoopCount > 0 ? player.maxLoopCount : "∞"}',
                       color: const Color(0xFF4CAF50),
                     ),
                   // Gap chip
@@ -605,10 +607,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildSmartSpeedZone(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -637,7 +639,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
               GestureDetector(
                 onTap: () => _showUltraSpeedPicker(context, player, theme),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: theme.secondary.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -645,7 +648,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.slow_motion_video, size: 12, color: theme.accent),
+                      Icon(Icons.slow_motion_video,
+                          size: 12, color: theme.accent),
                       const SizedBox(width: 4),
                       Text(
                         '0.05x-10x',
@@ -699,7 +703,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   theme: theme,
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: theme.primary.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -759,10 +764,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildContemplationZone(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return AnimatedBuilder(
       animation: _breathingAnimation,
       builder: (context, child) {
@@ -772,7 +777,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                theme.primary.withOpacity(_breathingAnimation.value * 0.15),
+                theme.primary.withOpacity(
+                    (_breathingAnimation.value * 0.15).clamp(0.0, 1.0)),
                 theme.secondary.withOpacity(0.05),
               ],
             ),
@@ -785,7 +791,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: theme.primary.withOpacity(_breathingAnimation.value),
+                  color: theme.primary
+                      .withOpacity(_breathingAnimation.value.clamp(0.0, 1.0)),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.spa, color: Colors.white, size: 18),
@@ -826,7 +833,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                     theme: theme,
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: theme.primary.withOpacity(0.2),
@@ -860,10 +868,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildShadowingHint(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -930,15 +938,16 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildProgressBar(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     final position = player.state.position;
     final duration = player.state.duration;
-    final progress = duration.inMilliseconds > 0
+    final progressRaw = duration.inMilliseconds > 0
         ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
+    final progress = progressRaw.isFinite ? progressRaw : 0.0;
 
     return Column(
       children: [
@@ -948,17 +957,14 @@ class _SyncHubScreenState extends State<SyncHubScreen>
             trackHeight: 4,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-            activeTrackColor: player.isLooping
-                ? const Color(0xFF4CAF50)
-                : theme.primary,
+            activeTrackColor:
+                player.isLooping ? const Color(0xFF4CAF50) : theme.primary,
             inactiveTrackColor: Colors.white12,
-            thumbColor: player.isLooping
-                ? const Color(0xFF4CAF50)
-                : theme.primary,
-            overlayColor: (player.isLooping
-                ? const Color(0xFF4CAF50)
-                : theme.primary)
-                .withOpacity(0.2),
+            thumbColor:
+                player.isLooping ? const Color(0xFF4CAF50) : theme.primary,
+            overlayColor:
+                (player.isLooping ? const Color(0xFF4CAF50) : theme.primary)
+                    .withOpacity(0.2),
           ),
           child: Slider(
             value: progress.clamp(0.0, 1.0),
@@ -978,7 +984,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
               ),
               if (player.isLooping && player.loopDuration != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFF4CAF50).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -1069,11 +1076,11 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildTextSection(
-      BuildContext context,
-      PlayerProvider player,
-      TextProvider textProvider,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    TextProvider textProvider,
+    _ModeTheme theme,
+  ) {
     if (textProvider.lines.isEmpty) {
       return _buildNoTextState(context, theme);
     }
@@ -1116,7 +1123,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                 textProvider.speakCurrentLine();
               },
               onLineLongPress: (index, line) {
-                _showLineOptions(context, player, textProvider, index, line, theme);
+                _showLineOptions(
+                    context, player, textProvider, index, line, theme);
               },
             ),
           ),
@@ -1185,10 +1193,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   Widget _buildEmptyState(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -1206,13 +1214,15 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      theme.primary.withOpacity(_breathingAnimation.value * 0.5),
+                      theme.primary.withOpacity(
+                          (_breathingAnimation.value * 0.5).clamp(0.0, 1.0)),
                       theme.secondary.withOpacity(0.2),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: theme.primary.withOpacity(_breathingAnimation.value * 0.3),
+                      color: theme.primary.withOpacity(
+                          (_breathingAnimation.value * 0.3).clamp(0.0, 1.0)),
                       blurRadius: 30,
                       spreadRadius: 5,
                     ),
@@ -1411,10 +1421,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   void _showUltraSpeedPicker(
-      BuildContext context,
-      PlayerProvider player,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    _ModeTheme theme,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
@@ -1483,7 +1493,9 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 Slider(
-                  value: player.state.speed.clamp(0.05, 0.5),
+                  value:
+                      (player.state.speed.isFinite ? player.state.speed : 1.0)
+                          .clamp(0.05, 0.5),
                   min: 0.05,
                   max: 0.5,
                   divisions: 9,
@@ -1502,7 +1514,9 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 Slider(
-                  value: player.state.speed.clamp(0.5, 2.0),
+                  value:
+                      (player.state.speed.isFinite ? player.state.speed : 1.0)
+                          .clamp(0.5, 2.0),
                   min: 0.5,
                   max: 2.0,
                   divisions: 15,
@@ -1521,7 +1535,9 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 Slider(
-                  value: player.state.speed.clamp(2.0, 10.0),
+                  value:
+                      (player.state.speed.isFinite ? player.state.speed : 1.0)
+                          .clamp(2.0, 10.0),
                   min: 2.0,
                   max: 10.0,
                   divisions: 16,
@@ -1542,13 +1558,13 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   void _showLineOptions(
-      BuildContext context,
-      PlayerProvider player,
-      TextProvider textProvider,
-      int index,
-      TextItem line,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    TextProvider textProvider,
+    int index,
+    TextItem line,
+    _ModeTheme theme,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
@@ -1609,7 +1625,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
             _LineOptionTile(
               icon: Icons.loop,
               title: 'Tạo A-B Loop',
-              subtitle: 'Lặp đoạn này ${player.modeSettings.defaultLoopCount} lần',
+              subtitle:
+                  'Lặp đoạn này ${player.modeSettings.defaultLoopCount} lần',
               color: const Color(0xFF4CAF50),
               onTap: () {
                 Navigator.pop(context);
@@ -1655,7 +1672,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                 color: Colors.purple,
                 onTap: () {
                   Navigator.pop(context);
-                  _startShadowingSession(context, player, textProvider, line, theme);
+                  _startShadowingSession(
+                      context, player, textProvider, line, theme);
                 },
               ),
 
@@ -1707,12 +1725,12 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   void _startShadowingSession(
-      BuildContext context,
-      PlayerProvider player,
-      TextProvider textProvider,
-      TextItem line,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    PlayerProvider player,
+    TextProvider textProvider,
+    TextItem line,
+    _ModeTheme theme,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1891,7 +1909,7 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                   ),
                   trailing: Container(
                     padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: theme.primary.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -1904,7 +1922,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
                       ),
                     ),
                   ),
-                  onTap: () => _showTtsSpeedPicker(context, textProvider, theme),
+                  onTap: () =>
+                      _showTtsSpeedPicker(context, textProvider, theme),
                 ),
 
                 // Default gap (for Buddhism mode)
@@ -1929,10 +1948,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   }
 
   void _showTtsSpeedPicker(
-      BuildContext context,
-      TextProvider textProvider,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _ModeTheme theme,
+  ) {
     final speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
     showDialog(
@@ -1998,7 +2017,8 @@ class _SyncHubScreenState extends State<SyncHubScreen>
               maxLines: 8,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Dán hoặc nhập text ở đây...\n\nMỗi dòng sẽ được hiển thị riêng.',
+                hintText:
+                    'Dán hoặc nhập text ở đây...\n\nMỗi dòng sẽ được hiển thị riêng.',
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
@@ -2102,10 +2122,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
         final file = result.files.first;
         if (file.path != null && context.mounted) {
           await context.read<PlayerProvider>().loadSong(
-            path: file.path!,
-            title: file.name,
-            autoPlay: true,
-          );
+                path: file.path!,
+                title: file.name,
+                autoPlay: true,
+              );
         }
       }
     } catch (e) {
@@ -2126,10 +2146,10 @@ class _SyncHubScreenState extends State<SyncHubScreen>
   // ============================================================================
 
   void _showSpeedToast(
-      BuildContext context,
-      double speed,
-      _ModeTheme theme,
-      ) {
+    BuildContext context,
+    double speed,
+    _ModeTheme theme,
+  ) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2627,8 +2647,8 @@ class _ShadowingSheetState extends State<_ShadowingSheet> {
                   color: isCompleted
                       ? Colors.green
                       : isCurrent
-                      ? Colors.purple
-                      : Colors.grey.withOpacity(0.3),
+                          ? Colors.purple
+                          : Colors.grey.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               );
@@ -2682,7 +2702,8 @@ class _ShadowingSheetState extends State<_ShadowingSheet> {
               ),
               child: Text(
                 _getButtonText(),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -2778,13 +2799,13 @@ class _ShadowingSheetState extends State<_ShadowingSheet> {
         _startListening();
         break;
       case _ShadowingPhase.listening:
-      // Do nothing, waiting
+        // Do nothing, waiting
         break;
       case _ShadowingPhase.recording:
-      // Do nothing, recording
+        // Do nothing, recording
         break;
       case _ShadowingPhase.comparing:
-      // Do nothing, processing
+        // Do nothing, processing
         break;
       case _ShadowingPhase.result:
         if (_currentRound < _totalRounds) {

@@ -1,16 +1,16 @@
+// V2 3 option 1941050226
 #include "UltraTimeStretch_V2_Enhancements.h"
-
 #include <algorithm>
+#include <sstream>
 
 namespace UltraTimeStretch
 {
     namespace V2
     {
 
-        EngineV2::EngineV2() : Engine()
+        EngineV2::EngineV2()
+            : Engine(), activeEngine_(ActiveEngine::V1_Standard), currentSpeed_(1.0f)
         {
-            useMultiResolution_ = false;
-            useHPSeparation_ = false;
         }
 
         bool EngineV2::initialize(int sampleRate, int channels, const Options &options)
@@ -19,54 +19,157 @@ namespace UltraTimeStretch
             if (!ok)
                 return false;
 
-            // Minimal/robust: dùng MultiResolutionPV khi UltraQuality.
-            // (HP separation bạn có thể bật sau khi file HarmonicPercussiveSeparator.cpp đã ổn định)
-            if (options.quality == Quality::UltraQuality)
+            // Chưa tạo multiRes_/hybridV2_ ở đây, sẽ tạo khi cần trong switchEngine
+            activeEngine_ = ActiveEngine::V1_Standard;
+            currentSpeed_ = 1.0f;
+            return true;
+        }
+
+        void EngineV2::switchEngine(float speed)
+        {
+            ActiveEngine newEngine;
+            if (speed < 0.15f)
             {
-                useMultiResolution_ = true;
-                multiResPV_ = std::make_unique<MultiResolutionPV>(sampleRate, 1.0f);
+                newEngine = ActiveEngine::V2_MultiRes;
+            }
+            else if (speed < 0.5f)
+            {
+                newEngine = ActiveEngine::V2_Hybrid;
             }
             else
             {
-                useMultiResolution_ = false;
-                multiResPV_.reset();
+                newEngine = ActiveEngine::V1_Standard;
             }
 
-            // Tạm thời tắt để tránh phụ thuộc vào module khác
-            useHPSeparation_ = false;
-            hpSeparator_.reset();
+            if (newEngine == activeEngine_)
+            {
+                return;
+            }
 
-            return true;
+            activeEngine_ = newEngine;
+
+            const int sr = getSampleRate();
+
+            switch (activeEngine_)
+            {
+            case ActiveEngine::V2_MultiRes:
+                if (!multiRes_)
+                {
+                    multiRes_ = std::make_unique<MultiResolutionPV>(sr, speed);
+                }
+                else
+                {
+                    multiRes_->setSpeed(speed);
+                }
+                break;
+
+            case ActiveEngine::V2_Hybrid:
+                if (!hybridV2_)
+                {
+                    hybridV2_ = std::make_unique<HybridStretcherV2>(sr);
+                }
+                hybridV2_->setSpeed(speed);
+                break;
+
+            case ActiveEngine::V1_Standard:
+                // V1 HybridStretcher đã nằm trong Engine base (channelProcessors_)
+                break;
+            }
         }
 
         void EngineV2::setSpeed(float speed)
         {
+            speed = std::clamp(speed, MIN_SPEED, MAX_SPEED);
+            currentSpeed_ = speed;
+
+            // Cập nhật Engine V1 (base)
             Engine::setSpeed(speed);
 
-            if (multiResPV_)
-            {
-                multiResPV_->setSpeed(speed);
-            }
+            // Chọn engine phù hợp
+            switchEngine(speed);
 
-            // Nếu speed cực chậm và trước đó chưa bật multi-res thì bật lên
-            if (speed < 0.15f && !useMultiResolution_)
+            // Cập nhật engine V2 hiện tại
+            switch (activeEngine_)
             {
-                useMultiResolution_ = true;
-                multiResPV_ = std::make_unique<MultiResolutionPV>(getSampleRate(), speed);
+            case ActiveEngine::V2_MultiRes:
+                if (multiRes_)
+                    multiRes_->setSpeed(speed);
+                break;
+            case ActiveEngine::V2_Hybrid:
+                if (hybridV2_)
+                    hybridV2_->setSpeed(speed);
+                break;
+            default:
+                break;
             }
         }
 
-        int EngineV2::processV2(const float *input, int inputSamples,
-                                float *output, int maxOutputSamples)
+        int EngineV2::processV2(const float *input, int inputFrames,
+                                float *output, int maxOutputFrames)
         {
-            if (!useMultiResolution_ || !multiResPV_)
+            int outFrames = 0;
+
+            switch (activeEngine_)
             {
-                return Engine::process(input, inputSamples, output, maxOutputSamples);
+            case ActiveEngine::V2_MultiRes:
+                if (multiRes_)
+                {
+                    multiRes_->process(input, inputFrames, output, outFrames);
+                }
+                else
+                {
+                    // fallback V1
+                    outFrames = Engine::process(input, inputFrames, output, maxOutputFrames);
+                }
+                break;
+
+            case ActiveEngine::V2_Hybrid:
+                if (hybridV2_)
+                {
+                    hybridV2_->process(input, inputFrames, output, outFrames);
+                }
+                else
+                {
+                    outFrames = Engine::process(input, inputFrames, output, maxOutputFrames);
+                }
+                break;
+
+            case ActiveEngine::V1_Standard:
+            default:
+                outFrames = Engine::process(input, inputFrames, output, maxOutputFrames);
+                break;
             }
 
-            int outSamples = 0;
-            multiResPV_->process(input, inputSamples, output, outSamples);
-            return std::min(outSamples, maxOutputSamples);
+            return std::min(outFrames, maxOutputFrames);
+        }
+
+        void EngineV2::reset()
+        {
+            Engine::reset();
+            if (multiRes_)
+                multiRes_->reset();
+            if (hybridV2_)
+                hybridV2_->reset();
+        }
+
+        std::string EngineV2::getActiveEngineInfo() const
+        {
+            std::stringstream ss;
+            ss << "EngineV2 active mode: ";
+            switch (activeEngine_)
+            {
+            case ActiveEngine::V2_MultiRes:
+                ss << "MultiResolutionPV (<0.15x)";
+                break;
+            case ActiveEngine::V2_Hybrid:
+                ss << "HybridStretcherV2 (0.15x-0.5x)";
+                break;
+            case ActiveEngine::V1_Standard:
+                ss << "V1 HybridStretcher (>0.5x)";
+                break;
+            }
+            ss << " @ speed=" << currentSpeed_ << "x";
+            return ss.str();
         }
 
     } // namespace V2

@@ -3,10 +3,12 @@
 // Version 2.0 - Optimized for Buddhism & English Learning
 
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../audio/audio_player_service.dart';
-import '../models/segment.dart';
 import '../models/playback_state.dart';
+import '../models/segment.dart';
 
 /// Chế độ sử dụng app
 enum VipMode {
@@ -426,7 +428,6 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Set khoảng lặng giữa các lần loop (giây)
   void setGapDuration(double seconds) {
-    _gapDuration = seconds.clamp(0.0, 30.0);
     notifyListeners();
   }
 

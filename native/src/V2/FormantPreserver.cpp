@@ -1,254 +1,239 @@
-// FormantPreserver.cpp - Formant Preservation using Cepstral Analysis
-// Prevents "chipmunk effect" and preserves timbre
-
-#include "UltraTimeStretch.h"
 #include "UltraTimeStretch_V2_Enhancements.h"
 
-namespace UltraTimeStretch {
-namespace V2 {
+#include <algorithm>
+#include <cmath>
 
-FormantPreserver::FormantPreserver(int fftSize, int sampleRate)
-    : fftSize_(fftSize)
-    , sampleRate_(sampleRate)
-    , quefrencyLimit_(0)
+namespace UltraTimeStretch
 {
-    int numBins = fftSize / 2 + 1;
-    envelope_.resize(numBins);
-    smoothedEnvelope_.resize(numBins);
-    originalEnvelope_.resize(numBins);
-    
-    // Cepstral analysis buffers
-    cepstrum_.resize(fftSize);
-    logMagnitude_.resize(numBins);
-    
-    // Quefrency limit for envelope extraction (typically 1-2ms)
-    // This separates envelope (formants) from fine structure (pitch)
-    quefrencyLimit_ = sampleRate_ / 1000;  // 1ms in samples
-    
-    // Smoothing window for envelope extraction
-    smoothingWindowSize_ = 7;  // Must be odd
-    
-    std::cout << "[FormantPreserver] Initialized with FFT=" << fftSize 
-              << ", Quefrency limit=" << quefrencyLimit_ << std::endl;
-}
+    namespace V2
+    {
 
-FormantPreserver::~FormantPreserver() = default;
+        static inline float clamp01(float v)
+        {
+            return (std::max)(0.0f, (std::min)(1.0f, v));
+        }
 
-void FormantPreserver::setQuefrencyLimit(int samples) {
-    quefrencyLimit_ = std::clamp(samples, 10, fftSize_ / 4);
-}
+        FormantPreserver::FormantPreserver(int fftSize, int sampleRate)
+            : fftSize_(fftSize),
+              sampleRate_(sampleRate),
+              quefrencyLimit_(0),
+              smoothingWindowSize_(7),
+              preservationStrength_(0.7f)
+        {
+            const int numBins = fftSize_ / 2 + 1;
 
-void FormantPreserver::extractEnvelope(const std::vector<float>& magnitudes) {
-    int numBins = fftSize_ / 2 + 1;
-    
-    // ═══════════════════════════════════════════════════════════════
-    // METHOD 1: Simple Moving Average (Fast)
-    // ═══════════════════════════════════════════════════════════════
-    if (false) {  // Set to true for faster, simpler method
-        int windowSize = smoothingWindowSize_;
-        int halfWindow = windowSize / 2;
-        
-        for (int k = 0; k < numBins; ++k) {
-            float sum = 0.0f;
-            int count = 0;
-            
-            for (int i = -halfWindow; i <= halfWindow; ++i) {
-                int idx = k + i;
-                if (idx >= 0 && idx < numBins) {
-                    sum += magnitudes[idx];
-                    count++;
+            envelope_.assign(numBins, 1.0f);
+            smoothedEnvelope_.assign(numBins, 1.0f);
+            logMagnitude_.assign(numBins, 0.0f);
+
+            workComplex_.resize(fftSize_);
+            fft_ = std::make_unique<FFTProcessor>(fftSize_);
+
+            // ~1ms quefrency
+            quefrencyLimit_ = (std::max)(10, (std::min)(fftSize_ / 4, sampleRate_ / 1000));
+
+            if ((smoothingWindowSize_ % 2) == 0)
+                smoothingWindowSize_ += 1;
+        }
+
+        void FormantPreserver::setQuefrencyLimit(int samples)
+        {
+            quefrencyLimit_ = std::clamp(samples, 10, fftSize_ / 4);
+        }
+
+        void FormantPreserver::setSmoothingWindowSize(int sizeOdd)
+        {
+            smoothingWindowSize_ = std::clamp(sizeOdd, 3, 15);
+            if ((smoothingWindowSize_ % 2) == 0)
+                smoothingWindowSize_ += 1;
+        }
+
+        void FormantPreserver::setPreservationStrength(float strength)
+        {
+            preservationStrength_ = clamp01(strength);
+        }
+
+        void FormantPreserver::reset()
+        {
+            std::fill(envelope_.begin(), envelope_.end(), 1.0f);
+            std::fill(smoothedEnvelope_.begin(), smoothedEnvelope_.end(), 1.0f);
+        }
+
+        float FormantPreserver::estimateVoicedRatio(const std::vector<float> &magnitudes) const
+        {
+            const int numBins = fftSize_ / 2 + 1;
+            if ((int)magnitudes.size() < numBins || sampleRate_ <= 0)
+                return 0.0f;
+
+            float harmonicEnergy = 0.0f;
+            float totalEnergy = 0.0f;
+
+            // fundamental range 100-400Hz (voice heuristic)
+            const int f0BinMin = (int)(100.0f * fftSize_ / (float)sampleRate_);
+            const int f0BinMax = (int)(400.0f * fftSize_ / (float)sampleRate_);
+            if (f0BinMin <= 0)
+                return 0.0f;
+
+            for (int k = 0; k < numBins; ++k)
+            {
+                float mag = magnitudes[k];
+                totalEnergy += mag * mag;
+
+                // check if near harmonic of the *lowest* candidate f0 (fast heuristic)
+                for (int h = 1; h <= 10; ++h)
+                {
+                    int harmonicBin = f0BinMin * h;
+                    if (harmonicBin >= numBins)
+                        break;
+                    if (std::abs(k - harmonicBin) < 3)
+                    {
+                        harmonicEnergy += mag * mag;
+                        break;
+                    }
                 }
             }
-            
-            envelope_[k] = (count > 0) ? (sum / count) : magnitudes[k];
-        }
-    }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // METHOD 2: Cepstral Liftering (More Accurate)
-    // ═══════════════════════════════════════════════════════════════
-    else {
-        // Step 1: Log magnitude spectrum
-        for (int k = 0; k < numBins; ++k) {
-            logMagnitude_[k] = std::log(std::max(magnitudes[k], 1e-10f));
-        }
-        
-        // Step 2: Forward FFT to get cepstrum
-        // (In practice, use DCT for efficiency)
-        std::vector<std::complex<float>> complexLog(fftSize_);
-        for (int k = 0; k < numBins; ++k) {
-            complexLog[k] = std::complex<float>(logMagnitude_[k], 0.0f);
-        }
-        
-        // Mirror for negative frequencies
-        for (int k = numBins; k < fftSize_; ++k) {
-            complexLog[k] = complexLog[fftSize_ - k];
-        }
-        
-        // FFT -> Cepstrum
-        FFTProcessor cepstralFFT(fftSize_);
-        cepstralFFT.forwardInPlace(complexLog.data());
-        
-        for (int i = 0; i < fftSize_; ++i) {
-            cepstrum_[i] = complexLog[i].real();
-        }
-        
-        // Step 3: Liftering - Keep only low quefrencies (envelope)
-        std::vector<float> lifteredCepstrum(fftSize_, 0.0f);
-        
-        // Keep DC and low quefrencies
-        for (int i = 0; i < quefrencyLimit_ && i < fftSize_; ++i) {
-            lifteredCepstrum[i] = cepstrum_[i];
-        }
-        
-        // Step 4: Inverse FFT to get smoothed log magnitude
-        std::vector<std::complex<float>> lifteredComplex(fftSize_);
-        for (int i = 0; i < fftSize_; ++i) {
-            lifteredComplex[i] = std::complex<float>(lifteredCepstrum[i], 0.0f);
-        }
-        
-        cepstralFFT.inverseInPlace(lifteredComplex.data());
-        
-        // Step 5: Exp to get envelope in linear scale
-        for (int k = 0; k < numBins; ++k) {
-            envelope_[k] = std::exp(lifteredComplex[k].real());
-        }
-    }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // Additional smoothing for stability
-    // ═══════════════════════════════════════════════════════════════
-    applySmoothing(envelope_, smoothedEnvelope_);
-    
-    // Store original for later restoration
-    originalEnvelope_ = smoothedEnvelope_;
-}
 
-void FormantPreserver::applySmoothing(const std::vector<float>& input, 
-                                       std::vector<float>& output) {
-    int numBins = fftSize_ / 2 + 1;
-    int windowSize = smoothingWindowSize_;
-    int halfWindow = windowSize / 2;
-    
-    for (int k = 0; k < numBins; ++k) {
-        float sum = 0.0f;
-        float weightSum = 0.0f;
-        
-        // Gaussian-like weighting
-        for (int i = -halfWindow; i <= halfWindow; ++i) {
-            int idx = k + i;
-            if (idx >= 0 && idx < numBins) {
-                float weight = std::exp(-0.5f * (i * i) / (halfWindow * halfWindow));
-                sum += input[idx] * weight;
-                weightSum += weight;
+            if (totalEnergy < 1e-9f)
+                return 0.0f;
+            return harmonicEnergy / totalEnergy; // 0..1
+        }
+
+        void FormantPreserver::applySmoothing(const std::vector<float> &input, std::vector<float> &output) const
+        {
+            const int numBins = fftSize_ / 2 + 1;
+            if ((int)output.size() != numBins)
+                output.resize(numBins);
+
+            const int halfW = smoothingWindowSize_ / 2;
+            const float denom = (halfW > 0) ? float(halfW * halfW) : 1.0f;
+
+            for (int k = 0; k < numBins; ++k)
+            {
+                float sum = 0.0f;
+                float wsum = 0.0f;
+
+                for (int i = -halfW; i <= halfW; ++i)
+                {
+                    int idx = k + i;
+                    if (idx >= 0 && idx < numBins)
+                    {
+                        float w = std::exp(-0.5f * float(i * i) / denom);
+                        sum += input[idx] * w;
+                        wsum += w;
+                    }
+                }
+
+                output[k] = (wsum > 1e-12f) ? (sum / wsum) : input[k];
             }
         }
-        
-        output[k] = (weightSum > 1e-6f) ? (sum / weightSum) : input[k];
-    }
-}
 
-void FormantPreserver::applyEnvelope(std::vector<float>& magnitudes) {
-    int numBins = fftSize_ / 2 + 1;
-    
-    // ═══════════════════════════════════════════════════════════════
-    // Apply formant envelope to stretched magnitudes
-    // ═══════════════════════════════════════════════════════════════
-    
-    for (int k = 0; k < numBins; ++k) {
-        if (magnitudes[k] > 1e-10f && smoothedEnvelope_[k] > 1e-10f) {
-            // Calculate envelope transfer ratio
-            float currentEnvelope = magnitudes[k];
-            float targetEnvelope = smoothedEnvelope_[k];
-            float ratio = targetEnvelope / currentEnvelope;
-            
-            // Apply with partial strength to avoid over-correction
-            float strength = 0.7f;  // 70% formant preservation
-            float adjustedRatio = std::pow(ratio, strength);
-            
-            // Limit ratio to avoid extreme values
-            adjustedRatio = std::clamp(adjustedRatio, 0.5f, 2.0f);
-            
-            magnitudes[k] *= adjustedRatio;
-        }
-    }
-}
+        void FormantPreserver::cepstralEnvelope(const std::vector<float> &magnitudes,
+                                                std::vector<float> &envelopeOut)
+        {
+            const int numBins = fftSize_ / 2 + 1;
+            envelopeOut.assign(numBins, 1.0f);
 
-void FormantPreserver::preserveFormants(std::vector<std::complex<float>>& spectrum,
-                                         const std::vector<float>& originalMagnitudes) {
-    int numBins = fftSize_ / 2 + 1;
-    
-    // Extract envelope from original
-    extractEnvelope(originalMagnitudes);
-    
-    // Get current magnitudes
-    std::vector<float> currentMagnitudes(numBins);
-    for (int k = 0; k < numBins; ++k) {
-        currentMagnitudes[k] = std::abs(spectrum[k]);
-    }
-    
-    // Apply envelope correction
-    applyEnvelope(currentMagnitudes);
-    
-    // Reconstruct spectrum with corrected magnitudes but original phases
-    for (int k = 0; k < numBins; ++k) {
-        float phase = std::arg(spectrum[k]);
-        spectrum[k] = std::polar(currentMagnitudes[k], phase);
-    }
-}
+            const float eps = 1e-12f;
 
-void FormantPreserver::reset() {
-    std::fill(envelope_.begin(), envelope_.end(), 0.0f);
-    std::fill(smoothedEnvelope_.begin(), smoothedEnvelope_.end(), 0.0f);
-    std::fill(originalEnvelope_.begin(), originalEnvelope_.end(), 0.0f);
-}
+            // log magnitude -> complex spectrum
+            for (int k = 0; k < numBins; ++k)
+            {
+                float mag = (k < (int)magnitudes.size()) ? magnitudes[k] : 0.0f;
+                logMagnitude_[k] = std::log((std::max)(mag, eps));
+                workComplex_[k] = std::complex<float>(logMagnitude_[k], 0.0f);
+            }
 
-void FormantPreserver::setPreservationStrength(float strength) {
-    preservationStrength_ = std::clamp(strength, 0.0f, 1.0f);
-}
+            // mirror negative freqs
+            for (int k = 1; k < numBins - 1; ++k)
+            {
+                workComplex_[fftSize_ - k] = workComplex_[k];
+            }
 
-const std::vector<float>& FormantPreserver::getEnvelope() const {
-    return smoothedEnvelope_;
-}
+            // IFFT -> cepstrum
+            fft_->inverseInPlace(workComplex_.data());
 
-void FormantPreserver::setSmoothingWindowSize(int size) {
-    smoothingWindowSize_ = std::clamp(size, 3, 15);
-    // Ensure odd number
-    if (smoothingWindowSize_ % 2 == 0) {
-        smoothingWindowSize_++;
-    }
-}
+            // liftering: keep low quefrency
+            for (int n = quefrencyLimit_; n < fftSize_ - quefrencyLimit_; ++n)
+            {
+                workComplex_[n] = std::complex<float>(0.0f, 0.0f);
+            }
 
-// ═══════════════════════════════════════════════════════════════
-// Advanced: Adaptive formant preservation based on signal type
-// ═══════════════════════════════════════════════════════════════
-float FormantPreserver::estimateVoicedRatio(const std::vector<float>& magnitudes) {
-    int numBins = fftSize_ / 2 + 1;
-    
-    // Calculate harmonicity - ratio of energy at harmonic frequencies
-    float harmonicEnergy = 0.0f;
-    float totalEnergy = 0.0f;
-    
-    // Assume fundamental around 100-400 Hz for human voice
-    int f0BinMin = (int)(100.0f * fftSize_ / sampleRate_);
-    int f0BinMax = (int)(400.0f * fftSize_ / sampleRate_);
-    
-    for (int k = 0; k < numBins; ++k) {
-        float mag = magnitudes[k];
-        totalEnergy += mag * mag;
-        
-        // Check if this bin is near a harmonic of potential F0
-        for (int h = 1; h <= 10; ++h) {
-            int harmonicBin = f0BinMin * h;
-            if (std::abs(k - harmonicBin) < 3) {
-                harmonicEnergy += mag * mag;
-                break;
+            // FFT back -> smoothed log spectrum
+            fft_->forwardInPlace(workComplex_.data());
+
+            // exp -> envelope
+            for (int k = 0; k < numBins; ++k)
+            {
+                envelopeOut[k] = std::exp(workComplex_[k].real());
             }
         }
-    }
-    
-    return (totalEnergy > 1e-6f) ? (harmonicEnergy / totalEnergy) : 0.0f;
-}
 
-} // namespace V2
+        void FormantPreserver::extractEnvelope(const std::vector<float> &magnitudes,
+                                               std::vector<float> &envelopeOut)
+        {
+            cepstralEnvelope(magnitudes, envelopeOut);
+            // extra smoothing for stability
+            applySmoothing(envelopeOut, smoothedEnvelope_);
+        }
+
+        void FormantPreserver::applyEnvelope(std::vector<float> &magnitudes,
+                                             const std::vector<float> &targetEnvelope)
+        {
+            const int numBins = fftSize_ / 2 + 1;
+            if ((int)magnitudes.size() < numBins)
+                magnitudes.resize(numBins, 0.0f);
+            if ((int)targetEnvelope.size() < numBins)
+                return;
+
+            // compute current envelope
+            cepstralEnvelope(magnitudes, envelope_);
+
+            const float eps = 1e-12f;
+            const float alpha = preservationStrength_;
+
+            for (int k = 0; k < numBins; ++k)
+            {
+                float cur = (std::max)(envelope_[k], eps);
+                float tgt = (std::max)(targetEnvelope[k], eps);
+
+                float ratio = tgt / cur;
+                float gain = std::pow(ratio, alpha);
+                gain = std::clamp(gain, 0.5f, 2.0f);
+
+                magnitudes[k] *= gain;
+            }
+        }
+
+        void FormantPreserver::preserveFormants(std::vector<float> &magnitudes,
+                                                const std::vector<float> &originalMagnitudes)
+        {
+            std::vector<float> originalEnv;
+            extractEnvelope(originalMagnitudes, originalEnv);
+            applyEnvelope(magnitudes, originalEnv);
+        }
+
+        void FormantPreserver::preserveFormants(std::vector<std::complex<float>> &spectrum,
+                                                const std::vector<float> &originalMagnitudes)
+        {
+            const int numBins = fftSize_ / 2 + 1;
+            if ((int)spectrum.size() < numBins)
+                return;
+
+            std::vector<float> originalEnv;
+            extractEnvelope(originalMagnitudes, originalEnv);
+
+            std::vector<float> mags(numBins);
+            for (int k = 0; k < numBins; ++k)
+                mags[k] = std::abs(spectrum[k]);
+
+            applyEnvelope(mags, originalEnv);
+
+            for (int k = 0; k < numBins; ++k)
+            {
+                float ph = std::arg(spectrum[k]);
+                spectrum[k] = std::polar(mags[k], ph);
+            }
+        }
+
+    } // namespace V2
 } // namespace UltraTimeStretch

@@ -329,11 +329,14 @@ class PlayerProvider extends ChangeNotifier {
   // ==================== SPEED & PITCH ====================
 
   Future<void> setSpeed(double speed) async {
-    await _audioService.setSpeed(speed);
+    final safeSpeed = (speed.isNaN ? 1.0 : speed)
+        .clamp(AudioPlayerService.minSpeed, AudioPlayerService.maxSpeed);
+    await _audioService.setSpeed(safeSpeed);
   }
 
   Future<void> setPitch(double semitones) async {
-    await _audioService.setPitch(semitones);
+    final safePitch = (semitones.isNaN ? 0.0 : semitones).clamp(-24.0, 24.0);
+    await _audioService.setPitch(safePitch);
   }
 
   Future<void> setVolume(double volume) async {
@@ -428,6 +431,7 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Set khoảng lặng giữa các lần loop (giây)
   void setGapDuration(double seconds) {
+    _gapDuration = (seconds.isNaN ? 0.0 : seconds).clamp(0.0, 30.0);
     notifyListeners();
   }
 

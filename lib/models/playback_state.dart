@@ -136,7 +136,7 @@ class PlaybackState {
         'position: ${position.inSeconds}s, '
         'duration: ${duration.inSeconds}s, '
         'speed: ${speed}x, '
-        'pitch: ${pitch} semitones, '
+        'pitch: $pitch semitones, '
         'volume: $volume, '
         'isLooping: $isLooping'
         ')';

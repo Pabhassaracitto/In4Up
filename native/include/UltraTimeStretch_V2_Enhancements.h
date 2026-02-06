@@ -155,25 +155,51 @@ namespace UltraTimeStretch
             SpectralPeakInterpolator(int fftSize, int sampleRate);
             ~SpectralPeakInterpolator() = default;
 
+            void setPeakThreshold(float threshold);
+
+            // Peak detect + interpolate (magnitude/phase)
             void interpolatePeaks(const std::vector<float> &magnitudes,
                                   const std::vector<float> &phases,
-                                  std::vector<float> &refinedFrequencies,
-                                  std::vector<float> &refinedMagnitudes);
+                                  std::vector<float> &interpMag,
+                                  std::vector<float> &interpPhase);
 
-            void setPeakThreshold(float threshold);
-            int getNumPeaks() const { return numPeaks_; }
-            float getPeakFrequency(int index) const;
+            // Rebuild complex spectrum from interpolated mag/phase
+            void interpolateSpectrum(std::vector<std::complex<float>> &spectrum,
+                                     const std::vector<float> &magnitudes,
+                                     const std::vector<float> &phases);
+
+            const std::vector<int> &getPeakIndices() const;
+            float getPeakFrequency(int binIndex) const;
+            float getPeakMagnitude(int binIndex) const;
+            bool isPeak(int binIndex) const;
+
             void reset();
 
-        private:
-            int fftSize_ = 0;
-            int sampleRate_ = 44100;
-            float peakThreshold_ = 0.0f;
-            int numPeaks_ = 0;
+            // Advanced helpers (optional use)
+            float quadraticInterpolation(float y1, float y2, float y3, float &interpolatedValue) const;
 
-            std::vector<float> previousPhases_;
-            std::vector<float> peakFrequencies_;
+            float estimateFrequencyFromPhase(const std::vector<float> &currentPhases,
+                                             const std::vector<float> &previousPhases,
+                                             int binIndex, int hopSize) const;
+
+        private:
+            void detectPeaks(const std::vector<float> &magnitudes);
+
+            float parabolicInterpolation(float alpha, float beta, float gamma, float &interpolatedMag) const;
+
+        private:
+            int fftSize_;
+            int sampleRate_;
+            int numBins_;
+
+            float peakThreshold_;
+
+            std::vector<float> peakMagnitudes_;
             std::vector<float> peakPhases_;
+            std::vector<float> peakFrequencies_;
+            std::vector<uint8_t> isPeak_; // dùng byte cho nhẹ
+
+            std::vector<int> detectedPeaks_;
         };
 
         //==============================================================================
@@ -185,26 +211,44 @@ namespace UltraTimeStretch
             FormantPreserver(int fftSize, int sampleRate);
             ~FormantPreserver() = default;
 
-            void extractEnvelope(const std::vector<float> &magnitudes, std::vector<float> &envelope);
+            void setQuefrencyLimit(int samples);          // ~ sampleRate/1000
+            void setSmoothingWindowSize(int sizeOdd);     // odd >= 3
+            void setPreservationStrength(float strength); // 0..1
+
+            // Advanced metric (optional)
+            float estimateVoicedRatio(const std::vector<float> &magnitudes) const;
+
+            // API tương thích rộng (để các phần khác dễ dùng)
+            void extractEnvelope(const std::vector<float> &magnitudes, std::vector<float> &envelopeOut);
             void applyEnvelope(std::vector<float> &magnitudes, const std::vector<float> &targetEnvelope);
             void preserveFormants(std::vector<float> &magnitudes, const std::vector<float> &originalMagnitudes);
 
-            void setPreservationStrength(float strength);
+            // Optional: preserve spectrum while keeping phase
+            void preserveFormants(std::vector<std::complex<float>> &spectrum,
+                                  const std::vector<float> &originalMagnitudes);
+
+            const std::vector<float> &getEnvelope() const { return smoothedEnvelope_; }
+
             void reset();
 
         private:
-            int fftSize_ = 0;
-            int sampleRate_ = 44100;
-            float preservationStrength_ = 0.0f;
-            int quefrencyThreshold_ = 0;
+            void cepstralEnvelope(const std::vector<float> &magnitudes, std::vector<float> &envelopeOut);
+            void applySmoothing(const std::vector<float> &input, std::vector<float> &output) const;
+
+            int fftSize_;
+            int sampleRate_;
+
+            int quefrencyLimit_;
+            int smoothingWindowSize_;
+            float preservationStrength_;
 
             std::unique_ptr<FFTProcessor> fft_;
-            std::vector<std::complex<float>> cepstrum_;
-            std::vector<float> logMagnitudes_;
-            std::vector<float> envelope_;
 
-            void cepstralLiftering(const std::vector<float> &magnitudes, std::vector<float> &envelope);
-            void smoothEnvelope(std::vector<float> &envelope);
+            // Reuse buffers (performance)
+            std::vector<float> envelope_;
+            std::vector<float> smoothedEnvelope_;
+            std::vector<float> logMagnitude_;
+            std::vector<std::complex<float>> workComplex_;
         };
         // New for 3 option 1948050226
         // HybridStretcherV2 - dùng lại HybridStretcher V1 bên trong,

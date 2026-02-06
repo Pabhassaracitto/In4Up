@@ -1,15 +1,16 @@
 // lib/screens/listen_mode_screen.dart
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:ultra_music_player/models/waveform_data.dart';
+
+import '../models/waveform_data.dart';
 import '../providers/player_provider.dart';
 import '../providers/waveform_provider.dart';
-import '../widgets/rolling_waveform_view.dart';
-import '../widgets/rolling_waveform_controller.dart';
-import '../widgets/player_controls.dart';
-import '../widgets/speed_control.dart';
 import '../widgets/ab_loop_controls.dart';
-import '../utils/waveform_utils.dart';
+import '../widgets/player_controls.dart';
+import '../widgets/rolling_waveform_controller.dart';
+import '../widgets/rolling_waveform_view.dart';
+import '../widgets/speed_control.dart';
 
 class ListenModeScreen extends StatefulWidget {
   const ListenModeScreen({super.key});
@@ -38,11 +39,12 @@ class _ListenModeScreenState extends State<ListenModeScreen> {
     return Consumer2<PlayerProvider, WaveformProvider>(
       builder: (context, player, waveform, child) {
         // Update waveform data khi có thay đổi
-        if (waveform.waveformData != null &&
+        if (waveform.waveformData.isNotEmpty &&
             _waveformController.waveformData == null) {
-          _waveformController.setWaveformData(
-            WaveformUtils.fromJustWaveform(waveform.waveformData,
-          );
+          _waveformController.setWaveformData(WaveformData(
+            samples: waveform.waveformData,
+            duration: player.state.duration,
+          ));
         }
 
         // Update position liên tục
@@ -258,7 +260,25 @@ class _ListenModeScreenState extends State<ListenModeScreen> {
   }
 
   Future<void> _pickAudioFile(BuildContext context) async {
-    // TODO: Implementation
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.path != null && context.mounted) {
+          await context.read<PlayerProvider>().loadSong(
+                path: file.path!,
+                title: file.name,
+                autoPlay: true,
+              );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+    }
   }
 
   String _formatDuration(Duration d) {
@@ -292,8 +312,9 @@ class _QuickAction extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color:
-                  isActive ? color.withOpacity(0.3) : color.withOpacity(0.15),
+              color: isActive
+                  ? color.withValues(alpha: 0.3)
+                  : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
               border: isActive ? Border.all(color: color) : null,
             ),

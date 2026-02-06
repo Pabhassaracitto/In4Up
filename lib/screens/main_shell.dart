@@ -1,3 +1,4 @@
+//main_shell.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -49,21 +50,31 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   // Lấy màu theme theo tab
   Color get _currentColor {
     switch (_currentIndex) {
-      case 0: return const Color(0xFF2196F3); // Đọc - Blue
-      case 1: return const Color(0xFF6C63FF); // Nghe - Purple
-      case 2: return const Color(0xFFFFB300); // Hiểu - Amber
-      case 3: return const Color(0xFF4CAF50); // Quick - Green
-      default: return const Color(0xFF6C63FF);
+      case 0:
+        return const Color(0xFF2196F3); // Đọc - Blue
+      case 1:
+        return const Color(0xFF6C63FF); // Nghe - Purple
+      case 2:
+        return const Color(0xFFFFB300); // Hiểu - Amber
+      case 3:
+        return const Color(0xFF4CAF50); // Quick - Green
+      default:
+        return const Color(0xFF6C63FF);
     }
   }
 
   String get _currentTitle {
     switch (_currentIndex) {
-      case 0: return '📖 Chế độ Đọc';
-      case 1: return '🎧 Chế độ Nghe';
-      case 2: return '💡 Chế độ Hiểu';
-      case 3: return '⚡ Luyện tập nhanh';
-      default: return 'VipSound';
+      case 0:
+        return '📖 Chế độ Đọc';
+      case 1:
+        return '🎧 Chế độ Nghe';
+      case 2:
+        return '💡 Chế độ Hiểu';
+      case 3:
+        return '⚡ Luyện tập nhanh';
+      default:
+        return 'VipSound';
     }
   }
 
@@ -194,7 +205,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   player.setMode(modes[(idx + 1) % modes.length]);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: _getModeColor(player.currentMode).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(16),
@@ -284,10 +296,14 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavItem(0, Icons.menu_book_outlined, Icons.menu_book, 'Đọc', const Color(0xFF2196F3)),
-              _buildNavItem(1, Icons.headphones_outlined, Icons.headphones, 'Nghe', const Color(0xFF6C63FF)),
-              _buildNavItem(2, Icons.psychology_outlined, Icons.psychology, 'Hiểu', const Color(0xFFFFB300)),
-              _buildNavItem(3, Icons.flash_on_outlined, Icons.flash_on, 'Quick', const Color(0xFF4CAF50)),
+              _buildNavItem(0, Icons.menu_book_outlined, Icons.menu_book, 'Đọc',
+                  const Color(0xFF2196F3)),
+              _buildNavItem(1, Icons.headphones_outlined, Icons.headphones,
+                  'Nghe', const Color(0xFF6C63FF)),
+              _buildNavItem(2, Icons.psychology_outlined, Icons.psychology,
+                  'Hiểu', const Color(0xFFFFB300)),
+              _buildNavItem(3, Icons.flash_on_outlined, Icons.flash_on, 'Quick',
+                  const Color(0xFF4CAF50)),
             ],
           ),
         ),
@@ -295,7 +311,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, Color color) {
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon,
+      String label, Color color) {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
@@ -339,25 +356,34 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   Color _getModeColor(VipMode mode) {
     switch (mode) {
-      case VipMode.buddhism: return const Color(0xFFFFB300);
-      case VipMode.english: return const Color(0xFF2196F3);
-      case VipMode.music: return const Color(0xFF6C63FF);
+      case VipMode.buddhism:
+        return const Color(0xFFFFB300);
+      case VipMode.english:
+        return const Color(0xFF2196F3);
+      case VipMode.music:
+        return const Color(0xFF6C63FF);
     }
   }
 
   IconData _getModeIcon(VipMode mode) {
     switch (mode) {
-      case VipMode.buddhism: return Icons.self_improvement;
-      case VipMode.english: return Icons.school;
-      case VipMode.music: return Icons.music_note;
+      case VipMode.buddhism:
+        return Icons.self_improvement;
+      case VipMode.english:
+        return Icons.school;
+      case VipMode.music:
+        return Icons.music_note;
     }
   }
 
   String _getModeName(VipMode mode) {
     switch (mode) {
-      case VipMode.buddhism: return 'Phật Pháp';
-      case VipMode.english: return 'Tiếng Anh';
-      case VipMode.music: return 'Âm Nhạc';
+      case VipMode.buddhism:
+        return 'Phật Pháp';
+      case VipMode.english:
+        return 'Tiếng Anh';
+      case VipMode.music:
+        return 'Âm Nhạc';
     }
   }
 }
@@ -409,13 +435,18 @@ class QuickPracticeScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _FeatureRow(icon: Icons.loop, text: 'Lặp lại các segment đã đánh dấu'),
+                  _FeatureRow(
+                      icon: Icons.loop,
+                      text: 'Lặp lại các segment đã đánh dấu'),
                   const SizedBox(height: 12),
-                  _FeatureRow(icon: Icons.shuffle, text: 'Ngẫu nhiên hoặc theo thứ tự'),
+                  _FeatureRow(
+                      icon: Icons.shuffle, text: 'Ngẫu nhiên hoặc theo thứ tự'),
                   const SizedBox(height: 12),
-                  _FeatureRow(icon: Icons.timer, text: 'Theo dõi thời gian luyện tập'),
+                  _FeatureRow(
+                      icon: Icons.timer, text: 'Theo dõi thời gian luyện tập'),
                   const SizedBox(height: 12),
-                  _FeatureRow(icon: Icons.trending_up, text: 'Thống kê tiến bộ'),
+                  _FeatureRow(
+                      icon: Icons.trending_up, text: 'Thống kê tiến bộ'),
                 ],
               ),
             ),

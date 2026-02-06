@@ -1,6 +1,5 @@
 // lib/screens/understand_mode_screen.dart
-// VipSound - Chế độ HIỂU (Sync Mode)
-// Kết hợp Text + Audio + Shadowing
+// VipSound - Chế độ HIỂU (Fixed version)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,9 +8,10 @@ import '../providers/player_provider.dart';
 import '../providers/text_provider.dart';
 import '../providers/waveform_provider.dart';
 import '../providers/shadowing_provider.dart';
-import '../widgets/waveform_editor.dart';
-import '../widgets/shadowing_widget.dart';
-import '../screens/sync_hub_screen.dart';
+import '../widgets/rolling_waveform_view.dart';
+import '../widgets/rolling_waveform_controller.dart';
+import '../models/waveform_data.dart';
+
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
 
@@ -21,112 +21,88 @@ class UnderstandModeScreen extends StatefulWidget {
 
 class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     with SingleTickerProviderStateMixin {
-  double _splitRatio = 0.4;
   late TabController _tabController;
+  late RollingWaveformController _waveformController;
+  final ScrollController _textScrollController = ScrollController();
+
+  // Auto-scroll to current line
+  bool _autoScroll = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
+    _waveformController = RollingWaveformController();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _waveformController.dispose();
+    _textScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer4<PlayerProvider, TextProvider, WaveformProvider, ShadowingProvider>(
+    return Consumer4<PlayerProvider, TextProvider, WaveformProvider,
+        ShadowingProvider>(
       builder: (context, player, textProvider, waveform, shadowing, child) {
+        // Sync waveform data
+        if (waveform.waveformData.isNotEmpty &&
+            _waveformController.waveformData == null) {
+          _waveformController.setWaveformData(WaveformData(
+            samples: waveform.waveformData,
+            duration: player.state.duration,
+          ));
+        }
+
+        // Sync position
+        if (_waveformController.position != player.state.position) {
+          _waveformController.updatePosition(player.state.position);
+        }
+
+        // Sync loop regions
+        if (player.loopStart != null && player.loopEnd != null) {
+          if (_waveformController.loopRegions.isEmpty) {
+            _waveformController.addLoopRegion(LoopRegion(
+              start: player.loopStart!,
+              end: player.loopEnd!,
+            ));
+          }
+        } else {
+          _waveformController.clearLoopRegions();
+        }
+
         final hasAudio = player.currentSongPath != null;
         final hasText = textProvider.hasLyrics;
 
-        if (!hasAudio && !hasText) {
-          return _buildEmptyState(context);
-        }
-
         if (!hasAudio || !hasText) {
-          return _buildPartialState(context, hasAudio, hasText);
+          return _buildGuideState(context, hasAudio, hasText);
         }
 
-        return _buildSyncMode(context, player, textProvider, waveform, shadowing);
+        return Column(
+          children: [
+            _buildCompactTabs(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildSyncTab(player, textProvider),
+                  _buildShadowingTab(player, textProvider, shadowing),
+                ],
+              ),
+            ),
+          ],
+        );
       },
     );
   }
 
-  // ==================== EMPTY STATE ====================
+  // ==================== GUIDE STATE ====================
 
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFFFB300).withOpacity(0.2),
-                    const Color(0xFFFF8F00).withOpacity(0.1),
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.psychology,
-                size: 64,
-                color: Color(0xFFFFB300),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            const Text(
-              'Chế độ Hiểu',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Text(
-              'Kết hợp Nghe + Đọc để hiểu sâu',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-            const SizedBox(height: 32),
-
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFFFB300).withOpacity(0.3)),
-              ),
-              child: const Column(
-                children: [
-                  _StepItem(number: 1, text: 'Vào Tab "Nghe" để chọn audio'),
-                  SizedBox(height: 12),
-                  _StepItem(number: 2, text: 'Vào Tab "Đọc" để thêm văn bản'),
-                  SizedBox(height: 12),
-                  _StepItem(number: 3, text: 'Quay lại đây để đồng bộ & học'),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            _buildFeaturesList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPartialState(BuildContext context, bool hasAudio, bool hasText) {
+  Widget _buildGuideState(BuildContext context, bool hasAudio, bool hasText) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -136,26 +112,37 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _StatusIcon(
+                _StatusCircle(
                   icon: Icons.headphones,
                   label: 'Audio',
                   isReady: hasAudio,
+                  color: const Color(0xFF6C63FF),
                 ),
-                const SizedBox(width: 16),
-                Icon(Icons.add, color: Colors.grey[600], size: 24),
-                const SizedBox(width: 16),
-                _StatusIcon(
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  width: 40,
+                  height: 2,
+                  color: hasAudio && hasText
+                      ? const Color(0xFFFFB300)
+                      : Colors.grey[700],
+                ),
+                _StatusCircle(
                   icon: Icons.menu_book,
                   label: 'Text',
                   isReady: hasText,
+                  color: const Color(0xFF2196F3),
                 ),
               ],
             ),
-
             const SizedBox(height: 32),
-
             Text(
-              hasAudio ? 'Cần thêm văn bản' : 'Cần thêm audio',
+              hasAudio && hasText
+                  ? 'Sẵn sàng!'
+                  : hasAudio
+                      ? 'Cần thêm văn bản'
+                      : hasText
+                          ? 'Cần thêm audio'
+                          : 'Cần cả audio và text',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -163,232 +150,271 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ),
             const SizedBox(height: 8),
-
             Text(
-              hasAudio
-                  ? 'Vuốt từ cạnh trái hoặc vào Tab "Đọc"'
-                  : 'Vuốt từ cạnh phải hoặc vào Tab "Nghe"',
+              'Chế độ Hiểu kết hợp audio với text để học hiệu quả',
               style: TextStyle(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
-
             const SizedBox(height: 32),
-
-            ElevatedButton.icon(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-              },
-              icon: Icon(hasAudio ? Icons.menu_book : Icons.headphones),
-              label: Text(hasAudio ? 'Thêm Text' : 'Thêm Audio'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFB300),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+            if (!hasAudio)
+              _QuickButton(
+                icon: Icons.headphones,
+                label: 'Thêm Audio',
+                color: const Color(0xFF6C63FF),
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                },
               ),
-            ),
+            if (!hasText) ...[
+              if (!hasAudio) const SizedBox(height: 12),
+              _QuickButton(
+                icon: Icons.menu_book,
+                label: 'Thêm Text',
+                color: const Color(0xFF2196F3),
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                },
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  // ==================== SYNC MODE ====================
+  // ==================== COMPACT TABS ====================
 
-  Widget _buildSyncMode(
-      BuildContext context,
-      PlayerProvider player,
-      TextProvider textProvider,
-      WaveformProvider waveform,
-      ShadowingProvider shadowing,
-      ) {
-    return Column(
-      children: [
-        _buildModeTabs(),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _buildSplitView(player, textProvider, waveform),
-              _buildShadowingView(player, shadowing),
-              _buildDictionaryView(textProvider),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildModeTabs() {
+  Widget _buildCompactTabs() {
     return Container(
-      color: const Color(0xFF1A1A2E),
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+      ),
       child: TabBar(
         controller: _tabController,
         indicatorColor: const Color(0xFFFFB300),
+        indicatorWeight: 3,
         labelColor: const Color(0xFFFFB300),
         unselectedLabelColor: Colors.grey,
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         tabs: const [
-          Tab(icon: Icon(Icons.sync, size: 20), text: 'Đồng bộ'),
-          Tab(icon: Icon(Icons.mic, size: 20), text: 'Shadowing'),
-          Tab(icon: Icon(Icons.book, size: 20), text: 'Từ điển'),
+          Tab(text: 'Đồng bộ'),
+          Tab(text: 'Shadowing'),
         ],
       ),
     );
   }
 
-  // ==================== SPLIT VIEW ====================
+  // ==================== SYNC TAB ====================
 
-  Widget _buildSplitView(
-      PlayerProvider player,
-      TextProvider textProvider,
-      WaveformProvider waveform,
-      ) {
+  Widget _buildSyncTab(PlayerProvider player, TextProvider textProvider) {
     return Column(
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: MediaQuery.of(context).size.height * _splitRatio * 0.5,
-          child: const WaveformEditor(
-            height: 180,
-            showControls: false,
-            showMarkersList: false,
-          ),
-        ),
-
-        GestureDetector(
-          onVerticalDragUpdate: (details) {
-            setState(() {
-              _splitRatio = (_splitRatio +
-                  details.primaryDelta! / MediaQuery.of(context).size.height)
-                  .clamp(0.2, 0.6);
-            });
-          },
-          child: Container(
-            height: 24,
-            color: const Color(0xFF1A1A2E),
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+        // Mini Waveform
+        Container(
+          height: 120,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1520),
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
             ),
           ),
-        ),
-
-        Expanded(
-          child: Container(
-            color: const Color(0xFF0D1520),
-            child: _buildSyncedTextList(player, textProvider),
+          child: Column(
+            children: [
+              Expanded(
+                child: RollingWaveformView(
+                  controller: _waveformController,
+                  onSeek: (position) => player.seek(position),
+                  onTap: () => player.togglePlayPause(),
+                  showControls: false,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      _formatDuration(player.state.position),
+                      style:
+                          const TextStyle(fontSize: 10, color: Colors.white70),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: player.state.duration.inMilliseconds > 0
+                            ? player.state.position.inMilliseconds /
+                                player.state.duration.inMilliseconds
+                            : 0.0,
+                        onChanged: (value) => player.seekToPercent(value),
+                        activeColor: const Color(0xFFFFB300),
+                        inactiveColor: Colors.white12,
+                      ),
+                    ),
+                    Text(
+                      _formatDuration(player.state.duration),
+                      style:
+                          const TextStyle(fontSize: 10, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
 
-        _buildMiniControls(player),
+        // Text List
+        Expanded(
+          child: Stack(
+            children: [
+              _buildSyncedTextList(player, textProvider),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _AutoScrollButton(
+                  isActive: _autoScroll,
+                  onToggle: () {
+                    setState(() => _autoScroll = !_autoScroll);
+                    if (_autoScroll) {
+                      _scrollToCurrentLine(textProvider);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Quick Controls
+        _buildQuickControls(player, textProvider),
       ],
     );
   }
 
-  Widget _buildSyncedTextList(PlayerProvider player, TextProvider textProvider) {
+  Widget _buildSyncedTextList(
+      PlayerProvider player, TextProvider textProvider) {
+    if (_autoScroll && player.isPlaying) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentLine(textProvider);
+      });
+    }
+
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      controller: _textScrollController,
+      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
       itemCount: textProvider.lines.length,
       itemBuilder: (context, index) {
         final line = textProvider.lines[index];
-
-        // SỬA LỖI: Kiểm tra null safety
         final isSynced = line.startTime != null;
-        bool isActive = false;
 
+        bool isActive = false;
         if (isSynced && line.startTime != null) {
           isActive = player.state.position >= line.startTime! &&
               (line.endTime == null || player.state.position <= line.endTime!);
         }
 
+        if (isActive) {
+          textProvider.setCurrentLine(index);
+        }
+
         return GestureDetector(
           onTap: () {
-            HapticFeedback.selectionClick();
-            // SỬA LỖI: Kiểm tra null trước khi seek
             if (isSynced && line.startTime != null) {
+              HapticFeedback.selectionClick();
               player.seek(line.startTime!);
+              if (!player.isPlaying) player.play();
             }
           },
           onLongPress: () {
-            // SỬA LỖI: Kiểm tra null safety cho setLoop
             if (isSynced && line.startTime != null && line.endTime != null) {
-              player.setLoop(line.startTime!, line.endTime!);
               HapticFeedback.mediumImpact();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Đã set loop cho dòng ${index + 1}'),
-                  backgroundColor: const Color(0xFF4CAF50),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              player.setLoop(line.startTime!, line.endTime!);
+              _showLoopSetSnackbar(context, index);
             }
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: EdgeInsets.fromLTRB(
+              isActive ? 16 : 12,
+              12,
+              12,
+              12,
+            ),
             decoration: BoxDecoration(
               color: isActive
                   ? const Color(0xFFFFB300).withOpacity(0.15)
-                  : Colors.white.withOpacity(0.03),
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
-              border: isActive
-                  ? Border.all(color: const Color(0xFFFFB300).withOpacity(0.5))
-                  : null,
+              border: Border(
+                left: BorderSide(
+                  color: isActive
+                      ? const Color(0xFFFFB300)
+                      : isSynced
+                          ? Colors.white24
+                          : Colors.transparent,
+                  width: isActive ? 4 : 2,
+                ),
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Time badge - SỬA LỖI: Kiểm tra null
-                if (isSynced && line.startTime != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFFFFB300).withOpacity(0.3)
-                          : Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _formatDuration(line.startTime!),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isActive ? const Color(0xFFFFB300) : Colors.grey,
-                        fontFamily: 'monospace',
+                Container(
+                  width: 50,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isActive
+                              ? const Color(0xFFFFB300)
+                              : Colors.grey[600],
+                          fontWeight:
+                              isActive ? FontWeight.bold : FontWeight.normal,
+                        ),
                       ),
-                    ),
+                      if (isSynced && line.startTime != null)
+                        Text(
+                          _formatDuration(line.startTime!),
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: isActive
+                                ? const Color(0xFFFFB300).withOpacity(0.8)
+                                : Colors.grey[700],
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                    ],
                   ),
-
-                // Text content - SỬA LỖI: line.text -> line.content
+                ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        line.content, // SỬA: từ line.text thành line.content
+                        line.content,
                         style: TextStyle(
                           color: isActive ? Colors.white : Colors.white70,
-                          fontSize: 16,
+                          fontSize: 15,
                           height: 1.5,
-                          fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+                          fontWeight:
+                              isActive ? FontWeight.w500 : FontWeight.normal,
                         ),
                       ),
                       if (line.translation != null) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(
                           line.translation!,
                           style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 14,
+                            color:
+                                isActive ? Colors.grey[400] : Colors.grey[600],
+                            fontSize: 13,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -396,15 +422,18 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     ],
                   ),
                 ),
-
-                // Active indicator
                 if (isActive)
                   Container(
                     margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFB300).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: const Icon(
-                      Icons.volume_up,
+                      Icons.graphic_eq,
                       color: Color(0xFFFFB300),
-                      size: 18,
+                      size: 16,
                     ),
                   ),
               ],
@@ -415,20 +444,25 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
-  Widget _buildMiniControls(PlayerProvider player) {
+  Widget _buildQuickControls(PlayerProvider player, TextProvider textProvider) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      color: const Color(0xFF1A1A2E),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        border: Border(
+          top: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
             icon: const Icon(Icons.replay_10),
             color: Colors.white70,
             onPressed: () => player.replay10(),
           ),
-          const SizedBox(width: 16),
+
           Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFFFB300).withOpacity(0.2),
               shape: BoxShape.circle,
@@ -436,179 +470,196 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             child: IconButton(
               icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow),
               color: const Color(0xFFFFB300),
-              iconSize: 32,
+              iconSize: 28,
               onPressed: () => player.togglePlayPause(),
             ),
           ),
-          const SizedBox(width: 16),
+
           IconButton(
             icon: const Icon(Icons.forward_10),
             color: Colors.white70,
             onPressed: () => player.forward10(),
           ),
-          const SizedBox(width: 24),
-          // Loop indicator
+
+          const SizedBox(width: 16),
+
+          // Loop indicator/control
           if (player.isLooping)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.loop, size: 16, color: Color(0xFF4CAF50)),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${player.loopCount}x',
-                    style: const TextStyle(
-                      color: Color(0xFF4CAF50),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+            GestureDetector(
+              onTap: () => _showLoopControlSheet(context, player),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF4CAF50).withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.loop, size: 16, color: Color(0xFF4CAF50)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${player.loopCount}x',
+                      style: const TextStyle(
+                        color: Color(0xFF4CAF50),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => player.clearLoop(),
-                    child: const Icon(Icons.close, size: 14, color: Colors.grey),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => player.clearLoop(),
+                      child: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: () => _showSetLoopGuide(context),
+              icon: const Icon(Icons.loop, size: 18),
+              label: const Text('Set Loop'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.grey,
+                side: BorderSide(color: Colors.grey[700]!),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
+
+          const Spacer(),
+
+          // Speed control - Using existing speed property
+          _SpeedChip(
+            speed: player.state.speed,
+            onTap: () => _showSpeedControlSheet(context, player),
+          ),
         ],
       ),
     );
   }
 
-  // ==================== SHADOWING VIEW ====================
+  // ==================== SHADOWING TAB ====================
 
-  Widget _buildShadowingView(PlayerProvider player, ShadowingProvider shadowing) {
+  Widget _buildShadowingTab(
+    PlayerProvider player,
+    TextProvider textProvider,
+    ShadowingProvider shadowing,
+  ) {
     if (player.loopStart == null || player.loopEnd == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF9C27B0).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.mic, size: 48, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Chọn đoạn để luyện Shadowing',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Long press vào một câu trong tab "Đồng bộ"\nhoặc dùng A-B Loop trong Waveform',
-                style: TextStyle(color: Colors.grey[500]),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _HowToItem(
-                      icon: Icons.touch_app,
-                      text: 'Long press câu để chọn',
-                    ),
-                    const SizedBox(height: 8),
-                    _HowToItem(
-                      icon: Icons.loop,
-                      text: 'Hoặc set A-B Loop trong Waveform',
-                    ),
-                    const SizedBox(height: 8),
-                    _HowToItem(
-                      icon: Icons.mic,
-                      text: 'Sau đó quay lại đây để luyện',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildShadowingGuide(player);
     }
 
-    // Auto-setup shadowing
-    if (shadowing.state == ShadowingState.idle && player.loopStart != null && player.loopEnd != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        shadowing.setSegment(
-          start: player.loopStart!,
-          end: player.loopEnd!,
-          audioPath: player.currentSongPath ?? '',
-          waveform: [],
-        );
-      });
+    // Get text for the loop region
+    String? loopText;
+    for (final line in textProvider.lines) {
+      if (line.startTime != null &&
+          line.startTime! >= player.loopStart! &&
+          line.startTime! <= player.loopEnd!) {
+        loopText = line.content;
+        break;
+      }
     }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Segment info
+          // Loop info card
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF9C27B0).withOpacity(0.1),
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF9C27B0).withOpacity(0.2),
+                  const Color(0xFF9C27B0).withOpacity(0.1),
+                ],
+              ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF9C27B0).withOpacity(0.3)),
+              border: Border.all(
+                color: const Color(0xFF9C27B0).withOpacity(0.3),
+              ),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.timer, color: Color(0xFF9C27B0)),
+                    const Icon(
+                      Icons.repeat,
+                      color: Color(0xFF9C27B0),
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Đoạn: ${_formatDuration(player.loopStart!)} - ${_formatDuration(player.loopEnd!)}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                    const Text(
+                      'Đoạn luyện tập',
+                      style: TextStyle(
+                        color: Color(0xFF9C27B0),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
                     Text(
-                      'Độ dài: ${_formatDuration(player.loopEnd! - player.loopStart!)}',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      '${_formatDuration(player.loopEnd! - player.loopStart!)}',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
+
+                if (loopText != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      loopText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 12),
+
+                // Progress - Using actual shadowing properties
                 Row(
                   children: [
                     Expanded(
-                      child: _ShadowingStatItem(
+                      child: _ProgressItem(
                         label: 'Lần lặp',
-                        value: '${shadowing.completedRepetitions}/${shadowing.repeatCount}',
-                        color: Colors.blue,
+                        current: shadowing.completedRepetitions,
+                        target: shadowing.repeatCount,
+                        color: const Color(0xFF9C27B0),
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: _ShadowingStatItem(
+                      child: _ProgressItem(
                         label: 'Tốc độ',
-                        value: '${shadowing.playbackSpeed}x',
+                        value: '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
                         color: Colors.orange,
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: _ShadowingStatItem(
+                      child: _ProgressItem(
                         label: 'Điểm',
                         value: '${(shadowing.similarityScore * 100).toInt()}%',
                         color: Colors.green,
@@ -619,136 +670,65 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ],
             ),
           ),
+
           const SizedBox(height: 24),
 
-          // Controls
+          // Control buttons - Using actual shadowing states
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: shadowing.isIdle
-                      ? () => shadowing.playOriginal()
-                      : null,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Nghe mẫu'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+                child: _ShadowingButton(
+                  icon: Icons.headphones,
+                  label: 'Nghe mẫu',
+                  color: Colors.blue,
+                  enabled: shadowing.state == ShadowingState.idle,
+                  onTap: () => shadowing.playOriginal(),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: shadowing.isIdle
-                      ? () => shadowing.startShadowing()
-                      : shadowing.isRecording
-                      ? () => shadowing.stopRecording()
-                      : null,
-                  icon: Icon(shadowing.isRecording ? Icons.stop : Icons.mic),
-                  label: Text(shadowing.isRecording ? 'Dừng' : 'Ghi âm'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: shadowing.isRecording ? Colors.red : const Color(0xFF9C27B0),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+                child: _ShadowingButton(
+                  icon: shadowing.isRecording ? Icons.stop : Icons.mic,
+                  label: shadowing.isRecording ? 'Dừng ghi' : 'Ghi âm',
+                  color: shadowing.isRecording
+                      ? Colors.red
+                      : const Color(0xFF9C27B0),
+                  enabled: shadowing.state == ShadowingState.idle ||
+                      shadowing.isRecording,
+                  onTap: () {
+                    if (shadowing.isRecording) {
+                      shadowing.stopRecording();
+                    } else {
+                      shadowing.startShadowing();
+                    }
+                  },
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: 12),
 
           if (shadowing.userRecordingPath != null)
-            ElevatedButton.icon(
-              onPressed: () => shadowing.playUserRecording(),
-              icon: const Icon(Icons.headphones),
-              label: const Text('Nghe lại bản ghi của bạn'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                minimumSize: const Size(double.infinity, 48),
-              ),
+            _ShadowingButton(
+              icon: Icons.play_circle_outline,
+              label: 'Nghe lại bản ghi',
+              color: Colors.green,
+              enabled: shadowing.state == ShadowingState.idle,
+              onTap: () => shadowing.playUserRecording(),
+              fullWidth: true,
             ),
 
           const SizedBox(height: 24),
 
           // Settings
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cài đặt',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Text('Số lần lặp:', style: TextStyle(color: Colors.grey)),
-                    const Spacer(),
-                    ...List.generate(5, (i) {
-                      final count = i + 1;
-                      final isSelected = shadowing.repeatCount == count;
-                      return GestureDetector(
-                        onTap: () => shadowing.setRepeatCount(count),
-                        child: Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF9C27B0)
-                                : Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '$count',
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.grey,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Text('Tốc độ:', style: TextStyle(color: Colors.grey)),
-                    Expanded(
-                      child: Slider(
-                        value: shadowing.playbackSpeed,
-                        min: 0.5,
-                        max: 1.5,
-                        divisions: 10,
-                        activeColor: const Color(0xFF9C27B0),
-                        onChanged: (value) => shadowing.setPlaybackSpeed(value),
-                      ),
-                    ),
-                    Text(
-                      '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildShadowingSettings(shadowing),
         ],
       ),
     );
   }
 
-  // ==================== DICTIONARY VIEW ====================
-
-  Widget _buildDictionaryView(TextProvider textProvider) {
+  Widget _buildShadowingGuide(PlayerProvider player) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -758,141 +738,389 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                color: const Color(0xFF9C27B0).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.book,
+                Icons.repeat,
                 size: 48,
-                color: Color(0xFF4CAF50),
+                color: Color(0xFF9C27B0),
               ),
             ),
             const SizedBox(height: 24),
             const Text(
-              'Từ điển & SRS',
+              'Chọn đoạn để luyện Shadowing',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
-              'Tap vào từ trong text để tra cứu\nvà thêm vào danh sách ôn tập',
+              'Long press vào câu trong tab "Đồng bộ"\nhoặc dùng nút Set Loop',
               style: TextStyle(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-
-            // Stats
-            if (textProvider.segments.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _StatItem(
-                          label: 'Đoạn đã lưu',
-                          value: '${textProvider.segments.length}',
-                          color: Colors.amber,
-                        ),
-                        _StatItem(
-                          label: 'Cần ôn tập',
-                          value: '${textProvider.getSegmentsForReview().length}',
-                          color: Colors.red,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            ElevatedButton.icon(
+              onPressed: () {
+                _tabController.animateTo(0);
+              },
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Về tab Đồng bộ'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9C27B0),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: textProvider.getSegmentsForReview().isNotEmpty
-                    ? () => textProvider.startReviewSession()
-                    : null,
-                icon: const Icon(Icons.school),
-                label: const Text('Bắt đầu ôn tập'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4CAF50),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                ),
-              ),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Column(
-                  children: [
-                    _FeatureRow(icon: Icons.search, text: 'Tra cứu từ điển'),
-                    SizedBox(height: 12),
-                    _FeatureRow(icon: Icons.refresh, text: 'Spaced Repetition (SRS)'),
-                    SizedBox(height: 12),
-                    _FeatureRow(icon: Icons.collections_bookmark, text: 'Flashcards'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Coming Soon',
-                  style: TextStyle(
-                    color: Color(0xFF4CAF50),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ==================== HELPER WIDGETS ====================
-
-  Widget _buildFeaturesList() {
-    final features = [
-      (Icons.sync, 'Đồng bộ text với audio'),
-      (Icons.mic, 'Luyện Shadowing'),
-      (Icons.book, 'Tra từ điển tích hợp'),
-      (Icons.refresh, 'Ôn tập với SRS'),
-      (Icons.touch_app, 'Tap câu để nhảy tới'),
-    ];
-
+  Widget _buildShadowingSettings(ShadowingProvider shadowing) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        children: features.map((f) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Cài đặt luyện tập',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Repeat count
+          Row(
+            children: [
+              const Icon(Icons.repeat, size: 18, color: Color(0xFF9C27B0)),
+              const SizedBox(width: 8),
+              const Text('Số lần lặp:', style: TextStyle(color: Colors.grey)),
+              const Spacer(),
+              ...List.generate(5, (i) {
+                final count = i + 1;
+                return GestureDetector(
+                  onTap: () => shadowing.setRepeatCount(count),
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: shadowing.repeatCount == count
+                          ? const Color(0xFF9C27B0)
+                          : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: TextStyle(
+                        color: shadowing.repeatCount == count
+                            ? Colors.white
+                            : Colors.grey,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Speed
+          Row(
+            children: [
+              const Icon(Icons.speed, size: 18, color: Colors.orange),
+              const SizedBox(width: 8),
+              const Text('Tốc độ:', style: TextStyle(color: Colors.grey)),
+              Expanded(
+                child: Slider(
+                  value: shadowing.playbackSpeed,
+                  min: 0.5,
+                  max: 1.5,
+                  divisions: 10,
+                  activeColor: Colors.orange,
+                  onChanged: (value) => shadowing.setPlaybackSpeed(value),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  void _scrollToCurrentLine(TextProvider textProvider) {
+    if (textProvider.currentLineIndex < 0) return;
+
+    final itemHeight = 80.0;
+    final targetOffset = textProvider.currentLineIndex * itemHeight;
+    final viewportHeight = _textScrollController.position.viewportDimension;
+    final centerOffset = targetOffset - (viewportHeight / 2) + (itemHeight / 2);
+
+    _textScrollController.animateTo(
+      centerOffset.clamp(0.0, _textScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã set loop cho dòng ${lineIndex + 1}'),
+        backgroundColor: const Color(0xFF4CAF50),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Xóa',
+          textColor: Colors.white,
+          onPressed: () => context.read<PlayerProvider>().clearLoop(),
+        ),
+      ),
+    );
+  }
+
+  void _showSetLoopGuide(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
               children: [
-                Icon(f.$1, color: const Color(0xFFFFB300), size: 20),
-                const SizedBox(width: 12),
-                Text(f.$2, style: TextStyle(color: Colors.grey[400])),
+                Icon(Icons.loop, color: Color(0xFF4CAF50)),
+                SizedBox(width: 8),
+                Text(
+                  'Cách set A-B Loop',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ],
             ),
-          );
-        }).toList(),
+            const SizedBox(height: 16),
+            _GuideStep(
+              number: '1',
+              text: 'Long press vào câu muốn lặp',
+              icon: Icons.touch_app,
+            ),
+            const SizedBox(height: 12),
+            _GuideStep(
+              number: '2',
+              text: 'Hoặc dùng nút A-B trong player',
+              icon: Icons.repeat,
+            ),
+            const SizedBox(height: 12),
+            _GuideStep(
+              number: '3',
+              text: 'Điều chỉnh vùng loop trên waveform',
+              icon: Icons.tune,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                minimumSize: const Size(double.infinity, 44),
+              ),
+              child: const Text('Đã hiểu'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLoopControlSheet(BuildContext context, PlayerProvider player) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Điều khiển Loop',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer, color: Color(0xFF4CAF50)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'A: ${_formatDuration(player.loopStart!)}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const Text(' → ', style: TextStyle(color: Colors.grey)),
+                  Text(
+                    'B: ${_formatDuration(player.loopEnd!)}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _formatDuration(player.loopEnd! - player.loopStart!),
+                    style: const TextStyle(
+                      color: Color(0xFF4CAF50),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      player.clearLoop();
+                      Navigator.pop(context);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                    child: const Text('Xóa Loop'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4CAF50),
+                    ),
+                    child: const Text('Xong'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSpeedControlSheet(BuildContext context, PlayerProvider player) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Tốc độ phát',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) {
+                final isSelected = player.state.speed == speed;
+                return GestureDetector(
+                  onTap: () {
+                    player.setSpeed(speed);
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    width: 70,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFFB300)
+                          : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFFFB300)
+                            : Colors.white24,
+                      ),
+                    ),
+                    child: Text(
+                      '${speed}x',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFB300),
+                minimumSize: const Size(double.infinity, 44),
+              ),
+              child: const Text('Đóng'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -904,15 +1132,276 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   }
 }
 
-// ============================================================================
-// HELPER WIDGETS
-// ============================================================================
+// ============ [HELPER WIDGETS - Giữ nguyên] ============
+// [Các widget helper giữ nguyên như cũ từ dòng 1268 đến cuối file]
 
-class _StepItem extends StatelessWidget {
-  final int number;
+class _StatusCircle extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isReady;
+  final Color color;
+
+  const _StatusCircle({
+    required this.icon,
+    required this.label,
+    required this.isReady,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color:
+                isReady ? color.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isReady ? color : Colors.grey[700]!,
+              width: 2,
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: isReady ? color : Colors.grey[700],
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: isReady ? color : Colors.grey[600],
+            fontSize: 12,
+            fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+}
+
+class _AutoScrollButton extends StatelessWidget {
+  final bool isActive;
+  final VoidCallback onToggle;
+
+  const _AutoScrollButton({
+    required this.isActive,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onToggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFFFFB300).withOpacity(0.2)
+              : Colors.black45,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive
+                ? const Color(0xFFFFB300).withOpacity(0.5)
+                : Colors.white24,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.vertical_align_center,
+              size: 14,
+              color: isActive ? const Color(0xFFFFB300) : Colors.grey,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Auto',
+              style: TextStyle(
+                fontSize: 11,
+                color: isActive ? const Color(0xFFFFB300) : Colors.grey,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeedChip extends StatelessWidget {
+  final double speed;
+  final VoidCallback onTap;
+
+  const _SpeedChip({
+    required this.speed,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: speed != 1.0
+              ? Colors.orange.withOpacity(0.2)
+              : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.speed, size: 14, color: Colors.orange),
+            const SizedBox(width: 4),
+            Text(
+              '${speed}x',
+              style: const TextStyle(
+                color: Colors.orange,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressItem extends StatelessWidget {
+  final String label;
+  final int? current;
+  final int? target;
+  final String? value;
+  final Color color;
+
+  const _ProgressItem({
+    required this.label,
+    this.current,
+    this.target,
+    this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final displayValue = value ?? '$current/$target';
+    final progress = (current != null && target != null && target! > 0)
+        ? current! / target!
+        : 0.0;
+
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          displayValue,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (value == null) ...[
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: color.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 3,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ShadowingButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
+  final bool fullWidth;
+
+  const _ShadowingButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+    this.fullWidth = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: enabled ? onTap : null,
+      icon: Icon(icon),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        disabledBackgroundColor: color.withOpacity(0.3),
+        minimumSize: fullWidth ? const Size(double.infinity, 48) : null,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+}
+
+class _GuideStep extends StatelessWidget {
+  final String number;
   final String text;
+  final IconData icon;
 
-  const _StepItem({required this.number, required this.text});
+  const _GuideStep({
+    required this.number,
+    required this.text,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -922,168 +1411,27 @@ class _StepItem extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFB300).withOpacity(0.2),
+            color: const Color(0xFF4CAF50).withOpacity(0.2),
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Text(
-              '$number',
+              number,
               style: const TextStyle(
-                color: Color(0xFFFFB300),
+                color: Color(0xFF4CAF50),
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ),
         const SizedBox(width: 12),
+        Icon(icon, size: 18, color: Colors.grey),
+        const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: const TextStyle(color: Colors.white70)),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusIcon extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isReady;
-
-  const _StatusIcon({
-    required this.icon,
-    required this.label,
-    required this.isReady,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isReady ? const Color(0xFF4CAF50) : Colors.grey;
-
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            shape: BoxShape.circle,
-            border: Border.all(color: color.withOpacity(0.5)),
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.white70),
           ),
-          child: Icon(icon, color: color, size: 32),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isReady ? Icons.check_circle : Icons.radio_button_unchecked,
-              size: 14,
-              color: color,
-            ),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color)),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _FeatureRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _FeatureRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF4CAF50), size: 18),
-        const SizedBox(width: 12),
-        Text(text, style: TextStyle(color: Colors.grey[400])),
-      ],
-    );
-  }
-}
-
-class _HowToItem extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _HowToItem({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF9C27B0), size: 18),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(text, style: TextStyle(color: Colors.grey[400])),
-        ),
-      ],
-    );
-  }
-}
-
-class _ShadowingStatItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const _ShadowingStatItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[500], fontSize: 11),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const _StatItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[500], fontSize: 12),
         ),
       ],
     );

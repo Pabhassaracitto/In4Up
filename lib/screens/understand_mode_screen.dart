@@ -4,14 +4,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import '../models/shadowing_result.dart';
+import '../models/waveform_data.dart';
 import '../providers/player_provider.dart';
+import '../providers/shadowing_provider.dart';
 import '../providers/text_provider.dart';
 import '../providers/waveform_provider.dart';
-import '../providers/shadowing_provider.dart';
-import '../widgets/rolling_waveform_view.dart';
 import '../widgets/rolling_waveform_controller.dart';
-import '../models/waveform_data.dart';
-
+import '../widgets/rolling_waveform_view.dart';
+import '../widgets/shadowing/pronunciation_result.dart';
+import '../widgets/shadowing/waveform_compare.dart';
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
 
@@ -681,7 +684,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   icon: Icons.headphones,
                   label: 'Nghe mẫu',
                   color: Colors.blue,
-                  enabled: shadowing.state == ShadowingState.idle,
+                  enabled: shadowing.state == ShadowingState.idle || shadowing.state == ShadowingState.showingResults,
                   onTap: () => shadowing.playOriginal(),
                 ),
               ),
@@ -693,7 +696,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   color: shadowing.isRecording
                       ? Colors.red
                       : const Color(0xFF9C27B0),
-                  enabled: shadowing.state == ShadowingState.idle ||
+                  enabled: shadowing.state == ShadowingState.idle || shadowing.state == ShadowingState.showingResults ||
                       shadowing.isRecording,
                   onTap: () {
                     if (shadowing.isRecording) {
@@ -707,6 +710,16 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ],
           ),
 
+            // Show results if available
+            if (shadowing.state == ShadowingState.showingResults &&
+                shadowing.currentResult != null) ...[
+              const SizedBox(height: 24),
+              PronunciationResultView(
+                result: shadowing.currentResult!,
+                onTryAgain: () => shadowing.reset(),
+                onPlayRecording: () => shadowing.playUserRecording(),
+              ),
+            ],
           const SizedBox(height: 12),
 
           if (shadowing.userRecordingPath != null)
@@ -718,7 +731,16 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               onTap: () => shadowing.playUserRecording(),
               fullWidth: true,
             ),
-
+            // Show waveform comparison if available
+            if (shadowing.currentResult != null &&
+                shadowing.currentResult!.originalWaveform.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              WaveformCompare(
+                originalWaveform: shadowing.currentResult!.originalWaveform,
+                userWaveform: shadowing.currentResult!.userWaveform,
+                similarity: shadowing.currentResult!.overallScore,
+              ),
+            ],
           const SizedBox(height: 24),
 
           // Settings

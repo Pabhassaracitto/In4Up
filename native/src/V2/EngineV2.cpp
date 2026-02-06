@@ -87,7 +87,17 @@ namespace UltraTimeStretch
 
             // Chọn engine phù hợp
             switchEngine(speed);
-
+#if defined(_WIN32) && defined(UTS_DEBUG_LOG)
+#include <windows.h>
+            static void utsLog(const char *s)
+            {
+                OutputDebugStringA(s);
+                OutputDebugStringA("\n");
+            }
+#endif
+#if defined(_WIN32) && defined(UTS_DEBUG_LOG)
+            utsLog("EngineV2 switched mode");
+#endif
             // Cập nhật engine V2 hiện tại
             switch (activeEngine_)
             {

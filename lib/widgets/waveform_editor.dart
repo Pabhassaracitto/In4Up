@@ -1,16 +1,18 @@
 // lib/widgets/waveform_editor.dart
 // VipSound - Enhanced Waveform Editor với Shadowing Integration
 
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/waveform_provider.dart';
+
+import '../models/audio_marker.dart';
 import '../providers/player_provider.dart';
 import '../providers/shadowing_provider.dart'; // THÊM IMPORT
-import '../models/audio_marker.dart';
+import '../providers/waveform_provider.dart';
 import 'advanced_waveform_painter.dart';
-import 'shadowing_widget.dart'; // THÊM IMPORT
+import 'shadowing_widget.dart';
+import '../models/shadowing_result.dart'; // Chứa enum ShadowingState// THÊM IMPORT
 
 /// Theme colors cho từng mode
 class WaveformTheme {
@@ -657,8 +659,7 @@ class _ShadowingToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = shadowingState == ShadowingState.recording ||
-        shadowingState == ShadowingState.countdown ||
-        shadowingState == ShadowingState.waiting;
+        shadowingState == ShadowingState.countdown;
 
     return GestureDetector(
       onTap: onToggle,
@@ -753,16 +754,14 @@ class _ShadowingToggle extends StatelessWidget {
 
   String _getStateText(ShadowingState state) {
     switch (state) {
-      case ShadowingState.waiting:
-        return 'Đang chờ...';
+      case ShadowingState.playingOriginal:
+        return 'Đang nghe mẫu...';
       case ShadowingState.countdown:
         return 'Đếm ngược...';
       case ShadowingState.recording:
         return 'Đang ghi âm...';
-      case ShadowingState.processing:
-        return 'Đang xử lý...';
-      case ShadowingState.comparing:
-        return 'Đang so sánh...';
+      case ShadowingState.analyzing:
+        return 'Đang phân tích...';
       default:
         return '';
     }

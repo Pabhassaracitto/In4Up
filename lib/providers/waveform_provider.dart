@@ -1,7 +1,10 @@
+// lib/providers/waveform_provider.dart
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
 import '../models/audio_marker.dart';
 
 class WaveformProvider extends ChangeNotifier {
@@ -224,7 +227,8 @@ class WaveformProvider extends ChangeNotifier {
       return 0;
     }
 
-    final audioPosition = duration.inMilliseconds / _audioDuration.inMilliseconds;
+    final audioPosition =
+        duration.inMilliseconds / _audioDuration.inMilliseconds;
     final visibleRange = 1.0 / _zoomLevel;
     final viewPosition = (audioPosition - _scrollOffset) / visibleRange;
 
@@ -330,7 +334,8 @@ class WaveformProvider extends ChangeNotifier {
   }
 
   /// Cập nhật marker
-  void updateMarker(String id, {
+  void updateMarker(
+    String id, {
     Duration? startTime,
     Duration? endTime,
     String? label,
@@ -372,7 +377,9 @@ class WaveformProvider extends ChangeNotifier {
   /// Tìm marker tại vị trí
   AudioMarker? findMarkerAtPosition(Duration time, {double tolerance = 50}) {
     final toleranceDuration = Duration(
-      milliseconds: (_audioDuration.inMilliseconds / _waveformData.length * tolerance).round(),
+      milliseconds:
+          (_audioDuration.inMilliseconds / _waveformData.length * tolerance)
+              .round(),
     );
 
     for (final marker in _markers) {

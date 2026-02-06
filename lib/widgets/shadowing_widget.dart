@@ -2,10 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/shadowing_provider.dart';
-import '../providers/player_provider.dart';
+
 import '../models/shadowing_result.dart';
-import 'waveform_comparison_painter.dart';
+import '../providers/player_provider.dart';
+import '../providers/shadowing_provider.dart';
+import '../widgets/shadowing/waveform_comparison_painter.dart';
 
 /// Widget chính cho Shadowing Mode
 class ShadowingWidget extends StatefulWidget {
@@ -152,24 +153,23 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     );
   }
 
-  Widget _buildStateContent(ShadowingProvider shadowing, PlayerProvider player) {
+  Widget _buildStateContent(
+      ShadowingProvider shadowing, PlayerProvider player) {
     switch (shadowing.state) {
       case ShadowingState.idle:
         return _buildIdleState(shadowing, player);
-      case ShadowingState.ready:
-        return _buildReadyState(shadowing);
-      case ShadowingState.waiting:
-        return _buildWaitingState(shadowing);
+      case ShadowingState.playingOriginal:
+        return _buildWaitingState(shadowing); // Đang nghe mẫu
       case ShadowingState.countdown:
         return _buildCountdownState(shadowing);
       case ShadowingState.recording:
         return _buildRecordingState(shadowing);
-      case ShadowingState.processing:
-      case ShadowingState.comparing:
+      case ShadowingState.analyzing:
         return _buildProcessingState();
-      case ShadowingState.result:
+      case ShadowingState.showingResults:
         return _buildResultState(shadowing);
     }
+    return const SizedBox.shrink();
   }
 
   Widget _buildIdleState(ShadowingProvider shadowing, PlayerProvider player) {
@@ -196,7 +196,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             textAlign: TextAlign.center,
           ),
           if (hasLoop) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -211,6 +211,25 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+            const SizedBox(height: 24),
+            // Nút bắt đầu (chuyển sang trạng thái nghe mẫu/ghi âm)
+            ElevatedButton.icon(
+              onPressed: () {
+                // Setup segment from player's loop
+                shadowing.setSegment(
+                  start: player.loopStart!,
+                  end: player.loopEnd!,
+                  audioPath: player.currentSongPath ?? '',
+                  waveform: [],
+                );
+                // Bắt đầu quy trình: Nghe mẫu -> Countdown -> Ghi âm
+                shadowing.playOriginal();
+              },
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Bắt đầu Luyện tập'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2196F3)),
             ),
           ],
         ],
@@ -253,7 +272,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       child: Column(
         children: [
           const Text(
-            'Chuẩn bị...',
+            'Đang nghe mẫu...',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -285,7 +304,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           ),
           const SizedBox(height: 16),
           Text(
-            'Hít thở sâu...',
+            'Lắng nghe kỹ...',
             style: TextStyle(color: Colors.grey[400]),
           ),
         ],
@@ -422,7 +441,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
   }
 
   Widget _buildResultState(ShadowingProvider shadowing) {
-    final result = shadowing.lastResult;
+    final result = shadowing.currentResult;
     if (result == null) return const SizedBox.shrink();
 
     // Start reveal animation
@@ -455,7 +474,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                     size: const Size(double.infinity, 120),
                     painter: WaveformComparisonPainter(
                       originalWaveform: result.originalWaveform,
-                      recordedWaveform: result.recordedWaveform,
+                      recordedWaveform: result.userWaveform,
                       animationProgress: _revealAnimation.value,
                     ),
                   ),
@@ -470,8 +489,8 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
               const SizedBox(height: 16),
 
               // Feedbacks
-              if (result.feedbacks.isNotEmpty)
-                _buildFeedbacks(result.feedbacks),
+              // if (result.feedbacks.isNotEmpty)
+              //   _buildFeedbacks(result.feedbacks),
             ],
           ),
         );
@@ -485,24 +504,24 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            result.grade.color.withOpacity(0.3),
-            result.grade.color.withOpacity(0.1),
+            result.scoreColor.withOpacity(0.3),
+            result.scoreColor.withOpacity(0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: result.grade.color.withOpacity(0.5)),
+        border: Border.all(color: result.scoreColor.withOpacity(0.5)),
       ),
       child: Column(
         children: [
           Text(
-            result.grade.emoji,
+            result.overallGrade, // Sử dụng overallGrade string
             style: const TextStyle(fontSize: 48),
           ),
           const SizedBox(height: 8),
           Text(
-            result.grade.displayName,
+            'Grade', // Hoặc mapping từ overallGrade
             style: TextStyle(
-              color: result.grade.color,
+              color: result.scoreColor,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -522,12 +541,13 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
   }
 
   Widget _buildScoreBreakdown(ShadowingResult result) {
+    final acoustic = result.acousticAnalysis;
     return Row(
       children: [
         Expanded(
           child: _ScoreItem(
             label: 'Nhịp điệu',
-            score: result.rhythmScore,
+            score: acoustic?.rhythmScore ?? 0.0,
             icon: Icons.music_note,
             color: Colors.purple,
           ),
@@ -535,8 +555,8 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         const SizedBox(width: 8),
         Expanded(
           child: _ScoreItem(
-            label: 'Độ dài',
-            score: result.durationScore,
+            label: 'Cao độ',
+            score: acoustic?.pitchScore ?? 0.0,
             icon: Icons.timer,
             color: Colors.blue,
           ),
@@ -545,7 +565,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         Expanded(
           child: _ScoreItem(
             label: 'Năng lượng',
-            score: result.amplitudeScore,
+            score: acoustic?.energyScore ?? 0.0,
             icon: Icons.graphic_eq,
             color: Colors.green,
           ),
@@ -554,120 +574,30 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     );
   }
 
-  Widget _buildFeedbacks(List<ShadowingFeedback> feedbacks) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Góp ý:',
-            style: TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...feedbacks.take(3).map((feedback) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  feedback.type.icon,
-                  size: 16,
-                  color: feedback.type.color,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        feedback.message,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
-                      ),
-                      if (feedback.suggestion != null)
-                        Text(
-                          feedback.suggestion!,
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
+  // Widget _buildFeedbacks(List<ShadowingFeedback> feedbacks) { ... } // Tạm thời comment out vì model mới chưa có feedbacks list tương thích
 
   Widget _buildActions(ShadowingProvider shadowing, PlayerProvider player) {
     switch (shadowing.state) {
       case ShadowingState.idle:
         final hasLoop = player.loopStart != null && player.loopEnd != null;
         return ElevatedButton.icon(
-          onPressed: hasLoop ? () {
-            // Setup segment from player's loop
-            shadowing.setSegment(
-              start: player.loopStart!,
-              end: player.loopEnd!,
-              audioPath: player.currentSongPath ?? '',
-              waveform: [], // TODO: Get waveform from WaveformProvider
-            );
-          } : null,
+          onPressed: hasLoop
+              ? () {
+                  // Setup segment from player's loop
+                  shadowing.setSegment(
+                    start: player.loopStart!,
+                    end: player.loopEnd!,
+                    audioPath: player.currentSongPath ?? '',
+                    waveform: [], // TODO: Get waveform from WaveformProvider
+                  );
+                }
+              : null,
           icon: const Icon(Icons.play_arrow),
           label: const Text('Bắt đầu Shadowing'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2196F3),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
-        );
-
-      case ShadowingState.ready:
-        return Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  // Play original segment
-                  player.seek(shadowing.segmentStart!);
-                  player.play();
-                },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Nghe mẫu'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  shadowing.startShadowing();
-                },
-                icon: const Icon(Icons.mic),
-                label: const Text('Ghi âm'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                ),
-              ),
-            ),
-          ],
         );
 
       case ShadowingState.recording:
@@ -684,7 +614,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           ),
         );
 
-      case ShadowingState.result:
+      case ShadowingState.showingResults:
         return Row(
           children: [
             Expanded(
@@ -723,14 +653,20 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
 
   String _getStateDescription(ShadowingState state) {
     switch (state) {
-      case ShadowingState.idle: return 'Chọn đoạn để luyện tập';
-      case ShadowingState.ready: return 'Sẵn sàng ghi âm';
-      case ShadowingState.waiting: return 'Đang chờ...';
-      case ShadowingState.countdown: return 'Đếm ngược';
-      case ShadowingState.recording: return 'Đang ghi âm';
-      case ShadowingState.processing: return 'Đang xử lý';
-      case ShadowingState.comparing: return 'Đang so sánh';
-      case ShadowingState.result: return 'Kết quả';
+      case ShadowingState.idle:
+        return 'Chọn đoạn để luyện tập';
+      case ShadowingState.playingOriginal:
+        return 'Đang nghe mẫu...';
+      case ShadowingState.countdown:
+        return 'Đếm ngược';
+      case ShadowingState.recording:
+        return 'Đang ghi âm';
+      case ShadowingState.analyzing:
+        return 'Đang phân tích...';
+      case ShadowingState.showingResults:
+        return 'Kết quả';
+      default:
+        return '';
     }
   }
 
@@ -861,7 +797,8 @@ class _LiveAmplitudePainter extends CustomPainter {
     // Draw recent waveform
     if (waveform.isNotEmpty) {
       final visibleSamples = (size.width / 3).floor();
-      final startIdx = (waveform.length - visibleSamples).clamp(0, waveform.length);
+      final startIdx =
+          (waveform.length - visibleSamples).clamp(0, waveform.length);
 
       for (int i = startIdx; i < waveform.length; i++) {
         final x = (i - startIdx) / visibleSamples * size.width;

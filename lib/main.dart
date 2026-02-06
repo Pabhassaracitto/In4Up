@@ -1,13 +1,13 @@
 //main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 
-import 'providers/waveform_provider.dart';
 import 'providers/player_provider.dart';
-import 'providers/text_provider.dart';
 import 'providers/shadowing_provider.dart';
+import 'providers/text_provider.dart';
+import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart'; // THAY ĐỔI: Dùng MainShell
 
 void main() async {

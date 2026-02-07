@@ -1,17 +1,31 @@
 // lib/providers/shadowing_provider.dart
-// ShadowingProvider - Quản lý state cho Shadowing với IPA Analysis
+
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../models/phoneme_models.dart';
 import '../models/shadowing_result.dart';
+import '../services/shadowing/phoneme_analyzer.dart';
+import '../services/shadowing/pronunciation_service.dart';
 import '../services/shadowing/offline_stt_service.dart';
-import '../services/shadowing/phoneme_analyzer_v2.dart';
-import '../services/shadowing/pronunciation_assessment.dart';
+
+class ShadowingSettings {
+  final int repeatCount;
+  final double playbackSpeed;
+  final bool autoStart;
+  final Duration maxRecordDuration; // ⬅️ THÊM
+
+  const ShadowingSettings({
+    this.repeatCount = 3,
+    this.playbackSpeed = 1.0,
+    this.autoStart = false,
+    this.maxRecordDuration = const Duration(seconds: 30), // ⬅ THÊM DÒNG NÀY
+  });
+}
 
 class ShadowingProvider extends ChangeNotifier {
   // ==================== STATE ====================
@@ -46,7 +60,11 @@ class ShadowingProvider extends ChangeNotifier {
   Duration? get loopStart => _loopStart;
   Duration? get loopEnd => _loopEnd;
 
-  // Text to practice
+  // Segment (for compatibility)
+  Duration? get segmentStart => _loopStart;
+  Duration? get segmentEnd => _loopEnd;
+
+  // Text
   String _practiceText = '';
   String get practiceText => _practiceText;
 
@@ -54,43 +72,44 @@ class ShadowingProvider extends ChangeNotifier {
   ShadowingResult? _currentResult;
   ShadowingResult? get currentResult => _currentResult;
 
-  List<ShadowingResult> _history = [];
+  final List<ShadowingResult> _history = [];
   List<ShadowingResult> get history => _history;
 
   // Scores
   double _similarityScore = 0.0;
   double get similarityScore => _similarityScore;
 
-  // Audio players/recorders
+  // Audio services
   final AudioPlayer _player = AudioPlayer();
   final AudioRecorder _recorder = AudioRecorder();
-
   Timer? _recordingTimer;
   Timer? _countdownTimer;
+  Timer? _positionTimer;
 
-  // === COMPATIBILITY GETTERS ===
-  // Để tương thích với ShadowingWidget cũ
-  Duration? get segmentStart => _loopStart;
-  Duration? get segmentEnd => _loopEnd;
-  ShadowingResult? get lastResult => _currentResult;
-  int get countdownValue => _countdown;
-  double get gapProgress => 0.0; // Chưa implement gap progress visual
-  double get currentAmplitude => 0.0; // Chưa implement live amplitude
+  // Compatibility getters
+  double get currentAmplitude => 0.0;
   List<double> get recordedWaveform => _currentResult?.userWaveform ?? [];
-  ShadowingSettings get settings => ShadowingSettings(
-        repeatCount: _repeatCount,
-        playbackSpeed: _playbackSpeed,
-      );
-  Duration get recordedDuration =>
-      _recordingDuration; // Alias cho recordedDuration
-  List<ShadowingResult> get sessionResults => _history; // Alias cho history
-
-  // ==================== GETTERS ====================
+  ShadowingSettings get settings => const ShadowingSettings();
+  Duration get recordedDuration => _recordingDuration;
+  List<ShadowingResult> get sessionResults => _history;
   bool get isRecording => _state == ShadowingState.recording;
   bool get isPlaying => _state == ShadowingState.playingOriginal;
   bool get hasResult => _currentResult != null;
 
-  // ==================== INITIALIZATION ====================
+// ⬇️ THÊM CÁC GETTERS NÀY
+  double get gapProgress {
+    if (_loopStart == null ||
+        _loopEnd == null ||
+        _state != ShadowingState.playingOriginal) {
+      return 0.0;
+    }
+    final duration = _loopEnd! - _loopStart!;
+    if (duration.inMilliseconds == 0) return 0.0;
+    return _completedRepetitions / _repeatCount;
+  }
+
+  int get countdownValue => _countdown;
+  // ==================== INIT ====================
   ShadowingProvider() {
     _initServices();
   }
@@ -98,7 +117,7 @@ class ShadowingProvider extends ChangeNotifier {
   Future<void> _initServices() async {
     await PhonemeAnalyzer.initialize();
     await OfflineSTTService.initialize();
-    debugPrint('✅ Services initialized');
+    debugPrint('✅ Shadowing services initialized');
   }
 
   @override
@@ -107,6 +126,7 @@ class ShadowingProvider extends ChangeNotifier {
     _recorder.dispose();
     _recordingTimer?.cancel();
     _countdownTimer?.cancel();
+    _positionTimer?.cancel();
     super.dispose();
   }
 
@@ -124,16 +144,19 @@ class ShadowingProvider extends ChangeNotifier {
   void setLoopRegion(Duration start, Duration end) {
     _loopStart = start;
     _loopEnd = end;
+    debugPrint('🔁 Loop region set: $start → $end');
     notifyListeners();
   }
 
   void setPracticeText(String text) {
     _practiceText = text;
+    debugPrint('📝 Practice text: $text');
     notifyListeners();
   }
 
   void setOriginalAudioPath(String path) {
     _originalAudioPath = path;
+    debugPrint('🎵 Audio path: $path');
     notifyListeners();
   }
 
@@ -143,69 +166,142 @@ class ShadowingProvider extends ChangeNotifier {
     required String audioPath,
     List<double> waveform = const [],
   }) {
-    setLoopRegion(start, end);
-    setOriginalAudioPath(audioPath);
-    // Trigger state change to ready if needed
-    if (_state == ShadowingState.idle) {
-      _state = ShadowingState.idle; // Giữ idle để chờ user bấm start
-      notifyListeners();
-    }
+    _loopStart = start;
+    _loopEnd = end;
+    _originalAudioPath = audioPath;
+    notifyListeners();
   }
 
-  // ==================== MAIN ACTIONS ====================
+  // ==================== PLAY ORIGINAL (SỬA LỖI) ====================
 
-  /// Play original audio
   Future<void> playOriginal() async {
-    if (_originalAudioPath == null) return;
+    if (_originalAudioPath == null || _originalAudioPath!.isEmpty) {
+      debugPrint('❌ ERROR: _originalAudioPath is null or empty');
+      return;
+    }
+
+    debugPrint('🎵 === PLAY ORIGINAL ===');
+    debugPrint('🎵 Path: $_originalAudioPath');
+    debugPrint('🎵 Loop: $_loopStart → $_loopEnd');
+    debugPrint('🎵 Repeats: $_repeatCount, Speed: $_playbackSpeed');
 
     _setState(ShadowingState.playingOriginal);
     _completedRepetitions = 0;
 
     try {
+      // Load audio file
       await _player.setFilePath(_originalAudioPath!);
       await _player.setSpeed(_playbackSpeed);
 
-      if (_loopStart != null && _loopEnd != null) {
-        await _player.setClip(start: _loopStart, end: _loopEnd);
-      }
+      final startPos = _loopStart ?? Duration.zero;
+      final endPos =
+          _loopEnd ?? _player.duration ?? const Duration(seconds: 10);
 
+      debugPrint('🎵 Will play from $startPos to $endPos');
+
+      // Play N times
       for (int i = 0; i < _repeatCount; i++) {
-        if (_state != ShadowingState.playingOriginal) break;
-
-        await _player.seek(Duration.zero);
-        await _player.play();
-
-        // Wait for playback to complete
-        await _player.playerStateStream.firstWhere(
-          (state) => state.processingState == ProcessingState.completed,
-        );
+        if (_state != ShadowingState.playingOriginal) {
+          debugPrint('🎵 Playback interrupted at repeat ${i + 1}');
+          break;
+        }
 
         _completedRepetitions = i + 1;
         notifyListeners();
 
+        debugPrint('🎵 Playing repeat ${i + 1}/$_repeatCount');
+
+        // Seek to start of loop
+        await _player.seek(startPos);
+        await _player.play();
+
+        // Monitor position and stop at endPos
+        await _waitUntilPosition(endPos);
+
+        // Pause player
+        await _player.pause();
+
+        debugPrint('🎵 Repeat ${i + 1} complete');
+
         // Pause between repeats
         if (i < _repeatCount - 1) {
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future.delayed(const Duration(milliseconds: 800));
         }
       }
 
+      debugPrint('🎵 All repeats complete, returning to idle');
+
+      // ✅ QUAN TRỌNG: Quay về idle để nút hoạt động lại
       if (_state == ShadowingState.playingOriginal) {
-        _startCountdown();
+        _setState(ShadowingState.idle);
       }
     } catch (e) {
-      debugPrint('Error playing audio: $e');
+      debugPrint('❌ Error playing audio: $e');
       _setState(ShadowingState.idle);
     }
   }
 
-  /// Start countdown before recording
+  /// Đợi cho đến khi player đến vị trí target
+  Future<void> _waitUntilPosition(Duration targetPosition) async {
+    final completer = Completer<void>();
+
+    _positionTimer?.cancel();
+    _positionTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      final currentPos = _player.position;
+
+      // Kiểm tra đã đến vị trí target chưa
+      if (currentPos >= targetPosition) {
+        timer.cancel();
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
+
+      // Kiểm tra player đã dừng chưa
+      if (!_player.playing) {
+        timer.cancel();
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
+
+      // Kiểm tra state đã thay đổi chưa (user cancel)
+      if (_state != ShadowingState.playingOriginal) {
+        timer.cancel();
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
+    });
+
+    // Timeout safety (max 60 seconds)
+    return completer.future.timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        _positionTimer?.cancel();
+        debugPrint('⚠️ Playback timeout');
+      },
+    );
+  }
+
+  // ==================== RECORDING ====================
+
+  Future<void> startShadowing() async {
+    if (_state == ShadowingState.recording) {
+      await stopRecording();
+    } else {
+      _startCountdown();
+    }
+  }
+
   void _startCountdown() {
     _setState(ShadowingState.countdown);
     _countdown = 3;
+    notifyListeners();
 
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _countdown--;
       notifyListeners();
+
+      debugPrint('⏱️ Countdown: $_countdown');
 
       if (_countdown <= 0) {
         timer.cancel();
@@ -214,10 +310,11 @@ class ShadowingProvider extends ChangeNotifier {
     });
   }
 
-  /// Start recording
   Future<void> _startRecording() async {
     _setState(ShadowingState.recording);
     _recordingDuration = Duration.zero;
+
+    debugPrint('🎤 Starting recording...');
 
     try {
       if (await _recorder.hasPermission()) {
@@ -235,62 +332,85 @@ class ShadowingProvider extends ChangeNotifier {
         );
 
         _userRecordingPath = path;
+        debugPrint('🎤 Recording to: $path');
 
+        _recordingTimer?.cancel();
         _recordingTimer =
             Timer.periodic(const Duration(milliseconds: 100), (timer) {
           _recordingDuration += const Duration(milliseconds: 100);
           notifyListeners();
         });
+
+        // Auto-stop after 30 seconds
+        Timer(const Duration(seconds: 30), () {
+          if (_state == ShadowingState.recording) {
+            debugPrint('🎤 Auto-stopping recording (30s limit)');
+            stopRecording();
+          }
+        });
+      } else {
+        debugPrint('❌ No recording permission');
+        _setState(ShadowingState.idle);
       }
     } catch (e) {
-      debugPrint('Error starting recording: $e');
+      debugPrint('❌ Error starting recording: $e');
       _setState(ShadowingState.idle);
     }
   }
 
-  /// Stop recording and analyze
   Future<void> stopRecording() async {
     if (_state != ShadowingState.recording) return;
 
+    debugPrint('🎤 Stopping recording...');
     _recordingTimer?.cancel();
 
     try {
       final path = await _recorder.stop();
       if (path != null) {
         _userRecordingPath = path;
+        debugPrint('🎤 Recording saved: $path');
+        debugPrint('🎤 Duration: $_recordingDuration');
         await _analyzeRecording();
+      } else {
+        debugPrint('❌ Recording path is null');
+        _setState(ShadowingState.idle);
       }
     } catch (e) {
-      debugPrint('Error stopping recording: $e');
+      debugPrint('❌ Error stopping recording: $e');
       _setState(ShadowingState.idle);
     }
   }
 
-  /// Start shadowing session
-  Future<void> startShadowing() async {
-    if (_state == ShadowingState.recording) {
-      await stopRecording();
-    } else {
-      await _startRecording();
-    }
-  }
+  // ==================== ANALYSIS (SỬA LỖI ĐIỂM) ====================
 
-  /// Analyze the recording
   Future<void> _analyzeRecording() async {
     _setState(ShadowingState.analyzing);
 
+    debugPrint('🔍 === ANALYZING ===');
+    debugPrint('🔍 Practice text: "$_practiceText"');
+    debugPrint('🔍 Recording path: $_userRecordingPath');
+
     try {
-      // Sử dụng STT service
+      if (_practiceText.isEmpty) {
+        debugPrint('❌ Practice text is empty!');
+        _setState(ShadowingState.idle);
+        return;
+      }
+
+      // ✅ STT - KHÔNG truyền originalText để tránh cheat
       String recognizedText = await OfflineSTTService.transcribe(
         _userRecordingPath!,
         _practiceText,
       );
 
+      debugPrint('📝 Original:   "$_practiceText"');
+      debugPrint('🎤 Recognized: "$recognizedText"');
+
       // Extract waveforms
       final originalWaveform = await _extractWaveform(_originalAudioPath);
       final userWaveform = await _extractWaveform(_userRecordingPath);
 
-      // Analyze pronunciation
+      // Analyze
       _currentResult = PronunciationService.analyze(
         originalText: _practiceText,
         recognizedText: recognizedText,
@@ -305,14 +425,29 @@ class ShadowingProvider extends ChangeNotifier {
       _similarityScore = _currentResult!.overallScore;
       _history.add(_currentResult!);
 
+      debugPrint('📊 === RESULTS ===');
+      debugPrint(
+          '📊 Overall Score: ${(_currentResult!.overallScore * 100).toStringAsFixed(1)}%');
+      debugPrint('📊 Grade: ${_currentResult!.overallGrade}');
+      debugPrint(
+          '📊 Words: ${_currentResult!.correctWordCount}/${_currentResult!.totalWordCount}');
+
+      for (final wr in _currentResult!.wordResults) {
+        debugPrint(
+            '   📖 "${wr.expectedWord}" → "${wr.recognizedWord}" = ${wr.scorePercent}%');
+        for (final ps in wr.phonemeScores) {
+          debugPrint(
+              '      /${ps.phoneme}/ = ${ps.scorePercent}% [${ps.grade}]');
+        }
+      }
+
       _setState(ShadowingState.showingResults);
     } catch (e) {
-      debugPrint('Error analyzing: $e');
+      debugPrint('❌ Error analyzing: $e');
       _setState(ShadowingState.idle);
     }
   }
 
-  /// Extract waveform from audio file
   Future<List<double>> _extractWaveform(String? path) async {
     if (path == null) return [];
 
@@ -321,16 +456,11 @@ class ShadowingProvider extends ChangeNotifier {
       if (!await file.exists()) return [];
 
       final bytes = await file.readAsBytes();
-
-      // Simple waveform extraction
       final samples = <double>[];
-      for (int i = 0; i < bytes.length; i += 1000) {
-        if (i < bytes.length) {
-          samples.add(bytes[i] / 255.0);
-        }
+      for (int i = 44; i < bytes.length; i += 1000) {
+        samples.add(bytes[i] / 255.0);
       }
 
-      // Normalize to 100 samples
       while (samples.length > 100) {
         final newSamples = <double>[];
         for (int i = 0; i < samples.length - 1; i += 2) {
@@ -346,7 +476,8 @@ class ShadowingProvider extends ChangeNotifier {
     }
   }
 
-  /// Play user recording
+  // ==================== PLAYBACK ====================
+
   Future<void> playUserRecording() async {
     if (_userRecordingPath == null) return;
 
@@ -358,18 +489,13 @@ class ShadowingProvider extends ChangeNotifier {
     }
   }
 
-  void retry() {
-    // Reset result but keep settings
-    _currentResult = null;
-    _state = ShadowingState.idle;
-    notifyListeners();
-  }
+  // ==================== RESET ====================
 
-  /// Reset to idle state
   void reset() {
     _player.stop();
     _recordingTimer?.cancel();
     _countdownTimer?.cancel();
+    _positionTimer?.cancel();
 
     _state = ShadowingState.idle;
     _completedRepetitions = 0;
@@ -381,22 +507,20 @@ class ShadowingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Retry (alias for reset)
+  void retry() {
+    reset();
+  }
+
+  void stopPlayback() {
+    _player.stop();
+    _positionTimer?.cancel();
+    _setState(ShadowingState.idle);
+  }
+
   void _setState(ShadowingState newState) {
+    debugPrint('🔄 State: $_state → $newState');
     _state = newState;
     notifyListeners();
   }
-}
-
-/// Dummy settings class for compatibility
-class ShadowingSettings {
-  final int repeatCount;
-  final double playbackSpeed;
-  final bool autoStart;
-  final double maxRecordDuration;
-  const ShadowingSettings({
-    this.repeatCount = 3,
-    this.playbackSpeed = 1.0,
-    this.autoStart = false,
-    this.maxRecordDuration = 60.0,
-  });
 }

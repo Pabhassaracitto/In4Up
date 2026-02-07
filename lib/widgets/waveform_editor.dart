@@ -7,12 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/audio_marker.dart';
+import '../models/shadowing_result.dart'; // Chứa enum ShadowingState// THÊM IMPORT
 import '../providers/player_provider.dart';
 import '../providers/shadowing_provider.dart'; // THÊM IMPORT
 import '../providers/waveform_provider.dart';
 import 'advanced_waveform_painter.dart';
-import 'shadowing_widget.dart';
-import '../models/shadowing_result.dart'; // Chứa enum ShadowingState// THÊM IMPORT
+import 'shadowing/shadowing_widget.dart';
 
 /// Theme colors cho từng mode
 class WaveformTheme {
@@ -87,6 +87,7 @@ class WaveformTheme {
 class WaveformEditor extends StatefulWidget {
   final double height;
   final bool showControls;
+  final bool showHeader;
   final bool showMarkersList;
   final bool showShadowingArea;
   final bool showTranscript;
@@ -95,6 +96,7 @@ class WaveformEditor extends StatefulWidget {
     super.key,
     this.height = 200,
     this.showControls = true,
+    this.showHeader = true,
     this.showMarkersList = true,
     this.showShadowingArea = false,
     this.showTranscript = false,
@@ -152,7 +154,7 @@ class _WaveformEditorState extends State<WaveformEditor>
           child: Column(
             children: [
               // Mode Header
-              _ModeHeader(player: player, theme: theme),
+              if (widget.showHeader) _ModeHeader(player: player, theme: theme),
 
               // Zoom controls
               if (widget.showControls)
@@ -1122,12 +1124,15 @@ class _InteractiveWaveform extends StatefulWidget {
 class _InteractiveWaveformState extends State<_InteractiveWaveform> {
   double _startZoom = 1.0;
   Offset? _lastTapPosition;
+  bool _isUserInteracting =
+      false; // Biến cờ để kiểm tra người dùng có đang chạm vào không
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onScaleStart: (details) {
         _startZoom = widget.waveform.zoomLevel;
+        _isUserInteracting = true; // Bắt đầu tương tác -> Dừng auto scroll
       },
       onScaleUpdate: (details) {
         if (details.scale != 1.0) {
@@ -1138,10 +1143,16 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
             delta / (context.size?.width ?? 300) / widget.waveform.zoomLevel;
         widget.waveform.scrollBy(-scrollDelta);
       },
+      onScaleEnd: (details) {
+        _isUserInteracting =
+            false; // Kết thúc tương tác -> Tiếp tục auto scroll
+      },
       onTapDown: (details) {
         _lastTapPosition = details.localPosition;
+        _isUserInteracting = true;
       },
       onTapUp: (details) {
+        _isUserInteracting = false;
         if (_lastTapPosition != null) {
           final width = context.size?.width ?? 300;
           final time = widget.waveform.positionToDuration(
@@ -1224,6 +1235,37 @@ class _InteractiveWaveformState extends State<_InteractiveWaveform> {
               ),
       ),
     );
+  }
+
+  @override
+  void didUpdateWidget(_InteractiveWaveform oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // === LOGIC SÓNG CHẠY (AUTO SCROLL) ===
+    // Nếu đang play + có zoom + người dùng không chạm tay vào
+    if (widget.player.isPlaying &&
+        widget.waveform.zoomLevel > 1.0 &&
+        !_isUserInteracting &&
+        !widget.waveform.isSelecting) {
+      final duration = widget.player.state.duration.inMilliseconds;
+      final position = widget.player.state.position.inMilliseconds;
+
+      if (duration > 0) {
+        // Tính toán offset để Playhead luôn nằm giữa màn hình
+        final currentRatio = position / duration;
+        final viewRatio = 1.0 / widget.waveform.zoomLevel;
+        final targetOffset = currentRatio - (viewRatio / 2);
+
+        // Cập nhật scrollOffset (dùng postFrame để tránh lỗi build cycle)
+        if ((widget.waveform.scrollOffset - targetOffset).abs() > 0.001) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_isUserInteracting && widget.player.isPlaying) {
+              widget.waveform.setScrollOffset(targetOffset);
+            }
+          });
+        }
+      }
+    }
   }
 }
 

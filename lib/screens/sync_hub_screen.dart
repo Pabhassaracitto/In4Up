@@ -15,6 +15,8 @@ import '../providers/text_provider.dart';
 import '../models/text_item.dart';
 import '../widgets/mini_player_controls.dart';
 import '../widgets/synced_lyrics_view.dart';
+import '../ffi/ultra_engine_ffi_v2.dart'; // Import FFI để lấy debug info
+import '../widgets/waveform_editor.dart'; // Import WaveformEditor
 
 // ============================================================================
 // MAIN SCREEN
@@ -465,8 +467,17 @@ class _SyncHubScreenState extends State<SyncHubScreen>
 
           const SizedBox(height: 8),
 
-          // === PROGRESS BAR ===
-          _buildProgressBar(context, player, theme),
+          // === WAVEFORM (Thay thế Progress Bar) ===
+          // Hiển thị sóng âm thay vì slider đơn giản
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: WaveformEditor(
+              height: 80, // Chiều cao sóng
+              showHeader: false, // Ẩn header vì đã có info bài hát ở trên
+              showControls: false, // Ẩn zoom controls để gọn
+              showMarkersList: false, // Ẩn list marker
+            ),
+          ),
 
           const SizedBox(height: 8),
 
@@ -733,13 +744,37 @@ class _SyncHubScreenState extends State<SyncHubScreen>
           // Speed description
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _getSpeedDescription(player.state.speed, player.currentMode),
-              style: TextStyle(
-                fontSize: 10,
-                color: theme.primary.withOpacity(0.7),
-                fontStyle: FontStyle.italic,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _getSpeedDescription(player.state.speed, player.currentMode),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: theme.primary.withOpacity(0.7),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // === DEBUG ENGINE MODE ===
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Text(
+                    'Engine: ${UltraEngineFFIV2().debugActiveMode()}',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.greenAccent,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

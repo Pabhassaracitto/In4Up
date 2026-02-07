@@ -327,6 +327,8 @@ namespace UltraTimeStretch
             void reset();
 
             std::string getActiveEngineInfo() const;
+            int getActiveEngineMode() const;
+            float getCurrentSpeed() const;
 
         private:
             enum class ActiveEngine

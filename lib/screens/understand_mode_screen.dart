@@ -15,6 +15,7 @@ import '../widgets/rolling_waveform_controller.dart';
 import '../widgets/rolling_waveform_view.dart';
 import '../widgets/shadowing/pronunciation_result.dart';
 import '../widgets/shadowing/waveform_compare.dart';
+
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
 
@@ -562,7 +563,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     }
 
     // Get text for the loop region
-    String? loopText;
+    String loopText = '';
     for (final line in textProvider.lines) {
       if (line.startTime != null &&
           line.startTime! >= player.loopStart! &&
@@ -572,11 +573,24 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       }
     }
 
+    // ⚠️ QUAN TRỌNG: Auto-sync data khi tab mở
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (loopText.isNotEmpty && shadowing.practiceText != loopText) {
+        shadowing.setPracticeText(loopText);
+      }
+      if (player.currentSongPath != null) {
+        shadowing.setOriginalAudioPath(player.currentSongPath!);
+      }
+      if (player.loopStart != null && player.loopEnd != null) {
+        shadowing.setLoopRegion(player.loopStart!, player.loopEnd!);
+      }
+    });
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Loop info card
+          // ============ Loop Info Card ============
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -596,11 +610,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.repeat,
-                      color: Color(0xFF9C27B0),
-                      size: 20,
-                    ),
+                    const Icon(Icons.repeat,
+                        color: Color(0xFF9C27B0), size: 20),
                     const SizedBox(width: 8),
                     const Text(
                       'Đoạn luyện tập',
@@ -610,17 +621,27 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      '${_formatDuration(player.loopEnd! - player.loopStart!)}',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
+                    // State indicator
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _getStateColor(shadowing.state).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _getStateLabel(shadowing.state),
+                        style: TextStyle(
+                          color: _getStateColor(shadowing.state),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
 
-                if (loopText != null) ...[
+                if (loopText.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -641,7 +662,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
                 const SizedBox(height: 12),
 
-                // Progress - Using actual shadowing properties
+                // Progress
                 Row(
                   children: [
                     Expanded(
@@ -676,29 +697,63 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
           const SizedBox(height: 24),
 
-          // Control buttons - Using actual shadowing states
+          // ============ Control Buttons ============
           Row(
             children: [
+              // Nút Nghe Mẫu
               Expanded(
                 child: _ShadowingButton(
-                  icon: Icons.headphones,
-                  label: 'Nghe mẫu',
+                  icon: shadowing.isPlaying ? Icons.stop : Icons.headphones,
+                  label: shadowing.isPlaying ? 'Dừng phát' : 'Nghe mẫu',
                   color: Colors.blue,
-                  enabled: shadowing.state == ShadowingState.idle || shadowing.state == ShadowingState.showingResults,
-                  onTap: () => shadowing.playOriginal(),
+                  enabled: shadowing.state == ShadowingState.idle ||
+                      shadowing.state == ShadowingState.showingResults ||
+                      shadowing.state == ShadowingState.playingOriginal,
+                  onTap: () {
+                    if (shadowing.isPlaying) {
+                      shadowing.stopPlayback();
+                    } else {
+                      // ✅ Ensure data is set
+                      shadowing
+                          .setOriginalAudioPath(player.currentSongPath ?? '');
+                      shadowing.setLoopRegion(
+                          player.loopStart!, player.loopEnd!);
+                      if (loopText.isNotEmpty) {
+                        shadowing.setPracticeText(loopText);
+                      }
+                      shadowing.playOriginal();
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 12),
+              // Nút Ghi Âm
               Expanded(
                 child: _ShadowingButton(
                   icon: shadowing.isRecording ? Icons.stop : Icons.mic,
-                  label: shadowing.isRecording ? 'Dừng ghi' : 'Ghi âm',
+                  label: shadowing.isRecording
+                      ? 'Dừng (${_formatDuration(shadowing.recordingDuration)})'
+                      : shadowing.state == ShadowingState.countdown
+                          ? 'Đếm: ${shadowing.countdown}'
+                          : 'Ghi âm',
                   color: shadowing.isRecording
                       ? Colors.red
                       : const Color(0xFF9C27B0),
-                  enabled: shadowing.state == ShadowingState.idle || shadowing.state == ShadowingState.showingResults ||
+                  enabled: shadowing.state == ShadowingState.idle ||
+                      shadowing.state == ShadowingState.showingResults ||
                       shadowing.isRecording,
                   onTap: () {
+                    // ✅ Ensure data is set
+                    if (!shadowing.isRecording) {
+                      shadowing
+                          .setOriginalAudioPath(player.currentSongPath ?? '');
+                      shadowing.setLoopRegion(
+                          player.loopStart!, player.loopEnd!);
+                      if (loopText.isNotEmpty) {
+                        shadowing.setPracticeText(loopText);
+                      }
+                    }
+
                     if (shadowing.isRecording) {
                       shadowing.stopRecording();
                     } else {
@@ -710,37 +765,55 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ],
           ),
 
-            // Show results if available
-            if (shadowing.state == ShadowingState.showingResults &&
-                shadowing.currentResult != null) ...[
-              const SizedBox(height: 24),
-              PronunciationResultView(
-                result: shadowing.currentResult!,
-                onTryAgain: () => shadowing.reset(),
-                onPlayRecording: () => shadowing.playUserRecording(),
-              ),
-            ],
           const SizedBox(height: 12),
 
+          // Nút nghe lại bản ghi
           if (shadowing.userRecordingPath != null)
             _ShadowingButton(
               icon: Icons.play_circle_outline,
               label: 'Nghe lại bản ghi',
               color: Colors.green,
-              enabled: shadowing.state == ShadowingState.idle,
+              enabled: shadowing.state == ShadowingState.idle ||
+                  shadowing.state == ShadowingState.showingResults,
               onTap: () => shadowing.playUserRecording(),
               fullWidth: true,
             ),
-            // Show waveform comparison if available
-            if (shadowing.currentResult != null &&
-                shadowing.currentResult!.originalWaveform.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              WaveformCompare(
-                originalWaveform: shadowing.currentResult!.originalWaveform,
-                userWaveform: shadowing.currentResult!.userWaveform,
-                similarity: shadowing.currentResult!.overallScore,
+
+          // ============ Analyzing indicator ============
+          if (shadowing.state == ShadowingState.analyzing) ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
+              child: Column(
+                children: [
+                  const CircularProgressIndicator(
+                    color: Color(0xFF9C27B0),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Đang phân tích phát âm...',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ============ IPA RESULTS (PHẦN MỚI) ============
+          if (shadowing.state == ShadowingState.showingResults &&
+              shadowing.currentResult != null) ...[
+            const SizedBox(height: 24),
+            PronunciationResultView(
+              result: shadowing.currentResult!,
+              onTryAgain: () => shadowing.reset(),
+              onPlayRecording: () => shadowing.playUserRecording(),
+            ),
+          ],
+
           const SizedBox(height: 24),
 
           // Settings
@@ -748,6 +821,42 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         ],
       ),
     );
+  }
+
+  // ==================== HELPER METHODS MỚI ====================
+
+  Color _getStateColor(ShadowingState state) {
+    switch (state) {
+      case ShadowingState.idle:
+        return Colors.grey;
+      case ShadowingState.playingOriginal:
+        return Colors.blue;
+      case ShadowingState.countdown:
+        return Colors.orange;
+      case ShadowingState.recording:
+        return Colors.red;
+      case ShadowingState.analyzing:
+        return const Color(0xFF9C27B0);
+      case ShadowingState.showingResults:
+        return Colors.green;
+    }
+  }
+
+  String _getStateLabel(ShadowingState state) {
+    switch (state) {
+      case ShadowingState.idle:
+        return 'Sẵn sàng';
+      case ShadowingState.playingOriginal:
+        return '▶ Đang phát';
+      case ShadowingState.countdown:
+        return '⏱ Đếm ngược';
+      case ShadowingState.recording:
+        return '● Ghi âm';
+      case ShadowingState.analyzing:
+        return '🔍 Phân tích';
+      case ShadowingState.showingResults:
+        return '✅ Kết quả';
+    }
   }
 
   Widget _buildShadowingGuide(PlayerProvider player) {

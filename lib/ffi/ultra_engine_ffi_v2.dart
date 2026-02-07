@@ -64,6 +64,12 @@ typedef GetVersion = Pointer<Utf8> Function();
 typedef NativeReset = Void Function(Pointer<Void> engine);
 typedef Reset = void Function(Pointer<Void> engine);
 
+typedef NativeGetActiveEngineMode = Int32 Function(Pointer<Void> engine);
+typedef GetActiveEngineMode = int Function(Pointer<Void> engine);
+
+typedef NativeGetCurrentSpeed = Float Function(Pointer<Void> engine);
+typedef GetCurrentSpeed = double Function(Pointer<Void> engine);
+
 /// FFI Bindings for UltraTimeStretch V2 Native Engine
 class UltraEngineFFIV2 {
   static UltraEngineFFIV2? _instance;
@@ -81,6 +87,8 @@ class UltraEngineFFIV2 {
   GetLatency? _getLatency;
   GetVersion? _getVersion;
   Reset? _reset;
+  GetActiveEngineMode? _getActiveEngineMode;
+  GetCurrentSpeed? _getCurrentSpeed;
 
   UltraEngineFFIV2._internal();
 
@@ -176,6 +184,23 @@ class UltraEngineFFIV2 {
       _reset = _lib!.lookup<NativeFunction<NativeReset>>('Reset').asFunction();
     } on ArgumentError {
       _reset = null;
+    }
+
+    try {
+      _getActiveEngineMode = _lib!
+          .lookup<NativeFunction<NativeGetActiveEngineMode>>(
+              'GetActiveEngineMode')
+          .asFunction();
+    } catch (_) {
+      _getActiveEngineMode = null;
+    }
+
+    try {
+      _getCurrentSpeed = _lib!
+          .lookup<NativeFunction<NativeGetCurrentSpeed>>('GetCurrentSpeed')
+          .asFunction();
+    } catch (_) {
+      _getCurrentSpeed = null;
     }
   }
 
@@ -350,6 +375,24 @@ class UltraEngineFFIV2 {
       _reset!(_enginePtr!);
     } catch (e) {
       print('Error resetting: $e');
+    }
+  }
+
+  /// Debug: Get current active engine mode
+  /// 0=V1_Standard, 1=V2_Hybrid, 2=V2_MultiRes
+  String debugActiveMode() {
+    if (_enginePtr == null || _getActiveEngineMode == null)
+      return 'N/A (Not Init/Symbol Missing)';
+    final m = _getActiveEngineMode!(_enginePtr!);
+    switch (m) {
+      case 0:
+        return 'V1_Standard (>0.5x)';
+      case 1:
+        return 'V2_Hybrid (0.15x-0.5x)';
+      case 2:
+        return 'V2_MultiRes (<0.15x)';
+      default:
+        return 'Unknown($m)';
     }
   }
 

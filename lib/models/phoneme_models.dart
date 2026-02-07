@@ -137,6 +137,7 @@ class WordResult {
   final WordStatus status;
   final double score;
   final List<PhonemeScore> phonemeScores;
+  final PhonemeResult? phonemeResult;
 
   const WordResult({
     required this.expectedWord,
@@ -144,6 +145,7 @@ class WordResult {
     required this.status,
     required this.score,
     required this.phonemeScores,
+    this.phonemeResult,
   });
 
   int get scorePercent => (score * 100).round();

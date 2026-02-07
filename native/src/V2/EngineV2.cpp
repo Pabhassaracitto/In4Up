@@ -182,5 +182,40 @@ namespace UltraTimeStretch
             return ss.str();
         }
 
+        int EngineV2::getActiveEngineMode() const
+        {
+            return static_cast<int>(activeEngine_);
+        }
+
+        float EngineV2::getCurrentSpeed() const
+        {
+            return currentSpeed_;
+        }
+
     } // namespace V2
 } // namespace UltraTimeStretch
+
+#if defined(_WIN32)
+#define UTS_EXPORT __declspec(dllexport)
+#else
+#define UTS_EXPORT __attribute__((visibility("default")))
+#endif
+
+extern "C"
+{
+    UTS_EXPORT int GetActiveEngineMode(void *enginePtr)
+    {
+        auto *engine = static_cast<UltraTimeStretch::V2::EngineV2 *>(enginePtr);
+        if (!engine)
+            return -1;
+        return engine->getActiveEngineMode();
+    }
+
+    UTS_EXPORT float GetCurrentSpeed(void *enginePtr)
+    {
+        auto *engine = static_cast<UltraTimeStretch::V2::EngineV2 *>(enginePtr);
+        if (!engine)
+            return 1.0f;
+        return engine->getCurrentSpeed();
+    }
+}

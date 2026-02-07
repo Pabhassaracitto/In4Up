@@ -1,5 +1,6 @@
 // lib/services/pronunciation_service.dart
-//NEW - Dịch vụ đánh giá phát âm sử dụng G2P rules, CMU Dictionary và phân tích phiên âm nâng cao
+// Service đánh giá phát âm
+
 import 'dart:math' as math;
 
 import '../../models/phoneme_models.dart';
@@ -42,6 +43,7 @@ class PronunciationService {
         status: status,
         score: wordScore,
         phonemeScores: phonemeScores,
+        phonemeResult: phonemeResult,
       ));
     }
 
@@ -116,7 +118,6 @@ class PronunciationService {
     }
 
     // Từ gần đúng - phân tích chi tiết
-    final similarity = _jaroWinkler(expectedWord, recognizedWord);
     final diffPositions =
         _findDifferencePositions(expectedWord, recognizedWord);
 

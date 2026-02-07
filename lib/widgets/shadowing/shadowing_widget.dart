@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../models/shadowing_result.dart';
-import '../providers/player_provider.dart';
-import '../providers/shadowing_provider.dart';
-import '../widgets/shadowing/waveform_comparison_painter.dart';
+import '../../models/shadowing_result.dart';
+import '../../providers/player_provider.dart';
+import '../../providers/shadowing_provider.dart';
+import 'waveform_comparison_painter.dart';
 
 /// Widget chính cho Shadowing Mode
 class ShadowingWidget extends StatefulWidget {
@@ -64,13 +64,13 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0xFF1A237E).withOpacity(0.3),
+                const Color(0xFF1A237E).withValues(alpha: 0.3),
                 const Color(0xFF0D1B2A),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF2196F3).withOpacity(0.3),
+              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
             ),
           ),
           child: Column(
@@ -101,7 +101,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF2196F3).withOpacity(0.2),
+            color: const Color(0xFF2196F3).withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -137,7 +137,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.2),
+              color: Colors.green.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -169,7 +169,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       case ShadowingState.showingResults:
         return _buildResultState(shadowing);
     }
-    return const SizedBox.shrink();
+    //return const SizedBox.shrink();
   }
 
   Widget _buildIdleState(ShadowingProvider shadowing, PlayerProvider player) {
@@ -200,7 +200,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
+                color: Colors.green.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -237,7 +237,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     );
   }
 
-  Widget _buildReadyState(ShadowingProvider shadowing) {
+  /*Widget _buildReadyState(ShadowingProvider shadowing) {
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -264,7 +264,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         ],
       ),
     );
-  }
+  }*/
 
   Widget _buildWaitingState(ShadowingProvider shadowing) {
     return Container(
@@ -335,7 +335,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF2196F3).withOpacity(0.2),
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
                     border: Border.all(
                       color: const Color(0xFF2196F3),
                       width: 3,
@@ -343,7 +343,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   ),
                   child: Center(
                     child: Text(
-                      '${shadowing.countdownValue}',
+                      '${shadowing.countdown}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 48,
@@ -414,7 +414,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           const SizedBox(height: 8),
 
           Text(
-            'Tối đa: ${shadowing.settings.maxRecordDuration.round()}s',
+            'Tối đa: ${shadowing.settings.maxRecordDuration.inSeconds}s',
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
         ],
@@ -504,12 +504,12 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            result.scoreColor.withOpacity(0.3),
-            result.scoreColor.withOpacity(0.1),
+            result.scoreColor.withValues(alpha: 0.3),
+            result.scoreColor.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: result.scoreColor.withOpacity(0.5)),
+        border: Border.all(color: result.scoreColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
@@ -665,8 +665,8 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         return 'Đang phân tích...';
       case ShadowingState.showingResults:
         return 'Kết quả';
-      default:
-        return '';
+      //default:
+      //return '';
     }
   }
 
@@ -715,10 +715,10 @@ class _RecordingDotState extends State<_RecordingDot>
           height: 12,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.red.withOpacity(0.5 + _controller.value * 0.5),
+            color: Colors.red.withValues(alpha: 0.5 + _controller.value * 0.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.withOpacity(0.5),
+                color: Colors.red.withValues(alpha: 0.5),
                 blurRadius: 8 * _controller.value,
                 spreadRadius: 2 * _controller.value,
               ),
@@ -748,9 +748,9 @@ class _ScoreItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -808,7 +808,7 @@ class _LiveAmplitudePainter extends CustomPainter {
         canvas.drawLine(
           Offset(x, centerY - barHeight / 2),
           Offset(x, centerY + barHeight / 2),
-          paint..color = Colors.red.withOpacity(0.3 + amp * 0.7),
+          paint..color = Colors.red.withValues(alpha: 0.3 + amp * 0.7),
         );
       }
     }

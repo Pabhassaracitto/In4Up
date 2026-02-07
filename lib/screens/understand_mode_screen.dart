@@ -52,12 +52,30 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         ShadowingProvider>(
       builder: (context, player, textProvider, waveform, shadowing, child) {
         // Sync waveform data
-        if (waveform.waveformData.isNotEmpty &&
-            _waveformController.waveformData == null) {
-          _waveformController.setWaveformData(WaveformData(
-            samples: waveform.waveformData,
-            duration: player.state.duration,
-          ));
+        // 1. Tự động tải waveform nếu chưa có
+        if (player.currentSongPath != null &&
+            (waveform.waveformData.isEmpty ||
+                waveform.currentFilePath != player.currentSongPath) &&
+            !waveform.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            waveform.loadWaveform(
+                player.currentSongPath!, player.state.duration);
+          });
+        }
+
+        // 2. Cập nhật controller khi có dữ liệu mới hoặc duration thay đổi
+        if (waveform.waveformData.isNotEmpty) {
+          final currentData = _waveformController.waveformData;
+          // Cập nhật nếu chưa có data HOẶC duration đã thay đổi (từ 0 -> có giá trị)
+          if (currentData == null ||
+              (player.state.duration > Duration.zero &&
+                  currentData.duration != player.state.duration) ||
+              currentData.samples.length != waveform.waveformData.length) {
+            _waveformController.setWaveformData(WaveformData(
+              samples: waveform.waveformData,
+              duration: player.state.duration,
+            ));
+          }
         }
 
         // Sync position

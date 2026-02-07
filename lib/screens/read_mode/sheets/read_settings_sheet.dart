@@ -1,0 +1,546 @@
+// lib/screens/read_mode/sheets/read_settings_sheet.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../providers/text_provider.dart';
+import '../../../models/word_analysis.dart';
+
+class ReadSettingsSheet {
+  ReadSettingsSheet._();
+
+  static void show(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const _SettingsContent(),
+    );
+  }
+}
+
+class _SettingsContent extends StatelessWidget {
+  const _SettingsContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.85,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (context, scrollController) {
+        return Consumer<TextProvider>(
+          builder: (context, tp, _) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[600],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Header
+                  Row(
+                    children: [
+                      const Icon(Icons.tune, color: Color(0xFF2196F3)),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Cài đặt Text Studio',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ===== FONT SIZE =====
+                  _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
+                  const SizedBox(height: 12),
+                  _FontSizeControl(tp: tp),
+                  const SizedBox(height: 24),
+
+                  // ===== TTS =====
+                  _SectionTitle(
+                      title: 'Text-to-Speech', icon: Icons.record_voice_over),
+                  const SizedBox(height: 12),
+                  _TtsControls(tp: tp),
+                  const SizedBox(height: 24),
+
+                  // ===== COLOR MODE =====
+                  _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
+                  const SizedBox(height: 12),
+                  _ColorModeSelector(tp: tp),
+
+                  if (tp.colorMode != ColorMode.none) ...[
+                    const SizedBox(height: 16),
+                    _LegendPanel(colorMode: tp.colorMode),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // ===== DISPLAY OPTIONS =====
+                  _SectionTitle(title: 'Hiển thị', icon: Icons.visibility),
+                  const SizedBox(height: 12),
+                  _DisplayOptions(tp: tp),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final IconData icon;
+
+  const _SectionTitle({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF2196F3)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF2196F3),
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FontSizeControl extends StatelessWidget {
+  final TextProvider tp;
+  const _FontSizeControl({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => tp.setFontSize(tp.fontSize - 2),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.remove, color: Colors.white, size: 20),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  '${tp.fontSize.toInt()}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Slider(
+                  value: tp.fontSize,
+                  min: 12,
+                  max: 36,
+                  divisions: 12,
+                  activeColor: const Color(0xFF2196F3),
+                  onChanged: (v) => tp.setFontSize(v),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => tp.setFontSize(tp.fontSize + 2),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TtsControls extends StatelessWidget {
+  final TextProvider tp;
+  const _TtsControls({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // Speed slider
+          Row(
+            children: [
+              const Icon(Icons.speed, size: 18, color: Colors.white70),
+              const SizedBox(width: 8),
+              const Text('Tốc độ:',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              Expanded(
+                child: Slider(
+                  value: tp.ttsSpeed,
+                  min: 0.25,
+                  max: 2.0,
+                  divisions: 7,
+                  activeColor: const Color(0xFF2196F3),
+                  onChanged: (v) => tp.setTtsSpeed(v),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${tp.ttsSpeed.toStringAsFixed(2)}x',
+                  style: const TextStyle(
+                    color: Color(0xFF2196F3),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: _TtsButton(
+                  icon: Icons.play_arrow,
+                  label: 'Đọc dòng',
+                  color: const Color(0xFF4CAF50),
+                  enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
+                  onTap: () {
+                    Navigator.pop(context);
+                    tp.speakCurrentLine();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TtsButton(
+                  icon: Icons.playlist_play,
+                  label: 'Đọc tất cả',
+                  color: const Color(0xFF2196F3),
+                  enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
+                  onTap: () {
+                    Navigator.pop(context);
+                    tp.speakAllLines();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TtsButton(
+                  icon: Icons.stop,
+                  label: 'Dừng',
+                  color: Colors.red,
+                  enabled: tp.isSpeaking,
+                  onTap: () => tp.stopSpeaking(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TtsButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _TtsButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color:
+              enabled ? color.withOpacity(0.15) : Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: enabled ? color.withOpacity(0.3) : Colors.transparent,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: enabled ? color : Colors.grey, size: 18),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: enabled ? color : Colors.grey,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ColorModeSelector extends StatelessWidget {
+  final TextProvider tp;
+  const _ColorModeSelector({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: ColorMode.values.map((mode) {
+        final isSelected = tp.colorMode == mode;
+        return GestureDetector(
+          onTap: () => tp.setColorMode(mode),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF2196F3)
+                  : Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF2196F3)
+                    : Colors.white.withOpacity(0.1),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  mode.icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  mode.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isSelected ? Colors.white : Colors.grey,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _LegendPanel extends StatelessWidget {
+  final ColorMode colorMode;
+  const _LegendPanel({required this.colorMode});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: _items),
+        ],
+      ),
+    );
+  }
+
+  String get _title {
+    switch (colorMode) {
+      case ColorMode.none:
+        return '';
+      case ColorMode.wordType:
+        return 'Loại từ (Syntax Highlighting):';
+      case ColorMode.cefrLevel:
+        return 'Cấp độ CEFR:';
+      case ColorMode.difficulty:
+        return 'Độ khó (bạn đánh dấu):';
+    }
+  }
+
+  List<Widget> get _items {
+    switch (colorMode) {
+      case ColorMode.none:
+        return [];
+      case ColorMode.wordType:
+        return WordType.values
+            .where((t) => t != WordType.unknown)
+            .map((type) => _Chip(color: type.color, label: type.labelVi))
+            .toList();
+      case ColorMode.cefrLevel:
+        return CEFRLevel.values
+            .where((l) => l != CEFRLevel.unknown)
+            .map((level) => _Chip(color: level.color, label: level.shortLabel))
+            .toList();
+      case ColorMode.difficulty:
+        return DifficultyLevel.values
+            .map((level) => _Chip(color: level.color, label: level.label))
+            .toList();
+    }
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _Chip({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisplayOptions extends StatelessWidget {
+  final TextProvider tp;
+  const _DisplayOptions({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            title: const Text('Hiện bản dịch',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text('Hiển thị dịch nghĩa bên dưới mỗi dòng',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            value: tp.showTranslation,
+            activeColor: const Color(0xFF4CAF50),
+            onChanged: (_) => tp.toggleTranslation(),
+          ),
+          Divider(color: Colors.white.withOpacity(0.05), height: 1),
+          SwitchListTile(
+            title: const Text('Hiện số dòng',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text('Hiện số thứ tự và timestamp',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            value: true, // TODO: add to provider
+            activeColor: const Color(0xFF2196F3),
+            onChanged: (_) {},
+          ),
+        ],
+      ),
+    );
+  }
+}

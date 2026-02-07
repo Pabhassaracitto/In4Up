@@ -1,0 +1,190 @@
+// lib/screens/read_mode/widgets/floating_text_actions.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../../providers/text_provider.dart';
+import '../controllers/read_mode_controller.dart';
+import '../sheets/create_segment_sheet.dart';
+
+class FloatingTextActions {
+  FloatingTextActions._();
+
+  /// Hiện floating action bar cho text đã chọn
+  static void show(BuildContext context, String selectedText) {
+    final controller = context.read<ReadModeController>();
+    controller.removeFloatingMenu(); // Xóa menu cũ
+
+    final overlay = Overlay.of(context);
+
+    final entry = OverlayEntry(
+      builder: (overlayContext) => Positioned(
+        bottom: 100,
+        left: 16,
+        right: 16,
+        child: _FloatingBar(
+          selectedText: selectedText,
+          onDismiss: () => controller.removeFloatingMenu(),
+        ),
+      ),
+    );
+
+    controller.showFloatingMenu(entry, context);
+  }
+}
+
+class _FloatingBar extends StatelessWidget {
+  final String selectedText;
+  final VoidCallback onDismiss;
+
+  const _FloatingBar({
+    required this.selectedText,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack,
+        builder: (context, value, child) {
+          return Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: Opacity(
+              opacity: value,
+              child: child,
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A3E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // Preview text
+              Expanded(
+                child: Text(
+                  selectedText.length > 30
+                      ? '"${selectedText.substring(0, 30)}..."'
+                      : '"$selectedText"',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // TTS
+              _ActionBtn(
+                icon: Icons.volume_up,
+                color: const Color(0xFF2196F3),
+                tooltip: 'Phát âm',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.read<TextProvider>().speakSelected();
+                  onDismiss();
+                },
+              ),
+              const SizedBox(width: 6),
+
+              // Bookmark
+              _ActionBtn(
+                icon: Icons.bookmark_add,
+                color: Colors.amber,
+                tooltip: 'Lưu học',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onDismiss();
+                  CreateSegmentSheet.show(context);
+                },
+              ),
+              const SizedBox(width: 6),
+
+              // Copy
+              _ActionBtn(
+                icon: Icons.copy,
+                color: Colors.grey,
+                tooltip: 'Sao chép',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Clipboard.setData(ClipboardData(text: selectedText));
+                  onDismiss();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('📋 Đã sao chép!'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
+
+              // Close
+              _ActionBtn(
+                icon: Icons.close,
+                color: Colors.grey[600]!,
+                tooltip: 'Đóng',
+                onTap: () {
+                  context.read<TextProvider>().clearSelection();
+                  onDismiss();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _ActionBtn({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+      ),
+    );
+  }
+}

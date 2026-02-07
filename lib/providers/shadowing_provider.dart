@@ -132,16 +132,21 @@ class ShadowingProvider extends ChangeNotifier {
 
   // ==================== SETTINGS ====================
   void setRepeatCount(int count) {
-    _repeatCount = count.clamp(1, 10);
+    final newCount = count.clamp(1, 10);
+    if (_repeatCount == newCount) return; // ← THÊM
+    _repeatCount = newCount;
     notifyListeners();
   }
 
   void setPlaybackSpeed(double speed) {
-    _playbackSpeed = speed.clamp(0.5, 2.0);
+    final newSpeed = speed.clamp(0.5, 2.0);
+    if (_playbackSpeed == newSpeed) return; // ← THÊM
+    _playbackSpeed = newSpeed;
     notifyListeners();
   }
 
   void setLoopRegion(Duration start, Duration end) {
+    if (_loopStart == start && _loopEnd == end) return; // ← THÊM
     _loopStart = start;
     _loopEnd = end;
     debugPrint('🔁 Loop region set: $start → $end');
@@ -149,12 +154,14 @@ class ShadowingProvider extends ChangeNotifier {
   }
 
   void setPracticeText(String text) {
+    if (_practiceText == text) return; // ← THÊM
     _practiceText = text;
     debugPrint('📝 Practice text: $text');
     notifyListeners();
   }
 
   void setOriginalAudioPath(String path) {
+    if (_originalAudioPath == path) return; // ← THÊM
     _originalAudioPath = path;
     debugPrint('🎵 Audio path: $path');
     notifyListeners();
@@ -166,6 +173,9 @@ class ShadowingProvider extends ChangeNotifier {
     required String audioPath,
     List<double> waveform = const [],
   }) {
+    if (_loopStart == start &&
+        _loopEnd == end &&
+        _originalAudioPath == audioPath) return; // ← THÊM
     _loopStart = start;
     _loopEnd = end;
     _originalAudioPath = audioPath;

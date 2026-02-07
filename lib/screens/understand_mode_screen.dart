@@ -12,7 +12,7 @@ import '../providers/shadowing_provider.dart';
 import '../providers/text_provider.dart';
 import '../providers/waveform_provider.dart';
 import '../widgets/rolling_waveform_controller.dart';
-import '../../widgets/rolling_waveform_view.dart';
+import '../widgets/rolling_waveform_view.dart';
 import '../widgets/shadowing/pronunciation_result.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
@@ -561,26 +561,69 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       return _buildShadowingGuide(player);
     }
 
-    // Get text for the loop region
+    // ✅ CẢI THIỆN: Tìm text cho loop region (linh hoạt hơn)
     String loopText = '';
+    final loopStart = player.loopStart!;
+    final loopEnd = player.loopEnd!;
+
+    // Cách 1: Tìm tất cả dòng nằm trong khoảng loop
+    final linesInLoop = <String>[];
     for (final line in textProvider.lines) {
-      if (line.startTime != null &&
-          line.startTime! >= player.loopStart! &&
-          line.startTime! <= player.loopEnd!) {
-        loopText = line.content;
-        break;
+      if (line.startTime == null) continue;
+
+      // Dòng nằm trong khoảng loop (mở rộng tolerance 500ms)
+      final lineStart = line.startTime!;
+      final lineEnd = line.endTime ?? (lineStart + const Duration(seconds: 5));
+
+      // Kiểm tra overlap giữa line và loop region
+      if (lineStart <= loopEnd + const Duration(milliseconds: 500) &&
+          lineEnd >= loopStart - const Duration(milliseconds: 500)) {
+        linesInLoop.add(line.content);
       }
     }
 
-    // ✅ Sync data (KHÔNG dùng addPostFrameCallback, KHÔNG gây loop)
-    // Các setter đã có guard if (value == old) return; nên không gây rebuild
+    if (linesInLoop.isNotEmpty) {
+      loopText = linesInLoop.join(' ');
+    }
+
+    // Cách 2: Nếu vẫn rỗng, lấy dòng hiện tại
+    if (loopText.isEmpty && textProvider.currentLineIndex >= 0) {
+      final currentLine = textProvider.lines[textProvider.currentLineIndex];
+      loopText = currentLine.content;
+    }
+
+    // Cách 3: Nếu vẫn rỗng, lấy dòng gần nhất
+    if (loopText.isEmpty) {
+      Duration? closestDistance;
+      String? closestText;
+
+      for (final line in textProvider.lines) {
+        if (line.startTime == null || line.content.trim().isEmpty) continue;
+
+        final distance = (line.startTime! - loopStart).abs();
+        if (closestDistance == null || distance < closestDistance) {
+          closestDistance = distance;
+          closestText = line.content;
+        }
+      }
+
+      if (closestText != null) {
+        loopText = closestText;
+      }
+    }
+
+    // ✅ DEBUG LOG
+    debugPrint('📝 Loop text found: "$loopText"');
+    debugPrint('📝 Lines in loop: ${linesInLoop.length}');
+
+    // ✅ Sync data vào provider (có guard chống loop)
     if (loopText.isNotEmpty) {
       shadowing.setPracticeText(loopText);
     }
     if (player.currentSongPath != null) {
       shadowing.setOriginalAudioPath(player.currentSongPath!);
     }
-    shadowing.setLoopRegion(player.loopStart!, player.loopEnd!);
+    shadowing.setLoopRegion(loopStart, loopEnd);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -597,7 +640,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           // ============ Recording Playback ============
           if (shadowing.userRecordingPath != null &&
               (shadowing.state == ShadowingState.idle ||
-               shadowing.state == ShadowingState.showingResults)) ...[
+                  shadowing.state == ShadowingState.showingResults)) ...[
             const SizedBox(height: 12),
             _ShadowingButton(
               icon: Icons.play_circle_outline,
@@ -631,7 +674,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
           ],
 
-          // ============ ⭐ IPA RESULTS (PHẦN QUAN TRỌNG) ============
+          // ============ ⭐ IPA RESULTS ============
           if (shadowing.state == ShadowingState.showingResults &&
               shadowing.currentResult != null) ...[
             const SizedBox(height: 24),
@@ -644,9 +687,35 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
           ],
 
+          // ============ Warning nếu text rỗng ============
+          if (loopText.isEmpty) ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Không tìm thấy text cho đoạn loop này.\n'
+                      'Hãy đồng bộ text với audio trong tab Đồng bộ.',
+                      style: TextStyle(color: Colors.orange, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 24),
 
-          // ============ Settings ============
+          // Settings
           _buildShadowingSettings(shadowing),
 
           const SizedBox(height: 24),
@@ -746,8 +815,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Expanded(
                 child: _ProgressItem(
                   label: 'Tốc độ',
-                  value:
-                      '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                  value: '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
                   color: Colors.orange,
                 ),
               ),
@@ -755,8 +823,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Expanded(
                 child: _ProgressItem(
                   label: 'Điểm',
-                  value:
-                      '${(shadowing.similarityScore * 100).toInt()}%',
+                  value: '${(shadowing.similarityScore * 100).toInt()}%',
                   color: Colors.green,
                 ),
               ),
@@ -803,8 +870,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 : shadowing.state == ShadowingState.countdown
                     ? 'Đếm: ${shadowing.countdown}'
                     : 'Ghi âm',
-            color:
-                shadowing.isRecording ? Colors.red : const Color(0xFF9C27B0),
+            color: shadowing.isRecording ? Colors.red : const Color(0xFF9C27B0),
             enabled: shadowing.state == ShadowingState.idle ||
                 shadowing.state == ShadowingState.showingResults ||
                 shadowing.isRecording,
@@ -822,310 +888,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   }
 
   // ==================== STATE HELPERS ====================
-  Color _getStateColor(ShadowingState state) {
-    switch (state) {
-      case ShadowingState.idle:
-        return Colors.grey;
-      case ShadowingState.playingOriginal:
-        return Colors.blue;
-      case ShadowingState.countdown:
-        return Colors.orange;
-      case ShadowingState.recording:
-        return Colors.red;
-      case ShadowingState.analyzing:
-        return const Color(0xFF9C27B0);
-      case ShadowingState.showingResults:
-        return Colors.green;
-    }
-  }
-
-  String _getStateLabel(ShadowingState state) {
-    switch (state) {
-      case ShadowingState.idle:
-        return 'Sẵn sàng';
-      case ShadowingState.playingOriginal:
-        return '▶ Đang phát';
-      case ShadowingState.countdown:
-        return '⏱ Đếm ngược';
-      case ShadowingState.recording:
-        return '● Ghi âm';
-      case ShadowingState.analyzing:
-        return '🔍 Phân tích';
-      case ShadowingState.showingResults:
-        return '✅ Kết quả';
-    }
-  }
-    PlayerProvider player,
-    TextProvider textProvider,
-    ShadowingProvider shadowing,
-  ) {
-    if (player.loopStart == null || player.loopEnd == null) {
-      return _buildShadowingGuide(player);
-    }
-
-    // Get text for the loop region
-    String loopText = '';
-    for (final line in textProvider.lines) {
-      if (line.startTime != null &&
-          line.startTime! >= player.loopStart! &&
-          line.startTime! <= player.loopEnd!) {
-        loopText = line.content;
-        break;
-      }
-    }
-
-    // ⚠️ QUAN TRỌNG: Auto-sync data khi tab mở
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (loopText.isNotEmpty && shadowing.practiceText != loopText) {
-        shadowing.setPracticeText(loopText);
-      }
-      if (player.currentSongPath != null) {
-        shadowing.setOriginalAudioPath(player.currentSongPath!);
-      }
-      if (player.loopStart != null && player.loopEnd != null) {
-        shadowing.setLoopRegion(player.loopStart!, player.loopEnd!);
-      }
-    });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // ============ Loop Info Card ============
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF9C27B0).withOpacity(0.2),
-                  const Color(0xFF9C27B0).withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF9C27B0).withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.repeat,
-                        color: Color(0xFF9C27B0), size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Đoạn luyện tập',
-                      style: TextStyle(
-                        color: Color(0xFF9C27B0),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    // State indicator
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getStateColor(shadowing.state).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _getStateLabel(shadowing.state),
-                        style: TextStyle(
-                          color: _getStateColor(shadowing.state),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                if (loopText.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black26,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      loopText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 12),
-
-                // Progress
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ProgressItem(
-                        label: 'Lần lặp',
-                        current: shadowing.completedRepetitions,
-                        target: shadowing.repeatCount,
-                        color: const Color(0xFF9C27B0),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ProgressItem(
-                        label: 'Tốc độ',
-                        value: '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
-                        color: Colors.orange,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ProgressItem(
-                        label: 'Điểm',
-                        value: '${(shadowing.similarityScore * 100).toInt()}%',
-                        color: Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ============ Control Buttons ============
-          Row(
-            children: [
-              // Nút Nghe Mẫu
-              Expanded(
-                child: _ShadowingButton(
-                  icon: shadowing.isPlaying ? Icons.stop : Icons.headphones,
-                  label: shadowing.isPlaying ? 'Dừng phát' : 'Nghe mẫu',
-                  color: Colors.blue,
-                  enabled: shadowing.state == ShadowingState.idle ||
-                      shadowing.state == ShadowingState.showingResults ||
-                      shadowing.state == ShadowingState.playingOriginal,
-                  onTap: () {
-                    if (shadowing.isPlaying) {
-                      shadowing.stopPlayback();
-                    } else {
-                      // ✅ Ensure data is set
-                      shadowing
-                          .setOriginalAudioPath(player.currentSongPath ?? '');
-                      shadowing.setLoopRegion(
-                          player.loopStart!, player.loopEnd!);
-                      if (loopText.isNotEmpty) {
-                        shadowing.setPracticeText(loopText);
-                      }
-                      shadowing.playOriginal();
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Nút Ghi Âm
-              Expanded(
-                child: _ShadowingButton(
-                  icon: shadowing.isRecording ? Icons.stop : Icons.mic,
-                  label: shadowing.isRecording
-                      ? 'Dừng (${_formatDuration(shadowing.recordingDuration)})'
-                      : shadowing.state == ShadowingState.countdown
-                          ? 'Đếm: ${shadowing.countdown}'
-                          : 'Ghi âm',
-                  color: shadowing.isRecording
-                      ? Colors.red
-                      : const Color(0xFF9C27B0),
-                  enabled: shadowing.state == ShadowingState.idle ||
-                      shadowing.state == ShadowingState.showingResults ||
-                      shadowing.isRecording,
-                  onTap: () {
-                    // ✅ Ensure data is set
-                    if (!shadowing.isRecording) {
-                      shadowing
-                          .setOriginalAudioPath(player.currentSongPath ?? '');
-                      shadowing.setLoopRegion(
-                          player.loopStart!, player.loopEnd!);
-                      if (loopText.isNotEmpty) {
-                        shadowing.setPracticeText(loopText);
-                      }
-                    }
-
-                    if (shadowing.isRecording) {
-                      shadowing.stopRecording();
-                    } else {
-                      shadowing.startShadowing();
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // Nút nghe lại bản ghi
-          if (shadowing.userRecordingPath != null)
-            _ShadowingButton(
-              icon: Icons.play_circle_outline,
-              label: 'Nghe lại bản ghi',
-              color: Colors.green,
-              enabled: shadowing.state == ShadowingState.idle ||
-                  shadowing.state == ShadowingState.showingResults,
-              onTap: () => shadowing.playUserRecording(),
-              fullWidth: true,
-            ),
-
-          // ============ Analyzing indicator ============
-          if (shadowing.state == ShadowingState.analyzing) ...[
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  const CircularProgressIndicator(
-                    color: Color(0xFF9C27B0),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Đang phân tích phát âm...',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // ============ IPA RESULTS (PHẦN MỚI) ============
-          if (shadowing.state == ShadowingState.showingResults &&
-              shadowing.currentResult != null) ...[
-            const SizedBox(height: 24),
-            PronunciationResultView(
-              result: shadowing.currentResult!,
-              onTryAgain: () => shadowing.reset(),
-              onPlayRecording: () => shadowing.playUserRecording(),
-            ),
-          ],
-
-          const SizedBox(height: 24),
-
-          // Settings
-          _buildShadowingSettings(shadowing),
-        ],
-      ),
-    );
-  }
-
-  // ==================== HELPER METHODS MỚI ====================
-
   Color _getStateColor(ShadowingState state) {
     switch (state) {
       case ShadowingState.idle:

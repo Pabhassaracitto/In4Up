@@ -1,5 +1,3 @@
-// lib/widgets/rolling_waveform_painter.dart
-// Vẽ waveform dạng rolling, với playhead cố định ở giữa và waveform chạy qua lại. Hỗ trợ highlight vùng hiện tại, màu sắc khác nhau cho quá khứ và tương lai, và hiển thị loop regions.
 import 'package:flutter/material.dart';
 import '../models/waveform_data.dart';
 import 'rolling_waveform_controller.dart';
@@ -17,7 +15,9 @@ class RollingWaveformPainter extends CustomPainter {
     this.currentColor = const Color(0xFF6C63FF),
     this.futureColor = const Color(0xFF888888),
     this.playheadColor = const Color(0xFFFFFFFF),
-  });
+  }) : super(
+            repaint:
+                controller); // THÊM: Lắng nghe controller để repaint tự động
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -65,6 +65,9 @@ class RollingWaveformPainter extends CustomPainter {
       endIndex.clamp(0, data.samples.length),
     );
 
+    // Tránh lỗi chia cho 0 nếu size.width = 0
+    if (size.width <= 0) return;
+
     final samplesPerPixel = visibleSamples.length / size.width;
 
     // Vẽ từng bar
@@ -110,13 +113,20 @@ class RollingWaveformPainter extends CustomPainter {
       final startX = _positionToScreenX(region.start, size.width, playheadX);
       final endX = _positionToScreenX(region.end, size.width, playheadX);
 
-      if (startX == null || endX == null) continue;
+      // Chỉ vẽ nếu ít nhất một phần của vùng loop nằm trong màn hình
+      if (startX == null && endX == null) continue;
+
+      // Xử lý trường hợp một đầu nằm ngoài màn hình
+      final drawStartX = startX ??
+          (region.start < controller.position ? -100.0 : size.width + 100.0);
+      final drawEndX = endX ??
+          (region.end < controller.position ? -100.0 : size.width + 100.0);
 
       // Vẽ vùng loop (overlay)
       final loopRect = Rect.fromLTWH(
-        startX,
+        drawStartX,
         0,
-        endX - startX,
+        drawEndX - drawStartX,
         size.height,
       );
 
@@ -126,11 +136,15 @@ class RollingWaveformPainter extends CustomPainter {
 
       canvas.drawRect(loopRect, loopPaint);
 
-      // Vẽ marker A (start)
-      _drawLoopMarker(canvas, size, startX, 'A', region.color);
+      // Vẽ marker A (start) nếu trong màn hình
+      if (startX != null) {
+        _drawLoopMarker(canvas, size, startX, 'A', region.color);
+      }
 
-      // Vẽ marker B (end)
-      _drawLoopMarker(canvas, size, endX, 'B', region.color);
+      // Vẽ marker B (end) nếu trong màn hình
+      if (endX != null) {
+        _drawLoopMarker(canvas, size, endX, 'B', region.color);
+      }
     }
   }
 
@@ -211,6 +225,8 @@ class RollingWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RollingWaveformPainter oldDelegate) {
-    return controller != oldDelegate.controller;
+    // SỬA LỖI: Luôn trả về true hoặc so sánh properties nếu cần thiết.
+    // Vì controller là mutable object, so sánh reference (==) sẽ luôn trả về false.
+    return true;
   }
 }

@@ -401,28 +401,26 @@ class ShadowingProvider extends ChangeNotifier {
     debugPrint('🔍 Recording path: $_userRecordingPath');
 
     try {
-      if (_practiceText.isEmpty) {
-        debugPrint('❌ Practice text is empty!');
-        _setState(ShadowingState.idle);
-        return;
+      // ✅ Nếu text rỗng, dùng fallback
+      String textToAnalyze = _practiceText;
+      if (textToAnalyze.trim().isEmpty) {
+        textToAnalyze = 'hello world'; // Fallback text
+        debugPrint('⚠️ Practice text empty, using fallback: "$textToAnalyze"');
       }
 
-      // ✅ STT - KHÔNG truyền originalText để tránh cheat
       String recognizedText = await OfflineSTTService.transcribe(
         _userRecordingPath!,
-        _practiceText,
+        textToAnalyze,
       );
 
-      debugPrint('📝 Original:   "$_practiceText"');
+      debugPrint('📝 Original:   "$textToAnalyze"');
       debugPrint('🎤 Recognized: "$recognizedText"');
 
-      // Extract waveforms
       final originalWaveform = await _extractWaveform(_originalAudioPath);
       final userWaveform = await _extractWaveform(_userRecordingPath);
 
-      // Analyze
       _currentResult = PronunciationService.analyze(
-        originalText: _practiceText,
+        originalText: textToAnalyze,
         recognizedText: recognizedText,
         originalWaveform: originalWaveform,
         userWaveform: userWaveform,
@@ -439,8 +437,6 @@ class ShadowingProvider extends ChangeNotifier {
       debugPrint(
           '📊 Overall Score: ${(_currentResult!.overallScore * 100).toStringAsFixed(1)}%');
       debugPrint('📊 Grade: ${_currentResult!.overallGrade}');
-      debugPrint(
-          '📊 Words: ${_currentResult!.correctWordCount}/${_currentResult!.totalWordCount}');
 
       for (final wr in _currentResult!.wordResults) {
         debugPrint(

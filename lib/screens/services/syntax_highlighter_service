@@ -1,0 +1,704 @@
+// lib/services/syntax_highlighter_service.dart
+// Adapter/Service tích hợp english_syntax_highlighter vào VipSound
+
+import 'package:flutter/material.dart';
+import 'package:english_syntax_highlighter/english_syntax_highlighter.dart';
+import '../models/word_analysis.dart';
+import '../providers/text_provider.dart';
+
+/// Service tích hợp english_syntax_highlighter
+/// với hệ thống phân tích từ của VipSound
+class SyntaxHighlighterService {
+  SyntaxHighlighterService._();
+  static final instance = SyntaxHighlighterService._();
+
+  // Cache kết quả phân tích theo dòng text
+  final Map<String, List<AnalyzedWord>> _cache = {};
+  static const int _maxCacheSize = 500;
+
+  // Instance highlighter - khởi tạo 1 lần
+  late final EnglishSyntaxHighlighter _highlighter;
+  bool _initialized = false;
+
+  /// Khởi tạo service (gọi 1 lần trong main hoặc provider)
+  Future<void> initialize() async {
+    if (_initialized) return;
+    _highlighter = EnglishSyntaxHighlighter();
+    _initialized = true;
+  }
+
+  /// Phân tích 1 câu → danh sách AnalyzedWord
+  List<AnalyzedWord> analyzeLine(String text) {
+    if (text.trim().isEmpty) return [];
+
+    // Check cache
+    if (_cache.containsKey(text)) {
+      return _cache[text]!;
+    }
+
+    List<AnalyzedWord> result;
+
+    try {
+      if (_initialized) {
+        result = _analyzeWithHighlighter(text);
+      } else {
+        result = _analyzeBasic(text);
+      }
+    } catch (e) {
+      // Fallback nếu highlighter lỗi
+      debugPrint('SyntaxHighlighter error: $e');
+      result = _analyzeBasic(text);
+    }
+
+    // Cache management
+    if (_cache.length >= _maxCacheSize) {
+      // Xóa 20% cache cũ nhất
+      final keysToRemove = _cache.keys.take(_maxCacheSize ~/ 5).toList();
+      for (final key in keysToRemove) {
+        _cache.remove(key);
+      }
+    }
+    _cache[text] = result;
+
+    return result;
+  }
+
+  /// Phân tích toàn bộ văn bản (nhiều dòng)
+  List<List<AnalyzedWord>> analyzeAllLines(List<String> lines) {
+    return lines.map((line) => analyzeLine(line)).toList();
+  }
+
+  /// ===== PHÂN TÍCH VỚI english_syntax_highlighter =====
+  List<AnalyzedWord> _analyzeWithHighlighter(String text) {
+    // Sử dụng package để lấy tokens
+    final highlighted = _highlighter.highlight(text);
+
+    // Parse TextSpan tree → flat list of AnalyzedWord
+    final words = <AnalyzedWord>[];
+    _extractWordsFromSpan(highlighted, words);
+
+    // Nếu highlighter không trả về gì hữu ích, fallback
+    if (words.isEmpty) {
+      return _analyzeBasic(text);
+    }
+
+    return words;
+  }
+
+  /// Đệ quy extract words từ TextSpan tree
+  void _extractWordsFromSpan(TextSpan span, List<AnalyzedWord> words) {
+    if (span.text != null && span.text!.trim().isNotEmpty) {
+      final wordType = _mapStyleToWordType(span.style);
+      final cefrLevel = _estimateCEFR(span.text!.trim().toLowerCase());
+
+      // Tách từng từ (nếu span chứa nhiều từ)
+      final tokens = span.text!.split(RegExp(r'\s+'));
+      for (final token in tokens) {
+        if (token.trim().isEmpty) continue;
+        words.add(AnalyzedWord(
+          word: token,
+          wordType: wordType,
+          cefrLevel: cefrLevel,
+          meaning: _getQuickMeaning(token.toLowerCase(), wordType),
+        ));
+      }
+    }
+
+    // Recurse children
+    if (span.children != null) {
+      for (final child in span.children!) {
+        if (child is TextSpan) {
+          _extractWordsFromSpan(child, words);
+        }
+      }
+    }
+  }
+
+  /// Map TextStyle từ highlighter → WordType của VipSound
+  WordType _mapStyleToWordType(TextStyle? style) {
+    if (style == null || style.color == null) return WordType.unknown;
+
+    final color = style.color!;
+
+    // Map màu của english_syntax_highlighter → WordType
+    // (Điều chỉnh theo palette thực tế của package)
+    if (_isColorClose(color, Colors.blue) ||
+        _isColorClose(color, const Color(0xFF569CD6))) {
+      return WordType.noun;
+    }
+    if (_isColorClose(color, Colors.red) ||
+        _isColorClose(color, const Color(0xFFD7BA7D))) {
+      return WordType.verb;
+    }
+    if (_isColorClose(color, Colors.green) ||
+        _isColorClose(color, const Color(0xFFB5CEA8))) {
+      return WordType.adjective;
+    }
+    if (_isColorClose(color, Colors.orange) ||
+        _isColorClose(color, const Color(0xFFCE9178))) {
+      return WordType.adverb;
+    }
+    if (_isColorClose(color, Colors.purple) ||
+        _isColorClose(color, const Color(0xFFC586C0))) {
+      return WordType.preposition;
+    }
+    if (_isColorClose(color, Colors.cyan) ||
+        _isColorClose(color, const Color(0xFF9CDCFE))) {
+      return WordType.pronoun;
+    }
+    if (_isColorClose(color, Colors.teal)) {
+      return WordType.conjunction;
+    }
+    if (_isColorClose(color, Colors.grey)) {
+      return WordType.determiner;
+    }
+
+    return WordType.unknown;
+  }
+
+  /// Kiểm tra 2 màu có gần nhau không
+  bool _isColorClose(Color a, Color b, {int threshold = 60}) {
+    return (a.red - b.red).abs() < threshold &&
+        (a.green - b.green).abs() < threshold &&
+        (a.blue - b.blue).abs() < threshold;
+  }
+
+  /// ===== FALLBACK: Phân tích cơ bản (không cần package) =====
+  List<AnalyzedWord> _analyzeBasic(String text) {
+    final words = <AnalyzedWord>[];
+    final tokens = text.split(RegExp(r'(\s+)'));
+
+    for (final token in tokens) {
+      if (token.trim().isEmpty) continue;
+
+      final clean = token.replaceAll(RegExp(r'[^\w]'), '').toLowerCase();
+      if (clean.isEmpty) {
+        words.add(AnalyzedWord(
+          word: token,
+          wordType: WordType.unknown,
+          cefrLevel: CEFRLevel.unknown,
+        ));
+        continue;
+      }
+
+      final wordType = _classifyWordBasic(clean);
+      final cefrLevel = _estimateCEFR(clean);
+
+      words.add(AnalyzedWord(
+        word: token,
+        wordType: wordType,
+        cefrLevel: cefrLevel,
+        meaning: _getQuickMeaning(clean, wordType),
+      ));
+    }
+    return words;
+  }
+
+  /// Phân loại từ cơ bản (rule-based)
+  WordType _classifyWordBasic(String word) {
+    // Pronouns
+    if (_pronouns.contains(word)) return WordType.pronoun;
+    // Determiners
+    if (_determiners.contains(word)) return WordType.determiner;
+    // Prepositions
+    if (_prepositions.contains(word)) return WordType.preposition;
+    // Conjunctions
+    if (_conjunctions.contains(word)) return WordType.conjunction;
+    // Common verbs
+    if (_commonVerbs.contains(word)) return WordType.verb;
+    // Verb patterns
+    if (word.endsWith('ing') ||
+        word.endsWith('ed') ||
+        word.endsWith('ize') ||
+        word.endsWith('ise') ||
+        word.endsWith('ate') ||
+        word.endsWith('ify')) {
+      return WordType.verb;
+    }
+    // Adverb patterns
+    if (word.endsWith('ly') && word.length > 3) return WordType.adverb;
+    // Adjective patterns
+    if (word.endsWith('ful') ||
+        word.endsWith('less') ||
+        word.endsWith('ous') ||
+        word.endsWith('ive') ||
+        word.endsWith('able') ||
+        word.endsWith('ible') ||
+        word.endsWith('ical') ||
+        word.endsWith('ish')) {
+      return WordType.adjective;
+    }
+    // Noun patterns
+    if (word.endsWith('tion') ||
+        word.endsWith('sion') ||
+        word.endsWith('ment') ||
+        word.endsWith('ness') ||
+        word.endsWith('ity') ||
+        word.endsWith('ance') ||
+        word.endsWith('ence') ||
+        word.endsWith('er') ||
+        word.endsWith('or')) {
+      return WordType.noun;
+    }
+
+    return WordType.unknown;
+  }
+
+  /// Ước lượng CEFR level
+  CEFRLevel _estimateCEFR(String word) {
+    if (_a1Words.contains(word)) return CEFRLevel.a1;
+    if (_a2Words.contains(word)) return CEFRLevel.a2;
+    if (_b1Words.contains(word)) return CEFRLevel.b1;
+    if (word.length <= 4) return CEFRLevel.a1;
+    if (word.length <= 6) return CEFRLevel.a2;
+    if (word.length <= 8) return CEFRLevel.b1;
+    if (word.length <= 10) return CEFRLevel.b2;
+    return CEFRLevel.c1;
+  }
+
+  /// Quick meaning lookup (basic dictionary)
+  String? _getQuickMeaning(String word, WordType type) {
+    return _basicDict[word];
+  }
+
+  /// Xóa cache
+  void clearCache() => _cache.clear();
+
+  // ===== WORD LISTS =====
+  static const _pronouns = {
+    'i',
+    'me',
+    'my',
+    'mine',
+    'myself',
+    'you',
+    'your',
+    'yours',
+    'yourself',
+    'he',
+    'him',
+    'his',
+    'himself',
+    'she',
+    'her',
+    'hers',
+    'herself',
+    'it',
+    'its',
+    'itself',
+    'we',
+    'us',
+    'our',
+    'ours',
+    'ourselves',
+    'they',
+    'them',
+    'their',
+    'theirs',
+    'themselves',
+    'this',
+    'that',
+    'these',
+    'those',
+    'who',
+    'whom',
+    'whose',
+    'which',
+    'what',
+  };
+
+  static const _determiners = {
+    'a',
+    'an',
+    'the',
+    'some',
+    'any',
+    'every',
+    'each',
+    'no',
+    'all',
+    'both',
+    'few',
+    'many',
+    'much',
+    'several',
+  };
+
+  static const _prepositions = {
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'with',
+    'by',
+    'from',
+    'about',
+    'into',
+    'through',
+    'during',
+    'before',
+    'after',
+    'above',
+    'below',
+    'between',
+    'under',
+    'over',
+    'up',
+    'down',
+    'out',
+    'off',
+    'near',
+    'around',
+    'upon',
+    'against',
+    'along',
+    'across',
+    'behind',
+    'beyond',
+    'within',
+  };
+
+  static const _conjunctions = {
+    'and',
+    'but',
+    'or',
+    'nor',
+    'for',
+    'yet',
+    'so',
+    'because',
+    'although',
+    'while',
+    'if',
+    'when',
+    'unless',
+    'until',
+    'since',
+    'though',
+    'whereas',
+    'whether',
+  };
+
+  static const _commonVerbs = {
+    'be',
+    'is',
+    'am',
+    'are',
+    'was',
+    'were',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'having',
+    'do',
+    'does',
+    'did',
+    'doing',
+    'done',
+    'will',
+    'would',
+    'shall',
+    'should',
+    'can',
+    'could',
+    'may',
+    'might',
+    'must',
+    'go',
+    'get',
+    'make',
+    'know',
+    'think',
+    'take',
+    'see',
+    'come',
+    'want',
+    'look',
+    'use',
+    'find',
+    'give',
+    'tell',
+    'work',
+    'call',
+    'try',
+    'ask',
+    'need',
+    'feel',
+    'become',
+    'leave',
+    'put',
+    'mean',
+    'keep',
+    'let',
+    'begin',
+    'seem',
+    'help',
+    'show',
+    'hear',
+    'play',
+    'run',
+    'move',
+    'live',
+    'say',
+    'said',
+    'like',
+    'just',
+    'set',
+    'turn',
+  };
+
+  static const _a1Words = {
+    'i',
+    'you',
+    'he',
+    'she',
+    'it',
+    'we',
+    'they',
+    'the',
+    'a',
+    'an',
+    'is',
+    'am',
+    'are',
+    'was',
+    'were',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'go',
+    'come',
+    'see',
+    'know',
+    'good',
+    'big',
+    'small',
+    'old',
+    'new',
+    'long',
+    'great',
+    'house',
+    'car',
+    'book',
+    'water',
+    'food',
+    'day',
+    'time',
+    'man',
+    'woman',
+    'child',
+    'world',
+    'life',
+    'hand',
+    'part',
+    'and',
+    'but',
+    'or',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'yes',
+    'no',
+    'not',
+    'hello',
+    'thank',
+    'please',
+  };
+
+  static const _a2Words = {
+    'work',
+    'school',
+    'family',
+    'friend',
+    'money',
+    'city',
+    'country',
+    'people',
+    'thing',
+    'problem',
+    'number',
+    'important',
+    'different',
+    'possible',
+    'same',
+    'free',
+    'happy',
+    'young',
+    'early',
+    'sure',
+    'real',
+    'always',
+    'never',
+    'often',
+    'sometimes',
+    'usually',
+    'still',
+    'already',
+    'together',
+    'enough',
+    'probably',
+    'believe',
+    'understand',
+    'remember',
+    'learn',
+    'change',
+    'follow',
+    'create',
+    'speak',
+    'read',
+    'write',
+    'because',
+    'before',
+    'after',
+    'between',
+    'without',
+  };
+
+  static const _b1Words = {
+    'experience',
+    'education',
+    'environment',
+    'government',
+    'technology',
+    'information',
+    'development',
+    'relationship',
+    'community',
+    'situation',
+    'organization',
+    'opportunity',
+    'significant',
+    'available',
+    'particular',
+    'professional',
+    'necessary',
+    'individual',
+    'similar',
+    'appropriate',
+    'especially',
+    'actually',
+    'certainly',
+    'obviously',
+    'consider',
+    'suggest',
+    'improve',
+    'discuss',
+    'achieve',
+    'maintain',
+    'provide',
+    'involve',
+    'require',
+    'produce',
+    'although',
+    'however',
+    'therefore',
+    'meanwhile',
+  };
+
+  static const _basicDict = <String, String>{
+    'the': 'cái/con/người (mạo từ xác định)',
+    'is': 'là/thì',
+    'are': 'là/thì (số nhiều)',
+    'was': 'đã là',
+    'have': 'có',
+    'do': 'làm',
+    'say': 'nói',
+    'go': 'đi',
+    'get': 'lấy/được',
+    'make': 'làm/tạo',
+    'know': 'biết',
+    'think': 'nghĩ',
+    'take': 'lấy',
+    'see': 'thấy',
+    'come': 'đến',
+    'want': 'muốn',
+    'look': 'nhìn',
+    'use': 'dùng',
+    'find': 'tìm',
+    'give': 'cho',
+    'tell': 'kể/nói',
+    'work': 'làm việc',
+    'call': 'gọi',
+    'try': 'thử',
+    'ask': 'hỏi',
+    'need': 'cần',
+    'feel': 'cảm thấy',
+    'become': 'trở thành',
+    'leave': 'rời/để lại',
+    'good': 'tốt',
+    'new': 'mới',
+    'first': 'đầu tiên',
+    'last': 'cuối cùng',
+    'long': 'dài/lâu',
+    'great': 'tuyệt vời',
+    'little': 'nhỏ/ít',
+    'own': 'sở hữu',
+    'old': 'cũ/già',
+    'right': 'đúng/phải',
+    'big': 'to/lớn',
+    'high': 'cao',
+    'small': 'nhỏ',
+    'large': 'lớn',
+    'important': 'quan trọng',
+    'beautiful': 'đẹp',
+    'happy': 'vui',
+    'time': 'thời gian',
+    'year': 'năm',
+    'people': 'người/mọi người',
+    'way': 'cách/đường',
+    'day': 'ngày',
+    'man': 'đàn ông',
+    'woman': 'phụ nữ',
+    'child': 'trẻ em',
+    'world': 'thế giới',
+    'life': 'cuộc sống',
+    'hand': 'tay',
+    'part': 'phần',
+    'place': 'nơi',
+    'case': 'trường hợp',
+    'week': 'tuần',
+    'company': 'công ty',
+    'system': 'hệ thống',
+    'program': 'chương trình',
+    'question': 'câu hỏi',
+    'government': 'chính phủ',
+    'number': 'số',
+    'night': 'đêm',
+    'point': 'điểm',
+    'home': 'nhà',
+    'water': 'nước',
+    'room': 'phòng',
+    'mother': 'mẹ',
+    'area': 'khu vực',
+    'money': 'tiền',
+    'story': 'câu chuyện',
+    'fact': 'sự thật',
+    'month': 'tháng',
+    'lot': 'nhiều',
+    'book': 'sách',
+    'eye': 'mắt',
+    'job': 'công việc',
+    'word': 'từ',
+    'business': 'kinh doanh',
+    'love': 'tình yêu/yêu',
+    'heart': 'trái tim',
+    'mind': 'tâm trí',
+    'dream': 'giấc mơ',
+    'light': 'ánh sáng',
+    'truth': 'sự thật',
+    'peace': 'hòa bình',
+    'hope': 'hy vọng',
+    'power': 'sức mạnh',
+    'nature': 'thiên nhiên',
+  };
+}

@@ -1,23 +1,18 @@
 // lib/providers/player_provider.dart
-// VipSound - Enhanced Player Provider
-// Version 2.0 - Optimized for Buddhism & English Learning
-
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
-
 import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
+import '../services/storage_service.dart'; // ★ THÊM
 
 /// Chế độ sử dụng app
 enum VipMode {
-  music, // Nghe nhạc thông thường
-  buddhism, // Nghe Pháp thoại
-  english, // Học tiếng Anh
+  music,
+  buddhism,
+  english,
 }
 
-/// Cấu hình mặc định cho từng chế độ
 class ModeSettings {
   final double defaultSpeed;
   final double defaultGapDuration;
@@ -43,7 +38,7 @@ class ModeSettings {
 
   static const buddhism = ModeSettings(
     defaultSpeed: 0.9,
-    defaultGapDuration: 3.0, // 3 giây suy ngẫm
+    defaultGapDuration: 3.0,
     defaultLoopCount: 3,
     autoAdvanceSegments: false,
     showTranscript: true,
@@ -51,7 +46,7 @@ class ModeSettings {
 
   static const english = ModeSettings(
     defaultSpeed: 0.75,
-    defaultGapDuration: 2.0, // 2 giây để lặp lại
+    defaultGapDuration: 2.0,
     defaultLoopCount: 5,
     autoAdvanceSegments: true,
     showTranscript: true,
@@ -71,6 +66,7 @@ class ModeSettings {
 
 class PlayerProvider extends ChangeNotifier {
   final AudioPlayerService _audioService = AudioPlayerService();
+  final StorageService _storage = StorageService(); // ★ THÊM
 
   // === PLAYBACK STATE ===
   PlaybackState _state = const PlaybackState();
@@ -89,8 +85,7 @@ class PlayerProvider extends ChangeNotifier {
   int _loopCount = 0;
   int _maxLoopCount = 0;
 
-  // Gap Loop - Khoảng lặng giữa các lần loop
-  double _gapDuration = 0.0; // Giây
+  double _gapDuration = 0.0;
   bool _isWaitingGap = false;
   Timer? _gapTimer;
 
@@ -100,7 +95,7 @@ class PlayerProvider extends ChangeNotifier {
   DateTime? _sleepEndTime;
 
   // === SAVED POSITIONS ===
-  final Map<String, int> _savedPositions = {};
+  // ★ ĐỔI: Không dùng Map trong memory nữa, dùng StorageService
   Timer? _positionSaverTimer;
 
   // === SEGMENTS ===
@@ -114,7 +109,6 @@ class PlayerProvider extends ChangeNotifier {
 
   // ==================== GETTERS ====================
 
-  // Basic
   PlaybackState get state => _state;
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
@@ -124,14 +118,12 @@ class PlayerProvider extends ChangeNotifier {
   bool get isStopped => _state.status == PlaybackStatus.stopped;
   bool get isLoading => _state.status == PlaybackStatus.loading;
 
-  // VipMode
   VipMode get currentMode => _currentMode;
   ModeSettings get modeSettings => _modeSettings;
   bool get isBuddhismMode => _currentMode == VipMode.buddhism;
   bool get isEnglishMode => _currentMode == VipMode.english;
   bool get isMusicMode => _currentMode == VipMode.music;
 
-  // A-B Loop
   Duration? get loopStart => _loopStart;
   Duration? get loopEnd => _loopEnd;
   bool get isLooping => _isLooping;
@@ -146,23 +138,19 @@ class PlayerProvider extends ChangeNotifier {
     return _loopEnd! - _loopStart!;
   }
 
-  /// Phần trăm hoàn thành loop (cho progress indicator)
   double get loopProgress {
     if (_maxLoopCount == 0) return 0.0;
     return (_loopCount / _maxLoopCount).clamp(0.0, 1.0);
   }
 
-  // Sleep timer
   Duration? get sleepDuration => _sleepDuration;
   bool get hasSleepTimer => _sleepTimer != null;
-
   Duration? get sleepRemaining {
     if (_sleepEndTime == null) return null;
     final remaining = _sleepEndTime!.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
-  // Segments
   List<Segment> get segments => List.unmodifiable(_segments);
   int get currentSegmentIndex => _currentSegmentIndex;
   Segment? get currentSegment =>
@@ -170,11 +158,9 @@ class PlayerProvider extends ChangeNotifier {
           ? _segments[_currentSegmentIndex]
           : null;
 
-  // Learning Stats
   int get totalLoopsToday => _totalLoopsToday;
   Duration get totalListeningTime => _totalListeningTime;
 
-  // Speed presets
   List<double> get speedPresets => AudioPlayerService.speedPresets;
 
   // ==================== CONSTRUCTOR ====================
@@ -188,8 +174,49 @@ class PlayerProvider extends ChangeNotifier {
       (_) => _saveCurrentPosition(),
     );
 
-    // Track listening time
     _sessionStartTime = DateTime.now();
+
+    // ★ THÊM: Restore saved data
+    _restoreFromStorage();
+  }
+
+  // ★ THÊM: Khôi phục dữ liệu từ storage
+  void _restoreFromStorage() {
+    if (!_storage.isInitialized) return;
+
+    try {
+      // Restore mode
+      final savedMode = _storage.getLastMode();
+      switch (savedMode) {
+        case 'buddhism':
+          _currentMode = VipMode.buddhism;
+          break;
+        case 'english':
+          _currentMode = VipMode.english;
+          break;
+        default:
+          _currentMode = VipMode.music;
+      }
+      _modeSettings = ModeSettings.forMode(_currentMode);
+
+      // Restore gap duration
+      _gapDuration = _storage.getGapDuration();
+
+      // Restore audio segments
+      final savedSegments = _storage.getAllAudioSegments();
+      _segments.addAll(savedSegments);
+
+      // Restore daily stats
+      final todayStats = _storage.getDailyStats();
+      _totalLoopsToday = todayStats['loops'] as int;
+
+      debugPrint('✅ PlayerProvider restored: '
+          'mode=$savedMode, '
+          'segments=${_segments.length}, '
+          'loops=$_totalLoopsToday');
+    } catch (e) {
+      debugPrint('⚠️ Error restoring PlayerProvider: $e');
+    }
   }
 
   void _onStateChanged(PlaybackState state) {
@@ -203,7 +230,6 @@ class PlayerProvider extends ChangeNotifier {
 
     // Update listening time
     if (state.status == PlaybackStatus.playing && _sessionStartTime != null) {
-      // Approximate tracking
       _totalListeningTime += const Duration(milliseconds: 100);
     }
 
@@ -212,24 +238,23 @@ class PlayerProvider extends ChangeNotifier {
 
   // ==================== VIP MODE ====================
 
-  /// Chuyển chế độ sử dụng
   void setMode(VipMode mode) {
     if (_currentMode == mode) return;
-
     _currentMode = mode;
     _modeSettings = ModeSettings.forMode(mode);
 
-    // Áp dụng cấu hình mặc định của mode (nếu chưa có loop)
     if (!_isLooping) {
       _gapDuration = _modeSettings.defaultGapDuration;
       _maxLoopCount = _modeSettings.defaultLoopCount;
     }
 
+    // ★ THÊM: Persist mode
+    _storage.saveLastMode(mode.name);
+
     debugPrint('VipMode changed to: ${mode.name}');
     notifyListeners();
   }
 
-  /// Áp dụng speed mặc định của mode hiện tại
   Future<void> applyModeDefaultSpeed() async {
     await setSpeed(_modeSettings.defaultSpeed);
   }
@@ -245,7 +270,6 @@ class PlayerProvider extends ChangeNotifier {
     _currentSongPath = path;
     _currentSongTitle = title ?? path.split('/').last;
     _currentSongArtist = artist;
-
     clearLoop();
     _currentSegmentIndex = -1;
     notifyListeners();
@@ -253,11 +277,14 @@ class PlayerProvider extends ChangeNotifier {
     final success = await _audioService.loadFile(path);
 
     if (success) {
-      // Restore saved position
-      final savedMs = _savedPositions[path];
+      // ★ ĐỔI: Restore từ StorageService
+      final savedMs = _storage.getSavedPosition(path);
       if (savedMs != null && savedMs > 10000) {
         await seek(Duration(milliseconds: savedMs));
       }
+
+      // ★ THÊM: Lưu last audio path
+      _storage.saveLastAudioPath(path);
 
       if (autoPlay) {
         await play();
@@ -294,7 +321,6 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> seekToPercent(double percent) async {
     final duration = _state.duration;
     if (duration == Duration.zero) return;
-
     final position = Duration(
       milliseconds: (duration.inMilliseconds * percent).round(),
     );
@@ -306,22 +332,18 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> seekRelative(int seconds) async {
     final currentPosition = _state.position;
     final duration = _state.duration;
-
     var newPosition = currentPosition + Duration(seconds: seconds);
-
     if (newPosition < Duration.zero) {
       newPosition = Duration.zero;
     } else if (duration != Duration.zero && newPosition > duration) {
       newPosition = duration;
     }
-
     await seek(newPosition);
   }
 
   Future<void> replay5() async => seekRelative(-5);
   Future<void> replay10() async => seekRelative(-10);
   Future<void> replay30() async => seekRelative(-30);
-
   Future<void> forward5() async => seekRelative(5);
   Future<void> forward10() async => seekRelative(10);
   Future<void> forward30() async => seekRelative(30);
@@ -332,6 +354,9 @@ class PlayerProvider extends ChangeNotifier {
     final safeSpeed = (speed.isNaN ? 1.0 : speed)
         .clamp(AudioPlayerService.minSpeed, AudioPlayerService.maxSpeed);
     await _audioService.setSpeed(safeSpeed);
+
+    // ★ THÊM: Persist
+    _storage.saveLastPlaybackSpeed(safeSpeed);
   }
 
   Future<void> setPitch(double semitones) async {
@@ -343,7 +368,6 @@ class PlayerProvider extends ChangeNotifier {
     await _audioService.setVolume(volume);
   }
 
-  /// Tăng/giảm speed theo bước
   Future<void> increaseSpeed([double step = 0.1]) async {
     final newSpeed = (_state.speed + step).clamp(
       AudioPlayerService.minSpeed,
@@ -360,7 +384,7 @@ class PlayerProvider extends ChangeNotifier {
     await setSpeed(newSpeed);
   }
 
-  // ==================== A-B LOOP (Enhanced) ====================
+  // ==================== A-B LOOP ====================
 
   void setLoopStart() {
     _loopStart = _state.position;
@@ -369,10 +393,8 @@ class PlayerProvider extends ChangeNotifier {
 
   void setLoopEnd() {
     if (_loopStart == null) return;
-
     _loopEnd = _state.position;
 
-    // Đảm bảo start < end
     if (_loopEnd! <= _loopStart!) {
       final temp = _loopStart;
       _loopStart = _loopEnd;
@@ -382,10 +404,10 @@ class PlayerProvider extends ChangeNotifier {
     _isLooping = true;
     _loopCount = 0;
 
-    // Áp dụng cấu hình mặc định từ mode nếu chưa set
     if (_gapDuration == 0) {
       _gapDuration = _modeSettings.defaultGapDuration;
     }
+
     if (_maxLoopCount == 0) {
       _maxLoopCount = _modeSettings.defaultLoopCount;
     }
@@ -393,7 +415,6 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set loop với đầy đủ tham số
   void setLoop(
     Duration start,
     Duration end, {
@@ -401,7 +422,6 @@ class PlayerProvider extends ChangeNotifier {
     double? gapSeconds,
     bool startImmediately = true,
   }) {
-    // Đảm bảo start < end
     if (end <= start) {
       _loopStart = end;
       _loopEnd = start;
@@ -423,44 +443,43 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set số lần lặp tối đa (0 = vô hạn)
   void setMaxLoopCount(int count) {
     _maxLoopCount = count;
     notifyListeners();
   }
 
-  /// Set khoảng lặng giữa các lần loop (giây)
   void setGapDuration(double seconds) {
     _gapDuration = (seconds.isNaN ? 0.0 : seconds).clamp(0.0, 30.0);
+
+    // ★ THÊM: Persist
+    _storage.saveGapDuration(_gapDuration);
+
     notifyListeners();
   }
 
-  /// Logic kiểm tra và xử lý loop
   void _checkLoopPosition(Duration currentPosition, Duration previousPosition) {
     if (!_isLooping || _loopEnd == null || _loopStart == null) return;
 
-    // Kiểm tra đã vượt qua điểm B chưa
     if (currentPosition >= _loopEnd!) {
       _loopCount++;
       _totalLoopsToday++;
 
-      // Kiểm tra đã đủ số lần lặp chưa
+      // ★ THÊM: Persist loop count
+      _storage.incrementLoopCount();
+
       if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
         _onLoopCompleted();
         return;
       }
 
-      // Xử lý gap (khoảng lặng)
       if (_gapDuration > 0) {
         _startGapWait();
       } else {
-        // Quay lại điểm A ngay lập tức
         seek(_loopStart!);
       }
     }
   }
 
-  /// Bắt đầu chờ gap
   void _startGapWait() {
     _isWaitingGap = true;
     _audioService.pause();
@@ -473,21 +492,17 @@ class PlayerProvider extends ChangeNotifier {
     );
   }
 
-  /// Khi hết thời gian gap
   void _onGapEnded() {
     if (!_isLooping) return;
-
     _isWaitingGap = false;
     seek(_loopStart!);
     _audioService.play();
     notifyListeners();
   }
 
-  /// Khi hoàn thành tất cả các lần loop
   void _onLoopCompleted() {
     debugPrint('Loop completed: $_loopCount times');
 
-    // Auto advance to next segment (nếu mode cho phép)
     if (_modeSettings.autoAdvanceSegments && _currentSegmentIndex >= 0) {
       _playNextSegment();
     } else {
@@ -495,34 +510,27 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  /// Xóa loop
   void clearLoop() {
     _gapTimer?.cancel();
     _gapTimer = null;
-
     _loopStart = null;
     _loopEnd = null;
     _isLooping = false;
     _loopCount = 0;
     _maxLoopCount = 0;
     _isWaitingGap = false;
-
     notifyListeners();
   }
 
-  /// Tạm dừng/tiếp tục loop
   void toggleLoopPause() {
     if (_isWaitingGap) {
-      // Skip gap, quay lại loop ngay
       _gapTimer?.cancel();
       _onGapEnded();
     }
   }
 
-  /// Bỏ qua loop hiện tại, đến loop tiếp theo
   void skipToNextLoop() {
     if (!_isLooping || _loopStart == null) return;
-
     _gapTimer?.cancel();
     _isWaitingGap = false;
     _loopCount++;
@@ -534,9 +542,8 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  // ==================== SEGMENTS MANAGEMENT ====================
+  // ==================== SEGMENTS ====================
 
-  /// Lưu loop hiện tại thành segment
   Segment? saveLoopAsSegment({
     required String title,
     SegmentType type = SegmentType.favorite,
@@ -548,7 +555,6 @@ class PlayerProvider extends ChangeNotifier {
       return null;
     }
 
-    // Tự động chọn type dựa trên mode
     SegmentType autoType = type;
     if (type == SegmentType.favorite) {
       switch (_currentMode) {
@@ -563,7 +569,6 @@ class PlayerProvider extends ChangeNotifier {
       }
     }
 
-    // Tự động set repeatCount dựa trên difficulty
     int repeatCount;
     switch (difficulty) {
       case DifficultyLevel.easy:
@@ -592,50 +597,47 @@ class PlayerProvider extends ChangeNotifier {
     );
 
     _segments.add(segment);
-    notifyListeners();
 
+    // ★ THÊM: Persist segment
+    _storage.saveAudioSegment(segment);
+
+    notifyListeners();
     return segment;
   }
 
-  /// Xóa segment
   void deleteSegment(String id) {
     _segments.removeWhere((s) => s.id == id);
+
+    // ★ THÊM: Persist deletion
+    _storage.deleteAudioSegment(id);
+
     notifyListeners();
   }
 
-  /// Lấy segments của bài hiện tại
   List<Segment> getSegmentsForCurrentSong() {
     if (_currentSongPath == null) return [];
     return _segments.where((s) => s.audioPath == _currentSongPath).toList();
   }
 
-  /// Lấy segments theo type
   List<Segment> getSegmentsByType(SegmentType type) {
     return _segments.where((s) => s.type == type).toList();
   }
 
-  /// Play một segment
   Future<void> playSegment(Segment segment, {int? index}) async {
-    // Load file nếu khác file hiện tại
     if (_currentSongPath != segment.audioPath) {
       await loadSong(path: segment.audioPath);
     }
-
     _currentSegmentIndex = index ?? _segments.indexOf(segment);
-
     setLoop(
       segment.startTime,
       segment.endTime,
       repeatCount: segment.repeatCount,
     );
-
     await play();
   }
 
-  /// Play segment tiếp theo
   void _playNextSegment() {
     final currentSongSegments = getSegmentsForCurrentSong();
-
     if (_currentSegmentIndex < 0 ||
         _currentSegmentIndex >= currentSongSegments.length - 1) {
       clearLoop();
@@ -644,19 +646,15 @@ class PlayerProvider extends ChangeNotifier {
 
     final nextIndex = _currentSegmentIndex + 1;
     final nextSegment = currentSongSegments[nextIndex];
-
     playSegment(nextSegment, index: nextIndex);
   }
 
-  /// Play segment trước đó
   Future<void> playPreviousSegment() async {
     final currentSongSegments = getSegmentsForCurrentSong();
-
     if (_currentSegmentIndex <= 0) return;
 
     final prevIndex = _currentSegmentIndex - 1;
     final prevSegment = currentSongSegments[prevIndex];
-
     await playSegment(prevSegment, index: prevIndex);
   }
 
@@ -664,7 +662,6 @@ class PlayerProvider extends ChangeNotifier {
 
   void setSleepTimer(Duration duration) {
     cancelSleepTimer();
-
     if (duration == Duration.zero) return;
 
     _sleepDuration = duration;
@@ -698,28 +695,29 @@ class PlayerProvider extends ChangeNotifier {
   // ==================== POSITION SAVER ====================
 
   void _saveCurrentPosition() {
+    // ★ ĐỔI: Dùng StorageService thay vì Map
     if (_currentSongPath != null && _state.position.inSeconds > 5) {
-      _savedPositions[_currentSongPath!] = _state.position.inMilliseconds;
+      _storage.savePosition(_currentSongPath!, _state.position.inMilliseconds);
     }
   }
 
   Duration? getSavedPosition(String path) {
-    final savedMs = _savedPositions[path];
+    // ★ ĐỔI: Đọc từ StorageService
+    final savedMs = _storage.getSavedPosition(path);
     if (savedMs == null) return null;
     return Duration(milliseconds: savedMs);
   }
 
   void clearSavedPosition(String path) {
-    _savedPositions.remove(path);
+    _storage.clearPosition(path);
   }
 
   void clearAllSavedPositions() {
-    _savedPositions.clear();
+    _storage.clearAllPositions();
   }
 
   // ==================== LEARNING STATS ====================
 
-  /// Reset thống kê hàng ngày
   void resetDailyStats() {
     _totalLoopsToday = 0;
     _totalListeningTime = Duration.zero;
@@ -727,7 +725,6 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Lấy thống kê dạng Map
   Map<String, dynamic> getStats() {
     return {
       'totalLoopsToday': _totalLoopsToday,
@@ -740,14 +737,12 @@ class PlayerProvider extends ChangeNotifier {
 
   // ==================== UTILITY ====================
 
-  /// Quick setup cho Phật Pháp
   void setupForBuddhism() {
     setMode(VipMode.buddhism);
     setSpeed(0.9);
     setGapDuration(3.0);
   }
 
-  /// Quick setup cho học tiếng Anh
   void setupForEnglish() {
     setMode(VipMode.english);
     setSpeed(0.75);
@@ -758,6 +753,12 @@ class PlayerProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // ★ THÊM: Lưu trạng thái cuối cùng
+    _saveCurrentPosition();
+    if (_totalListeningTime.inSeconds > 0) {
+      _storage.addListeningTime(_totalListeningTime.inSeconds);
+    }
+
     _sleepTimer?.cancel();
     _positionSaverTimer?.cancel();
     _gapTimer?.cancel();

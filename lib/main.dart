@@ -1,25 +1,26 @@
-//main.dart
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-
 import 'providers/player_provider.dart';
 import 'providers/shadowing_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/waveform_provider.dart';
-import 'screens/main_shell.dart'; // THAY ĐỔI: Dùng MainShell
+import 'screens/main_shell.dart';
+import 'services/storage_service.dart'; // ★ THÊM
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set preferred orientations
+  // ★ THÊM: Khởi tạo StorageService trước
+  await StorageService().initialize();
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -103,32 +104,25 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
 
   Future<void> _checkPermissions() async {
     try {
-      // Check storage permission
       var status = await Permission.storage.status;
-
       if (status.isDenied) {
         status = await Permission.storage.request();
       }
-
-      // For Android 13+, also check audio permission
       var audioStatus = await Permission.audio.status;
       if (audioStatus.isDenied) {
         audioStatus = await Permission.audio.request();
       }
-
-      // Check microphone for shadowing feature
       var micStatus = await Permission.microphone.status;
       if (micStatus.isDenied) {
         micStatus = await Permission.microphone.request();
       }
-
       setState(() {
         _hasPermission = status.isGranted || audioStatus.isGranted;
         _isChecking = false;
       });
     } catch (e) {
       setState(() {
-        _hasPermission = true; // Continue anyway
+        _hasPermission = true;
         _isChecking = false;
       });
     }
@@ -143,7 +137,6 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App Logo
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -155,29 +148,18 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.music_note,
-                  size: 48,
-                  color: Color(0xFF6C63FF),
-                ),
+                child: const Icon(Icons.music_note,
+                    size: 48, color: Color(0xFF6C63FF)),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'VipSound',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              const Text('VipSound',
+                  style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
               const SizedBox(height: 8),
-              Text(
-                'Đang khởi động...',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-              ),
+              Text('Đang khởi động...',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[500])),
               const SizedBox(height: 32),
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
@@ -203,30 +185,21 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
                     color: Colors.orange.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.folder_off,
-                    size: 64,
-                    color: Colors.orange,
-                  ),
+                  child: const Icon(Icons.folder_off,
+                      size: 64, color: Colors.orange),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Cần quyền truy cập',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+                const Text('Cần quyền truy cập',
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
                 const SizedBox(height: 12),
                 Text(
                   'VipSound cần quyền truy cập bộ nhớ để phát file audio và lưu tiến trình học tập của bạn.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
+                      color: Colors.grey[400], fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
@@ -236,28 +209,16 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6C63FF),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
+                        horizontal: 32, vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _hasPermission = true;
-                    });
-                  },
-                  child: Text(
-                    'Bỏ qua (một số tính năng sẽ bị hạn chế)',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 12,
-                    ),
-                  ),
+                  onPressed: () => setState(() => _hasPermission = true),
+                  child: Text('Bỏ qua (một số tính năng sẽ bị hạn chế)',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                 ),
               ],
             ),
@@ -266,7 +227,6 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
       );
     }
 
-    // THAY ĐỔI: Sử dụng MainShell thay vì HomeScreen
     return const MainShell();
   }
 }

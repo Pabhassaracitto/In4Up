@@ -23,9 +23,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   final ScrollController _scrollController = ScrollController();
   late ReadModeController _controller;
   bool _controllerInitialized = false;
-
   VoidCallback? _playerListener;
   Duration _lastPos = Duration.zero;
+
+  // ★ FIX: Lưu reference PlayerProvider để dùng trong dispose()
+  PlayerProvider? _playerProviderRef;
 
   @override
   void didChangeDependencies() {
@@ -34,19 +36,20 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       final tp = context.read<TextProvider>();
       final pp = context.read<PlayerProvider>();
 
-      _controller = ReadModeController(textProvider: tp, playerProvider: pp);
+      // ★ FIX: Lưu reference
+      _playerProviderRef = pp;
 
+      _controller = ReadModeController(textProvider: tp, playerProvider: pp);
       _playerListener = () {
+        if (!mounted) return; // ★ FIX: Guard check
         final pos = pp.state.position;
         if (pos == _lastPos) return;
         _lastPos = pos;
-
         final targetLine = _controller.checkAudioSync(pos);
         if (targetLine >= 0) {
           _controller.scrollToLine(_scrollController, targetLine);
         }
       };
-
       pp.addListener(_playerListener!);
       _controllerInitialized = true;
     }
@@ -60,9 +63,9 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   @override
   void dispose() {
-    final pp = context.read<PlayerProvider>();
-    if (_playerListener != null) {
-      pp.removeListener(_playerListener!);
+    // ★ FIX: Dùng _playerProviderRef thay vì context.read()
+    if (_playerListener != null && _playerProviderRef != null) {
+      _playerProviderRef!.removeListener(_playerListener!);
     }
     _scrollController.dispose();
     _controller.dispose();
@@ -78,21 +81,15 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           if (!textProvider.hasLyrics) {
             return const ReadEmptyState();
           }
-
           return Column(
             children: [
-              // Top Bar
               const ReadTopBar(),
-
-              // Main Text Content
               Expanded(
                 child: GestureDetector(
                   onTap: () => _controller.removeFloatingMenu(),
                   child: _buildTextList(textProvider),
                 ),
               ),
-
-              // Bottom Bar
               const ReadBottomBar(),
             ],
           );
@@ -117,7 +114,6 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           controller: _scrollController,
           padding: const EdgeInsets.all(16),
           itemCount: textProvider.lines.length,
-          // Tối ưu: chỉ build dòng visible
           cacheExtent: 300,
           itemBuilder: (context, index) {
             return TextLineWidget(

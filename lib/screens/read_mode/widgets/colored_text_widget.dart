@@ -91,7 +91,7 @@ class _ColoredWord extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: hasDifficulty
               ? Border.all(
-                  color: word.userDifficulty!.color.withOpacity(0.5),
+                  color: word.userDifficulty!.color.withValues(alpha: 0.5),
                   width: 1.5,
                 )
               : null,

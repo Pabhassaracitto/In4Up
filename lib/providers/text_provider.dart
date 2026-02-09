@@ -1,22 +1,22 @@
 // lib/providers/text_provider.dart
-// VipSound - Text Provider với đầy đủ tính năng
+// Chỉ thêm các phần thay đổi - giữ nguyên toàn bộ code cũ
 
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-
 import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/word_analysis.dart';
 import '../services/syntax_highlighter_service.dart';
+import '../services/storage_service.dart'; // ★ THÊM
 
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
+  final StorageService _storage = StorageService(); // ★ THÊM
 
-  // ==================== TEXT DATA ====================
+  // ====================  TEXT DATA ====================
   TextDocument? _currentDocument;
   List<TextItem> _lines = [];
   int _currentLineIndex = -1;
@@ -50,7 +50,6 @@ class TextProvider extends ChangeNotifier {
   bool _showWordTypes = false;
 
   // ==================== GETTERS ====================
-
   TextDocument? get currentDocument => _currentDocument;
   List<TextItem> get lines => _lines;
   int get currentLineIndex => _currentLineIndex;
@@ -58,22 +57,17 @@ class TextProvider extends ChangeNotifier {
   String get fullText => _fullText;
   bool get hasLyrics => _lines.isNotEmpty;
   String? get currentTextPath => _currentTextPath;
-
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
   ColorMode get colorMode => _colorMode;
-
   List<TextSegment> get segments => List.unmodifiable(_segments);
   SelectedTextInfo? get selectedTextInfo => _selectedTextInfo;
-
   double get ttsSpeed => _ttsSpeed;
   double get ttsPitch => _ttsPitch;
   String get ttsLanguage => _ttsLanguage;
   bool get isSpeaking => _isSpeaking;
-
   bool get isPlayingSegment => _isPlayingSegment;
   TextSegment? get currentPlayingSegment => _currentPlayingSegment;
   int get currentRepeatIndex => _currentRepeatIndex;
-
   double get fontSize => _fontSize;
   bool get showTranslation => _showTranslation;
   bool get showWordTypes => _showWordTypes;
@@ -82,6 +76,39 @@ class TextProvider extends ChangeNotifier {
 
   TextProvider() {
     _initTts();
+    _restoreFromStorage(); // ★ THÊM
+  }
+
+  // ★ THÊM: Restore settings
+  void _restoreFromStorage() {
+    if (!_storage.isInitialized) return;
+
+    try {
+      _fontSize = _storage.getFontSize();
+      _ttsSpeed = _storage.getTtsSpeed();
+      _showTranslation = _storage.getShowTranslation();
+
+      // Restore color mode
+      final savedColorMode = _storage.getColorMode();
+      _colorMode = ColorMode.values.firstWhere(
+        (m) => m.name == savedColorMode,
+        orElse: () => ColorMode.none,
+      );
+
+      // Restore text segments
+      final savedSegments = _storage.getAllTextSegments();
+      _segments.addAll(savedSegments);
+
+      // Restore saved words
+      // (savedWords sẽ được load lazy khi cần)
+
+      debugPrint('✅ TextProvider restored: '
+          'fontSize=$_fontSize, '
+          'colorMode=${_colorMode.name}, '
+          'segments=${_segments.length}');
+    } catch (e) {
+      debugPrint('⚠️ Error restoring TextProvider: $e');
+    }
   }
 
   Future<void> _initTts() async {
@@ -147,7 +174,6 @@ class TextProvider extends ChangeNotifier {
       }
 
       _currentTextPath = path;
-
       final content = await file.readAsString();
       final lower = path.toLowerCase();
       final docTitle = title ?? _extractFileName(path);
@@ -159,6 +185,9 @@ class TextProvider extends ChangeNotifier {
       } else {
         _parsePlainText(content, title: docTitle);
       }
+
+      // ★ THÊM: Save last text path
+      _storage.saveLastTextPath(path);
     } catch (e) {
       debugPrint('TextProvider.loadTextFile error: $e');
     }
@@ -205,7 +234,6 @@ class TextProvider extends ChangeNotifier {
 
   void _parsePlainText(String content, {String? title}) {
     _fullText = content;
-
     final lineStrings =
         content.split('\n').where((l) => l.trim().isNotEmpty).toList();
 
@@ -238,7 +266,6 @@ class TextProvider extends ChangeNotifier {
   void _parseLrc(String content, {String? title}) {
     _fullText = content;
     _lines = [];
-
     final regex = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)');
     final rawLines = content.split('\n');
 
@@ -254,7 +281,6 @@ class TextProvider extends ChangeNotifier {
 
       final ms =
           fraction.length == 2 ? int.parse(fraction) * 10 : int.parse(fraction);
-
       final start = Duration(
         minutes: minutes,
         seconds: seconds,
@@ -297,9 +323,7 @@ class TextProvider extends ChangeNotifier {
   void _parseSrt(String content, {String? title}) {
     _fullText = content;
     _lines = [];
-
     final blocks = content.split(RegExp(r'\r?\n\r?\n+'));
-
     final timeRegex = RegExp(
       r'(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*'
       r'(\d{2}):(\d{2}):(\d{2}),(\d{3})',
@@ -315,7 +339,6 @@ class TextProvider extends ChangeNotifier {
     for (int i = 0; i < blocks.length; i++) {
       final block = blocks[i].trim();
       if (block.isEmpty) continue;
-
       final linesBlock = block.split('\n');
       if (linesBlock.length < 2) continue;
 
@@ -370,6 +393,10 @@ class TextProvider extends ChangeNotifier {
 
   void setColorMode(ColorMode mode) {
     _colorMode = mode;
+
+    // ★ THÊM: Persist
+    _storage.saveColorMode(mode.name);
+
     notifyListeners();
   }
 
@@ -377,6 +404,10 @@ class TextProvider extends ChangeNotifier {
     final modes = ColorMode.values;
     final currentIndex = modes.indexOf(_colorMode);
     _colorMode = modes[(currentIndex + 1) % modes.length];
+
+    // ★ THÊM: Persist
+    _storage.saveColorMode(_colorMode.name);
+
     notifyListeners();
   }
 
@@ -453,12 +484,19 @@ class TextProvider extends ChangeNotifier {
     _selectedTextInfo = null;
     _selectedText = null;
 
+    // ★ THÊM: Persist
+    _storage.saveTextSegment(segment);
+
     notifyListeners();
     return segment;
   }
 
   void deleteSegment(String id) {
     _segments.removeWhere((s) => s.id == id);
+
+    // ★ THÊM: Persist
+    _storage.deleteTextSegment(id);
+
     notifyListeners();
   }
 
@@ -466,6 +504,10 @@ class TextProvider extends ChangeNotifier {
     final index = _segments.indexWhere((s) => s.id == updated.id);
     if (index >= 0) {
       _segments[index] = updated;
+
+      // ★ THÊM: Persist
+      _storage.saveTextSegment(updated);
+
       notifyListeners();
     }
   }
@@ -489,10 +531,8 @@ class TextProvider extends ChangeNotifier {
       debugPrint('No text selected to speak.');
       return;
     }
-
     _isSpeaking = true;
     notifyListeners();
-
     try {
       await speak(_selectedText!);
     } catch (e) {
@@ -505,19 +545,14 @@ class TextProvider extends ChangeNotifier {
 
   Future<void> speakAllLines() async {
     if (_lines.isEmpty) return;
-
     _isSpeaking = true;
     notifyListeners();
-
     try {
       for (int i = 0; i < _lines.length; i++) {
         if (!_isSpeaking) break;
-
         _currentLineIndex = i;
         notifyListeners();
-
         await speak(_lines[i].content);
-
         if (_isSpeaking && i < _lines.length - 1) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
@@ -535,10 +570,8 @@ class TextProvider extends ChangeNotifier {
       debugPrint('Invalid line index: $_currentLineIndex');
       return;
     }
-
     _isSpeaking = true;
     notifyListeners();
-
     try {
       await speak(_lines[_currentLineIndex].content);
     } catch (e) {
@@ -551,17 +584,14 @@ class TextProvider extends ChangeNotifier {
 
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
-
     try {
       await _tts.stop();
       _ttsCompleter = Completer<void>();
       final result = await _tts.speak(text);
-
       if (result == 1) {
         final wordCount = text.split(' ').length;
         final estimatedSeconds = (wordCount * 60 / 150 / _ttsSpeed).ceil();
         final timeout = Duration(seconds: estimatedSeconds.clamp(3, 60));
-
         await _ttsCompleter?.future.timeout(
           timeout,
           onTimeout: () {
@@ -579,12 +609,10 @@ class TextProvider extends ChangeNotifier {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
-
     if (_ttsCompleter != null && !_ttsCompleter!.isCompleted) {
       _ttsCompleter!.complete();
     }
     _ttsCompleter = null;
-
     await _tts.stop();
     notifyListeners();
   }
@@ -592,6 +620,10 @@ class TextProvider extends ChangeNotifier {
   Future<void> setTtsSpeed(double speed) async {
     _ttsSpeed = speed.clamp(0.25, 2.0);
     await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
+
+    // ★ THÊM: Persist
+    _storage.saveTtsSpeed(_ttsSpeed);
+
     notifyListeners();
   }
 
@@ -620,12 +652,9 @@ class TextProvider extends ChangeNotifier {
 
     for (int i = 0; i < segment.repeatCount; i++) {
       if (!_isPlayingSegment) break;
-
       _currentRepeatIndex = i + 1;
       notifyListeners();
-
       await speak(segment.content);
-
       if (i < segment.repeatCount - 1 && _isPlayingSegment) {
         await Future.delayed(Duration(
           milliseconds:
@@ -681,7 +710,7 @@ class TextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ==================== WORD DIFFICULTY MARKING ====================
+  // ==================== WORD DIFFICULTY ====================
 
   void markWordDifficulty(
       int lineIndex, int wordIndex, DifficultyLevel difficulty) {
@@ -698,7 +727,6 @@ class TextProvider extends ChangeNotifier {
 
   Future<void> speakDifficultWordsFirst() async {
     final difficultWords = <AnalyzedWord>[];
-
     for (final line in _analyzedLines) {
       for (final word in line) {
         if (word.userDifficulty != null) {
@@ -718,12 +746,9 @@ class TextProvider extends ChangeNotifier {
 
     for (final word in difficultWords) {
       if (!_isPlayingSegment) break;
-
       final repeatCount = word.userDifficulty?.repeatCount ?? 1;
       final speed = word.userDifficulty?.ttsSpeed ?? 1.0;
-
       await setTtsSpeed(speed);
-
       for (int i = 0; i < repeatCount; i++) {
         if (!_isPlayingSegment) break;
         await speak(word.word);
@@ -731,7 +756,6 @@ class TextProvider extends ChangeNotifier {
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
-
       await Future.delayed(const Duration(milliseconds: 800));
     }
 
@@ -770,13 +794,11 @@ class TextProvider extends ChangeNotifier {
     for (final level in CEFRLevel.values) {
       stats[level] = 0;
     }
-
     for (final line in _analyzedLines) {
       for (final word in line) {
         stats[word.cefrLevel] = (stats[word.cefrLevel] ?? 0) + 1;
       }
     }
-
     return stats;
   }
 
@@ -785,13 +807,11 @@ class TextProvider extends ChangeNotifier {
     for (final type in WordType.values) {
       stats[type] = 0;
     }
-
     for (final line in _analyzedLines) {
       for (final word in line) {
         stats[word.wordType] = (stats[word.wordType] ?? 0) + 1;
       }
     }
-
     return stats;
   }
 
@@ -799,11 +819,19 @@ class TextProvider extends ChangeNotifier {
 
   void setFontSize(double size) {
     _fontSize = size.clamp(12.0, 32.0);
+
+    // ★ THÊM: Persist
+    _storage.saveFontSize(_fontSize);
+
     notifyListeners();
   }
 
   void toggleTranslation() {
     _showTranslation = !_showTranslation;
+
+    // ★ THÊM: Persist
+    _storage.saveShowTranslation(_showTranslation);
+
     notifyListeners();
   }
 
@@ -812,7 +840,7 @@ class TextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ==================== DIFFICULTY MARKING (Legacy) ====================
+  // ==================== LEGACY ====================
 
   void markLineDifficulty(int lineIndex, DifficultyMark difficulty) {
     if (lineIndex >= 0 && lineIndex < _lines.length) {
@@ -820,7 +848,6 @@ class TextProvider extends ChangeNotifier {
       final words = line.content.split(' ').map((word) {
         return WordItem(word: word, difficulty: difficulty);
       }).toList();
-
       _lines[lineIndex] = line.copyWith(words: words);
       notifyListeners();
     }
@@ -848,20 +875,18 @@ class TextProvider extends ChangeNotifier {
     }
   }
 
-  // ==================== ANALYZED LINES METHODS ====================
+  // ==================== ANALYZED LINES ====================
 
-  /// Dùng bởi read_mode_controller.dart
   void setAnalyzedLines(List<List<AnalyzedWord>> lines) {
     _analyzedLines = lines;
     notifyListeners();
   }
 
-  /// Alias cho setAnalyzedLines - dùng bởi controller cũ
   void updateAnalyzedLines(List<List<AnalyzedWord>> analyzed) {
     setAnalyzedLines(analyzed);
   }
 
-  // ==================== SEGMENT MANAGEMENT EXTENSIONS ====================
+  // ==================== SEGMENT EXTENSIONS ====================
 
   void addSegment({
     required String name,
@@ -881,6 +906,10 @@ class TextProvider extends ChangeNotifier {
       note: note,
     );
     _segments.add(segment);
+
+    // ★ THÊM: Persist
+    _storage.saveTextSegment(segment);
+
     notifyListeners();
   }
 
@@ -892,6 +921,19 @@ class TextProvider extends ChangeNotifier {
   void saveWord(AnalyzedWord word) {
     if (!_savedWords.any((w) => w.word == word.word)) {
       _savedWords.add(word);
+
+      // ★ THÊM: Persist
+      _storage.saveWord(word.word, {
+        'word': word.word,
+        'originalWord': word.originalWord,
+        'wordType': word.wordType.name,
+        'cefrLevel': word.cefrLevel.name,
+        'meaning': word.meaning,
+        'phonetic': word.phonetic,
+        'example': word.example,
+        'savedAt': DateTime.now().toIso8601String(),
+      });
+
       notifyListeners();
     }
   }

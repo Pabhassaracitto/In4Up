@@ -51,7 +51,7 @@ class _SegmentsListContent extends StatelessWidget {
               height: 4,
               margin: const EdgeInsets.only(top: 12, bottom: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -64,7 +64,7 @@ class _SegmentsListContent extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3).withOpacity(0.15),
+                      color: const Color(0xFF2196F3).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -96,12 +96,10 @@ class _SegmentsListContent extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Add new segment
                   IconButton(
                     onPressed: () {
                       Navigator.pop(context);
-                      CreateSegmentSheet.showFromLine(
-                          context, tp.currentLineIndex);
+                      CreateSegmentSheet.show(context, tp.currentLineIndex);
                     },
                     icon: const Icon(Icons.add_circle_outline),
                     color: const Color(0xFF4CAF50),
@@ -150,18 +148,12 @@ class _SegmentsListContent extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'Chưa có segment nào',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 16,
-            ),
+            style: TextStyle(color: Colors.grey[500], fontSize: 16),
           ),
           const SizedBox(height: 6),
           Text(
             'Long-press một dòng để tạo segment',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
         ],
       ),
@@ -172,23 +164,17 @@ class _SegmentsListContent extends StatelessWidget {
       BuildContext context, TextSegment segment, TextProvider tp) {
     Navigator.pop(context);
     tp.setCurrentLine(segment.startLine);
-    // Scroll will be handled by the main screen's listener
   }
 
   void _deleteSegment(BuildContext context, int index, TextProvider tp) {
     final segment = tp.segments[index];
-    tp.deleteSegment(index);
+    tp.deleteSegment(segment.id);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Đã xóa "${segment.name}"'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF2A2A3E),
-        action: SnackBarAction(
-          label: 'Hoàn tác',
-          textColor: const Color(0xFF2196F3),
-          onPressed: () => tp.undoDeleteSegment(),
-        ),
       ),
     );
   }
@@ -196,7 +182,8 @@ class _SegmentsListContent extends StatelessWidget {
   void _repeatSegment(
       BuildContext context, TextSegment segment, TextProvider tp) {
     Navigator.pop(context);
-    tp.startSegmentRepeat(segment);
+    // Navigate to segment's start line and set repeat mode
+    tp.setCurrentLine(segment.startLine);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -232,8 +219,6 @@ class _SegmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineCount = segment.endLine - segment.startLine + 1;
-
     return Dismissible(
       key: ValueKey('segment_${segment.id}'),
       direction: DismissDirection.endToStart,
@@ -246,10 +231,8 @@ class _SegmentTile extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Text(
-              'Xóa segment?',
-              style: TextStyle(color: Colors.white),
-            ),
+            title: const Text('Xóa segment?',
+                style: TextStyle(color: Colors.white)),
             content: Text(
               'Bạn có muốn xóa "${segment.name}"?',
               style: TextStyle(color: Colors.grey[400]),
@@ -275,7 +258,7 @@ class _SegmentTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.15),
+          color: Colors.red.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.delete_outline, color: Colors.red),
@@ -285,10 +268,10 @@ class _SegmentTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: segment.color.withOpacity(0.06),
+            color: segment.color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: segment.color.withOpacity(0.15),
+              color: segment.color.withValues(alpha: 0.15),
             ),
           ),
           child: Row(
@@ -326,7 +309,7 @@ class _SegmentTile extends StatelessWidget {
                             size: 12, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          'Dòng ${segment.startLine + 1} → ${segment.endLine + 1} ($lineCount dòng)',
+                          'Dòng ${segment.startLine + 1} → ${segment.endLine + 1} (${segment.lineCount} dòng)',
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,
@@ -367,7 +350,7 @@ class _SegmentTile extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: segment.color.withOpacity(0.15),
+                    color: segment.color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(

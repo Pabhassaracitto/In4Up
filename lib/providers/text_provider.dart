@@ -3,16 +3,18 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
+import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/word_analysis.dart';
+import '../services/syntax_highlighter_service.dart';
 
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
-  final WordDatabase _wordDatabase = WordDatabase();
 
   // ==================== TEXT DATA ====================
   TextDocument? _currentDocument;
@@ -204,10 +206,8 @@ class TextProvider extends ChangeNotifier {
   void _parsePlainText(String content, {String? title}) {
     _fullText = content;
 
-    final lineStrings = content
-        .split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .toList();
+    final lineStrings =
+        content.split('\n').where((l) => l.trim().isNotEmpty).toList();
 
     _lines = lineStrings.asMap().entries.map((entry) {
       return TextItem(
@@ -216,12 +216,13 @@ class TextProvider extends ChangeNotifier {
       );
     }).toList();
 
-    _analyzedLines = _lines.map((line) {
-      return _wordDatabase.analyzeSentence(line.content);
-    }).toList();
+    _analyzedLines = SyntaxHighlighterService.analyzeLines(
+      _lines.map((l) => l.content).toList(),
+    );
 
     _currentDocument = TextDocument(
-      id: _currentDocument?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: _currentDocument?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       title: title ?? _currentDocument?.title ?? 'Untitled',
       lines: _lines,
       createdAt: _currentDocument?.createdAt ?? DateTime.now(),
@@ -251,9 +252,8 @@ class TextProvider extends ChangeNotifier {
       final text = (match.group(4) ?? '').trim();
       if (text.isEmpty) continue;
 
-      final ms = fraction.length == 2
-          ? int.parse(fraction) * 10
-          : int.parse(fraction);
+      final ms =
+          fraction.length == 2 ? int.parse(fraction) * 10 : int.parse(fraction);
 
       final start = Duration(
         minutes: minutes,
@@ -275,12 +275,13 @@ class TextProvider extends ChangeNotifier {
       }
     }
 
-    _analyzedLines = _lines.map((line) {
-      return _wordDatabase.analyzeSentence(line.content);
-    }).toList();
+    _analyzedLines = SyntaxHighlighterService.analyzeLines(
+      _lines.map((l) => l.content).toList(),
+    );
 
     _currentDocument = TextDocument(
-      id: _currentDocument?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: _currentDocument?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       title: title ?? _currentDocument?.title ?? 'Untitled',
       lines: _lines,
       createdAt: _currentDocument?.createdAt ?? DateTime.now(),
@@ -305,11 +306,11 @@ class TextProvider extends ChangeNotifier {
     );
 
     Duration parseTime(int h, int m, int s, int ms) => Duration(
-      hours: h,
-      minutes: m,
-      seconds: s,
-      milliseconds: ms,
-    );
+          hours: h,
+          minutes: m,
+          seconds: s,
+          milliseconds: ms,
+        );
 
     for (int i = 0; i < blocks.length; i++) {
       final block = blocks[i].trim();
@@ -346,12 +347,13 @@ class TextProvider extends ChangeNotifier {
       ));
     }
 
-    _analyzedLines = _lines.map((line) {
-      return _wordDatabase.analyzeSentence(line.content);
-    }).toList();
+    _analyzedLines = SyntaxHighlighterService.analyzeLines(
+      _lines.map((l) => l.content).toList(),
+    );
 
     _currentDocument = TextDocument(
-      id: _currentDocument?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: _currentDocument?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       title: title ?? _currentDocument?.title ?? 'Untitled',
       lines: _lines,
       createdAt: _currentDocument?.createdAt ?? DateTime.now(),
@@ -423,15 +425,15 @@ class TextProvider extends ChangeNotifier {
         (difficulty == TextSegmentDifficulty.hard
             ? 5
             : difficulty == TextSegmentDifficulty.medium
-            ? 3
-            : 1);
+                ? 3
+                : 1);
 
     final speed = ttsSpeedOverride ??
         (difficulty == TextSegmentDifficulty.hard
             ? 0.7
             : difficulty == TextSegmentDifficulty.medium
-            ? 0.85
-            : 1.0);
+                ? 0.85
+                : 1.0);
 
     final segment = TextSegment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -626,7 +628,8 @@ class TextProvider extends ChangeNotifier {
 
       if (i < segment.repeatCount - 1 && _isPlayingSegment) {
         await Future.delayed(Duration(
-          milliseconds: segment.difficulty == TextSegmentDifficulty.hard ? 1500 : 800,
+          milliseconds:
+              segment.difficulty == TextSegmentDifficulty.hard ? 1500 : 800,
         ));
       }
     }
@@ -680,13 +683,14 @@ class TextProvider extends ChangeNotifier {
 
   // ==================== WORD DIFFICULTY MARKING ====================
 
-  void markWordDifficulty(int lineIndex, int wordIndex, DifficultyLevel difficulty) {
+  void markWordDifficulty(
+      int lineIndex, int wordIndex, DifficultyLevel difficulty) {
     if (lineIndex >= 0 && lineIndex < _analyzedLines.length) {
       if (wordIndex >= 0 && wordIndex < _analyzedLines[lineIndex].length) {
         _analyzedLines[lineIndex][wordIndex] =
             _analyzedLines[lineIndex][wordIndex].copyWith(
-              userDifficulty: difficulty,
-            );
+          userDifficulty: difficulty,
+        );
         notifyListeners();
       }
     }
@@ -697,8 +701,7 @@ class TextProvider extends ChangeNotifier {
 
     for (final line in _analyzedLines) {
       for (final word in line) {
-        if (word.userDifficulty != null &&
-            word.userDifficulty != DifficultyLevel.known) {
+        if (word.userDifficulty != null) {
           difficultWords.add(word);
         }
       }
@@ -747,8 +750,9 @@ class TextProvider extends ChangeNotifier {
 
     double avgMastery = 0.0;
     if (_segments.isNotEmpty) {
-      avgMastery = _segments.map((s) => s.masteryLevel).reduce((a, b) => a + b) /
-          _segments.length;
+      avgMastery =
+          _segments.map((s) => s.masteryLevel).reduce((a, b) => a + b) /
+              _segments.length;
     }
 
     return {
@@ -841,6 +845,54 @@ class TextProvider extends ChangeNotifier {
           break;
         }
       }
+    }
+  }
+
+  // ==================== ANALYZED LINES METHODS ====================
+
+  /// Dùng bởi read_mode_controller.dart
+  void setAnalyzedLines(List<List<AnalyzedWord>> lines) {
+    _analyzedLines = lines;
+    notifyListeners();
+  }
+
+  /// Alias cho setAnalyzedLines - dùng bởi controller cũ
+  void updateAnalyzedLines(List<List<AnalyzedWord>> analyzed) {
+    setAnalyzedLines(analyzed);
+  }
+
+  // ==================== SEGMENT MANAGEMENT EXTENSIONS ====================
+
+  void addSegment({
+    required String name,
+    required String content,
+    required int startLine,
+    required int endLine,
+    Color color = const Color(0xFF2196F3),
+    String? note,
+  }) {
+    final segment = TextSegment(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      content: content,
+      startLine: startLine,
+      endLine: endLine,
+      color: color,
+      note: note,
+    );
+    _segments.add(segment);
+    notifyListeners();
+  }
+
+  // ==================== VOCABULARY ====================
+
+  final List<AnalyzedWord> _savedWords = [];
+  List<AnalyzedWord> get savedWords => List.unmodifiable(_savedWords);
+
+  void saveWord(AnalyzedWord word) {
+    if (!_savedWords.any((w) => w.word == word.word)) {
+      _savedWords.add(word);
+      notifyListeners();
     }
   }
 

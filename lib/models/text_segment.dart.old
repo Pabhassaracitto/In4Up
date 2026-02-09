@@ -1,33 +1,32 @@
 // lib/models/text_segment.dart
+// VipSound - Text Segment Model
+// Dùng cho việc đánh dấu và luyện tập đoạn văn bản
+
 import 'package:flutter/material.dart';
 
 /// Độ khó của đoạn text
 enum TextSegmentDifficulty {
-  easy,
-  medium,
-  hard,
+  easy,    // Dễ - repeat 1-2x, speed 1.0-1.2x
+  medium,  // Vừa - repeat 3x, speed 0.9-1.0x
+  hard,    // Khó - repeat 5x, speed 0.6-0.8x
 }
 
-/// Loại đoạn text
+/// Loại đoạn text (để phân loại và filter)
 enum TextSegmentType {
-  vocabulary,
-  phrase,
-  sentence,
-  paragraph,
-  dharma,
-  grammar,
+  vocabulary,   // Từ vựng đơn lẻ
+  phrase,       // Cụm từ/thành ngữ
+  sentence,     // Câu hoàn chỉnh
+  paragraph,    // Đoạn văn
+  dharma,       // Thuật ngữ Phật Pháp
+  grammar,      // Cấu trúc ngữ pháp
 }
 
 /// Đoạn text đã đánh dấu để học
 class TextSegment {
   final String id;
-  final String name; // ← MỚI: tên hiển thị
   final String content;
   final int startOffset;
   final int endOffset;
-  final int startLine; // ← MỚI: dòng bắt đầu
-  final int endLine; // ← MỚI: dòng kết thúc
-  final Color color; // ← MỚI: màu đánh dấu
   final TextSegmentDifficulty difficulty;
   final TextSegmentType type;
   final int repeatCount;
@@ -38,17 +37,13 @@ class TextSegment {
   final DateTime createdAt;
   final DateTime? lastPracticed;
   final int practiceCount;
-  final double masteryLevel;
+  final double masteryLevel; // 0.0 - 1.0
 
   TextSegment({
     required this.id,
-    String? name,
     required this.content,
-    this.startOffset = 0,
-    this.endOffset = 0,
-    this.startLine = 0,
-    this.endLine = 0,
-    this.color = const Color(0xFF2196F3),
+    required this.startOffset,
+    required this.endOffset,
     this.difficulty = TextSegmentDifficulty.medium,
     this.type = TextSegmentType.phrase,
     this.repeatCount = 3,
@@ -60,20 +55,13 @@ class TextSegment {
     this.lastPracticed,
     this.practiceCount = 0,
     this.masteryLevel = 0.0,
-  })  : name = name ?? content,
-        createdAt = createdAt ?? DateTime.now();
-
-  int get lineCount => endLine - startLine + 1;
+  }) : createdAt = createdAt ?? DateTime.now();
 
   TextSegment copyWith({
     String? id,
-    String? name,
     String? content,
     int? startOffset,
     int? endOffset,
-    int? startLine,
-    int? endLine,
-    Color? color,
     TextSegmentDifficulty? difficulty,
     TextSegmentType? type,
     int? repeatCount,
@@ -88,13 +76,9 @@ class TextSegment {
   }) {
     return TextSegment(
       id: id ?? this.id,
-      name: name ?? this.name,
       content: content ?? this.content,
       startOffset: startOffset ?? this.startOffset,
       endOffset: endOffset ?? this.endOffset,
-      startLine: startLine ?? this.startLine,
-      endLine: endLine ?? this.endLine,
-      color: color ?? this.color,
       difficulty: difficulty ?? this.difficulty,
       type: type ?? this.type,
       repeatCount: repeatCount ?? this.repeatCount,
@@ -113,11 +97,11 @@ class TextSegment {
   Color get difficultyColor {
     switch (difficulty) {
       case TextSegmentDifficulty.easy:
-        return const Color(0xFF4CAF50);
+        return const Color(0xFF4CAF50); // Green
       case TextSegmentDifficulty.medium:
-        return const Color(0xFFFF9800);
+        return const Color(0xFFFF9800); // Orange
       case TextSegmentDifficulty.hard:
-        return const Color(0xFFF44336);
+        return const Color(0xFFF44336); // Red
     }
   }
 
@@ -169,15 +153,19 @@ class TextSegment {
     }
   }
 
-  /// SRS - next review date
+  /// Tính toán thời gian ôn tập tiếp theo (SRS - Spaced Repetition)
   DateTime? get nextReviewDate {
     if (lastPracticed == null) return DateTime.now();
-    final intervals = [1, 1, 2, 3, 5, 8, 13, 21, 34];
+
+    // Fibonacci-like intervals based on mastery
+    final intervals = [1, 1, 2, 3, 5, 8, 13, 21, 34]; // days
     final intervalIndex = (masteryLevel * (intervals.length - 1)).round();
     final days = intervals[intervalIndex.clamp(0, intervals.length - 1)];
+
     return lastPracticed!.add(Duration(days: days));
   }
 
+  /// Cần ôn tập không?
   bool get needsReview {
     if (lastPracticed == null) return true;
     final nextDate = nextReviewDate;
@@ -185,72 +173,12 @@ class TextSegment {
     return DateTime.now().isAfter(nextDate);
   }
 
+  /// Duration của segment (ước tính dựa trên số từ)
   Duration get estimatedDuration {
     final wordCount = content.split(' ').length;
+    // Trung bình 150 từ/phút ở tốc độ 1x
     final seconds = (wordCount / 150 * 60 / ttsSpeed).round();
     return Duration(seconds: seconds.clamp(1, 300));
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'content': content,
-      'startOffset': startOffset,
-      'endOffset': endOffset,
-      'startLine': startLine,
-      'endLine': endLine,
-      'color': color.toARGB32(),
-      'difficulty': difficulty.name,
-      'type': type.name,
-      'repeatCount': repeatCount,
-      'ttsSpeed': ttsSpeed,
-      'note': note,
-      'translation': translation,
-      'tags': tags,
-      'createdAt': createdAt.toIso8601String(),
-      'lastPracticed': lastPracticed?.toIso8601String(),
-      'practiceCount': practiceCount,
-      'masteryLevel': masteryLevel,
-    };
-  }
-
-  factory TextSegment.fromJson(Map<String, dynamic> json) {
-    return TextSegment(
-      id: json['id'] as String,
-      name: json['name'] as String?,
-      content: json['content'] as String? ?? '',
-      startOffset: json['startOffset'] as int? ?? 0,
-      endOffset: json['endOffset'] as int? ?? 0,
-      startLine: json['startLine'] as int? ?? 0,
-      endLine: json['endLine'] as int? ?? 0,
-      color: json['color'] != null
-          ? Color(json['color'] as int)
-          : const Color(0xFF2196F3),
-      difficulty: TextSegmentDifficulty.values.firstWhere(
-        (e) => e.name == json['difficulty'],
-        orElse: () => TextSegmentDifficulty.medium,
-      ),
-      type: TextSegmentType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => TextSegmentType.phrase,
-      ),
-      repeatCount: json['repeatCount'] as int? ?? 3,
-      ttsSpeed: (json['ttsSpeed'] as num?)?.toDouble() ?? 1.0,
-      note: json['note'] as String?,
-      translation: json['translation'] as String?,
-      tags:
-          (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-              [],
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : null,
-      lastPracticed: json['lastPracticed'] != null
-          ? DateTime.parse(json['lastPracticed'] as String)
-          : null,
-      practiceCount: json['practiceCount'] as int? ?? 0,
-      masteryLevel: (json['masteryLevel'] as num?)?.toDouble() ?? 0.0,
-    );
   }
 }
 

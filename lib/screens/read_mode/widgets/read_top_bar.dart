@@ -1,5 +1,4 @@
 // lib/screens/read_mode/widgets/read_top_bar.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
+import '../../../models/color_mode.dart';
 
 class ReadTopBar extends StatelessWidget {
   const ReadTopBar({super.key});
@@ -21,7 +21,7 @@ class ReadTopBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: Row(
@@ -44,7 +44,7 @@ class ReadTopBar extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -76,7 +76,7 @@ class ReadTopBar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.tune, size: 18, color: Colors.white70),
@@ -106,11 +106,12 @@ class _ColorModeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF2196F3).withOpacity(0.2)
-              : Colors.white.withOpacity(0.08),
+              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: isActive
-              ? Border.all(color: const Color(0xFF2196F3).withOpacity(0.3))
+              ? Border.all(
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.3))
               : null,
         ),
         child: Row(
@@ -150,8 +151,8 @@ class _AutoSyncChip extends StatelessWidget {
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: controller.autoSyncEnabled
-              ? const Color(0xFF4CAF50).withOpacity(0.2)
-              : Colors.white.withOpacity(0.08),
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(

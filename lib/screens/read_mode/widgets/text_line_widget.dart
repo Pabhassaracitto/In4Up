@@ -11,6 +11,7 @@ import '../controllers/read_mode_controller.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
 import '../sheets/line_actions_sheet.dart';
+import '../../../models/color_mode.dart';
 
 class TextLineWidget extends StatelessWidget {
   final int index;
@@ -39,7 +40,7 @@ class TextLineWidget extends StatelessWidget {
         isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
         analyzedWords: index < tp.analyzedLines.length
             ? tp.analyzedLines[index]
-            : const [],
+            : const <AnalyzedWord>[],
       ),
       shouldRebuild: (prev, next) => prev != next,
       builder: (context, data, _) {
@@ -48,8 +49,7 @@ class TextLineWidget extends StatelessWidget {
     );
   }
 
-  static bool _checkIsPlaying(
-      TextProvider tp, PlayerProvider pp, int index) {
+  static bool _checkIsPlaying(TextProvider tp, PlayerProvider pp, int index) {
     final line = tp.lines[index];
     if (line.startTime == null || !pp.isPlaying) return false;
     return pp.state.position >= line.startTime! &&
@@ -230,7 +230,7 @@ class TextLineWidget extends StatelessWidget {
             final end = selection.end;
             final selectedText = data.content.substring(start, end);
 
-            FloatingTextActions.show(context, selectedText);
+            FloatingTextActions.show(context, selectedText, index);
           }
         },
       );

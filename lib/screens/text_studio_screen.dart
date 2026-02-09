@@ -14,15 +14,16 @@ import '../providers/player_provider.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/word_analysis.dart';
+import '../models/color_mode.dart';
 
 // ============================================================================
 // ENUMS & CONSTANTS
 // ============================================================================
 
 enum TextStudioMode {
-  read,   // Đọc văn bản, chọn đoạn
-  study,  // Luyện các đoạn đã đánh dấu (SRS)
-  edit,   // Chỉnh sửa toàn bộ văn bản
+  read, // Đọc văn bản, chọn đoạn
+  study, // Luyện các đoạn đã đánh dấu (SRS)
+  edit, // Chỉnh sửa toàn bộ văn bản
 }
 
 // ============================================================================
@@ -144,7 +145,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 Expanded(
                   child: _buildContent(context, textProvider, player, theme),
                 ),
-                if (_mode != TextStudioMode.edit && textProvider.lines.isNotEmpty)
+                if (_mode != TextStudioMode.edit &&
+                    textProvider.lines.isNotEmpty)
                   _buildBottomBar(context, textProvider, player, theme),
               ],
             ),
@@ -159,11 +161,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildAppBar(
-      BuildContext context,
-      TextProvider textProvider,
-      PlayerProvider player,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    PlayerProvider player,
+    _StudioTheme theme,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -269,10 +271,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildColorModeBar(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _StudioTheme theme,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -330,8 +332,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ],
           ),
           // Legend panel
-          if (_showLegend)
-            _buildLegendPanel(textProvider.colorMode, theme),
+          if (_showLegend) _buildLegendPanel(textProvider.colorMode, theme),
         ],
       ),
     );
@@ -397,7 +398,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           );
         }).toList();
       case ColorMode.cefrLevel:
-        return CEFRLevel.values.where((l) => l != CEFRLevel.unknown).map((level) {
+        return CEFRLevel.values
+            .where((l) => l != CEFRLevel.unknown)
+            .map((level) {
           return _LegendItem(
             color: level.color,
             label: level.shortLabel,
@@ -487,7 +490,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.grey),
+              Icon(icon,
+                  size: 18, color: isSelected ? Colors.white : Colors.grey),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -500,7 +504,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               if (badge > 0) ...[
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(10),
@@ -527,11 +532,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildContent(
-      BuildContext context,
-      TextProvider textProvider,
-      PlayerProvider player,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    PlayerProvider player,
+    _StudioTheme theme,
+  ) {
     if (textProvider.lines.isEmpty && _mode != TextStudioMode.edit) {
       return _buildEmptyState(context, theme);
     }
@@ -551,11 +556,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildReadMode(
-      BuildContext context,
-      TextProvider textProvider,
-      PlayerProvider player,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    PlayerProvider player,
+    _StudioTheme theme,
+  ) {
     return Column(
       children: [
         if (textProvider.selectedTextInfo != null)
@@ -579,14 +584,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   Widget _buildSelectionBar(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _StudioTheme theme,
+  ) {
     final info = textProvider.selectedTextInfo!;
-    final previewText = info.text.length > 50
-        ? '${info.text.substring(0, 50)}...'
-        : info.text;
+    final previewText =
+        info.text.length > 50 ? '${info.text.substring(0, 50)}...' : info.text;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -651,11 +655,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
 
   /// Build dòng text với màu sắc theo ColorMode
   Widget _buildColoredTextLine(
-      BuildContext context,
-      TextProvider textProvider,
-      int index,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    int index,
+    _StudioTheme theme,
+  ) {
     final line = textProvider.lines[index];
     final isCurrentLine = index == textProvider.currentLineIndex;
     final analyzedWords = index < textProvider.analyzedLines.length
@@ -700,7 +704,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: isCurrentLine
                         ? theme.primary
@@ -725,7 +730,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
 
             // Colored text content
             if (textProvider.colorMode == ColorMode.none)
-            // Plain text mode với selection
+              // Plain text mode với selection
               SelectableText(
                 line.content,
                 style: TextStyle(
@@ -744,7 +749,7 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 },
               )
             else
-            // Colored text mode
+              // Colored text mode
               _buildColoredText(
                 analyzedWords,
                 textProvider,
@@ -780,12 +785,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   void _handleTextSelection(
-      TextSelection selection,
-      String content,
-      TextProvider textProvider,
-      int lineStartOffset,
-      int lineIndex,
-      ) {
+    TextSelection selection,
+    String content,
+    TextProvider textProvider,
+    int lineStartOffset,
+    int lineIndex,
+  ) {
     if (selection.baseOffset != selection.extentOffset) {
       final start = selection.baseOffset < selection.extentOffset
           ? selection.baseOffset
@@ -807,12 +812,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
 
   /// Build văn bản với màu sắc
   Widget _buildColoredText(
-      List<AnalyzedWord> words,
-      TextProvider textProvider,
-      int lineStartOffset,
-      int lineIndex,
-      _StudioTheme theme,
-      ) {
+    List<AnalyzedWord> words,
+    TextProvider textProvider,
+    int lineStartOffset,
+    int lineIndex,
+    _StudioTheme theme,
+  ) {
     return Wrap(
       spacing: 4,
       runSpacing: 4,
@@ -879,13 +884,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   void _showWordOptionsSheet(
-      BuildContext context,
-      TextProvider textProvider,
-      AnalyzedWord word,
-      int lineIndex,
-      int wordIndex,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    AnalyzedWord word,
+    int lineIndex,
+    int wordIndex,
+    _StudioTheme theme,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
@@ -954,7 +959,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             // Difficulty buttons
             const Text(
               'Đánh dấu độ khó của bạn:',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -964,18 +970,21 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 final isSelected = word.userDifficulty == level;
                 return GestureDetector(
                   onTap: () {
-                    textProvider.markWordDifficulty(lineIndex, wordIndex, level);
+                    textProvider.markWordDifficulty(
+                        lineIndex, wordIndex, level);
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Đã đánh dấu "${word.word}" là ${level.label}'),
+                        content: Text(
+                            'Đã đánh dấu "${word.word}" là ${level.label}'),
                         backgroundColor: level.color,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? level.color
@@ -990,7 +999,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isSelected ? Icons.check_circle : Icons.circle_outlined,
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
                           size: 16,
                           color: isSelected ? Colors.white : level.color,
                         ),
@@ -1057,10 +1068,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildStudyHeader(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _StudioTheme theme,
+  ) {
     final stats = textProvider.getSegmentStats();
     final needsReview = stats['needsReview'] as int;
 
@@ -1081,10 +1092,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StudyStat(label: 'Tổng', value: '${stats['total']}', color: theme.primary),
-              _StudyStat(label: 'Dễ', value: '${stats['easy']}', color: Colors.green),
-              _StudyStat(label: 'Vừa', value: '${stats['medium']}', color: Colors.orange),
-              _StudyStat(label: 'Khó', value: '${stats['hard']}', color: Colors.red),
+              _StudyStat(
+                  label: 'Tổng',
+                  value: '${stats['total']}',
+                  color: theme.primary),
+              _StudyStat(
+                  label: 'Dễ', value: '${stats['easy']}', color: Colors.green),
+              _StudyStat(
+                  label: 'Vừa',
+                  value: '${stats['medium']}',
+                  color: Colors.orange),
+              _StudyStat(
+                  label: 'Khó', value: '${stats['hard']}', color: Colors.red),
               _StudyStat(
                 label: 'Cần ôn',
                 value: '$needsReview',
@@ -1102,14 +1121,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     onPressed: textProvider.isPlayingSegment
                         ? textProvider.stopSegmentPlayback
                         : () => textProvider.startReviewSession(),
-                    icon: Icon(textProvider.isPlayingSegment ? Icons.stop : Icons.play_arrow),
+                    icon: Icon(textProvider.isPlayingSegment
+                        ? Icons.stop
+                        : Icons.play_arrow),
                     label: Text(
                       textProvider.isPlayingSegment
                           ? 'Dừng ôn tập'
                           : 'Ôn tập ($needsReview)',
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: textProvider.isPlayingSegment ? Colors.red : Colors.purple,
+                      backgroundColor: textProvider.isPlayingSegment
+                          ? Colors.red
+                          : Colors.purple,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -1137,10 +1160,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   }
 
   Widget _buildStudyMode(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _StudioTheme theme,
+  ) {
     final segments = textProvider.segments;
 
     if (segments.isEmpty) {
@@ -1148,7 +1171,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.bookmark_border, size: 64, color: theme.primary.withOpacity(0.3)),
+            Icon(Icons.bookmark_border,
+                size: 64, color: theme.primary.withOpacity(0.3)),
             const SizedBox(height: 16),
             const Text(
               'Chưa có đoạn học nào',
@@ -1164,8 +1188,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             OutlinedButton.icon(
               onPressed: () => setState(() => _mode = TextStudioMode.read),
               icon: Icon(Icons.chrome_reader_mode, color: theme.primary),
-              label: Text('Chuyển sang Đọc', style: TextStyle(color: theme.primary)),
-              style: OutlinedButton.styleFrom(side: BorderSide(color: theme.primary)),
+              label: Text('Chuyển sang Đọc',
+                  style: TextStyle(color: theme.primary)),
+              style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: theme.primary)),
             ),
           ],
         ),
@@ -1178,18 +1204,19 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       itemBuilder: (context, index) {
         final segment = segments[index];
         final isPlaying = textProvider.currentPlayingSegment?.id == segment.id;
-        return _buildSegmentCard(context, textProvider, segment, isPlaying, theme);
+        return _buildSegmentCard(
+            context, textProvider, segment, isPlaying, theme);
       },
     );
   }
 
   Widget _buildSegmentCard(
-      BuildContext context,
-      TextProvider textProvider,
-      TextSegment segment,
-      bool isPlaying,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    TextSegment segment,
+    bool isPlaying,
+    _StudioTheme theme,
+  ) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 12),
@@ -1218,11 +1245,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     color: segment.difficultyColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(segment.typeIcon, size: 16, color: segment.difficultyColor),
+                  child: Icon(segment.typeIcon,
+                      size: 16, color: segment.difficultyColor),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: segment.difficultyColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -1259,7 +1288,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
               segment.content,
-              style: const TextStyle(fontSize: 16, color: Colors.white, height: 1.5),
+              style: const TextStyle(
+                  fontSize: 16, color: Colors.white, height: 1.5),
             ),
           ),
           if (segment.note != null && segment.note!.isNotEmpty)
@@ -1297,7 +1327,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 children: [
                   Expanded(
                     child: LinearProgressIndicator(
-                      value: textProvider.currentRepeatIndex / segment.repeatCount,
+                      value:
+                          textProvider.currentRepeatIndex / segment.repeatCount,
                       backgroundColor: Colors.white12,
                       color: segment.difficultyColor,
                     ),
@@ -1324,10 +1355,12 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     onPressed: isPlaying
                         ? textProvider.stopSegmentPlayback
                         : () => textProvider.speakSegment(segment),
-                    icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow, size: 18),
+                    icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow,
+                        size: 18),
                     label: Text(isPlaying ? 'Dừng' : 'Phát'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isPlaying ? Colors.red : segment.difficultyColor,
+                      backgroundColor:
+                          isPlaying ? Colors.red : segment.difficultyColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
@@ -1335,11 +1368,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  onPressed: () => _showEditSegmentSheet(context, textProvider, segment, theme),
+                  onPressed: () => _showEditSegmentSheet(
+                      context, textProvider, segment, theme),
                   icon: Icon(Icons.edit_outlined, color: Colors.grey[400]),
                 ),
                 IconButton(
-                  onPressed: () => _confirmDeleteSegment(context, textProvider, segment),
+                  onPressed: () =>
+                      _confirmDeleteSegment(context, textProvider, segment),
                   icon: Icon(Icons.delete_outline, color: Colors.red[300]),
                 ),
               ],
@@ -1355,10 +1390,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildEditMode(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _StudioTheme theme,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1382,14 +1417,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 ),
                 if (_hasUnsavedChanges)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.orange,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
                       'Chưa lưu',
-                      style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
               ],
@@ -1438,7 +1477,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     side: const BorderSide(color: Colors.grey),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+                  child:
+                      const Text('Hủy', style: TextStyle(color: Colors.grey)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1447,19 +1487,19 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 child: ElevatedButton.icon(
                   onPressed: _hasUnsavedChanges
                       ? () {
-                    textProvider.updateFullText(_editController.text);
-                    setState(() {
-                      _hasUnsavedChanges = false;
-                      _mode = TextStudioMode.read;
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã lưu văn bản!'),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
+                          textProvider.updateFullText(_editController.text);
+                          setState(() {
+                            _hasUnsavedChanges = false;
+                            _mode = TextStudioMode.read;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã lưu văn bản!'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
                       : null,
                   icon: const Icon(Icons.save),
                   label: const Text('Lưu & Cập nhật'),
@@ -1482,10 +1522,10 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildTtsControls(
-      BuildContext context,
-      TextProvider textProvider,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    _StudioTheme theme,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.all(12),
@@ -1499,7 +1539,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             children: [
               Icon(Icons.speed, size: 18, color: theme.primary),
               const SizedBox(width: 8),
-              Text('TTS:', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              Text('TTS:',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12)),
               Expanded(
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
@@ -1542,7 +1583,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   icon: Icons.play_arrow,
                   label: 'Tất cả',
                   color: Colors.green,
-                  enabled: textProvider.lines.isNotEmpty && !textProvider.isSpeaking,
+                  enabled:
+                      textProvider.lines.isNotEmpty && !textProvider.isSpeaking,
                   isActive: textProvider.isSpeaking,
                   onTap: () => textProvider.speakAllLines(),
                 ),
@@ -1590,11 +1632,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
   // ============================================================================
 
   Widget _buildBottomBar(
-      BuildContext context,
-      TextProvider textProvider,
-      PlayerProvider player,
-      _StudioTheme theme,
-      ) {
+    BuildContext context,
+    TextProvider textProvider,
+    PlayerProvider player,
+    _StudioTheme theme,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1623,7 +1665,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
           _BottomAction(
             icon: Icons.palette,
             label: 'Màu',
-            color: textProvider.colorMode != ColorMode.none ? theme.primary : null,
+            color:
+                textProvider.colorMode != ColorMode.none ? theme.primary : null,
             onTap: () => textProvider.cycleColorMode(),
           ),
           _BottomAction(
@@ -1668,15 +1711,20 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   ],
                 ),
               ),
-              child: Icon(Icons.text_snippet_outlined, size: 64, color: theme.primary),
+              child: Icon(Icons.text_snippet_outlined,
+                  size: 64, color: theme.primary),
             ),
             const SizedBox(height: 24),
             const Text(
               'Chưa có văn bản',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
             const SizedBox(height: 8),
-            Text('Nhập văn bản để bắt đầu học', style: TextStyle(color: Colors.grey[400])),
+            Text('Nhập văn bản để bắt đầu học',
+                style: TextStyle(color: Colors.grey[400])),
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1688,17 +1736,20 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
                   ),
                 ),
                 const SizedBox(width: 16),
                 OutlinedButton.icon(
                   onPressed: () => setState(() => _mode = TextStudioMode.edit),
                   icon: Icon(Icons.edit, color: theme.primary),
-                  label: Text('Nhập text', style: TextStyle(color: theme.primary)),
+                  label:
+                      Text('Nhập text', style: TextStyle(color: theme.primary)),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: theme.primary),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
                   ),
                 ),
               ],
@@ -1758,12 +1809,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Dán văn bản', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.primary)),
+            Text('Dán văn bản',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: theme.primary)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -1774,24 +1831,32 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy'))),
+                Expanded(
+                    child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Hủy'))),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
                   child: ElevatedButton(
                     onPressed: () {
                       if (controller.text.trim().isNotEmpty) {
-                        context.read<TextProvider>().loadText(controller.text, title: 'Văn bản mới');
+                        context
+                            .read<TextProvider>()
+                            .loadText(controller.text, title: 'Văn bản mới');
                         Navigator.pop(context);
                       }
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: theme.primary),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primary),
                     child: const Text('Thêm'),
                   ),
                 ),
@@ -1804,26 +1869,31 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showCreateSegmentSheet(BuildContext context, TextProvider textProvider, _StudioTheme theme) {
+  void _showCreateSegmentSheet(
+      BuildContext context, TextProvider textProvider, _StudioTheme theme) {
     final info = textProvider.selectedTextInfo;
     if (info == null && textProvider.selectedText == null) return;
 
     TextSegmentDifficulty difficulty = TextSegmentDifficulty.medium;
     TextSegmentType type = theme.defaultSegmentType;
     final repeatController = TextEditingController(text: '3');
-    final speedController = TextEditingController(text: textProvider.ttsSpeed.toStringAsFixed(2));
+    final speedController =
+        TextEditingController(text: textProvider.ttsSpeed.toStringAsFixed(2));
     final noteController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            left: 20, right: 20, top: 20,
+            left: 20,
+            right: 20,
+            top: 20,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -1834,7 +1904,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   children: [
                     Icon(Icons.bookmark_add, color: theme.primary),
                     const SizedBox(width: 8),
-                    const Text('Tạo đoạn học', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const Text('Tạo đoạn học',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1853,19 +1927,37 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Độ khó:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                const Text('Độ khó:',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   children: TextSegmentDifficulty.values.map((d) {
                     return ChoiceChip(
-                      label: Text(d == TextSegmentDifficulty.hard ? 'Khó (5x)' : d == TextSegmentDifficulty.medium ? 'Vừa (3x)' : 'Dễ (1x)'),
+                      label: Text(d == TextSegmentDifficulty.hard
+                          ? 'Khó (5x)'
+                          : d == TextSegmentDifficulty.medium
+                              ? 'Vừa (3x)'
+                              : 'Dễ (1x)'),
                       selected: difficulty == d,
-                      selectedColor: d == TextSegmentDifficulty.hard ? Colors.red : d == TextSegmentDifficulty.medium ? Colors.orange : Colors.green,
+                      selectedColor: d == TextSegmentDifficulty.hard
+                          ? Colors.red
+                          : d == TextSegmentDifficulty.medium
+                              ? Colors.orange
+                              : Colors.green,
                       onSelected: (_) => setModalState(() {
                         difficulty = d;
-                        repeatController.text = d == TextSegmentDifficulty.hard ? '5' : d == TextSegmentDifficulty.medium ? '3' : '1';
-                        speedController.text = d == TextSegmentDifficulty.hard ? '0.70' : d == TextSegmentDifficulty.medium ? '0.85' : '1.00';
+                        repeatController.text = d == TextSegmentDifficulty.hard
+                            ? '5'
+                            : d == TextSegmentDifficulty.medium
+                                ? '3'
+                                : '1';
+                        speedController.text = d == TextSegmentDifficulty.hard
+                            ? '0.70'
+                            : d == TextSegmentDifficulty.medium
+                                ? '0.85'
+                                : '1.00';
                       }),
                     );
                   }).toList(),
@@ -1883,7 +1975,9 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                           labelStyle: TextStyle(color: Colors.grey[400]),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none),
                         ),
                       ),
                     ),
@@ -1891,14 +1985,17 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     Expanded(
                       child: TextField(
                         controller: speedController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Tốc độ',
                           labelStyle: TextStyle(color: Colors.grey[400]),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none),
                         ),
                       ),
                     ),
@@ -1913,13 +2010,18 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                     labelStyle: TextStyle(color: Colors.grey[400]),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
                   ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy'))),
+                    Expanded(
+                        child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Hủy'))),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
@@ -1928,18 +2030,27 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                           textProvider.createSegmentFromSelection(
                             difficulty: difficulty,
                             type: type,
-                            repeatCountOverride: int.tryParse(repeatController.text),
-                            ttsSpeedOverride: double.tryParse(speedController.text),
-                            note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                            repeatCountOverride:
+                                int.tryParse(repeatController.text),
+                            ttsSpeedOverride:
+                                double.tryParse(speedController.text),
+                            note: noteController.text.trim().isEmpty
+                                ? null
+                                : noteController.text.trim(),
                           );
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: const Text('Đã lưu!'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+                            SnackBar(
+                                content: const Text('Đã lưu!'),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating),
                           );
                         },
                         icon: const Icon(Icons.save),
                         label: const Text('Lưu'),
-                        style: ElevatedButton.styleFrom(backgroundColor: theme.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 14)),
                       ),
                     ),
                   ],
@@ -1952,21 +2063,28 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showLineOptionsSheet(BuildContext context, TextProvider textProvider, int index, TextItem line, _StudioTheme theme) {
+  void _showLineOptionsSheet(BuildContext context, TextProvider textProvider,
+      int index, TextItem line, _StudioTheme theme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Dòng ${index + 1}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.primary)),
+            Text('Dòng ${index + 1}',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: theme.primary)),
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.volume_up, color: Colors.blue),
-              title: const Text('Đọc TTS', style: TextStyle(color: Colors.white)),
+              title:
+                  const Text('Đọc TTS', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 textProvider.setCurrentLine(index);
@@ -1975,7 +2093,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ),
             ListTile(
               leading: const Icon(Icons.bookmark_add, color: Colors.amber),
-              title: const Text('Đánh dấu toàn bộ dòng', style: TextStyle(color: Colors.white)),
+              title: const Text('Đánh dấu toàn bộ dòng',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 int offset = 0;
@@ -1993,12 +2112,15 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             ),
             ListTile(
               leading: const Icon(Icons.copy, color: Colors.grey),
-              title: const Text('Sao chép', style: TextStyle(color: Colors.white)),
+              title:
+                  const Text('Sao chép', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: line.content));
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã sao chép!'), behavior: SnackBarBehavior.floating),
+                  const SnackBar(
+                      content: Text('Đã sao chép!'),
+                      behavior: SnackBarBehavior.floating),
                 );
               },
             ),
@@ -2008,25 +2130,37 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showEditSegmentSheet(BuildContext context, TextProvider textProvider, TextSegment segment, _StudioTheme theme) {
+  void _showEditSegmentSheet(BuildContext context, TextProvider textProvider,
+      TextSegment segment, _StudioTheme theme) {
     TextSegmentDifficulty difficulty = segment.difficulty;
-    final repeatController = TextEditingController(text: segment.repeatCount.toString());
-    final speedController = TextEditingController(text: segment.ttsSpeed.toStringAsFixed(2));
+    final repeatController =
+        TextEditingController(text: segment.repeatCount.toString());
+    final speedController =
+        TextEditingController(text: segment.ttsSpeed.toStringAsFixed(2));
     final noteController = TextEditingController(text: segment.note ?? '');
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, left: 20, right: 20, top: 20),
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              left: 20,
+              right: 20,
+              top: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Chỉnh sửa đoạn học', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('Chỉnh sửa đoạn học',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
               const SizedBox(height: 16),
               const Text('Độ khó:', style: TextStyle(color: Colors.white)),
               const SizedBox(height: 8),
@@ -2034,9 +2168,17 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                 spacing: 8,
                 children: TextSegmentDifficulty.values.map((d) {
                   return ChoiceChip(
-                    label: Text(d == TextSegmentDifficulty.hard ? 'Khó' : d == TextSegmentDifficulty.medium ? 'Vừa' : 'Dễ'),
+                    label: Text(d == TextSegmentDifficulty.hard
+                        ? 'Khó'
+                        : d == TextSegmentDifficulty.medium
+                            ? 'Vừa'
+                            : 'Dễ'),
                     selected: difficulty == d,
-                    selectedColor: d == TextSegmentDifficulty.hard ? Colors.red : d == TextSegmentDifficulty.medium ? Colors.orange : Colors.green,
+                    selectedColor: d == TextSegmentDifficulty.hard
+                        ? Colors.red
+                        : d == TextSegmentDifficulty.medium
+                            ? Colors.orange
+                            : Colors.green,
                     onSelected: (_) => setModalState(() => difficulty = d),
                   );
                 }).toList(),
@@ -2049,16 +2191,21 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       controller: repeatController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'Số lần lặp', labelStyle: TextStyle(color: Colors.grey)),
+                      decoration: const InputDecoration(
+                          labelText: 'Số lần lặp',
+                          labelStyle: TextStyle(color: Colors.grey)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       controller: speedController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'Tốc độ TTS', labelStyle: TextStyle(color: Colors.grey)),
+                      decoration: const InputDecoration(
+                          labelText: 'Tốc độ TTS',
+                          labelStyle: TextStyle(color: Colors.grey)),
                     ),
                   ),
                 ],
@@ -2067,26 +2214,36 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               TextField(
                 controller: noteController,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(labelText: 'Ghi chú', labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú',
+                    labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 20),
               Row(
                 children: [
-                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy'))),
+                  Expanded(
+                      child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Hủy'))),
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
                       onPressed: () {
                         final updated = segment.copyWith(
                           difficulty: difficulty,
-                          repeatCount: int.tryParse(repeatController.text) ?? segment.repeatCount,
-                          ttsSpeed: double.tryParse(speedController.text) ?? segment.ttsSpeed,
-                          note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                          repeatCount: int.tryParse(repeatController.text) ??
+                              segment.repeatCount,
+                          ttsSpeed: double.tryParse(speedController.text) ??
+                              segment.ttsSpeed,
+                          note: noteController.text.trim().isEmpty
+                              ? null
+                              : noteController.text.trim(),
                         );
                         textProvider.updateSegment(updated);
                         Navigator.pop(context);
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: theme.primary),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.primary),
                       child: const Text('Cập nhật'),
                     ),
                   ),
@@ -2099,11 +2256,13 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showSettingsSheet(BuildContext context, TextProvider textProvider, _StudioTheme theme) {
+  void _showSettingsSheet(
+      BuildContext context, TextProvider textProvider, _StudioTheme theme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: const EdgeInsets.all(20),
@@ -2111,7 +2270,11 @@ class _TextStudioScreenState extends State<TextStudioScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Cài đặt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.primary)),
+              Text('Cài đặt',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: theme.primary)),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -2130,18 +2293,22 @@ class _TextStudioScreenState extends State<TextStudioScreen>
                       },
                     ),
                   ),
-                  Text('${textProvider.fontSize.toInt()}', style: const TextStyle(color: Colors.white)),
+                  Text('${textProvider.fontSize.toInt()}',
+                      style: const TextStyle(color: Colors.white)),
                 ],
               ),
               ListTile(
                 leading: const Icon(Icons.language, color: Colors.grey),
-                title: const Text('Ngôn ngữ TTS', style: TextStyle(color: Colors.white)),
+                title: const Text('Ngôn ngữ TTS',
+                    style: TextStyle(color: Colors.white)),
                 trailing: DropdownButton<String>(
                   value: textProvider.ttsLanguage,
                   dropdownColor: theme.surface,
                   items: const [
-                    DropdownMenuItem(value: 'en-US', child: Text('English (US)')),
-                    DropdownMenuItem(value: 'en-GB', child: Text('English (UK)')),
+                    DropdownMenuItem(
+                        value: 'en-US', child: Text('English (US)')),
+                    DropdownMenuItem(
+                        value: 'en-GB', child: Text('English (UK)')),
                     DropdownMenuItem(value: 'vi-VN', child: Text('Tiếng Việt')),
                   ],
                   onChanged: (value) {
@@ -2154,7 +2321,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               ),
               SwitchListTile(
                 secondary: const Icon(Icons.translate, color: Colors.grey),
-                title: const Text('Hiện bản dịch', style: TextStyle(color: Colors.white)),
+                title: const Text('Hiện bản dịch',
+                    style: TextStyle(color: Colors.white)),
                 value: textProvider.showTranslation,
                 activeColor: theme.primary,
                 onChanged: (_) {
@@ -2169,18 +2337,22 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _confirmDeleteSegment(BuildContext context, TextProvider textProvider, TextSegment segment) {
+  void _confirmDeleteSegment(
+      BuildContext context, TextProvider textProvider, TextSegment segment) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Xóa đoạn học?', style: TextStyle(color: Colors.white)),
+        title:
+            const Text('Xóa đoạn học?', style: TextStyle(color: Colors.white)),
         content: Text(
           'Xóa: "${segment.content.length > 50 ? '${segment.content.substring(0, 50)}...' : segment.content}"?',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () {
               textProvider.deleteSegment(segment.id);
@@ -2194,15 +2366,20 @@ class _TextStudioScreenState extends State<TextStudioScreen>
     );
   }
 
-  void _showUnsavedChangesDialog(BuildContext context, {VoidCallback? onDiscard}) {
+  void _showUnsavedChangesDialog(BuildContext context,
+      {VoidCallback? onDiscard}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Chưa lưu thay đổi', style: TextStyle(color: Colors.white)),
-        content: const Text('Bạn có thay đổi chưa lưu.', style: TextStyle(color: Colors.grey)),
+        title: const Text('Chưa lưu thay đổi',
+            style: TextStyle(color: Colors.white)),
+        content: const Text('Bạn có thay đổi chưa lưu.',
+            style: TextStyle(color: Colors.grey)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tiếp tục sửa')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tiếp tục sửa')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -2210,7 +2387,8 @@ class _TextStudioScreenState extends State<TextStudioScreen>
               setState(() => _hasUnsavedChanges = false);
               onDiscard?.call();
             },
-            child: const Text('Bỏ thay đổi', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('Bỏ thay đổi', style: TextStyle(color: Colors.red)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -2283,7 +2461,8 @@ class _ColorModeChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(mode.icon, size: 14, color: isSelected ? Colors.white : Colors.grey),
+            Icon(mode.icon,
+                size: 14, color: isSelected ? Colors.white : Colors.grey),
             const SizedBox(width: 4),
             Text(
               mode.label,
@@ -2331,7 +2510,8 @@ class _LegendItem extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '$label ($abbreviation)',
-            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                color: color, fontSize: 10, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -2373,7 +2553,9 @@ class _ColoredWordWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: fontSize,
             color: textColor,
-            fontWeight: word.userDifficulty != null ? FontWeight.bold : FontWeight.normal,
+            fontWeight: word.userDifficulty != null
+                ? FontWeight.bold
+                : FontWeight.normal,
             height: 1.6,
           ),
         ),
@@ -2396,7 +2578,9 @@ class _WordBadge extends StatelessWidget {
         color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10, color: color, fontWeight: FontWeight.bold)),
     );
   }
 }
@@ -2451,7 +2635,9 @@ class _StudyStat extends StatelessWidget {
             shape: BoxShape.circle,
             border: highlight ? Border.all(color: color, width: 2) : null,
           ),
-          child: Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+          child: Text(value,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 14)),
         ),
         const SizedBox(height: 4),
         Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 10)),
@@ -2485,16 +2671,25 @@ class _TtsActionButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.3) : enabled ? color.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
+          color: isActive
+              ? color.withOpacity(0.3)
+              : enabled
+                  ? color.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.05),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isActive ? color : Colors.transparent, width: 2),
+          border: Border.all(
+              color: isActive ? color : Colors.transparent, width: 2),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: enabled ? color : Colors.grey, size: 22),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: enabled ? color : Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
+            Text(label,
+                style: TextStyle(
+                    color: enabled ? color : Colors.grey,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -2530,12 +2725,18 @@ class _BottomAction extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: isActive
-                ? BoxDecoration(color: effectiveColor.withOpacity(0.2), shape: BoxShape.circle)
+                ? BoxDecoration(
+                    color: effectiveColor.withOpacity(0.2),
+                    shape: BoxShape.circle)
                 : null,
-            child: Icon(icon, color: isEnabled ? effectiveColor : Colors.grey, size: 22),
+            child: Icon(icon,
+                color: isEnabled ? effectiveColor : Colors.grey, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: isEnabled ? effectiveColor : Colors.grey, fontSize: 10)),
+          Text(label,
+              style: TextStyle(
+                  color: isEnabled ? effectiveColor : Colors.grey,
+                  fontSize: 10)),
         ],
       ),
     );

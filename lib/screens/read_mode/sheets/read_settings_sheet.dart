@@ -1,10 +1,10 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/color_mode.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();

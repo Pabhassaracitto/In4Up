@@ -47,6 +47,8 @@ dependencies:
   just_waveform: ^0.0.7  # Đọc waveform từ audio file
   record: ^6.1.2 # ghi âm
 
+  url_launcher: ^6.2.5               # cho word_actions_sheet tra từ online
+
 # Thêm vào CUỐI file pubspec.yaml, trước dev_dependencies:
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^

@@ -12,11 +12,9 @@ class FloatingTextActions {
   FloatingTextActions._();
 
   /// Hiện floating action bar cho text đã chọn
-  static void show(BuildContext context, String selectedText) {
+  static void show(BuildContext context, String selectedText, int lineIndex) {
     final controller = context.read<ReadModeController>();
     controller.removeFloatingMenu(); // Xóa menu cũ
-
-    final overlay = Overlay.of(context);
 
     final entry = OverlayEntry(
       builder: (overlayContext) => Positioned(
@@ -25,6 +23,7 @@ class FloatingTextActions {
         right: 16,
         child: _FloatingBar(
           selectedText: selectedText,
+          lineIndex: lineIndex,
           onDismiss: () => controller.removeFloatingMenu(),
         ),
       ),
@@ -36,10 +35,12 @@ class FloatingTextActions {
 
 class _FloatingBar extends StatelessWidget {
   final String selectedText;
+  final int lineIndex;
   final VoidCallback onDismiss;
 
   const _FloatingBar({
     required this.selectedText,
+    required this.lineIndex,
     required this.onDismiss,
   });
 
@@ -65,10 +66,10 @@ class _FloatingBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF2A2A3E),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -114,7 +115,7 @@ class _FloatingBar extends StatelessWidget {
                 onTap: () {
                   HapticFeedback.lightImpact();
                   onDismiss();
-                  CreateSegmentSheet.show(context);
+                  CreateSegmentSheet.show(context, lineIndex);
                 },
               ),
               const SizedBox(width: 6),
@@ -179,7 +180,7 @@ class _ActionBtn extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 18),

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+// KHÔNG DÙNG: import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
@@ -64,7 +65,7 @@ class _WordActionsContent extends StatelessWidget {
             height: 4,
             margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -72,14 +73,13 @@ class _WordActionsContent extends StatelessWidget {
           // ===== WORD HEADER =====
           Row(
             children: [
-              // Word display
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: word.wordType.color.withOpacity(0.15),
+                  color: word.wordType.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: word.wordType.color.withOpacity(0.3),
+                    color: word.wordType.color.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
@@ -92,13 +92,10 @@ class _WordActionsContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-
-              // Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Badges
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
@@ -134,7 +131,6 @@ class _WordActionsContent extends StatelessWidget {
                   ],
                 ),
               ),
-
               // Speak button
               GestureDetector(
                 onTap: () {
@@ -144,7 +140,7 @@ class _WordActionsContent extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3).withOpacity(0.2),
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -159,17 +155,17 @@ class _WordActionsContent extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // ===== PHONETIC / EXAMPLE (if available) =====
+          // ===== PHONETIC / EXAMPLE =====
           if (word.phonetic != null || word.example != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
+                color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.06),
+                  color: Colors.white.withValues(alpha: 0.06),
                 ),
               ),
               child: Column(
@@ -270,10 +266,12 @@ class _WordActionsContent extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? level.color
-                        : level.color.withOpacity(0.12),
+                        : level.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: level.color.withOpacity(isSelected ? 1.0 : 0.4),
+                      color: level.color.withValues(
+                        alpha: isSelected ? 1.0 : 0.4,
+                      ),
                       width: isSelected ? 2 : 1,
                     ),
                   ),
@@ -292,7 +290,7 @@ class _WordActionsContent extends StatelessWidget {
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white70
-                              : level.color.withOpacity(0.7),
+                              : level.color.withValues(alpha: 0.7),
                           fontSize: 10,
                         ),
                       ),
@@ -325,7 +323,9 @@ class _WordActionsContent extends StatelessWidget {
                   label: const Text('Sao chép'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.grey[300],
-                    side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.15),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -338,7 +338,24 @@ class _WordActionsContent extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    _addToVocabularyList(context, word);
+                    tp.saveWord(word);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.bookmark_added,
+                                  color: Color(0xFF4CAF50), size: 18),
+                              const SizedBox(width: 8),
+                              Text('"${word.word}" đã lưu'),
+                            ],
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: const Color(0xFF2A2A3E),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.playlist_add, size: 18),
                   label: const Text('Lưu từ'),
@@ -346,28 +363,6 @@ class _WordActionsContent extends StatelessWidget {
                     foregroundColor: const Color(0xFF4CAF50),
                     side: const BorderSide(
                       color: Color(0xFF4CAF50),
-                      width: 0.8,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _searchOnline(context, word.word);
-                  },
-                  icon: const Icon(Icons.search, size: 18),
-                  label: const Text('Tra cứu'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF2196F3),
-                    side: const BorderSide(
-                      color: Color(0xFF2196F3),
                       width: 0.8,
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -386,7 +381,7 @@ class _WordActionsContent extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -400,7 +395,7 @@ class _WordActionsContent extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 24,
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                 ),
                 _StatItem(
                   label: 'Dòng',
@@ -410,7 +405,7 @@ class _WordActionsContent extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 24,
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                 ),
                 _StatItem(
                   label: 'Ký tự',
@@ -424,45 +419,6 @@ class _WordActionsContent extends StatelessWidget {
       ),
     );
   }
-
-  void _addToVocabularyList(BuildContext context, AnalyzedWord word) {
-    final tp = context.read<TextProvider>();
-    try {
-      tp.addToVocabulary(word);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.bookmark_added,
-                    color: Color(0xFF4CAF50), size: 18),
-                const SizedBox(width: 8),
-                Text('"${word.word}" đã lưu vào danh sách từ vựng'),
-              ],
-            ),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF2A2A3E),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red[900],
-          ),
-        );
-      }
-    }
-  }
-
-  void _searchOnline(BuildContext context, String word) {
-    final tp = context.read<TextProvider>();
-    tp.searchWordOnline(word);
-  }
 }
 
 // ===== REUSABLE BADGE WIDGET =====
@@ -470,20 +426,17 @@ class _Badge extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _Badge({
-    required this.label,
-    required this.color,
-  });
+  const _Badge({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -533,10 +486,7 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 10,
-          ),
+          style: TextStyle(color: Colors.grey[600], fontSize: 10),
         ),
       ],
     );

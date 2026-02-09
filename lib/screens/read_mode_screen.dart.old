@@ -9,7 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/text_provider.dart';
 import '../providers/player_provider.dart';
 import '../models/text_item.dart';
-import '../models/text_segment.dart';
+import '../models/text_segment.dart.old';
 import '../models/word_analysis.dart';
 
 class ReadModeScreen extends StatefulWidget {

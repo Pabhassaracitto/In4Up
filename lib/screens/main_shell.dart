@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/text_provider.dart';
 import '../widgets/mini_player.dart';
-import 'read_mode_screen.dart';
+import 'read_mode/read_mode_screen.dart';
 import 'listen_mode_screen.dart';
 import 'understand_mode_screen.dart';
 import 'text_library_drawer.dart';

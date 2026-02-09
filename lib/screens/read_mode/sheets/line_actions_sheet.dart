@@ -46,10 +46,10 @@ class LineActionsSheet {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF2196F3).withOpacity(0.1),
+                color: const Color(0xFF2196F3).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: const Color(0xFF2196F3).withOpacity(0.2)),
+                border: Border.all(
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,7 +110,7 @@ class LineActionsSheet {
                 Navigator.pop(sheetContext);
                 final controller = context.read<ReadModeController>();
                 controller.bookmarkLine(lineIndex);
-                CreateSegmentSheet.show(context);
+                CreateSegmentSheet.show(context, lineIndex);
               },
             ),
 
@@ -186,7 +186,7 @@ class _ActionTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color, size: 20),

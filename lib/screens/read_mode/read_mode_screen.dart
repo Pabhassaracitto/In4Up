@@ -4,13 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/text_provider.dart';
 import '../../providers/player_provider.dart';
+import '../../providers/text_provider.dart';
 import 'controllers/read_mode_controller.dart';
-import 'widgets/read_top_bar.dart';
-import 'widgets/read_bottom_bar.dart';
-import 'widgets/text_line_widget.dart';
 import 'widgets/empty_state_widget.dart';
+import 'widgets/read_bottom_bar.dart';
+import 'widgets/read_top_bar.dart';
+import 'widgets/text_line_widget.dart';
 
 class ReadModeScreen extends StatefulWidget {
   const ReadModeScreen({super.key});
@@ -24,29 +24,32 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   late ReadModeController _controller;
   bool _controllerInitialized = false;
 
+  VoidCallback? _playerListener;
+  Duration _lastPos = Duration.zero;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_controllerInitialized) {
-      _controller = ReadModeController(
-        textProvider: context.read<TextProvider>(),
-        playerProvider: context.read<PlayerProvider>(),
-      );
-      _setupAudioSync();
+      final tp = context.read<TextProvider>();
+      final pp = context.read<PlayerProvider>();
+
+      _controller = ReadModeController(textProvider: tp, playerProvider: pp);
+
+      _playerListener = () {
+        final pos = pp.state.position;
+        if (pos == _lastPos) return;
+        _lastPos = pos;
+
+        final targetLine = _controller.checkAudioSync(pos);
+        if (targetLine >= 0) {
+          _controller.scrollToLine(_scrollController, targetLine);
+        }
+      };
+
+      pp.addListener(_playerListener!);
       _controllerInitialized = true;
     }
-  }
-
-  void _setupAudioSync() {
-    final player = context.read<PlayerProvider>();
-    // Listen audio position → auto scroll
-    player.positionStream?.listen((position) {
-      if (!mounted) return;
-      final targetLine = _controller.checkAudioSync(position);
-      if (targetLine >= 0) {
-        _controller.scrollToLine(_scrollController, targetLine);
-      }
-    });
   }
 
   @override
@@ -57,6 +60,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   @override
   void dispose() {
+    final pp = context.read<PlayerProvider>();
+    if (_playerListener != null) {
+      pp.removeListener(_playerListener!);
+    }
     _scrollController.dispose();
     _controller.dispose();
     super.dispose();

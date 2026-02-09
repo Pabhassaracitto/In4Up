@@ -8,6 +8,11 @@ import '../../../providers/text_provider.dart';
 class CreateSegmentSheet {
   CreateSegmentSheet._();
 
+  /// ✅ Static show() method - dùng bởi line_actions_sheet & floating_text_actions
+  static void show(BuildContext context, int lineIndex) {
+    showFromLine(context, lineIndex);
+  }
+
   /// Show sheet to create segment from a single line
   static void showFromLine(BuildContext context, int lineIndex) {
     HapticFeedback.mediumImpact();
@@ -26,11 +31,7 @@ class CreateSegmentSheet {
   }
 
   /// Show sheet to create segment from a range of lines
-  static void showFromRange(
-    BuildContext context,
-    int startLine,
-    int endLine,
-  ) {
+  static void showFromRange(BuildContext context, int startLine, int endLine) {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
@@ -69,14 +70,14 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
   bool _isCreating = false;
 
   static const List<Color> _colorOptions = [
-    Color(0xFF2196F3), // Blue
-    Color(0xFF4CAF50), // Green
-    Color(0xFFFF9800), // Orange
-    Color(0xFFF44336), // Red
-    Color(0xFF9C27B0), // Purple
-    Color(0xFF00BCD4), // Cyan
-    Color(0xFFFFEB3B), // Yellow
-    Color(0xFFE91E63), // Pink
+    Color(0xFF2196F3),
+    Color(0xFF4CAF50),
+    Color(0xFFFF9800),
+    Color(0xFFF44336),
+    Color(0xFF9C27B0),
+    Color(0xFF00BCD4),
+    Color(0xFFFFEB3B),
+    Color(0xFFE91E63),
   ];
 
   @override
@@ -85,7 +86,6 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
     _startLine = widget.startLine;
     _endLine = widget.endLine;
 
-    // Auto-generate name from first line content
     final tp = context.read<TextProvider>();
     if (tp.lines.isNotEmpty && _startLine < tp.lines.length) {
       final firstLineContent = tp.lines[_startLine].content;
@@ -127,7 +127,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -139,7 +139,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _selectedColor.withOpacity(0.15),
+                  color: _selectedColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -239,9 +239,11 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
             ),
             constraints: const BoxConstraints(maxHeight: 100),
             child: SingleChildScrollView(
@@ -278,7 +280,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             spacing: 10,
             runSpacing: 10,
             children: _colorOptions.map((color) {
-              final isSelected = _selectedColor.value == color.value;
+              final isSelected = _selectedColor.toARGB32() == color.toARGB32();
               return GestureDetector(
                 onTap: () {
                   HapticFeedback.selectionClick();
@@ -298,7 +300,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: color.withOpacity(0.4),
+                              color: color.withValues(alpha: 0.4),
                               blurRadius: 8,
                               spreadRadius: 1,
                             ),
@@ -383,22 +385,25 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
       hintStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
       prefixIcon: Icon(icon, color: Colors.grey[500], size: 20),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.05),
+      fillColor: Colors.white.withValues(alpha: 0.05),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: _selectedColor, width: 1.5),
       ),
       counterStyle: TextStyle(color: Colors.grey[600], fontSize: 11),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 
@@ -412,9 +417,11 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         children: [
@@ -436,9 +443,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                 child: Icon(
                   Icons.remove_circle_outline,
                   size: 22,
-                  color: value > min
-                      ? _selectedColor
-                      : Colors.grey[700],
+                  color: value > min ? _selectedColor : Colors.grey[700],
                 ),
               ),
               Padding(
@@ -462,9 +467,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                 child: Icon(
                   Icons.add_circle_outline,
                   size: 22,
-                  color: value < max
-                      ? _selectedColor
-                      : Colors.grey[700],
+                  color: value < max ? _selectedColor : Colors.grey[700],
                 ),
               ),
             ],
@@ -491,8 +494,17 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
 
     try {
       final tp = context.read<TextProvider>();
-      await tp.createSegment(
+
+      // Build content from selected lines
+      final contentLines = <String>[];
+      for (int i = _startLine; i <= _endLine && i < tp.lines.length; i++) {
+        contentLines.add(tp.lines[i].content);
+      }
+      final content = contentLines.join('\n');
+
+      tp.addSegment(
         name: name,
+        content: content,
         startLine: _startLine,
         endLine: _endLine,
         color: _selectedColor,

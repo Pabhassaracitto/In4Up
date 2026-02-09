@@ -157,6 +157,7 @@ CMakeLists.txt:
     # V1 Library
     add_library(UltraTimeStretchV1 STATIC
         Core/FFTProcessor.cpp
+        Core/pffft.c
         Core/TransientDetector.cpp
         Core/PhaseVocoder_Enhanced.cpp
         Core/WSOLAProcessor.cpp
@@ -233,6 +234,7 @@ Android (NDK):
     LOCAL_MODULE := UltraTimeStretch
     LOCAL_SRC_FILES := \
         Core/FFTProcessor.cpp \
+        Core/pffft.c \
         Core/PhaseVocoder_Enhanced.cpp \
         Core/WSOLAProcessor.cpp \
         Core/TransientDetector.cpp \

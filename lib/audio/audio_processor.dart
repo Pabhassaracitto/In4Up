@@ -1,7 +1,7 @@
 import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
-import 'audio_processor_ffi.dart';
+import '../ffi/audio_processor_ffi.dart';
 
 class AudioProcessor {
   late final AudioProcessorFFI _ffi;

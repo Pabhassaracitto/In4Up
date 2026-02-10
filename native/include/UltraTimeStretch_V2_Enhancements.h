@@ -23,6 +23,10 @@
 #include <thread>
 #include <chrono>
 
+#ifdef __ANDROID__
+#include <oboe/Oboe.h>
+#endif
+
 #ifdef _WIN32
 // Windows SDK may define these macros (rpcndr.h / windows.h)
 #ifdef small
@@ -541,6 +545,63 @@ namespace UltraTimeStretch
             std::vector<float> tempOutput_;
             int processBlockSize_ = 1024;
         };
+
+#ifdef __ANDROID__
+        //==============================================================================
+        // Android Oboe Integration (Low Latency)
+        //==============================================================================
+        class OboeAudioDriver : public oboe::AudioStreamDataCallback
+        {
+        public:
+            explicit OboeAudioDriver(StreamingEngine &engine) : engine_(engine) {}
+
+            virtual ~OboeAudioDriver() { close(); }
+
+            bool open(int sampleRate, int channelCount)
+            {
+                oboe::AudioStreamBuilder builder;
+                builder.setDirection(oboe::Direction::Output)
+                    ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+                    ->setSharingMode(oboe::SharingMode::Exclusive)
+                    ->setFormat(oboe::AudioFormat::Float)
+                    ->setChannelCount(channelCount)
+                    ->setSampleRate(sampleRate)
+                    ->setDataCallback(this);
+
+                oboe::Result result = builder.openStream(stream_);
+                return (result == oboe::Result::OK);
+            }
+
+            bool start()
+            {
+                if (!stream_)
+                    return false;
+                return stream_->requestStart() == oboe::Result::OK;
+            }
+
+            void close()
+            {
+                if (stream_)
+                {
+                    stream_->close();
+                    stream_.reset();
+                }
+            }
+
+            oboe::DataCallbackResult onAudioReady(
+                oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) override
+            {
+                float *output = static_cast<float *>(audioData);
+                // Pull processed audio from StreamingEngine's ring buffer
+                engine_.audioCallback(output, numFrames);
+                return oboe::DataCallbackResult::Continue;
+            }
+
+        private:
+            StreamingEngine &engine_;
+            std::shared_ptr<oboe::AudioStream> stream_;
+        };
+#endif
 
     } // namespace V2
 } // namespace UltraTimeStretch

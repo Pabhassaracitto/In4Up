@@ -412,6 +412,10 @@ namespace UltraTimeStretch
         float pitch_;
         Options options_;
 
+        // Thread safety for real-time parameter updates
+        std::atomic<float> pendingSpeed_{1.0f};
+        std::atomic<bool> speedChanged_{false};
+
         std::vector<std::unique_ptr<HybridStretcher>> channelProcessors_;
 
         // De-interleave buffers

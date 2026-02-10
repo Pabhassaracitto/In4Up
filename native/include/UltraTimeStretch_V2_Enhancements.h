@@ -379,6 +379,15 @@ namespace UltraTimeStretch
 
             void switchEngine(float speed);
             void initializeChannelProcessors(int channels);
+
+            // Cross-fade support
+            static constexpr int CROSSFADE_LENGTH = 256;
+            int crossfadeRemaining_ = 0;
+            ActiveEngine previousEngine_ = ActiveEngine::V1_Standard;
+            std::vector<float> crossfadeBuffer_;
+
+            int processWithEngine(ActiveEngine engineMode, const float *input, int inputFrames,
+                                  float *output, int maxOutputFrames);
         };
 
     } // namespace V2

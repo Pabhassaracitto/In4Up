@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -114,9 +113,9 @@ class RecordingService {
       // Start amplitude monitoring
       _startAmplitudeMonitoring();
 
-      debugPrint('RecordingService: Started recording to $_currentRecordingPath');
+      debugPrint(
+          'RecordingService: Started recording to $_currentRecordingPath');
       return true;
-
     } catch (e) {
       debugPrint('RecordingService: Error starting recording: $e');
       _stateController.add(RecordingState.error);
@@ -145,7 +144,6 @@ class RecordingService {
       debugPrint('RecordingService: Stopped recording. Path: $path');
 
       return path ?? _currentRecordingPath;
-
     } catch (e) {
       debugPrint('RecordingService: Error stopping recording: $e');
       _stateController.add(RecordingState.error);
@@ -250,7 +248,8 @@ class RecordingService {
   }
 
   /// Extract waveform từ file audio
-  Future<List<double>> extractWaveform(String filePath, {int targetSamples = 500}) async {
+  Future<List<double>> extractWaveform(String filePath,
+      {int targetSamples = 500}) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
@@ -260,7 +259,6 @@ class RecordingService {
 
       final bytes = await file.readAsBytes();
       return _processAudioBytes(bytes, targetSamples);
-
     } catch (e) {
       debugPrint('RecordingService: Error extracting waveform: $e');
       return _generateSimulatedWaveform(targetSamples);
@@ -279,7 +277,9 @@ class RecordingService {
     final bytesPerSample = math.max(1, dataLength ~/ targetSamples);
 
     List<double> samples = [];
-    for (int i = dataStart; i < bytes.length && samples.length < targetSamples; i += bytesPerSample) {
+    for (int i = dataStart;
+        i < bytes.length && samples.length < targetSamples;
+        i += bytesPerSample) {
       int sum = 0;
       int count = 0;
 

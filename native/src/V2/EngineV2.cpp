@@ -1,4 +1,4 @@
-// V2 3 option 1941050226
+// V2 3 option với multi-channel support
 #include "UltraTimeStretch_V2_Enhancements.h"
 #include <algorithm>
 #include <sstream>
@@ -19,10 +19,30 @@ namespace UltraTimeStretch
             if (!ok)
                 return false;
 
-            // Chưa tạo multiRes_/hybridV2_ ở đây, sẽ tạo khi cần trong switchEngine
+            // Initialize channel buffers
+            initializeChannelProcessors(channels);
+
             activeEngine_ = ActiveEngine::V1_Standard;
             currentSpeed_ = 1.0f;
             return true;
+        }
+
+        void EngineV2::initializeChannelProcessors(int channels)
+        {
+            // Allocate channel buffers for de-interleaving
+            const int maxFrames = 65536; // Reasonable buffer size
+            inputChannelBuffers_.resize(channels);
+            outputChannelBuffers_.resize(channels);
+
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                inputChannelBuffers_[ch].resize(maxFrames);
+                outputChannelBuffers_[ch].resize(maxFrames);
+            }
+
+            // Pre-allocate per-channel processors (but don't create yet)
+            multiResPerChannel_.resize(channels);
+            hybridV2PerChannel_.resize(channels);
         }
 
         void EngineV2::switchEngine(float speed)
@@ -47,32 +67,40 @@ namespace UltraTimeStretch
             }
 
             activeEngine_ = newEngine;
-
             const int sr = getSampleRate();
+            const int channels = getChannels();
 
             switch (activeEngine_)
             {
             case ActiveEngine::V2_MultiRes:
-                if (!multiRes_)
+                // Create multi-resolution processors for each channel
+                for (int ch = 0; ch < channels; ++ch)
                 {
-                    multiRes_ = std::make_unique<MultiResolutionPV>(sr, speed);
-                }
-                else
-                {
-                    multiRes_->setSpeed(speed);
+                    if (!multiResPerChannel_[ch])
+                    {
+                        multiResPerChannel_[ch] = std::make_unique<MultiResolutionPV>(sr, speed);
+                    }
+                    else
+                    {
+                        multiResPerChannel_[ch]->setSpeed(speed);
+                    }
                 }
                 break;
 
             case ActiveEngine::V2_Hybrid:
-                if (!hybridV2_)
+                // Create hybrid processors for each channel
+                for (int ch = 0; ch < channels; ++ch)
                 {
-                    hybridV2_ = std::make_unique<HybridStretcherV2>(sr);
+                    if (!hybridV2PerChannel_[ch])
+                    {
+                        hybridV2PerChannel_[ch] = std::make_unique<HybridStretcherV2>(sr);
+                    }
+                    hybridV2PerChannel_[ch]->setSpeed(speed);
                 }
-                hybridV2_->setSpeed(speed);
                 break;
 
             case ActiveEngine::V1_Standard:
-                // V1 HybridStretcher đã nằm trong Engine base (channelProcessors_)
+                // V1 already handled by base Engine class
                 break;
             }
         }
@@ -82,33 +110,32 @@ namespace UltraTimeStretch
             speed = std::clamp(speed, MIN_SPEED, MAX_SPEED);
             currentSpeed_ = speed;
 
-            // Cập nhật Engine V1 (base)
+            // Update base Engine
             Engine::setSpeed(speed);
 
-            // Chọn engine phù hợp
+            // Switch engine if needed
             switchEngine(speed);
-#if defined(_WIN32) && defined(UTS_DEBUG_LOG)
-#include <windows.h>
-            static void utsLog(const char *s)
-            {
-                OutputDebugStringA(s);
-                OutputDebugStringA("\n");
-            }
-#endif
-#if defined(_WIN32) && defined(UTS_DEBUG_LOG)
-            utsLog("EngineV2 switched mode");
-#endif
-            // Cập nhật engine V2 hiện tại
+
+            // Update V2 engine speeds
+            const int channels = getChannels();
             switch (activeEngine_)
             {
             case ActiveEngine::V2_MultiRes:
-                if (multiRes_)
-                    multiRes_->setSpeed(speed);
+                for (int ch = 0; ch < channels; ++ch)
+                {
+                    if (multiResPerChannel_[ch])
+                        multiResPerChannel_[ch]->setSpeed(speed);
+                }
                 break;
+
             case ActiveEngine::V2_Hybrid:
-                if (hybridV2_)
-                    hybridV2_->setSpeed(speed);
+                for (int ch = 0; ch < channels; ++ch)
+                {
+                    if (hybridV2PerChannel_[ch])
+                        hybridV2PerChannel_[ch]->setSpeed(speed);
+                }
                 break;
+
             default:
                 break;
             }
@@ -117,49 +144,132 @@ namespace UltraTimeStretch
         int EngineV2::processV2(const float *input, int inputFrames,
                                 float *output, int maxOutputFrames)
         {
-            int outFrames = 0;
-
-            switch (activeEngine_)
+            // For V1 Standard, just use base Engine
+            if (activeEngine_ == ActiveEngine::V1_Standard)
             {
-            case ActiveEngine::V2_MultiRes:
-                if (multiRes_)
-                {
-                    multiRes_->process(input, inputFrames, output, outFrames);
-                }
-                else
-                {
-                    // fallback V1
-                    outFrames = Engine::process(input, inputFrames, output, maxOutputFrames);
-                }
-                break;
-
-            case ActiveEngine::V2_Hybrid:
-                if (hybridV2_)
-                {
-                    hybridV2_->process(input, inputFrames, output, outFrames);
-                }
-                else
-                {
-                    outFrames = Engine::process(input, inputFrames, output, maxOutputFrames);
-                }
-                break;
-
-            case ActiveEngine::V1_Standard:
-            default:
-                outFrames = Engine::process(input, inputFrames, output, maxOutputFrames);
-                break;
+                return Engine::processInterleaved(input, inputFrames, output, maxOutputFrames);
             }
 
-            return std::min(outFrames, maxOutputFrames);
+            const int channels = getChannels();
+
+            // Mono path - simpler and faster
+            if (channels == 1)
+            {
+                int outFrames = 0;
+
+                switch (activeEngine_)
+                {
+                case ActiveEngine::V2_MultiRes:
+                    if (!multiResPerChannel_[0])
+                    {
+                        multiResPerChannel_[0] = std::make_unique<MultiResolutionPV>(
+                            getSampleRate(), currentSpeed_);
+                    }
+                    multiResPerChannel_[0]->process(input, inputFrames, output, outFrames);
+                    break;
+
+                case ActiveEngine::V2_Hybrid:
+                    if (!hybridV2PerChannel_[0])
+                    {
+                        hybridV2PerChannel_[0] = std::make_unique<HybridStretcherV2>(
+                            getSampleRate());
+                        hybridV2PerChannel_[0]->setSpeed(currentSpeed_);
+                    }
+                    hybridV2PerChannel_[0]->process(input, inputFrames, output, outFrames);
+                    break;
+
+                default:
+                    return Engine::process(input, inputFrames, output, maxOutputFrames);
+                }
+
+                return std::min(outFrames, maxOutputFrames);
+            }
+
+            // Multi-channel path: de-interleave → process → re-interleave
+
+            // De-interleave
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                for (int i = 0; i < inputFrames; ++i)
+                {
+                    inputChannelBuffers_[ch][i] = input[i * channels + ch];
+                }
+            }
+
+            // Process each channel
+            int minOutFrames = maxOutputFrames;
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                int outSamples = 0;
+
+                switch (activeEngine_)
+                {
+                case ActiveEngine::V2_MultiRes:
+                    if (!multiResPerChannel_[ch])
+                    {
+                        multiResPerChannel_[ch] = std::make_unique<MultiResolutionPV>(
+                            getSampleRate(), currentSpeed_);
+                    }
+                    multiResPerChannel_[ch]->process(
+                        inputChannelBuffers_[ch].data(), inputFrames,
+                        outputChannelBuffers_[ch].data(), outSamples);
+                    break;
+
+                case ActiveEngine::V2_Hybrid:
+                    if (!hybridV2PerChannel_[ch])
+                    {
+                        hybridV2PerChannel_[ch] = std::make_unique<HybridStretcherV2>(
+                            getSampleRate());
+                        hybridV2PerChannel_[ch]->setSpeed(currentSpeed_);
+                    }
+                    hybridV2PerChannel_[ch]->process(
+                        inputChannelBuffers_[ch].data(), inputFrames,
+                        outputChannelBuffers_[ch].data(), outSamples);
+                    break;
+
+                default:
+                    break;
+                }
+
+                minOutFrames = std::min(minOutFrames, outSamples);
+            }
+
+            // Re-interleave
+            for (int i = 0; i < minOutFrames; ++i)
+            {
+                for (int ch = 0; ch < channels; ++ch)
+                {
+                    output[i * channels + ch] = outputChannelBuffers_[ch][i];
+                }
+            }
+
+            return minOutFrames;
         }
 
         void EngineV2::reset()
         {
             Engine::reset();
-            if (multiRes_)
-                multiRes_->reset();
-            if (hybridV2_)
-                hybridV2_->reset();
+
+            const int channels = getChannels();
+
+            // Reset all channel processors
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                if (multiResPerChannel_[ch])
+                    multiResPerChannel_[ch]->reset();
+                if (hybridV2PerChannel_[ch])
+                    hybridV2PerChannel_[ch]->reset();
+            }
+
+            // Clear buffers
+            for (auto &buffer : inputChannelBuffers_)
+            {
+                std::fill(buffer.begin(), buffer.end(), 0.0f);
+            }
+            for (auto &buffer : outputChannelBuffers_)
+            {
+                std::fill(buffer.begin(), buffer.end(), 0.0f);
+            }
         }
 
         std::string EngineV2::getActiveEngineInfo() const
@@ -179,43 +289,9 @@ namespace UltraTimeStretch
                 break;
             }
             ss << " @ speed=" << currentSpeed_ << "x";
+            ss << ", channels=" << getChannels();
             return ss.str();
-        }
-
-        int EngineV2::getActiveEngineMode() const
-        {
-            return static_cast<int>(activeEngine_);
-        }
-
-        float EngineV2::getCurrentSpeed() const
-        {
-            return currentSpeed_;
         }
 
     } // namespace V2
 } // namespace UltraTimeStretch
-
-#if defined(_WIN32)
-#define UTS_EXPORT __declspec(dllexport)
-#else
-#define UTS_EXPORT __attribute__((visibility("default")))
-#endif
-
-extern "C"
-{
-    UTS_EXPORT int GetActiveEngineMode(void *enginePtr)
-    {
-        auto *engine = static_cast<UltraTimeStretch::V2::EngineV2 *>(enginePtr);
-        if (!engine)
-            return -1;
-        return engine->getActiveEngineMode();
-    }
-
-    UTS_EXPORT float GetCurrentSpeed(void *enginePtr)
-    {
-        auto *engine = static_cast<UltraTimeStretch::V2::EngineV2 *>(enginePtr);
-        if (!engine)
-            return 1.0f;
-        return engine->getCurrentSpeed();
-    }
-}

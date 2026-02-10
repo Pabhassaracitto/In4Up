@@ -99,16 +99,20 @@ namespace UltraTimeStretch
             if (combinedStrength > dynamicThreshold)
             {
                 // Mark transient region
-                transientPositions_.push_back(pos + frameSize / 2);
+                int center = pos + frameSize / 2;
+                transientPositions_.push_back(center);
 
                 // Spread transient strength around the position
                 int spreadSamples = frameSize / 2;
-                for (int i = -spreadSamples; i < spreadSamples && pos + i >= 0 && pos + i < numSamples; ++i)
+                for (int i = -spreadSamples; i < spreadSamples; ++i)
                 {
-                    float dist = std::abs(i) / (float)spreadSamples;
-                    float strength = (1.0f - dist) * combinedStrength;
-                    transientStrength_[pos + frameSize / 2 + i] =
-                        std::max(transientStrength_[pos + frameSize / 2 + i], strength);
+                    int idx = center + i;
+                    if (idx >= 0 && idx < numSamples)
+                    {
+                        float dist = std::abs(i) / (float)spreadSamples;
+                        float strength = (1.0f - dist) * combinedStrength;
+                        transientStrength_[idx] = std::max(transientStrength_[idx], strength);
+                    }
                 }
             }
         }

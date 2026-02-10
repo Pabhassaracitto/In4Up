@@ -89,6 +89,7 @@ namespace UltraTimeStretch
             float currentSpeed_ = 1.0f; // IMPORTANT: your .cpp references this
             Options options_{};
             std::vector<Resolution> resolutions_;
+            std::vector<std::vector<float>> resOutputBuffers_; // Pre-allocated buffers
 
             void applySmoothing(float *output, int samples) const; // if your .cpp uses it
         };
@@ -264,20 +265,47 @@ namespace UltraTimeStretch
 
             void setSpeed(float speed);
             void setOptions(const Options &options);
-
             void process(const float *input, int inputSamples,
                          float *output, int &outputSamples);
-
             void reset();
             int getLatency() const;
+
+            // V2 Feature toggles
+            void enableHarmonicPercussiveSeparation(bool enable) { useHPS_ = enable; }
+            void enableFormantPreservation(bool enable) { useFormants_ = enable; }
+            void enableSpectralPeakInterpolation(bool enable) { usePeakInterp_ = enable; }
 
         private:
             int sampleRate_ = 44100;
             float currentSpeed_ = 1.0f;
             Options options_{};
 
-            // Dùng lại engine V1 bên trong
+            // Dùng lại engine V1 bên trong (fallback)
             std::unique_ptr<::UltraTimeStretch::HybridStretcher> base_;
+
+            // V2 Enhanced processors
+            std::unique_ptr<::UltraTimeStretch::PhaseVocoder> phaseVocoder_;
+            std::unique_ptr<::UltraTimeStretch::WSOLAProcessor> wsola_;
+            std::unique_ptr<HarmonicPercussiveSeparator> hpSeparator_;
+            std::unique_ptr<FormantPreserver> formantPreserver_;
+            std::unique_ptr<SpectralPeakInterpolator> peakInterpolator_;
+
+            // Processing buffers
+            std::vector<float> harmonicBuffer_;
+            std::vector<float> percussiveBuffer_;
+            std::vector<float> pvOutputBuffer_;
+            std::vector<float> wsolaOutputBuffer_;
+            std::vector<float> formantEnvelope_;
+
+            // Feature flags
+            bool useHPS_ = false;
+            bool useFormants_ = false;
+            bool usePeakInterp_ = false;
+
+            // Helper methods
+            void initializeProcessors();
+            void applyFormantPreservation(float *data, int samples);
+            void applySpectralPeakInterpolation(std::complex<float> *spectrum, int fftSize);
         };
         //==============================================================================
         // Engine V2
@@ -317,18 +345,14 @@ namespace UltraTimeStretch
         {
         public:
             EngineV2();
-            ~EngineV2() = default; // hoặc bỏ hẳn destructor, để compiler tự tạo
+            ~EngineV2() = default;
 
-            bool initialize(int sampleRate, int channels, const Options &options);
-            void setSpeed(float speed); // override logic chọn engine
+            bool initialize(int sampleRate, int channels, const Options &options); // BỎ override
+            void setSpeed(float speed);                                            // BỎ override
             int processV2(const float *input, int inputFrames,
                           float *output, int maxOutputFrames);
-
-            void reset();
-
+            void reset(); // BỎ override
             std::string getActiveEngineInfo() const;
-            int getActiveEngineMode() const;
-            float getCurrentSpeed() const;
 
         private:
             enum class ActiveEngine
@@ -341,10 +365,20 @@ namespace UltraTimeStretch
             ActiveEngine activeEngine_ = ActiveEngine::V1_Standard;
             float currentSpeed_ = 1.0f;
 
-            std::unique_ptr<MultiResolutionPV> multiRes_; // cho < 0.15x
-            std::unique_ptr<HybridStretcherV2> hybridV2_; // cho 0.15x – 0.5x
+            // Single-channel processors (mono fallback)
+            std::unique_ptr<MultiResolutionPV> multiRes_;
+            std::unique_ptr<HybridStretcherV2> hybridV2_;
+
+            // Multi-channel processors
+            std::vector<std::unique_ptr<MultiResolutionPV>> multiResPerChannel_;
+            std::vector<std::unique_ptr<HybridStretcherV2>> hybridV2PerChannel_;
+
+            // Channel buffers for de-interleaving
+            std::vector<std::vector<float>> inputChannelBuffers_;
+            std::vector<std::vector<float>> outputChannelBuffers_;
 
             void switchEngine(float speed);
+            void initializeChannelProcessors(int channels);
         };
 
     } // namespace V2

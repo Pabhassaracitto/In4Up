@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include <atomic>
+#include "pffft.h" //new
 
 // SIMD Detection
 #if defined(__ARM_NEON) || defined(__ARM_NEON__)
@@ -28,7 +29,7 @@ namespace UltraTimeStretch
     //==============================================================================
     // Configuration Constants
     //==============================================================================
-    constexpr int MAX_FFT_SIZE = 16384; // Tăng từ 8192 cho V2
+    constexpr int MAX_FFT_SIZE = 8192;
     constexpr int MIN_FFT_SIZE = 256;
     constexpr int MAX_CHANNELS = 8;
     constexpr float MIN_SPEED = 0.05f;
@@ -130,31 +131,46 @@ namespace UltraTimeStretch
     //==============================================================================
     class FFTProcessor
     {
-    public:
-        FFTProcessor(int size);
-        ~FFTProcessor();
-
-        // Real input -> Complex output (với windowing)
-        void forward(const float *input, std::complex<float> *output);
-
-        // Complex input -> Real output
-        void inverse(const std::complex<float> *input, float *output);
-
-        // In-place complex FFT
-        void forwardInPlace(std::complex<float> *data);
-        void inverseInPlace(std::complex<float> *data);
-
-        int getSize() const { return size_; }
-
-    private:
-        void buildTwiddleFactors();
-        void bitReverse(std::complex<float> *data);
-
+        PFFFT_Setup *setup_;
+        float *work_; // aligned buffer cho PFFFT
         int size_;
-        int log2Size_;
-        std::vector<std::complex<float>> twiddleFactors_;
-        std::vector<int> bitReverseTable_;
-        std::vector<float> window_;
+
+    public:
+        FFTProcessor(int size) : size_(size)
+        {
+            // PFFFT_REAL: Tối ưu cho tín hiệu thực (nhanh hơn 2x so với Complex FFT)
+            setup_ = pffft_new_setup(size, PFFFT_REAL);
+            work_ = (float *)pffft_aligned_malloc(size * sizeof(float));
+        }
+
+        ~FFTProcessor()
+        {
+            if (setup_)
+                pffft_destroy_setup(setup_);
+            if (work_)
+                pffft_aligned_free(work_);
+        }
+
+        // Forward: Real Input -> Complex Output (Canonical format)
+        void forward(const float *input, float *output)
+        {
+            pffft_transform_ordered(setup_, input, output, work_, PFFFT_FORWARD);
+        }
+
+        // Inverse: Complex Input -> Real Output
+        void inverse(const float *input, float *output)
+        {
+            pffft_transform_ordered(setup_, input, output, work_, PFFFT_BACKWARD);
+
+            // PFFFT inverse cần scale nếu cần thiết (thường là 1/N)
+            // Tùy thuộc vào implementation của PhaseVocoder có handle việc này chưa
+            float scale = 1.0f / size_;
+            // PFFFT_SIMD_SUPPORT check nếu cần tối ưu vòng lặp này
+            for (int i = 0; i < size_; ++i)
+            {
+                output[i] *= scale;
+            }
+        }
     };
 
     //==============================================================================
@@ -167,9 +183,11 @@ namespace UltraTimeStretch
 
         void setSensitivity(float sensitivity);
         void process(const float *input, int numSamples);
+
         bool isTransient(int sampleIndex) const;
         float getTransientStrength(int sampleIndex) const;
         const std::vector<int> &getTransientPositions() const { return transientPositions_; }
+
         void reset();
 
     private:
@@ -180,10 +198,12 @@ namespace UltraTimeStretch
         float sensitivity_;
         float threshold_;
         float adaptiveThreshold_;
+
         std::vector<float> previousSpectrum_;
         std::vector<float> transientStrength_;
         std::vector<int> transientPositions_;
         std::vector<float> onsetFunction_;
+
         std::unique_ptr<FFTProcessor> fft_;
         std::vector<std::complex<float>> spectrum_;
     };
@@ -193,6 +213,8 @@ namespace UltraTimeStretch
     //==============================================================================
     class PhaseVocoder
     {
+        // Pre-allocated member
+        std::vector<float> frameOutput_; // allocate trong constructor
     public:
         PhaseVocoder(int fftSize, int hopSize, int sampleRate);
         ~PhaseVocoder();
@@ -206,6 +228,7 @@ namespace UltraTimeStretch
                           float *output, int &outputSamples);
 
         void reset();
+
         int getLatency() const;
         int getFftSize() const { return fftSize_; }
         int getHopSize() const { return analysisHop_; }
@@ -216,12 +239,12 @@ namespace UltraTimeStretch
         void processPhases();
         void applyPhaseLocking();
         void preserveTransients(const float *input);
-        void computeNormalizationGain();
 
         int fftSize_;
         int analysisHop_;
         int synthesisHop_;
         int sampleRate_;
+
         float timeStretchRatio_;
         float pitchShiftRatio_;
 
@@ -232,7 +255,6 @@ namespace UltraTimeStretch
         std::vector<float> synthesisWindow_;
         std::vector<float> inputBuffer_;
         std::vector<float> outputBuffer_;
-        std::vector<float> frameOutput_; // <-- THÊM DÒNG NÀY
 
         // Spectral data
         std::vector<std::complex<float>> spectrum_;
@@ -253,7 +275,7 @@ namespace UltraTimeStretch
 
         float analysisPhase_;
         float synthesisPhase_;
-        float normGain_;
+
         Options options_;
     };
 
@@ -269,10 +291,12 @@ namespace UltraTimeStretch
         void setTimeStretchRatio(float ratio);
         void processBlock(const float *input, int inputSamples,
                           float *output, int &outputSamples);
+
         void reset();
 
     private:
-        int findBestOffset(const float *current, const float *previous, int searchRange);
+        int findBestOffset(const float *current, const float *previous,
+                           int searchRange);
         float computeCorrelation(const float *a, const float *b, int length);
 
         int frameSize_;
@@ -302,10 +326,12 @@ namespace UltraTimeStretch
 
         void process(const float *input, int inputSamples,
                      float *output, int &outputSamples);
+
         void processInterleaved(const float *input, int inputFrames, int channels,
                                 float *output, int &outputFrames);
 
         void reset();
+
         int getLatency() const;
         float getCurrentSpeed() const { return currentSpeed_; }
 
@@ -346,13 +372,14 @@ namespace UltraTimeStretch
         bool isInitialized() const { return initialized_; }
 
         // Configuration
-        void setSpeed(float speed);     // 0.05 to 10.0
+        void setSpeed(float speed);     // 0.1 to 10.0
         void setPitch(float semitones); // -24 to +24
         void setOptions(const Options &options);
 
         // Processing
         int process(const float *input, int inputSamples,
                     float *output, int maxOutputSamples);
+
         int processInterleaved(const float *input, int inputFrames,
                                float *output, int maxOutputFrames);
 
@@ -368,14 +395,14 @@ namespace UltraTimeStretch
         int getSampleRate() const { return sampleRate_; }
         int getChannels() const { return channels_; }
 
-    protected: // Changed from private to protected for V2 inheritance
+    private:
         bool initialized_;
         int sampleRate_;
         int channels_;
         float speed_;
         float pitch_;
-        Options options_;
 
+        Options options_;
         std::vector<std::unique_ptr<HybridStretcher>> channelProcessors_;
 
         // De-interleave buffers

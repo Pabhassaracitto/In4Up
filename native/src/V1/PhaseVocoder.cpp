@@ -1,15 +1,25 @@
 // PhaseVocoder.cpp - Heart of Frequency Domain Processing
-#include "../../include/UltraTimeStretch.h"
+#include "UltraTimeStretch.h"
+#include <algorithm>
 #include <cstring>
 
 namespace UltraTimeStretch
 {
 
     PhaseVocoder::PhaseVocoder(int fftSize, int hopSize, int sampleRate)
-        : fftSize_(fftSize), analysisHop_(hopSize), synthesisHop_(hopSize), sampleRate_(sampleRate), timeStretchRatio_(1.0f), pitchShiftRatio_(1.0f), analysisPhase_(0.0f), synthesisPhase_(0.0f), accumulatorReadPos_(0), accumulatorWritePos_(0)
+        : fftSize_(fftSize),
+          analysisHop_(hopSize),
+          synthesisHop_(hopSize),
+          sampleRate_(sampleRate),
+          timeStretchRatio_(1.0f),
+          pitchShiftRatio_(1.0f),
+          analysisPhase_(0.0f),
+          synthesisPhase_(0.0f),
+          accumulatorReadPos_(0),
+          accumulatorWritePos_(0),
+          normGain_(1.0f)
     {
         fft_ = std::make_unique<FFTProcessor>(fftSize);
-
         int numBins = fftSize / 2 + 1;
 
         // Windows
@@ -23,24 +33,12 @@ namespace UltraTimeStretch
             synthesisWindow_[i] = w;
         }
 
-        // Normalize synthesis window for overlap-add
-        float sum = 0.0f;
-        for (int i = 0; i < fftSize; i += analysisHop_)
-        {
-            sum += synthesisWindow_[i] * synthesisWindow_[i];
-        }
-        if (sum > 0.0f)
-        {
-            float scale = 1.0f / sum;
-            for (int i = 0; i < fftSize; ++i)
-            {
-                synthesisWindow_[i] *= scale;
-            }
-        }
+        computeNormalizationGain();
 
         // Buffers
         inputBuffer_.resize(fftSize, 0.0f);
         outputBuffer_.resize(fftSize * 4, 0.0f);
+        frameOutput_.resize(fftSize, 0.0f); // <-- THÊM DÒNG NÀY
 
         // Spectral data
         spectrum_.resize(fftSize);
@@ -66,6 +64,7 @@ namespace UltraTimeStretch
         synthesisHop_ = static_cast<int>(analysisHop_ / timeStretchRatio_);
         if (synthesisHop_ < 1)
             synthesisHop_ = 1;
+        computeNormalizationGain();
     }
 
     void PhaseVocoder::setPitchShiftRatio(float ratio)
@@ -95,6 +94,32 @@ namespace UltraTimeStretch
     int PhaseVocoder::getLatency() const
     {
         return fftSize_;
+    }
+
+    void PhaseVocoder::computeNormalizationGain()
+    {
+        // Tính COLA normalization factor cho synthesis hop hiện tại
+        std::vector<float> olaSum(synthesisHop_, 0.0f);
+
+        // Tích lũy overlap của synthesis windows
+        int numOverlaps = (fftSize_ + synthesisHop_ - 1) / synthesisHop_;
+        for (int n = -numOverlaps; n <= numOverlaps; ++n)
+        {
+            int offset = n * synthesisHop_;
+            for (int i = 0; i < synthesisHop_; ++i)
+            {
+                int windowIdx = i - offset;
+                if (windowIdx >= 0 && windowIdx < fftSize_)
+                {
+                    float w = analysisWindow_[windowIdx] * synthesisWindow_[windowIdx];
+                    olaSum[i] += w;
+                }
+            }
+        }
+
+        // Tìm normalization factor
+        float minSum = *std::min_element(olaSum.begin(), olaSum.end());
+        normGain_ = (minSum > 1e-6f) ? (1.0f / minSum) : 1.0f;
     }
 
     void PhaseVocoder::analyzeFrame(const float *input)
@@ -146,13 +171,13 @@ namespace UltraTimeStretch
 
             // Synthesis phase update
             float phaseAdvance = TWO_PI * trueFreq * synthesisHop_ / sampleRate_;
-            synthesisPhases_[k] += phaseAdvance;
-
-            // Wrap synthesis phase
-            while (synthesisPhases_[k] > PI)
-                synthesisPhases_[k] -= TWO_PI;
-            while (synthesisPhases_[k] < -PI)
-                synthesisPhases_[k] += TWO_PI;
+            // An toàn hơn
+            float wrapped = std::fmod(synthesisPhases_[k], TWO_PI);
+            if (wrapped > PI)
+                wrapped -= TWO_PI;
+            else if (wrapped < -PI)
+                wrapped += TWO_PI;
+            synthesisPhases_[k] = wrapped;
         }
     }
 
@@ -217,7 +242,7 @@ namespace UltraTimeStretch
         // Apply synthesis window and copy to output
         for (int i = 0; i < fftSize_; ++i)
         {
-            output[i] = spectrum_[i].real() * synthesisWindow_[i];
+            output[i] = spectrum_[i].real() * synthesisWindow_[i] * normGain_;
         }
     }
 
@@ -237,15 +262,14 @@ namespace UltraTimeStretch
 
         while (inputPos + fftSize_ <= inputSamples)
         {
-            // Process one frame
-            std::vector<float> frameOutput(fftSize_);
-            processFrame(input + inputPos, frameOutput.data());
+            // Process one frame - SỬ DỤNG MEMBER VARIABLE
+            processFrame(input + inputPos, frameOutput_.data());
 
             // Overlap-add to accumulator
             for (int i = 0; i < fftSize_; ++i)
             {
                 int pos = (accumulatorWritePos_ + i) % outputAccumulator_.size();
-                outputAccumulator_[pos] += frameOutput[i];
+                outputAccumulator_[pos] += frameOutput_[i];
             }
 
             // Output ready samples

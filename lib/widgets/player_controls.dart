@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/player_provider.dart';
-import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 
 class PlayerControls extends StatelessWidget {

@@ -1,6 +1,5 @@
 import 'dart:ffi';
 import 'dart:io';
-import 'package:ffi/ffi.dart';
 
 // Native function signatures
 typedef NativeCreateFunc = Pointer<Void> Function(

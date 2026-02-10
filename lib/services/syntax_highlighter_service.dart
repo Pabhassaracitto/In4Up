@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import '../models/word_analysis.dart';
 
 class SyntaxHighlighterService {
@@ -152,14 +151,56 @@ class SyntaxHighlighterService {
   }
 
   CEFRLevel _estimateCEFR(String w) {
-    // Có thể thay bằng database/wordlist sau. Hiện dùng heuristic.
-    if (w.length <= 4) return CEFRLevel.a1;
-    if (w.length <= 6) return CEFRLevel.a2;
+    // 1. Tra từ điển Hardcoded (Độ chính xác cao)
+    if (_cefrDictionary.containsKey(w)) {
+      return _cefrDictionary[w]!;
+    }
+
+    // 2. Heuristic cải tiến (nếu không có trong từ điển)
+    // Các hậu tố phức tạp thường đi kèm từ vựng cấp cao
+    if (w.endsWith('ibility') ||
+        w.endsWith('omorphism') ||
+        w.endsWith('ential')) {
+      return CEFRLevel.c1;
+    }
+    if (w.endsWith('ment') || w.endsWith('tion') || w.endsWith('ance')) {
+      return CEFRLevel.b2;
+    }
+
+    // Fallback dựa trên độ dài (nhưng nới lỏng hơn)
+    if (w.length <= 3) return CEFRLevel.a1;
+    if (w.length <= 5) return CEFRLevel.a2;
     if (w.length <= 8) return CEFRLevel.b1;
-    if (w.length <= 10) return CEFRLevel.b2;
-    if (w.length <= 13) return CEFRLevel.c1;
-    return CEFRLevel.c2;
+
+    return CEFRLevel.b2;
   }
+
+  // Mini CEFR Dictionary (Ví dụ)
+  static const Map<String, CEFRLevel> _cefrDictionary = {
+    // A1
+    'the': CEFRLevel.a1, 'and': CEFRLevel.a1, 'you': CEFRLevel.a1,
+    'that': CEFRLevel.a1,
+    'was': CEFRLevel.a1, 'for': CEFRLevel.a1, 'are': CEFRLevel.a1,
+    'with': CEFRLevel.a1,
+    'they': CEFRLevel.a1, 'be': CEFRLevel.a1, 'one': CEFRLevel.a1,
+    'have': CEFRLevel.a1,
+    // A2
+    'ability': CEFRLevel.a2, 'able': CEFRLevel.a2, 'about': CEFRLevel.a2,
+    'above': CEFRLevel.a2,
+    'accept': CEFRLevel.a2, 'according': CEFRLevel.a2, 'account': CEFRLevel.a2,
+    // B1
+    'absolutely': CEFRLevel.b1, 'academic': CEFRLevel.b1,
+    'access': CEFRLevel.b1,
+    'accommodation': CEFRLevel.b1, 'achievement': CEFRLevel.b1,
+    // B2
+    'abandon': CEFRLevel.b2, 'absolute': CEFRLevel.b2, 'absorb': CEFRLevel.b2,
+    'abstract': CEFRLevel.b2, 'abuse': CEFRLevel.b2,
+    // C1
+    'abolish': CEFRLevel.c1, 'abortion': CEFRLevel.c1, 'absence': CEFRLevel.c1,
+    'absurd': CEFRLevel.c1, 'abundance': CEFRLevel.c1,
+    // C2
+    'abhor': CEFRLevel.c2, 'abide': CEFRLevel.c2, 'abject': CEFRLevel.c2,
+  };
 
   void clearCache() => _cache.clear();
 

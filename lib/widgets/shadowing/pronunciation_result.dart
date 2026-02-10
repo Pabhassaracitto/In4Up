@@ -3,7 +3,6 @@
 
 import 'package:flutter/material.dart';
 import '../../models/shadowing_result.dart';
-import '../../models/phoneme_models.dart';
 import 'phoneme_display.dart';
 
 class PronunciationResultView extends StatelessWidget {

@@ -1,31 +1,28 @@
 // lib/providers/waveform_provider.dart
+
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-
+// FIX LỖI 1: Import package just_waveform
+import 'package:just_waveform/just_waveform.dart' as jw;
 import '../models/audio_marker.dart';
 
 class WaveformProvider extends ChangeNotifier {
-  // Waveform data
   List<double> _waveformData = [];
   bool _isLoading = false;
   String? _currentFilePath;
   Duration _audioDuration = Duration.zero;
 
-  // Zoom & Scroll
-  double _zoomLevel = 1.0; // 1.0 = fit all, higher = more zoom
-  double _scrollOffset = 0.0; // 0.0 - 1.0 position
+  double _zoomLevel = 1.0;
+  double _scrollOffset = 0.0;
   static const double minZoom = 1.0;
-  static const double maxZoom = 100.0; // Zoom tối đa 100x
+  static const double maxZoom = 100.0;
 
-  // Selection
   Duration? _selectionStart;
   Duration? _selectionEnd;
   bool _isSelecting = false;
 
-  // Markers
   final List<AudioMarker> _markers = [];
   AudioMarker? _selectedMarker;
   AudioMarker? _draggingMarker;
@@ -43,28 +40,50 @@ class WaveformProvider extends ChangeNotifier {
   bool get hasSelection => _selectionStart != null && _selectionEnd != null;
   List<AudioMarker> get markers => List.unmodifiable(_markers);
   AudioMarker? get selectedMarker => _selectedMarker;
+  // FIX LỖI 4: Thêm getter để sử dụng _draggingMarker
+  AudioMarker? get draggingMarker => _draggingMarker;
 
   // ==================== WAVEFORM LOADING ====================
 
   /// Load waveform từ file audio
   Future<void> loadWaveform(String filePath, Duration duration) async {
+    // Guard: không load lại nếu cùng file và đã có data
+    if (_currentFilePath == filePath &&
+        _waveformData.isNotEmpty &&
+        _audioDuration == duration) {
+      return;
+    }
+
     _isLoading = true;
     _currentFilePath = filePath;
     _audioDuration = duration;
     notifyListeners();
 
     try {
-      // Đọc file và tạo waveform data
       final file = File(filePath);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        _waveformData = _generateWaveformFromBytes(bytes);
-      } else {
-        // Fallback: tạo waveform giả
+      if (!await file.exists()) {
         _waveformData = _generateFakeWaveform(1000);
+        _isLoading = false;
+        notifyListeners();
+        return;
       }
+
+      // Thử dùng just_waveform trước (hỗ trợ MP3, M4A, WAV, FLAC...)
+      final waveform = await _loadWithJustWaveform(filePath);
+      if (waveform != null && waveform.isNotEmpty) {
+        _waveformData = waveform;
+        _isLoading = false;
+        notifyListeners();
+        debugPrint(
+            'Waveform loaded with just_waveform: ${waveform.length} samples');
+        return;
+      }
+
+      // Fallback: raw bytes parsing (chỉ cho WAV)
+      final bytes = await file.readAsBytes();
+      _waveformData = _generateWaveformFromBytes(bytes, filePath);
     } catch (e) {
-      // Fallback nếu không đọc được
+      debugPrint('Waveform load error: $e');
       _waveformData = _generateFakeWaveform(1000);
     }
 
@@ -72,35 +91,166 @@ class WaveformProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Tạo waveform data từ bytes của file audio
-  List<double> _generateWaveformFromBytes(Uint8List bytes) {
-    // Số lượng samples muốn hiển thị
+  /// Dùng just_waveform package để đọc waveform
+  Future<List<double>?> _loadWithJustWaveform(String filePath) async {
+    try {
+      const targetSamples = 2000;
+
+      // FIX LỖI 2: Unnecessary braces
+      final waveformFile = File('$filePath.waveform');
+
+      // Parse waveform
+      final progressStream = jw.JustWaveform.extract(
+        audioInFile: File(filePath),
+        waveOutFile: waveformFile,
+        zoom: const jw.WaveformZoom.pixelsPerSecond(100),
+      );
+
+      // FIX LỖI 1 & 2: Sử dụng đúng tên class từ alias jw
+      jw.Waveform? waveform;
+      await for (final progress in progressStream) {
+        if (progress.waveform != null) {
+          waveform = progress.waveform;
+        }
+      }
+
+      if (waveform == null) return null;
+
+      // Convert to normalized samples (0.0 - 1.0)
+      final samples = <double>[];
+      final data = waveform.data; // List<int>
+
+      if (data.isEmpty) return null;
+
+      // Tính max amplitude để normalize
+      int maxAmp = 1;
+      for (int i = 0; i < data.length; i++) {
+        final absVal = data[i].abs();
+        if (absVal > maxAmp) maxAmp = absVal;
+      }
+
+      // Downsample nếu quá nhiều
+      final step = max(1, data.length ~/ targetSamples);
+
+      for (int i = 0; i < data.length; i += step) {
+        // Lấy max trong chunk
+        double maxInChunk = 0.0;
+        for (int j = i; j < min(i + step, data.length); j++) {
+          final normalized = data[j].abs() / maxAmp;
+          if (normalized > maxInChunk) maxInChunk = normalized;
+        }
+        // FIX LỖI 3: Explicit double cast để tránh lỗi gán type
+        samples.add(maxInChunk.clamp(0.02, 1.0).toDouble());
+      }
+
+      // Smoothing
+      if (samples.length > 2) {
+        for (int i = 1; i < samples.length - 1; i++) {
+          samples[i] = (samples[i - 1] + samples[i] * 2 + samples[i + 1]) / 4;
+        }
+      }
+
+      // Cleanup temp file
+      try {
+        if (await waveformFile.exists()) {
+          await waveformFile.delete();
+        }
+      } catch (_) {}
+
+      return samples;
+    } catch (e) {
+      debugPrint('just_waveform error: $e');
+      return null;
+    }
+  }
+
+  /// Cải thiện raw bytes parsing với format detection
+  List<double> _generateWaveformFromBytes(Uint8List bytes, String filePath) {
     const targetSamples = 2000;
 
-    // Bỏ qua header (thường 44 bytes cho WAV)
-    int dataStart = 44;
+    final lower = filePath.toLowerCase();
+
+    // Chỉ parse raw bytes cho WAV files
+    if (!lower.endsWith('.wav')) {
+      debugPrint('Non-WAV file, using fake waveform for: $filePath');
+      return _generateFakeWaveform(targetSamples);
+    }
+
+    // WAV header parsing
+    int dataStart = 44; // Standard WAV header
+
+    // Tìm data chunk thực sự (some WAV files have extended headers)
+    if (bytes.length > 44) {
+      for (int i = 12; i < min(bytes.length - 8, 200); i++) {
+        // Tìm "data" marker
+        if (bytes[i] == 0x64 && // 'd'
+            bytes[i + 1] == 0x61 && // 'a'
+            bytes[i + 2] == 0x74 && // 't'
+            bytes[i + 3] == 0x61) {
+          // 'a'
+          dataStart = i + 8; // Skip "data" + size (4 bytes)
+          break;
+        }
+      }
+    }
+
     if (bytes.length < dataStart + 100) {
       return _generateFakeWaveform(targetSamples);
     }
 
-    // Tính số bytes per sample
+    // Detect bit depth from WAV header
+    int bitsPerSample = 16;
+    if (bytes.length > 35) {
+      bitsPerSample = bytes[34] | (bytes[35] << 8);
+    }
+
+    int channels = 1;
+    if (bytes.length > 23) {
+      channels = bytes[22] | (bytes[23] << 8);
+    }
+
+    final bytesPerSampleFrame = (bitsPerSample ~/ 8) * channels;
     final dataLength = bytes.length - dataStart;
-    final bytesPerSample = max(1, dataLength ~/ targetSamples);
+    final totalFrames = dataLength ~/ bytesPerSampleFrame;
+    final framesPerSample = max(1, totalFrames ~/ targetSamples);
 
     List<double> samples = [];
-    for (int i = dataStart; i < bytes.length; i += bytesPerSample) {
-      // Lấy giá trị byte và normalize về 0-1
-      int sum = 0;
-      int count = 0;
-      for (int j = 0; j < bytesPerSample && i + j < bytes.length; j++) {
-        sum += bytes[i + j];
-        count++;
+
+    for (int frame = 0;
+        frame < totalFrames && samples.length < targetSamples;
+        frame += framesPerSample) {
+      double maxValue = 0.0;
+
+      for (int f = frame; f < min(frame + framesPerSample, totalFrames); f++) {
+        final offset = dataStart + f * bytesPerSampleFrame;
+        if (offset + bytesPerSampleFrame > bytes.length) break;
+
+        double sampleValue = 0.0;
+
+        if (bitsPerSample == 16) {
+          // 16-bit signed PCM
+          final lo = bytes[offset];
+          final hi = bytes[offset + 1];
+          int raw = lo | (hi << 8);
+          if (raw >= 0x8000) raw -= 0x10000;
+          sampleValue = raw.abs() / 32768.0;
+        } else if (bitsPerSample == 24) {
+          // 24-bit signed PCM
+          final lo = bytes[offset];
+          final mid = bytes[offset + 1];
+          final hi = bytes[offset + 2];
+          int raw = lo | (mid << 8) | (hi << 16);
+          if (raw >= 0x800000) raw -= 0x1000000;
+          sampleValue = raw.abs() / 8388608.0;
+        } else {
+          // 8-bit unsigned PCM
+          sampleValue = (bytes[offset] - 128).abs() / 128.0;
+        }
+
+        if (sampleValue > maxValue) maxValue = sampleValue;
       }
 
-      if (count > 0) {
-        double value = (sum / count - 128).abs() / 128;
-        samples.add(value.clamp(0.0, 1.0));
-      }
+      samples.add(maxValue.clamp(0.02, 1.0));
     }
 
     // Smoothing
@@ -110,16 +260,15 @@ class WaveformProvider extends ChangeNotifier {
       }
     }
 
-    return samples;
+    return samples.isEmpty ? _generateFakeWaveform(targetSamples) : samples;
   }
 
   /// Tạo waveform giả cho demo/fallback
   List<double> _generateFakeWaveform(int count) {
-    final random = Random(42); // Fixed seed for consistency
+    final random = Random(42);
     List<double> samples = [];
 
     for (int i = 0; i < count; i++) {
-      // Tạo pattern tự nhiên hơn với nhiều tần số
       double value = 0;
       value += sin(i * 0.1) * 0.3;
       value += sin(i * 0.05) * 0.2;
@@ -127,7 +276,6 @@ class WaveformProvider extends ChangeNotifier {
       value += (random.nextDouble() - 0.5) * 0.4;
       value = (value.abs()).clamp(0.05, 1.0);
 
-      // Thêm silence periodically
       if (i % 100 > 80) {
         value *= 0.3;
       }
@@ -140,40 +288,31 @@ class WaveformProvider extends ChangeNotifier {
 
   // ==================== ZOOM & SCROLL ====================
 
-  /// Set zoom level (1.0 = fit all)
   void setZoom(double zoom) {
     _zoomLevel = zoom.clamp(minZoom, maxZoom);
-
-    // Đảm bảo scroll offset vẫn hợp lệ
     _clampScrollOffset();
     notifyListeners();
   }
 
-  /// Zoom in
   void zoomIn() {
     setZoom(_zoomLevel * 1.5);
   }
 
-  /// Zoom out
   void zoomOut() {
     setZoom(_zoomLevel / 1.5);
   }
 
-  /// Zoom to fit all
   void zoomToFit() {
     _zoomLevel = 1.0;
     _scrollOffset = 0.0;
     notifyListeners();
   }
 
-  /// Zoom vào một vùng cụ thể
   void zoomToRegion(Duration start, Duration end) {
     if (_audioDuration.inMilliseconds == 0) return;
-
     final startRatio = start.inMilliseconds / _audioDuration.inMilliseconds;
     final endRatio = end.inMilliseconds / _audioDuration.inMilliseconds;
     final regionSize = endRatio - startRatio;
-
     if (regionSize > 0) {
       _zoomLevel = (1.0 / regionSize).clamp(minZoom, maxZoom);
       _scrollOffset = startRatio;
@@ -182,14 +321,12 @@ class WaveformProvider extends ChangeNotifier {
     }
   }
 
-  /// Set scroll offset (0.0 - 1.0)
   void setScrollOffset(double offset) {
     _scrollOffset = offset;
     _clampScrollOffset();
     notifyListeners();
   }
 
-  /// Scroll by delta
   void scrollBy(double delta) {
     _scrollOffset += delta;
     _clampScrollOffset();
@@ -201,42 +338,29 @@ class WaveformProvider extends ChangeNotifier {
     _scrollOffset = _scrollOffset.clamp(0.0, max(0.0, maxOffset));
   }
 
-  /// Chuyển từ pixel position sang Duration
   Duration positionToDuration(double position, double viewWidth) {
     if (_audioDuration.inMilliseconds == 0 || viewWidth == 0) {
       return Duration.zero;
     }
-
-    // Vị trí trong view (0-1)
     final viewPosition = position / viewWidth;
-
-    // Phạm vi hiển thị hiện tại
     final visibleRange = 1.0 / _zoomLevel;
-
-    // Vị trí thực trong toàn bộ audio (0-1)
     final audioPosition = _scrollOffset + (viewPosition * visibleRange);
-
-    // Chuyển sang Duration
     final ms = (audioPosition * _audioDuration.inMilliseconds).round();
     return Duration(milliseconds: ms.clamp(0, _audioDuration.inMilliseconds));
   }
 
-  /// Chuyển từ Duration sang pixel position
   double durationToPosition(Duration duration, double viewWidth) {
     if (_audioDuration.inMilliseconds == 0 || viewWidth == 0) {
       return 0;
     }
-
     final audioPosition =
         duration.inMilliseconds / _audioDuration.inMilliseconds;
     final visibleRange = 1.0 / _zoomLevel;
     final viewPosition = (audioPosition - _scrollOffset) / visibleRange;
-
     return viewPosition * viewWidth;
   }
 
   // ==================== SELECTION ====================
-
   void startSelection(Duration time) {
     _selectionStart = time;
     _selectionEnd = null;
@@ -253,8 +377,6 @@ class WaveformProvider extends ChangeNotifier {
 
   void endSelection() {
     _isSelecting = false;
-
-    // Đảm bảo start < end
     if (_selectionStart != null && _selectionEnd != null) {
       if (_selectionEnd! < _selectionStart!) {
         final temp = _selectionStart;
@@ -262,7 +384,6 @@ class WaveformProvider extends ChangeNotifier {
         _selectionEnd = temp;
       }
     }
-
     notifyListeners();
   }
 
@@ -273,7 +394,6 @@ class WaveformProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Tạo marker từ selection hiện tại
   AudioMarker? createMarkerFromSelection({
     required String label,
     MarkerType type = MarkerType.region,
@@ -294,13 +414,10 @@ class WaveformProvider extends ChangeNotifier {
     _markers.sort((a, b) => a.startTime.compareTo(b.startTime));
     clearSelection();
     notifyListeners();
-
     return marker;
   }
 
   // ==================== MARKERS ====================
-
-  /// Thêm marker tại vị trí
   AudioMarker addMarker({
     required Duration startTime,
     Duration? endTime,
@@ -320,11 +437,9 @@ class WaveformProvider extends ChangeNotifier {
     _markers.add(marker);
     _markers.sort((a, b) => a.startTime.compareTo(b.startTime));
     notifyListeners();
-
     return marker;
   }
 
-  /// Xóa marker
   void removeMarker(String id) {
     _markers.removeWhere((m) => m.id == id);
     if (_selectedMarker?.id == id) {
@@ -333,7 +448,6 @@ class WaveformProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cập nhật marker
   void updateMarker(
     String id, {
     Duration? startTime,
@@ -352,29 +466,26 @@ class WaveformProvider extends ChangeNotifier {
       color: color,
       type: type,
     );
+
     _markers.sort((a, b) => a.startTime.compareTo(b.startTime));
     notifyListeners();
   }
 
-  /// Chọn marker
   void selectMarker(AudioMarker? marker) {
     _selectedMarker = marker;
     notifyListeners();
   }
 
-  /// Bắt đầu kéo marker
   void startDraggingMarker(AudioMarker marker) {
     _draggingMarker = marker;
     notifyListeners();
   }
 
-  /// Kết thúc kéo marker
   void endDraggingMarker() {
     _draggingMarker = null;
     notifyListeners();
   }
 
-  /// Tìm marker tại vị trí
   AudioMarker? findMarkerAtPosition(Duration time, {double tolerance = 50}) {
     final toleranceDuration = Duration(
       milliseconds:
@@ -393,10 +504,10 @@ class WaveformProvider extends ChangeNotifier {
         }
       }
     }
+
     return null;
   }
 
-  /// Lấy markers trong khoảng thời gian
   List<AudioMarker> getMarkersInRange(Duration start, Duration end) {
     return _markers.where((m) {
       if (m.isRegion) {
@@ -407,19 +518,16 @@ class WaveformProvider extends ChangeNotifier {
     }).toList();
   }
 
-  /// Xóa tất cả markers
   void clearMarkers() {
     _markers.clear();
     _selectedMarker = null;
     notifyListeners();
   }
 
-  /// Export markers as JSON
   List<Map<String, dynamic>> exportMarkers() {
     return _markers.map((m) => m.toJson()).toList();
   }
 
-  /// Import markers from JSON
   void importMarkers(List<dynamic> data) {
     _markers.clear();
     for (final item in data) {
@@ -430,7 +538,6 @@ class WaveformProvider extends ChangeNotifier {
   }
 
   // ==================== CLEANUP ====================
-
   void reset() {
     _waveformData = [];
     _currentFilePath = null;

@@ -433,18 +433,31 @@ class _LineData {
   });
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _LineData &&
-          content == other.content &&
-          translation == other.translation &&
-          isCurrentLine == other.isCurrentLine &&
-          isPlaying == other.isPlaying &&
-          colorMode == other.colorMode &&
-          fontSize == other.fontSize &&
-          showTranslation == other.showTranslation &&
-          isSpeaking == other.isSpeaking &&
-          analyzedWords.length == other.analyzedWords.length;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! _LineData) return false;
+
+    // FIX VẤN ĐỀ 8: So sánh sâu (Deep comparison) danh sách từ
+    bool listEquals(List<AnalyzedWord> a, List<AnalyzedWord> b) {
+      if (a.length != b.length) return false;
+      for (int i = 0; i < a.length; i++) {
+        // AnalyzedWord cũng cần override == (đã làm ở model)
+        if (a[i] != b[i]) return false;
+      }
+      return true;
+    }
+
+    return content == other.content &&
+        translation == other.translation &&
+        isCurrentLine == other.isCurrentLine &&
+        isPlaying == other.isPlaying &&
+        colorMode == other.colorMode &&
+        fontSize == other.fontSize &&
+        showTranslation == other.showTranslation &&
+        isSpeaking == other.isSpeaking &&
+        // Sử dụng hàm so sánh list thay vì chỉ so sánh length
+        listEquals(analyzedWords, other.analyzedWords);
+  }
 
   @override
   int get hashCode => Object.hash(
@@ -455,5 +468,7 @@ class _LineData {
         fontSize,
         showTranslation,
         isSpeaking,
+        // Hash code của list
+        Object.hashAll(analyzedWords),
       );
 }

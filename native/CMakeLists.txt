@@ -159,7 +159,7 @@ endif()
 
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
+ ${CMAKE_CURRENT_SOURCE_DIR}
 # ───────────────────────────────────────────────────────────────────────────
 # V1 Library (Standard Quality, Fast)
 # ───────────────────────────────────────────────────────────────────────────

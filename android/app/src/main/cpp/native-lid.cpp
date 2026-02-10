@@ -69,13 +69,13 @@ extern "C"
         if (!engine)
             return 0;
 
-        jfloat *input = env->GetFloatArrayElements(inputArray, nullptr);
-        jfloat *output = env->GetFloatArrayElements(outputArray, nullptr);
+        jfloat *input = (jfloat *)env->GetPrimitiveArrayCritical(inputArray, nullptr);
+        jfloat *output = (jfloat *)env->GetPrimitiveArrayCritical(outputArray, nullptr);
 
         int outputFrames = engine->processV2(input, inputFrames, output, maxOutputFrames);
 
-        env->ReleaseFloatArrayElements(inputArray, input, JNI_ABORT);
-        env->ReleaseFloatArrayElements(outputArray, output, 0);
+        env->ReleasePrimitiveArrayCritical(inputArray, input, JNI_ABORT);
+        env->ReleasePrimitiveArrayCritical(outputArray, output, 0);
 
         return outputFrames;
     }

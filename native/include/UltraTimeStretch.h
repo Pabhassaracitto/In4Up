@@ -195,7 +195,7 @@ namespace UltraTimeStretch
     {
     public:
         PhaseVocoder(int fftSize, int hopSize, int sampleRate);
-        ~PhaseVocoder();
+        virtual ~PhaseVocoder();
 
         void setTimeStretchRatio(float ratio);
         void setPitchShiftRatio(float ratio);
@@ -210,10 +210,10 @@ namespace UltraTimeStretch
         int getFftSize() const { return fftSize_; }
         int getHopSize() const { return analysisHop_; }
 
-    private:
+    protected:
         void analyzeFrame(const float *input);
         void synthesizeFrame(float *output);
-        void processPhases();
+        virtual void processPhases();
         void applyPhaseLocking();
         void preserveTransients(const float *input);
         void computeNormalizationGain();
@@ -255,6 +255,42 @@ namespace UltraTimeStretch
         float synthesisPhase_;
         float normGain_;
         Options options_;
+    };
+
+    //==============================================================================
+    // Elastic Phase Vocoder - Nâng cấp với phase gradient (Elastique-style)
+    //==============================================================================
+    class ElasticPhaseVocoder : public PhaseVocoder
+    {
+    public:
+        using PhaseVocoder::PhaseVocoder; // Inherit constructors
+
+    protected:
+        // Phase gradient heap integration
+        void processPhases() override
+        {
+            int numBins = fftSize_ / 2 + 1;
+
+            // Compute instantaneous frequency bằng phase gradient
+            // theo cả time VÀ frequency direction
+            for (int k = 1; k < numBins - 1; ++k)
+            {
+                // Time derivative (như cũ)
+                float dPhiDt = phases_[k] - previousPhases_[k];
+
+                // Frequency derivative (MỚI - cross-bin coherence)
+                float dPhiDf = phases_[k + 1] - phases_[k];
+
+                // Combine cho better frequency estimation
+                float expectedDt = TWO_PI * k * analysisHop_ / fftSize_;
+                float expectedDf = TWO_PI * analysisHop_ / fftSize_;
+
+                // Phase gradient giúp phân biệt sinusoid gần nhau
+                // → giảm "metallic" sound artifact
+                // (Logic để kết hợp các gradient sẽ được thêm vào đây)
+            }
+            // Note: Cần xử lý các bin rìa (0 và numBins-1) riêng biệt
+        }
     };
 
     //==============================================================================

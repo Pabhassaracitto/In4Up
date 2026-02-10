@@ -20,6 +20,8 @@
 #include <memory>
 #include <complex>
 #include <algorithm>
+#include <thread>
+#include <chrono>
 
 #ifdef _WIN32
 // Windows SDK may define these macros (rpcndr.h / windows.h)
@@ -388,6 +390,156 @@ namespace UltraTimeStretch
 
             int processWithEngine(ActiveEngine engineMode, const float *input, int inputFrames,
                                   float *output, int maxOutputFrames);
+        };
+
+        //==============================================================================
+        // Lock-Free Ring Buffer (SPSC) - For Real-time Streaming
+        //==============================================================================
+        template <typename T>
+        class LockFreeRingBuffer
+        {
+        public:
+            explicit LockFreeRingBuffer(size_t capacity)
+                : buffer_(capacity + 1), capacity_(capacity + 1)
+            {
+                readPos_.store(0);
+                writePos_.store(0);
+            }
+
+            size_t write(const T *data, size_t count)
+            {
+                const size_t currentWrite = writePos_.load(std::memory_order_relaxed);
+                const size_t currentRead = readPos_.load(std::memory_order_acquire);
+
+                size_t available = capacity_ - 1 - (currentWrite - currentRead + capacity_) % capacity_;
+                if (count > available)
+                    count = available;
+
+                for (size_t i = 0; i < count; ++i)
+                {
+                    buffer_[(currentWrite + i) % capacity_] = data[i];
+                }
+
+                writePos_.store((currentWrite + count) % capacity_, std::memory_order_release);
+                return count;
+            }
+
+            size_t read(T *data, size_t count)
+            {
+                const size_t currentRead = readPos_.load(std::memory_order_relaxed);
+                const size_t currentWrite = writePos_.load(std::memory_order_acquire);
+
+                size_t available = (currentWrite - currentRead + capacity_) % capacity_;
+                if (count > available)
+                    count = available;
+
+                for (size_t i = 0; i < count; ++i)
+                {
+                    data[i] = buffer_[(currentRead + i) % capacity_];
+                }
+
+                readPos_.store((currentRead + count) % capacity_, std::memory_order_release);
+                return count;
+            }
+
+            size_t availableRead() const
+            {
+                const size_t currentRead = readPos_.load(std::memory_order_relaxed);
+                const size_t currentWrite = writePos_.load(std::memory_order_acquire);
+                return (currentWrite - currentRead + capacity_) % capacity_;
+            }
+
+        private:
+            std::vector<T> buffer_;
+            size_t capacity_;
+            std::atomic<size_t> readPos_;
+            std::atomic<size_t> writePos_;
+        };
+
+        //==============================================================================
+        // Streaming Engine - Thread-safe Wrapper
+        //==============================================================================
+        class StreamingEngine
+        {
+        public:
+            StreamingEngine() : inputRing_(131072), outputRing_(524288)
+            {
+                tempInput_.resize(4096);
+                tempOutput_.resize(4096 * 10);
+            }
+
+            ~StreamingEngine() { stop(); }
+
+            void start()
+            {
+                if (running_)
+                    return;
+                running_ = true;
+                processingThread_ = std::thread([this]()
+                                                { this->processThread(); });
+            }
+
+            void stop()
+            {
+                running_ = false;
+                if (processingThread_.joinable())
+                    processingThread_.join();
+            }
+
+            // Audio callback thread (High Priority)
+            void audioCallback(float *output, int frames)
+            {
+                int available = outputRing_.availableRead();
+                if (available >= frames)
+                {
+                    outputRing_.read(output, frames);
+                }
+                else
+                {
+                    // Underrun - fade out or zero fill
+                    if (available > 0)
+                        outputRing_.read(output, available);
+                    std::fill(output + available, output + frames, 0.0f);
+                }
+            }
+
+            EngineV2 &getEngine() { return engine_; }
+            LockFreeRingBuffer<float> &getInputRing() { return inputRing_; }
+
+        private:
+            void processThread()
+            {
+                while (running_)
+                {
+                    if (inputRing_.availableRead() >= processBlockSize_)
+                    {
+                        inputRing_.read(tempInput_.data(), processBlockSize_);
+
+                        int channels = engine_.getChannels() > 0 ? engine_.getChannels() : 2;
+                        int inputFrames = processBlockSize_ / channels;
+                        int maxOutputFrames = tempOutput_.size() / channels;
+
+                        int outFrames = engine_.processV2(
+                            tempInput_.data(), inputFrames,
+                            tempOutput_.data(), maxOutputFrames);
+
+                        outputRing_.write(tempOutput_.data(), outFrames * channels);
+                    }
+                    else
+                    {
+                        std::this_thread::sleep_for(std::chrono::microseconds(100));
+                    }
+                }
+            }
+
+            EngineV2 engine_;
+            LockFreeRingBuffer<float> inputRing_;
+            LockFreeRingBuffer<float> outputRing_;
+            std::thread processingThread_;
+            std::atomic<bool> running_{false};
+            std::vector<float> tempInput_;
+            std::vector<float> tempOutput_;
+            int processBlockSize_ = 1024;
         };
 
     } // namespace V2

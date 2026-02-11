@@ -32,7 +32,6 @@ class ReadModeController extends ChangeNotifier {
   bool get hasFloatingMenu => _floatingOverlay != null;
 
   // Reading progress
-  DateTime? _sessionStart;
   int _sessionReadSeconds = 0;
   Timer? _readingTimer;
 
@@ -55,7 +54,6 @@ class ReadModeController extends ChangeNotifier {
 
   // ===== INIT =====
   void _init() {
-    _sessionStart = DateTime.now();
     _startReadingTimer();
     _initSyntaxHighlighter();
   }

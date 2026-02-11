@@ -4,14 +4,11 @@ class SyntaxHighlighterService {
   SyntaxHighlighterService._();
   static final SyntaxHighlighterService instance = SyntaxHighlighterService._();
 
-  bool _initialized = false;
-
   final Map<String, List<AnalyzedWord>> _cache = {};
   static const int _maxCacheSize = 500;
 
   Future<void> initialize() async {
     // để tương thích với code đang await initialize()
-    _initialized = true;
   }
 
   static List<AnalyzedWord> analyzeLine(String text) {

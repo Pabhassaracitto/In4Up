@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
-import '../providers/text_provider.dart';
 import '../widgets/mini_player.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'listen_mode_screen.dart';

@@ -88,7 +88,6 @@ class UltraEngineFFIV2 {
   GetVersion? _getVersion;
   Reset? _reset;
   GetActiveEngineMode? _getActiveEngineMode;
-  GetCurrentSpeed? _getCurrentSpeed;
 
   UltraEngineFFIV2._internal();
 
@@ -195,13 +194,7 @@ class UltraEngineFFIV2 {
       _getActiveEngineMode = null;
     }
 
-    try {
-      _getCurrentSpeed = _lib!
-          .lookup<NativeFunction<NativeGetCurrentSpeed>>('GetCurrentSpeed')
-          .asFunction();
-    } catch (_) {
-      _getCurrentSpeed = null;
-    }
+    try {} catch (_) {}
   }
 
   /// Get library version

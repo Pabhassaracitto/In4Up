@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'providers/player_provider.dart';
-import 'providers/shadowing_provider.dart';
+import '../../../../../features/shadowing/providers/shadowing_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
@@ -65,7 +65,7 @@ class VipSoundApp extends StatelessWidget {
             activeTrackColor: const Color(0xFF6C63FF),
             inactiveTrackColor: Colors.white24,
             thumbColor: const Color(0xFF6C63FF),
-            overlayColor: const Color(0xFF6C63FF).withOpacity(0.2),
+            overlayColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
             trackHeight: 4,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
           ),
@@ -142,8 +142,8 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF6C63FF).withOpacity(0.3),
-                      const Color(0xFF6C63FF).withOpacity(0.1),
+                      const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                      const Color(0xFF6C63FF).withValues(alpha: 0.1),
                     ],
                   ),
                   shape: BoxShape.circle,
@@ -182,7 +182,7 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.folder_off,

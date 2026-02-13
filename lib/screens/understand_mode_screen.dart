@@ -5,15 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/shadowing_result.dart';
-import '../../models/waveform_data.dart';
-import '../../providers/player_provider.dart';
-import '../../providers/shadowing_provider.dart';
-import '../../providers/text_provider.dart';
-import '../../providers/waveform_provider.dart';
-import '../listen_mode/controllers/rolling_waveform_controller.dart';
-import '../listen_mode/widgets/rolling_waveform_view.dart';
-import '../../widgets/shadowing/pronunciation_result.dart';
+import '../features/shadowing/models/shadowing_result.dart';
+import '../features/shadowing/providers/shadowing_provider.dart';
+import '../screens/listen_mode/controllers/rolling_waveform_controller.dart';
+import '../screens/listen_mode/controllers/rolling_waveform_controller.dart';
+import '../models/waveform_data.dart';
+import '../providers/player_provider.dart';
+import '../providers/text_provider.dart';
+import '../providers/waveform_provider.dart';
+import '../features/shadowing/widgets/pronunciation_result.dart';
+import '../screens/listen_mode/widgets/rolling_waveform_view.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
@@ -215,7 +216,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: TabBar(
@@ -245,7 +246,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           decoration: BoxDecoration(
             color: const Color(0xFF0D1520),
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
             ),
           ),
           child: Column(
@@ -370,7 +371,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
             decoration: BoxDecoration(
               color: isActive
-                  ? const Color(0xFFFFB300).withOpacity(0.15)
+                  ? const Color(0xFFFFB300).withValues(alpha: 0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: Border(
@@ -410,7 +411,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                           style: TextStyle(
                             fontSize: 9,
                             color: isActive
-                                ? const Color(0xFFFFB300).withOpacity(0.8)
+                                ? const Color(0xFFFFB300).withValues(alpha: 0.8)
                                 : Colors.grey[700],
                             fontFamily: 'monospace',
                           ),
@@ -452,7 +453,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFB300).withOpacity(0.2),
+                      color: const Color(0xFFFFB300).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -475,7 +476,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.05)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: Row(
@@ -489,7 +490,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFB300).withOpacity(0.2),
+              color: const Color(0xFFFFB300).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -516,10 +517,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF4CAF50).withOpacity(0.5),
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
                   ),
                 ),
                 child: Row(
@@ -680,7 +681,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Column(
@@ -715,9 +716,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
@@ -757,13 +758,13 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF9C27B0).withOpacity(0.2),
-            const Color(0xFF9C27B0).withOpacity(0.1),
+            const Color(0xFF9C27B0).withValues(alpha: 0.2),
+            const Color(0xFF9C27B0).withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF9C27B0).withOpacity(0.3),
+          color: const Color(0xFF9C27B0).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -785,7 +786,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStateColor(shadowing.state).withOpacity(0.2),
+                  color: _getStateColor(shadowing.state).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -954,7 +955,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF9C27B0).withOpacity(0.1),
+                color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -999,7 +1000,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1032,7 +1033,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     decoration: BoxDecoration(
                       color: shadowing.repeatCount == count
                           ? const Color(0xFF9C27B0)
-                          : Colors.white.withOpacity(0.1),
+                          : Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1072,7 +1073,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
+                  color: Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1207,7 +1208,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -1306,7 +1307,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFFFFB300)
-                          : Colors.white.withOpacity(0.1),
+                          : Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
@@ -1372,8 +1373,9 @@ class _StatusCircle extends StatelessWidget {
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color:
-                isReady ? color.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+            color: isReady
+                ? color.withValues(alpha: 0.2)
+                : Colors.grey.withValues(alpha: 0.1),
             shape: BoxShape.circle,
             border: Border.all(
               color: isReady ? color : Colors.grey[700]!,
@@ -1447,12 +1449,12 @@ class _AutoScrollButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFFFFB300).withOpacity(0.2)
+              ? const Color(0xFFFFB300).withValues(alpha: 0.2)
               : Colors.black45,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isActive
-                ? const Color(0xFFFFB300).withOpacity(0.5)
+                ? const Color(0xFFFFB300).withValues(alpha: 0.5)
                 : Colors.white24,
           ),
         ),
@@ -1497,8 +1499,8 @@ class _SpeedChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: speed != 1.0
-              ? Colors.orange.withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
+              ? Colors.orange.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -1562,7 +1564,7 @@ class _ProgressItem extends StatelessWidget {
           const SizedBox(height: 4),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: color.withOpacity(0.2),
+            backgroundColor: color.withValues(alpha: 0.2),
             valueColor: AlwaysStoppedAnimation<Color>(color),
             minHeight: 3,
           ),
@@ -1597,7 +1599,7 @@ class _ShadowingButton extends StatelessWidget {
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        disabledBackgroundColor: color.withOpacity(0.3),
+        disabledBackgroundColor: color.withValues(alpha: 0.3),
         minimumSize: fullWidth ? const Size(double.infinity, 48) : null,
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(
@@ -1627,7 +1629,7 @@ class _GuideStep extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: const Color(0xFF4CAF50).withOpacity(0.2),
+            color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Center(

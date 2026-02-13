@@ -20,8 +20,8 @@ class SpeedChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: speed != 1.0
-              ? Colors.orange.withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
+              ? Colors.orange.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(

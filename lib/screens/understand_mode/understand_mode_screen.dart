@@ -5,26 +5,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/shadowing_result.dart';
-import '../../../models/waveform_data.dart';
-import '../../../providers/player_provider.dart';
-import '../../../providers/shadowing_provider.dart';
-import '../../../providers/text_provider.dart';
-import '../../../providers/waveform_provider.dart';
+import '../../features/shadowing/models/shadowing_result.dart';
+import '../../features/shadowing/providers/shadowing_provider.dart';
+import '../../features/shadowing/widgets/pronunciation_result.dart';
+import '../../models/waveform_data.dart';
+import '../../providers/player_provider.dart';
+import '../../providers/text_provider.dart';
+import '../../providers/waveform_provider.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
-import '../../../widgets/shadowing/pronunciation_result.dart';
-
-// Import các components mới tách
-import 'widgets/status_circle.dart';
-import 'widgets/quick_button.dart';
-import 'widgets/auto_scroll_button.dart';
-import 'widgets/speed_chip.dart';
-import 'widgets/progress_item.dart';
-import 'widgets/shadowing_button.dart';
-import 'widgets/guide_step.dart';
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
+import 'widgets/auto_scroll_button.dart';
+import 'widgets/guide_step.dart';
+import 'widgets/progress_item.dart';
+import 'widgets/quick_button.dart';
+import 'widgets/shadowing_button.dart';
+import 'widgets/speed_chip.dart';
+// Import các components mới tách
+import 'widgets/status_circle.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
@@ -217,7 +216,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: TabBar(
@@ -244,7 +243,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           decoration: BoxDecoration(
             color: const Color(0xFF0D1520),
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
             ),
           ),
           child: Column(
@@ -365,7 +364,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
             decoration: BoxDecoration(
               color: isActive
-                  ? const Color(0xFFFFB300).withOpacity(0.15)
+                  ? const Color(0xFFFFB300).withValues(alpha: 0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: Border(
@@ -405,7 +404,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                           style: TextStyle(
                             fontSize: 9,
                             color: isActive
-                                ? const Color(0xFFFFB300).withOpacity(0.8)
+                                ? const Color(0xFFFFB300).withValues(alpha: 0.8)
                                 : Colors.grey[700],
                             fontFamily: 'monospace',
                           ),
@@ -447,7 +446,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFB300).withOpacity(0.2),
+                      color: const Color(0xFFFFB300).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -470,7 +469,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.05)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: Row(
@@ -483,7 +482,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFB300).withOpacity(0.2),
+              color: const Color(0xFFFFB300).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -506,10 +505,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF4CAF50).withOpacity(0.5),
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
                   ),
                 ),
                 child: Row(
@@ -648,7 +647,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Column(
@@ -679,9 +678,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
@@ -716,13 +715,13 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF9C27B0).withOpacity(0.2),
-            const Color(0xFF9C27B0).withOpacity(0.1),
+            const Color(0xFF9C27B0).withValues(alpha: 0.2),
+            const Color(0xFF9C27B0).withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF9C27B0).withOpacity(0.3),
+          color: const Color(0xFF9C27B0).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -743,7 +742,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStateColor(shadowing.state).withOpacity(0.2),
+                  color: _getStateColor(shadowing.state).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -904,7 +903,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF9C27B0).withOpacity(0.1),
+                color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -949,7 +948,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -980,7 +979,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     decoration: BoxDecoration(
                       color: shadowing.repeatCount == count
                           ? const Color(0xFF9C27B0)
-                          : Colors.white.withOpacity(0.1),
+                          : Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1017,7 +1016,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
+                  color: Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1039,7 +1038,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void _scrollToCurrentLine(TextProvider textProvider) {
     if (textProvider.currentLineIndex < 0) return;
 
-    final itemHeight = 80.0;
+    const itemHeight = 80.0;
     final targetOffset = textProvider.currentLineIndex * itemHeight;
     final viewportHeight = _textScrollController.position.viewportDimension;
     final centerOffset = targetOffset - (viewportHeight / 2) + (itemHeight / 2);
@@ -1094,19 +1093,19 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ],
             ),
             const SizedBox(height: 16),
-            GuideStep(
+            const GuideStep(
               number: '1',
               text: 'Long press vào câu muốn lặp',
               icon: Icons.touch_app,
             ),
             const SizedBox(height: 12),
-            GuideStep(
+            const GuideStep(
               number: '2',
               text: 'Hoặc dùng nút A-B trong player',
               icon: Icons.repeat,
             ),
             const SizedBox(height: 12),
-            GuideStep(
+            const GuideStep(
               number: '3',
               text: 'Điều chỉnh vùng loop trên waveform',
               icon: Icons.tune,

@@ -83,7 +83,7 @@ class TextLineWidget extends StatelessWidget {
         padding: const EdgeInsets.only(left: 20),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF2196F3).withOpacity(0.15),
+          color: const Color(0xFF2196F3).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -93,7 +93,7 @@ class TextLineWidget extends StatelessWidget {
             Text(
               'TTS',
               style: TextStyle(
-                color: const Color(0xFF2196F3).withOpacity(0.8),
+                color: const Color(0xFF2196F3).withValues(alpha: 0.8),
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -106,7 +106,7 @@ class TextLineWidget extends StatelessWidget {
         padding: const EdgeInsets.only(right: 20),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.amber.withOpacity(0.15),
+          color: Colors.amber.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -115,7 +115,7 @@ class TextLineWidget extends StatelessWidget {
             Text(
               'Lưu',
               style: TextStyle(
-                color: Colors.amber.withOpacity(0.8),
+                color: Colors.amber.withValues(alpha: 0.8),
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -152,16 +152,16 @@ class TextLineWidget extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: data.isCurrentLine
-              ? const Color(0xFF2196F3).withOpacity(0.08)
+              ? const Color(0xFF2196F3).withValues(alpha: 0.08)
               : data.isPlaying
-                  ? const Color(0xFF4CAF50).withOpacity(0.08)
+                  ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: data.isCurrentLine
-                ? const Color(0xFF2196F3).withOpacity(0.25)
+                ? const Color(0xFF2196F3).withValues(alpha: 0.25)
                 : data.isPlaying
-                    ? const Color(0xFF4CAF50).withOpacity(0.25)
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
                     : Colors.transparent,
             width: data.isCurrentLine ? 1.5 : 1.0,
           ),
@@ -185,7 +185,7 @@ class TextLineWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.05),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -281,8 +281,8 @@ class _LineHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: data.isCurrentLine
-                ? const Color(0xFF2196F3).withOpacity(0.2)
-                : Colors.white.withOpacity(0.05),
+                ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(

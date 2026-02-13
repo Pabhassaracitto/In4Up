@@ -152,7 +152,7 @@ class _FontSizeControl extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -162,7 +162,7 @@ class _FontSizeControl extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.remove, color: Colors.white, size: 20),
@@ -195,7 +195,7 @@ class _FontSizeControl extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.add, color: Colors.white, size: 20),
@@ -216,7 +216,7 @@ class _TtsControls extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -241,7 +241,7 @@ class _TtsControls extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withOpacity(0.2),
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -325,11 +325,12 @@ class _TtsButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color:
-              enabled ? color.withOpacity(0.15) : Colors.grey.withOpacity(0.1),
+          color: enabled
+              ? color.withValues(alpha: 0.15)
+              : Colors.grey.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: enabled ? color.withOpacity(0.3) : Colors.transparent,
+            color: enabled ? color.withValues(alpha: 0.3) : Colors.transparent,
           ),
         ),
         child: Column(
@@ -370,12 +371,12 @@ class _ColorModeSelector extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelected
                   ? const Color(0xFF2196F3)
-                  : Colors.white.withOpacity(0.08),
+                  : Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isSelected
                     ? const Color(0xFF2196F3)
-                    : Colors.white.withOpacity(0.1),
+                    : Colors.white.withValues(alpha: 0.1),
               ),
             ),
             child: Row(
@@ -414,7 +415,7 @@ class _LegendPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: Colors.black.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -480,7 +481,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -515,7 +516,7 @@ class _DisplayOptions extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -529,7 +530,7 @@ class _DisplayOptions extends StatelessWidget {
             activeColor: const Color(0xFF4CAF50),
             onChanged: (_) => tp.toggleTranslation(),
           ),
-          Divider(color: Colors.white.withOpacity(0.05), height: 1),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
           SwitchListTile(
             title: const Text('Hiện số dòng',
                 style: TextStyle(color: Colors.white, fontSize: 14)),

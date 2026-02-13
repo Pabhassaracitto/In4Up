@@ -22,7 +22,7 @@ class ReadBottomBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.05)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: SafeArea(
@@ -101,7 +101,7 @@ class _ReadingProgressBar extends StatelessWidget {
     return ClipRRect(
       child: LinearProgressIndicator(
         value: progress,
-        backgroundColor: Colors.white.withOpacity(0.05),
+        backgroundColor: Colors.white.withValues(alpha: 0.05),
         valueColor: AlwaysStoppedAnimation(
           Color.lerp(
             const Color(0xFF2196F3),
@@ -148,7 +148,7 @@ class _BarAction extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: isActive
                 ? BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   )
                 : null,

@@ -35,8 +35,8 @@ class UnderstandWaveformPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = isPlayed && isPlaying
-            ? colors[0].withOpacity(0.8)
-            : Colors.white.withOpacity(0.3)
+            ? colors[0].withValues(alpha: 0.8)
+            : Colors.white.withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
 
       canvas.drawRect(

@@ -14,9 +14,11 @@ import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
+import 'text_provider_translation.dart'; // ★ THÊM
 //new
 
-class TextProvider extends ChangeNotifier {
+class TextProvider extends ChangeNotifier with TranslationMixin {
+  // ★ THÊM
   final FlutterTts _tts = FlutterTts();
   final StorageService _storage = StorageService(); // ★ THÊM
 
@@ -50,11 +52,12 @@ class TextProvider extends ChangeNotifier {
 
   // ==================== DISPLAY SETTINGS ====================
   double _fontSize = 18.0;
-  bool _showTranslation = true;
+  // bool _showTranslation = true; // REMOVED
   bool _showWordTypes = false;
 
   // ==================== GETTERS ====================
   TextDocument? get currentDocument => _currentDocument;
+  @override
   List<TextItem> get lines => _lines;
   int get currentLineIndex => _currentLineIndex;
   String? get selectedText => _selectedText;
@@ -73,7 +76,8 @@ class TextProvider extends ChangeNotifier {
   TextSegment? get currentPlayingSegment => _currentPlayingSegment;
   int get currentRepeatIndex => _currentRepeatIndex;
   double get fontSize => _fontSize;
-  bool get showTranslation => _showTranslation;
+  bool get showTranslation =>
+      translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
 
   // ==================== CONSTRUCTOR ====================
@@ -90,7 +94,12 @@ class TextProvider extends ChangeNotifier {
     try {
       _fontSize = _storage.getFontSize();
       _ttsSpeed = _storage.getTtsSpeed();
-      _showTranslation = _storage.getShowTranslation();
+
+      if (_storage.getShowTranslation()) {
+        setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+      } else {
+        setTranslationDisplayMode(TranslationDisplayMode.hidden);
+      }
 
       // Restore color mode
       final savedColorMode = _storage.getColorMode();
@@ -831,10 +840,13 @@ class TextProvider extends ChangeNotifier {
   }
 
   void toggleTranslation() {
-    _showTranslation = !_showTranslation;
-
+    if (translationDisplayMode == TranslationDisplayMode.hidden) {
+      setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+    } else {
+      setTranslationDisplayMode(TranslationDisplayMode.hidden);
+    }
     // ★ THÊM: Persist
-    _storage.saveShowTranslation(_showTranslation);
+    _storage.saveShowTranslation(showTranslation);
 
     notifyListeners();
   }

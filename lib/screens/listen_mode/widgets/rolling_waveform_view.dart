@@ -106,7 +106,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: const BorderRadius.vertical(
           bottom: Radius.circular(12),
         ),
@@ -151,7 +151,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withOpacity(0.2),
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(

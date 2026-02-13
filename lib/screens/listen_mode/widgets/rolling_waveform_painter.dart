@@ -131,7 +131,7 @@ class RollingWaveformPainter extends CustomPainter {
       );
 
       final loopPaint = Paint()
-        ..color = region.color.withOpacity(0.1)
+        ..color = region.color.withValues(alpha: 0.1)
         ..style = PaintingStyle.fill;
 
       canvas.drawRect(loopRect, loopPaint);

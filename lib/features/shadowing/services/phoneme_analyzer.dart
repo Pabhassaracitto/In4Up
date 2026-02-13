@@ -2,7 +2,7 @@
 // NEW - Phân tích phiên âm nâng cao với G2P rules và CMU Dictionary
 // Unified Phoneme Analyzer - kết hợp CMU Dict và G2P Rules
 
-import '../../models/phoneme_models.dart';
+import '../models/phoneme_models.dart';
 import 'cmu_dictionary_service.dart';
 import 'g2p_rules_service.dart';
 

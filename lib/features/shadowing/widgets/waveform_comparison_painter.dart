@@ -28,7 +28,8 @@ class WaveformComparisonPainter extends CustomPainter {
     final maxAmplitude = size.height * 0.4;
 
     // Normalize để cả 2 waveform có cùng số samples
-    final targetLength = math.max(originalWaveform.length, recordedWaveform.length);
+    final targetLength =
+        math.max(originalWaveform.length, recordedWaveform.length);
     final normalizedOriginal = _resample(originalWaveform, targetLength);
     final normalizedRecorded = recordedWaveform.isNotEmpty
         ? _resample(recordedWaveform, targetLength)
@@ -38,7 +39,7 @@ class WaveformComparisonPainter extends CustomPainter {
 
     // 1. Vẽ center line
     final centerLinePaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(0, centerY),
@@ -49,8 +50,13 @@ class WaveformComparisonPainter extends CustomPainter {
     // 2. Vẽ vùng chênh lệch (nếu bật)
     if (showDifference && normalizedRecorded.isNotEmpty) {
       _drawDifferenceArea(
-        canvas, size, normalizedOriginal, normalizedRecorded,
-        centerY, maxAmplitude, pixelsPerSample,
+        canvas,
+        size,
+        normalizedOriginal,
+        normalizedRecorded,
+        centerY,
+        maxAmplitude,
+        pixelsPerSample,
       );
     }
 
@@ -61,7 +67,7 @@ class WaveformComparisonPainter extends CustomPainter {
       centerY,
       maxAmplitude,
       pixelsPerSample,
-      originalColor.withOpacity(0.4),
+      originalColor.withValues(alpha: 0.4),
       strokeWidth: 3,
       animatedLength: targetLength, // Luôn hiển thị đầy đủ
     );
@@ -86,15 +92,15 @@ class WaveformComparisonPainter extends CustomPainter {
   }
 
   void _drawWaveform(
-      Canvas canvas,
-      List<double> waveform,
-      double centerY,
-      double maxAmplitude,
-      double pixelsPerSample,
-      Color color, {
-        double strokeWidth = 2,
-        int? animatedLength,
-      }) {
+    Canvas canvas,
+    List<double> waveform,
+    double centerY,
+    double maxAmplitude,
+    double pixelsPerSample,
+    Color color, {
+    double strokeWidth = 2,
+    int? animatedLength,
+  }) {
     final paint = Paint()
       ..color = color
       ..strokeWidth = strokeWidth
@@ -140,14 +146,14 @@ class WaveformComparisonPainter extends CustomPainter {
   }
 
   void _drawDifferenceArea(
-      Canvas canvas,
-      Size size,
-      List<double> original,
-      List<double> recorded,
-      double centerY,
-      double maxAmplitude,
-      double pixelsPerSample,
-      ) {
+    Canvas canvas,
+    Size size,
+    List<double> original,
+    List<double> recorded,
+    double centerY,
+    double maxAmplitude,
+    double pixelsPerSample,
+  ) {
     final length = math.min(original.length, recorded.length);
 
     for (int i = 0; i < length; i++) {
@@ -160,8 +166,8 @@ class WaveformComparisonPainter extends CustomPainter {
       if (diff > 0.1) {
         // Chênh lệch đáng kể - highlight
         final color = diff > 0.3
-            ? Colors.red.withOpacity(0.2)
-            : Colors.orange.withOpacity(0.15);
+            ? Colors.red.withValues(alpha: 0.2)
+            : Colors.orange.withValues(alpha: 0.15);
 
         final paint = Paint()..color = color;
 
@@ -181,7 +187,7 @@ class WaveformComparisonPainter extends CustomPainter {
     const spacing = 12.0;
 
     // Original legend
-    final originalPaint = Paint()..color = originalColor.withOpacity(0.6);
+    final originalPaint = Paint()..color = originalColor.withValues(alpha: 0.6);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(8, legendY, 20, 4),

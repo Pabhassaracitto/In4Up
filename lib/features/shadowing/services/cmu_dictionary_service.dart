@@ -3,7 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import '../../models/phoneme_models.dart';
+import '../models/phoneme_models.dart';
 
 class CMUDictionaryService {
   static Map<String, List<List<String>>>? _dictionary;

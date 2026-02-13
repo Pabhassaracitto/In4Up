@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/text_segment.dart';
 import '../models/segment.dart';
-import '../models/shadowing_result.dart';
+import '../../features/shadowing/models/shadowing_result.dart';
 
 /// Service quản lý lưu trữ dữ liệu local với Hive
 /// Singleton pattern - gọi StorageService() ở bất kỳ đâu

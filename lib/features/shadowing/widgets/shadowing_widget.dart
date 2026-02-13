@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/shadowing_result.dart';
-import '../../providers/player_provider.dart';
-import '../../providers/shadowing_provider.dart';
+import '../../shadowing/models/shadowing_result.dart';
+import '../../../providers/player_provider.dart';
+import '../providers/shadowing_provider.dart';
 import 'waveform_comparison_painter.dart';
 
 /// Widget chính cho Shadowing Mode

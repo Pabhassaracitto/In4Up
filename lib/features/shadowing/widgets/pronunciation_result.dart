@@ -2,7 +2,7 @@
 // Widget hiển thị kết quả phát âm đầy đủ
 
 import 'package:flutter/material.dart';
-import '../../models/shadowing_result.dart';
+import '../../shadowing/models/shadowing_result.dart';
 import 'phoneme_display.dart';
 
 class PronunciationResultView extends StatelessWidget {
@@ -54,13 +54,13 @@ class PronunciationResultView extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            result.scoreColor.withOpacity(0.2),
-            result.scoreColor.withOpacity(0.05),
+            result.scoreColor.withValues(alpha: 0.2),
+            result.scoreColor.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: result.scoreColor.withOpacity(0.5),
+          color: result.scoreColor.withValues(alpha: 0.5),
           width: 2,
         ),
       ),
@@ -72,7 +72,10 @@ class PronunciationResultView extends StatelessWidget {
             height: 80,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [result.scoreColor, result.scoreColor.withOpacity(0.7)],
+                colors: [
+                  result.scoreColor,
+                  result.scoreColor.withValues(alpha: 0.7)
+                ],
               ),
               shape: BoxShape.circle,
             ),
@@ -104,7 +107,7 @@ class PronunciationResultView extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: result.scoreColor.withOpacity(0.7),
+                  color: result.scoreColor.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -156,7 +159,7 @@ class PronunciationResultView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

@@ -20,7 +20,7 @@ class AudioLibraryDrawer extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF6C63FF).withOpacity(0.2),
+                    const Color(0xFF6C63FF).withValues(alpha: 0.2),
                     Colors.transparent,
                   ],
                   begin: Alignment.topCenter,
@@ -32,7 +32,7 @@ class AudioLibraryDrawer extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C63FF).withOpacity(0.2),
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -89,7 +89,7 @@ class AudioLibraryDrawer extends StatelessWidget {
             ),
 
             // Divider
-            Divider(color: Colors.white.withOpacity(0.1)),
+            Divider(color: Colors.white.withValues(alpha: 0.1)),
 
             // Currently playing
             Consumer<PlayerProvider>(
@@ -104,13 +104,13 @@ class AudioLibraryDrawer extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF6C63FF).withOpacity(0.2),
-                        const Color(0xFF6C63FF).withOpacity(0.05),
+                        const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                        const Color(0xFF6C63FF).withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF6C63FF).withOpacity(0.3),
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -118,7 +118,7 @@ class AudioLibraryDrawer extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6C63FF).withOpacity(0.3),
+                          color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(

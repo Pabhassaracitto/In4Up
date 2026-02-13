@@ -2,8 +2,8 @@
 // Widget hiển thị IPA phonemes với điểm số
 import 'package:flutter/material.dart';
 
-import '../../models/phoneme_models.dart';
-import '../../services/shadowing/cmu_dictionary_service.dart';
+import '../models/phoneme_models.dart';
+import '../services/cmu_dictionary_service.dart';
 
 class PhonemeDisplay extends StatelessWidget {
   final List<PhonemeScore> phonemeScores;
@@ -26,13 +26,13 @@ class PhonemeDisplay extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A1A2E).withOpacity(0.95),
-            const Color(0xFF16213E).withOpacity(0.95),
+            const Color(0xFF1A1A2E).withValues(alpha: 0.95),
+            const Color(0xFF16213E).withValues(alpha: 0.95),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF9C27B0).withOpacity(0.3),
+          color: const Color(0xFF9C27B0).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -123,7 +123,7 @@ class PhonemeDisplay extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color),
       ),
@@ -181,7 +181,7 @@ class PhonemeDisplay extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: ps.scoreColor.withOpacity(0.2),
+                    color: ps.scoreColor.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: Text(
@@ -248,7 +248,7 @@ class PhonemeDisplay extends StatelessWidget {
                 children: examples
                     .map((ex) => Chip(
                           label: Text(ex),
-                          backgroundColor: Colors.white.withOpacity(0.1),
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
                           labelStyle: const TextStyle(color: Colors.white),
                         ))
                     .toList(),
@@ -290,12 +290,12 @@ class _PhonemeCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              color.withOpacity(0.3),
-              color.withOpacity(0.1),
+              color.withValues(alpha: 0.3),
+              color.withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.5), width: 2),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -383,7 +383,7 @@ class _LegendItem extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 10,
-            color: color.withOpacity(0.8),
+            color: color.withValues(alpha: 0.8),
           ),
         ),
       ],

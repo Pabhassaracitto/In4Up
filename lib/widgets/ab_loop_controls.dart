@@ -57,7 +57,8 @@ class ABLoopControls extends StatelessWidget {
               ],
 
               // Gap Duration Slider (khi đang loop hoặc có A point)
-              if ((player.isLooping || player.loopStart != null) && !compact) ...[
+              if ((player.isLooping || player.loopStart != null) &&
+                  !compact) ...[
                 const SizedBox(height: 16),
                 _GapDurationSlider(player: player),
               ],
@@ -70,20 +71,20 @@ class ABLoopControls extends StatelessWidget {
 
   Color _getBackgroundColor(PlayerProvider player) {
     if (player.isWaitingGap) {
-      return const Color(0xFFFF9800).withOpacity(0.15); // Đang chờ gap
+      return const Color(0xFFFF9800).withValues(alpha: 0.15); // Đang chờ gap
     }
     if (player.isLooping) {
-      return const Color(0xFF4CAF50).withOpacity(0.15); // Đang loop
+      return const Color(0xFF4CAF50).withValues(alpha: 0.15); // Đang loop
     }
-    return Colors.white.withOpacity(0.05); // Mặc định
+    return Colors.white.withValues(alpha: 0.05); // Mặc định
   }
 
   Color _getBorderColor(PlayerProvider player) {
     if (player.isWaitingGap) {
-      return const Color(0xFFFF9800).withOpacity(0.5);
+      return const Color(0xFFFF9800).withValues(alpha: 0.5);
     }
     if (player.isLooping) {
-      return const Color(0xFF4CAF50).withOpacity(0.5);
+      return const Color(0xFF4CAF50).withValues(alpha: 0.5);
     }
     return Colors.transparent;
   }
@@ -101,10 +102,10 @@ class _ModeIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _getModeColor().withOpacity(0.2),
+        color: _getModeColor().withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _getModeColor().withOpacity(0.5),
+          color: _getModeColor().withValues(alpha: 0.5),
         ),
       ),
       child: Row(
@@ -123,10 +124,10 @@ class _ModeIndicator extends StatelessWidget {
           const SizedBox(width: 8),
           // Quick mode switch buttons
           ...VipMode.values.map((mode) => _ModeButton(
-            mode: mode,
-            isActive: player.currentMode == mode,
-            onTap: () => player.setMode(mode),
-          )),
+                mode: mode,
+                isActive: player.currentMode == mode,
+                onTap: () => player.setMode(mode),
+              )),
         ],
       ),
     );
@@ -187,8 +188,8 @@ class _ModeButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isActive
-              ? _getModeColor().withOpacity(0.3)
-              : Colors.white.withOpacity(0.1),
+              ? _getModeColor().withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.1),
           border: Border.all(
             color: isActive ? _getModeColor() : Colors.transparent,
             width: 2,
@@ -258,7 +259,7 @@ class _LoopHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -466,16 +467,14 @@ class _CenterContent extends StatelessWidget {
         children: [
           Icon(
             Icons.arrow_forward,
-            color: Colors.grey.withOpacity(0.5),
+            color: Colors.grey.withValues(alpha: 0.5),
             size: 20,
           ),
           const SizedBox(height: 4),
           Text(
-            player.loopStart != null
-                ? 'Bấm B để lặp'
-                : 'Bấm A để bắt đầu',
+            player.loopStart != null ? 'Bấm B để lặp' : 'Bấm A để bắt đầu',
             style: TextStyle(
-              color: Colors.grey.withOpacity(0.7),
+              color: Colors.grey.withValues(alpha: 0.7),
               fontSize: 11,
             ),
           ),
@@ -507,9 +506,9 @@ class _LoopProgressIndicator extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: (player.isWaitingGap
-                    ? const Color(0xFFFF9800)
-                    : const Color(0xFF6C63FF))
-                    .withOpacity(0.4),
+                        ? const Color(0xFFFF9800)
+                        : const Color(0xFF6C63FF))
+                    .withValues(alpha: 0.4),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -547,7 +546,7 @@ class _LoopProgressIndicator extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: player.loopProgress,
-                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   player.isWaitingGap
                       ? const Color(0xFFFF9800)
@@ -613,8 +612,7 @@ class _ExtendedControls extends StatelessWidget {
         ),
 
         // Loop count selector
-        if (!compact)
-          _LoopCountSelector(player: player),
+        if (!compact) _LoopCountSelector(player: player),
 
         // Clear button
         _ActionButton(
@@ -638,7 +636,7 @@ class _LoopCountSelector extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white24),
       ),
@@ -683,7 +681,7 @@ class _GapDurationSlider extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -708,11 +706,12 @@ class _GapDurationSlider extends StatelessWidget {
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: player.gapDuration > 0
-                      ? const Color(0xFFFF9800).withOpacity(0.2)
-                      : Colors.white.withOpacity(0.1),
+                      ? const Color(0xFFFF9800).withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -736,9 +735,9 @@ class _GapDurationSlider extends StatelessWidget {
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: const Color(0xFFFF9800),
-              inactiveTrackColor: Colors.white.withOpacity(0.2),
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
               thumbColor: const Color(0xFFFF9800),
-              overlayColor: const Color(0xFFFF9800).withOpacity(0.2),
+              overlayColor: const Color(0xFFFF9800).withValues(alpha: 0.2),
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
             ),
@@ -765,23 +764,21 @@ class _GapDurationSlider extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? const Color(0xFFFF9800).withOpacity(0.3)
+                        ? const Color(0xFFFF9800).withValues(alpha: 0.3)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isActive
-                          ? const Color(0xFFFF9800)
-                          : Colors.white24,
+                      color:
+                          isActive ? const Color(0xFFFF9800) : Colors.white24,
                     ),
                   ),
                   child: Text(
                     seconds == 0 ? 'Tắt' : '${seconds.toInt()}s',
                     style: TextStyle(
-                      color: isActive
-                          ? const Color(0xFFFF9800)
-                          : Colors.grey,
+                      color: isActive ? const Color(0xFFFF9800) : Colors.grey,
                       fontSize: 11,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -830,7 +827,7 @@ class _ModeTip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -841,7 +838,7 @@ class _ModeTip extends StatelessWidget {
             child: Text(
               tip,
               style: TextStyle(
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
               ),
@@ -883,19 +880,19 @@ class _LoopButton extends StatelessWidget {
         height: 64,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? color : Colors.white.withOpacity(0.1),
+          color: isActive ? color : Colors.white.withValues(alpha: 0.1),
           border: Border.all(
             color: isActive ? color : Colors.white38,
             width: 3,
           ),
           boxShadow: isActive
               ? [
-            BoxShadow(
-              color: color.withOpacity(0.4),
-              blurRadius: 12,
-              spreadRadius: 2,
-            ),
-          ]
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ]
               : null,
         ),
         child: Column(
@@ -950,9 +947,9 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -992,8 +989,8 @@ class ABLoopControlsCompact extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: player.isLooping
-                ? const Color(0xFF4CAF50).withOpacity(0.2)
-                : Colors.white.withOpacity(0.1),
+                ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -1011,18 +1008,18 @@ class ABLoopControlsCompact extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: player.isLooping
                     ? Text(
-                  '${player.loopCount}x',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
+                        '${player.loopCount}x',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
                     : const Icon(
-                  Icons.arrow_forward,
-                  size: 12,
-                  color: Colors.grey,
-                ),
+                        Icons.arrow_forward,
+                        size: 12,
+                        color: Colors.grey,
+                      ),
               ),
 
               // B indicator

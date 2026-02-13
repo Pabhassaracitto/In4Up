@@ -20,12 +20,12 @@ class AutoScrollButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFFFFB300).withOpacity(0.2)
+              ? const Color(0xFFFFB300).withValues(alpha: 0.2)
               : Colors.black45,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isActive
-                ? const Color(0xFFFFB300).withOpacity(0.5)
+                ? const Color(0xFFFFB300).withValues(alpha: 0.5)
                 : Colors.white24,
           ),
         ),

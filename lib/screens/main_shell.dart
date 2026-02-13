@@ -4,13 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/player_provider.dart';
+import '../screens/listen_mode/widgets/mini_player.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
-import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
-import 'understand_mod/understand_mode_screen.dart.old';
+import 'understand_mode/understand_mode_screen.dart';
+import '../screens/understand_mode/understand_tab_connector.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -140,7 +141,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         color: const Color(0xFF1A1A2E),
         border: Border(
           bottom: BorderSide(
-            color: _currentColor.withOpacity(0.2),
+            color: _currentColor.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -155,7 +156,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF2196F3).withOpacity(0.2),
+                color: const Color(0xFF2196F3).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
@@ -213,10 +214,12 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getModeColor(player.currentMode).withOpacity(0.2),
+                    color: _getModeColor(player.currentMode)
+                        .withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: _getModeColor(player.currentMode).withOpacity(0.5),
+                      color: _getModeColor(player.currentMode)
+                          .withValues(alpha: 0.5),
                     ),
                   ),
                   child: Row(
@@ -254,7 +257,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.2),
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
@@ -276,7 +279,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       case 1:
         return const ListenModeScreen();
       case 2:
-        return const UnderstandModeScreen();
+        return const UnderstandTabConnector(); // Sửa để sử dụng UnderstandTabConnector
       case 3:
         return const MemoryTabConnector();
       default:
@@ -290,7 +293,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         color: const Color(0xFF1A1A2E),
         border: Border(
           top: BorderSide(
-            color: _currentColor.withOpacity(0.2),
+            color: _currentColor.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -333,7 +336,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
+          color:
+              isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -408,7 +412,7 @@ class QuickPracticeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -435,7 +439,7 @@ class QuickPracticeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -459,7 +463,7 @@ class QuickPracticeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.2),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(

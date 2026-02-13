@@ -3,8 +3,8 @@
 
 import 'dart:math' as math;
 
-import '../../models/phoneme_models.dart';
-import '../../models/shadowing_result.dart';
+import '../models/phoneme_models.dart';
+import '../models/shadowing_result.dart';
 import 'cmu_dictionary_service.dart';
 import 'phoneme_analyzer.dart';
 

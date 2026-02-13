@@ -40,7 +40,7 @@ void showSpeedControlSheet(BuildContext context, PlayerProvider player) {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFFFFB300)
-                        : Colors.white.withOpacity(0.1),
+                        : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color:

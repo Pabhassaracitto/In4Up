@@ -77,7 +77,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.2),
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -87,7 +87,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                   const Icon(Icons.arrow_forward, color: Colors.white54),
                   _buildTimeInfo('Kết thúc', player.loopEnd),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFF6C63FF),
                       borderRadius: BorderRadius.circular(20),
@@ -113,11 +114,12 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               decoration: InputDecoration(
                 labelText: 'Tên đoạn *',
                 hintText: 'Ví dụ: Tứ Diệu Đế, Câu khó số 1...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                hintStyle:
+                    TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 labelStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.title, color: Colors.grey),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.05),
+                fillColor: Colors.white.withValues(alpha: 0.05),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -133,7 +135,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             // Type Selection
             const Text(
               'Phân loại:',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -144,14 +147,17 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedType = type),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? _getTypeColor(type)
-                          : Colors.white.withOpacity(0.1),
+                          : Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isSelected ? _getTypeColor(type) : Colors.transparent,
+                        color: isSelected
+                            ? _getTypeColor(type)
+                            : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -167,7 +173,9 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                           _getTypeLabel(type),
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.grey,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -181,7 +189,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             // Difficulty Selection
             const Text(
               'Độ khó (Số lần lặp khi ôn tập):',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -196,7 +205,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? _getDifficultyColor(level)
-                            : Colors.white.withOpacity(0.1),
+                            : Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
@@ -224,7 +233,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                             '${_getRepeatCount(level)}x lặp',
                             style: TextStyle(
                               color: isSelected
-                                  ? Colors.white.withOpacity(0.8)
+                                  ? Colors.white.withValues(alpha: 0.8)
                                   : Colors.grey,
                               fontSize: 10,
                             ),
@@ -246,11 +255,12 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               decoration: InputDecoration(
                 labelText: 'Ghi chú (Tùy chọn)',
                 hintText: 'Ví dụ: Chú ý phát âm "th"...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                hintStyle:
+                    TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 labelStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.note, color: Colors.grey),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.05),
+                fillColor: Colors.white.withValues(alpha: 0.05),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -280,7 +290,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                   child: ElevatedButton.icon(
                     onPressed: _saveSegment,
                     icon: const Icon(Icons.save),
-                    label: const Text('Lưu đoạn', style: TextStyle(fontSize: 16)),
+                    label:
+                        const Text('Lưu đoạn', style: TextStyle(fontSize: 16)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6C63FF),
                       foregroundColor: Colors.white,
@@ -328,60 +339,84 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
 
   String _getTypeEmoji(SegmentType type) {
     switch (type) {
-      case SegmentType.dharma: return '☸️';
-      case SegmentType.english: return '🇬🇧';
-      case SegmentType.practice: return '🏋️';
-      case SegmentType.favorite: return '⭐';
+      case SegmentType.dharma:
+        return '☸️';
+      case SegmentType.english:
+        return '🇬🇧';
+      case SegmentType.practice:
+        return '🏋️';
+      case SegmentType.favorite:
+        return '⭐';
     }
   }
 
   String _getTypeLabel(SegmentType type) {
     switch (type) {
-      case SegmentType.dharma: return 'Pháp thoại';
-      case SegmentType.english: return 'Tiếng Anh';
-      case SegmentType.practice: return 'Luyện tập';
-      case SegmentType.favorite: return 'Yêu thích';
+      case SegmentType.dharma:
+        return 'Pháp thoại';
+      case SegmentType.english:
+        return 'Tiếng Anh';
+      case SegmentType.practice:
+        return 'Luyện tập';
+      case SegmentType.favorite:
+        return 'Yêu thích';
     }
   }
 
   Color _getTypeColor(SegmentType type) {
     switch (type) {
-      case SegmentType.dharma: return Colors.amber;
-      case SegmentType.english: return Colors.green;
-      case SegmentType.practice: return Colors.blue;
-      case SegmentType.favorite: return Colors.purple;
+      case SegmentType.dharma:
+        return Colors.amber;
+      case SegmentType.english:
+        return Colors.green;
+      case SegmentType.practice:
+        return Colors.blue;
+      case SegmentType.favorite:
+        return Colors.purple;
     }
   }
 
   String _getDifficultyEmoji(DifficultyLevel level) {
     switch (level) {
-      case DifficultyLevel.easy: return '😊';
-      case DifficultyLevel.medium: return '🤔';
-      case DifficultyLevel.hard: return '😤';
+      case DifficultyLevel.easy:
+        return '😊';
+      case DifficultyLevel.medium:
+        return '🤔';
+      case DifficultyLevel.hard:
+        return '😤';
     }
   }
 
   String _getDifficultyLabel(DifficultyLevel level) {
     switch (level) {
-      case DifficultyLevel.easy: return 'Dễ';
-      case DifficultyLevel.medium: return 'Vừa';
-      case DifficultyLevel.hard: return 'Khó';
+      case DifficultyLevel.easy:
+        return 'Dễ';
+      case DifficultyLevel.medium:
+        return 'Vừa';
+      case DifficultyLevel.hard:
+        return 'Khó';
     }
   }
 
   Color _getDifficultyColor(DifficultyLevel level) {
     switch (level) {
-      case DifficultyLevel.easy: return Colors.green;
-      case DifficultyLevel.medium: return Colors.orange;
-      case DifficultyLevel.hard: return Colors.red;
+      case DifficultyLevel.easy:
+        return Colors.green;
+      case DifficultyLevel.medium:
+        return Colors.orange;
+      case DifficultyLevel.hard:
+        return Colors.red;
     }
   }
 
   int _getRepeatCount(DifficultyLevel level) {
     switch (level) {
-      case DifficultyLevel.easy: return 1;
-      case DifficultyLevel.medium: return 3;
-      case DifficultyLevel.hard: return 5;
+      case DifficultyLevel.easy:
+        return 1;
+      case DifficultyLevel.medium:
+        return 3;
+      case DifficultyLevel.hard:
+        return 5;
     }
   }
 

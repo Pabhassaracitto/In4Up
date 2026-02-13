@@ -35,14 +35,14 @@ class MemoryCardWidget extends StatelessWidget {
           ),
           border: stage.borderWidth > 0
               ? Border.all(
-                  color: stage.primaryColor.withOpacity(0.5),
+                  color: stage.primaryColor.withValues(alpha: 0.5),
                   width: stage.borderWidth,
                 )
               : null,
           boxShadow: stage.elevation > 0
               ? [
                   BoxShadow(
-                    color: stage.primaryColor.withOpacity(0.15),
+                    color: stage.primaryColor.withValues(alpha: 0.15),
                     blurRadius: stage.elevation * 2,
                     spreadRadius: stage.elevation * 0.3,
                     offset: Offset(0, stage.elevation * 0.5),
@@ -169,11 +169,12 @@ class _PulseDotState extends State<_PulseDot>
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(
-            color: widget.color.withOpacity(0.5 + _controller.value * 0.5),
+            color:
+                widget.color.withValues(alpha: 0.5 + _controller.value * 0.5),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity(0.3 * _controller.value),
+                color: widget.color.withValues(alpha: 0.3 * _controller.value),
                 blurRadius: widget.size * _controller.value,
                 spreadRadius: widget.size * 0.3 * _controller.value,
               ),
@@ -197,8 +198,8 @@ class _StrengthBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(2),
       child: LinearProgressIndicator(
         value: strength,
-        backgroundColor: color.withOpacity(0.1),
-        valueColor: AlwaysStoppedAnimation(color.withOpacity(0.6)),
+        backgroundColor: color.withValues(alpha: 0.1),
+        valueColor: AlwaysStoppedAnimation(color.withValues(alpha: 0.6)),
         minHeight: 3,
       ),
     );

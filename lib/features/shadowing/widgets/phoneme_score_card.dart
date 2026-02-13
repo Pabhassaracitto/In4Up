@@ -23,13 +23,13 @@ class PhonemeScoreCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            color.withOpacity(0.2),
-            color.withOpacity(0.05),
+            color.withValues(alpha: 0.2),
+            color.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withOpacity(0.5),
+          color: color.withValues(alpha: 0.5),
           width: 2,
         ),
       ),
@@ -53,7 +53,7 @@ class PhonemeScoreCard extends StatelessWidget {
                 '%',
                 style: TextStyle(
                   fontSize: 24,
-                  color: color.withOpacity(0.7),
+                  color: color.withValues(alpha: 0.7),
                 ),
               ),
             ],

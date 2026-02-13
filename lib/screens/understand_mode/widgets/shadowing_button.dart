@@ -28,7 +28,7 @@ class ShadowingButton extends StatelessWidget {
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        disabledBackgroundColor: color.withOpacity(0.3),
+        disabledBackgroundColor: color.withValues(alpha: 0.3),
         minimumSize: fullWidth ? const Size(double.infinity, 48) : null,
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(

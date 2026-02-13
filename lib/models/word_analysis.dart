@@ -279,11 +279,12 @@ extension AnalyzedWordColoring on AnalyzedWord {
       case ColorMode.none:
         return Colors.transparent;
       case ColorMode.wordType:
-        return wordType.color.withOpacity(0.12);
+        return wordType.color.withValues(alpha: 0.12);
       case ColorMode.cefrLevel:
-        return cefrLevel.color.withOpacity(0.12);
+        return cefrLevel.color.withValues(alpha: 0.12);
       case ColorMode.difficulty:
-        return (userDifficulty?.color ?? Colors.transparent).withOpacity(0.15);
+        return (userDifficulty?.color ?? Colors.transparent)
+            .withValues(alpha: 0.15);
     }
   }
 }

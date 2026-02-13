@@ -20,7 +20,7 @@ class TextLibraryDrawer extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF2196F3).withOpacity(0.2),
+                    const Color(0xFF2196F3).withValues(alpha: 0.2),
                     Colors.transparent,
                   ],
                   begin: Alignment.topCenter,
@@ -32,7 +32,7 @@ class TextLibraryDrawer extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3).withOpacity(0.2),
+                      color: const Color(0xFF2196F3).withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -98,7 +98,7 @@ class TextLibraryDrawer extends StatelessWidget {
             ),
 
             // Divider
-            Divider(color: Colors.white.withOpacity(0.1)),
+            Divider(color: Colors.white.withValues(alpha: 0.1)),
 
             // List
             Expanded(
@@ -113,7 +113,8 @@ class TextLibraryDrawer extends StatelessWidget {
                     children: [
                       // Current text
                       _TextItem(
-                        title: textProvider.currentTextPath?.split('/').last ?? 'Current Text',
+                        title: textProvider.currentTextPath?.split('/').last ??
+                            'Current Text',
                         subtitle: '${textProvider.lines.length} dòng',
                         isActive: true,
                         onTap: () => Navigator.pop(context),
@@ -175,7 +176,9 @@ class TextLibraryDrawer extends StatelessWidget {
 
     if (result != null && result.files.single.path != null) {
       if (context.mounted) {
-        await context.read<TextProvider>().loadTextFile(result.files.single.path!);
+        await context
+            .read<TextProvider>()
+            .loadTextFile(result.files.single.path!);
         HapticFeedback.mediumImpact();
         if (context.mounted) Navigator.pop(context);
       }
@@ -206,9 +209,9 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -252,11 +255,12 @@ class _TextItem extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF2196F3).withOpacity(0.15)
-              : Colors.white.withOpacity(0.05),
+              ? const Color(0xFF2196F3).withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
           border: isActive
-              ? Border.all(color: const Color(0xFF2196F3).withOpacity(0.5))
+              ? Border.all(
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.5))
               : null,
         ),
         child: Row(
@@ -274,7 +278,8 @@ class _TextItem extends StatelessWidget {
                     title,
                     style: TextStyle(
                       color: isActive ? Colors.white : Colors.white70,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -287,7 +292,8 @@ class _TextItem extends StatelessWidget {
               ),
             ),
             if (isActive)
-              const Icon(Icons.check_circle, color: Color(0xFF2196F3), size: 20),
+              const Icon(Icons.check_circle,
+                  color: Color(0xFF2196F3), size: 20),
           ],
         ),
       ),

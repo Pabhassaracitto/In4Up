@@ -24,8 +24,9 @@ class StatusCircle extends StatelessWidget {
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color:
-                isReady ? color.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+            color: isReady
+                ? color.withValues(alpha: 0.2)
+                : Colors.grey.withValues(alpha: 0.1),
             shape: BoxShape.circle,
             border: Border.all(
               color: isReady ? color : Colors.grey[700]!,

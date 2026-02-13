@@ -2,15 +2,16 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../models/shadowing_result.dart';
-import '../services/shadowing/phoneme_analyzer.dart';
-import '../services/shadowing/pronunciation_service.dart';
-import '../services/shadowing/offline_stt_service.dart';
+import '../services/offline_stt_service.dart';
+import '../services/phoneme_analyzer.dart';
+import '../services/pronunciation_service.dart';
 
 class ShadowingSettings {
   final int repeatCount;

@@ -57,7 +57,8 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: _getSpeedColor(currentSpeed).withOpacity(0.2),
+                      color:
+                          _getSpeedColor(currentSpeed).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -241,13 +242,9 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? _getSpeedColor(speed)
-              : Colors.white10,
+          color: isSelected ? _getSpeedColor(speed) : Colors.white10,
           borderRadius: BorderRadius.circular(12),
-          border: isSelected
-              ? null
-              : Border.all(color: Colors.white24),
+          border: isSelected ? null : Border.all(color: Colors.white24),
         ),
         child: Text(
           '${speed}x',
@@ -261,12 +258,12 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
   }
 
   Widget _buildSpeedCategory(
-      String title,
-      List<double> speeds,
-      PlayerProvider player,
-      double currentSpeed,
-      Color color,
-      ) {
+    String title,
+    List<double> speeds,
+    PlayerProvider player,
+    double currentSpeed,
+    Color color,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -293,17 +290,18 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? color : color.withOpacity(0.1),
+                  color: isSelected ? color : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? color : color.withOpacity(0.3),
+                    color: isSelected ? color : color.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
                   '${speed}x',
                   style: TextStyle(
                     color: isSelected ? Colors.white : color,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ),

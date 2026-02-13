@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/waveform_data.dart';
-import 'rolling_waveform_controller.dart';
+import '../../../models/waveform_data.dart';
+import '../controllers/rolling_waveform_controller.dart';
 
 class RollingWaveformPainter extends CustomPainter {
   final RollingWaveformController controller;

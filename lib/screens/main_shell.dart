@@ -2,13 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/player_provider.dart';
-import '../widgets/mini_player.dart';
+import 'listen_mode/listen_mode_screen.dart';
+import 'listen_mode/widgets/audio_library_drawer.dart';
+import 'listen_mode/widgets/mini_player.dart';
+import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
-import 'listen_mode_screen.dart';
-import 'understand_mode_screen.dart';
 import 'text_library_drawer.dart';
-import 'audio_library_drawer.dart';
+import '../screens/understand_mod/understand_mode_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -71,7 +73,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       case 2:
         return '💡 Chế độ Hiểu';
       case 3:
-        return '⚡ Luyện tập nhanh';
+        return '🧠 Vườn Trí Nhớ';
       default:
         return 'VipSound';
     }
@@ -101,22 +103,26 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
             // Main Content
             Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: _buildCurrentScreen(),
+              child: RepaintBoundary(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _buildCurrentScreen(),
+                ),
               ),
             ),
 
             // Mini Player (luôn hiện khi có audio)
-            Consumer<PlayerProvider>(
-              builder: (context, player, _) {
-                if (player.currentSongPath == null) {
-                  return const SizedBox.shrink();
-                }
-                return const MiniPlayer(
-                  margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
-                );
-              },
+            RepaintBoundary(
+              child: Consumer<PlayerProvider>(
+                builder: (context, player, _) {
+                  if (player.currentSongPath == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return const MiniPlayer(
+                    margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -272,7 +278,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       case 2:
         return const UnderstandModeScreen();
       case 3:
-        return const QuickPracticeScreen();
+        return const MemoryTabConnector();
       default:
         return const ListenModeScreen();
     }
@@ -299,10 +305,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   const Color(0xFF2196F3)),
               _buildNavItem(1, Icons.headphones_outlined, Icons.headphones,
                   'Nghe', const Color(0xFF6C63FF)),
-              _buildNavItem(2, Icons.psychology_outlined, Icons.psychology,
-                  'Hiểu', const Color(0xFFFFB300)),
-              _buildNavItem(3, Icons.flash_on_outlined, Icons.flash_on, 'Quick',
-                  const Color(0xFF4CAF50)),
+              _buildNavItem(2, Icons.lightbulb_outline, Icons.lightbulb, 'Hiểu',
+                  const Color(0xFFFFB300)),
+              _buildNavItem(3, Icons.psychology_outlined, Icons.psychology,
+                  'Nhớ', const Color(0xFF4CAF50)),
             ],
           ),
         ),

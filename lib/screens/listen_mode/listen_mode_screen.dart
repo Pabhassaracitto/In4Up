@@ -3,14 +3,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/waveform_data.dart';
-import '../providers/player_provider.dart';
-import '../providers/waveform_provider.dart';
-import '../widgets/ab_loop_controls.dart';
-import '../widgets/player_controls.dart';
-import '../widgets/rolling_waveform_controller.dart';
-import '../widgets/rolling_waveform_view.dart';
-import '../widgets/speed_control.dart';
+import '../../models/waveform_data.dart';
+import '../../providers/player_provider.dart';
+import '../../providers/waveform_provider.dart';
+import '../../widgets/ab_loop_controls.dart';
+import '../../widgets/player_controls.dart';
+import 'controllers/rolling_waveform_controller.dart';
+import 'widgets/rolling_waveform_view.dart';
+import '../../widgets/speed_control.dart';
 
 class ListenModeScreen extends StatefulWidget {
   const ListenModeScreen({super.key});

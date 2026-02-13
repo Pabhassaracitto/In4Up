@@ -3,14 +3,18 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+
 import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/word_analysis.dart';
-import '../services/syntax_highlighter_service.dart';
+import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
+import '../services/syntax_highlighter_service.dart';
+//new
 
 class TextProvider extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
@@ -922,7 +926,7 @@ class TextProvider extends ChangeNotifier {
     if (!_savedWords.any((w) => w.word == word.word)) {
       _savedWords.add(word);
 
-      // ★ THÊM: Persist
+      // Phần này lưu cho list "Saved Words" của tab Đọc (giữ nguyên của bạn)
       _storage.saveWord(word.word, {
         'word': word.word,
         'originalWord': word.originalWord,
@@ -932,6 +936,26 @@ class TextProvider extends ChangeNotifier {
         'phonetic': word.phonetic,
         'example': word.example,
         'savedAt': DateTime.now().toIso8601String(),
+      });
+
+      // ★ SỬA LẠI ĐOẠN NÀY:
+      // Bọc trong Future.microtask để tránh xung đột luồng (Race Condition) và Stack Overflow
+      Future.microtask(() {
+        try {
+          debugPrint('🔄 Đang gửi từ "${word.word}" sang Vườn Nhớ...');
+          MemoryProvider.addWord(
+            word: word.word,
+            meaning: word.meaning,
+            phonetic: word.phonetic,
+            example: word.example,
+            wordType: word.wordType.name,
+            cefrLevel: word.cefrLevel.name,
+            sourceFile: _currentTextPath?.split('/').last ?? 'Unknown',
+          );
+          debugPrint('✅ Đã gửi xong!');
+        } catch (e) {
+          debugPrint('⚠️ Lỗi gửi sang Memory (không ảnh hưởng app): $e');
+        }
       });
 
       notifyListeners();

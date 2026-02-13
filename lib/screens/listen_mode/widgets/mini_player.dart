@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/player_provider.dart';
+import '../../../../../providers/player_provider.dart';
 
 // =============================================================================
 // CONSTANTS & THEME DEFINITIONS
@@ -177,7 +177,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
 
     _sleepDisplayTimer = Timer.periodic(
       const Duration(seconds: 1),
-          (_) => _updateSleepDisplay(),
+      (_) => _updateSleepDisplay(),
     );
   }
 
@@ -245,13 +245,11 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, player, child) {
-        if (player.currentSongPath == null) {
-          return const SizedBox.shrink();
-        }
-
-        final theme = MiniPlayerTheme.forMode(player.currentMode);
+    return Selector<PlayerProvider, VipMode>(
+      selector: (_, player) => player.currentMode,
+      builder: (context, currentMode, child) {
+        final theme = MiniPlayerTheme.forMode(currentMode);
+        final player = context.read<PlayerProvider>();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _handlePlayStateChange(player.isPlaying);
@@ -288,18 +286,18 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
         ),
         boxShadow: widget.showShadow
             ? [
-          BoxShadow(
-            color: theme.primaryColor.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ]
+                BoxShadow(
+                  color: theme.primaryColor.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -4,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ]
             : null,
       ),
       child: ClipRRect(
@@ -327,9 +325,9 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                       scale: _scaleAnimation,
                       child: _isExpanded || _expandAnimation.value > 0
                           ? _MiniPlayerExpandedContent(
-                        player: player,
-                        theme: theme,
-                      )
+                              player: player,
+                              theme: theme,
+                            )
                           : const SizedBox.shrink(),
                     ),
                   ),
@@ -444,10 +442,12 @@ class _AlbumArtWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+        child: AnimatedBuilder(
       animation: pulseController,
       builder: (context, child) {
-        final pulseValue = isPlaying ? 1.0 + (pulseController.value * 0.05) : 1.0;
+        final pulseValue =
+            isPlaying ? 1.0 + (pulseController.value * 0.05) : 1.0;
 
         return Transform.scale(
           scale: pulseValue,
@@ -455,20 +455,20 @@ class _AlbumArtWidget extends StatelessWidget {
             width: MiniPlayerDimensions.albumArtSize,
             height: MiniPlayerDimensions.albumArtSize,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1.5,
               ),
               boxShadow: isPlaying
                   ? [
-                BoxShadow(
-                  color: theme.accentColor.withOpacity(0.3),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                ),
-              ]
+                      BoxShadow(
+                        color: theme.accentColor.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ]
                   : null,
             ),
             child: ClipRRect(
@@ -480,7 +480,7 @@ class _AlbumArtWidget extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
                         colors: [
-                          theme.accentColor.withOpacity(0.3),
+                          theme.accentColor.withValues(alpha: 0.3),
                           Colors.transparent,
                         ],
                       ),
@@ -502,7 +502,8 @@ class _AlbumArtWidget extends StatelessWidget {
                         animation: pulseController,
                         builder: (context, child) {
                           final delay = index * 0.3;
-                          final progress = (pulseController.value + delay) % 1.0;
+                          final progress =
+                              (pulseController.value + delay) % 1.0;
 
                           return Opacity(
                             opacity: (1.0 - progress) * 0.5,
@@ -529,7 +530,7 @@ class _AlbumArtWidget extends StatelessWidget {
           ),
         );
       },
-    );
+    ));
   }
 }
 
@@ -564,58 +565,63 @@ class _SongInfoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            letterSpacing: 0.2,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Row(
+    // Use Selector to update only when position/duration changes
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${_formatDuration(position)} / ${_formatDuration(duration)}',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 11,
+              player.currentSongTitle ?? 'Unknown',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                letterSpacing: 0.2,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(width: 8),
-            if (isLooping) _buildLoopBadge(),
-            if (speed != 1.0) ...[
-              const SizedBox(width: 4),
-              _buildSpeedBadge(),
-            ],
-            if (isWaitingGap) ...[
-              const SizedBox(width: 4),
-              _buildWaitingBadge(),
-            ],
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  '${_formatDuration(player.state.position)} / ${_formatDuration(player.state.duration)}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (player.isLooping) _buildLoopBadge(player),
+                if (player.state.speed != 1.0) ...[
+                  const SizedBox(width: 4),
+                  _buildSpeedBadge(player.state.speed),
+                ],
+                if (player.isWaitingGap) ...[
+                  const SizedBox(width: 4),
+                  _buildWaitingBadge(),
+                ],
+              ],
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildLoopBadge() {
+  Widget _buildLoopBadge(PlayerProvider player) {
     final Color badgeColor =
-    isWaitingGap ? const Color(0xFFFF9800) : const Color(0xFF4CAF50);
+        player.isWaitingGap ? const Color(0xFFFF9800) : const Color(0xFF4CAF50);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.25),
+        color: badgeColor.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: badgeColor.withOpacity(0.5),
+          color: badgeColor.withValues(alpha: 0.5),
           width: 0.5,
         ),
       ),
@@ -625,7 +631,9 @@ class _SongInfoWidget extends StatelessWidget {
           Icon(Icons.loop, size: 10, color: badgeColor),
           const SizedBox(width: 3),
           Text(
-            maxLoopCount > 0 ? '$loopCount/$maxLoopCount' : '${loopCount}x',
+            player.maxLoopCount > 0
+                ? '${player.loopCount}/${player.maxLoopCount}'
+                : '${player.loopCount}x',
             style: TextStyle(
               color: badgeColor,
               fontSize: 10,
@@ -637,11 +645,11 @@ class _SongInfoWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildSpeedBadge() {
+  Widget _buildSpeedBadge(double speed) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -659,7 +667,7 @@ class _SongInfoWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF9800).withOpacity(0.25),
+        color: const Color(0xFFFF9800).withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -688,16 +696,52 @@ class _SongInfoWidget extends StatelessWidget {
 }
 
 // =============================================================================
+// EXPAND BUTTON
+// =============================================================================
+
+class _ExpandButton extends StatelessWidget {
+  final bool isExpanded;
+  final Animation<double> expandAnimation;
+  final VoidCallback onTap;
+
+  const _ExpandButton({
+    required this.isExpanded,
+    required this.expandAnimation,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: RotationTransition(
+            turns: Tween(begin: 0.0, end: 0.5).animate(expandAnimation),
+            child: Icon(
+              Icons.keyboard_arrow_down,
+              color: Colors.white.withValues(alpha: 0.85),
+              size: 24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
 // PULSING DOT WIDGET
 // =============================================================================
 
 class _PulsingDot extends StatefulWidget {
   final Color color;
-  final double size;
 
   const _PulsingDot({
     required this.color,
-    this.size = 6,
   });
 
   @override
@@ -729,11 +773,12 @@ class _PulsingDotState extends State<_PulsingDot>
       animation: _controller,
       builder: (context, child) {
         return Container(
-          width: widget.size,
-          height: widget.size,
+          width: 6,
+          height: 6,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: widget.color.withOpacity(0.5 + _controller.value * 0.5),
+            color:
+                widget.color.withValues(alpha: 0.5 + _controller.value * 0.5),
           ),
         );
       },
@@ -813,7 +858,7 @@ class _ControlButton extends StatelessWidget {
           child: Icon(
             icon,
             size: size,
-            color: Colors.white.withOpacity(0.85),
+            color: Colors.white.withValues(alpha: 0.85),
           ),
         ),
       ),
@@ -883,7 +928,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -895,44 +940,6 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
             progress: _controller,
             color: widget.theme.primaryColor,
             size: 28,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// EXPAND BUTTON
-// =============================================================================
-
-class _ExpandButton extends StatelessWidget {
-  final bool isExpanded;
-  final Animation<double> expandAnimation;
-  final VoidCallback onTap;
-
-  const _ExpandButton({
-    required this.isExpanded,
-    required this.expandAnimation,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: RotationTransition(
-            turns: Tween(begin: 0.0, end: 0.5).animate(expandAnimation),
-            child: Icon(
-              Icons.keyboard_arrow_down,
-              color: Colors.white.withOpacity(0.85),
-              size: 24,
-            ),
           ),
         ),
       ),
@@ -1032,8 +1039,8 @@ class _ProgressBarWidget extends StatelessWidget {
               return GestureDetector(
                 onHorizontalDragUpdate: (details) {
                   final percent =
-                  (details.localPosition.dx / constraints.maxWidth)
-                      .clamp(0.0, 1.0);
+                      (details.localPosition.dx / constraints.maxWidth)
+                          .clamp(0.0, 1.0);
                   final newPosition = Duration(
                     milliseconds: (percent * duration.inMilliseconds).round(),
                   );
@@ -1041,8 +1048,8 @@ class _ProgressBarWidget extends StatelessWidget {
                 },
                 onTapDown: (details) {
                   final percent =
-                  (details.localPosition.dx / constraints.maxWidth)
-                      .clamp(0.0, 1.0);
+                      (details.localPosition.dx / constraints.maxWidth)
+                          .clamp(0.0, 1.0);
                   final newPosition = Duration(
                     milliseconds: (percent * duration.inMilliseconds).round(),
                   );
@@ -1055,7 +1062,7 @@ class _ProgressBarWidget extends StatelessWidget {
                     Container(
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1076,7 +1083,7 @@ class _ProgressBarWidget extends StatelessWidget {
                             borderRadius: BorderRadius.circular(2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.white.withOpacity(0.5),
+                                color: Colors.white.withValues(alpha: 0.5),
                                 blurRadius: 4,
                               ),
                             ],
@@ -1094,7 +1101,7 @@ class _ProgressBarWidget extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 4,
                             ),
                           ],
@@ -1114,7 +1121,7 @@ class _ProgressBarWidget extends StatelessWidget {
             Text(
               _formatDuration(position),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -1122,7 +1129,7 @@ class _ProgressBarWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1137,7 +1144,7 @@ class _ProgressBarWidget extends StatelessWidget {
             Text(
               _formatDuration(duration),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -1162,10 +1169,10 @@ class _ProgressBarWidget extends StatelessWidget {
           bottom: 0,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.3),
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
               border: Border.all(
-                color: const Color(0xFF4CAF50).withOpacity(0.5),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
@@ -1209,13 +1216,13 @@ class _SpeedControlWidget extends StatelessWidget {
             Icon(
               Icons.speed,
               size: 16,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 8),
             Text(
               'Speed',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -1223,7 +1230,7 @@ class _SpeedControlWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1251,23 +1258,24 @@ class _SpeedControlWidget extends StatelessWidget {
               child: AnimatedContainer(
                 duration: MiniPlayerAnimations.fast,
                 padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: isActive
-                      ? Colors.white.withOpacity(0.25)
+                      ? Colors.white.withValues(alpha: 0.25)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isActive
-                        ? Colors.white.withOpacity(0.5)
-                        : Colors.white.withOpacity(0.2),
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
                   '${preset}x',
                   style: TextStyle(
-                    color:
-                    isActive ? Colors.white : Colors.white.withOpacity(0.6),
+                    color: isActive
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.6),
                     fontSize: 11,
                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -1310,13 +1318,13 @@ class _GapControlWidget extends StatelessWidget {
               size: 16,
               color: gapDuration > 0
                   ? const Color(0xFFFF9800)
-                  : Colors.white.withOpacity(0.7),
+                  : Colors.white.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 8),
             Text(
               'Gap Duration',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -1325,16 +1333,15 @@ class _GapControlWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: gapDuration > 0
-                    ? const Color(0xFFFF9800).withOpacity(0.2)
-                    : Colors.white.withOpacity(0.15),
+                    ? const Color(0xFFFF9800).withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 gapDuration > 0 ? '${gapDuration.toStringAsFixed(1)}s' : 'Off',
                 style: TextStyle(
-                  color: gapDuration > 0
-                      ? const Color(0xFFFF9800)
-                      : Colors.white,
+                  color:
+                      gapDuration > 0 ? const Color(0xFFFF9800) : Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1357,21 +1364,23 @@ class _GapControlWidget extends StatelessWidget {
               child: AnimatedContainer(
                 duration: MiniPlayerAnimations.fast,
                 padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color:
-                  isActive ? color.withOpacity(0.25) : Colors.transparent,
+                  color: isActive
+                      ? color.withValues(alpha: 0.25)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isActive
-                        ? color.withOpacity(0.5)
-                        : Colors.white.withOpacity(0.2),
+                        ? color.withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
                   preset == 0 ? 'Off' : '${preset.toInt()}s',
                   style: TextStyle(
-                    color: isActive ? color : Colors.white.withOpacity(0.6),
+                    color:
+                        isActive ? color : Colors.white.withValues(alpha: 0.6),
                     fontSize: 11,
                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -1411,7 +1420,7 @@ class _GapControlWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -1422,7 +1431,7 @@ class _GapControlWidget extends StatelessWidget {
             child: Text(
               tip,
               style: TextStyle(
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
               ),
@@ -1542,13 +1551,13 @@ class _QuickActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isActive
-              ? activeColor.withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
+              ? activeColor.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isActive
-                ? activeColor.withOpacity(0.5)
-                : Colors.white.withOpacity(0.2),
+                ? activeColor.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.2),
           ),
         ),
         child: Row(
@@ -1557,13 +1566,16 @@ class _QuickActionButton extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isActive ? activeColor : Colors.white.withOpacity(0.7),
+              color:
+                  isActive ? activeColor : Colors.white.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: isActive ? activeColor : Colors.white.withOpacity(0.7),
+                color: isActive
+                    ? activeColor
+                    : Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
@@ -1600,7 +1612,7 @@ class _SleepTimerSheet extends StatelessWidget {
               height: 4,
               margin: const EdgeInsets.only(top: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1617,7 +1629,7 @@ class _SleepTimerSheet extends StatelessWidget {
             Text(
               'Auto pause after selected time',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 13,
               ),
             ),
@@ -1690,11 +1702,12 @@ class _TimerOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? buttonColor.withOpacity(0.2)
-              : Colors.white.withOpacity(0.08),
+              ? buttonColor.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? buttonColor : Colors.white.withOpacity(0.15),
+            color:
+                isSelected ? buttonColor : Colors.white.withValues(alpha: 0.15),
           ),
         ),
         child: Row(
@@ -1703,7 +1716,9 @@ class _TimerOption extends StatelessWidget {
             Icon(
               icon,
               size: 18,
-              color: isSelected ? buttonColor : Colors.white.withOpacity(0.7),
+              color: isSelected
+                  ? buttonColor
+                  : Colors.white.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 8),
             Text(
@@ -1742,7 +1757,7 @@ class _ModeSelectionSheet extends StatelessWidget {
               height: 4,
               margin: const EdgeInsets.only(top: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1802,17 +1817,18 @@ class _ModeOption extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
-            colors: [
-              theme.primaryColor.withOpacity(0.3),
-              theme.secondaryColor.withOpacity(0.2),
-            ],
-          )
+                  colors: [
+                    theme.primaryColor.withValues(alpha: 0.3),
+                    theme.secondaryColor.withValues(alpha: 0.2),
+                  ],
+                )
               : null,
-          color: isSelected ? null : Colors.white.withOpacity(0.05),
+          color: isSelected ? null : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color:
-            isSelected ? theme.primaryColor : Colors.white.withOpacity(0.1),
+            color: isSelected
+                ? theme.primaryColor
+                : Colors.white.withValues(alpha: 0.1),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1823,8 +1839,8 @@ class _ModeOption extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? theme.primaryColor.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
+                    ? theme.primaryColor.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -1850,7 +1866,7 @@ class _ModeOption extends StatelessWidget {
                   Text(
                     theme.modeSubtitle,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
                     ),
                   ),

@@ -1,19 +1,30 @@
-// lib/screens/understand_mode_screen.dart
+// lib/screens/understand_mode/understand_mode_screen.dart
 // VipSound - Chế độ HIỂU (Fixed version)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../models/shadowing_result.dart';
-import '../models/waveform_data.dart';
-import '../providers/player_provider.dart';
-import '../providers/shadowing_provider.dart';
-import '../providers/text_provider.dart';
-import '../providers/waveform_provider.dart';
-import '../widgets/rolling_waveform_controller.dart';
-import '../widgets/rolling_waveform_view.dart';
-import '../widgets/shadowing/pronunciation_result.dart';
+import '../../../models/shadowing_result.dart';
+import '../../../models/waveform_data.dart';
+import '../../../providers/player_provider.dart';
+import '../../../providers/shadowing_provider.dart';
+import '../../../providers/text_provider.dart';
+import '../../../providers/waveform_provider.dart';
+import '../listen_mode/controllers/rolling_waveform_controller.dart';
+import '../listen_mode/widgets/rolling_waveform_view.dart';
+import '../../../widgets/shadowing/pronunciation_result.dart';
+
+// Import các components mới tách
+import 'widgets/status_circle.dart';
+import 'widgets/quick_button.dart';
+import 'widgets/auto_scroll_button.dart';
+import 'widgets/speed_chip.dart';
+import 'widgets/progress_item.dart';
+import 'widgets/shadowing_button.dart';
+import 'widgets/guide_step.dart';
+import 'sheets/loop_control_sheet.dart';
+import 'sheets/speed_control_sheet.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
@@ -52,7 +63,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         ShadowingProvider>(
       builder: (context, player, textProvider, waveform, shadowing, child) {
         // Sync waveform data
-        // 1. Tự động tải waveform nếu chưa có
         if (player.currentSongPath != null &&
             (waveform.waveformData.isEmpty ||
                 waveform.currentFilePath != player.currentSongPath) &&
@@ -63,10 +73,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           });
         }
 
-        // 2. Cập nhật controller khi có dữ liệu mới hoặc duration thay đổi
         if (waveform.waveformData.isNotEmpty) {
           final currentData = _waveformController.waveformData;
-          // Cập nhật nếu chưa có data HOẶC duration đã thay đổi (từ 0 -> có giá trị)
           if (currentData == null ||
               (player.state.duration > Duration.zero &&
                   currentData.duration != player.state.duration) ||
@@ -78,12 +86,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           }
         }
 
-        // Sync position
         if (_waveformController.position != player.state.position) {
-          _waveformController.updatePosition(player.state.position);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _waveformController.updatePosition(player.state.position);
+            }
+          });
         }
 
-        // Sync loop regions
         if (player.loopStart != null && player.loopEnd != null) {
           if (_waveformController.loopRegions.isEmpty) {
             _waveformController.addLoopRegion(LoopRegion(
@@ -121,8 +131,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
-  // ==================== GUIDE STATE ====================
-
   Widget _buildGuideState(BuildContext context, bool hasAudio, bool hasText) {
     return Center(
       child: Padding(
@@ -133,7 +141,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _StatusCircle(
+                StatusCircle(
                   icon: Icons.headphones,
                   label: 'Audio',
                   isReady: hasAudio,
@@ -147,7 +155,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       ? const Color(0xFFFFB300)
                       : Colors.grey[700],
                 ),
-                _StatusCircle(
+                StatusCircle(
                   icon: Icons.menu_book,
                   label: 'Text',
                   isReady: hasText,
@@ -178,7 +186,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
             const SizedBox(height: 32),
             if (!hasAudio)
-              _QuickButton(
+              QuickButton(
                 icon: Icons.headphones,
                 label: 'Thêm Audio',
                 color: const Color(0xFF6C63FF),
@@ -188,7 +196,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             if (!hasText) ...[
               if (!hasAudio) const SizedBox(height: 12),
-              _QuickButton(
+              QuickButton(
                 icon: Icons.menu_book,
                 label: 'Thêm Text',
                 color: const Color(0xFF2196F3),
@@ -202,8 +210,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       ),
     );
   }
-
-  // ==================== COMPACT TABS ====================
 
   Widget _buildCompactTabs() {
     return Container(
@@ -229,12 +235,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
-  // ==================== SYNC TAB ====================
-
   Widget _buildSyncTab(PlayerProvider player, TextProvider textProvider) {
     return Column(
       children: [
-        // Mini Waveform
         Container(
           height: 120,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -285,8 +288,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ],
           ),
         ),
-
-        // Text List
         Expanded(
           child: Stack(
             children: [
@@ -294,7 +295,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               Positioned(
                 top: 8,
                 right: 8,
-                child: _AutoScrollButton(
+                child: AutoScrollButton(
                   isActive: _autoScroll,
                   onToggle: () {
                     setState(() => _autoScroll = !_autoScroll);
@@ -307,8 +308,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ],
           ),
         ),
-
-        // Quick Controls
         _buildQuickControls(player, textProvider),
       ],
     );
@@ -481,7 +480,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             color: Colors.white70,
             onPressed: () => player.replay10(),
           ),
-
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
@@ -495,19 +493,15 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               onPressed: () => player.togglePlayPause(),
             ),
           ),
-
           IconButton(
             icon: const Icon(Icons.forward_10),
             color: Colors.white70,
             onPressed: () => player.forward10(),
           ),
-
           const SizedBox(width: 16),
-
-          // Loop indicator/control
           if (player.isLooping)
             GestureDetector(
-              onTap: () => _showLoopControlSheet(context, player),
+              onTap: () => showLoopControlSheet(context, player),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -555,20 +549,15 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
-
           const Spacer(),
-
-          // Speed control - Using existing speed property
-          _SpeedChip(
+          SpeedChip(
             speed: player.state.speed,
-            onTap: () => _showSpeedControlSheet(context, player),
+            onTap: () => showSpeedControlSheet(context, player),
           ),
         ],
       ),
     );
   }
-
-  // ==================== SHADOWING TAB ====================
 
   Widget _buildShadowingTab(
     PlayerProvider player,
@@ -579,21 +568,17 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       return _buildShadowingGuide(player);
     }
 
-    // ✅ CẢI THIỆN: Tìm text cho loop region (linh hoạt hơn)
     String loopText = '';
     final loopStart = player.loopStart!;
     final loopEnd = player.loopEnd!;
 
-    // Cách 1: Tìm tất cả dòng nằm trong khoảng loop
     final linesInLoop = <String>[];
     for (final line in textProvider.lines) {
       if (line.startTime == null) continue;
 
-      // Dòng nằm trong khoảng loop (mở rộng tolerance 500ms)
       final lineStart = line.startTime!;
       final lineEnd = line.endTime ?? (lineStart + const Duration(seconds: 5));
 
-      // Kiểm tra overlap giữa line và loop region
       if (lineStart <= loopEnd + const Duration(milliseconds: 500) &&
           lineEnd >= loopStart - const Duration(milliseconds: 500)) {
         linesInLoop.add(line.content);
@@ -604,13 +589,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       loopText = linesInLoop.join(' ');
     }
 
-    // Cách 2: Nếu vẫn rỗng, lấy dòng hiện tại
     if (loopText.isEmpty && textProvider.currentLineIndex >= 0) {
       final currentLine = textProvider.lines[textProvider.currentLineIndex];
       loopText = currentLine.content;
     }
 
-    // Cách 3: Nếu vẫn rỗng, lấy dòng gần nhất
     if (loopText.isEmpty) {
       Duration? closestDistance;
       String? closestText;
@@ -630,11 +613,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       }
     }
 
-    // ✅ DEBUG LOG
     debugPrint('📝 Loop text found: "$loopText"');
-    debugPrint('📝 Lines in loop: ${linesInLoop.length}');
 
-    // ✅ Sync data vào provider (có guard chống loop)
     if (loopText.isNotEmpty) {
       shadowing.setPracticeText(loopText);
     }
@@ -647,20 +627,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // ============ Loop Info Card ============
           _buildLoopInfoCard(player, shadowing, loopText),
-
           const SizedBox(height: 24),
-
-          // ============ Control Buttons ============
           _buildControlButtons(player, shadowing, loopText),
-
-          // ============ Recording Playback ============
           if (shadowing.userRecordingPath != null &&
               (shadowing.state == ShadowingState.idle ||
                   shadowing.state == ShadowingState.showingResults)) ...[
             const SizedBox(height: 12),
-            _ShadowingButton(
+            ShadowingButton(
               icon: Icons.play_circle_outline,
               label: 'Nghe lại bản ghi',
               color: Colors.green,
@@ -669,8 +643,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               fullWidth: true,
             ),
           ],
-
-          // ============ Analyzing Indicator ============
           if (shadowing.state == ShadowingState.analyzing) ...[
             const SizedBox(height: 24),
             Container(
@@ -691,8 +663,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ),
           ],
-
-          // ============ ⭐ IPA RESULTS ============
           if (shadowing.state == ShadowingState.showingResults &&
               shadowing.currentResult != null) ...[
             const SizedBox(height: 24),
@@ -704,8 +674,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   : null,
             ),
           ],
-
-          // ============ Warning nếu text rỗng ============
           if (loopText.isEmpty) ...[
             const SizedBox(height: 24),
             Container(
@@ -730,19 +698,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ),
           ],
-
           const SizedBox(height: 24),
-
-          // Settings
           _buildShadowingSettings(shadowing),
-
           const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  // ==================== LOOP INFO CARD ====================
   Widget _buildLoopInfoCard(
     PlayerProvider player,
     ShadowingProvider shadowing,
@@ -777,7 +740,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 ),
               ),
               const Spacer(),
-              // State indicator
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -795,7 +757,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ],
           ),
-
           if (loopText.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
@@ -815,14 +776,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ),
           ],
-
           const SizedBox(height: 12),
-
-          // Progress
           Row(
             children: [
               Expanded(
-                child: _ProgressItem(
+                child: ProgressItem(
                   label: 'Lần lặp',
                   current: shadowing.completedRepetitions,
                   target: shadowing.repeatCount,
@@ -831,7 +789,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _ProgressItem(
+                child: ProgressItem(
                   label: 'Tốc độ',
                   value: '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
                   color: Colors.orange,
@@ -839,7 +797,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _ProgressItem(
+                child: ProgressItem(
                   label: 'Điểm',
                   value: '${(shadowing.similarityScore * 100).toInt()}%',
                   color: Colors.green,
@@ -852,7 +810,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
-  // ==================== CONTROL BUTTONS ====================
   Widget _buildControlButtons(
     PlayerProvider player,
     ShadowingProvider shadowing,
@@ -860,9 +817,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   ) {
     return Row(
       children: [
-        // Nút Nghe Mẫu
         Expanded(
-          child: _ShadowingButton(
+          child: ShadowingButton(
             icon: shadowing.isPlaying ? Icons.stop : Icons.headphones,
             label: shadowing.isPlaying ? 'Dừng phát' : 'Nghe mẫu',
             color: Colors.blue,
@@ -879,9 +835,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ),
         ),
         const SizedBox(width: 12),
-        // Nút Ghi Âm
         Expanded(
-          child: _ShadowingButton(
+          child: ShadowingButton(
             icon: shadowing.isRecording ? Icons.stop : Icons.mic,
             label: shadowing.isRecording
                 ? 'Dừng (${_formatDuration(shadowing.recordingDuration)})'
@@ -905,7 +860,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
-  // ==================== STATE HELPERS ====================
   Color _getStateColor(ShadowingState state) {
     switch (state) {
       case ShadowingState.idle:
@@ -1009,8 +963,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ),
           ),
           const SizedBox(height: 16),
-
-          // Repeat count
           Row(
             children: [
               const Icon(Icons.repeat, size: 18, color: Color(0xFF9C27B0)),
@@ -1046,10 +998,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               }),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          // Speed
           Row(
             children: [
               const Icon(Icons.speed, size: 18, color: Colors.orange),
@@ -1086,8 +1035,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       ),
     );
   }
-
-  // ==================== HELPER METHODS ====================
 
   void _scrollToCurrentLine(TextProvider textProvider) {
     if (textProvider.currentLineIndex < 0) return;
@@ -1147,19 +1094,19 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _GuideStep(
+            GuideStep(
               number: '1',
               text: 'Long press vào câu muốn lặp',
               icon: Icons.touch_app,
             ),
             const SizedBox(height: 12),
-            _GuideStep(
+            GuideStep(
               number: '2',
               text: 'Hoặc dùng nút A-B trong player',
               icon: Icons.repeat,
             ),
             const SizedBox(height: 12),
-            _GuideStep(
+            GuideStep(
               number: '3',
               text: 'Điều chỉnh vùng loop trên waveform',
               icon: Icons.tune,
@@ -1179,473 +1126,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
-  void _showLoopControlSheet(BuildContext context, PlayerProvider player) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Điều khiển Loop',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.timer, color: Color(0xFF4CAF50)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'A: ${_formatDuration(player.loopStart!)}',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  const Text(' → ', style: TextStyle(color: Colors.grey)),
-                  Text(
-                    'B: ${_formatDuration(player.loopEnd!)}',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatDuration(player.loopEnd! - player.loopStart!),
-                    style: const TextStyle(
-                      color: Color(0xFF4CAF50),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      player.clearLoop();
-                      Navigator.pop(context);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                    ),
-                    child: const Text('Xóa Loop'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4CAF50),
-                    ),
-                    child: const Text('Xong'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSpeedControlSheet(BuildContext context, PlayerProvider player) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Tốc độ phát',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) {
-                final isSelected = player.state.speed == speed;
-                return GestureDetector(
-                  onTap: () {
-                    player.setSpeed(speed);
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    width: 70,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFFFB300)
-                          : Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFFFFB300)
-                            : Colors.white24,
-                      ),
-                    ),
-                    child: Text(
-                      '${speed}x',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFB300),
-                minimumSize: const Size(double.infinity, 44),
-              ),
-              child: const Text('Đóng'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   String _formatDuration(Duration d) {
     final mins = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final secs = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$mins:$secs';
-  }
-}
-
-// ============ [HELPER WIDGETS - Giữ nguyên] ============
-// [Các widget helper giữ nguyên như cũ từ dòng 1268 đến cuối file]
-
-class _StatusCircle extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isReady;
-  final Color color;
-
-  const _StatusCircle({
-    required this.icon,
-    required this.label,
-    required this.isReady,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color:
-                isReady ? color.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isReady ? color : Colors.grey[700]!,
-              width: 2,
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: isReady ? color : Colors.grey[700],
-            size: 28,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: isReady ? color : Colors.grey[600],
-            fontSize: 12,
-            fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-}
-
-class _AutoScrollButton extends StatelessWidget {
-  final bool isActive;
-  final VoidCallback onToggle;
-
-  const _AutoScrollButton({
-    required this.isActive,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onToggle,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFFFFB300).withOpacity(0.2)
-              : Colors.black45,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive
-                ? const Color(0xFFFFB300).withOpacity(0.5)
-                : Colors.white24,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.vertical_align_center,
-              size: 14,
-              color: isActive ? const Color(0xFFFFB300) : Colors.grey,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Auto',
-              style: TextStyle(
-                fontSize: 11,
-                color: isActive ? const Color(0xFFFFB300) : Colors.grey,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SpeedChip extends StatelessWidget {
-  final double speed;
-  final VoidCallback onTap;
-
-  const _SpeedChip({
-    required this.speed,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: speed != 1.0
-              ? Colors.orange.withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.speed, size: 14, color: Colors.orange),
-            const SizedBox(width: 4),
-            Text(
-              '${speed}x',
-              style: const TextStyle(
-                color: Colors.orange,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProgressItem extends StatelessWidget {
-  final String label;
-  final int? current;
-  final int? target;
-  final String? value;
-  final Color color;
-
-  const _ProgressItem({
-    required this.label,
-    this.current,
-    this.target,
-    this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final displayValue = value ?? '$current/$target';
-    final progress = (current != null && target != null && target! > 0)
-        ? current! / target!
-        : 0.0;
-
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[500], fontSize: 11),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          displayValue,
-          style: TextStyle(
-            color: color,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        if (value == null) ...[
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: color.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 3,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _ShadowingButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool enabled;
-  final VoidCallback onTap;
-  final bool fullWidth;
-
-  const _ShadowingButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.enabled,
-    required this.onTap,
-    this.fullWidth = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: enabled ? onTap : null,
-      icon: Icon(icon),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        disabledBackgroundColor: color.withOpacity(0.3),
-        minimumSize: fullWidth ? const Size(double.infinity, 48) : null,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-}
-
-class _GuideStep extends StatelessWidget {
-  final String number;
-  final String text;
-  final IconData icon;
-
-  const _GuideStep({
-    required this.number,
-    required this.text,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: const Color(0xFF4CAF50).withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Color(0xFF4CAF50),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Icon(icon, size: 18, color: Colors.grey),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white70),
-          ),
-        ),
-      ],
-    );
   }
 }

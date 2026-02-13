@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import '../providers/player_provider.dart';
+import '../../../providers/player_provider.dart';
 
 class AudioLibraryDrawer extends StatelessWidget {
   const AudioLibraryDrawer({super.key});
@@ -185,7 +185,8 @@ class AudioLibraryDrawer extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 40),
-                        Icon(Icons.audio_file, size: 48, color: Colors.grey[700]),
+                        Icon(Icons.audio_file,
+                            size: 48, color: Colors.grey[700]),
                         const SizedBox(height: 16),
                         Text(
                           'Chưa có audio',
@@ -226,10 +227,10 @@ class AudioLibraryDrawer extends StatelessWidget {
     if (result != null && result.files.single.path != null) {
       if (context.mounted) {
         await context.read<PlayerProvider>().loadSong(
-          path: result.files.single.path!,
-          title: result.files.single.name,
-          autoPlay: true,
-        );
+              path: result.files.single.path!,
+              title: result.files.single.name,
+              autoPlay: true,
+            );
         HapticFeedback.mediumImpact();
         if (context.mounted) Navigator.pop(context);
       }

@@ -1,8 +1,9 @@
 // lib/widgets/rolling_waveform_view.dart
 // Widget chính để hiển thị waveform dạng rolling, với playhead cố định ở giữa và waveform chạy qua lại. Hỗ trợ highlight vùng hiện tại, màu sắc khác nhau cho quá khứ và tương lai, và hiển thị loop regions.
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'rolling_waveform_controller.dart';
+import 'package:flutter/material.dart';
+
+import '../controllers/rolling_waveform_controller.dart';
 import 'rolling_waveform_painter.dart';
 
 class RollingWaveformView extends StatefulWidget {
@@ -27,7 +28,6 @@ class RollingWaveformView extends StatefulWidget {
 
 class _RollingWaveformViewState extends State<RollingWaveformView> {
   bool _isVisible = true;
-  double _lastZoom = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +79,12 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
                       child: AnimatedBuilder(
                         animation: widget.controller,
                         builder: (context, child) {
-                          return CustomPaint(
-                            size: Size.infinite,
-                            painter: RollingWaveformPainter(
-                              controller: widget.controller,
+                          return RepaintBoundary(
+                            child: CustomPaint(
+                              size: Size.infinite,
+                              painter: RollingWaveformPainter(
+                                controller: widget.controller,
+                              ),
                             ),
                           );
                         },

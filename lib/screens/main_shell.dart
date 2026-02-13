@@ -10,7 +10,7 @@ import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
-import '../screens/understand_mod/understand_mode_screen.dart';
+import 'understand_mod/understand_mode_screen.dart.old';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});

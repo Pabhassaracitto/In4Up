@@ -1,16 +1,28 @@
-// lib/screens/listen_mode_screen.dart
+// lib/screens/listen_mode/listen_mode_screen.dart
+// VipSound – Listen Mode (Progressive Disclosure Redesign)
+//
+// TRIẾT LÝ:
+//   Mặc định: tối giản — Waveform + nút Play + thời gian
+//   Nâng cao:  ẩn sau bottom sheet kéo lên — Loop, Speed, Bookmarks, Sleep timer
+//
+// PHÂN TẦNG:
+//   Layer 1 (always visible) : Waveform + Play/Pause + seek thô bằng drag
+//   Layer 2 (tap song info)  : Hiện progress bar + skip ±10s
+//   Layer 3 (kéo sheet lên) : AB-Loop, Speed, Quick Actions
+
+import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../widgets/ab_loop_controls.dart';
-import '../../widgets/player_controls.dart';
-import 'controllers/rolling_waveform_controller.dart';
-import 'widgets/rolling_waveform_view.dart';
 import '../../widgets/speed_control.dart';
+import '../listen_mode/controllers/rolling_waveform_controller.dart';
+import '../listen_mode/widgets/rolling_waveform_view.dart';
 
 class ListenModeScreen extends StatefulWidget {
   const ListenModeScreen({super.key});
@@ -19,8 +31,17 @@ class ListenModeScreen extends StatefulWidget {
   State<ListenModeScreen> createState() => _ListenModeScreenState();
 }
 
-class _ListenModeScreenState extends State<ListenModeScreen> {
+class _ListenModeScreenState extends State<ListenModeScreen>
+    with SingleTickerProviderStateMixin {
   late RollingWaveformController _waveformController;
+
+  // Layer 2 toggle – tap song info để hiện/ẩn progress bar + skip
+  bool _showProgressBar = false;
+
+  // Bottom sheet controller
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  bool _sheetExpanded = false;
 
   @override
   void initState() {
@@ -31,37 +52,48 @@ class _ListenModeScreenState extends State<ListenModeScreen> {
   @override
   void dispose() {
     _waveformController.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // BUILD
+  // ─────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<PlayerProvider, WaveformProvider>(
-      builder: (context, player, waveform, child) {
-        // Update waveform data khi có thay đổi
-        if (waveform.waveformData.isNotEmpty &&
-            _waveformController.waveformData == null) {
-          _waveformController.setWaveformData(WaveformData(
-            samples: waveform.waveformData,
-            duration: player.state.duration,
-          ));
-        }
-
-        // Update position liên tục
-        if (player.state.position != _waveformController.position) {
+      builder: (context, player, waveform, _) {
+        // Sync waveform
+        if (player.currentSongPath != null &&
+            (waveform.waveformData.isEmpty ||
+                waveform.currentFilePath != player.currentSongPath) &&
+            !waveform.isLoading) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _waveformController.updatePosition(player.state.position);
+            waveform.loadWaveform(
+                player.currentSongPath!, player.state.duration);
           });
         }
 
-        // Update loop regions
+        // Sync waveform controller position
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (waveform.waveformData.isNotEmpty &&
+              waveform.currentFilePath == player.currentSongPath) {
+            _waveformController.setWaveformData(
+              WaveformData(
+                samples: waveform.waveformData,
+                duration: player.state.duration,
+              ),
+            );
+            _waveformController.updatePosition(player.state.position);
+          }
+        });
+
+        // Sync loop regions
         if (player.loopStart != null && player.loopEnd != null) {
           if (_waveformController.loopRegions.isEmpty) {
             _waveformController.addLoopRegion(
-              LoopRegion(
-                start: player.loopStart!,
-                end: player.loopEnd!,
-              ),
+              LoopRegion(start: player.loopStart!, end: player.loopEnd!),
             );
           }
         } else {
@@ -72,52 +104,70 @@ class _ListenModeScreenState extends State<ListenModeScreen> {
           return _buildEmptyState(context);
         }
 
-        return Column(
+        return Stack(
           children: [
-            const SizedBox(height: 16),
-
-            // Song info
-            _buildSongInfo(player),
-
-            const SizedBox(height: 24),
-
-            // Rolling Waveform (60% height)
-            Expanded(
-              flex: 6,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: RollingWaveformView(
-                  controller: _waveformController,
-                  onSeek: (position) => player.seek(position),
-                  onTap: () => player.togglePlayPause(),
-                  showControls: true,
+            // ── MAIN CONTENT ──────────────────────────────────
+            Column(
+              children: [
+                // LAYER 1 + 2: Song Info (tapable)
+                _SongInfoBar(
+                  player: player,
+                  showProgressBar: _showProgressBar,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _showProgressBar = !_showProgressBar);
+                  },
                 ),
-              ),
+
+                // LAYER 1: Waveform – trái tim của màn hình
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: RollingWaveformView(
+                      controller: _waveformController,
+                      onSeek: (pos) => player.seek(pos),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        player.togglePlayPause();
+                      },
+                      showControls: false, // Controls ẩn xuống sheet
+                    ),
+                  ),
+                ),
+
+                // LAYER 1: Nút Play trung tâm + skip minimal
+                _CorePlayerControls(player: player),
+
+                // Spacer để nhường chỗ cho bottom sheet (collapsed)
+                const SizedBox(height: 72),
+              ],
             ),
 
-            const SizedBox(height: 16),
-
-            // Progress bar
-            _buildProgressBar(player),
-
-            const SizedBox(height: 16),
-
-            // Player controls (40% height)
-            Expanded(
-              flex: 4,
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const PlayerControls(),
-                    const SizedBox(height: 16),
-                    const ABLoopControls(),
-                    const SizedBox(height: 16),
-                    const SpeedControlWidget(),
-                    const SizedBox(height: 16),
-                    _buildQuickActions(context, player),
-                  ],
-                ),
-              ),
+            // ── BOTTOM SHEET (LAYER 3) ─────────────────────────
+            DraggableScrollableSheet(
+              controller: _sheetController,
+              initialChildSize: 0.10, // Collapsed: chỉ thấy handle + label
+              minChildSize: 0.10,
+              maxChildSize: 0.55, // Expanded: hiện đủ controls nâng cao
+              snap: true,
+              snapSizes: const [0.10, 0.55],
+              builder: (context, scrollController) {
+                return NotificationListener<DraggableScrollableNotification>(
+                  onNotification: (n) {
+                    final wasExpanded = _sheetExpanded;
+                    final nowExpanded = n.extent > 0.20;
+                    if (wasExpanded != nowExpanded) {
+                      setState(() => _sheetExpanded = nowExpanded);
+                    }
+                    return false;
+                  },
+                  child: _AdvancedSheet(
+                    scrollController: scrollController,
+                    player: player,
+                    isExpanded: _sheetExpanded,
+                  ),
+                );
+              },
             ),
           ],
         );
@@ -125,134 +175,26 @@ class _ListenModeScreenState extends State<ListenModeScreen> {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // EMPTY STATE
+  // ─────────────────────────────────────────────────────────────
+
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.headphones,
-            size: 64,
-            color: Colors.grey[600],
-          ),
+          Icon(Icons.headphones, size: 64, color: Colors.grey[700]),
           const SizedBox(height: 16),
-          Text(
-            'Chưa có audio',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
+          Text('Chưa có audio', style: TextStyle(color: Colors.grey[500])),
           const SizedBox(height: 32),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _pickAudioFile(context),
             icon: const Icon(Icons.add),
             label: const Text('Chọn file Audio'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSongInfo(PlayerProvider player) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF6C63FF),
-                  const Color(0xFF5B52CC),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
             ),
-            child: Icon(
-              player.isPlaying ? Icons.equalizer : Icons.music_note,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  player.currentSongTitle ?? 'Unknown',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  player.currentSongArtist ?? 'Unknown Artist',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressBar(PlayerProvider player) {
-    final position = player.state.position;
-    final duration = player.state.duration;
-    final progress = duration.inMilliseconds > 0
-        ? position.inMilliseconds / duration.inMilliseconds
-        : 0.0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          Text(
-            _formatDuration(position),
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          Expanded(
-            child: Slider(
-              value: progress.clamp(0.0, 1.0),
-              onChanged: (value) => player.seekToPercent(value),
-              activeColor: const Color(0xFF6C63FF),
-            ),
-          ),
-          Text(
-            _formatDuration(duration),
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context, PlayerProvider player) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _QuickAction(
-            icon: Icons.bookmark_add,
-            label: 'Đánh dấu',
-            color: const Color(0xFFFFB300),
-            onTap: () {
-              // TODO: Add marker
-            },
-          ),
-          _QuickAction(
-            icon: Icons.bedtime,
-            label: 'Hẹn giờ',
-            color: const Color(0xFF9C27B0),
-            isActive: player.hasSleepTimer,
-            onTap: () {
-              // TODO: Sleep timer
-            },
           ),
         ],
       ),
@@ -265,37 +207,575 @@ class _ListenModeScreenState extends State<ListenModeScreen> {
         type: FileType.audio,
         allowMultiple: false,
       );
-
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.path != null && context.mounted) {
-          await context.read<PlayerProvider>().loadSong(
-                path: file.path!,
-                title: file.name,
-                autoPlay: true,
-              );
-        }
+      if (result != null &&
+          result.files.isNotEmpty &&
+          result.files.first.path != null &&
+          context.mounted) {
+        await context.read<PlayerProvider>().loadSong(
+              path: result.files.first.path!,
+              title: result.files.first.name,
+              autoPlay: true,
+            );
       }
     } catch (e) {
       debugPrint('Error picking file: $e');
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SONG INFO BAR – Layer 1 + 2
+// Tap để toggle progress bar + skip buttons
+// ═══════════════════════════════════════════════════════════════
+
+class _SongInfoBar extends StatelessWidget {
+  final PlayerProvider player;
+  final bool showProgressBar;
+  final VoidCallback onTap;
+
+  const _SongInfoBar({
+    required this.player,
+    required this.showProgressBar,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Song info row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  // Album art
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6C63FF), Color(0xFF5B52CC)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      player.isPlaying ? Icons.equalizer : Icons.music_note,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Title + artist
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          player.currentSongTitle ?? 'Unknown',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          player.currentSongArtist ?? '',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Indicator: kéo để xem thêm
+                  AnimatedRotation(
+                    turns: showProgressBar ? 0 : 0.5,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.expand_less,
+                      color: Colors.grey[600],
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Layer 2: Progress bar + skip (ẩn/hiện)
+            if (showProgressBar) _buildLayer2(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLayer2(BuildContext context) {
+    final position = player.state.position;
+    final duration = player.state.duration;
+    final progress = duration.inMilliseconds > 0
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Skip ±10 + thời gian
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Text(
+                _formatDuration(position),
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              const Spacer(),
+              // Skip -10
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  player.seek(
+                    position - const Duration(seconds: 10) < Duration.zero
+                        ? Duration.zero
+                        : position - const Duration(seconds: 10),
+                  );
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.replay_10, color: Colors.white70, size: 22),
+                ),
+              ),
+              // Skip +10
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  player.seek(position + const Duration(seconds: 10));
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child:
+                      Icon(Icons.forward_10, color: Colors.white70, size: 22),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatDuration(duration),
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+
+        // Slim slider
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 2,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+            thumbColor: const Color(0xFF6C63FF),
+            activeTrackColor: const Color(0xFF6C63FF),
+            inactiveTrackColor: Colors.white12,
+            overlayColor: const Color(0xFF6C63FF).withOpacity(0.2),
+          ),
+          child: Slider(
+            value: progress,
+            onChanged: (v) => player.seekToPercent(v),
+          ),
+        ),
+      ],
+    );
+  }
 
   String _formatDuration(Duration d) {
-    final mins = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final secs = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$mins:$secs';
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 }
 
-class _QuickAction extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════════
+// CORE PLAYER CONTROLS – Layer 1
+// Chỉ: Play/Pause ở giữa. Cực kỳ đơn giản.
+// ═══════════════════════════════════════════════════════════════
+
+class _CorePlayerControls extends StatelessWidget {
+  final PlayerProvider player;
+
+  const _CorePlayerControls({required this.player});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: SizedBox(
+        height: 64, // Chiều cao cố định bằng nút Play để Stack tính toán đúng
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // CENTER: PLAY / PAUSE
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                player.togglePlayPause();
+              },
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6C63FF).withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  player.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+
+            // LEFT: Loop badge
+            if (player.isLooping)
+              Positioned(
+                left: 24,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    player.clearLoop();
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF4CAF50).withOpacity(0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.loop,
+                            size: 13, color: Color(0xFF4CAF50)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${player.loopCount}×',
+                          style: const TextStyle(
+                            color: Color(0xFF4CAF50),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // RIGHT: Speed badge
+            if (player.state.speed != 1.0)
+              Positioned(
+                right: 24,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                  ),
+                  child: Text(
+                    '${player.state.speed}×',
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADVANCED SHEET – Layer 3
+// DraggableScrollableSheet: kéo lên để xem AB-Loop, Speed, Actions
+// ═══════════════════════════════════════════════════════════════
+
+class _AdvancedSheet extends StatelessWidget {
+  final ScrollController scrollController;
+  final PlayerProvider player;
+  final bool isExpanded;
+
+  const _AdvancedSheet({
+    required this.scrollController,
+    required this.player,
+    required this.isExpanded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF16162A),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withOpacity(0.08),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+          },
+        ),
+        child: CustomScrollView(
+          controller: scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Handle ──────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 6),
+                    child: Container(
+                      width: 36,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // ── Collapsed hint ───────────────────────────────
+                  if (!isExpanded)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.tune, size: 13, color: Colors.grey[600]),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Kéo lên để xem thêm',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // ── Expanded content ─────────────────────────────
+                  if (isExpanded) ...[
+                    // Section: Loop
+                    _SheetSection(
+                      title: 'AB Loop',
+                      icon: Icons.loop,
+                      iconColor: const Color(0xFF4CAF50),
+                      child: const ABLoopControls(),
+                    ),
+
+                    const _Divider(),
+
+                    // Section: Speed
+                    _SheetSection(
+                      title: 'Tốc độ',
+                      icon: Icons.speed,
+                      iconColor: Colors.orange,
+                      child: const SpeedControlWidget(),
+                    ),
+
+                    const _Divider(),
+
+                    // Section: Quick Actions (bookmark, sleep timer)
+                    _SheetSection(
+                      title: 'Nhanh',
+                      icon: Icons.bolt,
+                      iconColor: const Color(0xFF6C63FF),
+                      child: _QuickActionsRow(player: player),
+                    ),
+
+                    const SizedBox(height: 16),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sheet Section wrapper – title + icon + content
+// ─────────────────────────────────────────────────────────────
+
+class _SheetSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final Widget child;
+
+  const _SheetSection({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[500],
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: 16,
+      endIndent: 16,
+      color: Colors.white.withOpacity(0.06),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Quick Actions Row
+// ─────────────────────────────────────────────────────────────
+
+class _QuickActionsRow extends StatelessWidget {
+  final PlayerProvider player;
+
+  const _QuickActionsRow({required this.player});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _QuickBtn(
+          icon: Icons.bookmark_add_outlined,
+          label: 'Đánh dấu',
+          color: const Color(0xFFFFB300),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            // TODO: add marker
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Đã đánh dấu vị trí hiện tại'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 1),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 12),
+        _QuickBtn(
+          icon: player.hasSleepTimer ? Icons.bedtime : Icons.bedtime_outlined,
+          label: player.hasSleepTimer ? 'Huỷ hẹn' : 'Hẹn giờ',
+          color: const Color(0xFF9C27B0),
+          isActive: player.hasSleepTimer,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            // TODO: sleep timer sheet
+          },
+        ),
+        const SizedBox(width: 12),
+        _QuickBtn(
+          icon: Icons.share_outlined,
+          label: 'Chia sẻ',
+          color: const Color(0xFF2196F3),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            // TODO: share current position
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
   final bool isActive;
   final VoidCallback onTap;
 
-  const _QuickAction({
+  const _QuickBtn({
     required this.icon,
     required this.label,
     required this.color,
@@ -307,28 +787,30 @@ class _QuickAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? color.withValues(alpha: 0.3)
-                  : color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-              border: isActive ? Border.all(color: color) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive
+              ? color.withOpacity(0.18)
+              : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: isActive ? Border.all(color: color.withOpacity(0.4)) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isActive ? color : Colors.grey[400]),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isActive ? color : Colors.grey[400],
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? color : Colors.grey[500],
-              fontSize: 11,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

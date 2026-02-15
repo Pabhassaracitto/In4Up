@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
+import '../features/translation/text_provider_translation.dart';
+import '../features/translation/translation_display_mode.dart';
 import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
@@ -14,8 +16,6 @@ import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
-import 'text_provider_translation.dart'; // ★ THÊM
-//new
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
   // ★ THÊM
@@ -450,6 +450,104 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     return globalOffset + localOffset;
   }
 
+  // ==================== TEXT LINE EDITING ====================
+
+  /// Sửa nội dung + bản dịch của 1 dòng
+  void editLine({
+    required int index,
+    required String content,
+    String? translation,
+  }) {
+    if (index < 0 || index >= _lines.length) return;
+
+    _lines[index] = _lines[index].copyWith(
+      content: content.trim(),
+      translation: (translation == null || translation.trim().isEmpty)
+          ? null
+          : translation.trim(),
+    );
+
+    // Re-analyze từ loại
+    final analyzed = SyntaxHighlighterService.analyzeLine(content);
+    if (index < _analyzedLines.length) {
+      _analyzedLines[index] = analyzed;
+    } else {
+      while (_analyzedLines.length <= index) _analyzedLines.add([]);
+      _analyzedLines[index] = analyzed;
+    }
+
+    notifyListeners();
+    debugPrint('✏️ editLine($index): "$content"');
+  }
+
+  /// Xoá 1 dòng
+  void deleteLine(int index) {
+    if (index < 0 || index >= _lines.length) return;
+
+    _lines.removeAt(index);
+    if (index < _analyzedLines.length) _analyzedLines.removeAt(index);
+
+    if (_currentLineIndex >= _lines.length) {
+      _currentLineIndex = _lines.length - 1;
+    }
+    if (_currentLineIndex == index) _currentLineIndex = -1;
+
+    notifyListeners();
+    debugPrint('🗑️ deleteLine($index)');
+  }
+
+  /// Tách 1 dòng thành nhiều dòng (khi user nhấn Enter trong LineEditSheet)
+  void splitLine({
+    required int index,
+    required List<String> contentLines,
+    List<String> translationLines = const [],
+  }) {
+    if (index < 0 || index >= _lines.length) return;
+    if (contentLines.isEmpty) {
+      deleteLine(index);
+      return;
+    }
+
+    final original = _lines[index];
+
+    final newItems = contentLines.asMap().entries.map((e) {
+      final i = e.key;
+      final text = e.value.trim();
+      final trans = i < translationLines.length
+          ? (translationLines[i].trim().isEmpty
+              ? null
+              : translationLines[i].trim())
+          : null;
+      return TextItem(
+        id: '${original.id}_s$i',
+        content: text,
+        translation: trans,
+        startTime: i == 0 ? original.startTime : null,
+        endTime: i == 0 ? original.endTime : null,
+      );
+    }).toList();
+
+    final newAnalyzed = contentLines
+        .map((c) => SyntaxHighlighterService.analyzeLine(c))
+        .toList();
+
+    _lines
+      ..removeAt(index)
+      ..insertAll(index, newItems);
+
+    if (index < _analyzedLines.length) {
+      _analyzedLines.removeAt(index);
+    } else {
+      while (_analyzedLines.length <= index) _analyzedLines.add([]);
+    }
+    _analyzedLines.insertAll(index, newAnalyzed);
+
+    if (_currentLineIndex >= index) _currentLineIndex = index;
+
+    notifyListeners();
+    debugPrint('✂️ splitLine($index) → ${contentLines.length} lines');
+  }
+
   // ==================== SEGMENT MANAGEMENT ====================
 
   TextSegment? createSegmentFromSelection({
@@ -840,14 +938,13 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void toggleTranslation() {
+    // Bridge to mixin: toggle between hidden and stacked
     if (translationDisplayMode == TranslationDisplayMode.hidden) {
       setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
     } else {
       setTranslationDisplayMode(TranslationDisplayMode.hidden);
     }
-    // ★ THÊM: Persist
     _storage.saveShowTranslation(showTranslation);
-
     notifyListeners();
   }
 

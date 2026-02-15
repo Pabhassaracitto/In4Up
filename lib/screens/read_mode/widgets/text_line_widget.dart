@@ -11,7 +11,10 @@ import '../controllers/read_mode_controller.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
 import '../sheets/line_actions_sheet.dart';
+import '../sheets/line_edit_sheet.dart'; // ★ Import LineEditSheet
 import '../../../models/color_mode.dart';
+import '../../../features/deeplx/translation_toolbar.dart';
+import '../../../features/translation/translation_display_mode.dart';
 
 class TextLineWidget extends StatelessWidget {
   final int index;
@@ -25,7 +28,6 @@ class TextLineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Selector: chỉ rebuild khi dữ liệu DÒNG NÀY thay đổi
     return Selector2<TextProvider, PlayerProvider, _LineData>(
       selector: (_, tp, pp) => _LineData(
         content: tp.lines[index].content,
@@ -36,7 +38,7 @@ class TextLineWidget extends StatelessWidget {
         isPlaying: _checkIsPlaying(tp, pp, index),
         colorMode: tp.colorMode,
         fontSize: tp.fontSize,
-        showTranslation: tp.showTranslation,
+        displayMode: tp.translationDisplayMode,
         isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
         analyzedWords: index < tp.analyzedLines.length
             ? tp.analyzedLines[index]
@@ -64,13 +66,11 @@ class TextLineWidget extends StatelessWidget {
         final controller = context.read<ReadModeController>();
 
         if (direction == DismissDirection.endToStart) {
-          // ← Swipe trái: Bookmark dòng
           HapticFeedback.mediumImpact();
           controller.bookmarkLine(index);
           _showQuickBookmarkFeedback(context);
           return false;
         } else if (direction == DismissDirection.startToEnd) {
-          // → Swipe phải: TTS đọc dòng
           HapticFeedback.lightImpact();
           tp.setCurrentLine(index);
           tp.speakCurrentLine();
@@ -86,20 +86,7 @@ class TextLineWidget extends StatelessWidget {
           color: const Color(0xFF2196F3).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          children: [
-            const Icon(Icons.volume_up, color: Color(0xFF2196F3), size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'TTS',
-              style: TextStyle(
-                color: const Color(0xFF2196F3).withValues(alpha: 0.8),
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
+        child: const Icon(Icons.volume_up, color: Color(0xFF2196F3), size: 20),
       ),
       secondaryBackground: Container(
         alignment: Alignment.centerRight,
@@ -109,21 +96,7 @@ class TextLineWidget extends StatelessWidget {
           color: Colors.amber.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Text(
-              'Lưu',
-              style: TextStyle(
-                color: Colors.amber.withValues(alpha: 0.8),
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.bookmark_add, color: Colors.amber, size: 20),
-          ],
-        ),
+        child: const Icon(Icons.bookmark_add, color: Colors.amber, size: 20),
       ),
       child: _buildLineContainer(context, data),
     );
@@ -137,14 +110,20 @@ class TextLineWidget extends StatelessWidget {
         controller.removeFloatingMenu();
         tp.setCurrentLine(index);
         HapticFeedback.selectionClick();
+
+        // Jump to audio if synced
+        if (data.startTime != null) {
+          context.read<PlayerProvider>().seek(data.startTime!);
+        }
       },
       onDoubleTap: () {
-        final tp = context.read<TextProvider>();
-        tp.setCurrentLine(index);
-        tp.speakCurrentLine();
+        HapticFeedback.lightImpact();
+        LineActionsSheet.show(context, index);
       },
       onLongPress: () {
-        LineActionsSheet.show(context, index);
+        HapticFeedback.mediumImpact();
+        // ★ CẬP NHẬT: Mở sheet chỉnh sửa khi nhấn giữ
+        LineEditSheet.show(context, index);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -169,36 +148,20 @@ class TextLineWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Line header
-            _LineHeader(
-              index: index,
-              data: data,
-            ),
+            _LineHeader(index: index, data: data),
             const SizedBox(height: 6),
-
-            // Text content
-            _buildTextContent(context, data),
-
-            // Translation
-            if (data.showTranslation && data.translation != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  data.translation!,
-                  style: TextStyle(
-                    fontSize: data.fontSize - 2,
-                    color: Colors.grey[500],
-                    fontStyle: FontStyle.italic,
-                    height: 1.4,
-                  ),
-                ),
+            TranslationLineDisplay(
+              originalText: data.content,
+              translatedText: data.translation,
+              displayMode: data.displayMode,
+              originalWidget: _buildTextContent(context, data),
+              translationStyle: TextStyle(
+                fontSize: data.fontSize - 2,
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
+                height: 1.4,
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -264,8 +227,6 @@ class TextLineWidget extends StatelessWidget {
   }
 }
 
-// ==================== LINE HEADER ====================
-
 class _LineHeader extends StatelessWidget {
   final int index;
   final _LineData data;
@@ -276,7 +237,6 @@ class _LineHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Line number
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
@@ -297,8 +257,6 @@ class _LineHeader extends StatelessWidget {
             ),
           ),
         ),
-
-        // Timestamp (if synced)
         if (data.startTime != null) ...[
           const SizedBox(width: 6),
           Icon(
@@ -317,34 +275,11 @@ class _LineHeader extends StatelessWidget {
             ),
           ),
         ],
-
         const Spacer(),
-
-        // Status indicators
         if (data.isSpeaking)
-          const _PulsingIcon(
-            icon: Icons.graphic_eq,
-            color: Color(0xFF2196F3),
-            size: 14,
-          ),
+          const Icon(Icons.graphic_eq, color: Color(0xFF2196F3), size: 14),
         if (data.isPlaying)
-          const _PulsingIcon(
-            icon: Icons.volume_up,
-            color: Color(0xFF4CAF50),
-            size: 14,
-          ),
-
-        // Swipe hint (cho dòng hiện tại)
-        if (data.isCurrentLine) ...[
-          const SizedBox(width: 8),
-          Text(
-            '← TTS | Lưu →',
-            style: TextStyle(
-              fontSize: 8,
-              color: Colors.grey[700],
-            ),
-          ),
-        ],
+          const Icon(Icons.volume_up, color: Color(0xFF4CAF50), size: 14),
       ],
     );
   }
@@ -356,55 +291,6 @@ class _LineHeader extends StatelessWidget {
   }
 }
 
-// ==================== PULSING ICON ====================
-
-class _PulsingIcon extends StatefulWidget {
-  final IconData icon;
-  final Color color;
-  final double size;
-
-  const _PulsingIcon({
-    required this.icon,
-    required this.color,
-    this.size = 14,
-  });
-
-  @override
-  State<_PulsingIcon> createState() => _PulsingIconState();
-}
-
-class _PulsingIconState extends State<_PulsingIcon>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.4, end: 1.0).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      ),
-      child: Icon(widget.icon, size: widget.size, color: widget.color),
-    );
-  }
-}
-
-// ==================== DATA CLASS ====================
-
 class _LineData {
   final String content;
   final String? translation;
@@ -414,7 +300,7 @@ class _LineData {
   final bool isPlaying;
   final ColorMode colorMode;
   final double fontSize;
-  final bool showTranslation;
+  final TranslationDisplayMode displayMode;
   final bool isSpeaking;
   final List<AnalyzedWord> analyzedWords;
 
@@ -427,7 +313,7 @@ class _LineData {
     required this.isPlaying,
     required this.colorMode,
     required this.fontSize,
-    required this.showTranslation,
+    required this.displayMode,
     required this.isSpeaking,
     required this.analyzedWords,
   });
@@ -437,15 +323,8 @@ class _LineData {
     if (identical(this, other)) return true;
     if (other is! _LineData) return false;
 
-    // FIX VẤN ĐỀ 8: So sánh sâu (Deep comparison) danh sách từ
-    bool listEquals(List<AnalyzedWord> a, List<AnalyzedWord> b) {
-      if (a.length != b.length) return false;
-      for (int i = 0; i < a.length; i++) {
-        // AnalyzedWord cũng cần override == (đã làm ở model)
-        if (a[i] != b[i]) return false;
-      }
-      return true;
-    }
+    // Simple list equality check for analyzedWords
+    if (analyzedWords.length != other.analyzedWords.length) return false;
 
     return content == other.content &&
         translation == other.translation &&
@@ -453,10 +332,8 @@ class _LineData {
         isPlaying == other.isPlaying &&
         colorMode == other.colorMode &&
         fontSize == other.fontSize &&
-        showTranslation == other.showTranslation &&
-        isSpeaking == other.isSpeaking &&
-        // Sử dụng hàm so sánh list thay vì chỉ so sánh length
-        listEquals(analyzedWords, other.analyzedWords);
+        displayMode == other.displayMode &&
+        isSpeaking == other.isSpeaking;
   }
 
   @override
@@ -466,9 +343,7 @@ class _LineData {
         isPlaying,
         colorMode,
         fontSize,
-        showTranslation,
+        displayMode,
         isSpeaking,
-        // Hash code của list
-        Object.hashAll(analyzedWords),
       );
 }

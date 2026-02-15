@@ -7,13 +7,12 @@ import 'package:provider/provider.dart';
 
 import '../features/shadowing/models/shadowing_result.dart';
 import '../features/shadowing/providers/shadowing_provider.dart';
-import '../screens/listen_mode/controllers/rolling_waveform_controller.dart';
-import '../screens/listen_mode/controllers/rolling_waveform_controller.dart';
+import '../features/shadowing/widgets/pronunciation_result.dart';
 import '../models/waveform_data.dart';
 import '../providers/player_provider.dart';
 import '../providers/text_provider.dart';
 import '../providers/waveform_provider.dart';
-import '../features/shadowing/widgets/pronunciation_result.dart';
+import '../screens/listen_mode/controllers/rolling_waveform_controller.dart';
 import '../screens/listen_mode/widgets/rolling_waveform_view.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
@@ -901,7 +900,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               if (shadowing.isRecording) {
                 shadowing.stopRecording();
               } else {
-                shadowing.startShadowing();
+                shadowing.startShadowing(loopText);
               }
             },
           ),

@@ -850,7 +850,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               if (shadowing.isRecording) {
                 shadowing.stopRecording();
               } else {
-                shadowing.startShadowing();
+                shadowing.startShadowing(loopText);
               }
             },
           ),

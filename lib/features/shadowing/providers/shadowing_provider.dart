@@ -2,9 +2,11 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_waveform/just_waveform.dart' as jw;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -293,7 +295,10 @@ class ShadowingProvider extends ChangeNotifier {
 
   // ==================== RECORDING ====================
 
-  Future<void> startShadowing() async {
+  Future<void> startShadowing(String text) async {
+    if (text.trim().isNotEmpty) {
+      setPracticeText(text);
+    }
     if (_state == ShadowingState.recording) {
       await stopRecording();
     } else {
@@ -456,30 +461,53 @@ class ShadowingProvider extends ChangeNotifier {
 
   Future<List<double>> _extractWaveform(String? path) async {
     if (path == null) return [];
+    final file = File(path);
+    if (!await file.exists()) return [];
 
     try {
-      final file = File(path);
-      if (!await file.exists()) return [];
+      final waveformFile = File('${path}.waveform');
+      final progressStream = jw.JustWaveform.extract(
+        audioInFile: file,
+        waveOutFile: waveformFile,
+        zoom: const jw.WaveformZoom.pixelsPerSecond(100),
+      );
 
-      final bytes = await file.readAsBytes();
-      final samples = <double>[];
-      for (int i = 44; i < bytes.length; i += 1000) {
-        samples.add(bytes[i] / 255.0);
-      }
-
-      while (samples.length > 100) {
-        final newSamples = <double>[];
-        for (int i = 0; i < samples.length - 1; i += 2) {
-          newSamples.add((samples[i] + samples[i + 1]) / 2);
+      jw.Waveform? waveform;
+      await for (final progress in progressStream) {
+        if (progress.waveform != null) {
+          waveform = progress.waveform;
         }
-        samples.clear();
-        samples.addAll(newSamples);
       }
 
-      return samples;
+      if (waveform != null) {
+        final data = waveform.data;
+        final samples = <double>[];
+        int maxAmp = 1;
+        for (var s in data) {
+          if (s.abs() > maxAmp) maxAmp = s.abs();
+        }
+
+        // Downsample to ~500 points for display/storage
+        final step = math.max(1, data.length ~/ 500);
+        for (int i = 0; i < data.length; i += step) {
+          int chunkMax = 0;
+          for (int j = i; j < math.min(i + step, data.length); j++) {
+            if (data[j].abs() > chunkMax) chunkMax = data[j].abs();
+          }
+          samples.add(chunkMax / maxAmp);
+        }
+
+        try {
+          await waveformFile.delete();
+        } catch (_) {}
+
+        return samples;
+      }
     } catch (e) {
+      debugPrint('Waveform extraction error: $e');
       return [];
     }
+    return [];
   }
 
   // ==================== PLAYBACK ====================

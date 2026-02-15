@@ -42,13 +42,15 @@ dependencies:
 
   uuid: ^4.2.1                    # Generate unique IDs
   share_plus: ^7.2.1              # Share segments
-  shared_preferences: ^2.2.2  # THÊM DÒNG NÀY
+  shared_preferences: ^2.3.5  # THÊM DÒNG NÀY
   flutter_tts: ^4.0.2  # THÊM DÒNG NÀY
   just_waveform: ^0.0.7  # Đọc waveform từ audio file
   record: ^6.1.2 # ghi âm
 
   url_launcher: ^6.2.5               # cho word_actions_sheet tra từ online
 
+  http: ^1.2.2
+  connectivity_plus: ^6.1.4    # Check network
 # Thêm vào CUỐI file pubspec.yaml, trước dev_dependencies:
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^

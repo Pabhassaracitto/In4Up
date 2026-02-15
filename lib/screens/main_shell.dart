@@ -5,13 +5,12 @@ import 'package:provider/provider.dart';
 
 import '../providers/player_provider.dart';
 import '../screens/listen_mode/widgets/mini_player.dart';
+import '../screens/understand_mode/understand_tab_connector.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
-import 'understand_mode/understand_mode_screen.dart';
-import '../screens/understand_mode/understand_tab_connector.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -206,7 +205,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 onTap: () {
                   HapticFeedback.selectionClick();
                   // Cycle modes
-                  final modes = VipMode.values;
+                  const modes = VipMode.values;
                   final idx = modes.indexOf(player.currentMode);
                   player.setMode(modes[(idx + 1) % modes.length]);
                 },
@@ -443,17 +442,17 @@ class QuickPracticeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
-                children: [
+                children: const [
                   _FeatureRow(
                       icon: Icons.loop,
                       text: 'Lặp lại các segment đã đánh dấu'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _FeatureRow(
                       icon: Icons.shuffle, text: 'Ngẫu nhiên hoặc theo thứ tự'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _FeatureRow(
                       icon: Icons.timer, text: 'Theo dõi thời gian luyện tập'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _FeatureRow(
                       icon: Icons.trending_up, text: 'Thống kê tiến bộ'),
                 ],

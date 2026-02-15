@@ -245,11 +245,11 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<PlayerProvider, VipMode>(
-      selector: (_, player) => player.currentMode,
-      builder: (context, currentMode, child) {
+    // Dùng Consumer để lắng nghe mọi thay đổi (isPlaying, position, mode...)
+    return Consumer<PlayerProvider>(
+      builder: (context, player, child) {
+        final currentMode = player.currentMode;
         final theme = MiniPlayerTheme.forMode(currentMode);
-        final player = context.read<PlayerProvider>();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _handlePlayStateChange(player.isPlaying);

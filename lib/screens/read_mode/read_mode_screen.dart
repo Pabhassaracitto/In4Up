@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
+import '../../features/deeplx/translation_toolbar.dart';
 import 'controllers/read_mode_controller.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/read_bottom_bar.dart';
@@ -84,6 +85,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           return Column(
             children: [
               const ReadTopBar(),
+              if (textProvider.showTranslation) const TranslationToolbar(),
               Expanded(
                 child: GestureDetector(
                   onTap: () => _controller.removeFloatingMenu(),

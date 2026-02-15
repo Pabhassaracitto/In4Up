@@ -1,19 +1,16 @@
-// lib/features/deeplx/text_provider_translation.dart
-import 'dart:async';
+// lib/features/translation/text_provider_translation.dart
+// ★ CHỈ SỬA PHẦN IMPORT VÀ GỌI SERVICE
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
-import '../translation/translation_service.dart';
+import '../translation/translation_service.dart'; // ★ ĐỔI
+import '../translation/engines/translation_engine.dart'; // ★ ĐỔI
 import '../../models/text_item.dart';
-import '../translation/translation_display_mode.dart';
-import '../translation/engines/deeplx_engine.dart';
-import '../deeplx/deeplx_service.dart';
+import 'translation_display_mode.dart';
 
 mixin TranslationMixin on ChangeNotifier {
-  // --------------------------------------------------------------------------
-  // STATE
-  // --------------------------------------------------------------------------
-
+  // ── STATE (giữ nguyên) ──
   TranslationDisplayMode _translationDisplayMode =
       TranslationDisplayMode.hidden;
   TranslationDisplayMode get translationDisplayMode => _translationDisplayMode;
@@ -27,16 +24,17 @@ mixin TranslationMixin on ChangeNotifier {
   String? _translationError;
   String? get translationError => _translationError;
 
+  /// ★ THÊM: Engine đang dùng
+  String _currentEngine = '';
+  String get currentEngine => _currentEngine;
+
   int get translatedLineCount => lines
       .where((l) => l.translation != null && l.translation!.isNotEmpty)
       .length;
 
-  // Expected from TextProvider
   List<TextItem> get lines;
 
-  // --------------------------------------------------------------------------
-  // METHODS
-  // --------------------------------------------------------------------------
+  // ── METHODS (giữ nguyên logic, đổi service) ──
 
   void cycleTranslationMode() {
     switch (_translationDisplayMode) {
@@ -66,10 +64,12 @@ mixin TranslationMixin on ChangeNotifier {
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    final result = await DeepLXService.translateText(line.content);
+    // ★ ĐỔI: Dùng TranslationService thay vì DeepLXService
+    final result = await TranslationService().translateText(line.content);
 
     if (result.isSuccess) {
       lines[index] = line.copyWith(translation: result.translatedText);
+      _currentEngine = TranslationService().lastUsedEngine;
       notifyListeners();
     }
   }
@@ -100,28 +100,40 @@ mixin TranslationMixin on ChangeNotifier {
     _translationError = null;
     notifyListeners();
 
+    int consecutiveErrors = 0; // ★ THÊM: Đếm lỗi liên tiếp
+
     try {
       for (int i = 0; i < toTranslate.length; i++) {
-        if (!_isTranslating) break; // Check for cancellation
+        if (!_isTranslating) break;
 
         final lineIndex = toTranslate[i];
         final line = lines[lineIndex];
 
-        final result = await DeepLXService.translateText(line.content);
+        // ★ ĐỔI: Dùng TranslationService
+        final result = await TranslationService().translateText(line.content);
 
-        if (result.isSuccess) {
+        if (result.isSuccess && result.translatedText.isNotEmpty) {
           lines[lineIndex] = line.copyWith(translation: result.translatedText);
+          _currentEngine = TranslationService().lastUsedEngine;
+          consecutiveErrors = 0; // Reset
         } else {
-          // Capture error to show in UI
-          _translationError = result.error;
+          _translationError = '${result.engineName}: ${result.error}';
+          consecutiveErrors++;
+
+          // ★ THÊM: Dừng nếu quá nhiều lỗi liên tiếp
+          if (consecutiveErrors >= 5) {
+            _translationError =
+                'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
+            break;
+          }
         }
 
         _translationProgress = (i + 1) / toTranslate.length;
         notifyListeners();
 
-        // Small delay to be polite to the server
+        // Delay giữa requests
         if (i < toTranslate.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 50));
+          await Future.delayed(const Duration(milliseconds: 200));
         }
       }
 
@@ -147,6 +159,7 @@ mixin TranslationMixin on ChangeNotifier {
       lines[i] = lines[i].copyWith(translation: null);
     }
     _translationDisplayMode = TranslationDisplayMode.hidden;
+    _currentEngine = '';
     notifyListeners();
   }
 }

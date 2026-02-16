@@ -2,16 +2,16 @@
 // ★ SỬA TOÀN BỘ FILE NÀY
 
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../../models/text_item.dart';
+import 'translation_display_mode.dart';
 // ★ XÓA DÒNG CŨ:
 // import '../../features/deeplx/deeplx_service.dart';
 
 // ★ THAY BẰNG:
-import '../translation/translation_service.dart';
-
-import '../../models/text_item.dart';
-import 'translation_display_mode.dart';
+import 'translation_service.dart';
 
 mixin TranslationMixin on ChangeNotifier {
   // ── STATE (giữ nguyên) ──

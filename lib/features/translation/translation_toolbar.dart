@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/text_provider.dart';
-import '../translation/translation_display_mode.dart';
-import '../translation/translation_service.dart';
+import 'translation_display_mode.dart';
+import 'translation_service.dart';
 
 class TranslationToolbar extends StatelessWidget {
   final Color primaryColor;

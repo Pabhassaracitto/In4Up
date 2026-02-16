@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.vipsound"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "26.1.10909125"
 
     compileOptions {

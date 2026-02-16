@@ -30,6 +30,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Setup Android SDK
+        run: |
+          # Install Android SDK 36 which is required by plugins
+          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+
       # (Tùy chọn) Nếu dùng code generation
       # - name: Run Build Runner
       #   run: flutter pub run build_runner build --delete-conflicting-outputs

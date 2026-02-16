@@ -9,13 +9,12 @@ class BloomParticlePainter extends CustomPainter {
   final double progress; // 0.0 - 1.0
   final Color baseColor;
   final int particleCount;
-  final Random _random;
 
   BloomParticlePainter({
     required this.progress,
     this.baseColor = const Color(0xFF9C27B0),
     this.particleCount = 30,
-  }) : _random = Random(42);
+  });
 
   @override
   void paint(Canvas canvas, Size size) {

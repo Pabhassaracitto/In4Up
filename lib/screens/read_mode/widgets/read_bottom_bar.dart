@@ -15,7 +15,7 @@ class ReadBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tp = context.watch<TextProvider>();
-    final player = context.watch<PlayerProvider>();
+    context.watch<PlayerProvider>();
     final controller = context.watch<ReadModeController>();
 
     return Container(

@@ -10,7 +10,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest # Android có thể build trên Ubuntu (nhẹ và nhanh)
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
   build-windows:
     name: Build Windows App
     runs-on: windows-latest # BẮT BUỘC dùng Windows runner
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,10 +68,23 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
+      - name: Check Build Success
+        shell: powershell
+        run: |
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Windows build failed!"
+            exit 1
+          }
+
+      - name: List files in Release folder
+        shell: powershell
+        run: Get-ChildItem -Path "build\windows\runner\Release\*"
+
       - name: Zip Windows build
         shell: powershell
         run: |
-          Compress-Archive -Path build\windows\runner\Release\* -DestinationPath VipSound-Windows-${{ github.ref_name }}.zip
+          $absolutePath = "${GITHUB_WORKSPACE}\build\windows\runner\Release\*"
+          Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.ref_name }}.zip
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -83,7 +96,7 @@ jobs:
   build-ios:
     name: Build iOS IPA (sideload)
     runs-on: macos-latest # BẮT BUỘC dùng macOS runner
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,7 +131,7 @@ jobs:
     name: Create Release with all files
     needs: [build-android, build-windows, build-ios] # Đợi cả 3 job hoàn thành
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4

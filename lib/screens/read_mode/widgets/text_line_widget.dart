@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/text_provider.dart';
-import '../../../providers/player_provider.dart';
+import '../../../features/translation/translation_display_mode.dart';
+import '../../../features/translation/translation_toolbar.dart';
+import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../providers/player_provider.dart';
+import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
-import 'colored_text_widget.dart';
-import 'floating_text_actions.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart'; // ★ Import LineEditSheet
-import '../../../models/color_mode.dart';
-import '../../../features/deeplx/translation_toolbar.dart';
-import '../../../features/translation/translation_display_mode.dart';
+import 'colored_text_widget.dart';
+import 'floating_text_actions.dart';
 
 class TextLineWidget extends StatelessWidget {
   final int index;

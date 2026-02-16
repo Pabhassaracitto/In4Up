@@ -1,7 +1,5 @@
 // lib/screens/memory_mode/models/review_session.dart
 
-import 'memory_item.dart';
-
 enum ReviewGrade {
   forgot,
   hard,

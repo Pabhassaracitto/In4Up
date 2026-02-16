@@ -1,7 +1,5 @@
 // lib/models/lyric_line.dart
 
-import 'package:flutter/material.dart';
-
 class LyricLine {
   final String content;
   final String? translation;

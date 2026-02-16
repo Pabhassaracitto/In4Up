@@ -70,8 +70,14 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # ★ THÊM: Đảm bảo xóa thư mục cũ nếu còn sót lại
+      - name: Clean up old folders
+        run: |
+          if (Test-Path "lib/features/DeepLX") { Remove-Item "lib/features/DeepLX" -Recurse -Force }
+          if (Test-Path "lib/features/deeplx") { Remove-Item "lib/features/deeplx" -Recurse -Force }
+
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --verbose
 
       - name: Check Build Success
         shell: powershell

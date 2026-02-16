@@ -218,7 +218,7 @@ packages:
     source: hosted
     version: "0.3.5+1"
   crypto:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -817,7 +817,7 @@ packages:
     source: hosted
     version: "1.2.2"
   record_windows:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: record_windows
       sha256: "223258060a1d25c62bae18282c16783f28581ec19401d17e56b5205b9f039d78"

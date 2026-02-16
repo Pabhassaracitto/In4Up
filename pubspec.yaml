@@ -46,11 +46,13 @@ dependencies:
   flutter_tts: ^4.0.2  # THÊM DÒNG NÀY
   just_waveform: ^0.0.7  # Đọc waveform từ audio file
   record: ^6.1.2 # ghi âm
+  record_windows: ^1.0.1 # ★ BẮT BUỘC cho Windows
 
   url_launcher: ^6.2.5               # cho word_actions_sheet tra từ online
 
   http: ^1.2.2
   connectivity_plus: ^6.1.4    # Check network
+  crypto: ^3.0.6                 # MD5 hash cho cache key
 # Thêm vào CUỐI file pubspec.yaml, trước dev_dependencies:
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^

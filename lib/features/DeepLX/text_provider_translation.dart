@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/text_item.dart';
 import '../translation/translation_display_mode.dart';
-import '../deeplx/deeplx_service.dart';
+import '../translation/translation_service.dart';
 
 mixin TranslationMixin on ChangeNotifier {
   // --------------------------------------------------------------------------
@@ -59,18 +59,19 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   Future<void> translateLine(int index) async {
-    if (index < 0 || index >= lines.length) return;
+  if (index < 0 || index >= lines.length) return;
 
-    final line = lines[index];
-    if (line.content.trim().isEmpty) return;
+  final line = lines[index];
+  if (line.content.trim().isEmpty) return;
 
-    final result = await DeepLXService.translateText(line.content);
+  // ★ SỬA: TranslationService.translateText → TranslationService().translateText
+  final result = await TranslationService().translateText(line.content);
 
-    if (result.isSuccess) {
-      lines[index] = line.copyWith(translation: result.translatedText);
-      notifyListeners();
-    }
+  if (result.isSuccess) {
+    lines[index] = line.copyWith(translation: result.translatedText);
+    notifyListeners();
   }
+}
 
   Future<void> translateAll({bool forceRetranslate = false}) async {
     if (_isTranslating) return;
@@ -80,8 +81,10 @@ mixin TranslationMixin on ChangeNotifier {
       final line = lines[i];
       if (line.content.trim().isEmpty) continue;
       if (!forceRetranslate &&
-          line.translation != null &&
-          line.translation!.isNotEmpty) continue;
+    line.translation != null &&
+    line.translation!.isNotEmpty) {
+  continue;
+}
       toTranslate.add(i);
     }
 
@@ -105,7 +108,7 @@ mixin TranslationMixin on ChangeNotifier {
         final lineIndex = toTranslate[i];
         final line = lines[lineIndex];
 
-        final result = await DeepLXService.translateText(line.content);
+        final result = await TranslationService().translateText(line.content);
 
         if (result.isSuccess) {
           lines[lineIndex] = line.copyWith(translation: result.translatedText);

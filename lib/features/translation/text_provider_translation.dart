@@ -1,11 +1,15 @@
-// lib/features/translation/text_provider_translation.dart
-// ★ CHỈ SỬA PHẦN IMPORT VÀ GỌI SERVICE
+// lib/features/DeepLX/text_provider_translation.dart
+// ★ SỬA TOÀN BỘ FILE NÀY
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
-import '../translation/translation_service.dart'; // ★ ĐỔI
-// ★ ĐỔI
+// ★ XÓA DÒNG CŨ:
+// import '../../features/deeplx/deeplx_service.dart';
+
+// ★ THAY BẰNG:
+import '../translation/translation_service.dart';
+
 import '../../models/text_item.dart';
 import 'translation_display_mode.dart';
 
@@ -24,7 +28,7 @@ mixin TranslationMixin on ChangeNotifier {
   String? _translationError;
   String? get translationError => _translationError;
 
-  /// ★ THÊM: Engine đang dùng
+  // ★ THÊM: Engine đang dùng
   String _currentEngine = '';
   String get currentEngine => _currentEngine;
 
@@ -34,7 +38,7 @@ mixin TranslationMixin on ChangeNotifier {
 
   List<TextItem> get lines;
 
-  // ── METHODS (giữ nguyên logic, đổi service) ──
+  // ── METHODS ──
 
   void cycleTranslationMode() {
     switch (_translationDisplayMode) {
@@ -64,7 +68,7 @@ mixin TranslationMixin on ChangeNotifier {
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    // ★ ĐỔI: Dùng TranslationService thay vì DeepLXService
+    // ★ ĐỔI: DeepLXService.translateText → TranslationService().translateText
     final result = await TranslationService().translateText(line.content);
 
     if (result.isSuccess) {
@@ -83,7 +87,9 @@ mixin TranslationMixin on ChangeNotifier {
       if (line.content.trim().isEmpty) continue;
       if (!forceRetranslate &&
           line.translation != null &&
-          line.translation!.isNotEmpty) continue;
+          line.translation!.isNotEmpty) {
+        continue;
+      }
       toTranslate.add(i);
     }
 
@@ -100,7 +106,7 @@ mixin TranslationMixin on ChangeNotifier {
     _translationError = null;
     notifyListeners();
 
-    int consecutiveErrors = 0; // ★ THÊM: Đếm lỗi liên tiếp
+    int consecutiveErrors = 0;
 
     try {
       for (int i = 0; i < toTranslate.length; i++) {
@@ -109,18 +115,17 @@ mixin TranslationMixin on ChangeNotifier {
         final lineIndex = toTranslate[i];
         final line = lines[lineIndex];
 
-        // ★ ĐỔI: Dùng TranslationService
+        // ★ ĐỔI: DeepLXService → TranslationService
         final result = await TranslationService().translateText(line.content);
 
         if (result.isSuccess && result.translatedText.isNotEmpty) {
           lines[lineIndex] = line.copyWith(translation: result.translatedText);
           _currentEngine = TranslationService().lastUsedEngine;
-          consecutiveErrors = 0; // Reset
+          consecutiveErrors = 0;
         } else {
           _translationError = '${result.engineName}: ${result.error}';
           consecutiveErrors++;
 
-          // ★ THÊM: Dừng nếu quá nhiều lỗi liên tiếp
           if (consecutiveErrors >= 5) {
             _translationError =
                 'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
@@ -131,7 +136,6 @@ mixin TranslationMixin on ChangeNotifier {
         _translationProgress = (i + 1) / toTranslate.length;
         notifyListeners();
 
-        // Delay giữa requests
         if (i < toTranslate.length - 1) {
           await Future.delayed(const Duration(milliseconds: 200));
         }

@@ -1,9 +1,10 @@
-// lib/features/deeplx/translation_toolbar.dart
+// lib/features/translation/translation_toolbar.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../translation/translation_display_mode.dart';
+
 import '../../providers/text_provider.dart';
-import '../deeplx/deeplx_service.dart';
+import '../translation/translation_display_mode.dart';
+import '../translation/translation_service.dart';
 
 class TranslationToolbar extends StatelessWidget {
   final Color primaryColor;
@@ -75,7 +76,7 @@ class TranslationToolbar extends StatelessWidget {
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
-                  ),
+                  )
                 ],
               ),
               if (isTranslating) ...[
@@ -83,11 +84,10 @@ class TranslationToolbar extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(2),
                   child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.white12,
-                    valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                    minHeight: 2,
-                  ),
+                      value: progress,
+                      backgroundColor: Colors.white12,
+                      valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                      minHeight: 2),
                 ),
               ],
               if (textProvider.translationError != null) ...[
@@ -154,49 +154,71 @@ class TranslationToolbar extends StatelessWidget {
   }
 
   void _showServerSettings(BuildContext context) {
-    final urlController = TextEditingController(text: DeepLXService.serverUrl);
-    final targetController =
-        TextEditingController(text: DeepLXService.targetLang);
+    // ★ SỬA 1: Tạo instance, không dùng static
+    final service = TranslationService();
+
+    final urlController = TextEditingController(
+      text: service.deeplxUrl ?? '', // ★ SỬA 2: .deeplxUrl (instance)
+    );
+    final targetController = TextEditingController(
+      text: service.targetLang, // ★ SỬA 2: .targetLang (instance)
+    );
 
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Cài đặt DeepLX',
-                style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold)),
+            const Text(
+              '⚙️ Cài đặt Dịch thuật',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: urlController,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                  labelText: 'Server URL',
-                  labelStyle: TextStyle(color: Colors.grey)),
+              decoration: InputDecoration(
+                labelText: 'DeepLX Server URL (tùy chọn)',
+                labelStyle: const TextStyle(color: Colors.grey),
+                hintText: 'Để trống → dùng Google Free',
+                hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: targetController,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                  labelText: 'Target Lang (e.g. VI)',
-                  labelStyle: TextStyle(color: Colors.grey)),
+                labelText: 'Target Lang (e.g. VI)',
+                labelStyle: TextStyle(color: Colors.grey),
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                DeepLXService.configure(
-                    url: urlController.text.trim(),
-                    target: targetController.text.trim().toUpperCase());
+                // ★ SỬA 3: service.configure (instance) + đúng tên parameter
+                service.configure(
+                  deeplxUrl: urlController.text.trim(), // ★ url → deeplxUrl
+                  targetLang: targetController.text
+                      .trim()
+                      .toUpperCase(), // ★ target → targetLang
+                );
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: primaryColor),

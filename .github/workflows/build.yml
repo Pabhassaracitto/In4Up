@@ -61,31 +61,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
 
       - name: Get dependencies
         run: flutter pub get
 
-      # ★ THÊM: Đảm bảo xóa thư mục cũ nếu còn sót lại
       - name: Clean up old folders
         run: |
           if (Test-Path "lib/features/DeepLX") { Remove-Item "lib/features/DeepLX" -Recurse -Force }
           if (Test-Path "lib/features/deeplx") { Remove-Item "lib/features/deeplx" -Recurse -Force }
 
+      - name: Clean Build Cache
+        run: flutter clean
+
+      - name: Get dependencies again
+        run: flutter pub get
+
       - name: Build Windows
         run: flutter build windows --release --verbose
-
-      - name: Check Build Success
-        shell: powershell
-        run: |
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Windows build failed!"
-            exit 1
-          }
 
       - name: List files in Release folder
         shell: powershell

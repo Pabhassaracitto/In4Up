@@ -5,10 +5,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
+import '../features/tts/tts_service.dart';
 import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
@@ -18,9 +18,8 @@ import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
-  // ★ THÊM
-  final FlutterTts _tts = FlutterTts();
-  final StorageService _storage = StorageService(); // ★ THÊM
+  final TtsService _ttsService = TtsService();
+  final StorageService _storage = StorageService();
 
   // ====================  TEXT DATA ====================
   TextDocument? _currentDocument;
@@ -43,7 +42,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   double _ttsPitch = 1.0;
   String _ttsLanguage = 'en-US';
   bool _isSpeaking = false;
-  Completer<void>? _ttsCompleter;
 
   // ==================== SEGMENT PLAYBACK ====================
   bool _isPlayingSegment = false;
@@ -83,8 +81,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== CONSTRUCTOR ====================
 
   TextProvider() {
-    _initTts();
-    _restoreFromStorage(); // ★ THÊM
+    _restoreFromStorage();
   }
 
   // ★ THÊM: Restore settings
@@ -122,48 +119,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     } catch (e) {
       debugPrint('⚠️ Error restoring TextProvider: $e');
     }
-  }
-
-  Future<void> _initTts() async {
-    try {
-      await _tts.setLanguage(_ttsLanguage);
-      await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
-      await _tts.setPitch(_ttsPitch);
-      await _tts.setVolume(1.0);
-
-      _tts.setStartHandler(() {
-        _isSpeaking = true;
-        notifyListeners();
-      });
-
-      _tts.setCompletionHandler(() {
-        _isSpeaking = false;
-        _ttsCompleter?.complete();
-        _ttsCompleter = null;
-        notifyListeners();
-      });
-
-      _tts.setCancelHandler(() {
-        _isSpeaking = false;
-        _ttsCompleter?.complete();
-        _ttsCompleter = null;
-        notifyListeners();
-      });
-
-      _tts.setErrorHandler((msg) {
-        _isSpeaking = false;
-        _ttsCompleter?.completeError(msg);
-        _ttsCompleter = null;
-        debugPrint('TTS Error: $msg');
-        notifyListeners();
-      });
-    } catch (e) {
-      debugPrint('TTS Init Error: $e');
-    }
-  }
-
-  double _convertSpeedToRate(double speed) {
-    return (speed / 2.0).clamp(0.0, 1.0);
   }
 
   // ==================== TEXT MANAGEMENT ====================
@@ -638,81 +593,36 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TTS FUNCTIONS ====================
 
   Future<void> speakSelected() async {
-    if (_selectedText == null || _selectedText!.isEmpty) {
-      debugPrint('No text selected to speak.');
-      return;
-    }
-    _isSpeaking = true;
-    notifyListeners();
-    try {
-      await speak(_selectedText!);
-    } catch (e) {
-      debugPrint('Error in speakSelected: $e');
-    } finally {
-      _isSpeaking = false;
-      notifyListeners();
-    }
+    if (_selectedText == null || _selectedText!.isEmpty) return;
+    await _ttsService.speak(_selectedText!);
   }
 
   Future<void> speakAllLines() async {
     if (_lines.isEmpty) return;
     _isSpeaking = true;
     notifyListeners();
-    try {
-      for (int i = 0; i < _lines.length; i++) {
-        if (!_isSpeaking) break;
-        _currentLineIndex = i;
+
+    final lineTexts = _lines.map((l) => l.content).toList();
+    await _ttsService.speakLines(
+      lineTexts,
+      onLineChanged: (index) {
+        _currentLineIndex = index;
         notifyListeners();
-        await speak(_lines[i].content);
-        if (_isSpeaking && i < _lines.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
-      }
-    } catch (e) {
-      debugPrint('Error in speakAllLines: $e');
-    } finally {
-      _isSpeaking = false;
-      notifyListeners();
-    }
+      },
+    );
+
+    _isSpeaking = false;
+    notifyListeners();
   }
 
   Future<void> speakCurrentLine() async {
-    if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) {
-      debugPrint('Invalid line index: $_currentLineIndex');
-      return;
-    }
-    _isSpeaking = true;
-    notifyListeners();
-    try {
-      await speak(_lines[_currentLineIndex].content);
-    } catch (e) {
-      debugPrint('Error in speakCurrentLine: $e');
-    } finally {
-      _isSpeaking = false;
-      notifyListeners();
-    }
+    if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) return;
+    await _ttsService.speak(_lines[_currentLineIndex].content);
   }
 
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
-    try {
-      await _tts.stop();
-      _ttsCompleter = Completer<void>();
-      final result = await _tts.speak(text);
-      if (result == 1) {
-        final wordCount = text.split(' ').length;
-        final estimatedSeconds = (wordCount * 60 / 150 / _ttsSpeed).ceil();
-        final timeout = Duration(seconds: estimatedSeconds.clamp(3, 60));
-        await _ttsCompleter?.future.timeout(
-          timeout,
-          onTimeout: () {
-            debugPrint('TTS timeout');
-          },
-        );
-      }
-    } catch (e) {
-      debugPrint('Error in speak: $e');
-    }
+    await _ttsService.speak(text);
   }
 
   Future<void> stopSpeaking() async {
@@ -720,33 +630,26 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
-    if (_ttsCompleter != null && !_ttsCompleter!.isCompleted) {
-      _ttsCompleter!.complete();
-    }
-    _ttsCompleter = null;
-    await _tts.stop();
+    await _ttsService.stop();
     notifyListeners();
   }
 
   Future<void> setTtsSpeed(double speed) async {
     _ttsSpeed = speed.clamp(0.25, 2.0);
-    await _tts.setSpeechRate(_convertSpeedToRate(_ttsSpeed));
-
-    // ★ THÊM: Persist
+    _ttsService.configure(speed: _ttsSpeed);
     _storage.saveTtsSpeed(_ttsSpeed);
-
     notifyListeners();
   }
 
   Future<void> setTtsPitch(double pitch) async {
     _ttsPitch = pitch.clamp(0.5, 2.0);
-    await _tts.setPitch(_ttsPitch);
+    _ttsService.configure(pitch: _ttsPitch);
     notifyListeners();
   }
 
   Future<void> setTtsLanguage(String language) async {
     _ttsLanguage = language;
-    await _tts.setLanguage(language);
+    _ttsService.configure(language: language);
     notifyListeners();
   }
 
@@ -759,22 +662,21 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     notifyListeners();
 
     final originalSpeed = _ttsSpeed;
-    await setTtsSpeed(segment.ttsSpeed);
+    _ttsService.configure(speed: segment.ttsSpeed);
 
     for (int i = 0; i < segment.repeatCount; i++) {
       if (!_isPlayingSegment) break;
       _currentRepeatIndex = i + 1;
       notifyListeners();
-      await speak(segment.content);
-      if (i < segment.repeatCount - 1 && _isPlayingSegment) {
-        await Future.delayed(Duration(
-          milliseconds:
-              segment.difficulty == TextSegmentDifficulty.hard ? 1500 : 800,
-        ));
-      }
+
+      await _ttsService.speak(segment.content);
+      await Future.delayed(Duration(
+        milliseconds:
+            segment.difficulty == TextSegmentDifficulty.hard ? 1500 : 800,
+      ));
     }
 
-    await setTtsSpeed(originalSpeed);
+    _ttsService.configure(speed: originalSpeed);
 
     if (_isPlayingSegment) {
       final updated = segment.copyWith(
@@ -795,7 +697,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
-    stopSpeaking();
+    _ttsService.stop();
     notifyListeners();
   }
 
@@ -1075,7 +977,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   @override
   void dispose() {
-    _tts.stop();
+    _ttsService.stop();
     super.dispose();
   }
 }

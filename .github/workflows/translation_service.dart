@@ -1,17 +1,16 @@
 // lib/features/translation/translation_service.dart
 
 import 'dart:async';
-
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-import 'cache/translation_cache.dart';
-import 'engines/deeplx_engine.dart';
-import 'engines/google_free_engine.dart';
-import 'engines/libre_engine.dart';
-import 'engines/mymemory_engine.dart';
-import 'engines/offline_engine.dart';
 import 'engines/translation_engine.dart';
+import 'engines/google_free_engine.dart';
+import 'engines/mymemory_engine.dart';
+import 'engines/deeplx_engine.dart';
+import 'engines/offline_engine.dart';
+import 'cache/translation_cache.dart';
+import 'engines/libre_engine.dart';
 
 /// Quản lý dịch thuật với auto-fallback
 ///
@@ -75,7 +74,6 @@ class TranslationService {
 
     // 4. LibreTranslate (mã nguồn mở, nhiều server miễn phí) ★ THÊM
     _engines.add(LibreEngine());
-    // _engines.add(LibreEngine());
 
     // 5. Offline xử lý riêng ở cuối (trong translateText)
 

@@ -3,13 +3,12 @@ name: Flutter Full Build - Android, iOS, Windows
 on:
   push:
     tags:
-      - 'v*' # Kích hoạt khi push tag: v1.0, v2.1, v.v.
+      - 'v*'
 
 jobs:
-  # JOB 1: BUILD ANDROID APK
   build-android:
     name: Build Android APK
-    runs-on: ubuntu-latest # Android có thể build trên Ubuntu (nhẹ và nhanh)
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -32,12 +31,7 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          # Install Android SDK 36 which is required by plugins
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
-
-      # (Tùy chọn) Nếu dùng code generation
-      # - name: Run Build Runner
-      #   run: flutter pub run build_runner build --delete-conflicting-outputs
 
       - name: Build APK
         run: flutter build apk --release
@@ -52,10 +46,9 @@ jobs:
           name: android-apk
           path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
 
-  # JOB 2: BUILD WINDOWS
   build-windows:
     name: Build Windows App
-    runs-on: windows-latest # BẮT BUỘC dùng Windows runner
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -97,7 +90,7 @@ jobs:
       - name: Zip Windows build
         shell: powershell
         run: |
-          $absolutePath = "${GITHUB_WORKSPACE}\build\windows\runner\Release\*"
+          $absolutePath = "${env:GITHUB_WORKSPACE}\build\windows\x64\runner\Release\*"
           Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.ref_name }}.zip
 
       - name: Upload Windows artifact
@@ -106,10 +99,9 @@ jobs:
           name: windows-zip
           path: VipSound-Windows-*.zip
 
-  # JOB 3: BUILD iOS IPA (cho sideload)
   build-ios:
     name: Build iOS IPA (sideload)
-    runs-on: macos-latest # BẮT BUỘC dùng macOS runner
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -140,10 +132,9 @@ jobs:
           name: ios-ipa
           path: VipSound-iOS-*.ipa
 
-  # JOB 4: TẠO RELEASE VỚI TẤT CẢ FILE
   create-release:
     name: Create Release with all files
-    needs: [build-android, build-windows, build-ios] # Đợi cả 3 job hoàn thành
+    needs: [build-android, build-windows, build-ios]
     runs-on: ubuntu-latest
 
     steps:

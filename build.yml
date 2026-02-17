@@ -61,11 +61,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
 
       - name: Get dependencies
         run: flutter pub get

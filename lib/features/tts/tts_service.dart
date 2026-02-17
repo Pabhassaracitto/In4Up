@@ -10,6 +10,7 @@ import 'engines/google_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
 import 'engines/tts_engine.dart';
 import 'engines/zalo_tts_engine.dart'; // ★ THÊM
+import 'language_detector.dart'; // ★ THÊM IMPORT
 
 /// TTS Service với auto-fallback
 ///
@@ -161,11 +162,16 @@ class TtsService extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    // ★ FIX: Tự động phát hiện ngôn ngữ
+    final detectedLang = LanguageDetector.detect(text);
+    final targetLang =
+        _shouldUseDetectedLang(detectedLang) ? detectedLang : _language;
+
     try {
       // ──── 1. CHECK CACHE ────
       final cachedPath = await _cache.get(
         text: text,
-        language: _language,
+        language: targetLang, // ★ Dùng targetLang thay vì _language
         engineId: 'any', // Cache không phân biệt engine
       );
 
@@ -190,7 +196,7 @@ class TtsService extends ChangeNotifier {
             final result = await engine
                 .synthesize(
                   text: text,
-                  language: _language,
+                  language: targetLang, // ★ Dùng targetLang
                   speed: _speed,
                   pitch: _pitch,
                   voiceId: _selectedVoiceId,
@@ -202,7 +208,7 @@ class TtsService extends ChangeNotifier {
                 // Có bytes → lưu cache + phát
                 final filePath = await _cache.put(
                   text: text,
-                  language: _language,
+                  language: targetLang, // ★ Dùng targetLang
                   engineId: engine.id,
                   audioData: result.audioData!,
                 );
@@ -242,7 +248,7 @@ class TtsService extends ChangeNotifier {
 
       await _offlineEngine.speakDirect(
         text: text,
-        language: _language,
+        language: targetLang, // ★ Dùng targetLang
         speed: _speed,
         pitch: _pitch,
         voiceId: _selectedVoiceId,
@@ -257,6 +263,19 @@ class TtsService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Quyết định có nên dùng ngôn ngữ detect được hay không
+  bool _shouldUseDetectedLang(String detected) {
+    // 1. Nếu detect ra tiếng Việt (có dấu), chắc chắn dùng vi-VN
+    if (detected == 'vi-VN') return true;
+
+    // 2. Nếu đang set tiếng Việt, mà detect ra ngôn ngữ khác (Anh, Nhật...)
+    // -> Chuyển sang ngôn ngữ đó để Google TTS xử lý đúng.
+    if (_language.startsWith('vi') && detected != 'vi-VN') return true;
+
+    // Các trường hợp khác tôn trọng setting của user
+    return false;
   }
 
   // ═══════════════════════════════════════════

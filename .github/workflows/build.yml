@@ -92,7 +92,7 @@ jobs:
 
       - name: List files in Release folder
         shell: powershell
-        run: Get-ChildItem -Path "build\windows\runner\Release\*"
+        run: Get-ChildItem -Path "build\windows\x64\runner\Release\*"
 
       - name: Zip Windows build
         shell: powershell

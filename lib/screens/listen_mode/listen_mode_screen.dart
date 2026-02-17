@@ -11,6 +11,7 @@
 //   Layer 3 (kéo sheet lên) : AB-Loop, Speed, Quick Actions
 
 import 'dart:ui';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -424,6 +425,8 @@ class _CorePlayerControls extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SizedBox(
         height: 64, // Chiều cao cố định bằng nút Play để Stack tính toán đúng
+        width: double
+            .infinity, // ★ FIX: Mở rộng chiều ngang để badge dạt sang 2 bên
         child: Stack(
           alignment: Alignment.center,
           children: [

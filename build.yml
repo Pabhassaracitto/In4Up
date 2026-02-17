@@ -1,0 +1,169 @@
+name: Flutter Full Build - Android, iOS, Windows
+
+on:
+  push:
+    tags:
+      - 'v*' # Kích hoạt khi push tag: v1.0, v2.1, v.v.
+
+jobs:
+  # JOB 1: BUILD ANDROID APK
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest # Android có thể build trên Ubuntu (nhẹ và nhanh)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Setup Android SDK
+        run: |
+          # Install Android SDK 36 which is required by plugins
+          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+
+      # (Tùy chọn) Nếu dùng code generation
+      # - name: Run Build Runner
+      #   run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VipSound-Android-${{ github.ref_name }}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
+
+  # JOB 2: BUILD WINDOWS
+  build-windows:
+    name: Build Windows App
+    runs-on: windows-latest # BẮT BUỘC dùng Windows runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # ★ THÊM: Đảm bảo xóa thư mục cũ nếu còn sót lại
+      - name: Clean up old folders
+        run: |
+          if (Test-Path "lib/features/DeepLX") { Remove-Item "lib/features/DeepLX" -Recurse -Force }
+          if (Test-Path "lib/features/deeplx") { Remove-Item "lib/features/deeplx" -Recurse -Force }
+
+      # ★ THÊM: Xóa cache build cũ để tránh lỗi CMake lưu đường dẫn sai
+      - name: Clean Build Cache
+        run: flutter clean
+
+      - name: Get dependencies again
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release --verbose
+
+      - name: List files in Release folder
+        shell: powershell
+        run: Get-ChildItem -Path "build\windows\runner\Release\*"
+
+      - name: Zip Windows build
+        shell: powershell
+        run: |
+          $absolutePath = "${GITHUB_WORKSPACE}\build\windows\runner\Release\*"
+          Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.ref_name }}.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: VipSound-Windows-*.zip
+
+  # JOB 3: BUILD iOS IPA (cho sideload)
+  build-ios:
+    name: Build iOS IPA (sideload)
+    runs-on: macos-latest # BẮT BUỘC dùng macOS runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r VipSound-iOS-${{ github.ref_name }}.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: VipSound-iOS-*.ipa
+
+  # JOB 4: TẠO RELEASE VỚI TẤT CẢ FILE
+  create-release:
+    name: Create Release with all files
+    needs: [build-android, build-windows, build-ios] # Đợi cả 3 job hoàn thành
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded files
+        run: |
+          echo "=== DANH SÁCH FILE ĐÃ TẢI VỀ ==="
+          ls -R artifacts
+          echo "================================"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          files: |
+            artifacts/android-apk/*.apk
+            artifacts/windows-zip/*.zip
+            artifacts/ios-ipa/*.ipa
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

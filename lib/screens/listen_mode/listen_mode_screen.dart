@@ -593,9 +593,15 @@ class _AdvancedSheet extends StatelessWidget {
                     ),
                   ),
 
-                  // ── Collapsed hint ───────────────────────────────
-                  if (!isExpanded)
-                    Padding(
+                  // ── FIX: Dùng AnimatedCrossFade thay vì if/else ──
+                  // Tránh text bị "kẹt" khi sheet đang animate
+                  AnimatedCrossFade(
+                    duration: const Duration(milliseconds: 200),
+                    crossFadeState: isExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    // First: collapsed hint
+                    firstChild: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -612,39 +618,42 @@ class _AdvancedSheet extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // Second: expanded content
+                    secondChild: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Section: Loop
+                        _SheetSection(
+                          title: 'AB Loop',
+                          icon: Icons.loop,
+                          iconColor: const Color(0xFF4CAF50),
+                          child: const ABLoopControls(),
+                        ),
 
-                  // ── Expanded content ─────────────────────────────
-                  if (isExpanded) ...[
-                    // Section: Loop
-                    _SheetSection(
-                      title: 'AB Loop',
-                      icon: Icons.loop,
-                      iconColor: const Color(0xFF4CAF50),
-                      child: const ABLoopControls(),
+                        const _Divider(),
+
+                        // Section: Speed
+                        _SheetSection(
+                          title: 'Tốc độ',
+                          icon: Icons.speed,
+                          iconColor: Colors.orange,
+                          child: const SpeedControlWidget(),
+                        ),
+
+                        const _Divider(),
+
+                        // Section: Quick Actions
+                        _SheetSection(
+                          title: 'Nhanh',
+                          icon: Icons.bolt,
+                          iconColor: const Color(0xFF6C63FF),
+                          child: _QuickActionsRow(player: player),
+                        ),
+
+                        const SizedBox(height: 16),
+                      ],
                     ),
-
-                    const _Divider(),
-
-                    // Section: Speed
-                    _SheetSection(
-                      title: 'Tốc độ',
-                      icon: Icons.speed,
-                      iconColor: Colors.orange,
-                      child: const SpeedControlWidget(),
-                    ),
-
-                    const _Divider(),
-
-                    // Section: Quick Actions (bookmark, sleep timer)
-                    _SheetSection(
-                      title: 'Nhanh',
-                      icon: Icons.bolt,
-                      iconColor: const Color(0xFF6C63FF),
-                      child: _QuickActionsRow(player: player),
-                    ),
-
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ],
               ),
             ),

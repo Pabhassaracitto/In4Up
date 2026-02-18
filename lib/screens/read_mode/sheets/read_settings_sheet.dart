@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/text_provider.dart';
-import '../../../models/word_analysis.dart';
+import '../../../features/tts/widgets/auto_split_section.dart';
+import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
+import '../../../models/word_analysis.dart';
+import '../../../providers/text_provider.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();
@@ -106,6 +108,34 @@ class _SettingsContent extends StatelessWidget {
                   _SectionTitle(title: 'Hiển thị', icon: Icons.visibility),
                   const SizedBox(height: 12),
                   _DisplayOptions(tp: tp),
+
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white12),
+                  const SizedBox(height: 16),
+
+                  // ★ TTS Settings (Cấu hình nâng cao)
+                  const TtsSettingsSection(
+                    primaryColor: Color(0xFF6C63FF),
+                  ),
+
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white12),
+                  const SizedBox(height: 16),
+
+                  // ★ Auto Split (Tách dòng tự động)
+                  AutoSplitSection(
+                    currentText: tp.fullText,
+                    primaryColor: const Color(0xFF6C63FF),
+                    onApply: (lines) {
+                      tp.loadFromLines(lines);
+                      Navigator.pop(context); // Đóng settings
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content:
+                                Text('Đã tách thành ${lines.length} dòng')),
+                      );
+                    },
+                  ),
 
                   const SizedBox(height: 32),
                 ],

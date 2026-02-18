@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../models/waveform_data.dart';
 import '../controllers/rolling_waveform_controller.dart';
 
@@ -45,6 +46,7 @@ class RollingWaveformPainter extends CustomPainter {
 
     // Tính toán window hiển thị
     final visibleDuration = controller.visibleDuration;
+    if (visibleDuration.inMilliseconds == 0) return;
     final halfVisible =
         Duration(milliseconds: visibleDuration.inMilliseconds ~/ 2);
 
@@ -74,9 +76,13 @@ class RollingWaveformPainter extends CustomPainter {
     for (int i = 0; i < size.width.toInt(); i++) {
       final sampleIndex = (i * samplesPerPixel).floor();
       if (sampleIndex >= visibleSamples.length) break;
+      if (sampleIndex < 0) continue;
 
       final amplitude = visibleSamples[sampleIndex];
-      final barHeight = amplitude * (size.height / 2) * 0.9; // 90% max height
+      final safeAmplitude =
+          amplitude.isFinite ? amplitude.clamp(0.0, 1.0) : 0.0;
+      final barHeight =
+          safeAmplitude * (size.height / 2) * 0.9; // 90% max height
 
       // Xác định màu dựa vào vị trí so với playhead
       Color barColor;
@@ -123,10 +129,16 @@ class RollingWaveformPainter extends CustomPainter {
           (region.end < controller.position ? -100.0 : size.width + 100.0);
 
       // Vẽ vùng loop (overlay)
+      // Clamp coordinates để tránh lỗi render khi giá trị quá lớn
+      final safeStartX = drawStartX.clamp(-10000.0, size.width + 10000.0);
+      final safeEndX = drawEndX.clamp(-10000.0, size.width + 10000.0);
+      final safeWidth =
+          (safeEndX - safeStartX).clamp(0.0, size.width + 20000.0);
+
       final loopRect = Rect.fromLTWH(
-        drawStartX,
+        safeStartX,
         0,
-        drawEndX - drawStartX,
+        safeWidth,
         size.height,
       );
 
@@ -213,6 +225,7 @@ class RollingWaveformPainter extends CustomPainter {
       Duration position, double screenWidth, double playheadX) {
     final delta = position.inMilliseconds - controller.position.inMilliseconds;
     final visibleMs = controller.visibleDuration.inMilliseconds;
+    if (visibleMs == 0) return null;
     final halfVisibleMs = visibleMs / 2;
 
     // Kiểm tra nếu position nằm ngoài visible window

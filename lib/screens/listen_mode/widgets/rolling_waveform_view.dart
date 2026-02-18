@@ -1,5 +1,7 @@
 // lib/widgets/rolling_waveform_view.dart
-// Widget chính để hiển thị waveform dạng rolling, với playhead cố định ở giữa và waveform chạy qua lại. Hỗ trợ highlight vùng hiện tại, màu sắc khác nhau cho quá khứ và tương lai, và hiển thị loop regions.
+// Widget chính để hiển thị waveform dạng rolling, với playhead cố định ở giữa và waveform chạy qua lại.
+// FIX: Drag mượt hơn bằng delta-based seek thay vì absolute position seek.
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -29,10 +31,14 @@ class RollingWaveformView extends StatefulWidget {
 class _RollingWaveformViewState extends State<RollingWaveformView> {
   bool _isVisible = true;
 
+  // ── FIX: Lưu vị trí bắt đầu drag để tính delta ──
+  Duration? _dragStartPosition; // Vị trí audio lúc bắt đầu drag
+  double? _dragStartX; // Vị trí tay lúc bắt đầu drag
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      // Single tap: pause/play hoặc custom action
+      // Single tap: pause/play
       onTap: () {
         widget.onTap?.call();
       },
@@ -42,20 +48,51 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
         setState(() => _isVisible = !_isVisible);
       },
 
-      // Drag: seek
+      // ── FIX: Ghi nhớ vị trí bắt đầu drag ──
+      onHorizontalDragStart: (details) {
+        _dragStartPosition = widget.controller.position;
+        _dragStartX = details.localPosition.dx;
+      },
+
+      // ── FIX: Tính seek dựa theo delta từ điểm bắt đầu drag ──
       onHorizontalDragUpdate: (details) {
         if (widget.onSeek == null) return;
+        if (_dragStartPosition == null || _dragStartX == null) return;
 
-        final renderBox = context.findRenderObject() as RenderBox;
-        final localPosition = renderBox.globalToLocal(details.globalPosition);
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null) return;
+
         final screenWidth = renderBox.size.width;
+        if (screenWidth <= 0) return;
 
-        final targetPosition = widget.controller.screenXToPosition(
-          localPosition.dx,
-          screenWidth,
-        );
+        // Khoảng cách delta từ điểm bắt đầu (px)
+        final deltaX = details.localPosition.dx - _dragStartX!;
 
-        widget.onSeek?.call(targetPosition);
+        // Tính thời gian tương ứng với delta
+        // Kéo trái = về trước, kéo phải = về sau
+        // Dùng visibleDuration để scale — zoom càng cao, kéo càng chậm
+        final visibleMs = widget.controller.visibleDuration.inMilliseconds;
+        final msPerPixel = visibleMs / screenWidth;
+
+        // Kéo ngược chiều: kéo phải = waveform dịch phải = position lùi lại
+        final deltaMs = -deltaX * msPerPixel;
+
+        final targetMs = (_dragStartPosition!.inMilliseconds + deltaMs)
+            .round()
+            .clamp(0, widget.controller.duration.inMilliseconds);
+
+        widget.onSeek?.call(Duration(milliseconds: targetMs));
+      },
+
+      // Reset khi nhả tay
+      onHorizontalDragEnd: (_) {
+        _dragStartPosition = null;
+        _dragStartX = null;
+      },
+
+      onHorizontalDragCancel: () {
+        _dragStartPosition = null;
+        _dragStartX = null;
       },
 
       child: AnimatedContainer(
@@ -68,7 +105,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
                   // Waveform canvas
                   Expanded(
                     child: Listener(
-                      // Pinch zoom
+                      // Pinch zoom bằng scroll wheel (desktop/trackpad)
                       onPointerSignal: (event) {
                         if (event is PointerScrollEvent) {
                           final newZoom = widget.controller.zoom +
@@ -122,7 +159,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
             color: Colors.white70,
           ),
 
-          // Zoom indicator
+          // Zoom slider
           Expanded(
             child: Slider(
               value: widget.controller.zoom,
@@ -147,19 +184,22 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
 
           const SizedBox(width: 16),
 
-          // Zoom value
+          // Zoom value badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              '${widget.controller.zoom.toStringAsFixed(1)}x',
-              style: const TextStyle(
-                color: Color(0xFF6C63FF),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            child: AnimatedBuilder(
+              animation: widget.controller,
+              builder: (context, _) => Text(
+                '${widget.controller.zoom.toStringAsFixed(1)}x',
+                style: const TextStyle(
+                  color: Color(0xFF6C63FF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

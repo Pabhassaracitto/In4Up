@@ -16,6 +16,7 @@ import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
+import '../services/text_splitter_service.dart';
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
   final TtsService _ttsService = TtsService();
@@ -979,5 +980,59 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   void dispose() {
     _ttsService.stop();
     super.dispose();
+  }
+
+  /// Tách dòng tự động và load lại
+  void autoSplitText({
+    SplitMode mode = SplitMode.smart,
+    int minWords = 4,
+    int maxWords = 15,
+  }) {
+    if (_fullText.isEmpty) return;
+
+    final lines = TextSplitterService.split(
+      _fullText,
+      mode: mode,
+      minWordsBeforeSplit: minWords,
+      maxWordsPerLine: maxWords,
+    );
+
+    _applyLines(lines);
+  }
+
+  /// Load từ danh sách dòng đã tách
+  void loadFromLines(List<String> lines, {String? title}) {
+    _applyLines(lines, title: title);
+  }
+
+  void _applyLines(List<String> lineStrings, {String? title}) {
+    _lines = lineStrings.asMap().entries.map((entry) {
+      return TextItem(
+        id: 'line_${entry.key}',
+        content: entry.value.trim(),
+      );
+    }).toList();
+
+    _fullText = lineStrings.join('\n');
+
+    _analyzedLines = SyntaxHighlighterService.analyzeLines(
+      _lines.map((l) => l.content).toList(),
+    );
+
+    _currentDocument = TextDocument(
+      id: _currentDocument?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title ?? _currentDocument?.title ?? 'Untitled',
+      lines: _lines,
+      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
+    _selectedTextInfo = null;
+    _selectedText = null;
+    notifyListeners();
+
+    debugPrint('✂️ Auto-split: ${_lines.length} lines');
   }
 }

@@ -428,7 +428,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     if (index < _analyzedLines.length) {
       _analyzedLines[index] = analyzed;
     } else {
-      while (_analyzedLines.length <= index) _analyzedLines.add([]);
+      while (_analyzedLines.length <= index) {
+        _analyzedLines.add([]);
+      }
       _analyzedLines[index] = analyzed;
     }
 
@@ -494,7 +496,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     if (index < _analyzedLines.length) {
       _analyzedLines.removeAt(index);
     } else {
-      while (_analyzedLines.length <= index) _analyzedLines.add([]);
+      while (_analyzedLines.length <= index) {
+        _analyzedLines.add([]);
+      }
     }
     _analyzedLines.insertAll(index, newAnalyzed);
 
@@ -589,6 +593,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   List<TextSegment> getSegmentsByType(TextSegmentType type) {
     return _segments.where((s) => s.type == type).toList();
+  }
+
+  void addTextSegment(TextSegment segment) {
+    _segments.add(segment);
+    notifyListeners();
   }
 
   // ==================== TTS FUNCTIONS ====================
@@ -911,6 +920,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     required int endLine,
     Color color = const Color(0xFF2196F3),
     String? note,
+    String? ipa,
+    String? translation,
   }) {
     final segment = TextSegment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -920,6 +931,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       endLine: endLine,
       color: color,
       note: note,
+      ipa: ipa,
+      translation: translation,
     );
     _segments.add(segment);
 

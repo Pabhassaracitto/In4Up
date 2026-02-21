@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
@@ -130,6 +131,40 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
+  Future<void> _pickAudio(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+      if (result != null && result.files.single.path != null) {
+        if (context.mounted) {
+          // Gọi hàm play của PlayerProvider để phát file vừa chọn
+          context
+              .read<PlayerProvider>()
+              .loadSong(path: result.files.single.path!, autoPlay: true);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking audio: $e');
+    }
+  }
+
+  Future<void> _pickText(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['lrc', 'srt', 'txt'],
+      );
+      if (result != null && result.files.single.path != null) {
+        if (context.mounted) {
+          await context
+              .read<TextProvider>()
+              .loadTextFile(result.files.single.path!);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking text: $e');
+    }
+  }
+
   Widget _buildGuideState(BuildContext context, bool hasAudio, bool hasText) {
     return Center(
       child: Padding(
@@ -191,6 +226,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 color: const Color(0xFF6C63FF),
                 onTap: () {
                   HapticFeedback.mediumImpact();
+                  _pickAudio(context);
                 },
               ),
             if (!hasText) ...[
@@ -201,6 +237,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 color: const Color(0xFF2196F3),
                 onTap: () {
                   HapticFeedback.mediumImpact();
+                  _pickText(context);
                 },
               ),
             ],

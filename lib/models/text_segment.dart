@@ -33,6 +33,7 @@ class TextSegment {
   final int repeatCount;
   final double ttsSpeed;
   final String? note;
+  final String? ipa; // ★ THÊM DÒNG NÀY
   final String? translation;
   final List<String> tags;
   final DateTime createdAt;
@@ -54,6 +55,7 @@ class TextSegment {
     this.repeatCount = 3,
     this.ttsSpeed = 1.0,
     this.note,
+    this.ipa, // ★ THÊM DÒNG NÀY
     this.translation,
     this.tags = const [],
     DateTime? createdAt,
@@ -80,6 +82,7 @@ class TextSegment {
     double? ttsSpeed,
     String? note,
     String? translation,
+    String? ipa, // ★ THÊM DÒNG NÀY
     List<String>? tags,
     DateTime? createdAt,
     DateTime? lastPracticed,
@@ -100,6 +103,7 @@ class TextSegment {
       repeatCount: repeatCount ?? this.repeatCount,
       ttsSpeed: ttsSpeed ?? this.ttsSpeed,
       note: note ?? this.note,
+      ipa: ipa ?? this.ipa, // ★ THÊM DÒNG NÀY
       translation: translation ?? this.translation,
       tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
@@ -206,6 +210,7 @@ class TextSegment {
       'repeatCount': repeatCount,
       'ttsSpeed': ttsSpeed,
       'note': note,
+      'ipa': ipa, // ★ THÊM
       'translation': translation,
       'tags': tags,
       'createdAt': createdAt.toIso8601String(),
@@ -224,6 +229,7 @@ class TextSegment {
       endOffset: json['endOffset'] as int? ?? 0,
       startLine: json['startLine'] as int? ?? 0,
       endLine: json['endLine'] as int? ?? 0,
+      ipa: json['ipa'] as String?, // ★ THÊM
       color: json['color'] != null
           ? Color(json['color'] as int)
           : const Color(0xFF2196F3),

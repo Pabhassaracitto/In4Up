@@ -1,3 +1,6 @@
+// lib/features/translation/text_provider_translation.dart
+// ★ FIX: translateAll - throttle notifyListeners để tránh quá nhiều rebuild đồng thời
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -7,7 +10,7 @@ import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
 mixin TranslationMixin on ChangeNotifier {
-  // ── STATE (giữ nguyên) ──
+  // ── STATE ──
   TranslationDisplayMode _translationDisplayMode =
       TranslationDisplayMode.hidden;
   TranslationDisplayMode get translationDisplayMode => _translationDisplayMode;
@@ -21,7 +24,6 @@ mixin TranslationMixin on ChangeNotifier {
   String? _translationError;
   String? get translationError => _translationError;
 
-  // ★ THÊM: Engine đang dùng
   String _currentEngine = '';
   String get currentEngine => _currentEngine;
 
@@ -61,13 +63,15 @@ mixin TranslationMixin on ChangeNotifier {
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    // ★ ĐỔI: DeepLXService.translateText → TranslationService().translateText
     final result = await TranslationService().translateText(line.content);
 
     if (result.isSuccess) {
-      lines[index] = line.copyWith(translation: result.translatedText);
-      _currentEngine = TranslationService().lastUsedEngine;
-      notifyListeners();
+      // ★ FIX: Guard index lại sau khi await (lines có thể đã thay đổi)
+      if (index < lines.length) {
+        lines[index] = line.copyWith(translation: result.translatedText);
+        _currentEngine = TranslationService().lastUsedEngine;
+        notifyListeners();
+      }
     }
   }
 
@@ -101,33 +105,50 @@ mixin TranslationMixin on ChangeNotifier {
 
     int consecutiveErrors = 0;
 
+    // ★ FIX: Throttle — chỉ notify mỗi N dòng thay vì mỗi dòng
+    // Tránh hàng chục notifyListeners() liên tiếp gây rebuild toàn bộ ListView
+    const notifyEvery = 3; // notify sau mỗi 3 dòng
+    int doneCount = 0;
+
     try {
       for (int i = 0; i < toTranslate.length; i++) {
         if (!_isTranslating) break;
 
         final lineIndex = toTranslate[i];
-        final line = lines[lineIndex];
 
-        // ★ ĐỔI: DeepLXService → TranslationService
+        // ★ FIX: Guard — lines có thể đã thay đổi sau mỗi await
+        if (lineIndex >= lines.length) continue;
+
+        final line = lines[lineIndex];
         final result = await TranslationService().translateText(line.content);
 
-        if (result.isSuccess && result.translatedText.isNotEmpty) {
-          lines[lineIndex] = line.copyWith(translation: result.translatedText);
-          _currentEngine = TranslationService().lastUsedEngine;
-          consecutiveErrors = 0;
-        } else {
-          _translationError = '${result.engineName}: ${result.error}';
-          consecutiveErrors++;
+        // ★ FIX: Guard lại sau await
+        if (lineIndex < lines.length) {
+          if (result.isSuccess && result.translatedText.isNotEmpty) {
+            lines[lineIndex] =
+                line.copyWith(translation: result.translatedText);
+            _currentEngine = TranslationService().lastUsedEngine;
+            consecutiveErrors = 0;
+          } else {
+            _translationError = '${result.engineName}: ${result.error}';
+            consecutiveErrors++;
 
-          if (consecutiveErrors >= 5) {
-            _translationError =
-                'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
-            break;
+            if (consecutiveErrors >= 5) {
+              _translationError =
+                  'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
+              break;
+            }
           }
         }
 
-        _translationProgress = (i + 1) / toTranslate.length;
-        notifyListeners();
+        doneCount++;
+        _translationProgress = doneCount / toTranslate.length;
+
+        // ★ FIX: Throttle notify — không notify mỗi dòng
+        final isLastItem = i == toTranslate.length - 1;
+        if (isLastItem || doneCount % notifyEvery == 0) {
+          notifyListeners();
+        }
 
         if (i < toTranslate.length - 1) {
           await Future.delayed(const Duration(milliseconds: 200));
@@ -142,6 +163,7 @@ mixin TranslationMixin on ChangeNotifier {
     } finally {
       _isTranslating = false;
       _translationProgress = 1.0;
+      // ★ FIX: Chỉ notify 1 lần duy nhất khi hoàn tất
       notifyListeners();
     }
   }

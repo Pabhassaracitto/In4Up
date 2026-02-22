@@ -1,4 +1,5 @@
 // lib/screens/read_mode/widgets/text_line_widget.dart
+// ★ FIX: Thêm guard index trong Selector2 để tránh RangeError khi lines thay đổi
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +13,7 @@ import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
-import '../sheets/line_edit_sheet.dart'; // ★ Import LineEditSheet
+import '../sheets/line_edit_sheet.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
 
@@ -29,29 +30,43 @@ class TextLineWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Selector2<TextProvider, PlayerProvider, _LineData>(
-      selector: (_, tp, pp) => _LineData(
-        content: tp.lines[index].content,
-        translation: tp.lines[index].translation,
-        startTime: tp.lines[index].startTime,
-        endTime: tp.lines[index].endTime,
-        isCurrentLine: index == tp.currentLineIndex,
-        isPlaying: _checkIsPlaying(tp, pp, index),
-        colorMode: tp.colorMode,
-        fontSize: tp.fontSize,
-        displayMode: tp.translationDisplayMode,
-        isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
-        analyzedWords: index < tp.analyzedLines.length
-            ? tp.analyzedLines[index]
-            : const <AnalyzedWord>[],
-      ),
+      selector: (_, tp, pp) {
+        // ★ FIX CHÍNH: Guard index trước khi truy cập tp.lines[index]
+        // Crash xảy ra khi translateAll gọi notifyListeners() đồng thời
+        // với một thay đổi lines khác (autoSplit, loadText...) làm lines ngắn lại
+        // nhưng ListView vẫn giữ widget cũ với index >= lines.length
+        if (index >= tp.lines.length) {
+          return const _LineData.empty();
+        }
+
+        final line = tp.lines[index];
+        return _LineData(
+          content: line.content,
+          translation: line.translation,
+          startTime: line.startTime,
+          endTime: line.endTime,
+          isCurrentLine: index == tp.currentLineIndex,
+          isPlaying: _checkIsPlaying(tp, pp, index),
+          colorMode: tp.colorMode,
+          fontSize: tp.fontSize,
+          displayMode: tp.translationDisplayMode,
+          isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
+          analyzedWords: index < tp.analyzedLines.length
+              ? tp.analyzedLines[index]
+              : const <AnalyzedWord>[],
+        );
+      },
       shouldRebuild: (prev, next) => prev != next,
       builder: (context, data, _) {
+        // ★ FIX: Nếu index đã out of range, render widget rỗng thay vì crash
+        if (data.isEmpty) return const SizedBox.shrink();
         return _buildSwipeableLine(context, data);
       },
     );
   }
 
   static bool _checkIsPlaying(TextProvider tp, PlayerProvider pp, int index) {
+    if (index >= tp.lines.length) return false;
     final line = tp.lines[index];
     if (line.startTime == null || !pp.isPlaying) return false;
     return pp.state.position >= line.startTime! &&
@@ -64,6 +79,9 @@ class TextLineWidget extends StatelessWidget {
       confirmDismiss: (direction) async {
         final tp = context.read<TextProvider>();
         final controller = context.read<ReadModeController>();
+
+        // ★ FIX: Guard khi lines có thể đã thay đổi trước khi gesture hoàn thành
+        if (index >= tp.lines.length) return false;
 
         if (direction == DismissDirection.endToStart) {
           HapticFeedback.mediumImpact();
@@ -107,11 +125,11 @@ class TextLineWidget extends StatelessWidget {
       onTap: () {
         final controller = context.read<ReadModeController>();
         final tp = context.read<TextProvider>();
+        if (index >= tp.lines.length) return; // ★ FIX
         controller.removeFloatingMenu();
         tp.setCurrentLine(index);
         HapticFeedback.selectionClick();
 
-        // Jump to audio if synced
         if (data.startTime != null) {
           context.read<PlayerProvider>().seek(data.startTime!);
         }
@@ -122,7 +140,6 @@ class TextLineWidget extends StatelessWidget {
       },
       onLongPress: () {
         HapticFeedback.mediumImpact();
-        // ★ CẬP NHẬT: Mở sheet chỉnh sửa khi nhấn giữ
         LineEditSheet.show(context, index);
       },
       child: AnimatedContainer(
@@ -189,10 +206,8 @@ class TextLineWidget extends StatelessWidget {
               lineIndex: index,
             );
 
-            final start = selection.start;
-            final end = selection.end;
-            final selectedText = data.content.substring(start, end);
-
+            final selectedText =
+                data.content.substring(selection.start, selection.end);
             FloatingTextActions.show(context, selectedText, index);
           }
         },
@@ -304,6 +319,9 @@ class _LineData {
   final bool isSpeaking;
   final List<AnalyzedWord> analyzedWords;
 
+  // ★ FIX: Thêm flag để biết đây là empty data (index out of range)
+  final bool isEmpty;
+
   const _LineData({
     required this.content,
     this.translation,
@@ -316,14 +334,31 @@ class _LineData {
     required this.displayMode,
     required this.isSpeaking,
     required this.analyzedWords,
+    this.isEmpty = false,
   });
+
+  // ★ FIX: Constructor cho trường hợp index out of range
+  const _LineData.empty()
+      : content = '',
+        translation = null,
+        startTime = null,
+        endTime = null,
+        isCurrentLine = false,
+        isPlaying = false,
+        colorMode = ColorMode.none,
+        fontSize = 18,
+        displayMode = TranslationDisplayMode.hidden,
+        isSpeaking = false,
+        analyzedWords = const [],
+        isEmpty = true;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! _LineData) return false;
+    if (isEmpty != other.isEmpty) return false;
+    if (isEmpty) return true; // 2 empty đều bằng nhau
 
-    // Simple list equality check for analyzedWords
     if (analyzedWords.length != other.analyzedWords.length) return false;
 
     return content == other.content &&
@@ -337,13 +372,15 @@ class _LineData {
   }
 
   @override
-  int get hashCode => Object.hash(
-        content,
-        isCurrentLine,
-        isPlaying,
-        colorMode,
-        fontSize,
-        displayMode,
-        isSpeaking,
-      );
+  int get hashCode => isEmpty
+      ? 0
+      : Object.hash(
+          content,
+          isCurrentLine,
+          isPlaying,
+          colorMode,
+          fontSize,
+          displayMode,
+          isSpeaking,
+        );
 }

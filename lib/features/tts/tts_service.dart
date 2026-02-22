@@ -1,9 +1,6 @@
 // lib/features/tts/tts_service.dart
-// ★ THAY THẾ TOÀN BỘ
 
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
@@ -36,7 +33,7 @@ class TtsService extends ChangeNotifier {
   final OfflineTtsEngine _offlineEngine = OfflineTtsEngine();
 
   // Settings
-  TtsPriority _priority = TtsPriority.offlineFirst; // ★ Mặc định OFFLINE
+  TtsPriority _priority = TtsPriority.offlineFirst;
   String _language = 'auto';
   double _speed = 1.0;
   double _pitch = 1.0;
@@ -45,7 +42,6 @@ class TtsService extends ChangeNotifier {
   String? _zaloApiKey;
   bool _autoDetectLanguage = true;
 
-  // Engine order (user có thể thay đổi)
   List<TtsEngineInfo> _engineOrder = [];
 
   // Status
@@ -54,9 +50,13 @@ class TtsService extends ChangeNotifier {
   String _lastUsedEngine = '';
   String _detectedLanguage = '';
   String? _error;
-
-  // ★ THÊM: Prefetch cho mode offlineFirst
   bool _isPrefetching = false;
+
+  // ★ FIX: Track nguồn âm thanh đang dùng để tránh xung đột state
+  bool _usingOfflineEngine = false;
+
+  // ★ FIX: Guard chống notify sau khi dispose
+  bool _disposed = false;
 
   // Getters
   bool get isSpeaking => _isSpeaking;
@@ -83,13 +83,16 @@ class TtsService extends ChangeNotifier {
     _buildDefaultEngineOrder();
 
     _audioPlayer.playerStateStream.listen((state) {
+      // ★ FIX: Chỉ xử lý stream khi đang dùng AudioPlayer (KHÔNG dùng OfflineEngine)
+      if (_usingOfflineEngine) return;
+
       final wasPlaying = _isSpeaking;
       if (state.processingState == ProcessingState.completed) {
         _isSpeaking = false;
       } else if (state.playing) {
         _isSpeaking = true;
       }
-      if (wasPlaying != _isSpeaking) notifyListeners();
+      if (wasPlaying != _isSpeaking) _safeNotify();
     });
   }
 
@@ -125,6 +128,12 @@ class TtsService extends ChangeNotifier {
     ];
   }
 
+  /// ★ FIX: Bọc notifyListeners để tránh crash khi đã dispose
+  void _safeNotify() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
   // ═══════════════════════════════════════
   // CONFIGURATION
   // ═══════════════════════════════════════
@@ -151,32 +160,29 @@ class TtsService extends ChangeNotifier {
     if (zaloApiKey != null) {
       _zaloApiKey = zaloApiKey.trim().isEmpty ? null : zaloApiKey.trim();
     }
-    notifyListeners();
+    _safeNotify();
   }
 
-  /// Thay đổi thứ tự engine
   void reorderEngines(List<TtsEngineInfo> newOrder) {
     _engineOrder = newOrder
         .asMap()
         .entries
         .map((e) => e.value.copyWith(priority: e.key))
         .toList();
-    notifyListeners();
+    _safeNotify();
   }
 
-  /// Bật/tắt engine
   void toggleEngine(String engineId, bool enabled) {
     _engineOrder = _engineOrder.map((e) {
       if (e.id == engineId) return e.copyWith(isEnabled: enabled);
       return e;
     }).toList();
-    notifyListeners();
+    _safeNotify();
   }
 
-  /// Đặt priority mode
   void setPriority(TtsPriority p) {
     _priority = p;
-    notifyListeners();
+    _safeNotify();
   }
 
   // ═══════════════════════════════════════
@@ -189,7 +195,6 @@ class TtsService extends ChangeNotifier {
 
     _error = null;
 
-    // Detect language
     final lang = _resolveLanguage(text);
     _detectedLanguage = lang;
 
@@ -209,7 +214,7 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// ★ MODE 1: Offline trước → phát ngay, tải online nền
+  /// MODE 1: Offline trước → phát ngay, tải online nền
   Future<void> _speakOfflineFirst(String text, String lang) async {
     // Check cache trước
     final cachedPath = await _cache.get(
@@ -220,30 +225,40 @@ class TtsService extends ChangeNotifier {
 
     if (cachedPath != null) {
       _lastUsedEngine = '💾 Cache';
-      notifyListeners();
+      _safeNotify();
       await _playFile(cachedPath);
       return;
     }
 
-    // Phát offline NGAY LẬP TỨC
+    // ★ FIX: Đánh dấu đang dùng offline engine TRƯỚC KHI set _isSpeaking
+    _usingOfflineEngine = true;
     _lastUsedEngine = '📖 Offline';
     _isSpeaking = true;
-    notifyListeners();
+    _safeNotify();
 
-    await _offlineEngine.speakDirect(
-      text: text,
-      language: lang,
-      speed: _speed,
-      pitch: _pitch,
-    );
+    try {
+      await _offlineEngine.speakDirect(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+      );
+    } catch (e) {
+      _error = 'Lỗi offline TTS: $e';
+      debugPrint('OfflineTTS error: $e');
+    } finally {
+      // ★ FIX: Reset cờ TRƯỚC KHI update state
+      _usingOfflineEngine = false;
+      _isSpeaking = false;
+      _safeNotify();
+    }
 
-    // ★ Tải online ở nền để lần sau phát đẹp hơn
+    // Tải online ở nền (fire-and-forget)
     _prefetchOnline(text, lang);
   }
 
-  /// ★ MODE 2: Online trước → chờ tải, chất lượng cao
+  /// MODE 2: Online trước → chờ tải, chất lượng cao
   Future<void> _speakOnlineFirst(String text, String lang) async {
-    // Check cache
     final cachedPath = await _cache.get(
       text: text,
       language: lang,
@@ -252,24 +267,21 @@ class TtsService extends ChangeNotifier {
 
     if (cachedPath != null) {
       _lastUsedEngine = '💾 Cache';
-      notifyListeners();
+      _safeNotify();
       await _playFile(cachedPath);
       return;
     }
 
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
 
     final hasNetwork = await _checkNetwork();
 
     if (hasNetwork) {
-      // Thử online engines theo thứ tự user đã chọn
       final engines = _getOnlineEngines(lang);
 
       for (final engine in engines) {
         try {
-          debugPrint('🔄 TTS trying ${engine.name}...');
-
           final result = await engine
               .synthesize(
                 text: text,
@@ -291,13 +303,13 @@ class TtsService extends ChangeNotifier {
 
               _lastUsedEngine = '🌐 ${result.engineName}';
               _isLoading = false;
-              notifyListeners();
+              _safeNotify();
               await _playFile(filePath);
               return;
             } else if (result.audioUrl != null) {
               _lastUsedEngine = '🌐 ${result.engineName}';
               _isLoading = false;
-              notifyListeners();
+              _safeNotify();
               await _playUrl(result.audioUrl!);
               return;
             }
@@ -310,21 +322,29 @@ class TtsService extends ChangeNotifier {
 
     // Fallback offline
     _isLoading = false;
+
+    // ★ FIX: Đánh dấu offline mode
+    _usingOfflineEngine = true;
     _lastUsedEngine = '📖 Offline';
     _isSpeaking = true;
-    notifyListeners();
+    _safeNotify();
 
-    await _offlineEngine.speakDirect(
-      text: text,
-      language: lang,
-      speed: _speed,
-      pitch: _pitch,
-    );
+    try {
+      await _offlineEngine.speakDirect(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+      );
+    } finally {
+      _usingOfflineEngine = false;
+      _isSpeaking = false;
+      _safeNotify();
+    }
   }
 
   /// MODE 3: Chỉ offline
   Future<void> _speakOfflineOnly(String text, String lang) async {
-    // Vẫn check cache (cache từ lần online trước)
     final cachedPath = await _cache.get(
       text: text,
       language: lang,
@@ -333,35 +353,42 @@ class TtsService extends ChangeNotifier {
 
     if (cachedPath != null) {
       _lastUsedEngine = '💾 Cache';
-      notifyListeners();
+      _safeNotify();
       await _playFile(cachedPath);
       return;
     }
 
+    // ★ FIX: Đánh dấu offline mode
+    _usingOfflineEngine = true;
     _lastUsedEngine = '📖 Offline';
     _isSpeaking = true;
-    notifyListeners();
+    _safeNotify();
 
-    await _offlineEngine.speakDirect(
-      text: text,
-      language: lang,
-      speed: _speed,
-      pitch: _pitch,
-    );
+    try {
+      await _offlineEngine.speakDirect(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+      );
+    } finally {
+      _usingOfflineEngine = false;
+      _isSpeaking = false;
+      _safeNotify();
+    }
   }
 
-  /// ★ Prefetch: tải online ở nền để cache cho lần sau
+  /// Prefetch: tải online ở nền để cache cho lần sau
   void _prefetchOnline(String text, String lang) {
     if (_isPrefetching) return;
     _isPrefetching = true;
-    notifyListeners();
+    // ★ FIX: Không gọi _safeNotify ở đây - tránh rebuild không cần thiết
 
     Future(() async {
       try {
         final hasNetwork = await _checkNetwork();
         if (!hasNetwork) return;
 
-        // Đã có cache rồi thì thôi
         final existing = await _cache.get(
           text: text,
           language: lang,
@@ -392,18 +419,21 @@ class TtsService extends ChangeNotifier {
                 audioData: result.audioData!,
               );
               debugPrint('📥 Prefetch done: ${engine.name}');
-              return; // Chỉ cần 1 engine thành công
+              return;
             }
           } catch (_) {}
         }
       } finally {
         _isPrefetching = false;
-        notifyListeners();
+        // ★ FIX: Không notify ở đây - prefetch là silent operation
+        // Chỉ notify nếu app còn sống
+        if (!_disposed) {
+          // Không cần notify - prefetch là background, UI không cần biết
+        }
       }
     });
   }
 
-  /// Lấy online engines theo thứ tự user chọn
   List<TtsEngine> _getOnlineEngines(String lang) {
     final engines = <TtsEngine>[];
     final sorted = _engineOrder.where((e) => e.isEnabled && e.isOnline).toList()
@@ -446,25 +476,26 @@ class TtsService extends ChangeNotifier {
   Future<void> stop() async {
     _isSpeaking = false;
     _isLoading = false;
+    _usingOfflineEngine = false; // ★ FIX: Reset cờ khi stop
     try {
       await _audioPlayer.stop();
     } catch (_) {}
     try {
       await _offlineEngine.stop();
     } catch (_) {}
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> pause() async {
     await _audioPlayer.pause();
     _isSpeaking = false;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> resume() async {
     await _audioPlayer.play();
     _isSpeaking = true;
-    notifyListeners();
+    _safeNotify();
   }
 
   // ═══════════════════════════════════════
@@ -477,7 +508,7 @@ class TtsService extends ChangeNotifier {
     void Function(int currentIndex)? onLineChanged,
   }) async {
     _isSpeaking = true;
-    notifyListeners();
+    _safeNotify();
 
     for (int i = 0; i < lines.length; i++) {
       if (!_isSpeaking) break;
@@ -490,7 +521,7 @@ class TtsService extends ChangeNotifier {
     }
 
     _isSpeaking = false;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> speakRepeat(
@@ -500,7 +531,7 @@ class TtsService extends ChangeNotifier {
     void Function(int current, int total)? onRepeat,
   }) async {
     _isSpeaking = true;
-    notifyListeners();
+    _safeNotify();
 
     for (int i = 0; i < times; i++) {
       if (!_isSpeaking) break;
@@ -514,34 +545,26 @@ class TtsService extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════
-  // VOICES
+  // VOICES / STATUS / CACHE
   // ═══════════════════════════════════════
 
   Future<List<TtsVoice>> getAvailableVoices([String? lang]) async {
     final effectiveLang = lang ?? _language;
     final voices = <TtsVoice>[];
-
     for (final engine in _getOnlineEngines(effectiveLang)) {
       try {
         voices.addAll(await engine.getAvailableVoices(effectiveLang));
       } catch (_) {}
     }
-
     try {
       voices.addAll(await _offlineEngine.getAvailableVoices(effectiveLang));
     } catch (_) {}
-
     return voices;
   }
-
-  // ═══════════════════════════════════════
-  // STATUS
-  // ═══════════════════════════════════════
 
   Future<Map<String, bool>> checkEngineStatus() async {
     final status = <String, bool>{};
     final lang = _language == 'auto' ? 'vi-VN' : _language;
-
     for (final engine in _getOnlineEngines(lang)) {
       try {
         status[engine.name] =
@@ -550,7 +573,6 @@ class TtsService extends ChangeNotifier {
         status[engine.name] = false;
       }
     }
-
     status[_offlineEngine.name] = await _offlineEngine.isAvailable();
     return status;
   }
@@ -563,10 +585,6 @@ class TtsService extends ChangeNotifier {
     ];
   }
 
-  // ═══════════════════════════════════════
-  // CACHE
-  // ═══════════════════════════════════════
-
   Future<double> getCacheSizeMB() => _cache.getCacheSizeMB();
   Future<int> getCacheCount() => _cache.getCacheCount();
   Future<void> clearCache() => _cache.clear();
@@ -577,33 +595,36 @@ class TtsService extends ChangeNotifier {
 
   Future<void> _playFile(String filePath) async {
     try {
+      _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setFilePath(filePath);
       await _audioPlayer.setSpeed(_speed);
       _isSpeaking = true;
-      notifyListeners();
+      _safeNotify();
       await _audioPlayer.play();
     } catch (e) {
       _error = 'Lỗi phát: $e';
       _isSpeaking = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<void> _playUrl(String url) async {
     try {
+      _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setUrl(url);
       await _audioPlayer.setSpeed(_speed);
       _isSpeaking = true;
-      notifyListeners();
+      _safeNotify();
       await _audioPlayer.play();
     } catch (e) {
       _error = 'Lỗi stream: $e';
       _isSpeaking = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<void> _waitForCompletion() async {
+    if (_usingOfflineEngine) return; // ★ Offline đã await trực tiếp rồi
     try {
       await _audioPlayer.playerStateStream
           .firstWhere((s) =>
@@ -625,8 +646,13 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  // ═══════════════════════════════════════
+  // DISPOSE
+  // ═══════════════════════════════════════
+
   @override
   void dispose() {
+    _disposed = true; // ★ FIX: Đánh dấu đã dispose trước khi cleanup
     _audioPlayer.dispose();
     _offlineEngine.dispose();
     super.dispose();

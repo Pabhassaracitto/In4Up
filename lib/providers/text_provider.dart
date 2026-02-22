@@ -616,6 +616,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     await _ttsService.speakLines(
       lineTexts,
       onLineChanged: (index) {
+        // Guard: widget có thể đã unmount
+        if (!hasListeners) return;
         _currentLineIndex = index;
         notifyListeners();
       },
@@ -626,7 +628,16 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   Future<void> speakCurrentLine() async {
-    if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) return;
+    // ★ FIX: Guard khi chưa chọn dòng
+    if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) {
+      // Nếu chưa có dòng nào được chọn, phát dòng đầu tiên
+      if (_lines.isNotEmpty) {
+        _currentLineIndex = 0;
+        notifyListeners();
+        await _ttsService.speak(_lines[0].content);
+      }
+      return;
+    }
     await _ttsService.speak(_lines[_currentLineIndex].content);
   }
 

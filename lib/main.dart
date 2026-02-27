@@ -1,10 +1,13 @@
 // lib/main.dart
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'providers/player_provider.dart';
+
 import '../../../../../features/shadowing/providers/shadowing_provider.dart';
+import 'firebase_options.dart';
+import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
@@ -12,6 +15,10 @@ import 'services/storage_service.dart'; // ★ THÊM
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // ★ THÊM: Khởi tạo StorageService trước
   await StorageService().initialize();

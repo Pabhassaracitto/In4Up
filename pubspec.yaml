@@ -53,7 +53,14 @@ dependencies:
   http: ^1.2.2
   connectivity_plus: ^6.1.4    # Check network
   crypto: ^3.0.6                 # MD5 hash cho cache key
-# Thêm vào CUỐI file pubspec.yaml, trước dev_dependencies:
+# Firebase core (bắt buộc)
+  firebase_core: ^3.6.0
+  
+  # Firebase Auth (đăng nhập anonymous)
+  firebase_auth: ^5.3.1
+  
+  # Cloud Firestore (database)
+  cloud_firestore: ^5.4.4
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^
   just_audio_web: 0.4.16                # KHÔNG dùng ^

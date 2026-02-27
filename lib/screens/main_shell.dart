@@ -1,4 +1,11 @@
-//main_shell.dart
+// lib/screens/main_shell.dart
+//
+// Navigation logic:
+//   - Home là root (index -1)
+//   - Nhấn tab từ Home → mở tab đó
+//   - Nhấn lại tab đang active → về Home
+//   - Nhấn tab khác khi đang ở tab → chuyển sang tab đó (KHÔNG qua Home)
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,11 +13,15 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../screens/listen_mode/widgets/mini_player.dart';
 import '../screens/understand_mode/understand_tab_connector.dart';
+import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
+
+// -1 = Home, 0 = Đọc, 1 = Nghe, 2 = Hiểu, 3 = Nhớ
+const int _kHome = -1;
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -20,12 +31,10 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
-  int _currentIndex = 1; // Mặc định vào NGHE
+  int _currentIndex = _kHome;
 
-  // Keys cho Scaffold để control Drawers
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Animation controller cho smooth transitions
   late AnimationController _transitionController;
   late Animation<double> _fadeAnimation;
 
@@ -33,11 +42,14 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _transitionController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _transitionController, curve: Curves.easeInOut),
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: Curves.easeOut,
+      ),
     );
     _transitionController.forward();
   }
@@ -48,78 +60,81 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // Lấy màu theme theo tab
+  // ─── Navigation logic ────────────────────────────────────
+  void _onTabTapped(int tappedIndex) {
+    HapticFeedback.selectionClick();
+
+    if (_currentIndex == tappedIndex) {
+      // Đang ở tab này → về Home
+      _navigateTo(_kHome);
+    } else {
+      // Ở tab khác hoặc Home → chuyển sang tab được nhấn
+      _navigateTo(tappedIndex);
+    }
+  }
+
+  void _navigateTo(int index) {
+    if (_currentIndex == index) return;
+    _transitionController.reset();
+    setState(() => _currentIndex = index);
+    _transitionController.forward();
+  }
+
+  // ─── Theme helpers ───────────────────────────────────────
+  bool get _isHome => _currentIndex == _kHome;
+
   Color get _currentColor {
     switch (_currentIndex) {
       case 0:
-        return const Color(0xFF2196F3); // Đọc - Blue
+        return const Color(0xFF2196F3);
       case 1:
-        return const Color(0xFF6C63FF); // Nghe - Purple
+        return const Color(0xFF6C63FF);
       case 2:
-        return const Color(0xFFFFB300); // Hiểu - Amber
+        return const Color(0xFFFFB300);
       case 3:
-        return const Color(0xFF4CAF50); // Quick - Green
+        return const Color(0xFF4CAF50);
       default:
         return const Color(0xFF6C63FF);
     }
   }
 
-  String get _currentTitle {
-    switch (_currentIndex) {
-      case 0:
-        return '📖 Chế độ Đọc';
-      case 1:
-        return '🎧 Chế độ Nghe';
-      case 2:
-        return '💡 Chế độ Hiểu';
-      case 3:
-        return '🧠 Vườn Trí Nhớ';
-      default:
-        return 'VipSound';
-    }
-  }
-
+  // ─── Build ───────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF0F0F23),
-
-      // LEFT DRAWER: Text Library
+      backgroundColor: const Color(0xFF080B1A),
       drawer: const TextLibraryDrawer(),
-
-      // RIGHT DRAWER: Audio Library
       endDrawer: const AudioLibraryDrawer(),
-
-      // Cho phép vuốt để mở drawer
-      drawerEnableOpenDragGesture: true,
-      endDrawerEnableOpenDragGesture: true,
-
+      drawerEnableOpenDragGesture: !_isHome,
+      endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
         child: Column(
           children: [
-            // Custom App Bar
-            _buildAppBar(),
+            // App bar — chỉ hiện khi không ở Home
+            if (!_isHome) _buildTabAppBar(),
 
-            // Main Content
+            // Main content
             Expanded(
-              child: RepaintBoundary(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: _buildCurrentScreen(),
-                ),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: _buildCurrentScreen(),
               ),
             ),
 
-            // Mini Player (luôn hiện khi có audio)
+            // Mini player — luôn hiện khi có audio
             RepaintBoundary(
               child: Consumer<PlayerProvider>(
                 builder: (context, player, _) {
                   if (player.currentSongPath == null) {
                     return const SizedBox.shrink();
                   }
-                  return const MiniPlayer(
-                    margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  return GestureDetector(
+                    // Tap mini player → mở tab Nghe
+                    onTap: _isHome ? () => _navigateTo(1) : null,
+                    child: const MiniPlayer(
+                      margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    ),
                   );
                 },
               ),
@@ -127,45 +142,37 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           ],
         ),
       ),
-
-      // Bottom Navigation
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildAppBar() {
+  // ─── Tab App Bar (chỉ hiện khi đang trong tab) ───────────
+  Widget _buildTabAppBar() {
+    final titles = {
+      0: '📖 Chế độ Đọc',
+      1: '🎧 Chế độ Nghe',
+      2: '💡 Chế độ Hiểu',
+      3: '🧠 Vườn Trí Nhớ',
+    };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
           bottom: BorderSide(
-            color: _currentColor.withValues(alpha: 0.2),
+            color: _currentColor.withOpacity(0.2),
           ),
         ),
       ),
       child: Row(
         children: [
-          // Menu button (mở Text Library)
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              _scaffoldKey.currentState?.openDrawer();
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2196F3).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.menu_book,
-                color: Color(0xFF2196F3),
-                size: 20,
-              ),
-            ),
+          // Text library drawer
+          _AppBarIconButton(
+            icon: Icons.menu_book,
+            color: const Color(0xFF2196F3),
+            onTap: () => _scaffoldKey.currentState?.openDrawer(),
           ),
-
           const SizedBox(width: 12),
 
           // Title
@@ -174,21 +181,21 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _currentTitle,
+                  titles[_currentIndex] ?? 'VipSound',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                     color: _currentColor,
                   ),
                 ),
                 Consumer<PlayerProvider>(
                   builder: (context, player, _) {
+                    if (player.currentSongTitle == null) {
+                      return const SizedBox.shrink();
+                    }
                     return Text(
-                      player.currentSongTitle ?? 'Chưa chọn audio',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                      ),
+                      player.currentSongTitle!,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     );
@@ -198,162 +205,167 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             ),
           ),
 
-          // Mode indicator
-          Consumer<PlayerProvider>(
-            builder: (context, player, _) {
-              return GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  // Cycle modes
-                  const modes = VipMode.values;
-                  final idx = modes.indexOf(player.currentMode);
-                  player.setMode(modes[(idx + 1) % modes.length]);
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getModeColor(player.currentMode)
-                        .withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _getModeColor(player.currentMode)
-                          .withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _getModeIcon(player.currentMode),
-                        size: 14,
-                        color: _getModeColor(player.currentMode),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _getModeName(player.currentMode),
-                        style: TextStyle(
-                          color: _getModeColor(player.currentMode),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(width: 12),
-
-          // Audio Library button
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              _scaffoldKey.currentState?.openEndDrawer();
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.library_music,
-                color: Color(0xFF6C63FF),
-                size: 20,
-              ),
-            ),
+          // Audio library drawer
+          _AppBarIconButton(
+            icon: Icons.library_music,
+            color: const Color(0xFF6C63FF),
+            onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
       ),
     );
   }
 
+  // ─── Screen router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
+      case _kHome:
+        return HomeScreen(
+          onNavigateToListen: () => _navigateTo(1),
+          onNavigateToRead: () => _navigateTo(0),
+          onNavigateToUnderstand: () => _navigateTo(2),
+          onNavigateToMemory: () => _navigateTo(3),
+        );
       case 0:
         return const ReadModeScreen();
       case 1:
         return const ListenModeScreen();
       case 2:
-        return const UnderstandTabConnector(); // Sửa để sử dụng UnderstandTabConnector
+        return const UnderstandTabConnector();
       case 3:
         return const MemoryTabConnector();
       default:
-        return const ListenModeScreen();
+        return HomeScreen(
+          onNavigateToListen: () => _navigateTo(1),
+          onNavigateToRead: () => _navigateTo(0),
+          onNavigateToUnderstand: () => _navigateTo(2),
+          onNavigateToMemory: () => _navigateTo(3),
+        );
     }
   }
 
+  // ─── Bottom Navigation Bar ───────────────────────────────
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF111827),
         border: Border(
           top: BorderSide(
-            color: _currentColor.withValues(alpha: 0.2),
+            color: _isHome
+                ? Colors.white.withOpacity(0.06)
+                : _currentColor.withOpacity(0.2),
           ),
         ),
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavItem(0, Icons.menu_book_outlined, Icons.menu_book, 'Đọc',
-                  const Color(0xFF2196F3)),
-              _buildNavItem(1, Icons.headphones_outlined, Icons.headphones,
-                  'Nghe', const Color(0xFF6C63FF)),
-              _buildNavItem(2, Icons.lightbulb_outline, Icons.lightbulb, 'Hiểu',
-                  const Color(0xFFFFB300)),
-              _buildNavItem(3, Icons.psychology_outlined, Icons.psychology,
-                  'Nhớ', const Color(0xFF4CAF50)),
+              // Home button
+              _HomeNavButton(
+                isActive: _isHome,
+                onTap: () {
+                  if (!_isHome) {
+                    HapticFeedback.selectionClick();
+                    _navigateTo(_kHome);
+                  }
+                },
+              ),
+
+              // Divider
+              Container(
+                width: 1,
+                height: 32,
+                color: Colors.white.withOpacity(0.06),
+              ),
+
+              // Tab buttons
+              _NavButton(
+                tabIndex: 0,
+                currentIndex: _currentIndex,
+                icon: Icons.menu_book_outlined,
+                activeIcon: Icons.menu_book,
+                label: 'Đọc',
+                color: const Color(0xFF2196F3),
+                onTap: () => _onTabTapped(0),
+              ),
+              _NavButton(
+                tabIndex: 1,
+                currentIndex: _currentIndex,
+                icon: Icons.headphones_outlined,
+                activeIcon: Icons.headphones,
+                label: 'Nghe',
+                color: const Color(0xFF6C63FF),
+                onTap: () => _onTabTapped(1),
+              ),
+              _NavButton(
+                tabIndex: 2,
+                currentIndex: _currentIndex,
+                icon: Icons.lightbulb_outline,
+                activeIcon: Icons.lightbulb,
+                label: 'Hiểu',
+                color: const Color(0xFFFFB300),
+                onTap: () => _onTabTapped(2),
+              ),
+              _NavButton(
+                tabIndex: 3,
+                currentIndex: _currentIndex,
+                icon: Icons.psychology_outlined,
+                activeIcon: Icons.psychology,
+                label: 'Nhớ',
+                color: const Color(0xFF4CAF50),
+                onTap: () => _onTabTapped(3),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon,
-      String label, Color color) {
-    final isSelected = _currentIndex == index;
+// ─────────────────────────────────────────────────────────────
+// Nav Widgets
+// ─────────────────────────────────────────────────────────────
 
+class _HomeNavButton extends StatelessWidget {
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _HomeNavButton({required this.isActive, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (_currentIndex != index) {
-          HapticFeedback.selectionClick();
-          _transitionController.reset();
-          setState(() => _currentIndex = index);
-          _transitionController.forward();
-        }
-      },
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        width: 56,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color:
-              isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: isActive ? Colors.white.withOpacity(0.08) : Colors.transparent,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? color : Colors.grey,
-              size: 24,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isActive ? Icons.home : Icons.home_outlined,
+                key: ValueKey(isActive),
+                color: isActive ? Colors.white : Colors.grey[600],
+                size: 22,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
-              label,
+              'Home',
               style: TextStyle(
-                color: isSelected ? color : Colors.grey,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isActive ? Colors.white : Colors.grey[600],
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.normal,
               ),
             ),
           ],
@@ -361,144 +373,94 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       ),
     );
   }
-
-  Color _getModeColor(VipMode mode) {
-    switch (mode) {
-      case VipMode.buddhism:
-        return const Color(0xFFFFB300);
-      case VipMode.english:
-        return const Color(0xFF2196F3);
-      case VipMode.music:
-        return const Color(0xFF6C63FF);
-    }
-  }
-
-  IconData _getModeIcon(VipMode mode) {
-    switch (mode) {
-      case VipMode.buddhism:
-        return Icons.self_improvement;
-      case VipMode.english:
-        return Icons.school;
-      case VipMode.music:
-        return Icons.music_note;
-    }
-  }
-
-  String _getModeName(VipMode mode) {
-    switch (mode) {
-      case VipMode.buddhism:
-        return 'Phật Pháp';
-      case VipMode.english:
-        return 'Tiếng Anh';
-      case VipMode.music:
-        return 'Âm Nhạc';
-    }
-  }
 }
 
-// Placeholder screen - Quick Practice
-class QuickPracticeScreen extends StatelessWidget {
-  const QuickPracticeScreen({super.key});
+class _NavButton extends StatelessWidget {
+  final int tabIndex;
+  final int currentIndex;
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _NavButton({
+    required this.tabIndex,
+    required this.currentIndex,
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  bool get isSelected => currentIndex == tabIndex;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.flash_on,
-                size: 64,
-                color: Color(0xFF4CAF50),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Luyện tập nhanh',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Ôn tập các đoạn đã lưu',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-            const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: const [
-                  _FeatureRow(
-                      icon: Icons.loop,
-                      text: 'Lặp lại các segment đã đánh dấu'),
-                  SizedBox(height: 12),
-                  _FeatureRow(
-                      icon: Icons.shuffle, text: 'Ngẫu nhiên hoặc theo thứ tự'),
-                  SizedBox(height: 12),
-                  _FeatureRow(
-                      icon: Icons.timer, text: 'Theo dõi thời gian luyện tập'),
-                  SizedBox(height: 12),
-                  _FeatureRow(
-                      icon: Icons.trending_up, text: 'Thống kê tiến bộ'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Coming Soon',
-                style: TextStyle(
-                  color: Color(0xFF4CAF50),
-                  fontWeight: FontWeight.bold,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  key: ValueKey(isSelected),
+                  color: isSelected ? color : Colors.grey[600],
+                  size: 22,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? color : Colors.grey[600],
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _FeatureRow extends StatelessWidget {
+class _AppBarIconButton extends StatelessWidget {
   final IconData icon;
-  final String text;
+  final Color color;
+  final VoidCallback onTap;
 
-  const _FeatureRow({required this.icon, required this.text});
+  const _AppBarIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF4CAF50), size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(color: Colors.grey[400]),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(8),
         ),
-      ],
+        child: Icon(icon, color: color, size: 20),
+      ),
     );
   }
 }

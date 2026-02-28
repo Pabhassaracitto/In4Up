@@ -67,7 +67,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '342774597309',
     projectId: 'vipsound-df903',
     storageBucket: 'vipsound-df903.firebasestorage.app',
-    iosBundleId: 'com.ultraMusicPlayer',
+    iosBundleId: 'com.vipsound',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

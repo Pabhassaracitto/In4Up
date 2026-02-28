@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Nền tối -->
+  <rect width="400" height="400" fill="#0D0D0D"/>
+  
+  <!-- Ensō màu vàng sáng -->
+  <path d="M 200 60 C 280 60, 340 120, 340 200 C 340 260, 310 310, 260 335 C 220 355, 170 350, 130 320 C 90 290, 60 240, 60 180 C 60 120, 100 70, 160 55 C 175 52, 190 55, 200 60"
+        fill="none" stroke="#F4D03F" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Sóng âm màu trắng/xám -->
+  <ellipse cx="200" cy="200" rx="25" ry="12" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.9"/>
+  <ellipse cx="200" cy="200" rx="45" ry="20" fill="none" stroke="#E0E0E0" stroke-width="1.5" opacity="0.7"/>
+  <ellipse cx="200" cy="200" rx="65" ry="28" fill="none" stroke="#C0C0C0" stroke-width="1.5" opacity="0.5"/>
+  <ellipse cx="200" cy="200" rx="85" ry="36" fill="none" stroke="#A0A0A0" stroke-width="1.5" opacity="0.3"/>
+  
+  <!-- Chữ VIP trắng -->
+  <text x="200" y="195" font-family="Montserrat, Arial Black, sans-serif" font-size="42" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="2">VIP</text>
+  <text x="200" y="225" font-family="Montserrat, sans-serif" font-size="16" font-weight="300" fill="#B0B0B0" text-anchor="middle" letter-spacing="6">SOUND</text>
+</svg>

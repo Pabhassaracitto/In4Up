@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/player_provider.dart';
 import '../../screens/memory_mode/controllers/memory_controller.dart';
+import '../../services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToListen;
@@ -989,9 +990,9 @@ class _AuthSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                // TODO: Google Sign In
+              onPressed: () async {
                 Navigator.pop(context);
+                await AuthService().signInWithGoogle();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,

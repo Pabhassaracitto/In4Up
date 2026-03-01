@@ -47,7 +47,7 @@ dependencies:
   just_waveform: ^0.0.7  # Đọc waveform từ audio file
   record: ^6.1.2 # ghi âm
   record_windows: ^1.0.1 # ★ BẮT BUỘC cho Windows
-
+  oauth2: ^2.0.2
   url_launcher: ^6.2.5               # cho word_actions_sheet tra từ online
 
   http: ^1.2.2

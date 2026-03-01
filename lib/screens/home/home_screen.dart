@@ -1,9 +1,9 @@
-// lib/screens/home/home_screen.dart
-
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/player_provider.dart';
 import '../../screens/memory_mode/controllers/memory_controller.dart';
 import '../../services/auth_service.dart';
@@ -26,7 +26,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with TickerProviderStateMixin {
   late AnimationController _bgController;
   late AnimationController _cardController;
   late List<Animation<double>> _cardAnims;
@@ -167,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildQuickStats() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Consumer<PlayerProvider>(
+      child: Consumer<PlayerProvider>( 
         builder: (context, player, _) {
           return Container(
             padding: const EdgeInsets.all(20),
@@ -831,74 +832,182 @@ class _SettingsChip extends StatelessWidget {
 }
 
 // ─── Firebase Auth Button ─────────────────────────────────────
-class _FirebaseAuthButton extends StatelessWidget {
+class _FirebaseAuthButton extends StatefulWidget {
+  @override
+  State<_FirebaseAuthButton> createState() => _FirebaseAuthButtonState();
+}
+
+class _FirebaseAuthButtonState extends State<_FirebaseAuthButton> {
+  // Lắng nghe auth state thay đổi để tự rebuild
+  late final Stream<User?> _authStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStream = AuthService().authStateChanges;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showAuthSheet(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_outline,
-                color: Color(0xFF6C63FF),
-                size: 14,
-              ),
+    return StreamBuilder<User?>(
+      stream: _authStream,
+      builder: (context, snapshot) {
+        final user = snapshot.data ?? AuthService().currentUser;
+        final isAnonymous = user == null || (user.isAnonymous);
+        final displayName = user?.displayName;
+        final photoUrl = user?.photoURL;
+
+        return GestureDetector(
+          onTap: () => _showAuthSheet(context, isAnonymous),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
             ),
-            const SizedBox(width: 8),
-            const Text(
-              'Ẩn danh',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: isAnonymous
+                      ? const Color(0xFF6C63FF).withOpacity(0.3)
+                      : const Color(0xFF4CAF50).withOpacity(0.3),
+                  backgroundImage:
+                      photoUrl != null ? NetworkImage(photoUrl) : null,
+                  child: photoUrl == null
+                      ? Icon(
+                          isAnonymous ? Icons.person_outline : Icons.person,
+                          color: isAnonymous
+                              ? const Color(0xFF6C63FF)
+                              : const Color(0xFF4CAF50),
+                          size: 14,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                // Label
+                Text(
+                  isAnonymous
+                      ? 'Ẩn danh'
+                      : (displayName?.split(' ').first ?? 'Tôi'),
+                  style: TextStyle(
+                    color: isAnonymous ? Colors.white70 : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_down,
+                    color: Colors.grey[600], size: 16),
+              ],
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down, color: Colors.grey[600], size: 16),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  void _showAuthSheet(BuildContext context) {
+  void _showAuthSheet(BuildContext context, bool isAnonymous) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF111827),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => const _AuthSheet(),
+      isScrollControlled: true,
+      builder: (_) => _AuthSheet(isAnonymous: isAnonymous),
     );
   }
 }
 
-class _AuthSheet extends StatelessWidget {
-  const _AuthSheet();
+class _AuthSheet extends StatefulWidget {
+  final bool isAnonymous;
+  const _AuthSheet({required this.isAnonymous});
+
+  @override
+  State<_AuthSheet> createState() => _AuthSheetState();
+}
+
+class _AuthSheetState extends State<_AuthSheet> {
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final user = await AuthService().signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (user != null) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Đã đăng nhập: ${user.displayName ?? user.email ?? "Thành công"}',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      } else {
+        // User chủ động cancel → không hiện lỗi
+        setState(() => _isLoading = false);
+      }
+    } on AuthException catch (e) {
+      // Lỗi rõ ràng từ AuthService (chưa config, hết giờ, v.v.)
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Lỗi không xác định: $e';
+      });
+    }
+  }
+
+  Future<void> _handleSignOut() async {
+    setState(() => _isLoading = true);
+    await AuthService().signOut();
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.only(
+        left: 28,
+        right: 28,
+        top: 28,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 28,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
+          // Handle bar
           Container(
             width: 40,
             height: 4,
@@ -920,7 +1029,9 @@ class _AuthSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Đăng nhập để đồng bộ vườn nhớ trên tất cả thiết bị',
+            widget.isAnonymous
+                ? 'Đăng nhập để đồng bộ vườn nhớ trên tất cả thiết bị'
+                : 'Đang đăng nhập với tài khoản Google',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[500],
@@ -930,93 +1041,51 @@ class _AuthSheet extends StatelessWidget {
           ),
           const SizedBox(height: 28),
 
-          // Anonymous mode info
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6C63FF).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.shield_outlined,
-                    color: Color(0xFF6C63FF),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Chế độ ẩn danh',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Đang hoạt động · Dữ liệu lưu trên thiết bị này',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.check_circle,
-                  color: Color(0xFF4CAF50),
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
+          // Status card
+          _buildStatusCard(),
           const SizedBox(height: 14),
 
-          // Google Sign In button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                Navigator.pop(context);
-                await AuthService().signInWithGoogle();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1A1A2E),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
+          // Error message
+          if (_errorMessage != null) ...[
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
               ),
-              icon: const Icon(Icons.g_mobiledata, size: 22),
-              label: const Text(
-                'Đăng nhập với Google',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: Colors.redAccent, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 14),
+          ],
+
+          // Action button
+          SizedBox(
+            width: double.infinity,
+            child: widget.isAnonymous
+                ? _buildGoogleSignInButton()
+                : _buildSignOutButton(),
           ),
 
           const SizedBox(height: 12),
           Text(
-            'Đăng nhập Google giúp đồng bộ vườn nhớ\nkhi chuyển thiết bị hoặc cài lại ứng dụng.',
+            widget.isAnonymous
+                ? 'Đăng nhập Google giúp đồng bộ vườn nhớ\nkhi chuyển thiết bị hoặc cài lại ứng dụng.'
+                : 'Đăng xuất sẽ chuyển về chế độ ẩn danh.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[600],
@@ -1024,9 +1093,148 @@ class _AuthSheet extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatusCard() {
+    final isAnonymous = widget.isAnonymous;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isAnonymous
+                      ? const Color(0xFF6C63FF)
+                      : const Color(0xFF4CAF50))
+                  .withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isAnonymous ? Icons.shield_outlined : Icons.verified_user,
+              color: isAnonymous
+                  ? const Color(0xFF6C63FF)
+                  : const Color(0xFF4CAF50),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAnonymous ? 'Chế độ ẩn danh' : 'Google Account',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isAnonymous
+                      ? 'Đang hoạt động · Dữ liệu lưu trên thiết bị này'
+                      : (AuthService().email ?? AuthService().displayName ?? 'Đã đăng nhập'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.check_circle,
+            color: isAnonymous
+                ? const Color(0xFF6C63FF)
+                : const Color(0xFF4CAF50),
+            size: 18,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoogleSignInButton() {
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _handleGoogleSignIn,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1A1A2E),
+        disabledBackgroundColor: Colors.white.withOpacity(0.5),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        elevation: 0,
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Color(0xFF1A1A2E),
+              ),
+            )
+          : const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.g_mobiledata, size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'Đăng nhập với Google',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSignOutButton() {
+    return OutlinedButton(
+      onPressed: _isLoading ? null : _handleSignOut,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.redAccent,
+        side: BorderSide(color: Colors.redAccent.withOpacity(0.5)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.redAccent,
+              ),
+            )
+          : const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Đăng xuất',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

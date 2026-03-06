@@ -35,6 +35,13 @@ jobs:
           # Install Android SDK 36 which is required by plugins
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
 
+      # ★ THÊM: Tạo lại file google-services.json từ Secret
+      - name: Create google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+
       # (Tùy chọn) Nếu dùng code generation
       # - name: Run Build Runner
       #   run: flutter pub run build_runner build --delete-conflicting-outputs

@@ -1,10 +1,4 @@
 // lib/screens/main_shell.dart
-//
-// Navigation logic:
-//   - Home là root (index -1)
-//   - Nhấn tab từ Home → mở tab đó
-//   - Nhấn lại tab đang active → về Home
-//   - Nhấn tab khác khi đang ở tab → chuyển sang tab đó (KHÔNG qua Home)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../screens/listen_mode/widgets/mini_player.dart';
 import '../screens/understand_mode/understand_tab_connector.dart';
+import '../../screens/tools/tools_overlay.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
@@ -20,7 +15,10 @@ import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
 
-// -1 = Home, 0 = Đọc, 1 = Nghe, 2 = Hiểu, 3 = Nhớ
+// Các màn hình tools — import khi cần
+// import 'tools/word_map_screen.dart';
+// import 'tools/venn_screen.dart';
+
 const int _kHome = -1;
 
 class MainShell extends StatefulWidget {
@@ -32,7 +30,6 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   int _currentIndex = _kHome;
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late AnimationController _transitionController;
@@ -46,10 +43,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _transitionController,
-        curve: Curves.easeOut,
-      ),
+      CurvedAnimation(parent: _transitionController, curve: Curves.easeOut),
     );
     _transitionController.forward();
   }
@@ -60,15 +54,12 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // ─── Navigation logic ────────────────────────────────────
+  // ─── Navigation ──────────────────────────────────────────
   void _onTabTapped(int tappedIndex) {
     HapticFeedback.selectionClick();
-
     if (_currentIndex == tappedIndex) {
-      // Đang ở tab này → về Home
       _navigateTo(_kHome);
     } else {
-      // Ở tab khác hoặc Home → chuyển sang tab được nhấn
       _navigateTo(tappedIndex);
     }
   }
@@ -80,7 +71,84 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     _transitionController.forward();
   }
 
-  // ─── Theme helpers ───────────────────────────────────────
+  // ─── Tools overlay ───────────────────────────────────────
+  void _openTools() {
+    showToolsOverlay(
+      context,
+      tools: _buildToolsList(),
+    );
+  }
+
+  List<ToolItem> _buildToolsList() {
+    return [
+      // ── AVAILABLE ────────────────────────────────────────
+      ToolItem(
+        id: 'word_map',
+        title: 'Bản Đồ Từ',
+        subtitle: 'Biết → nhỏ · Chưa biết → to',
+        icon: Icons.map_outlined,
+        color: const Color(0xFF26C6DA),
+        isAvailable: true,
+        onTap: () {
+          // TODO: Navigator.push WordMapScreen
+          // _navigateToTool(const WordMapScreen());
+        },
+      ),
+      ToolItem(
+        id: 'venn',
+        title: 'Biểu Đồ Venn',
+        subtitle: 'Hiểu · Nghe · Đọc',
+        icon: Icons.hub_outlined,
+        color: const Color(0xFFAB47BC),
+        isAvailable: true,
+        onTap: () {
+          // TODO: Navigator.push VennScreen
+        },
+      ),
+      ToolItem(
+        id: 'assessment',
+        title: 'Đánh Giá',
+        subtitle: 'Kiểm tra 3 chiều',
+        icon: Icons.quiz_outlined,
+        color: const Color(0xFFFF7043),
+        isAvailable: true,
+        onTap: () {
+          // TODO: Navigator.push AssessmentScreen
+        },
+      ),
+      ToolItem(
+        id: 'stats',
+        title: 'Thống Kê',
+        subtitle: 'Tiến trình học tập',
+        icon: Icons.bar_chart_rounded,
+        color: const Color(0xFF42A5F5),
+        isAvailable: true,
+        onTap: () {
+          // TODO: Navigator.push StatsScreen
+        },
+      ),
+
+      // ── COMING SOON ──────────────────────────────────────
+      ToolItem(
+        id: 'shadowing',
+        title: 'Shadowing',
+        subtitle: 'Luyện nói theo bóng',
+        icon: Icons.record_voice_over_outlined,
+        color: const Color(0xFF66BB6A),
+        isAvailable: false,
+      ),
+      ToolItem(
+        id: 'dictation',
+        title: 'Chính Tả',
+        subtitle: 'Nghe → viết lại',
+        icon: Icons.edit_note_outlined,
+        color: const Color(0xFFFFCA28),
+        isAvailable: false,
+      ),
+    ];
+  }
+
+  // ─── Theme ───────────────────────────────────────────────
   bool get _isHome => _currentIndex == _kHome;
 
   Color get _currentColor {
@@ -111,18 +179,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       body: SafeArea(
         child: Column(
           children: [
-            // App bar — chỉ hiện khi không ở Home
             if (!_isHome) _buildTabAppBar(),
-
-            // Main content
             Expanded(
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: _buildCurrentScreen(),
               ),
             ),
-
-            // Mini player — luôn hiện khi có audio
             RepaintBoundary(
               child: Consumer<PlayerProvider>(
                 builder: (context, player, _) {
@@ -130,7 +193,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                     return const SizedBox.shrink();
                   }
                   return GestureDetector(
-                    // Tap mini player → mở tab Nghe
                     onTap: _isHome ? () => _navigateTo(1) : null,
                     child: const MiniPlayer(
                       margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -146,7 +208,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     );
   }
 
-  // ─── Tab App Bar (chỉ hiện khi đang trong tab) ───────────
+  // ─── App Bar ─────────────────────────────────────────────
   Widget _buildTabAppBar() {
     final titles = {
       0: '📖 Chế độ Đọc',
@@ -154,28 +216,22 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       2: '💡 Chế độ Hiểu',
       3: '🧠 Vườn Trí Nhớ',
     };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
-          bottom: BorderSide(
-            color: _currentColor.withOpacity(0.2),
-          ),
+          bottom: BorderSide(color: _currentColor.withOpacity(0.2)),
         ),
       ),
       child: Row(
         children: [
-          // Text library drawer
           _AppBarIconButton(
             icon: Icons.menu_book,
             color: const Color(0xFF2196F3),
             onTap: () => _scaffoldKey.currentState?.openDrawer(),
           ),
           const SizedBox(width: 12),
-
-          // Title
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,9 +246,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 ),
                 Consumer<PlayerProvider>(
                   builder: (context, player, _) {
-                    if (player.currentSongTitle == null) {
+                    if (player.currentSongTitle == null)
                       return const SizedBox.shrink();
-                    }
                     return Text(
                       player.currentSongTitle!,
                       style: TextStyle(fontSize: 11, color: Colors.grey[500]),
@@ -204,8 +259,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               ],
             ),
           ),
-
-          // Audio library drawer
           _AppBarIconButton(
             icon: Icons.library_music,
             color: const Color(0xFF6C63FF),
@@ -216,7 +269,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     );
   }
 
-  // ─── Screen router ───────────────────────────────────────
+  // ─── Screen Router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case _kHome:
@@ -244,7 +297,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     }
   }
 
-  // ─── Bottom Navigation Bar ───────────────────────────────
+  // ─── Bottom Navigation ───────────────────────────────────
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
@@ -263,7 +316,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
-              // Home button
+              // 🏠 Home — trái nhất
               _HomeNavButton(
                 isActive: _isHome,
                 onTap: () {
@@ -281,7 +334,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 color: Colors.white.withOpacity(0.06),
               ),
 
-              // Tab buttons
+              // Tabs giữa
               _NavButton(
                 tabIndex: 0,
                 currentIndex: _currentIndex,
@@ -318,6 +371,16 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 color: const Color(0xFF4CAF50),
                 onTap: () => _onTabTapped(3),
               ),
+
+              // Divider
+              Container(
+                width: 1,
+                height: 32,
+                color: Colors.white.withOpacity(0.06),
+              ),
+
+              // 🧩 Tools — phải nhất, đối lập Home
+              PuzzleNavButton(onTap: _openTools),
             ],
           ),
         ),
@@ -326,14 +389,11 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Nav Widgets
-// ─────────────────────────────────────────────────────────────
+// ─── Nav Widgets (giữ nguyên từ file cũ) ─────────────────
 
 class _HomeNavButton extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
-
   const _HomeNavButton({required this.isActive, required this.onTap});
 
   @override
@@ -376,10 +436,8 @@ class _HomeNavButton extends StatelessWidget {
 }
 
 class _NavButton extends StatelessWidget {
-  final int tabIndex;
-  final int currentIndex;
-  final IconData icon;
-  final IconData activeIcon;
+  final int tabIndex, currentIndex;
+  final IconData icon, activeIcon;
   final String label;
   final Color color;
   final VoidCallback onTap;
@@ -404,11 +462,11 @@ class _NavButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
             color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -442,12 +500,8 @@ class _AppBarIconButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-
-  const _AppBarIconButton({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
+  const _AppBarIconButton(
+      {required this.icon, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

@@ -40,14 +40,24 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
         run: |
-          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
-          # Kiểm tra xem file có tồn tại và có dữ liệu không
-          if [ -s android/app/google-services.json ]; then
-            echo "✅ OK: File google-services.json đã được tạo thành công."
+          # Tạo file từ secret, dùng flag -i để bỏ qua ký tự lạ (như newline)
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d -i > android/app/google-services.json
+          
+          # Kiểm tra file có tồn tại và lớn hơn 10 bytes không (tránh file rỗng hoặc chỉ có xuống dòng)
+          if [ -s android/app/google-services.json ] && [ $(stat -c%s "android/app/google-services.json") -gt 10 ]; then
+            echo "✅ File google-services.json đã được tạo. Kích thước: $(stat -c%s "android/app/google-services.json") bytes."
+            
+            # Copy file vào thêm thư mục src/release để chắc chắn Gradle tìm thấy
+            mkdir -p android/app/src/release
+            cp android/app/google-services.json android/app/src/release/google-services.json
+            echo "✅ Đã copy file vào android/app/src/release/"
           else
-            echo "❌ LỖI: File google-services.json KHÔNG tồn tại hoặc bị RỖNG. Vui lòng kiểm tra lại GitHub Secret!"
+            echo "❌ LỖI: File google-services.json KHÔNG hợp lệ (Rỗng hoặc quá nhỏ). Kiểm tra lại Secret!"
             exit 1
           fi
+          
+          # Debug: Liệt kê file để xác nhận sự tồn tại
+          ls -R android/app | grep google-services.json
 
       # (Tùy chọn) Nếu dùng code generation
       # - name: Run Build Runner

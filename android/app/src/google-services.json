@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "342774597309",
+    "project_id": "vipsound-df903",
+    "storage_bucket": "vipsound-df903.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:342774597309:android:1a2e3217ee3dc8ee1319d4",
+        "android_client_info": {
+          "package_name": "com.vipsound"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

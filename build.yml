@@ -49,8 +49,11 @@ jobs:
             
             # Copy file vào thêm thư mục src/release để chắc chắn Gradle tìm thấy
             mkdir -p android/app/src/release
+            mkdir -p android/app/src/Release
             cp android/app/google-services.json android/app/src/release/google-services.json
-            echo "✅ Đã copy file vào android/app/src/release/"
+            cp android/app/google-services.json android/app/src/Release/google-services.json
+            
+            echo "✅ Đã copy file vào android/app/src/release/ và android/app/src/Release/"
           else
             echo "❌ LỖI: File google-services.json KHÔNG hợp lệ (Rỗng hoặc quá nhỏ). Kiểm tra lại Secret!"
             exit 1

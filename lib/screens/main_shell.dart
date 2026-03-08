@@ -14,6 +14,7 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
+import 'tools/youglish/youglish_screen.dart';
 
 // Các màn hình tools — import khi cần
 // import 'tools/word_map_screen.dart';
@@ -81,6 +82,23 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   List<ToolItem> _buildToolsList() {
     return [
+      // ── YouGlish - THÊM MỚI ────────────────────────────
+      ToolItem(
+        id: 'youglish',
+        title: 'YouGlish',
+        subtitle: 'Nghe phát âm chuẩn',
+        icon: Icons.record_voice_over,
+        color: const Color(0xFF00BCD4),
+        isAvailable: true,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const YouGlishScreen(),
+            ),
+          );
+        },
+      ),
       // ── AVAILABLE ────────────────────────────────────────
       ToolItem(
         id: 'word_map',

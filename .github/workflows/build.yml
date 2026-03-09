@@ -119,6 +119,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Decode GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
+        run: echo $GOOGLE_SERVICE_INFO | base64 --decode > ios/Runner/GoogleService-Info.plist
+
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 

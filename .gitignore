@@ -63,7 +63,9 @@ ios/Flutter/Flutter.framework/
 ios/Flutter/Generated.xcconfig
 ios/Flutter/ephemeral/
 ios/Pods/
-ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/
+ios/Runner/GoogleService-Info.plist
+GeneratedPluginRegistrant.h
 ios/Runner/GeneratedPluginRegistrant.m
 ios/.symlinks/
 ios/ServiceDefinitions.json
@@ -298,3 +300,4 @@ fdroid/
 
 # Me
 thongtinduan.txt
+backups

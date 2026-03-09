@@ -1,16 +1,8 @@
-// lib/screens/tools/tools_overlay.dart
-//
-// ★ FIX: Không dùng CurvedAnimation object
-// ★ FIX: Stop animation trước khi pop
-// ★ FIX: Guard _isDismissing chống double-tap
-
 import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// ─── Model ───────────────────────────────────────────────
 class ToolItem {
   final String id;
   final String title;
@@ -29,73 +21,40 @@ class ToolItem {
   });
 }
 
-// ─── Entry point: trả về toolId khi chọn ─────────────────
-Future<String?> showToolsOverlay(
+/// Mở overlay và nhận toolId (null nếu đóng)
+Future<String?> showToolsOverlayV2(
   BuildContext context, {
   required List<ToolItem> tools,
 }) {
   HapticFeedback.mediumImpact();
 
-  final completer = Completer<String?>();
-  final overlay = Overlay.of(context, rootOverlay: true);
-
-  late final OverlayEntry entry;
-
-  entry = OverlayEntry(
-    builder: (ctx) => _ToolsOverlayEntry(
-      tools: tools,
-      onClosed: (toolId) {
-        if (entry.mounted) entry.remove();
-        if (!completer.isCompleted) completer.complete(toolId);
-      },
-    ),
+  return showGeneralDialog<String?>(
+    context: context,
+    useRootNavigator: true,
+    barrierLabel: 'Tools',
+    barrierDismissible: false, // tự xử lý dismiss để tránh pop 2 lần
+    barrierColor: Colors.transparent,
+    transitionDuration: Duration.zero, // animation do widget tự chạy
+    pageBuilder: (ctx, a1, a2) {
+      return _ToolsOverlayScreenV2(tools: tools);
+    },
   );
-
-  overlay.insert(entry);
-  return completer.future;
 }
 
-class _ToolsOverlayEntry extends StatelessWidget {
+class _ToolsOverlayScreenV2 extends StatefulWidget {
   final List<ToolItem> tools;
-  final ValueChanged<String?> onClosed;
-
-  const _ToolsOverlayEntry({
-    super.key,
-    required this.tools,
-    required this.onClosed,
-  });
+  const _ToolsOverlayScreenV2({required this.tools});
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: _ToolsOverlayScreen(
-        tools: tools,
-        onClosed: onClosed,
-      ),
-    );
-  }
+  State<_ToolsOverlayScreenV2> createState() => _ToolsOverlayScreenV2State();
 }
 
-// ─── Overlay Screen ──────────────────────────────────────
-class _ToolsOverlayScreen extends StatefulWidget {
-  final List<ToolItem> tools;
-  final ValueChanged<String?> onClosed;
-
-  const _ToolsOverlayScreen({
-    super.key,
-    required this.tools,
-    required this.onClosed,
-  });
-
-  @override
-  State<_ToolsOverlayScreen> createState() => _ToolsOverlayScreenState();
-}
-
-class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
+class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
     with TickerProviderStateMixin {
-  late AnimationController _masterCtrl;
-  late List<AnimationController> _cardCtrls;
+  late final AnimationController _masterCtrl;
+  late final List<AnimationController> _cardCtrls;
+
+  final List<Timer> _timers = [];
   bool _isDismissing = false;
 
   @override
@@ -109,116 +68,127 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
 
     _cardCtrls = List.generate(
       widget.tools.length,
-      (i) => AnimationController(
+      (_) => AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 550),
       ),
     );
 
-    // Chạy animation theo thứ tự
-    _masterCtrl.forward().then((_) {
-      if (!mounted || _isDismissing) return;
-      for (int i = 0; i < _cardCtrls.length; i++) {
-        Future.delayed(Duration(milliseconds: i * 65), () {
-          if (mounted && !_isDismissing) _cardCtrls[i].forward();
-        });
-      }
-    });
+    _masterCtrl.forward();
+
+    // stagger start cards (có thể cancel)
+    for (int i = 0; i < _cardCtrls.length; i++) {
+      _timers.add(
+        Timer(Duration(milliseconds: 120 + i * 65), () {
+          if (!mounted || _isDismissing) return;
+          _cardCtrls[i].forward();
+        }),
+      );
+    }
   }
 
   @override
   void dispose() {
-    // ★ QUAN TRỌNG: Stop TẤT CẢ animation trước khi dispose
-    _masterCtrl.stop();
-    for (final c in _cardCtrls) {
-      c.stop();
+    for (final t in _timers) {
+      t.cancel();
     }
+    _masterCtrl.stop();
     _masterCtrl.dispose();
     for (final c in _cardCtrls) {
+      c.stop();
       c.dispose();
     }
     super.dispose();
   }
 
-  // ★ FIX: Stop animation → pop ngay, KHÔNG reverse animation
+  double _backdropT() {
+    return const Interval(0.0, 0.5, curve: Curves.easeOut)
+        .transform(_masterCtrl.value);
+  }
+
+  double _headerT() {
+    return const Interval(0.1, 0.6, curve: Curves.easeOutBack)
+        .transform(_masterCtrl.value);
+  }
+
   Future<void> _dismiss([String? toolId]) async {
     if (_isDismissing) return;
     _isDismissing = true;
 
     HapticFeedback.lightImpact();
 
-    // reverse animation như code cũ của bạn
+    for (final t in _timers) {
+      t.cancel();
+    }
+
+    // reverse cards
     for (int i = _cardCtrls.length - 1; i >= 0; i--) {
       _cardCtrls[i].reverse();
-      await Future.delayed(const Duration(milliseconds: 35));
+      await Future.delayed(const Duration(milliseconds: 25));
     }
     await _masterCtrl.reverse();
 
     if (!mounted) return;
-    widget.onClosed(toolId);
-  }
-
-  // ─── Tính curve inline, KHÔNG tạo CurvedAnimation object ──
-  double _backdropValue() {
-    return const Interval(0.0, 0.5, curve: Curves.easeOut)
-        .transform(_masterCtrl.value);
-  }
-
-  double _headerValue() {
-    return const Interval(0.1, 0.6, curve: Curves.easeOutBack)
-        .transform(_masterCtrl.value);
+    Navigator.of(context, rootNavigator: true).pop(toolId);
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _dismiss(null),
-      child: Stack(
-        children: [
-          // ── Backdrop ──
-          AnimatedBuilder(
-            animation: _masterCtrl,
-            builder: (_, __) => Container(
-              color: const Color(0xFF080B1A)
-                  .withValues(alpha: _backdropValue() * 0.88),
-            ),
-          ),
-
-          // ── Noise texture ──
-          AnimatedBuilder(
-            animation: _masterCtrl,
-            builder: (_, __) => Opacity(
-              opacity: _backdropValue() * 0.03,
-              child: const _NoiseTexture(),
-            ),
-          ),
-
-          // ── Content ──
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {}, // Chặn tap xuyên qua grid
-                    child: _buildToolsGrid(),
-                  ),
+    return WillPopScope(
+      onWillPop: () async {
+        await _dismiss(null);
+        return false;
+      },
+      child: Material(
+        type: MaterialType.transparency,
+        child: GestureDetector(
+          onTap: () => _dismiss(null),
+          child: Stack(
+            children: [
+              // Backdrop
+              AnimatedBuilder(
+                animation: _masterCtrl,
+                builder: (_, __) => Container(
+                  color: const Color(0xFF080B1A)
+                      .withValues(alpha: _backdropT() * 0.88),
                 ),
-                _buildFooter(),
-              ],
-            ),
+              ),
+
+              // Noise texture
+              AnimatedBuilder(
+                animation: _masterCtrl,
+                builder: (_, __) => Opacity(
+                  opacity: _backdropT() * 0.03,
+                  child: const _NoiseTexture(),
+                ),
+              ),
+
+              SafeArea(
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {}, // chặn tap xuyên qua grid
+                        child: _buildToolsGrid(),
+                      ),
+                    ),
+                    _buildFooter(),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // ── Header ─────────────────────────────────────────────
   Widget _buildHeader() {
     return AnimatedBuilder(
       animation: _masterCtrl,
       builder: (_, child) {
-        final h = _headerValue();
+        final h = _headerT();
         return Transform.translate(
           offset: Offset(0, -24 * (1 - h)),
           child: Opacity(opacity: h.clamp(0.0, 1.0), child: child),
@@ -238,13 +208,6 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7C4DFF).withValues(alpha: 0.4),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: const Icon(Icons.extension, color: Colors.white, size: 22),
             ),
@@ -276,8 +239,9 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: Icon(Icons.close, color: Colors.grey[400], size: 18),
               ),
@@ -288,7 +252,6 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
     );
   }
 
-  // ── Grid ───────────────────────────────────────────────
   Widget _buildToolsGrid() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -313,7 +276,6 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
     return AnimatedBuilder(
       animation: ctrl,
       builder: (_, __) {
-        // ★ FIX: Tính curve inline, KHÔNG tạo CurvedAnimation
         final t = ctrl.value;
         final scale = 0.6 + 0.4 * Curves.easeOutBack.transform(t);
         final slideY = 30.0 * (1.0 - Curves.easeOutCubic.transform(t));
@@ -327,11 +289,7 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
               opacity: fade.clamp(0.0, 1.0),
               child: _ToolCard(
                 tool: tool,
-                onTap: tool.isAvailable
-                    ? () async {
-                        await _dismiss(tool.id);
-                      }
-                    : null,
+                onTap: tool.isAvailable ? () => _dismiss(tool.id) : null,
               ),
             ),
           ),
@@ -340,7 +298,6 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
     );
   }
 
-  // ── Footer ─────────────────────────────────────────────
   Widget _buildFooter() {
     return AnimatedBuilder(
       animation: _masterCtrl,
@@ -366,11 +323,9 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
   }
 }
 
-// ─── Tool Card ───────────────────────────────────────────
 class _ToolCard extends StatefulWidget {
   final ToolItem tool;
   final VoidCallback? onTap;
-
   const _ToolCard({required this.tool, this.onTap});
 
   @override
@@ -419,15 +374,6 @@ class _ToolCardState extends State<_ToolCard> {
                   : Colors.white.withValues(alpha: 0.06),
               width: 1.2,
             ),
-            boxShadow: isAvailable && _pressed
-                ? [
-                    BoxShadow(
-                      color: tool.color.withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
           padding: const EdgeInsets.all(14),
           child: Stack(
@@ -484,28 +430,6 @@ class _ToolCardState extends State<_ToolCard> {
                   ),
                 ],
               ),
-              if (!isAvailable)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'SOON',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -514,13 +438,15 @@ class _ToolCardState extends State<_ToolCard> {
   }
 }
 
-// ─── Noise texture ───────────────────────────────────────
 class _NoiseTexture extends StatelessWidget {
   const _NoiseTexture();
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _NoisePainter(), size: Size.infinite);
+    return CustomPaint(
+      painter: _NoisePainter(),
+      size: Size.infinite,
+    );
   }
 }
 
@@ -543,89 +469,5 @@ class _NoisePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ─── Puzzle Nav Button ───────────────────────────────────
-class PuzzleNavButton extends StatefulWidget {
-  final VoidCallback onTap;
-  const PuzzleNavButton({super.key, required this.onTap});
-
-  @override
-  State<PuzzleNavButton> createState() => _PuzzleNavButtonState();
-}
-
-class _PuzzleNavButtonState extends State<PuzzleNavButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _glowCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _glowCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _glowCtrl.stop();
-    _glowCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: SizedBox(
-        width: 56,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedBuilder(
-              animation: _glowCtrl,
-              builder: (_, child) {
-                final glow =
-                    0.3 + 0.4 * Curves.easeInOut.transform(_glowCtrl.value);
-                return Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7C4DFF), Color(0xFFE040FB)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF7C4DFF).withValues(alpha: glow),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.extension,
-                      color: Colors.white, size: 18),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF7C4DFF), Color(0xFFE040FB)],
-              ).createShader(bounds),
-              child: const Text(
-                'Tools',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+/// Bạn có thể giữ PuzzleNavButton từ file cũ (không liên quan tới lỗi).
+/// Nếu muốn, copy PuzzleNavButton qua đây luôn, hoặc import file cũ chỉ để dùng nút.

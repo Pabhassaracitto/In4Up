@@ -4,18 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../screens/tools/tools_overlay.dart';
 import '../providers/player_provider.dart';
 import '../screens/listen_mode/widgets/mini_player.dart';
 import '../screens/understand_mode/understand_tab_connector.dart';
-import '../../screens/tools/tools_overlay.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
+// CHỈ lấy PuzzleNavButton (không kéo ToolItem từ file cũ vào nữa)
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
+// Dùng overlay V2 + ToolItem V2 với prefix để khỏi trùng tên
+import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/youglish/youglish_screen.dart';
-
 // Các màn hình tools — import khi cần
 // import 'tools/word_map_screen.dart';
 // import 'tools/venn_screen.dart';
@@ -73,94 +76,101 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   // ─── Tools overlay ───────────────────────────────────────
-  void _openTools() {
-    showToolsOverlay(
+  Future<void> _openTools() async {
+    final toolId = await tools.showToolsOverlayV2(
       context,
       tools: _buildToolsList(),
     );
+
+    if (!mounted || toolId == null) return;
+
+    if (toolId == 'youglish') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const YouGlishScreen()),
+      );
+    }
   }
 
-  List<ToolItem> _buildToolsList() {
+  void _handleToolNavigation(String toolId) {
+    switch (toolId) {
+      case 'youglish':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const YouGlishScreen()),
+        );
+        break;
+      case 'word_map':
+        // TODO
+        break;
+      case 'venn':
+        // TODO
+        break;
+      case 'assessment':
+        // TODO
+        break;
+      case 'stats':
+        // TODO
+        break;
+    }
+  }
+
+  List<tools.ToolItem> _buildToolsList() {
     return [
-      // ── YouGlish - THÊM MỚI ────────────────────────────
-      ToolItem(
+      const tools.ToolItem(
         id: 'youglish',
         title: 'YouGlish',
         subtitle: 'Nghe phát âm chuẩn',
         icon: Icons.record_voice_over,
-        color: const Color(0xFF00BCD4),
+        color: Color(0xFF00BCD4),
         isAvailable: true,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const YouGlishScreen(),
-            ),
-          );
-        },
       ),
-      // ── AVAILABLE ────────────────────────────────────────
-      ToolItem(
+      const tools.ToolItem(
         id: 'word_map',
         title: 'Bản Đồ Từ',
         subtitle: 'Biết → nhỏ · Chưa biết → to',
         icon: Icons.map_outlined,
-        color: const Color(0xFF26C6DA),
+        color: Color(0xFF26C6DA),
         isAvailable: true,
-        onTap: () {
-          // TODO: Navigator.push WordMapScreen
-          // _navigateToTool(const WordMapScreen());
-        },
       ),
-      ToolItem(
+      const tools.ToolItem(
         id: 'venn',
         title: 'Biểu Đồ Venn',
         subtitle: 'Hiểu · Nghe · Đọc',
         icon: Icons.hub_outlined,
-        color: const Color(0xFFAB47BC),
+        color: Color(0xFFAB47BC),
         isAvailable: true,
-        onTap: () {
-          // TODO: Navigator.push VennScreen
-        },
       ),
-      ToolItem(
+      const tools.ToolItem(
         id: 'assessment',
         title: 'Đánh Giá',
         subtitle: 'Kiểm tra 3 chiều',
         icon: Icons.quiz_outlined,
-        color: const Color(0xFFFF7043),
+        color: Color(0xFFFF7043),
         isAvailable: true,
-        onTap: () {
-          // TODO: Navigator.push AssessmentScreen
-        },
       ),
-      ToolItem(
+      const tools.ToolItem(
         id: 'stats',
         title: 'Thống Kê',
         subtitle: 'Tiến trình học tập',
         icon: Icons.bar_chart_rounded,
-        color: const Color(0xFF42A5F5),
+        color: Color(0xFF42A5F5),
         isAvailable: true,
-        onTap: () {
-          // TODO: Navigator.push StatsScreen
-        },
       ),
-
-      // ── COMING SOON ──────────────────────────────────────
-      ToolItem(
+      const tools.ToolItem(
         id: 'shadowing',
         title: 'Shadowing',
         subtitle: 'Luyện nói theo bóng',
         icon: Icons.record_voice_over_outlined,
-        color: const Color(0xFF66BB6A),
+        color: Color(0xFF66BB6A),
         isAvailable: false,
       ),
-      ToolItem(
+      const tools.ToolItem(
         id: 'dictation',
         title: 'Chính Tả',
         subtitle: 'Nghe → viết lại',
         icon: Icons.edit_note_outlined,
-        color: const Color(0xFFFFCA28),
+        color: Color(0xFFFFCA28),
         isAvailable: false,
       ),
     ];

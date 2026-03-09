@@ -521,7 +521,7 @@ namespace UltraTimeStretch
 
                         int channels = engine_.getChannels() > 0 ? engine_.getChannels() : 2;
                         int inputFrames = processBlockSize_ / channels;
-                        int maxOutputFrames = tempOutput_.size() / channels;
+                        int maxOutputFrames = static_cast<int>(tempOutput_.size()) / channels;
 
                         int outFrames = engine_.processV2(
                             tempInput_.data(), inputFrames,

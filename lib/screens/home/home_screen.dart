@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:math' as math;
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../providers/player_provider.dart';
 import '../../screens/memory_mode/controllers/memory_controller.dart';
 import '../../services/auth_service.dart';
@@ -509,7 +511,7 @@ class _ModeCardState extends State<_ModeCard> {
           scale: _pressed ? 0.93 : 1.0,
           duration: const Duration(milliseconds: 120),
           child: Container(
-            height: 110,
+            height: 105,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: widget.gradientColors

@@ -18,6 +18,7 @@ import 'text_library_drawer.dart';
 import 'tools/tools_overlay.dart' show PuzzleNavButton;
 // Dùng overlay V2 + ToolItem V2 với prefix để khỏi trùng tên
 import 'tools/tools_overlay_v2.dart' as tools;
+import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 // Các màn hình tools — import khi cần
 // import 'tools/word_map_screen.dart';
@@ -117,6 +118,22 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   List<tools.ToolItem> _buildToolsList() {
     return [
+      tools.ToolItem(
+        id: 'word_list',
+        title: 'Word List',
+        subtitle: 'Danh sách từ vựng',
+        icon: Icons.format_list_bulleted,
+        color: const Color(0xFF6C63FF),
+        isAvailable: true,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const WordListScreen(),
+            ),
+          );
+        },
+      ),
       const tools.ToolItem(
         id: 'youglish',
         title: 'YouGlish',

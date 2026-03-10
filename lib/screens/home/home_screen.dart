@@ -379,14 +379,16 @@ class _AnimatedBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (_, __) {
-        return CustomPaint(
-          painter: _BgPainter(controller.value),
-          size: Size.infinite,
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (_, __) {
+          return CustomPaint(
+            painter: _BgPainter(controller.value),
+            size: Size.infinite,
+          );
+        },
+      ),
     );
   }
 }
@@ -400,7 +402,7 @@ class _BgPainter extends CustomPainter {
     // Orb 1 - Purple
     final p1 = Paint()
       ..color = const Color(0xFF6C63FF).withOpacity(0.08)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 60);
     canvas.drawCircle(
       Offset(
         size.width * (0.2 + 0.1 * math.sin(t * math.pi * 2)),
@@ -413,7 +415,7 @@ class _BgPainter extends CustomPainter {
     // Orb 2 - Blue
     final p2 = Paint()
       ..color = const Color(0xFF2196F3).withOpacity(0.06)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
     canvas.drawCircle(
       Offset(
         size.width * (0.8 + 0.08 * math.cos(t * math.pi * 2)),
@@ -426,7 +428,7 @@ class _BgPainter extends CustomPainter {
     // Orb 3 - Green
     final p3 = Paint()
       ..color = const Color(0xFF4CAF50).withOpacity(0.05)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 120);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100);
     canvas.drawCircle(
       Offset(
         size.width * (0.3 + 0.12 * math.sin(t * math.pi * 1.7)),
@@ -511,7 +513,7 @@ class _ModeCardState extends State<_ModeCard> {
           scale: _pressed ? 0.93 : 1.0,
           duration: const Duration(milliseconds: 120),
           child: Container(
-            height: 105,
+            height: 120,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: widget.gradientColors

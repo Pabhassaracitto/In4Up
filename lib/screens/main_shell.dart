@@ -85,16 +85,17 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
     if (!mounted || toolId == null) return;
 
-    if (toolId == 'youglish') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const YouGlishScreen()),
-      );
-    }
+    _handleToolNavigation(toolId);
   }
 
   void _handleToolNavigation(String toolId) {
     switch (toolId) {
+      case 'word_list':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const WordListScreen()),
+        );
+        break;
       case 'youglish':
         Navigator.push(
           context,
@@ -118,21 +119,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   List<tools.ToolItem> _buildToolsList() {
     return [
-      tools.ToolItem(
+      const tools.ToolItem(
         id: 'word_list',
         title: 'Word List',
         subtitle: 'Danh sách từ vựng',
         icon: Icons.format_list_bulleted,
         color: const Color(0xFF6C63FF),
         isAvailable: true,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const WordListScreen(),
-            ),
-          );
-        },
       ),
       const tools.ToolItem(
         id: 'youglish',
@@ -291,8 +284,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 ),
                 Consumer<PlayerProvider>(
                   builder: (context, player, _) {
-                    if (player.currentSongTitle == null)
+                    if (player.currentSongTitle == null) {
                       return const SizedBox.shrink();
+                    }
                     return Text(
                       player.currentSongTitle!,
                       style: TextStyle(fontSize: 11, color: Colors.grey[500]),

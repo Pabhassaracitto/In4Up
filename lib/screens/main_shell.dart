@@ -78,41 +78,38 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   // ─── Tools overlay ───────────────────────────────────────
   Future<void> _openTools() async {
+    // ★ Lưu context trước khi await — tránh "context after async gap"
+    final nav = Navigator.of(context);
+
     final toolId = await tools.showToolsOverlayV2(
       context,
       tools: _buildToolsList(),
     );
 
-    if (!mounted || toolId == null) return;
+    // Overlay đã đóng — dùng nav (đã capture trước) để push màn hình
+    if (toolId == null) return;
 
-    _handleToolNavigation(toolId);
-  }
-
-  void _handleToolNavigation(String toolId) {
     switch (toolId) {
       case 'word_list':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const WordListScreen()),
-        );
+        nav.push(MaterialPageRoute(
+          builder: (_) => const WordListScreen(),
+        ));
         break;
+
       case 'youglish':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const YouGlishScreen()),
-        );
+        // ★ FIX YouGlish: dùng nav.push với context gốc của MainShell
+        // → YouGlishScreen vẫn nằm trong Provider tree của MaterialApp
+        nav.push(MaterialPageRoute(
+          builder: (_) => const YouGlishScreen(),
+        ));
         break;
-      case 'word_map':
-        // TODO
-        break;
-      case 'venn':
-        // TODO
-        break;
-      case 'assessment':
-        // TODO
-        break;
+
       case 'stats':
-        // TODO
+        // nav.push(MaterialPageRoute(builder: (_) => const StatsScreen()));
+        break;
+
+      case 'assessment':
+        // nav.push(MaterialPageRoute(builder: (_) => const AssessmentScreen()));
         break;
     }
   }

@@ -1,3 +1,9 @@
+// lib/screens/tools/youglish/youglish_screen.dart
+//
+// ★ FIX: Thay toàn bộ .withOpacity() → .withValues(alpha:)
+// ★ FIX: Không dùng bất kỳ Provider nào → tránh "Provider not found"
+//   khi mở từ Navigator.push bên ngoài Provider tree
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'youglish_config.dart';
@@ -15,6 +21,12 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
   YouGlishLanguage _selectedLanguage = YouGlishLanguage.english;
   YouGlishAccent _selectedAccent = YouGlishAccent.us;
   String _currentWord = 'hello';
+
+  @override
+  void dispose() {
+    _wordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,23 +68,21 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Input từ
             _buildSearchBox(),
             const SizedBox(height: 16),
-
-            // Chọn ngôn ngữ
             _buildLanguageSelector(),
             const SizedBox(height: 16),
-
-            // Chọn giọng (chỉ hiện khi English)
-            if (_selectedLanguage == YouGlishLanguage.english)
+            if (_selectedLanguage == YouGlishLanguage.english) ...[
               _buildAccentSelector(),
             
             if (_selectedLanguage == YouGlishLanguage.english)
               const SizedBox(height: 24),
-
-            // YouGlish Widget
+            ],
+            // ★ KEY trick: dùng ValueKey để Flutter rebuild YouGlishWidget
+            // khi word/language/accent thay đổi → didUpdateWidget được gọi đúng
             YouGlishWidget(
+              key: ValueKey('$_currentWord-${_selectedLanguage.code}'
+                  '-${_selectedAccent.code}'),
               word: _currentWord,
               language: _selectedLanguage,
               accent: _selectedLanguage == YouGlishLanguage.english 
@@ -81,10 +91,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               height: 400,
               autoPlay: true,
             ),
-
             const SizedBox(height: 16),
-
-            // Quick test buttons
             _buildQuickButtons(),
           ],
         ),
@@ -98,7 +105,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF6C63FF).withOpacity(0.3),
+          color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
         ),
       ),
       child: TextField(
@@ -112,18 +119,20 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
             icon: const Icon(Icons.arrow_forward, color: Color(0xFF6C63FF)),
             onPressed: () {
               HapticFeedback.lightImpact();
-              setState(() {
-                _currentWord = _wordController.text.trim();
-              });
+              final word = _wordController.text.trim();
+              if (word.isNotEmpty) {
+                setState(() => _currentWord = word);
+              }
             },
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.all(16),
         ),
         onSubmitted: (value) {
-          setState(() {
-            _currentWord = value.trim();
-          });
+          final word = value.trim();
+          if (word.isNotEmpty) {
+            setState(() => _currentWord = word);
+          }
         },
       ),
     );
@@ -136,7 +145,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF00BCD4).withOpacity(0.3),
+          color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -147,7 +156,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00BCD4).withOpacity(0.2),
+                  color: const Color(0xFF00BCD4).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.language, size: 16, color: Color(0xFF00BCD4)),
@@ -156,10 +165,9 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               const Text(
                 'Ngôn ngữ',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -173,13 +181,13 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: const Color(0xFF00BCD4).withOpacity(0.3),
+                  color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: const Color(0xFF00BCD4).withOpacity(0.3),
+                  color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
                 ),
               ),
             ),
@@ -191,10 +199,9 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               );
             }).toList(),
             onChanged: (value) {
+              if (value == null) return;
               HapticFeedback.selectionClick();
-              setState(() {
-                _selectedLanguage = value!;
-              });
+              setState(() => _selectedLanguage = value);
             },
           ),
         ],
@@ -209,7 +216,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF4CAF50).withOpacity(0.3),
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -220,7 +227,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.mic, size: 16, color: Color(0xFF4CAF50)),
@@ -229,10 +236,9 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               const Text(
                 'Giọng (chỉ tiếng Anh)',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -244,27 +250,27 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                 child: GestureDetector(
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    setState(() {
-                      _selectedAccent = accent;
-                    });
+                    setState(() => _selectedAccent = accent);
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: isSelected 
-                          ? const Color(0xFF4CAF50).withOpacity(0.2)
+    ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+    : const Color(0xFF080B1A),
                           : const Color(0xFF080B1A),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? const Color(0xFF4CAF50)
-                            : Colors.white.withOpacity(0.1),
+                            : Colors.white.withValues(alpha: 0.1),
                         width: isSelected ? 2 : 1,
                       ),
                     ),
                     child: Text(
                       accent.displayName.split(' ')[0], // "American", "British", "Australian"
+                      accent.displayName.split(' ')[0],
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[400],
@@ -300,9 +306,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
             setState(() {
               _currentWord = data.$1;
               _selectedLanguage = data.$2;
-              if (data.$3 != null) {
-                _selectedAccent = data.$3!;
-              }
+              if (data.$3 != null) _selectedAccent = data.$3!;
               _wordController.text = data.$1;
             });
           },
@@ -310,7 +314,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
             backgroundColor: const Color(0xFF1A1A2E),
             foregroundColor: const Color(0xFF6C63FF),
             side: BorderSide(
-              color: const Color(0xFF6C63FF).withOpacity(0.3),
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -320,11 +324,5 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
         );
       }).toList(),
     );
-  }
-
-  @override
-  void dispose() {
-    _wordController.dispose();
-    super.dispose();
   }
 }

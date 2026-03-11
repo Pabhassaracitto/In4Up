@@ -5,13 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../features/shadowing/providers/shadowing_provider.dart';
+import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
 import 'services/storage_service.dart'; // ★ THÊM
+import 'screens/memory_mode/memory_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,7 @@ class VipSoundApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
+        ChangeNotifierProvider.value(value: MemoryProvider.controller),
       ],
       child: MaterialApp(
         title: 'VipSound Player',

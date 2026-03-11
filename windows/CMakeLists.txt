@@ -53,29 +53,6 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
-# --- TÍCH HỢP MÃ NGUỒN NATIVE (FIX) ---
-# Tích hợp mã C/C++ từ thư mục `native` vào quá trình build của Windows.
-# Cách này ổn định và hiệu quả hơn, tránh việc biên dịch lại không cần thiết.
-
-# 1. Thêm đường dẫn đến các file header (.h) trong thư mục `native/include`.
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../native/include")
-
-# 2. Tự động tìm tất cả các file mã nguồn C/C++ trong thư mục `native/src`.
-file(GLOB NATIVE_SOURCES
-  "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/V1/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/V1/*.cpp"
-  # Nếu bạn có mã nguồn V2, hãy bỏ comment các dòng dưới đây
-  # "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/V2/*.c"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/V2/*.cpp"
-)
-
-# 3. Tạo một thư viện tĩnh từ mã nguồn và liên kết nó với ứng dụng chính.
-add_library(custom_native_lib STATIC ${NATIVE_SOURCES})
-target_link_libraries(${BINARY_NAME} PRIVATE custom_native_lib)
-# --- KẾT THÚC TÍCH HỢP ---
-
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)

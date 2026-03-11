@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../memory_mode/controllers/memory_controller.dart';
 import 'word_list_controller.dart';
 import 'word_list_models.dart';
 
@@ -25,8 +24,8 @@ class _WordListScreenState extends State<WordListScreen> {
   @override
   void initState() {
     super.initState();
-    final memCtrl = context.read<MemoryController>();
-    _ctrl = WordListController(memCtrl);
+    // ★ FIX: Không truyền MemoryController qua constructor nữa
+    _ctrl = WordListController();
   }
 
   @override
@@ -65,8 +64,7 @@ class _WordListScreenState extends State<WordListScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF0D1520),
             border: Border(
-              bottom: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.06)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
             ),
           ),
           child: Row(
@@ -137,17 +135,15 @@ class _WordListScreenState extends State<WordListScreen> {
                     child: TextField(
                       controller: _searchCtrl,
                       autofocus: true,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14),
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Tìm từ...',
-                        hintStyle: TextStyle(
-                            color: Colors.grey[600], fontSize: 13),
+                        hintStyle:
+                            TextStyle(color: Colors.grey[600], fontSize: 13),
                         prefixIcon: Icon(Icons.search,
                             color: Colors.grey[600], size: 16),
                         border: InputBorder.none,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 9),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 9),
                       ),
                       onChanged: ctrl.setSearch,
                     ),
@@ -188,8 +184,7 @@ class _WordListScreenState extends State<WordListScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF0A0F1A),
           border: Border(
-            bottom: BorderSide(
-                color: Colors.white.withValues(alpha: 0.05)),
+            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
           ),
         ),
         child: Row(
@@ -245,8 +240,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Thêm từ từ Vườn Trí Nhớ hoặc nhấn + để tự thêm',
-                  style:
-                      TextStyle(color: Colors.grey[700], fontSize: 12),
+                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -280,8 +274,7 @@ class _WordListScreenState extends State<WordListScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF0D1520),
             border: Border(
-              top: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.08)),
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
           ),
           child: ctrl.isPlaying
@@ -307,8 +300,8 @@ class _WordListScreenState extends State<WordListScreen> {
             color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.volume_up,
-              color: Color(0xFF9C8FFF), size: 18),
+          child:
+              const Icon(Icons.volume_up, color: Color(0xFF9C8FFF), size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -327,8 +320,7 @@ class _WordListScreenState extends State<WordListScreen> {
               Text(
                 '${ctrl.playingIndex + 1} / ${items.length}'
                 '${ctrl.playingRepeatCurrent > 1 ? ' · lần ${ctrl.playingRepeatCurrent}' : ''}',
-                style:
-                    TextStyle(color: Colors.grey[600], fontSize: 11),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
           ),
@@ -354,9 +346,7 @@ class _WordListScreenState extends State<WordListScreen> {
         Text(
           '${ctrl.selectedIds.length} đã chọn',
           style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13),
+              color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
         ),
         const Spacer(),
         TextButton(
@@ -368,8 +358,7 @@ class _WordListScreenState extends State<WordListScreen> {
         GestureDetector(
           onTap: () => ctrl.playAll(selectedOnly: true),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
@@ -591,9 +580,8 @@ class _WordRowState extends State<_WordRow> {
                               style: TextStyle(
                                   color: Colors.grey[400], fontSize: 12),
                               maxLines: shouldExpand ? null : 1,
-                              overflow: shouldExpand
-                                  ? null
-                                  : TextOverflow.ellipsis,
+                              overflow:
+                                  shouldExpand ? null : TextOverflow.ellipsis,
                             ),
                           ),
                       ],
@@ -608,11 +596,9 @@ class _WordRowState extends State<_WordRow> {
                       _RepeatSelector(
                         count: repeatCount,
                         isPlaying: isPlaying,
-                        currentRepeat: isPlaying
-                            ? ctrl.playingRepeatCurrent
-                            : 0,
-                        onChanged: (v) =>
-                            ctrl.setRepeatCount(entry.id, v),
+                        currentRepeat:
+                            isPlaying ? ctrl.playingRepeatCurrent : 0,
+                        onChanged: (v) => ctrl.setRepeatCount(entry.id, v),
                       ),
 
                       const SizedBox(width: 4),
@@ -641,11 +627,9 @@ class _WordRowState extends State<_WordRow> {
                       ),
 
                       // Expand toggle (nếu có full def / example)
-                      if (settings.showFullDefinition ||
-                          settings.showExample)
+                      if (settings.showFullDefinition || settings.showExample)
                         GestureDetector(
-                          onTap: () =>
-                              setState(() => _expanded = !_expanded),
+                          onTap: () => setState(() => _expanded = !_expanded),
                           child: Padding(
                             padding: const EdgeInsets.only(left: 2),
                             child: Icon(
@@ -688,7 +672,9 @@ class _WordRowState extends State<_WordRow> {
                             child: Text(
                               entry.fullDefinition!,
                               style: TextStyle(
-                                  color: Colors.grey[400], fontSize: 12, height: 1.5),
+                                  color: Colors.grey[400],
+                                  fontSize: 12,
+                                  height: 1.5),
                             ),
                           ),
                         ],
@@ -726,13 +712,18 @@ class _WordRowState extends State<_WordRow> {
 
   Color _wordTypeColor(String type) {
     switch (type.toLowerCase()) {
-      case 'noun':     return const Color(0xFF2196F3);
-      case 'verb':     return const Color(0xFFFF5722);
+      case 'noun':
+        return const Color(0xFF2196F3);
+      case 'verb':
+        return const Color(0xFFFF5722);
       case 'adj':
-      case 'adjective': return const Color(0xFF4CAF50);
+      case 'adjective':
+        return const Color(0xFF4CAF50);
       case 'adv':
-      case 'adverb':  return const Color(0xFFFF9800);
-      default:         return const Color(0xFF9E9E9E);
+      case 'adverb':
+        return const Color(0xFFFF9800);
+      default:
+        return const Color(0xFF9E9E9E);
     }
   }
 }
@@ -853,8 +844,7 @@ class _RepeatSelector extends StatelessWidget {
                       border: selected
                           ? null
                           : Border.all(
-                              color:
-                                  Colors.white.withValues(alpha: 0.1)),
+                              color: Colors.white.withValues(alpha: 0.1)),
                       boxShadow: selected
                           ? [
                               BoxShadow(
@@ -1013,7 +1003,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
           // Handle
           Center(
             child: Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey[700],
                 borderRadius: BorderRadius.circular(2),
@@ -1136,7 +1127,8 @@ class _SortSheet extends StatelessWidget {
         children: [
           Center(
             child: Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey[700],
                 borderRadius: BorderRadius.circular(2),
@@ -1147,9 +1139,7 @@ class _SortSheet extends StatelessWidget {
           const Text(
             'Sắp xếp',
             style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold),
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           ...WordListSortMode.values.map((mode) {
@@ -1161,8 +1151,8 @@ class _SortSheet extends StatelessWidget {
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: selected
                       ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
@@ -1170,8 +1160,7 @@ class _SortSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: selected
                       ? Border.all(
-                          color: const Color(0xFF6C63FF)
-                              .withValues(alpha: 0.4))
+                          color: const Color(0xFF6C63FF).withValues(alpha: 0.4))
                       : null,
                 ),
                 child: Row(
@@ -1186,9 +1175,8 @@ class _SortSheet extends StatelessWidget {
                       mode.label,
                       style: TextStyle(
                         color: selected ? Colors.white : Colors.grey[400],
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
                       ),
                     ),
@@ -1227,7 +1215,8 @@ class _FolderSheet extends StatelessWidget {
         children: [
           Center(
             child: Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey[700],
                 borderRadius: BorderRadius.circular(2),
@@ -1238,9 +1227,7 @@ class _FolderSheet extends StatelessWidget {
           const Text(
             'Chọn nhóm từ',
             style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold),
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           ...folders.map((f) {
@@ -1252,31 +1239,28 @@ class _FolderSheet extends StatelessWidget {
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: selected
                       ? f.color.withValues(alpha: 0.15)
                       : Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(12),
                   border: selected
-                      ? Border.all(
-                          color: f.color.withValues(alpha: 0.4))
+                      ? Border.all(color: f.color.withValues(alpha: 0.4))
                       : null,
                 ),
                 child: Row(
                   children: [
                     Icon(f.icon,
-                        size: 18,
-                        color: selected ? f.color : Colors.grey[500]),
+                        size: 18, color: selected ? f.color : Colors.grey[500]),
                     const SizedBox(width: 12),
                     Text(
                       f.name,
                       style: TextStyle(
                         color: selected ? Colors.white : Colors.grey[400],
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
                       ),
                     ),
@@ -1308,8 +1292,7 @@ class _PlayAllButton extends StatelessWidget {
       onTap: ctrl.playAll,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           gradient: ctrl.isPlaying
               ? const LinearGradient(

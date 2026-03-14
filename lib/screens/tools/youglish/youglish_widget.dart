@@ -1,25 +1,26 @@
 // lib/screens/tools/youglish/youglish_widget.dart
 //
-// ★ FIX Windows: webview_flutter KHÔNG hỗ trợ Windows
-//   → Hiện nút "Mở trong trình duyệt" thay vì crash
-//
-// ★ FIX Android accent/search crash:
-//   Bỏ `late final` → WebViewController? nullable
-//   didUpdateWidget chỉ gọi loadRequest(), KHÔNG recreate controller
-//
-// ★ FIX setState: guard `if (mounted)` trong tất cả callbacks
+// ★ FIX Windows: dùng webview_win_floating cho Windows
+//   (implement cùng interface với webview_flutter, chỉ đổi tên class)
+// ★ FIX Android: bỏ `late final` → nullable, didUpdateWidget chỉ loadRequest
+// ★ FIX setState: guard `if (mounted)` trong callbacks
 
-import 'package:flutter/foundation.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+// Mobile: webview_flutter
 import 'package:webview_flutter/webview_flutter.dart';
+
+// Windows: webview_win_floating (cùng API, chỉ khác tên class)
+import 'package:webview_win_floating/webview_win_floating.dart';
+
 import 'youglish_config.dart';
 
 class YouGlishWidget extends StatefulWidget {
   final String word;
   final YouGlishLanguage language;
   final YouGlishAccent? accent;
-  final double height;
+  final double? height; // null = fill parent
   final bool autoPlay;
 
   const YouGlishWidget({
@@ -27,7 +28,7 @@ class YouGlishWidget extends StatefulWidget {
     required this.word,
     this.language = YouGlishLanguage.english,
     this.accent = YouGlishAccent.us,
-    this.height = 400,
+    this.height, // null = fill parent
     this.autoPlay = true,
   }) : super(key: key);
 
@@ -37,22 +38,42 @@ class YouGlishWidget extends StatefulWidget {
 
 class _YouGlishWidgetState extends State<YouGlishWidget> {
   // ★ FIX: nullable thay vì late final → tránh reassign crash
-  WebViewController? _controller;
-  bool _isLoading = true;
+  WebViewController? _mobileCtrl;
+  WinWebViewController? _winCtrl;
 
-  bool get _isDesktop =>
-      defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.macOS ||
-      defaultTargetPlatform == TargetPlatform.linux;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    if (!_isDesktop) _initController();
+    if (Platform.isWindows) {
+      _initWindows();
+    } else {
+      _initMobile();
+    }
   }
 
-  void _initController() {
-    _controller = WebViewController()
+  // ── Windows ─────────────────────────────────────────────
+  void _initWindows() {
+    _winCtrl = WinWebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(WinNavigationDelegate(
+        onPageStarted: (_) {
+          if (mounted) setState(() => _isLoading = true);
+        },
+        onPageFinished: (_) {
+          if (mounted) setState(() => _isLoading = false);
+        },
+        onWebResourceError: (_) {
+          if (mounted) setState(() => _isLoading = false);
+        },
+      ))
+      ..loadRequest(Uri.parse(_buildUrl()));
+  }
+
+  // ── Mobile (Android / iOS) ───────────────────────────────
+  void _initMobile() {
+    _mobileCtrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
       ..setNavigationDelegate(NavigationDelegate(
@@ -85,90 +106,29 @@ class _YouGlishWidgetState extends State<YouGlishWidget> {
   @override
   void didUpdateWidget(YouGlishWidget old) {
     super.didUpdateWidget(old);
-    if (_isDesktop) return;
-    if (old.word != widget.word ||
+    final changed = old.word != widget.word ||
         old.language != widget.language ||
-        old.accent != widget.accent) {
-      // ★ FIX: KHÔNG tạo controller mới — chỉ load URL mới
-      if (mounted) setState(() => _isLoading = true);
-      _controller?.loadRequest(Uri.parse(_buildUrl()));
-    }
-  }
+        old.accent != widget.accent;
+    if (!changed) return;
 
-  Future<void> _openBrowser() async {
-    final uri = Uri.parse(
-      'https://youglish.com/pronounce/${Uri.encodeComponent(widget.word)}/${widget.language.code}',
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    // ★ FIX: chỉ load URL mới, KHÔNG tạo controller mới
+    if (mounted) setState(() => _isLoading = true);
+    final url = Uri.parse(_buildUrl());
+    _mobileCtrl?.loadRequest(url);
+    _winCtrl?.loadRequest(url);
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _isDesktop ? _desktopFallback() : _mobileWebView();
-
-  Widget _desktopFallback() {
+  Widget build(BuildContext context) {
     return Container(
-      height: widget.height,
+      height: widget.height, // null → SizedBox fill parent
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.3), width: 1.5),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00BCD4).withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.open_in_browser,
-                size: 48, color: Color(0xFF00BCD4)),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'WebView không hỗ trợ trên Windows',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '"${widget.word}"',
-            style: const TextStyle(
-                color: Color(0xFF00BCD4),
-                fontSize: 20,
-                fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: _openBrowser,
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: const Text('Mở YouGlish trong trình duyệt'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00BCD4),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _mobileWebView() {
-    final ctrl = _controller;
-    return Container(
-      height: widget.height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.3), width: 1.5),
+          color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
@@ -179,23 +139,29 @@ class _YouGlishWidgetState extends State<YouGlishWidget> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: ctrl == null
-            ? const Center(
-                child: CircularProgressIndicator(
+        child: Stack(
+          children: [
+            // Chọn WebView widget theo platform
+            if (Platform.isWindows && _winCtrl != null)
+              WinWebViewWidget(controller: _winCtrl!)
+            else if (_mobileCtrl != null)
+              WebViewWidget(controller: _mobileCtrl!)
+            else
+              const SizedBox.shrink(),
+
+            // Loading overlay
+            if (_isLoading)
+              Container(
+                color: const Color(0xFF1A1A2E),
+                child: const Center(
+                  child: CircularProgressIndicator(
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF))))
-            : Stack(children: [
-                WebViewWidget(controller: ctrl),
-                if (_isLoading)
-                  Container(
-                    color: const Color(0xFF1A1A2E),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF))),
-                    ),
+                        AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
                   ),
-              ]),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

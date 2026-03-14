@@ -37,11 +37,13 @@ jobs:
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
 
       - name: Rename APK
         run: |
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VipSound-Android-${{ github.ref_name }}.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/VipSound-Android-armv7-${{ github.ref_name }}.apk
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/VipSound-Android-arm64-${{ github.ref_name }}.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/VipSound-Android-x64-${{ github.ref_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

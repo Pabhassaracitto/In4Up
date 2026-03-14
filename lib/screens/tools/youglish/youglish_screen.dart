@@ -1,8 +1,8 @@
+
 // lib/screens/tools/youglish/youglish_screen.dart
 //
-// ★ FIX: Thay toàn bộ .withOpacity() → .withValues(alpha:)
-// ★ FIX: Không dùng bất kỳ Provider nào → tránh "Provider not found"
-//   khi mở từ Navigator.push bên ngoài Provider tree
+// ★ UI: Compact toolbar 1 hàng — Search + Language dropdown + Accent dropdown
+//   → WebView chiếm tối đa không gian, không cần kéo xuống
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +21,14 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
   YouGlishLanguage _selectedLanguage = YouGlishLanguage.english;
   YouGlishAccent _selectedAccent = YouGlishAccent.us;
   String _currentWord = 'hello';
+
+  void _search() {
+    final word = _wordController.text.trim();
+    if (word.isNotEmpty) {
+      HapticFeedback.lightImpact();
+      setState(() => _currentWord = word);
+    }
+  }
 
   @override
   void dispose() {
@@ -42,253 +50,191 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF00BCD4), Color(0xFF26C6DA)],
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(9),
               ),
-              child: const Icon(Icons.record_voice_over, size: 20, color: Colors.white),
+              child: const Icon(Icons.record_voice_over, size: 18, color: Colors.white),
             ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('YouGlish', style: TextStyle(fontSize: 16, color: Colors.white)),
-                Text('Nghe phát âm chuẩn',
-                    style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
+            const SizedBox(width: 10),
+            const Text('YouGlish',
+                style: TextStyle(fontSize: 16, color: Colors.white)),
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildSearchBox(),
-            const SizedBox(height: 16),
-            _buildLanguageSelector(),
-            const SizedBox(height: 16),
-            if (_selectedLanguage == YouGlishLanguage.english) ...[
-              _buildAccentSelector(),
-            
-            if (_selectedLanguage == YouGlishLanguage.english)
-              const SizedBox(height: 24),
-            ],
-            // ★ KEY trick: dùng ValueKey để Flutter rebuild YouGlishWidget
-            // khi word/language/accent thay đổi → didUpdateWidget được gọi đúng
-            YouGlishWidget(
-              key: ValueKey('$_currentWord-${_selectedLanguage.code}'
-                  '-${_selectedAccent.code}'),
-              word: _currentWord,
-              language: _selectedLanguage,
-              accent: _selectedLanguage == YouGlishLanguage.english 
-                  ? _selectedAccent 
-                  : null,
-              height: 400,
-              autoPlay: true,
-            ),
-            const SizedBox(height: 16),
-            _buildQuickButtons(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBox() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-        ),
-      ),
-      child: TextField(
-        controller: _wordController,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
-        decoration: InputDecoration(
-          hintText: 'Nhập từ hoặc cụm từ...',
-          hintStyle: TextStyle(color: Colors.grey[600]),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF6C63FF)),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.arrow_forward, color: Color(0xFF6C63FF)),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              final word = _wordController.text.trim();
-              if (word.isNotEmpty) {
-                setState(() => _currentWord = word);
-              }
-            },
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(16),
-        ),
-        onSubmitted: (value) {
-          final word = value.trim();
-          if (word.isNotEmpty) {
-            setState(() => _currentWord = word);
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildLanguageSelector() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00BCD4).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.language, size: 16, color: Color(0xFF00BCD4)),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Ngôn ngữ',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<YouGlishLanguage>(
-            value: _selectedLanguage,
-            dropdownColor: const Color(0xFF1A1A2E),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFF080B1A),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
-                ),
+          // ── TOOLBAR 1 HÀNG ─────────────────────────────────
+          _buildToolbar(),
+
+          // ── Quick words chips ───────────────────────────────
+          _buildQuickChips(),
+
+          // ── WebView: chiếm toàn bộ phần còn lại ────────────
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: YouGlishWidget(
+                key: ValueKey(
+                    '$_currentWord-${_selectedLanguage.code}-${_selectedAccent.code}'),
+                word: _currentWord,
+                language: _selectedLanguage,
+                accent: _selectedLanguage == YouGlishLanguage.english
+                    ? _selectedAccent
+                    : null,
+                autoPlay: true,
               ),
             ),
-            style: const TextStyle(color: Colors.white),
-            items: YouGlishLanguage.values.map((lang) {
-              return DropdownMenuItem(
-                value: lang,
-                child: Text(lang.displayName),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value == null) return;
-              HapticFeedback.selectionClick();
-              setState(() => _selectedLanguage = value);
-            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAccentSelector() {
+  // ── Toolbar 1 hàng: [Search...] [🌐 Lang ▾] [🎤 Accent ▾] ──
+  Widget _buildToolbar() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      color: const Color(0xFF1A1A2E),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.mic, size: 16, color: Color(0xFF4CAF50)),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Giọng (chỉ tiếng Anh)',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: YouGlishAccent.values.map((accent) {
-              final isSelected = _selectedAccent == accent;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedAccent = accent);
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected 
-    ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
-    : const Color(0xFF080B1A),
-                          : const Color(0xFF080B1A),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF4CAF50)
-                            : Colors.white.withValues(alpha: 0.1),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Text(
-                      accent.displayName.split(' ')[0], // "American", "British", "Australian"
-                      accent.displayName.split(' ')[0],
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[400],
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
+          // Search field — chiếm phần lớn
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                controller: _wordController,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Nhập từ...',
+                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  prefixIcon: const Icon(Icons.search,
+                      color: Color(0xFF6C63FF), size: 18),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.arrow_forward,
+                        color: Color(0xFF6C63FF), size: 18),
+                    onPressed: _search,
+                    padding: EdgeInsets.zero,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF080B1A),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.25)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF6C63FF), width: 1.5),
                   ),
                 ),
-              );
-            }).toList(),
+                onSubmitted: (_) => _search(),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Language dropdown
+          _buildDropdown<YouGlishLanguage>(
+            value: _selectedLanguage,
+            icon: Icons.language,
+            color: const Color(0xFF00BCD4),
+            items: YouGlishLanguage.values,
+            label: (l) => l.displayName,
+            onChanged: (v) {
+              if (v == null) return;
+              HapticFeedback.selectionClick();
+              setState(() => _selectedLanguage = v);
+            },
+          ),
+
+          const SizedBox(width: 8),
+
+          // Accent dropdown — chỉ hiện khi English
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _selectedLanguage == YouGlishLanguage.english
+                ? _buildDropdown<YouGlishAccent>(
+                    key: const ValueKey('accent'),
+                    value: _selectedAccent,
+                    icon: Icons.mic,
+                    color: const Color(0xFF4CAF50),
+                    items: YouGlishAccent.values,
+                    label: (a) => a.displayName.split(' ')[0],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedAccent = v);
+                    },
+                  )
+                : const SizedBox(key: ValueKey('no-accent')),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickButtons() {
+  // Generic compact dropdown button
+  Widget _buildDropdown<T>({
+    Key? key,
+    required T value,
+    required IconData icon,
+    required Color color,
+    required List<T> items,
+    required String Function(T) label,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      key: key,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          dropdownColor: const Color(0xFF1A1A2E),
+          isDense: true,
+          icon: Icon(Icons.arrow_drop_down, color: color, size: 18),
+          onChanged: onChanged,
+          items: items.map((item) {
+            return DropdownMenuItem<T>(
+              value: item,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: color, size: 13),
+                  const SizedBox(width: 5),
+                  Text(
+                    label(item),
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ── Quick chips nhỏ gọn ──────────────────────────────────
+  Widget _buildQuickChips() {
     final quickWords = [
       ('hello', YouGlishLanguage.english, YouGlishAccent.us),
       ('water', YouGlishLanguage.english, YouGlishAccent.uk),
@@ -296,33 +242,57 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
       ('hola', YouGlishLanguage.spanish, null),
     ];
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: quickWords.map((data) {
-        return ElevatedButton(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            setState(() {
-              _currentWord = data.$1;
-              _selectedLanguage = data.$2;
-              if (data.$3 != null) _selectedAccent = data.$3!;
-              _wordController.text = data.$1;
-            });
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A1A2E),
-            foregroundColor: const Color(0xFF6C63FF),
-            side: BorderSide(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: Text(data.$1),
-        );
-      }).toList(),
+    return Container(
+      color: const Color(0xFF0F0F23),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: quickWords.map((data) {
+            final isActive =
+                _currentWord == data.$1 && _selectedLanguage == data.$2;
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() {
+                    _currentWord = data.$1;
+                    _selectedLanguage = data.$2;
+                    if (data.$3 != null) _selectedAccent = data.$3!;
+                    _wordController.text = data.$1;
+                  });
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                        : const Color(0xFF1A1A2E),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isActive
+                          ? const Color(0xFF6C63FF)
+                          : Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Text(
+                    data.$1,
+                    style: TextStyle(
+                      color:
+                          isActive ? const Color(0xFF9C8FFF) : Colors.grey[400],
+                      fontSize: 12,
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }

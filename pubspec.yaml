@@ -63,8 +63,10 @@ dependencies:
   cloud_firestore: ^5.4.4
   google_sign_in: ^6.2.0
 
+  # Youglish Android & iOS
   webview_flutter: ^4.9.0
-
+  # Youglish Win
+  webview_win_floating: ^3.0.0
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^
   just_audio_web: 0.4.16                # KHÔNG dùng ^

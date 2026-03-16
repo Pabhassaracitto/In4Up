@@ -5,14 +5,15 @@
 //
 // Khi chọn bất kỳ văn bản nào → load vào TextProvider → đóng drawer
 
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../providers/text_provider.dart';
 import '../services/text_library_service.dart';
+import '../widgets/youtube_caption_download_dialog.dart';
 import 'text_library/text_entry_dialog.dart';
 
 class TextLibraryDrawer extends StatefulWidget {
@@ -91,7 +92,8 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
               color: const Color(0xFF2196F3).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.menu_book, color: Color(0xFF2196F3), size: 22),
+            child:
+                const Icon(Icons.menu_book, color: Color(0xFF2196F3), size: 22),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -192,6 +194,15 @@ class _LocalTab extends StatelessWidget {
                   onTap: () => _importTextFile(context),
                 ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.play_circle_fill,
+                  label: 'YouTube Lyrics',
+                  color: const Color(0xFFFF0000),
+                  onTap: () => YoutubeCaptionDownloadDialog.show(context),
+                ),
+              ),
             ],
           ),
         ),
@@ -202,11 +213,12 @@ class _LocalTab extends StatelessWidget {
         Expanded(
           child: Consumer<TextProvider>(
             builder: (context, tp, _) {
-              if (!tp.hasLyrics) return _EmptyState(
-                icon: Icons.text_snippet_outlined,
-                title: 'Chưa có văn bản',
-                subtitle: 'Import file TXT, LRC, hoặc SRT',
-              );
+              if (!tp.hasLyrics)
+                return _EmptyState(
+                  icon: Icons.text_snippet_outlined,
+                  title: 'Chưa có văn bản',
+                  subtitle: 'Import file TXT, LRC, hoặc SRT',
+                );
               return ListView(
                 padding: const EdgeInsets.all(12),
                 children: [
@@ -236,7 +248,9 @@ class _LocalTab extends StatelessWidget {
     );
     if (result != null && result.files.single.path != null) {
       if (context.mounted) {
-        await context.read<TextProvider>().loadTextFile(result.files.single.path!);
+        await context
+            .read<TextProvider>()
+            .loadTextFile(result.files.single.path!);
         HapticFeedback.mediumImpact();
         if (context.mounted) Navigator.pop(context);
       }
@@ -276,9 +290,9 @@ class _CloudTabState extends State<_CloudTab> {
   void _loadEntry(BuildContext context, TextLibraryEntry entry) {
     HapticFeedback.mediumImpact();
     context.read<TextProvider>().loadFromString(
-      entry.content,
-      title: entry.title,
-    );
+          entry.content,
+          title: entry.title,
+        );
     widget.onClose();
   }
 
@@ -299,7 +313,8 @@ class _CloudTabState extends State<_CloudTab> {
   }
 
   // ── Mở dialog sửa ─────────────────────────────────────────
-  Future<void> _openEditDialog(BuildContext context, TextLibraryEntry entry) async {
+  Future<void> _openEditDialog(
+      BuildContext context, TextLibraryEntry entry) async {
     await showDialog<TextLibraryEntry>(
       context: context,
       builder: (_) => TextEntryDialog(entry: entry),
@@ -307,7 +322,8 @@ class _CloudTabState extends State<_CloudTab> {
   }
 
   // ── Xác nhận xoá ─────────────────────────────────────────
-  Future<void> _confirmDelete(BuildContext context, TextLibraryEntry entry) async {
+  Future<void> _confirmDelete(
+      BuildContext context, TextLibraryEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -412,8 +428,13 @@ class _CloudTabState extends State<_CloudTab> {
                   ? all
                   : all
                       .where((e) =>
-                          e.title.toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
-                          (e.category?.toLowerCase().contains(widget.searchQuery.toLowerCase()) ?? false))
+                          e.title
+                              .toLowerCase()
+                              .contains(widget.searchQuery.toLowerCase()) ||
+                          (e.category
+                                  ?.toLowerCase()
+                                  .contains(widget.searchQuery.toLowerCase()) ??
+                              false))
                       .toList();
 
               if (items.isEmpty && all.isEmpty) {
@@ -579,7 +600,8 @@ class _CloudEntryCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 1),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                                color: const Color(0xFF6C63FF)
+                                    .withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -736,9 +758,8 @@ class _TextCard extends StatelessWidget {
               ? color.withValues(alpha: 0.12)
               : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(12),
-          border: isActive
-              ? Border.all(color: color.withValues(alpha: 0.4))
-              : null,
+          border:
+              isActive ? Border.all(color: color.withValues(alpha: 0.4)) : null,
         ),
         child: Row(
           children: [

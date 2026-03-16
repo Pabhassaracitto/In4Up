@@ -67,6 +67,9 @@ dependencies:
   webview_flutter: ^4.9.0
   # Youglish Win
   webview_win_floating: ^3.0.0
+  webview_windows: ^0.4.0   # Chỉ cho Windows
+  # Youtube
+  youtube_explode_dart: ^2.3.6
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^
   just_audio_web: 0.4.16                # KHÔNG dùng ^

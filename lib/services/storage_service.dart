@@ -1,10 +1,12 @@
 // lib/services/storage_service.dart
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../models/text_segment.dart';
-import '../models/segment.dart';
+
 import '../../features/shadowing/models/shadowing_result.dart';
+import '../models/segment.dart';
+import '../models/text_segment.dart';
 
 /// Service quản lý lưu trữ dữ liệu local với Hive
 /// Singleton pattern - gọi StorageService() ở bất kỳ đâu
@@ -43,6 +45,7 @@ class StorageService {
         Hive.openBox<String>(_shadowingHistoryBox),
         Hive.openBox<String>(_savedWordsBox),
         Hive.openBox(_dailyStatsBox),
+        Hive.openBox<String>('web_reader_history'),
       ]);
 
       _initialized = true;

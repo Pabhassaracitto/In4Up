@@ -23,6 +23,28 @@ class SyntaxHighlighterService {
     return lines.map(_analyzeLine).toList();
   }
 
+  /// Public method cho Web Reader và PDF Reader
+  AnalyzedWord analyzeWord(String word) {
+    final clean = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
+    if (clean.isEmpty) {
+      return AnalyzedWord(word: word, wordType: WordType.unknown);
+    }
+    final isStop = _stopWords.contains(clean);
+    final type = isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean);
+    final cefr = _estimateCEFR(clean);
+    return AnalyzedWord(
+      word: word,
+      originalWord: word,
+      wordType: type,
+      cefrLevel: cefr,
+      meaning: _basicDict[clean],
+      isStopWord: isStop,
+    );
+  }
+
+  /// Expose CEFR dictionary cho JavaScript serialization
+  static Map<String, CEFRLevel> get cefrDictionary => _cefrDictionary;
+
   List<AnalyzedWord> _analyzeLine(String text) {
     final src = text.trim();
     if (src.isEmpty) return [];

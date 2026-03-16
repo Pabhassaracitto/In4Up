@@ -121,6 +121,7 @@ set(V1_SOURCES
     src/V1/WSOLAProcessor.cpp
     src/V1/FFTProcessor.cpp
     src/V1/TransientDetector.cpp
+    src/V1/pffft.c
 )
 
 # V2 Enhancement Sources
@@ -158,8 +159,10 @@ endif()
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
- ${CMAKE_CURRENT_SOURCE_DIR}
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/V1
+)
 # ───────────────────────────────────────────────────────────────────────────
 # V1 Library (Standard Quality, Fast)
 # ───────────────────────────────────────────────────────────────────────────

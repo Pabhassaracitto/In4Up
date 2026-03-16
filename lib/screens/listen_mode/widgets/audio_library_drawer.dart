@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
 import '../../../services/storage_service.dart';
+import '../../../widgets/youtube_audio_download_dialog.dart';
 
 class AudioLibraryDrawer extends StatefulWidget {
   const AudioLibraryDrawer({super.key});
@@ -103,20 +104,54 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer> {
             // ── Import button ────────────────────────────────────
             Padding(
               padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _importAudioFile(context),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Thêm Audio'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C63FF),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _importAudioFile(context),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Thêm Audio'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6C63FF),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final savedPath =
+                            await YoutubeAudioDownloadDialog.show(context);
+                        if (savedPath != null) {
+                          _loadRecentFiles(); // Reload list để hiện file mới
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.play_circle_fill,
+                        color: Color(0xFFFF0000),
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Tải từ YouTube',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                            color: const Color(0xFFFF0000).withOpacity(0.4)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 

@@ -127,4 +127,4 @@
 #define FUNC_COS cosf
 #define FUNC_SIN sinf
 
-#include "pffft_priv_impl.h"
+#include "pffft_priv_impl.c.inc"

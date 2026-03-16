@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../screens/tools/tools_overlay.dart';
+import '../features/web_reader/web_reader_screen.dart';
 import '../providers/player_provider.dart';
 import '../screens/listen_mode/widgets/mini_player.dart';
 import '../screens/understand_mode/understand_tab_connector.dart';
@@ -96,6 +97,12 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         ));
         break;
 
+      case 'web_reader':
+        nav.push(MaterialPageRoute(
+          builder: (_) => const WebReaderScreen(),
+        ));
+        break;
+
       case 'youglish':
         // ★ FIX YouGlish: dùng nav.push với context gốc của MainShell
         // → YouGlishScreen vẫn nằm trong Provider tree của MaterialApp
@@ -122,6 +129,14 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         subtitle: 'Danh sách từ vựng',
         icon: Icons.format_list_bulleted,
         color: const Color(0xFF6C63FF),
+        isAvailable: true,
+      ),
+      const tools.ToolItem(
+        id: 'web_reader',
+        title: 'Web Reader',
+        subtitle: 'Đọc web + highlight CEFR',
+        icon: Icons.language,
+        color: Color(0xFF26A69A),
         isAvailable: true,
       ),
       const tools.ToolItem(
@@ -196,6 +211,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         return const Color(0xFFFFB300);
       case 3:
         return const Color(0xFF4CAF50);
+      case 4:
+        return const Color(0xFF26A69A);
       default:
         return const Color(0xFF6C63FF);
     }
@@ -250,6 +267,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       1: '🎧 Chế độ Nghe',
       2: '💡 Chế độ Hiểu',
       3: '🧠 Vườn Trí Nhớ',
+      4: '🌐 Web Reader',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -323,6 +341,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         return const UnderstandTabConnector();
       case 3:
         return const MemoryTabConnector();
+      case 4:
+        return const WebReaderScreen(
+          initialUrl: 'https://www.bbc.com/news',
+        );
       default:
         return HomeScreen(
           onNavigateToListen: () => _navigateTo(1),
@@ -406,6 +428,15 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 label: 'Nhớ',
                 color: const Color(0xFF4CAF50),
                 onTap: () => _onTabTapped(3),
+              ),
+              _NavButton(
+                tabIndex: 4,
+                currentIndex: _currentIndex,
+                icon: Icons.language_outlined,
+                activeIcon: Icons.language,
+                label: 'Web',
+                color: const Color(0xFF26A69A),
+                onTap: () => _onTabTapped(4),
               ),
 
               // Divider

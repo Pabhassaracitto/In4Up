@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/youtube/youtube_sheet.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/storage_service.dart';
-import '../../../widgets/youtube_audio_download_dialog.dart';
 
 class AudioLibraryDrawer extends StatefulWidget {
   const AudioLibraryDrawer({super.key});
@@ -126,8 +126,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        final savedPath =
-                            await YoutubeAudioDownloadDialog.show(context);
+                        final savedPath = await YoutubeSheet.show(context);
                         if (savedPath != null) {
                           _loadRecentFiles(); // Reload list để hiện file mới
                         }
@@ -142,8 +141,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer> {
                         style: TextStyle(color: Colors.white70),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                            color: const Color(0xFFFF0000).withOpacity(0.4)),
+                        side: const BorderSide(color: Color(0x66FF0000)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -160,8 +158,9 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer> {
             // ── Currently playing ────────────────────────────────
             Consumer<PlayerProvider>(
               builder: (context, player, _) {
-                if (player.currentSongPath == null)
+                if (player.currentSongPath == null) {
                   return const SizedBox.shrink();
+                }
 
                 return Container(
                   margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),

@@ -11,9 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../features/pdf_reader/pdf_reader_screen.dart';
+import '../features/youtube/youtube_sheet.dart';
 import '../providers/text_provider.dart';
 import '../services/text_library_service.dart';
-import '../widgets/youtube_caption_download_dialog.dart';
 import 'text_library/text_entry_dialog.dart';
 
 class TextLibraryDrawer extends StatefulWidget {
@@ -184,23 +185,38 @@ class _LocalTab extends StatelessWidget {
         // Actions
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.upload_file,
-                  label: 'Import',
-                  color: const Color(0xFF2196F3),
-                  onTap: () => _importTextFile(context),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.upload_file,
+                      label: 'Import',
+                      color: const Color(0xFF2196F3),
+                      onTap: () => _importTextFile(context),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.play_circle_fill,
+                      label: 'YouTube',
+                      color: const Color(0xFFFF0000),
+                      onTap: () =>
+                          YoutubeSheet.show(context, captionsFirst: true),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
                 child: _ActionButton(
-                  icon: Icons.play_circle_fill,
-                  label: 'YouTube Lyrics',
-                  color: const Color(0xFFFF0000),
-                  onTap: () => YoutubeCaptionDownloadDialog.show(context),
+                  icon: Icons.picture_as_pdf,
+                  label: 'Mở file PDF',
+                  color: const Color(0xFFEF5350),
+                  onTap: () => _importPdfFile(context),
                 ),
               ),
             ],
@@ -213,12 +229,13 @@ class _LocalTab extends StatelessWidget {
         Expanded(
           child: Consumer<TextProvider>(
             builder: (context, tp, _) {
-              if (!tp.hasLyrics)
-                return _EmptyState(
+              if (!tp.hasLyrics) {
+                return const _EmptyState(
                   icon: Icons.text_snippet_outlined,
                   title: 'Chưa có văn bản',
                   subtitle: 'Import file TXT, LRC, hoặc SRT',
                 );
+              }
               return ListView(
                 padding: const EdgeInsets.all(12),
                 children: [
@@ -241,19 +258,37 @@ class _LocalTab extends StatelessWidget {
     );
   }
 
+  Future<void> _importPdfFile(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    final path = result.files.single.path!;
+
+    if (context.mounted) {
+      onClose();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfReaderScreen(pdfPath: path),
+        ),
+      );
+    }
+  }
+
   Future<void> _importTextFile(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['txt', 'lrc', 'srt'],
     );
-    if (result != null && result.files.single.path != null) {
-      if (context.mounted) {
-        await context
-            .read<TextProvider>()
-            .loadTextFile(result.files.single.path!);
-        HapticFeedback.mediumImpact();
-        if (context.mounted) Navigator.pop(context);
-      }
+    if (result == null || result.files.single.path == null) return;
+
+    final path = result.files.single.path!;
+    if (context.mounted) {
+      await context.read<TextProvider>().loadTextFile(path);
+      onClose();
     }
   }
 }
@@ -439,12 +474,13 @@ class _CloudTabState extends State<_CloudTab> {
 
               if (items.isEmpty && all.isEmpty) {
                 return _EmptyState(
+                  // Removed const
                   icon: Icons.library_books_outlined,
                   title: 'Thư viện trống',
                   subtitle: 'Nhấn + để thêm văn bản đầu tiên',
                   action: TextButton.icon(
                     onPressed: () => _openAddDialog(context),
-                    icon: const Icon(Icons.add, size: 16),
+                    icon: const Icon(Icons.add, size: 16), // Already const
                     label: const Text('Thêm ngay'),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF2196F3),
@@ -455,6 +491,7 @@ class _CloudTabState extends State<_CloudTab> {
 
               if (items.isEmpty) {
                 return _EmptyState(
+                  // Removed const
                   icon: Icons.search_off,
                   title: 'Không tìm thấy',
                   subtitle: '"${widget.searchQuery}"',

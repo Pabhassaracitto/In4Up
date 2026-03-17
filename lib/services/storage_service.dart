@@ -46,6 +46,7 @@ class StorageService {
         Hive.openBox<String>(_savedWordsBox),
         Hive.openBox(_dailyStatsBox),
         Hive.openBox<String>('web_reader_history'),
+        Hive.openBox<String>('pdf_annotations'),
       ]);
 
       _initialized = true;

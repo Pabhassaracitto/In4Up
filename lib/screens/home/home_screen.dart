@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,8 +27,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _bgController;
   late AnimationController _cardController;
   late List<Animation<double>> _cardAnims;
@@ -170,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildQuickStats() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Consumer<PlayerProvider>( 
+      child: Consumer<PlayerProvider>(
         builder: (context, player, _) {
           return Container(
             padding: const EdgeInsets.all(20),
@@ -1052,8 +1050,7 @@ class _AuthSheetState extends State<_AuthSheet> {
           // Error message
           if (_errorMessage != null) ...[
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
@@ -1148,7 +1145,9 @@ class _AuthSheetState extends State<_AuthSheet> {
                 Text(
                   isAnonymous
                       ? 'Đang hoạt động · Dữ liệu lưu trên thiết bị này'
-                      : (AuthService().email ?? AuthService().displayName ?? 'Đã đăng nhập'),
+                      : (AuthService().email ??
+                          AuthService().displayName ??
+                          'Đã đăng nhập'),
                   style: TextStyle(color: Colors.grey[500], fontSize: 11),
                 ),
               ],
@@ -1156,9 +1155,8 @@ class _AuthSheetState extends State<_AuthSheet> {
           ),
           Icon(
             Icons.check_circle,
-            color: isAnonymous
-                ? const Color(0xFF6C63FF)
-                : const Color(0xFF4CAF50),
+            color:
+                isAnonymous ? const Color(0xFF6C63FF) : const Color(0xFF4CAF50),
             size: 18,
           ),
         ],

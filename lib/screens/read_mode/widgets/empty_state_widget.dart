@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
 
 class ReadEmptyState extends StatelessWidget {
@@ -86,6 +87,14 @@ class ReadEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 _ImportCard(
+                  icon: Icons.picture_as_pdf,
+                  label: 'File PDF',
+                  subtitle: 'Sách, bài giảng',
+                  color: const Color(0xFFEF5350),
+                  onTap: () => _importFile(context, ['pdf']),
+                ),
+                const SizedBox(width: 12),
+                _ImportCard(
                   icon: Icons.edit_note,
                   label: 'Nhập tay',
                   subtitle: 'Paste văn bản',
@@ -146,23 +155,26 @@ class ReadEmptyState extends StatelessWidget {
         allowedExtensions: extensions,
       );
 
-      if (result != null &&
-          result.files.single.path != null &&
-          context.mounted) {
-        await context
-            .read<TextProvider>()
-            .loadTextFile(result.files.single.path!);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+      if (result == null || result.files.single.path == null) return;
+
+      final path = result.files.single.path!;
+
+      if (path.toLowerCase().endsWith('.pdf') && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PdfReaderScreen(pdfPath: path),
           ),
         );
+        return;
       }
+
+      if (context.mounted) {
+        await context.read<TextProvider>().loadTextFile(path);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      debugPrint('Error importing file: $e');
     }
   }
 

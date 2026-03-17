@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import '../tts_service.dart';
 import '../tts_settings.dart';
-import '../../../services/text_splitter_service.dart';
 
 /// Widget cài đặt TTS - nhúng vào Settings sheet hiện có
 class TtsSettingsSection extends StatefulWidget {

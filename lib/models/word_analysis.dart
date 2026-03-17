@@ -128,19 +128,19 @@ enum CEFRLevel {
   Color get color {
     switch (this) {
       case CEFRLevel.a1:
-        return const Color(0xFF4CAF50);
+        return const Color(0xFF78909C); // Grey
       case CEFRLevel.a2:
-        return const Color(0xFF8BC34A);
+        return const Color(0xFF42A5F5); // Blue
       case CEFRLevel.b1:
-        return const Color(0xFFFFEB3B);
+        return const Color(0xFF66BB6A); // Green
       case CEFRLevel.b2:
-        return const Color(0xFFFF9800);
+        return const Color(0xFFFFCA28); // Yellow
       case CEFRLevel.c1:
-        return const Color(0xFFF44336);
+        return const Color(0xFFFF7043); // Orange
       case CEFRLevel.c2:
-        return const Color(0xFF9C27B0);
+        return const Color(0xFFEF5350); // Red
       case CEFRLevel.unknown:
-        return const Color(0xFF9E9E9E);
+        return Colors.grey;
     }
   }
 }

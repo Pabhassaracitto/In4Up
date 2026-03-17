@@ -5,6 +5,7 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -24,10 +25,10 @@ class DownloadProgress {
   final String videoId;
   final String title;
   final DownloadStatus status;
-  final double progress;      // 0.0 → 1.0
+  final double progress; // 0.0 → 1.0
   final int downloadedBytes;
   final int totalBytes;
-  final String? savedPath;    // path sau khi hoàn tất
+  final String? savedPath; // path sau khi hoàn tất
   final String? errorMessage;
 
   const DownloadProgress({
@@ -119,8 +120,7 @@ class YtVideoInfo {
 // ─── Main Service ─────────────────────────────────────────────
 
 class YoutubeDownloadService {
-  static final YoutubeDownloadService _instance =
-      YoutubeDownloadService._();
+  static final YoutubeDownloadService _instance = YoutubeDownloadService._();
   factory YoutubeDownloadService() => _instance;
   YoutubeDownloadService._();
 
@@ -206,8 +206,7 @@ class YoutubeDownloadService {
       ));
 
       // ── Step 2: Get audio stream manifest ────────────────
-      final manifest =
-          await _yt.videos.streamsClient.getManifest(video.id);
+      final manifest = await _yt.videos.streamsClient.getManifest(video.id);
 
       // Chọn audio stream chất lượng cao nhất (webm/opus hoặc mp4/aac)
       // Ưu tiên mp4/aac vì tương thích tốt hơn với just_audio
@@ -218,8 +217,8 @@ class YoutubeDownloadService {
 
       if (mp4Streams.isNotEmpty) {
         // Chọn bitrate cao nhất trong mp4
-        mp4Streams.sort(
-            (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+        mp4Streams.sort((a, b) =>
+            b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
         streamInfo = mp4Streams.first;
       } else {
         // Fallback: bất kỳ audio stream nào
@@ -239,9 +238,7 @@ class YoutubeDownloadService {
 
       // ── Step 3: Prepare save path ─────────────────────────
       final saveDir = await _getDownloadDirectory();
-      final safeTitle = title.length > 60
-          ? title.substring(0, 60)
-          : title;
+      final safeTitle = title.length > 60 ? title.substring(0, 60) : title;
       final filePath = '${saveDir.path}/$safeTitle.$extension';
       final file = File(filePath);
 
@@ -272,9 +269,8 @@ class YoutubeDownloadService {
         fileStream.add(chunk);
         downloaded += chunk.length;
 
-        final progress = totalBytes > 0
-            ? 0.1 + (downloaded / totalBytes) * 0.9
-            : 0.5;
+        final progress =
+            totalBytes > 0 ? 0.1 + (downloaded / totalBytes) * 0.9 : 0.5;
 
         ctrl.add(DownloadProgress(
           videoId: videoId,
@@ -330,8 +326,7 @@ class YoutubeDownloadService {
     String languageCode = 'en',
   }) async {
     try {
-      final manifest =
-          await _yt.videos.closedCaptions.getManifest(urlOrId);
+      final manifest = await _yt.videos.closedCaptions.getManifest(urlOrId);
 
       if (manifest.tracks.isEmpty) {
         debugPrint('No captions available for $urlOrId');
@@ -342,18 +337,14 @@ class YoutubeDownloadService {
       ClosedCaptionTrackInfo? track;
 
       // Thử exact match trước
-      track = manifest.tracks
-          .cast<ClosedCaptionTrackInfo?>()
-          .firstWhere(
+      track = manifest.tracks.cast<ClosedCaptionTrackInfo?>().firstWhere(
             (t) => t!.language.code == languageCode,
             orElse: () => null,
           );
 
       // Fallback: English nếu không tìm thấy
       if (track == null && languageCode != 'en') {
-        track = manifest.tracks
-            .cast<ClosedCaptionTrackInfo?>()
-            .firstWhere(
+        track = manifest.tracks.cast<ClosedCaptionTrackInfo?>().firstWhere(
               (t) => t!.language.code == 'en',
               orElse: () => null,
             );
@@ -362,8 +353,7 @@ class YoutubeDownloadService {
       // Last resort: dùng track đầu tiên
       track ??= manifest.tracks.first;
 
-      final captions =
-          await _yt.videos.closedCaptions.get(track);
+      final captions = await _yt.videos.closedCaptions.get(track);
 
       return captions.captions
           .map((c) => YtCaptionLine(
@@ -386,8 +376,7 @@ class YoutubeDownloadService {
   Future<List<({String code, String name})>> getAvailableLanguages(
       String urlOrId) async {
     try {
-      final manifest =
-          await _yt.videos.closedCaptions.getManifest(urlOrId);
+      final manifest = await _yt.videos.closedCaptions.getManifest(urlOrId);
       return manifest.tracks
           .map((t) => (code: t.language.code, name: t.language.name))
           .toList();
@@ -457,8 +446,7 @@ class YoutubeDownloadService {
         raw.contains('unavailable')) {
       return 'Video không tồn tại hoặc đã bị xóa';
     }
-    if (raw.contains('SocketException') ||
-        raw.contains('NetworkException')) {
+    if (raw.contains('SocketException') || raw.contains('NetworkException')) {
       return 'Lỗi mạng — kiểm tra kết nối internet';
     }
     if (raw.contains('403') || raw.contains('forbidden')) {
@@ -484,8 +472,8 @@ class YoutubeDownloadService {
                   f.path.endsWith('.webm') ||
                   f.path.endsWith('.m4a')))
           .toList()
-        ..sort((a, b) =>
-            b.statSync().modified.compareTo(a.statSync().modified));
+        ..sort(
+            (a, b) => b.statSync().modified.compareTo(a.statSync().modified));
     } catch (_) {
       return [];
     }

@@ -289,6 +289,7 @@ nb-configuration.xml
 # Backup files
 *.bak
 *.backup
+*backups
 *.orig
 *.rej
 

@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../screens/tools/tools_overlay.dart';
+import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
+import '../features/youtube/youtube_sheet.dart';
 import '../providers/player_provider.dart';
 import '../screens/listen_mode/widgets/mini_player.dart';
 import '../screens/understand_mode/understand_tab_connector.dart';
@@ -16,6 +18,7 @@ import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
 // CHỈ lấy PuzzleNavButton (không kéo ToolItem từ file cũ vào nữa)
+import 'package:file_picker/file_picker.dart';
 import 'tools/tools_overlay.dart' show PuzzleNavButton;
 // Dùng overlay V2 + ToolItem V2 với prefix để khỏi trùng tên
 import 'tools/tools_overlay_v2.dart' as tools;
@@ -103,6 +106,22 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         ));
         break;
 
+      case 'youtube_downloader':
+        YoutubeSheet.show(context);
+        break;
+
+      case 'pdf_reader':
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+        );
+        if (result != null && result.files.single.path != null) {
+          nav.push(MaterialPageRoute(
+              builder: (_) =>
+                  PdfReaderScreen(pdfPath: result.files.single.path!)));
+        }
+        break;
+
       case 'youglish':
         // ★ FIX YouGlish: dùng nav.push với context gốc của MainShell
         // → YouGlishScreen vẫn nằm trong Provider tree của MaterialApp
@@ -137,6 +156,22 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         subtitle: 'Đọc web + highlight CEFR',
         icon: Icons.language,
         color: Color(0xFF26A69A),
+        isAvailable: true,
+      ),
+      const tools.ToolItem(
+        id: 'youtube_downloader',
+        title: 'YouTube',
+        subtitle: 'Tải audio & lyrics',
+        icon: Icons.download_for_offline,
+        color: Color(0xFFFF0000),
+        isAvailable: true,
+      ),
+      const tools.ToolItem(
+        id: 'pdf_reader',
+        title: 'PDF Reader',
+        subtitle: 'Mở và đọc file PDF',
+        icon: Icons.picture_as_pdf,
+        color: Color(0xFFEF5350),
         isAvailable: true,
       ),
       const tools.ToolItem(
@@ -211,8 +246,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         return const Color(0xFFFFB300);
       case 3:
         return const Color(0xFF4CAF50);
-      case 4:
-        return const Color(0xFF26A69A);
       default:
         return const Color(0xFF6C63FF);
     }
@@ -267,7 +300,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       1: '🎧 Chế độ Nghe',
       2: '💡 Chế độ Hiểu',
       3: '🧠 Vườn Trí Nhớ',
-      4: '🌐 Web Reader',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -341,10 +373,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         return const UnderstandTabConnector();
       case 3:
         return const MemoryTabConnector();
-      case 4:
-        return const WebReaderScreen(
-          initialUrl: 'https://www.bbc.com/news',
-        );
       default:
         return HomeScreen(
           onNavigateToListen: () => _navigateTo(1),
@@ -428,15 +456,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 label: 'Nhớ',
                 color: const Color(0xFF4CAF50),
                 onTap: () => _onTabTapped(3),
-              ),
-              _NavButton(
-                tabIndex: 4,
-                currentIndex: _currentIndex,
-                icon: Icons.language_outlined,
-                activeIcon: Icons.language,
-                label: 'Web',
-                color: const Color(0xFF26A69A),
-                onTap: () => _onTabTapped(4),
               ),
 
               // Divider

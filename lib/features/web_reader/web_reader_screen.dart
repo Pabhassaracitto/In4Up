@@ -6,10 +6,10 @@
 //  - TTS đọc selected text
 //  - Lịch sử & bookmark
 
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -81,7 +81,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         },
         onProgress: (p) => _controller.onProgress(p),
         onPageFinished: _onPageFinished,
-        onWebResourceError: (err) => _controller.onError(err.description),
+        onWebResourceError: (WebResourceError err) {
+          if (err.isForMainFrame == true) {
+            // TODO: Implement error handling in controller
+            // _controller.onError(err.description);
+          }
+        },
         onNavigationRequest: (req) {
           // Block popup windows, allow everything else
           return req.isMainFrame
@@ -259,8 +264,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   void _showSnack(String msg, {int duration = 3}) {
     final now = DateTime.now();
-    if (_lastSnackbar != null && now.difference(_lastSnackbar!).inSeconds < 1)
+    if (_lastSnackbar != null && now.difference(_lastSnackbar!).inSeconds < 1) {
       return;
+    }
     _lastSnackbar = now;
 
     if (!mounted) return;
@@ -392,7 +398,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.75),
+            color: Colors.black.withAlpha((255 * 0.75).round()),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white12),
           ),

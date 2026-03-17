@@ -1,5 +1,7 @@
 // lib/screens/main_shell.dart
 
+// CHỈ lấy PuzzleNavButton (không kéo ToolItem từ file cũ vào nữa)
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,16 +19,11 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'text_library_drawer.dart';
-// CHỈ lấy PuzzleNavButton (không kéo ToolItem từ file cũ vào nữa)
-import 'package:file_picker/file_picker.dart';
 import 'tools/tools_overlay.dart' show PuzzleNavButton;
 // Dùng overlay V2 + ToolItem V2 với prefix để khỏi trùng tên
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
-// Các màn hình tools — import khi cần
-// import 'tools/word_map_screen.dart';
-// import 'tools/venn_screen.dart';
 
 const int _kHome = -1;
 
@@ -212,6 +209,14 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         subtitle: 'Tiến trình học tập',
         icon: Icons.bar_chart_rounded,
         color: Color(0xFF42A5F5),
+        isAvailable: true,
+      ),
+      const tools.ToolItem(
+        id: 'review',
+        title: 'Ôn Tập',
+        subtitle: 'SM-2 Spaced Repetition',
+        icon: Icons.school,
+        color: Color(0xFF66BB6A),
         isAvailable: true,
       ),
       const tools.ToolItem(
@@ -470,6 +475,44 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Tool Page Wrapper ───────────────────────────────────
+class _ToolPage extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final Color color;
+
+  const _ToolPage({
+    required this.title,
+    required this.child,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF080B1A),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1A1A2E),
+          elevation: 0,
+        ),
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: color),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: child,
       ),
     );
   }

@@ -502,7 +502,7 @@ class _YoutubeAudioDownloadDialogState
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: isReady ? p!.progress : null,
+            value: isReady ? p.progress : null,
             backgroundColor: Colors.white12,
             valueColor: const AlwaysStoppedAnimation(Color(0xFF6C63FF)),
             minHeight: 8,

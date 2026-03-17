@@ -219,8 +219,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/word_entry.dart';
-import '../providers/vocabulary_provider.dart';
+import '../../models/word_entry.dart';
+import '../../providers/vocabulary_provider.dart';
 
 /// Widget button để lưu từ vào VocabularyProvider
 /// Dùng trong Read tab: đặt vào Context Menu khi long-press từ

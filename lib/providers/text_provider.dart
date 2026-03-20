@@ -17,6 +17,7 @@ import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
+import 'vocabulary_bridge.dart';
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
   final TtsService _ttsService = TtsService();
@@ -973,7 +974,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         'example': word.example,
         'savedAt': DateTime.now().toIso8601String(),
       });
-
+      Future.microtask(() {
+        VocabularyBridge.addWord(
+          word: word.word,
+          meaning: word.meaning ?? '',
+          phonetic: word.phonetic,
+          example: word.example,
+        );
+      });
       // ★ SỬA LẠI ĐOẠN NÀY:
       // Bọc trong Future.microtask để tránh xung đột luồng (Race Condition) và Stack Overflow
       Future.microtask(() {

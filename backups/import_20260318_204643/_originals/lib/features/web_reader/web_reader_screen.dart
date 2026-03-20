@@ -1,3 +1,4 @@
+// lib/features/web_reader/web_reader_screen.dart
 //
 // ★ FIX WINDOWS: dùng webview_win_floating (như YouGlishWidget)
 //   thay vì placeholder text "đang được phát triển"
@@ -54,7 +55,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   ColorMode _lastColorMode = ColorMode.none;
 
   void _onStateChanged() {
-    if (!mounted) { return; }
+    if (!mounted) {
+      return;
+    }
     // Nếu color mode thay đổi (từ toolbar) → apply/remove highlight
     if (_controller.colorMode != _lastColorMode) {
       _lastColorMode = _controller.colorMode;
@@ -67,6 +70,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
     setState(() {});
   }
+
   void _initMobile() {
     _mobileCtrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -332,12 +336,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   void _showSnack(String msg, {int duration = 3}) {
     final now = DateTime.now();
-    if (_lastSnackbar != null &&
-        now.difference(_lastSnackbar!).inSeconds < 1) {
+    if (_lastSnackbar != null && now.difference(_lastSnackbar!).inSeconds < 1) {
       return;
     }
     _lastSnackbar = now;
-    if (!mounted) { return; }
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: const Color(0xFF1A237E),
@@ -358,38 +363,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Colors.white, size: 18),
-          onPressed: () => Navigator.pop(context),
-          tooltip: 'Quay lại',
-        ),
-        titleSpacing: 0,
-        title: _controller.state == WebReaderState.loading
-            ? LinearProgressIndicator(
-                value: _controller.loadingProgress < 1.0
-                    ? _controller.loadingProgress
-                    : null,
-                backgroundColor: Colors.white12,
-                valueColor:
-                    const AlwaysStoppedAnimation(Color(0xFF2196F3)),
-                minHeight: 2,
-              )
-            : null,
-        actions: [
-          // Refresh
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
-            onPressed: () {
-              final url = _controller.currentUrl;
-              if (url.isNotEmpty) _navigate(url);
-            },
-          ),
-        ],
-      ),
       body: Column(
         children: [
           // ── Top Toolbar ─────────────────────────────────
@@ -512,14 +485,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.volume_up,
-                  color: Colors.white, size: 18),
+              child: const Icon(Icons.volume_up, color: Colors.white, size: 18),
             ),
           ),
           const SizedBox(width: 6),
           GestureDetector(
-            onTap: () =>
-                setState(() => _showSelectionBar = false),
+            onTap: () => setState(() => _showSelectionBar = false),
             child: const Icon(Icons.close, color: Colors.white, size: 18),
           ),
         ],

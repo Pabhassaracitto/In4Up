@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../features/youtube/youtube_explorer_screen.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
-import '../features/youtube/youtube_explorer_screen.dart';
+import '../features/youtube/youtube_sheet.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
@@ -61,12 +62,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _onTabTapped(int idx) {
+  // ─── Navigation ──────────────────────────────────────────
+  void _onTabTapped(int tappedIndex) {
     HapticFeedback.selectionClick();
-    if (_currentIndex == idx) {
+    if (_currentIndex == tappedIndex) {
       _navigateTo(_kHome);
     } else {
-      _navigateTo(idx);
+      _navigateTo(tappedIndex);
     }
   }
 
@@ -81,20 +83,15 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   Color get _currentColor {
     switch (_currentIndex) {
-      case 0:
-        return const Color(0xFF2196F3);
-      case 1:
-        return const Color(0xFF6C63FF);
-      case 2:
-        return const Color(0xFFFFB300);
-      case 3:
-        return const Color(0xFF4CAF50);
-      default:
-        return Colors.white;
+      case 0: return const Color(0xFF2196F3);
+      case 1: return const Color(0xFF6C63FF);
+      case 2: return const Color(0xFFFFB300);
+      case 3: return const Color(0xFF4CAF50);
+      default: return Colors.white;
     }
   }
 
-  // ─── Tools ───────────────────────────────────────────────
+  // ─── Tools overlay ───────────────────────────────────────
   Future<void> _openTools() async {
     final nav = Navigator.of(context);
     final vocabProvider = context.read<VocabularyProvider>();
@@ -106,6 +103,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
     if (toolId == null) return;
 
+    // Helper: push màn hình với VocabularyProvider đúng scope
     void pushVocab(String title, Color color, Widget child) {
       nav.push(MaterialPageRoute(
         builder: (_) => ChangeNotifierProvider<VocabularyProvider>.value(
@@ -124,12 +122,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
         break;
 
-      // ★ FIX: YouTube Explorer thay vì sheet
       case 'youtube_downloader':
         nav.push(MaterialPageRoute(
-          builder: (_) => const YoutubeExplorerScreen(
-            apiKey: 'AIzaSy...YOUR_KEY_HERE', // ← dán key vào đây
-          ),
+          builder: (_) => const YoutubeExplorerScreen(),
         ));
         break;
 
@@ -140,7 +135,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         );
         if (result != null && result.files.single.path != null) {
           nav.push(MaterialPageRoute(
-            builder: (_) => PdfReaderScreen(pdfPath: result.files.single.path!),
+            builder: (_) =>
+                PdfReaderScreen(pdfPath: result.files.single.path!),
           ));
         }
         break;
@@ -159,7 +155,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
       case 'triangle':
         pushVocab(
-            'Tam giác kỹ năng', const Color(0xFFFFA726), const TriangleTab());
+          'Tam giác kỹ năng',
+          const Color(0xFFFFA726),
+          const TriangleTab(),
+        );
         break;
 
       case 'venn':
@@ -190,12 +189,11 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         color: Color(0xFF26A69A),
         isAvailable: true,
       ),
-      // ★ YouTube Explorer — title thay đổi để rõ hơn
       const tools.ToolItem(
         id: 'youtube_downloader',
         title: 'YouTube',
-        subtitle: 'Khám phá kênh học tiếng Anh',
-        icon: Icons.play_circle_filled,
+        subtitle: 'Tải audio & lyrics',
+        icon: Icons.download_for_offline,
         color: Color(0xFFFF0000),
         isAvailable: true,
       ),
@@ -274,7 +272,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     ];
   }
 
-  // ─── Screen router ───────────────────────────────────────
+  // ─── Screen Router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case _kHome:
@@ -284,14 +282,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           onNavigateToUnderstand: () => _navigateTo(2),
           onNavigateToMemory: () => _navigateTo(3),
         );
-      case 0:
-        return const ReadModeScreen();
-      case 1:
-        return const ListenModeScreen();
-      case 2:
-        return const UnderstandTabConnector();
-      case 3:
-        return const MemoryTabConnector();
+      case 0: return const ReadModeScreen();
+      case 1: return const ListenModeScreen();
+      case 2: return const UnderstandTabConnector();
+      case 3: return const MemoryTabConnector();
       default:
         return HomeScreen(
           onNavigateToListen: () => _navigateTo(1),
@@ -344,6 +338,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     );
   }
 
+  // ─── AppBar ──────────────────────────────────────────────
   Widget _buildAppBar() {
     final titles = {
       0: '📖 Chế độ Đọc',
@@ -359,8 +354,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         border: Border(
           bottom: BorderSide(
             color: _isHome
-                ? Colors.white.withValues(alpha: 0.06)
-                : _currentColor.withValues(alpha: 0.2),
+                ? Colors.white.withOpacity(0.06)
+                : _currentColor.withOpacity(0.2),
           ),
         ),
       ),
@@ -380,7 +375,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _isHome ? 'VipSound' : (titles[_currentIndex] ?? 'VipSound'),
+                  _isHome
+                      ? 'VipSound'
+                      : (titles[_currentIndex] ?? 'VipSound'),
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -413,6 +410,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     );
   }
 
+  // ─── Bottom Navigation ───────────────────────────────────
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
@@ -420,8 +418,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         border: Border(
           top: BorderSide(
             color: _isHome
-                ? Colors.white.withValues(alpha: 0.06)
-                : _currentColor.withValues(alpha: 0.2),
+                ? Colors.white.withOpacity(0.06)
+                : _currentColor.withOpacity(0.2),
           ),
         ),
       ),
@@ -441,49 +439,39 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 },
               ),
               Container(
-                  width: 1,
-                  height: 32,
-                  color: Colors.white.withValues(alpha: 0.06)),
+                width: 1,
+                height: 32,
+                color: Colors.white.withOpacity(0.06),
+              ),
               _NavButton(
-                tabIndex: 0,
-                currentIndex: _currentIndex,
-                icon: Icons.menu_book_outlined,
-                activeIcon: Icons.menu_book,
-                label: 'Đọc',
-                color: const Color(0xFF2196F3),
+                tabIndex: 0, currentIndex: _currentIndex,
+                icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book,
+                label: 'Đọc', color: const Color(0xFF2196F3),
                 onTap: () => _onTabTapped(0),
               ),
               _NavButton(
-                tabIndex: 1,
-                currentIndex: _currentIndex,
-                icon: Icons.headphones_outlined,
-                activeIcon: Icons.headphones,
-                label: 'Nghe',
-                color: const Color(0xFF6C63FF),
+                tabIndex: 1, currentIndex: _currentIndex,
+                icon: Icons.headphones_outlined, activeIcon: Icons.headphones,
+                label: 'Nghe', color: const Color(0xFF6C63FF),
                 onTap: () => _onTabTapped(1),
               ),
               _NavButton(
-                tabIndex: 2,
-                currentIndex: _currentIndex,
-                icon: Icons.lightbulb_outline,
-                activeIcon: Icons.lightbulb,
-                label: 'Hiểu',
-                color: const Color(0xFFFFB300),
+                tabIndex: 2, currentIndex: _currentIndex,
+                icon: Icons.lightbulb_outline, activeIcon: Icons.lightbulb,
+                label: 'Hiểu', color: const Color(0xFFFFB300),
                 onTap: () => _onTabTapped(2),
               ),
               _NavButton(
-                tabIndex: 3,
-                currentIndex: _currentIndex,
-                icon: Icons.psychology_outlined,
-                activeIcon: Icons.psychology,
-                label: 'Nhớ',
-                color: const Color(0xFF4CAF50),
+                tabIndex: 3, currentIndex: _currentIndex,
+                icon: Icons.psychology_outlined, activeIcon: Icons.psychology,
+                label: 'Nhớ', color: const Color(0xFF4CAF50),
                 onTap: () => _onTabTapped(3),
               ),
               Container(
-                  width: 1,
-                  height: 32,
-                  color: Colors.white.withValues(alpha: 0.06)),
+                width: 1,
+                height: 32,
+                color: Colors.white.withOpacity(0.06),
+              ),
               PuzzleNavButton(onTap: _openTools),
             ],
           ),
@@ -499,8 +487,11 @@ class _ToolPage extends StatelessWidget {
   final Widget child;
   final Color color;
 
-  const _ToolPage(
-      {required this.title, required this.child, required this.color});
+  const _ToolPage({
+    required this.title,
+    required this.child,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -508,13 +499,15 @@ class _ToolPage extends StatelessWidget {
       data: Theme.of(context).copyWith(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF080B1A),
-        appBarTheme:
-            const AppBarTheme(backgroundColor: Color(0xFF1A1A2E), elevation: 0),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1A1A2E),
+          elevation: 0,
+        ),
       ),
       child: Scaffold(
         appBar: AppBar(
-          title:
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(title,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: color),
             onPressed: () => Navigator.pop(context),
@@ -527,6 +520,7 @@ class _ToolPage extends StatelessWidget {
 }
 
 // ─── Nav Widgets ─────────────────────────────────────────
+
 class _HomeNavButton extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
@@ -541,9 +535,8 @@ class _HomeNavButton extends StatelessWidget {
         width: 56,
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isActive
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.transparent,
+          color:
+              isActive ? Colors.white.withOpacity(0.08) : Colors.transparent,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -558,12 +551,15 @@ class _HomeNavButton extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text('Home',
-                style: TextStyle(
-                    color: isActive ? Colors.white : Colors.grey[600],
-                    fontSize: 10,
-                    fontWeight:
-                        isActive ? FontWeight.w700 : FontWeight.normal)),
+            Text(
+              'Home',
+              style: TextStyle(
+                color: isActive ? Colors.white : Colors.grey[600],
+                fontSize: 10,
+                fontWeight:
+                    isActive ? FontWeight.w700 : FontWeight.normal,
+              ),
+            ),
           ],
         ),
       ),
@@ -601,7 +597,7 @@ class _NavButton extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
             color:
-                isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
+                isSelected ? color.withOpacity(0.12) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -617,12 +613,15 @@ class _NavButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(label,
-                  style: TextStyle(
-                      color: isSelected ? color : Colors.grey[600],
-                      fontSize: 10,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.normal)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? color : Colors.grey[600],
+                  fontSize: 10,
+                  fontWeight:
+                      isSelected ? FontWeight.w700 : FontWeight.normal,
+                ),
+              ),
             ],
           ),
         ),
@@ -645,7 +644,7 @@ class _AppBarIconButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
+          color: color.withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),

@@ -1,8 +1,10 @@
+// lib/screens/tools/word_list/word_list_controller.dart
 //
-// ★ LIST REPEAT: phát hết danh sách → lặp lại (1 / custom / ∞)
-// ★ PER-WORD REPEAT: 1-N (không có ∞)
-// ★ FIX dispose crash
+// ★ FIX: stopPlayback() kiểm tra _disposed trước khi notifyListeners()
+//        để tránh "used after disposed" error khi Navigator.pop() trong
+//        khi đang phát hoặc vừa chọn số lần lặp.
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../../features/tts/tts_service.dart';
@@ -10,7 +12,10 @@ import '../../memory_mode/memory_provider.dart';
 import 'word_list_models.dart';
 
 class WordListController extends ChangeNotifier {
+  // ── Dependencies ──────────────────────────────────────────
   final _tts = TtsService();
+
+  // ── Disposed guard ────────────────────────────────────────
   bool _disposed = false;
 
   // ── Data ──────────────────────────────────────────────────
@@ -18,12 +23,6 @@ class WordListController extends ChangeNotifier {
   String _currentFolderId = WordFolder.allWords.id;
   WordListSortMode _sortMode = WordListSortMode.addTime;
   WordListSettings _settings = const WordListSettings();
-  final Map<String, int> _repeatOverrides = {};
-
-  // ── List-level repeat ─────────────────────────────────────
-  // 0 = vô hạn, 1+ = số lần lặp danh sách
-  int _listRepeatCount = 1;
-  int _listRepeatCurrent = 0;
 
   // ── Playback state ────────────────────────────────────────
   bool _isPlaying = false;
@@ -34,7 +33,12 @@ class WordListController extends ChangeNotifier {
   // ── Selection ─────────────────────────────────────────────
   bool _isSelecting = false;
   final Set<String> _selectedIds = {};
+
+  // ── Search ────────────────────────────────────────────────
   String _searchQuery = '';
+
+  // ── Repeat overrides ─────────────────────────────────────
+  final Map<String, int> _repeatOverrides = {};
 
   // ─── Getters ─────────────────────────────────────────────
   WordListSettings get settings => _settings;
@@ -43,22 +47,16 @@ class WordListController extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   int get playingIndex => _playingIndex;
   int get playingRepeatCurrent => _playingRepeatCurrent;
-  int get listRepeatCount => _listRepeatCount;
-  int get listRepeatCurrent => _listRepeatCurrent;
   bool get isSelecting => _isSelecting;
   Set<String> get selectedIds => Set.unmodifiable(_selectedIds);
   String get searchQuery => _searchQuery;
 
-  String get listRepeatLabel {
-    if (_listRepeatCount == 0) return '∞';
-    return '$_listRepeatCount×';
-  }
-
+  // ── Safe notify — không gọi nếu đã dispose ───────────────
   void _safeNotify() {
     if (!_disposed) notifyListeners();
   }
 
-  // ── Data ──────────────────────────────────────────────────
+  // ── Lấy từ MemoryProvider singleton ──────────────────────
   List<WordEntry> get _allEntries {
     final fromMemory = MemoryProvider.controller.allItems
         .map(WordEntry.fromMemoryItem)
@@ -68,12 +66,11 @@ class WordListController extends ChangeNotifier {
 
   int get totalCount => _allEntries.length;
 
+  // ── displayEntries — filter + sort ───────────────────────
   List<WordEntry> get displayEntries {
     var items = _currentFolderId == WordFolder.allWords.id
         ? _allEntries
-        : _manualEntries
-            .where((e) => e.folderId == _currentFolderId)
-            .toList();
+        : _manualEntries;
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -91,12 +88,12 @@ class WordListController extends ChangeNotifier {
         result.sort((a, b) => b.addedAt.compareTo(a.addedAt));
         break;
       case WordListSortMode.alphabetical:
-        result.sort((a, b) =>
-            a.word.toLowerCase().compareTo(b.word.toLowerCase()));
+        result.sort(
+            (a, b) => a.word.toLowerCase().compareTo(b.word.toLowerCase()));
         break;
       case WordListSortMode.alphabeticalDesc:
-        result.sort((a, b) =>
-            b.word.toLowerCase().compareTo(a.word.toLowerCase()));
+        result.sort(
+            (a, b) => b.word.toLowerCase().compareTo(a.word.toLowerCase()));
         break;
       case WordListSortMode.rankDescending:
         result.sort((a, b) => b.strength.compareTo(a.strength));
@@ -109,19 +106,15 @@ class WordListController extends ChangeNotifier {
         break;
     }
     return result;
+
+    return items;
   }
 
-  // ── Per-word repeat (min 1, không có ∞) ──────────────────
-  int getRepeatCount(String id) => (_repeatOverrides[id] ?? 1).clamp(1, 999);
+  // ── Repeat count ─────────────────────────────────────────
+  int getRepeatCount(String id) => _repeatOverrides[id] ?? 1;
 
   void setRepeatCount(String id, int count) {
-    _repeatOverrides[id] = count.clamp(1, 999);
-    _safeNotify();
-  }
-
-  // ── List repeat ───────────────────────────────────────────
-  void setListRepeatCount(int count) {
-    _listRepeatCount = count < 0 ? 0 : count;
+    _repeatOverrides[id] = count.clamp(0, 999); // 0 = infinite
     _safeNotify();
   }
 
@@ -132,18 +125,20 @@ class WordListController extends ChangeNotifier {
   }
 
   void toggleShowDefinitions() {
-    final any = _settings.showShortDefinition || _settings.showFullDefinition;
     _settings = _settings.copyWith(
-        showShortDefinition: !any, showFullDefinition: false);
+      showShortDefinition: !_settings.showShortDefinition,
+    );
     _safeNotify();
   }
 
   void toggleExpandAll() {
     _settings = _settings.copyWith(
-        definitionsExpanded: !_settings.definitionsExpanded);
+      definitionsExpanded: !_settings.definitionsExpanded,
+    );
     _safeNotify();
   }
 
+  // ── Sort & Folder ─────────────────────────────────────────
   void setSortMode(WordListSortMode mode) {
     _sortMode = mode;
     _safeNotify();
@@ -154,8 +149,8 @@ class WordListController extends ChangeNotifier {
     _safeNotify();
   }
 
-  void setSearch(String q) {
-    _searchQuery = q;
+  void setSearch(String query) {
+    _searchQuery = query;
     _safeNotify();
   }
 
@@ -167,9 +162,7 @@ class WordListController extends ChangeNotifier {
   }
 
   void toggleSelect(String id) {
-    _selectedIds.contains(id)
-        ? _selectedIds.remove(id)
-        : _selectedIds.add(id);
+    _selectedIds.contains(id) ? _selectedIds.remove(id) : _selectedIds.add(id);
     _safeNotify();
   }
 
@@ -183,7 +176,7 @@ class WordListController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ── Manual entries ────────────────────────────────────────
+  // ── Manual add/remove ─────────────────────────────────────
   void addManualEntry(WordEntry entry) {
     _manualEntries.insert(0, entry);
     _safeNotify();
@@ -194,23 +187,28 @@ class WordListController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ── TTS: phát 1 từ ───────────────────────────────────────
+  // ── TTS Playback ─────────────────────────────────────────
+
   Future<void> playSingle(WordEntry entry) async {
     if (_disposed) return;
     HapticFeedback.lightImpact();
     final repeat = getRepeatCount(entry.id);
-    for (int i = 0; i < repeat; i++) {
+
+    // repeat == 0 → chơi 3 lần cho single (tránh vô hạn với nút đơn lẻ)
+    final times = repeat == 0 ? 3 : repeat;
+
+    for (int i = 0; i < times; i++) {
       if (_stopRequested || _disposed) break;
       await _tts.speak(entry.word);
-      if (i < repeat - 1 && !_stopRequested && !_disposed) {
+      if (i < times - 1) {
         await Future.delayed(const Duration(milliseconds: 600));
       }
     }
   }
 
-  // ── TTS: phát toàn bộ danh sách, có lặp danh sách ───────
   Future<void> playAll({bool selectedOnly = false}) async {
     if (_disposed) return;
+
     if (_isPlaying) {
       await stopPlayback();
       return;
@@ -219,37 +217,34 @@ class WordListController extends ChangeNotifier {
     HapticFeedback.mediumImpact();
     _stopRequested = false;
     _isPlaying = true;
-    _listRepeatCurrent = 0;
     _safeNotify();
 
     final items = selectedOnly && _selectedIds.isNotEmpty
-        ? displayEntries
-            .where((e) => _selectedIds.contains(e.id))
-            .toList()
+        ? displayEntries.where((e) => _selectedIds.contains(e.id)).toList()
         : displayEntries;
 
-    if (items.isEmpty) {
-      _isPlaying = false;
-      _safeNotify();
-      return;
-    }
+    for (int i = 0; i < items.length; i++) {
+      if (_stopRequested || _disposed) break;
 
-    int listPass = 0;
-    // listRepeatCount == 0 → vô hạn
-    while (!_stopRequested && !_disposed) {
-      listPass++;
-      _listRepeatCurrent = listPass;
+      _playingIndex = i;
       _safeNotify();
 
-      for (int i = 0; i < items.length; i++) {
-        if (_stopRequested || _disposed) break;
+      final entry = items[i];
+      final repeat = getRepeatCount(entry.id);
 
-        _playingIndex = i;
-        _safeNotify();
-
-        final entry = items[i];
-        final repeat = getRepeatCount(entry.id);
-
+      if (repeat == 0) {
+        // Vô hạn — tiếp tục cho đến khi stopRequested
+        int r = 0;
+        while (!_stopRequested && !_disposed) {
+          _playingRepeatCurrent = r + 1;
+          _safeNotify();
+          await _tts.speak(entry.word);
+          if (!_stopRequested && !_disposed) {
+            await Future.delayed(const Duration(milliseconds: 700));
+          }
+          r++;
+        }
+      } else {
         for (int r = 0; r < repeat; r++) {
           if (_stopRequested || _disposed) break;
           _playingRepeatCurrent = r + 1;
@@ -259,17 +254,10 @@ class WordListController extends ChangeNotifier {
             await Future.delayed(const Duration(milliseconds: 700));
           }
         }
-
-        if (!_stopRequested && !_disposed && i < items.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
       }
 
-      if (_stopRequested || _disposed) break;
-      if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-      // Pause ngắn giữa 2 lần lặp toàn bộ
-      if (!_stopRequested && !_disposed) {
-        await Future.delayed(const Duration(milliseconds: 1200));
+      if (!_stopRequested && !_disposed && i < items.length - 1) {
+        await Future.delayed(const Duration(milliseconds: 500));
       }
     }
 
@@ -277,7 +265,6 @@ class WordListController extends ChangeNotifier {
       _isPlaying = false;
       _playingIndex = -1;
       _playingRepeatCurrent = 0;
-      _listRepeatCurrent = 0;
       _stopRequested = false;
       _safeNotify();
     }
@@ -289,13 +276,14 @@ class WordListController extends ChangeNotifier {
     _isPlaying = false;
     _playingIndex = -1;
     _playingRepeatCurrent = 0;
-    _listRepeatCurrent = 0;
+    // ★ KEY FIX: chỉ notify nếu chưa disposed
     _safeNotify();
   }
 
   @override
   void dispose() {
     _disposed = true;
+    // stop TTS nhưng KHÔNG gọi notifyListeners nữa
     _stopRequested = true;
     _tts.stop();
     super.dispose();

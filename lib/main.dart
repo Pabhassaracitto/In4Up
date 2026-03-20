@@ -13,6 +13,8 @@ import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
 import 'services/storage_service.dart'; // ★ THÊM
 import 'screens/memory_mode/memory_provider.dart';
+import 'providers/vocabulary_bridge.dart'; // ★ THÊM
+import 'providers/vocabulary_provider.dart'; // ★ THÊM
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +50,14 @@ class VipSoundApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Khi tạo VocabularyProvider:
+        ChangeNotifierProvider<VocabularyProvider>(
+          create: (_) {
+            final vp = VocabularyProvider()..loadData();
+            VocabularyBridge.init(vp); // ← THÊM DÒNG NÀY
+            return vp;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),

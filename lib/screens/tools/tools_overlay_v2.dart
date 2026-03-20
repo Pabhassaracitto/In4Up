@@ -1,3 +1,9 @@
+// lib/screens/tools/tools_overlay_v2.dart
+//
+// ★ FIX SCROLL: bọc GridView trong SingleChildScrollView thay vì Column.Expanded
+// ★ FIX BOX HEIGHT: childAspectRatio tăng từ 1.55 → 2.2 (box thấp hơn)
+// ★ FIX: physics cuộn bình thường cho grid
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -32,9 +38,9 @@ Future<String?> showToolsOverlayV2(
     context: context,
     useRootNavigator: true,
     barrierLabel: 'Tools',
-    barrierDismissible: false, // tự xử lý dismiss để tránh pop 2 lần
+    barrierDismissible: false,
     barrierColor: Colors.transparent,
-    transitionDuration: Duration.zero, // animation do widget tự chạy
+    transitionDuration: Duration.zero,
     pageBuilder: (ctx, a1, a2) {
       return _ToolsOverlayScreenV2(tools: tools);
     },
@@ -76,10 +82,9 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
 
     _masterCtrl.forward();
 
-    // stagger start cards (có thể cancel)
     for (int i = 0; i < _cardCtrls.length; i++) {
       _timers.add(
-        Timer(Duration(milliseconds: 120 + i * 65), () {
+        Timer(Duration(milliseconds: 120 + i * 55), () {
           if (!mounted || _isDismissing) return;
           _cardCtrls[i].forward();
         }),
@@ -101,15 +106,11 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
     super.dispose();
   }
 
-  double _backdropT() {
-    return const Interval(0.0, 0.5, curve: Curves.easeOut)
-        .transform(_masterCtrl.value);
-  }
+  double _backdropT() => const Interval(0.0, 0.5, curve: Curves.easeOut)
+      .transform(_masterCtrl.value);
 
-  double _headerT() {
-    return const Interval(0.1, 0.6, curve: Curves.easeOutBack)
-        .transform(_masterCtrl.value);
-  }
+  double _headerT() => const Interval(0.1, 0.6, curve: Curves.easeOutBack)
+      .transform(_masterCtrl.value);
 
   Future<void> _dismiss([String? toolId]) async {
     if (_isDismissing) return;
@@ -121,10 +122,9 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
       t.cancel();
     }
 
-    // reverse cards
     for (int i = _cardCtrls.length - 1; i >= 0; i--) {
       _cardCtrls[i].reverse();
-      await Future.delayed(const Duration(milliseconds: 25));
+      await Future.delayed(const Duration(milliseconds: 20));
     }
     await _masterCtrl.reverse();
 
@@ -163,18 +163,24 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
                 ),
               ),
 
+              // Content — scrollable
               SafeArea(
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {}, // chặn tap xuyên qua grid
-                        child: _buildToolsGrid(),
+                child: GestureDetector(
+                  onTap: () {}, // block tap xuyên qua
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      // ★ FIX: Expanded + SingleChildScrollView thay vì Expanded + GridView(NeverScroll)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                          child: _buildToolsGrid(),
+                        ),
                       ),
-                    ),
-                    _buildFooter(),
-                  ],
+                      _buildFooter(),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -239,9 +245,8 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 child: Icon(Icons.close, color: Colors.grey[400], size: 18),
               ),
@@ -253,25 +258,26 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
   }
 
   Widget _buildToolsGrid() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.55,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        itemCount: widget.tools.length,
-        itemBuilder: (_, i) => _buildToolCard(widget.tools[i], i),
+    return GridView.builder(
+      // ★ FIX: shrinkWrap + NeverScrollable bên trong SingleChildScrollView
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        // ★ FIX BOX HEIGHT: 2.2 thay vì 1.55 → box thấp hơn ~30%
+        childAspectRatio: 2.2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
       ),
+      itemCount: widget.tools.length,
+      itemBuilder: (_, i) => _buildToolCard(widget.tools[i], i),
     );
   }
 
   Widget _buildToolCard(ToolItem tool, int index) {
-    final ctrl = _cardCtrls[index];
+    final ctrl = index < _cardCtrls.length
+        ? _cardCtrls[index]
+        : AnimationController(vsync: this);
 
     return AnimatedBuilder(
       animation: ctrl,
@@ -306,7 +312,7 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
         child: child,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 16, 28, 20),
+        padding: const EdgeInsets.fromLTRB(28, 12, 28, 20),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -323,9 +329,11 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
   }
 }
 
+// ─── Tool Card ───────────────────────────────────────────
 class _ToolCard extends StatefulWidget {
   final ToolItem tool;
   final VoidCallback? onTap;
+
   const _ToolCard({required this.tool, this.onTap});
 
   @override
@@ -367,68 +375,73 @@ class _ToolCardState extends State<_ToolCard> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isAvailable
                   ? tool.color.withValues(alpha: _pressed ? 0.6 : 0.25)
                   : Colors.white.withValues(alpha: 0.06),
               width: 1.2,
             ),
+            boxShadow: isAvailable && _pressed
+                ? [
+                    BoxShadow(
+                      color: tool.color.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          padding: const EdgeInsets.all(14),
-          child: Stack(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
             children: [
-              Positioned(
-                right: -4,
-                bottom: -4,
+              // Icon box — nhỏ gọn
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: isAvailable
+                      ? tool.color.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Icon(
                   tool.icon,
-                  size: 44,
-                  color: isAvailable
-                      ? tool.color.withValues(alpha: 0.07)
-                      : Colors.white.withValues(alpha: 0.03),
+                  size: 16,
+                  color: isAvailable ? tool.color : Colors.grey[600],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: isAvailable
-                          ? tool.color.withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(10),
+              const SizedBox(width: 10),
+              // Text
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      tool.title,
+                      style: TextStyle(
+                        color: isAvailable ? Colors.white : Colors.grey[600],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    child: Icon(
-                      tool.icon,
-                      size: 16,
-                      color: isAvailable ? tool.color : Colors.grey[600],
+                    const SizedBox(height: 2),
+                    Text(
+                      isAvailable ? tool.subtitle : 'Sắp có',
+                      style: TextStyle(
+                        color: isAvailable
+                            ? tool.color.withValues(alpha: 0.7)
+                            : Colors.grey[700],
+                        fontSize: 10,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    tool.title,
-                    style: TextStyle(
-                      color: isAvailable ? Colors.white : Colors.grey[600],
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isAvailable ? tool.subtitle : 'Sắp có',
-                    style: TextStyle(
-                      color: isAvailable
-                          ? tool.color.withValues(alpha: 0.7)
-                          : Colors.grey[700],
-                      fontSize: 10,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -438,6 +451,7 @@ class _ToolCardState extends State<_ToolCard> {
   }
 }
 
+// ─── Noise Texture ───────────────────────────────────────
 class _NoiseTexture extends StatelessWidget {
   const _NoiseTexture();
 
@@ -468,6 +482,3 @@ class _NoisePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
-/// Bạn có thể giữ PuzzleNavButton từ file cũ (không liên quan tới lỗi).
-/// Nếu muốn, copy PuzzleNavButton qua đây luôn, hoặc import file cũ chỉ để dùng nút.

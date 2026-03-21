@@ -62,6 +62,7 @@ dependencies:
   # Cloud Firestore (database)
   cloud_firestore: ^5.4.4
   google_sign_in: ^6.2.0
+  googleapis: ^13.2.0
 
   # Youglish Android & iOS
   webview_flutter: ^4.9.0

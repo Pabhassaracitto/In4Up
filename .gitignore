@@ -11,7 +11,8 @@ local.properties
 .idea/
 *.hprof
 *.log
-
+backups
+Backup
 # Flutter
 .dart_tool/
 .flutter-plugins

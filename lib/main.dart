@@ -17,6 +17,7 @@ import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
 import 'screens/memory_mode/memory_provider.dart';
 import 'services/storage_service.dart'; // ★ THÊM
+import 'services/google_drive_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +58,10 @@ class VipSoundApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ★ THÊM drive:
+        ChangeNotifierProvider(
+          create: (_) => GoogleDriveService(),
+        ),
         // Khi tạo VocabularyProvider:
         ChangeNotifierProvider<VocabularyProvider>(
           lazy:

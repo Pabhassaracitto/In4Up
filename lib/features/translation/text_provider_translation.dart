@@ -107,7 +107,8 @@ mixin TranslationMixin on ChangeNotifier {
 
     // ★ FIX: Throttle — chỉ notify mỗi N dòng thay vì mỗi dòng
     // Tránh hàng chục notifyListeners() liên tiếp gây rebuild toàn bộ ListView
-    const notifyEvery = 3; // notify sau mỗi 3 dòng
+    // Tăng lên 5 hoặc 10 nếu danh sách rất dài để mượt hơn nữa
+    const notifyEvery = 5;
     int doneCount = 0;
 
     try {

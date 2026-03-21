@@ -974,14 +974,20 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         'example': word.example,
         'savedAt': DateTime.now().toIso8601String(),
       });
+
+      // ★ THÊM: Đồng bộ sang hệ thống chung
       Future.microtask(() {
-        VocabularyBridge.addWord(
+        VocabularyBridge.addFromAnalyzed(
           word: word.word,
-          meaning: word.meaning ?? '',
+          meaning: word.meaning,
           phonetic: word.phonetic,
           example: word.example,
+          wordTypeName: word.wordType.name,
+          cefrLevelName: word.cefrLevel.name,
+          sourceFile: _currentTextPath?.split('/').last ?? 'Text',
         );
       });
+
       // ★ SỬA LẠI ĐOẠN NÀY:
       // Bọc trong Future.microtask để tránh xung đột luồng (Race Condition) và Stack Overflow
       Future.microtask(() {

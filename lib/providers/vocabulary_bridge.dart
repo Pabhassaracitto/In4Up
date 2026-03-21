@@ -1,73 +1,68 @@
-// ═══════════════════════════════════════════════════════════════
-//  PATCH CHO text_provider.dart
-//  Đồng bộ saveWord() → VocabularyProvider
-//  (Tổng quan, Bản đồ, Tam giác, Venn dùng chung VocabularyProvider)
-// ═══════════════════════════════════════════════════════════════
-//
-//  Trong file text_provider.dart, tìm hàm saveWord() và THÊM đoạn này
-//  sau dòng: _storage.saveWord(word.word, {...})
-//
-//  // ★ ĐỒNG BỘ sang VocabularyProvider (Tổng quan / Bản đồ / Tam giác / Venn)
-//  Future.microtask(() {
-//    try {
-//      VocabularyBridge.addWord(
-//        word: word.word,
-//        meaning: word.meaning ?? '',
-//        phonetic: word.phonetic,
-//        example: word.example,
-//      );
-//    } catch (e) {
-//      debugPrint('⚠️ VocabularyBridge error: $e');
-//    }
-//  });
-//
-// ═══════════════════════════════════════════════════════════════
+// Điểm vào tĩnh — không cần BuildContext
+// Gọi từ TextProvider, WebReaderController, PdfReaderController, v.v.
 
-// Đặt file này ở: lib/providers/vocabulary_bridge.dart
+import 'package:flutter/foundation.dart';
 
-import 'package:flutter/material.dart';
 import '../models/word_entry.dart';
 import 'vocabulary_provider.dart';
 
-/// Bridge tĩnh để bất kỳ đâu trong app cũng có thể thêm từ vào
-/// VocabularyProvider mà không cần BuildContext.
 class VocabularyBridge {
   static VocabularyProvider? _instance;
 
-  /// Gọi trong main.dart sau khi khởi tạo provider:
-  /// VocabularyBridge.init(vocabProvider);
   static void init(VocabularyProvider provider) {
     _instance = provider;
     debugPrint('✅ VocabularyBridge initialized');
   }
 
-  /// Thêm từ từ bất kỳ đâu (TextProvider, MemoryProvider, v.v.)
+  /// Thêm từ từ bất kỳ đâu trong app
   static void addWord({
     required String word,
     required String meaning,
     String? phonetic,
     String? example,
+    String? source,
   }) {
     final inst = _instance;
     if (inst == null) {
       debugPrint('⚠️ VocabularyBridge: not initialized');
       return;
     }
-
     final normalized = word.toLowerCase().trim();
-    if (normalized.isEmpty || inst.hasWord(normalized)) return;
-
+    if (normalized.isEmpty || normalized.length < 2 || inst.hasWord(normalized))
+      return;
     inst.addWord(WordEntry(
-      id: 'sync_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'bridge_${DateTime.now().millisecondsSinceEpoch}',
       word: normalized,
       meaning: meaning,
       phonetic: phonetic,
       example: example,
     ));
-
-    debugPrint('📚 VocabularyBridge: added "$normalized"');
+    debugPrint(
+        '📚 VocabularyBridge: added "$normalized"${source != null ? " from $source" : ""}');
   }
 
-  /// Kiểm tra đã init chưa
+  /// Thêm từ với thông tin phân tích ngôn ngữ
+  static void addFromAnalyzed({
+    required String word,
+    String? meaning,
+    String? phonetic,
+    String? example,
+    String? wordTypeName,
+    String? cefrLevelName,
+    String? sourceFile,
+  }) {
+    addWord(
+      word: word,
+      meaning: meaning ?? '',
+      phonetic: phonetic,
+      example: example,
+      source: sourceFile,
+    );
+  }
+
+  static bool hasWord(String word) => _instance?.hasWord(word) ?? false;
+  static WordEntry? findByWord(String word) => _instance?.findByWord(word);
+  static int get dueCount => _instance?.dueCount ?? 0;
+  static int get totalCount => _instance?.total ?? 0;
   static bool get isReady => _instance != null;
 }

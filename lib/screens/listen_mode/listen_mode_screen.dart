@@ -44,63 +44,104 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       DraggableScrollableController();
   bool _sheetExpanded = false;
 
+  String? _lastSyncedPath;
+  PlayerProvider? _playerProvider;
+  WaveformProvider? _waveformProvider;
+
   @override
   void initState() {
     super.initState();
     _waveformController = RollingWaveformController();
+    // Đăng ký listener sau khi build frame đầu tiên để có context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupListeners();
+    });
+  }
+
+  void _setupListeners() {
+    final player = context.read<PlayerProvider>();
+    final waveform = context.read<WaveformProvider>();
+
+    _playerProvider = player;
+    _waveformProvider = waveform;
+
+    player.addListener(_onPlayerChange);
+    waveform.addListener(_onWaveformChange);
+
+    // Init state ban đầu
+    _onWaveformChange();
+    if (player.currentSongPath != null) {
+      waveform.loadWaveform(player.currentSongPath!, player.state.duration);
+    }
   }
 
   @override
   void dispose() {
+    _playerProvider?.removeListener(_onPlayerChange);
+    _waveformProvider?.removeListener(_onWaveformChange);
     _waveformController.dispose();
     _sheetController.dispose();
     super.dispose();
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────────────────────
+  // ── LOGIC HANDLERS (Chạy ngoài build để tránh rebuild UI) ──
+
+  void _onPlayerChange() {
+    final player = _playerProvider;
+    final waveform = _waveformProvider;
+    if (player == null || waveform == null) return;
+
+    // 1. Sync Waveform Loading
+    if (player.currentSongPath != null &&
+        waveform.currentFilePath != player.currentSongPath &&
+        !waveform.isLoading) {
+      waveform.loadWaveform(player.currentSongPath!, player.state.duration);
+    }
+
+    // 2. Update Position (High frequency)
+    // Chỉ update controller, KHÔNG gọi setState
+    _waveformController.updatePosition(player.state.position);
+
+    // 3. Sync Loop Regions
+    if (player.loopStart != null && player.loopEnd != null) {
+      // Chỉ update khi có sự thay đổi để tối ưu
+      if (_waveformController.loopRegions.isEmpty ||
+          _waveformController.loopRegions.first.start != player.loopStart ||
+          _waveformController.loopRegions.first.end != player.loopEnd) {
+        _waveformController.clearLoopRegions();
+        _waveformController.addLoopRegion(
+            LoopRegion(start: player.loopStart!, end: player.loopEnd!));
+      }
+    } else if (_waveformController.loopRegions.isNotEmpty) {
+      _waveformController.clearLoopRegions();
+    }
+  }
+
+  void _onWaveformChange() {
+    final player = _playerProvider;
+    final waveform = _waveformProvider;
+    if (player == null || waveform == null) return;
+
+    // Sync Data to Controller
+    if (waveform.waveformData.isNotEmpty &&
+        waveform.currentFilePath == player.currentSongPath &&
+        _lastSyncedPath != player.currentSongPath) {
+      _lastSyncedPath = player.currentSongPath;
+      _waveformController.setWaveformData(WaveformData(
+        samples: waveform.waveformData,
+        duration: player.state.duration,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<PlayerProvider, WaveformProvider>(
-      builder: (context, player, waveform, _) {
-        // Sync waveform
-        if (player.currentSongPath != null &&
-            (waveform.waveformData.isEmpty ||
-                waveform.currentFilePath != player.currentSongPath) &&
-            !waveform.isLoading) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            waveform.loadWaveform(
-                player.currentSongPath!, player.state.duration);
-          });
-        }
-
-        // Sync waveform controller position
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (waveform.waveformData.isNotEmpty &&
-              waveform.currentFilePath == player.currentSongPath) {
-            _waveformController.setWaveformData(
-              WaveformData(
-                samples: waveform.waveformData,
-                duration: player.state.duration,
-              ),
-            );
-            _waveformController.updatePosition(player.state.position);
-          }
-        });
-
-        // Sync loop regions
-        if (player.loopStart != null && player.loopEnd != null) {
-          if (_waveformController.loopRegions.isEmpty) {
-            _waveformController.addLoopRegion(
-              LoopRegion(start: player.loopStart!, end: player.loopEnd!),
-            );
-          }
-        } else {
-          _waveformController.clearLoopRegions();
-        }
-
+    // Sử dụng Selector để chỉ rebuild khi path thay đổi (load bài mới)
+    // Các update position sẽ chạy ngầm qua controller
+    return Selector<PlayerProvider, String?>(
+      selector: (_, p) => p.currentSongPath,
+      builder: (context, currentPath, _) {
+        final player = context.read<PlayerProvider>();
         if (player.currentSongPath == null) {
           return _buildEmptyState(context);
         }
@@ -111,6 +152,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             Column(
               children: [
                 // LAYER 1 + 2: Song Info (tapable)
+                // Dùng Consumer riêng để chỉ rebuild phần này khi metadata đổi
                 _SongInfoBar(
                   player: player,
                   showProgressBar: _showProgressBar,
@@ -124,20 +166,24 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: RollingWaveformView(
-                      controller: _waveformController,
-                      onSeek: (pos) => player.seek(pos),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        player.togglePlayPause();
-                      },
-                      showControls: false, // Controls ẩn xuống sheet
+                    child: RepaintBoundary(
+                      child: RollingWaveformView(
+                        controller: _waveformController,
+                        onSeek: (pos) => player.seek(pos),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          player.togglePlayPause();
+                        },
+                      ),
                     ),
                   ),
                 ),
 
                 // LAYER 1: Nút Play trung tâm + skip minimal
-                _CorePlayerControls(player: player),
+                // Dùng Consumer riêng
+                Consumer<PlayerProvider>(
+                  builder: (_, p, __) => _CorePlayerControls(player: p),
+                ),
 
                 // Spacer để nhường chỗ cho bottom sheet (collapsed)
                 const SizedBox(height: 72),

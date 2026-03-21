@@ -5,6 +5,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
+import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
@@ -346,6 +347,16 @@ class PdfReaderController extends ChangeNotifier {
   void saveWordToMemory(PdfWordInfo wordInfo) {
     final word = wordInfo.text.replaceAll(RegExp(r'[^\w]'), '').toLowerCase();
     if (word.isEmpty) return;
+
+    // ★ Bridge → VocabularyProvider (hệ thống chung)
+    VocabularyBridge.addFromAnalyzed(
+      word: word,
+      meaning: wordInfo.analyzed?.meaning,
+      phonetic: wordInfo.analyzed?.phonetic,
+      wordTypeName: wordInfo.analyzed?.wordType.name,
+      cefrLevelName: wordInfo.analyzed?.cefrLevel.name,
+      sourceFile: pdfPath.split('/').last,
+    );
 
     MemoryProvider.addWord(
       word: word,

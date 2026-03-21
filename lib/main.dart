@@ -1,7 +1,9 @@
 // lib/main.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
@@ -9,12 +11,12 @@ import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
-import 'providers/waveform_provider.dart';
-import 'screens/main_shell.dart';
-import 'services/storage_service.dart'; // ★ THÊM
-import 'screens/memory_mode/memory_provider.dart';
 import 'providers/vocabulary_bridge.dart'; // ★ THÊM
 import 'providers/vocabulary_provider.dart'; // ★ THÊM
+import 'providers/waveform_provider.dart';
+import 'screens/main_shell.dart';
+import 'screens/memory_mode/memory_provider.dart';
+import 'services/storage_service.dart'; // ★ THÊM
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +27,11 @@ void main() async {
 
   // ★ THÊM: Khởi tạo StorageService trước
   await StorageService().initialize();
+  await VocabularyProvider.ensureBoxOpen();
+  // Mở Hive box cho pending sync queue
+  if (!Hive.isBoxOpen('vocab_sync_pending')) {
+    await Hive.openBox<String>('vocab_sync_pending');
+  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -52,9 +59,12 @@ class VipSoundApp extends StatelessWidget {
       providers: [
         // Khi tạo VocabularyProvider:
         ChangeNotifierProvider<VocabularyProvider>(
+          lazy:
+              false, // ★ FIX: Khởi tạo ngay lập tức để VocabularyBridge sẵn sàng nhận từ
           create: (_) {
-            final vp = VocabularyProvider()..loadData();
-            VocabularyBridge.init(vp); // ← THÊM DÒNG NÀY
+            final vp = VocabularyProvider();
+            VocabularyBridge.init(vp);
+            vp.loadData();
             return vp;
           },
         ),
@@ -119,6 +129,18 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
   void initState() {
     super.initState();
     _checkPermissions();
+
+    // ★ FIX: Lắng nghe đăng nhập để bật/tắt cloud sync
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      final vp = context.read<VocabularyProvider>();
+      if (user != null && !user.isAnonymous) {
+        debugPrint('☁️ Auto-enabling sync for user: ${user.uid}');
+        vp.enableSync(user.uid);
+      } else {
+        vp.disableSync();
+      }
+    });
   }
 
   Future<void> _checkPermissions() async {

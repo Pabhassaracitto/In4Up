@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
 import '../../models/word_analysis.dart';
-import '../../features/tts/tts_service.dart';
+import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import '../../services/syntax_highlighter_service.dart';
 
@@ -167,12 +169,10 @@ class WebReaderController extends ChangeNotifier {
   /// Nhận từ bị tap từ JS bridge
   void onWordTapped(String word) {
     _tappedWordRaw = word;
-    final clean =
-        word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
+    final clean = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
     if (clean.isEmpty) return;
 
-    final analyzed =
-        SyntaxHighlighterService.instance.analyzeWord(clean);
+    final analyzed = SyntaxHighlighterService.instance.analyzeWord(clean);
     _tappedWord = analyzed;
     notifyListeners();
   }
@@ -279,6 +279,16 @@ class WebReaderController extends ChangeNotifier {
     final clean = word.trim().toLowerCase();
     if (clean.isEmpty) return;
 
+    // ★ Bridge → VocabularyProvider (hệ thống chung)
+    VocabularyBridge.addFromAnalyzed(
+      word: clean,
+      meaning: analyzed?.meaning,
+      phonetic: analyzed?.phonetic,
+      wordTypeName: analyzed?.wordType.name,
+      cefrLevelName: analyzed?.cefrLevel.name,
+      sourceFile: Uri.parse(_currentUrl).host,
+    );
+
     MemoryProvider.addWord(
       word: clean,
       wordType: analyzed?.wordType.name,
@@ -297,8 +307,8 @@ class WebReaderController extends ChangeNotifier {
       final raw = box.get('history');
       if (raw == null) return;
       final list = jsonDecode(raw) as List;
-      _history.addAll(list
-          .map((e) => WebHistoryEntry.fromJson(e as Map<String, dynamic>)));
+      _history.addAll(
+          list.map((e) => WebHistoryEntry.fromJson(e as Map<String, dynamic>)));
       notifyListeners();
     } catch (e) {
       debugPrint('WebReaderController: _loadHistory error: $e');
@@ -314,8 +324,8 @@ class WebReaderController extends ChangeNotifier {
     }
 
     _history.removeWhere((h) => h.url == url);
-    _history.add(WebHistoryEntry(
-        url: url, title: title, visitedAt: DateTime.now()));
+    _history.add(
+        WebHistoryEntry(url: url, title: title, visitedAt: DateTime.now()));
 
     // Keep max 100
     if (_history.length > 100) {
@@ -326,9 +336,7 @@ class WebReaderController extends ChangeNotifier {
       if (!Hive.isBoxOpen(_historyBoxName)) return;
       final box = Hive.box<String>(_historyBoxName);
       await box.put(
-          'history',
-          jsonEncode(
-              _history.map((h) => h.toJson()).toList()));
+          'history', jsonEncode(_history.map((h) => h.toJson()).toList()));
     } catch (_) {}
 
     notifyListeners();
@@ -343,14 +351,13 @@ class WebReaderController extends ChangeNotifier {
       final raw = box.get('bookmarks');
       if (raw == null) return;
       final list = jsonDecode(raw) as List;
-      _bookmarks.addAll(list
-          .map((e) => WebHistoryEntry.fromJson(e as Map<String, dynamic>)));
+      _bookmarks.addAll(
+          list.map((e) => WebHistoryEntry.fromJson(e as Map<String, dynamic>)));
       notifyListeners();
     } catch (_) {}
   }
 
-  bool isBookmarked(String url) =>
-      _bookmarks.any((b) => b.url == url);
+  bool isBookmarked(String url) => _bookmarks.any((b) => b.url == url);
 
   Future<void> toggleBookmark() async {
     if (_currentUrl.isEmpty) return;
@@ -358,17 +365,13 @@ class WebReaderController extends ChangeNotifier {
       _bookmarks.removeWhere((b) => b.url == _currentUrl);
     } else {
       _bookmarks.add(WebHistoryEntry(
-          url: _currentUrl,
-          title: _pageTitle,
-          visitedAt: DateTime.now()));
+          url: _currentUrl, title: _pageTitle, visitedAt: DateTime.now()));
     }
     try {
       if (!Hive.isBoxOpen(_historyBoxName)) return;
       final box = Hive.box<String>(_historyBoxName);
       await box.put(
-          'bookmarks',
-          jsonEncode(
-              _bookmarks.map((b) => b.toJson()).toList()));
+          'bookmarks', jsonEncode(_bookmarks.map((b) => b.toJson()).toList()));
     } catch (_) {}
     notifyListeners();
   }

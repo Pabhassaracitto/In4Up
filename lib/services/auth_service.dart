@@ -247,13 +247,15 @@ class AuthService {
     if (_auth.currentUser?.isAnonymous == true) {
       try {
         final result = await _auth.currentUser!.linkWithCredential(credential);
-        debugPrint('✅ Auth: anonymous linked → ${result.user?.email}');
+        final user = result.user;
+        debugPrint('✅ Auth: anonymous linked → ${user?.email}');
         return result.user;
       } on FirebaseAuthException catch (e) {
         if (e.code == 'credential-already-in-use') {
           // Google account đã tồn tại → sign in thẳng
           final result = await _auth.signInWithCredential(credential);
-          debugPrint('✅ Auth: existing account → ${result.user?.email}');
+          final user = result.user;
+          debugPrint('✅ Auth: existing account → ${user?.email}');
           return result.user;
         }
         rethrow;
@@ -261,7 +263,8 @@ class AuthService {
     }
 
     final result = await _auth.signInWithCredential(credential);
-    debugPrint('✅ Auth: signed in → ${result.user?.email}');
+    final user = result.user;
+    debugPrint('✅ Auth: signed in → ${user?.email}');
     return result.user;
   }
 

@@ -484,7 +484,38 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   width: 1,
                   height: 32,
                   color: Colors.white.withValues(alpha: 0.06)),
-              PuzzleNavButton(onTap: _openTools),
+              Consumer<VocabularyProvider>(
+                builder: (_, vocab, __) {
+                  final due = vocab.dueCount;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      PuzzleNavButton(onTap: _openTools),
+                      if (due > 0)
+                        Positioned(
+                          top: -2,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              due > 99 ? '99+' : '$due',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),

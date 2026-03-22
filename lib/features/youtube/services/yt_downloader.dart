@@ -1,6 +1,8 @@
 //
-// Download audio từ YouTube dùng youtube_explode_dart
-// Trả về Stream<YtDownloadEvent> để UI cập nhật progress
+// FIX kẹt 5%: dùng await for trực tiếp trên stream (theo cách của yt_service_explode.dart)
+//             Bỏ StreamController trung gian gây race condition
+// THÊM: chọn chất lượng audio (cao/trung/thấp + chọn cụ thể)
+// THÊM: cancel thực sự bằng flag check trong await for
 
 import 'dart:async';
 import 'dart:io';
@@ -10,19 +12,33 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/yt_video.dart';
 
-// ─── Events ──────────────────────────────────────────────────
+// ─── Audio Quality ────────────────────────────────────────
+
+enum YtAudioQuality {
+  highest('Cao nhất', null),
+  medium('Trung bình', 128000),
+  low('Thấp / Nhỏ', 64000);
+
+  final String label;
+  final int? maxBitrateBps;
+
+  const YtAudioQuality(this.label, this.maxBitrateBps);
+}
+
+// ─── Events ──────────────────────────────────────────────
 
 sealed class YtDownloadEvent {}
 
 class YtDownloadProgress extends YtDownloadEvent {
-  final double progress;      // 0.0 → 1.0
-  final String progressText;  // "2.3 / 8.1 MB"
+  final double progress; // 0.0 → 1.0
+  final String progressText;
   YtDownloadProgress(this.progress, this.progressText);
 }
 
 class YtDownloadDone extends YtDownloadEvent {
   final String filePath;
-  YtDownloadDone(this.filePath);
+  final String quality; // e.g. "128kbps"
+  YtDownloadDone(this.filePath, {this.quality = ''});
 }
 
 class YtDownloadFailed extends YtDownloadEvent {
@@ -30,112 +46,217 @@ class YtDownloadFailed extends YtDownloadEvent {
   YtDownloadFailed(this.message);
 }
 
-// ─── Downloader ───────────────────────────────────────────────
+// ─── Downloader ───────────────────────────────────────────
 
 class YtDownloader {
   YtDownloader._();
   static final YtDownloader instance = YtDownloader._();
 
-  StreamSubscription<List<int>>? _sub;
   bool _cancelled = false;
 
-  /// Bắt đầu download, trả về Stream để listen
-  Stream<YtDownloadEvent> download(YtVideo video) async* {
+  /// Lấy danh sách stream audio có sẵn để hiển thị lựa chọn chất lượng
+  Future<List<AudioOnlyStreamInfo>> getAudioStreams(String videoId) async {
+    final yt = YoutubeExplode();
+    try {
+      final manifest =
+          await yt.videos.streamsClient.getManifest(videoId);
+      final streams = manifest.audioOnly.toList()
+        ..sort((a, b) =>
+            b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+      return streams;
+    } catch (e) {
+      debugPrint('getAudioStreams error: $e');
+      return [];
+    } finally {
+      yt.close();
+    }
+  }
+
+  /// Download audio — trả về Stream<YtDownloadEvent>
+  Stream<YtDownloadEvent> download(
+    YtVideo video, {
+    YtAudioQuality quality = YtAudioQuality.highest,
+    AudioOnlyStreamInfo? specificStream,
+  }) {
+    final ctrl = StreamController<YtDownloadEvent>();
+    _doDownload(ctrl, video,
+        quality: quality, specificStream: specificStream);
+    return ctrl.stream;
+  }
+
+  Future<void> _doDownload(
+    StreamController<YtDownloadEvent> ctrl,
+    YtVideo video, {
+    required YtAudioQuality quality,
+    AudioOnlyStreamInfo? specificStream,
+  }) async {
     _cancelled = false;
     final yt = YoutubeExplode();
 
-    try {
-      yield YtDownloadProgress(0.05, 'Đang chuẩn bị...');
+    void emit(YtDownloadEvent e) {
+      if (!ctrl.isClosed) ctrl.add(e);
+    }
 
+    void fail(String msg) {
+      emit(YtDownloadFailed(msg));
+      if (!ctrl.isClosed) ctrl.close();
+    }
+
+    try {
+      emit(YtDownloadProgress(0.03, 'Đang lấy thông tin video...'));
+
+      // ── Step 1: Video info ──────────────────────────────
+      final videoObj = await yt.videos.get(video.id);
+      if (_cancelled) {
+        yt.close();
+        fail('Đã hủy');
+        return;
+      }
+
+      emit(YtDownloadProgress(0.07, 'Đang phân tích stream...'));
+
+      // ── Step 2: Manifest ───────────────────────────────
       final manifest =
           await yt.videos.streamsClient.getManifest(video.id);
+      if (_cancelled) {
+        yt.close();
+        fail('Đã hủy');
+        return;
+      }
 
-      // Ưu tiên M4A (AAC) → tương thích tốt nhất với just_audio
-      final mp4 = manifest.audioOnly
-          .where((s) => s.container.name.toLowerCase() == 'mp4')
-          .toList()
+      final allAudio = manifest.audioOnly.toList()
         ..sort((a, b) =>
             b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
 
-      final streamInfo =
-          mp4.isNotEmpty ? mp4.first : manifest.audioOnly.withHighestBitrate();
+      if (allAudio.isEmpty) {
+        yt.close();
+        fail('Không tìm thấy stream audio');
+        return;
+      }
 
+      // ── Step 3: Chọn stream ────────────────────────────
+      final streamInfo =
+          specificStream ?? _selectStream(allAudio, quality);
       final totalBytes = streamInfo.size.totalBytes;
       final ext = streamInfo.container.name;
+      final kbps = streamInfo.bitrate.bitsPerSecond ~/ 1000;
 
-      // Chuẩn bị file
+      emit(YtDownloadProgress(
+          0.10, 'Chuẩn bị · ${kbps}kbps · ${_sizeLabel(totalBytes)}'));
+
+      // ── Step 4: Chuẩn bị file ─────────────────────────
       final dir = await getApplicationDocumentsDirectory();
       final folder = Directory('${dir.path}/youtube_downloads');
       if (!await folder.exists()) await folder.create(recursive: true);
 
-      final safe = video.title
-          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
-          .substring(0, video.title.length.clamp(0, 60));
-      final filePath = '${folder.path}/$safe.$ext';
-
+      final safeTitle = _sanitize(videoObj.title);
+      final filePath = '${folder.path}/$safeTitle.$ext';
       final file = File(filePath);
       if (await file.exists()) await file.delete();
-      final sink = file.openWrite();
 
+      final output = file.openWrite();
       int downloaded = 0;
-      final completer = Completer<YtDownloadEvent>();
-      final ctrl = StreamController<YtDownloadEvent>();
 
-      _sub = yt.videos.streamsClient.get(streamInfo).listen(
-        (chunk) {
-          if (_cancelled) return;
-          sink.add(chunk);
+      // ── Step 5: Download với await for trực tiếp ──────
+      // QUAN TRỌNG: await for trực tiếp (không StreamController trung gian)
+      // Đây là fix chính cho bug kẹt 5% — theo đúng cách của yt_service_explode.dart
+      try {
+        await for (final chunk
+            in yt.videos.streamsClient.get(streamInfo)) {
+          if (_cancelled) break;
+
+          output.add(chunk);
           downloaded += chunk.length;
-          final pct = totalBytes > 0 ? downloaded / totalBytes : 0.5;
+
+          final pct = totalBytes > 0
+              ? 0.10 + (downloaded / totalBytes) * 0.88
+              : 0.50;
           final dlMb = (downloaded / 1048576).toStringAsFixed(1);
           final totMb = (totalBytes / 1048576).toStringAsFixed(1);
-          ctrl.add(YtDownloadProgress(
-              pct.clamp(0.0, 0.99), '$dlMb / $totMb MB'));
-        },
-        onDone: () async {
-          await sink.flush();
-          await sink.close();
-          yt.close();
-          if (_cancelled) {
-            if (await file.exists()) await file.delete();
-            completer.complete(YtDownloadFailed('Đã hủy'));
-          } else {
-            completer.complete(YtDownloadDone(filePath));
-          }
-          ctrl.close();
-        },
-        onError: (e) async {
-          await sink.close();
-          yt.close();
-          if (await file.exists()) await file.delete();
-          completer.complete(YtDownloadFailed(_friendlyError(e.toString())));
-          ctrl.close();
-        },
-        cancelOnError: true,
-      );
 
-      yield* ctrl.stream;
-      yield await completer.future;
+          emit(YtDownloadProgress(
+              pct.clamp(0.0, 0.98), '$dlMb / $totMb MB'));
+        }
+      } finally {
+        await output.flush();
+        await output.close();
+      }
+
+      yt.close();
+
+      // ── Step 6: Kết quả ───────────────────────────────
+      if (_cancelled) {
+        if (await file.exists()) await file.delete();
+        fail('Đã hủy');
+        return;
+      }
+
+      final finalSize = await file.length();
+      if (finalSize < 1000) {
+        if (await file.exists()) await file.delete();
+        fail('File tải về quá nhỏ, thử lại');
+        return;
+      }
+
+      emit(YtDownloadDone(filePath, quality: '${kbps}kbps'));
+      if (!ctrl.isClosed) ctrl.close();
     } catch (e) {
       yt.close();
-      yield YtDownloadFailed(_friendlyError(e.toString()));
+      fail(_friendlyError(e.toString()));
     }
   }
 
+  /// Hủy download đang chạy
   void cancel() {
     _cancelled = true;
-    _sub?.cancel();
-    _sub = null;
   }
+
+  // ─── Helpers ─────────────────────────────────────────
+
+  AudioOnlyStreamInfo _selectStream(
+    List<AudioOnlyStreamInfo> streams,
+    YtAudioQuality quality,
+  ) {
+    if (quality == YtAudioQuality.highest) {
+      // Ưu tiên mp4/aac — tương thích tốt hơn với just_audio
+      final mp4 = streams
+          .where((s) => s.container.name.toLowerCase() == 'mp4')
+          .toList();
+      return mp4.isNotEmpty ? mp4.first : streams.first;
+    }
+
+    final maxBps = quality.maxBitrateBps!;
+    final candidates =
+        streams.where((s) => s.bitrate.bitsPerSecond <= maxBps).toList();
+
+    // Lấy bitrate cao nhất trong giới hạn; không có → lấy thấp nhất
+    return candidates.isNotEmpty ? candidates.first : streams.last;
+  }
+
+  String _sizeLabel(int bytes) {
+    if (bytes <= 0) return '';
+    if (bytes >= 1048576) {
+      return '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  }
+
+  String _sanitize(String name) => name
+      .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .substring(0, name.length.clamp(0, 80));
 
   String _friendlyError(String raw) {
     if (raw.contains('unplayable') || raw.contains('Unplayable')) {
       return 'Video bị giới hạn tải xuống';
     }
     if (raw.contains('unavailable')) return 'Video không khả dụng';
-    if (raw.contains('Socket') || raw.contains('Network')) {
+    if (raw.contains('SocketException') || raw.contains('Network')) {
       return 'Lỗi mạng — kiểm tra kết nối';
     }
-    return 'Lỗi: ${raw.substring(0, raw.length.clamp(0, 60))}';
+    if (raw.contains('403')) return 'Truy cập bị từ chối (403)';
+    if (raw.contains('429')) return 'Rate limit, thử lại sau';
+    return 'Lỗi: ${raw.substring(0, raw.length.clamp(0, 100))}';
   }
 }

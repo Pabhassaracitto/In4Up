@@ -1,9 +1,6 @@
 //
-// ★ THÊM TAB GOOGLE DRIVE
-// Tab 0: Máy (local files) - giữ nguyên
-// Tab 1: Drive (Google Drive audio browser) - MỚI
-//
-// NOTE: Giữ nguyên toàn bộ logic tab "Máy", chỉ thêm tab Drive
+// FIX 1: Thêm tab YouTube (3 tabs: Thiết bị / Drive / YouTube)
+// FIX 2: Chọn nhiều file → hiển thị playlist, phát được từng bài
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
-import 'google_drive_browser.dart';   // ← THÊM
+import '../../../features/youtube/youtube_sheet.dart';
+import 'google_drive_browser.dart';
 
 class AudioLibraryDrawer extends StatefulWidget {
   const AudioLibraryDrawer({super.key});
@@ -27,7 +25,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this); // ← 3 tabs
   }
 
   @override
@@ -50,11 +48,9 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
               child: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  // ── Tab 0: Local files ──
                   _LocalAudioTab(onClose: () => Navigator.pop(context)),
-
-                  // ── Tab 1: Google Drive ── MỚI
                   const GoogleDriveBrowser(),
+                  _YouTubeTab(onClose: () => Navigator.pop(context)),
                 ],
               ),
             ),
@@ -102,7 +98,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
                   ),
                 ),
                 Text(
-                  'Thiết bị · Google Drive',
+                  'Thiết bị · Drive · YouTube',
                   style: TextStyle(color: Colors.grey, fontSize: 11),
                 ),
               ],
@@ -139,15 +135,15 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
         labelColor: const Color(0xFF6C63FF),
         unselectedLabelColor: Colors.grey,
         labelStyle:
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
+            const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(fontSize: 11),
         tabs: const [
           Tab(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.phone_android, size: 14),
-                SizedBox(width: 5),
+                Icon(Icons.phone_android, size: 13),
+                SizedBox(width: 4),
                 Text('Thiết bị'),
               ],
             ),
@@ -156,10 +152,19 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Google Drive icon (simplified)
-                Text('📂', style: TextStyle(fontSize: 14)),
-                SizedBox(width: 5),
+                Text('📂', style: TextStyle(fontSize: 13)),
+                SizedBox(width: 4),
                 Text('Drive'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('▶️', style: TextStyle(fontSize: 13)),
+                SizedBox(width: 4),
+                Text('YouTube'),
               ],
             ),
           ),
@@ -169,9 +174,9 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
   }
 }
 
-// ──────────────────────────────────────────────────────────
-// Tab local (giữ nguyên logic hiện tại của bạn)
-// ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// Tab 0: Thiết bị
+// ─────────────────────────────────────────────────────────
 class _LocalAudioTab extends StatefulWidget {
   final VoidCallback onClose;
   const _LocalAudioTab({required this.onClose});
@@ -181,50 +186,66 @@ class _LocalAudioTab extends StatefulWidget {
 }
 
 class _LocalAudioTabState extends State<_LocalAudioTab> {
-  Future<void> _pickAudioFile() async {
+  // FIX: Lưu playlist thay vì chỉ phát 1 file
+  List<PlatformFile> _playlist = [];
+
+  Future<void> _pickSingleFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: false,
     );
     if (result == null || result.files.single.path == null) return;
 
-    final path = result.files.single.path!;
+    final file = result.files.single;
     if (context.mounted) {
       await context.read<PlayerProvider>().loadSong(
-        path: path,
-        title: result.files.single.name,
-        autoPlay: true,
-      );
+            path: file.path!,
+            title: file.name,
+            autoPlay: true,
+          );
       widget.onClose();
     }
   }
 
-  Future<void> _pickAudioFolder() async {
-    // FilePicker không hỗ trợ folder scan trực tiếp
-    // Dùng pickFiles multiple
+  Future<void> _pickMultipleFiles() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
 
+    // Lọc file có path hợp lệ
+    final valid = result.files.where((f) => f.path != null).toList();
+    if (valid.isEmpty) return;
+
+    // Lưu playlist để hiện danh sách
+    setState(() => _playlist = valid);
+
     // Phát file đầu tiên
-    final first = result.files.first;
-    if (first.path != null && context.mounted) {
+    if (context.mounted) {
       await context.read<PlayerProvider>().loadSong(
-        path: first.path!,
-        title: first.name,
-        autoPlay: true,
-      );
-      widget.onClose();
+            path: valid.first.path!,
+            title: valid.first.name,
+            autoPlay: true,
+          );
+      // Không đóng drawer - user muốn xem playlist và chọn bài khác
     }
+  }
+
+  Future<void> _playFile(PlatformFile file) async {
+    if (file.path == null || !context.mounted) return;
+    await context.read<PlayerProvider>().loadSong(
+          path: file.path!,
+          title: file.name,
+          autoPlay: true,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Action buttons
+        // Buttons chọn file
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
           child: Column(
@@ -234,15 +255,15 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                 label: 'Chọn file âm thanh',
                 subtitle: 'MP3, M4A, WAV, FLAC...',
                 color: const Color(0xFF6C63FF),
-                onTap: _pickAudioFile,
+                onTap: _pickSingleFile,
               ),
               const SizedBox(height: 8),
               _ActionTile(
-                icon: Icons.folder_open_outlined,
+                icon: Icons.playlist_add,
                 label: 'Chọn nhiều file',
-                subtitle: 'Chọn nhiều file cùng lúc',
+                subtitle: 'Tạo playlist từ nhiều file',
                 color: const Color(0xFF4CAF50),
-                onTap: _pickAudioFolder,
+                onTap: _pickMultipleFiles,
               ),
             ],
           ),
@@ -250,17 +271,18 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
 
         Divider(color: Colors.white.withValues(alpha: 0.07), height: 1),
 
-        // Current playing
         Expanded(
           child: Consumer<PlayerProvider>(
             builder: (context, player, _) {
-              if (player.currentSongPath == null) {
+              final hasContent =
+                  player.currentSongPath != null || _playlist.isNotEmpty;
+
+              if (!hasContent) {
                 return Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.music_off,
-                          size: 44, color: Colors.grey[700]),
+                      Icon(Icons.music_off, size: 44, color: Colors.grey[700]),
                       const SizedBox(height: 12),
                       Text('Chưa có bài nào đang phát',
                           style: TextStyle(
@@ -274,89 +296,161 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                 );
               }
 
-              final fileName = player.currentSongTitle ?? 
-                  player.currentSongPath!.split('/').last;
-
-              return Column(
+              return ListView(
+                padding: const EdgeInsets.all(12),
                 children: [
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('Đang phát',
+                  // ── Đang phát ──
+                  if (player.currentSongPath != null) ...[
+                    Text('Đang phát',
                         style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5)),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: _CurrentTrackCard(
-                      title: fileName,
-                      path: player.currentSongPath!,
+                    const SizedBox(height: 8),
+                    _CurrentTrackCard(
+                      title: player.currentSongTitle ??
+                          player.currentSongPath!.split('/').last,
                       isPlaying: player.isPlaying,
                       onTap: widget.onClose,
                     ),
-                  ),
-
-                  // Segments của bài hiện tại
-                  if (player.getSegmentsForCurrentSong().isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Text('Đoạn đã lưu',
+                  ],
+
+                  // ── Playlist (FIX: hiện đủ các file đã chọn) ──
+                  if (_playlist.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Text('Playlist — ${_playlist.length} bài',
+                            style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => setState(() => _playlist = []),
+                          child: Text('Xóa',
                               style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5)),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6C63FF)
-                                  .withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${player.getSegmentsForCurrentSong().length}',
-                              style: const TextStyle(
-                                  color: Color(0xFF9C8FFF),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold),
+                                  color: Colors.grey[700], fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ..._playlist.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final file = entry.value;
+                      final isCurrent =
+                          player.currentSongPath == file.path;
+                      return GestureDetector(
+                        onTap: () => _playFile(file),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? const Color(0xFF6C63FF)
+                                    .withValues(alpha: 0.15)
+                                : Colors.white.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? const Color(0xFF6C63FF)
+                                      .withValues(alpha: 0.4)
+                                  : Colors.white.withValues(alpha: 0.07),
                             ),
                           ),
-                        ],
-                      ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                child: isCurrent
+                                    ? const Icon(Icons.graphic_eq,
+                                        color: Color(0xFF6C63FF), size: 16)
+                                    : Text('${idx + 1}',
+                                        style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 11)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  file.name,
+                                  style: TextStyle(
+                                    color: isCurrent
+                                        ? Colors.white
+                                        : Colors.white70,
+                                    fontSize: 12,
+                                    fontWeight: isCurrent
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (file.size > 0)
+                                Text(
+                                  _sizeLabel(file.size),
+                                  style: TextStyle(
+                                      color: Colors.grey[700], fontSize: 10),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Segments của bài hiện tại ──
+                  if (player.currentSongPath != null &&
+                      player.getSegmentsForCurrentSong().isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Text('Đoạn đã lưu',
+                            style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5)),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6C63FF)
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${player.getSegmentsForCurrentSong().length}',
+                            style: const TextStyle(
+                                color: Color(0xFF9C8FFF),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: ListView.builder(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount:
-                            player.getSegmentsForCurrentSong().length,
-                        itemBuilder: (ctx, i) {
-                          final seg =
-                              player.getSegmentsForCurrentSong()[i];
-                          return _SegmentTile(
-                            segment: seg,
+                    const SizedBox(height: 8),
+                    ...player
+                        .getSegmentsForCurrentSong()
+                        .asMap()
+                        .entries
+                        .map(
+                          (e) => _SegmentTile(
+                            segment: e.value,
                             onPlay: () {
-                              player.playSegment(seg, index: i);
+                              player.playSegment(e.value, index: e.key);
                               widget.onClose();
                             },
                             onDelete: () =>
-                                player.deleteSegment(seg.id),
-                          );
-                        },
-                      ),
-                    ),
-                  ] else
-                    const Spacer(),
+                                player.deleteSegment(e.value.id),
+                          ),
+                        ),
+                  ],
                 ],
               );
             },
@@ -379,9 +473,159 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
       ],
     );
   }
+
+  String _sizeLabel(int bytes) {
+    if (bytes >= 1048576) {
+      return '${(bytes / 1048576).toStringAsFixed(1)}MB';
+    }
+    return '${(bytes / 1024).toStringAsFixed(0)}KB';
+  }
 }
 
-// ─── Helper widgets ───────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// Tab 1: Google Drive — không thay đổi, dùng GoogleDriveBrowser
+// ─────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────
+// Tab 2: YouTube
+// ─────────────────────────────────────────────────────────
+class _YouTubeTab extends StatelessWidget {
+  final VoidCallback onClose;
+  const _YouTubeTab({required this.onClose});
+
+  void _openYoutube(BuildContext context, {bool captionsFirst = false}) {
+    // Đóng drawer trước, sau đó mở sheet
+    Navigator.pop(context);
+    Future.microtask(() {
+      if (context.mounted) {
+        YoutubeSheet.show(context, captionsFirst: captionsFirst);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Banner
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF0000).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: const Color(0xFFFF0000).withValues(alpha: 0.2)),
+            ),
+            child: const Row(
+              children: [
+                Text('▶️', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('YouTube',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                      SizedBox(height: 2),
+                      Text(
+                        'Tải audio · Captions · Khám phá kênh',
+                        style:
+                            TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Nút tải audio
+          ElevatedButton.icon(
+            onPressed: () => _openYoutube(context),
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('Tải Audio từ YouTube'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF0000),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Nút tải captions
+          OutlinedButton.icon(
+            onPressed: () => _openYoutube(context, captionsFirst: true),
+            icon: const Icon(Icons.subtitles_outlined, size: 18),
+            label: const Text('Tải Lyrics / Captions'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF4CAF50),
+              side: BorderSide(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Tips
+          _TipRow(
+            icon: Icons.music_note,
+            text: 'Dán URL YouTube → tải audio M4A chất lượng cao',
+          ),
+          const SizedBox(height: 8),
+          _TipRow(
+            icon: Icons.subtitles,
+            text:
+                'Tải captions → mở trong Understand Mode để học đồng bộ',
+          ),
+          const SizedBox(height: 8),
+          _TipRow(
+            icon: Icons.link,
+            text:
+                'Tải cả audio + captions → link lại để phát đồng bộ',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _TipRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text,
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: 11, height: 1.4)),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Shared widgets ───────────────────────────────────────
 
 class _ActionTile extends StatelessWidget {
   final IconData icon;
@@ -442,13 +686,11 @@ class _ActionTile extends StatelessWidget {
 
 class _CurrentTrackCard extends StatelessWidget {
   final String title;
-  final String path;
   final bool isPlaying;
   final VoidCallback onTap;
 
   const _CurrentTrackCard({
     required this.title,
-    required this.path,
     required this.isPlaying,
     required this.onTap,
   });
@@ -516,7 +758,7 @@ class _CurrentTrackCard extends StatelessWidget {
 }
 
 class _SegmentTile extends StatelessWidget {
-  final dynamic segment; // Segment model
+  final dynamic segment;
   final VoidCallback onPlay;
   final VoidCallback onDelete;
 
@@ -526,7 +768,7 @@ class _SegmentTile extends StatelessWidget {
     required this.onDelete,
   });
 
-  String _formatDuration(Duration d) {
+  String _fmt(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
@@ -540,8 +782,7 @@ class _SegmentTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
       child: Row(
         children: [
@@ -550,12 +791,11 @@ class _SegmentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(segment.title ?? 'Đoạn',
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 12)),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
                 Text(
-                  '${_formatDuration(segment.startTime)} → ${_formatDuration(segment.endTime)}',
-                  style: TextStyle(
-                      color: Colors.grey[600], fontSize: 10),
+                  '${_fmt(segment.startTime)} → ${_fmt(segment.endTime)}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ],
             ),
@@ -583,8 +823,8 @@ class _SegmentTile extends StatelessWidget {
                 color: Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child:
-                  const Icon(Icons.delete_outline, color: Colors.red, size: 14),
+              child: const Icon(Icons.delete_outline,
+                  color: Colors.red, size: 14),
             ),
           ),
         ],

@@ -54,6 +54,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     _waveformController = RollingWaveformController();
     // Đăng ký listener sau khi build frame đầu tiên để có context
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return; // ★ FIX: Kiểm tra mounted trước khi dùng context
       _setupListeners();
     });
   }

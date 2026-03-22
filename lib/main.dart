@@ -1,4 +1,6 @@
 // lib/main.dart
+import 'dart:async'; // Thêm import
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -16,8 +18,8 @@ import 'providers/vocabulary_provider.dart'; // ★ THÊM
 import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
 import 'screens/memory_mode/memory_provider.dart';
-import 'services/storage_service.dart'; // ★ THÊM
 import 'services/google_drive_service.dart';
+import 'services/storage_service.dart'; // ★ THÊM
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -129,14 +131,15 @@ class PermissionWrapper extends StatefulWidget {
 class _PermissionWrapperState extends State<PermissionWrapper> {
   bool _hasPermission = false;
   bool _isChecking = true;
+  StreamSubscription<User?>? _authSubscription; // ★ FIX: Quản lý subscription
 
   @override
   void initState() {
     super.initState();
     _checkPermissions();
 
-    // ★ FIX: Lắng nghe đăng nhập để bật/tắt cloud sync
-    FirebaseAuth.instance.authStateChanges().listen((user) {
+    // ★ FIX: Lưu subscription để cancel khi dispose
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
       final vp = context.read<VocabularyProvider>();
       if (user != null && !user.isAnonymous) {
@@ -146,6 +149,13 @@ class _PermissionWrapperState extends State<PermissionWrapper> {
         vp.disableSync();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // ★ FIX: Hủy lắng nghe để tránh lỗi "context usage in disposed widget"
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkPermissions() async {

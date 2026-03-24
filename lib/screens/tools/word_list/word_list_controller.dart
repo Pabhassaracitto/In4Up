@@ -1,6 +1,8 @@
 //
-// ★ LIST REPEAT: phát hết danh sách → lặp lại (1 / custom / ∞)
-// ★ PER-WORD REPEAT: 1-N (không có ∞)
+// ★ MỚI: sort modes SM-2, khó→dễ, dễ→khó
+// ★ MỚI: moveWordToFolder (drag & drop giữa folders)
+// ★ MỚI: hasWord() helper cho import
+// ★ MỚI: exportFolder() → CSV string
 // ★ FIX dispose crash
 
 import 'package:flutter/foundation.dart';
@@ -21,7 +23,6 @@ class WordListController extends ChangeNotifier {
   final Map<String, int> _repeatOverrides = {};
 
   // ── List-level repeat ─────────────────────────────────────
-  // 0 = vô hạn, 1+ = số lần lặp danh sách
   int _listRepeatCount = 1;
   int _listRepeatCurrent = 0;
 
@@ -68,12 +69,16 @@ class WordListController extends ChangeNotifier {
 
   int get totalCount => _allEntries.length;
 
+  // ★ MỚI: Kiểm tra từ đã tồn tại (cho import)
+  bool hasWord(String word) {
+    final normalized = word.toLowerCase().trim();
+    return _allEntries.any((e) => e.word.toLowerCase() == normalized);
+  }
+
   List<WordEntry> get displayEntries {
     var items = _currentFolderId == WordFolder.allWords.id
         ? _allEntries
-        : _manualEntries
-            .where((e) => e.folderId == _currentFolderId)
-            .toList();
+        : _manualEntries.where((e) => e.folderId == _currentFolderId).toList();
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -86,32 +91,40 @@ class WordListController extends ChangeNotifier {
     }
 
     final result = List<WordEntry>.from(items);
-    switch (_sortMode) {
-      case WordListSortMode.addTime:
-        result.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        break;
-      case WordListSortMode.alphabetical:
-        result.sort((a, b) =>
-            a.word.toLowerCase().compareTo(b.word.toLowerCase()));
-        break;
-      case WordListSortMode.alphabeticalDesc:
-        result.sort((a, b) =>
-            b.word.toLowerCase().compareTo(a.word.toLowerCase()));
-        break;
-      case WordListSortMode.rankDescending:
-        result.sort((a, b) => b.strength.compareTo(a.strength));
-        break;
-      case WordListSortMode.familiarity:
-        result.sort((a, b) => a.strength.compareTo(b.strength));
-        break;
-      case WordListSortMode.random:
-        result.shuffle();
-        break;
-    }
+    _applySortMode(result);
     return result;
   }
 
-  // ── Per-word repeat (min 1, không có ∞) ──────────────────
+  void _applySortMode(List<WordEntry> list) {
+    switch (_sortMode) {
+      case WordListSortMode.addTime:
+        list.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      case WordListSortMode.alphabetical:
+        list.sort(
+            (a, b) => a.word.toLowerCase().compareTo(b.word.toLowerCase()));
+      case WordListSortMode.alphabeticalDesc:
+        list.sort(
+            (a, b) => b.word.toLowerCase().compareTo(a.word.toLowerCase()));
+      case WordListSortMode.rankDescending:
+        list.sort((a, b) => b.strength.compareTo(a.strength));
+      case WordListSortMode.familiarity:
+        list.sort((a, b) => a.strength.compareTo(b.strength));
+      case WordListSortMode.random:
+        list.shuffle();
+      case WordListSortMode.sm2Due:
+        list.sort((a, b) {
+          if (a.isSm2Due && !b.isSm2Due) return -1;
+          if (!a.isSm2Due && b.isSm2Due) return 1;
+          return b.addedAt.compareTo(a.addedAt);
+        });
+      case WordListSortMode.hardFirst:
+        list.sort((a, b) => a.strength.compareTo(b.strength));
+      case WordListSortMode.easyFirst:
+        list.sort((a, b) => b.strength.compareTo(a.strength));
+    }
+  }
+
+  // ── Per-word repeat ───────────────────────────────────────
   int getRepeatCount(String id) => (_repeatOverrides[id] ?? 1).clamp(1, 999);
 
   void setRepeatCount(String id, int count) {
@@ -139,8 +152,8 @@ class WordListController extends ChangeNotifier {
   }
 
   void toggleExpandAll() {
-    _settings = _settings.copyWith(
-        definitionsExpanded: !_settings.definitionsExpanded);
+    _settings =
+        _settings.copyWith(definitionsExpanded: !_settings.definitionsExpanded);
     _safeNotify();
   }
 
@@ -167,9 +180,7 @@ class WordListController extends ChangeNotifier {
   }
 
   void toggleSelect(String id) {
-    _selectedIds.contains(id)
-        ? _selectedIds.remove(id)
-        : _selectedIds.add(id);
+    _selectedIds.contains(id) ? _selectedIds.remove(id) : _selectedIds.add(id);
     _safeNotify();
   }
 
@@ -194,7 +205,57 @@ class WordListController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ── TTS: phát 1 từ ───────────────────────────────────────
+  // ★ MỚI: Move word sang folder khác (dùng cho drag & drop)
+  void moveWordToFolder(String wordId, String targetFolderId) {
+    final idx = _manualEntries.indexWhere((e) => e.id == wordId);
+    if (idx == -1) return; // Memory words không thể move
+
+    _manualEntries[idx] = _manualEntries[idx].copyWith(
+      folderId: targetFolderId == WordFolder.allWords.id
+          ? WordFolder.defaultFolder.id
+          : targetFolderId,
+    );
+    _safeNotify();
+  }
+
+  // ★ MỚI: Move nhiều words cùng lúc (từ selection)
+  void moveSelectedToFolder(String targetFolderId) {
+    if (_selectedIds.isEmpty) return;
+    final fid = targetFolderId == WordFolder.allWords.id
+        ? WordFolder.defaultFolder.id
+        : targetFolderId;
+
+    for (final id in _selectedIds) {
+      final idx = _manualEntries.indexWhere((e) => e.id == id);
+      if (idx >= 0) {
+        _manualEntries[idx] = _manualEntries[idx].copyWith(folderId: fid);
+      }
+    }
+    clearSelection();
+    _safeNotify();
+  }
+
+  // ★ MỚI: Export folder → CSV string
+  String exportFolderAsCsv(String folderId) {
+    final words = folderId == WordFolder.allWords.id
+        ? _manualEntries
+        : _manualEntries.where((e) => e.folderId == folderId).toList();
+
+    final buffer = StringBuffer();
+    buffer.writeln('word,meaning,phonetic,example');
+    for (final w in words) {
+      final meaning = (w.shortDefinition ?? '').replaceAll(',', ';');
+      final phonetic = (w.phonetic ?? '').replaceAll(',', ';');
+      final example = (w.example ?? '').replaceAll(',', ';');
+      buffer.writeln('${w.word},$meaning,$phonetic,$example');
+    }
+    return buffer.toString();
+  }
+
+  // ★ MỚI: Count SM-2 due words
+  int get sm2DueCount => _allEntries.where((e) => e.isSm2Due).length;
+
+  // ── TTS ───────────────────────────────────────────────────
   Future<void> playSingle(WordEntry entry) async {
     if (_disposed) return;
     HapticFeedback.lightImpact();
@@ -208,7 +269,6 @@ class WordListController extends ChangeNotifier {
     }
   }
 
-  // ── TTS: phát toàn bộ danh sách, có lặp danh sách ───────
   Future<void> playAll({bool selectedOnly = false}) async {
     if (_disposed) return;
     if (_isPlaying) {
@@ -223,9 +283,7 @@ class WordListController extends ChangeNotifier {
     _safeNotify();
 
     final items = selectedOnly && _selectedIds.isNotEmpty
-        ? displayEntries
-            .where((e) => _selectedIds.contains(e.id))
-            .toList()
+        ? displayEntries.where((e) => _selectedIds.contains(e.id)).toList()
         : displayEntries;
 
     if (items.isEmpty) {
@@ -235,7 +293,6 @@ class WordListController extends ChangeNotifier {
     }
 
     int listPass = 0;
-    // listRepeatCount == 0 → vô hạn
     while (!_stopRequested && !_disposed) {
       listPass++;
       _listRepeatCurrent = listPass;
@@ -267,7 +324,6 @@ class WordListController extends ChangeNotifier {
 
       if (_stopRequested || _disposed) break;
       if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-      // Pause ngắn giữa 2 lần lặp toàn bộ
       if (!_stopRequested && !_disposed) {
         await Future.delayed(const Duration(milliseconds: 1200));
       }

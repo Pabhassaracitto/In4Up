@@ -88,6 +88,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // ── LOGIC HANDLERS (Chạy ngoài build để tránh rebuild UI) ──
 
   void _onPlayerChange() {
+    if (!mounted) return;
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
-import '../../memory_mode/models/memory_item.dart';
-import '../../memory_mode/models/memory_stage.dart';
 
-// ─── Sort Mode ────────────────────────────────────────────
+// ─── Sort Mode ─────────────────────────────────────────────
+
 enum WordListSortMode {
   addTime('Thời gian thêm', Icons.access_time),
   alphabetical('A → Z', Icons.sort_by_alpha),
   alphabeticalDesc('Z → A', Icons.sort_by_alpha),
   rankDescending('Độ thuần thục ↓', Icons.trending_down),
   familiarity('Quen thuộc', Icons.favorite_outline),
-  random('Ngẫu nhiên', Icons.shuffle);
+  random('Ngẫu nhiên', Icons.shuffle),
+  sm2Due('SM-2: Cần ôn hôm nay', Icons.alarm),
+  hardFirst('Khó → Dễ', Icons.keyboard_double_arrow_up),
+  easyFirst('Dễ → Khó', Icons.keyboard_double_arrow_down);
 
   final String label;
   final IconData icon;
   const WordListSortMode(this.label, this.icon);
 }
 
-// ─── Display Settings ─────────────────────────────────────
+// ─── Settings ──────────────────────────────────────────────
+
 class WordListSettings {
   final bool showWord;
   final bool showPhonetic;
@@ -44,111 +47,47 @@ class WordListSettings {
     bool? showFullDefinition,
     bool? showExample,
     bool? definitionsExpanded,
-  }) =>
-      WordListSettings(
-        showWord: showWord ?? this.showWord,
-        showPhonetic: showPhonetic ?? this.showPhonetic,
-        showNumber: showNumber ?? this.showNumber,
-        showShortDefinition:
-            showShortDefinition ?? this.showShortDefinition,
-        showFullDefinition:
-            showFullDefinition ?? this.showFullDefinition,
-        showExample: showExample ?? this.showExample,
-        definitionsExpanded:
-            definitionsExpanded ?? this.definitionsExpanded,
-      );
+  }) {
+    return WordListSettings(
+      showWord: showWord ?? this.showWord,
+      showPhonetic: showPhonetic ?? this.showPhonetic,
+      showNumber: showNumber ?? this.showNumber,
+      showShortDefinition: showShortDefinition ?? this.showShortDefinition,
+      showFullDefinition: showFullDefinition ?? this.showFullDefinition,
+      showExample: showExample ?? this.showExample,
+      definitionsExpanded: definitionsExpanded ?? this.definitionsExpanded,
+    );
+  }
 }
 
-// ─── Word Entry ───────────────────────────────────────────
-class WordEntry {
-  final String id;
-  final String word;
-  final String? phonetic;
-  final String? shortDefinition;
-  final String? fullDefinition;
-  final String? example;
-  final String? wordType;
-  final MemoryStage? stage;
-  final double strength;
-  final DateTime addedAt;
-  int repeatCount;
-  final bool isFromMemory;
-  /// Folder ID (chỉ áp dụng cho manual entries)
-  final String? folderId;
+// ─── Folders ───────────────────────────────────────────────
 
-  WordEntry({
+class WordFolder {
+  final String id;
+  final String name;
+  final IconData icon;
+
+  const WordFolder({
     required this.id,
-    required this.word,
-    this.phonetic,
-    this.shortDefinition,
-    this.fullDefinition,
-    this.example,
-    this.wordType,
-    this.stage,
-    this.strength = 0.0,
-    required this.addedAt,
-    this.repeatCount = 1,
-    this.isFromMemory = false,
-    this.folderId,
+    required this.name,
+    required this.icon,
   });
 
-  factory WordEntry.fromMemoryItem(MemoryItem item) => WordEntry(
-        id: item.id,
-        word: item.word,
-        phonetic: item.phonetic,
-        shortDefinition: item.meaning,
-        fullDefinition: item.meaning,
-        example: item.example ?? item.context,
-        wordType: item.wordType,
-        stage: item.stage,
-        strength: item.strength,
-        addedAt: item.createdAt,
-        isFromMemory: true,
-      );
+  static const allWords = WordFolder(
+    id: 'all',
+    name: 'Tất cả',
+    icon: Icons.all_inclusive,
+  );
 
-  factory WordEntry.manual({
-    required String id,
-    required String word,
-    String? phonetic,
-    String? shortDefinition,
-    String? fullDefinition,
-    String? example,
-    String? wordType,
-    String? folderId,
-  }) =>
-      WordEntry(
-        id: id,
-        word: word,
-        phonetic: phonetic,
-        shortDefinition: shortDefinition,
-        fullDefinition: fullDefinition,
-        example: example,
-        wordType: wordType,
-        addedAt: DateTime.now(),
-        isFromMemory: false,
-        folderId: folderId,
-      );
-
-  WordEntry copyWith({String? folderId, int? repeatCount}) => WordEntry(
-        id: id,
-        word: word,
-        phonetic: phonetic,
-        shortDefinition: shortDefinition,
-        fullDefinition: fullDefinition,
-        example: example,
-        wordType: wordType,
-        stage: stage,
-        strength: strength,
-        addedAt: addedAt,
-        repeatCount: repeatCount ?? this.repeatCount,
-        isFromMemory: isFromMemory,
-        folderId: folderId ?? this.folderId,
-      );
+  static const defaultFolder = WordFolder(
+    id: 'default',
+    name: 'Mặc định',
+    icon: Icons.folder,
+  );
 }
 
-// ─── Folder Tree ──────────────────────────────────────────
+// ─── Folder Tree (★ MỚI) ───────────────────────────────────
 
-/// Node trong cây thư mục
 class FolderNode {
   final String id;
   String name;
@@ -167,51 +106,33 @@ class FolderNode {
     List<FolderNode>? children,
     this.isExpanded = true,
   }) : children = children ?? [];
-
-  bool get isRoot => parentId == null;
-
-  // Thêm con
-  void addChild(FolderNode child) {
-    child.parentId = id;
-    children.add(child);
-  }
-
-  // Xóa con
-  void removeChild(String childId) {
-    children.removeWhere((c) => c.id == childId);
-  }
-
-  FolderNode toWordFolder() => this;
 }
 
-/// Manager quản lý cây thư mục + persit
 class FolderTreeManager {
-  // Danh sách root folders (không tính allWords)
   final List<FolderNode> _roots = [
     FolderNode(
       id: 'default',
-      name: 'Default',
-      color: const Color(0xFF6C63FF),
+      name: 'Mặc định',
+      color: Color(0xFF6C63FF),
       icon: Icons.folder_outlined,
     ),
   ];
 
   List<FolderNode> get roots => List.unmodifiable(_roots);
 
-  /// Tìm node theo id (DFS)
   FolderNode? findById(String id) {
-    FolderNode? _search(List<FolderNode> nodes) {
+    FolderNode? search(List<FolderNode> nodes) {
       for (final n in nodes) {
         if (n.id == id) return n;
-        final found = _search(n.children);
+        final found = search(n.children);
         if (found != null) return found;
       }
       return null;
     }
-    return _search(_roots);
+
+    return search(_roots);
   }
 
-  /// Thêm folder mới (dưới parentId, null = root level)
   FolderNode addFolder({
     required String name,
     String? parentId,
@@ -225,75 +146,137 @@ class FolderTreeManager {
       icon: icon,
       parentId: parentId,
     );
-
     if (parentId == null) {
       _roots.add(node);
     } else {
-      final parent = findById(parentId);
-      parent?.addChild(node);
+      findById(parentId)?.children.add(node);
     }
     return node;
   }
 
-  /// Xóa folder (và children của nó)
   void removeFolder(String id) {
-    bool _remove(List<FolderNode> nodes) {
+    bool remove(List<FolderNode> nodes) {
       for (int i = 0; i < nodes.length; i++) {
         if (nodes[i].id == id) {
           nodes.removeAt(i);
           return true;
         }
-        if (_remove(nodes[i].children)) return true;
+        if (remove(nodes[i].children)) return true;
       }
       return false;
     }
-    _remove(_roots);
+
+    remove(_roots);
   }
 
-  /// Đổi tên folder
-  void renameFolder(String id, String newName) {
-    findById(id)?.name = newName;
-  }
-
-  /// Flatten tất cả nodes (cho dropdown/list)
   List<({FolderNode node, int depth})> flattenAll() {
     final result = <({FolderNode node, int depth})>[];
-    void _flatten(List<FolderNode> nodes, int depth) {
+    void flatten(List<FolderNode> nodes, int depth) {
       for (final n in nodes) {
         result.add((node: n, depth: depth));
-        if (n.isExpanded) _flatten(n.children, depth + 1);
+        if (n.isExpanded) flatten(n.children, depth + 1);
       }
     }
-    _flatten(_roots, 0);
+
+    flatten(_roots, 0);
     return result;
   }
 }
 
-// ─── WordFolder (backward-compat static constants) ────────
-class WordFolder {
-  static const WordFolder allWords = WordFolder(
-    id: '_all',
-    name: 'All words',
-    icon: Icons.list_alt,
-    color: Color(0xFF2196F3),
-  );
+// ─── Entry ─────────────────────────────────────────────────
 
-  static const WordFolder defaultFolder = WordFolder(
-    id: 'default',
-    name: 'Default',
-    icon: Icons.folder_outlined,
-    color: Color(0xFF6C63FF),
-  );
-
+class WordEntry {
   final String id;
-  final String name;
-  final IconData icon;
-  final Color color;
+  final String word;
+  final String? meaning;
+  final String? shortDefinition;
+  final String? fullDefinition;
+  final String? phonetic;
+  final String? example;
+  final String? wordType;
+  final String folderId;
+  final DateTime addedAt;
+  final double strength;
+  final DateTime? nextReview;
 
-  const WordFolder({
+  const WordEntry({
     required this.id,
-    required this.name,
-    required this.icon,
-    required this.color,
+    required this.word,
+    this.meaning,
+    this.shortDefinition,
+    this.fullDefinition,
+    this.phonetic,
+    this.example,
+    this.wordType,
+    this.folderId = 'default',
+    required this.addedAt,
+    this.strength = 0.0,
+    this.nextReview,
   });
+
+  factory WordEntry.manual({
+    required String id,
+    required String word,
+    String? shortDefinition,
+    String? phonetic,
+    String? example,
+    String? wordType,
+    String folderId = 'default',
+  }) {
+    return WordEntry(
+      id: id,
+      word: word,
+      shortDefinition: shortDefinition,
+      meaning: shortDefinition,
+      phonetic: phonetic,
+      example: example,
+      wordType: wordType,
+      folderId: folderId,
+      addedAt: DateTime.now(),
+    );
+  }
+
+  bool get isSm2Due {
+    if (nextReview == null) return false;
+    return DateTime.now().isAfter(nextReview!);
+  }
+
+  WordEntry copyWith({
+    String? id,
+    String? word,
+    String? folderId,
+    String? shortDefinition,
+    String? phonetic,
+    String? example,
+    String? wordType,
+  }) {
+    return WordEntry(
+      id: id ?? this.id,
+      word: word ?? this.word,
+      meaning: shortDefinition ?? this.meaning,
+      shortDefinition: shortDefinition ?? this.shortDefinition,
+      phonetic: phonetic ?? this.phonetic,
+      example: example ?? this.example,
+      wordType: wordType ?? this.wordType,
+      folderId: folderId ?? this.folderId,
+      addedAt: addedAt,
+      strength: strength,
+      nextReview: nextReview,
+      fullDefinition: fullDefinition,
+    );
+  }
+
+  factory WordEntry.fromMemoryItem(dynamic item) {
+    return WordEntry(
+      id: item.id as String,
+      word: item.word as String,
+      shortDefinition: item.meaning as String?,
+      meaning: item.meaning as String?,
+      phonetic: item.phonetic as String?,
+      folderId: WordFolder.allWords.id,
+      addedAt: DateTime.now(),
+      strength: (item.strength as num?)?.toDouble() ?? 0.0,
+      nextReview: item.nextReviewAt as DateTime?,
+    );
+  }
 }

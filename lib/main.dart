@@ -24,6 +24,9 @@ import 'services/storage_service.dart'; // ★ THÊM
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Lưu ý: Các biến môi trường GPU đã được thiết lập trong windows/runner/main.cpp
+  // để đảm bảo Flutter Engine nhận cấu hình ngay khi khởi động.
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

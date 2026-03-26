@@ -33,7 +33,7 @@ class ListenModeScreen extends StatefulWidget {
 }
 
 class _ListenModeScreenState extends State<ListenModeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late RollingWaveformController _waveformController;
 
   // Layer 2 toggle – tap song info để hiện/ẩn progress bar + skip
@@ -48,14 +48,29 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   PlayerProvider? _playerProvider;
   WaveformProvider? _waveformProvider;
 
+  // ★ FIX: Throttling để tránh tràn buffer đồ họa trên Windows
+  DateTime _lastUiUpdate = DateTime.now();
+  Duration _lastPosition = Duration.zero;
+
+  // Trạng thái hiển thị của ứng dụng để giảm tải GPU
+  bool _isAppVisible = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _waveformController = RollingWaveformController();
     // Đăng ký listener sau khi build frame đầu tiên để có context
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return; // ★ FIX: Kiểm tra mounted trước khi dùng context
       _setupListeners();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    setState(() {
+      _isAppVisible = state == AppLifecycleState.resumed;
     });
   }
 
@@ -78,6 +93,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _playerProvider?.removeListener(_onPlayerChange);
     _waveformProvider?.removeListener(_onWaveformChange);
     _waveformController.dispose();
@@ -88,10 +104,22 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // ── LOGIC HANDLERS (Chạy ngoài build để tránh rebuild UI) ──
 
   void _onPlayerChange() {
-    if (!mounted) return;
+    // ★ FIX: Bảo vệ Engine khi mất Context hoặc ứng dụng ẩn
+    if (!mounted || !_isAppVisible) return;
+
     final player = _playerProvider;
     final waveform = _waveformProvider;
-    if (player == null || waveform == null) return;
+    if (player == null || waveform == null || !player.isPlaying) return;
+
+    final now = DateTime.now();
+    // ★ FIX: Giới hạn tần suất cập nhật (Max ~60fps) để GPU kịp xử lý
+    if (now.difference(_lastUiUpdate).inMilliseconds < 16) return;
+
+    // ★ FIX: Chỉ cập nhật nếu vị trí thực sự thay đổi (tránh spam khi đứng yên)
+    if (player.state.position == _lastPosition) return;
+
+    _lastUiUpdate = now;
+    _lastPosition = player.state.position;
 
     // 1. Sync Waveform Loading
     if (player.currentSongPath != null &&

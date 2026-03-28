@@ -96,8 +96,9 @@ class AuthService {
   //   Console → APIs & Services → Credentials → Create Credentials
   //   → OAuth client ID → Application type: Desktop app
   static const String _desktopClientId =
-      'YOUR_DESKTOP_CLIENT_ID.apps.googleusercontent.com';
-  static const String _desktopClientSecret = 'YOUR_DESKTOP_CLIENT_SECRET';
+      '59345...your_actual_id.apps.googleusercontent.com'; // Cần điền ID thật
+  static const String _desktopClientSecret =
+      'GOCSPX-...actual_secret'; // Cần điền Secret thật
 
   Future<User?> _signInWithGoogleDesktop() async {
     if (_desktopClientId.startsWith('YOUR_')) {

@@ -85,6 +85,7 @@ class ShadowingProvider extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
   final AudioRecorder _recorder = AudioRecorder();
   Timer? _recordingTimer;
+  Timer? _autoStopTimer; // Thêm biến quản lý auto-stop
   Timer? _countdownTimer;
   Timer? _positionTimer;
 
@@ -127,6 +128,7 @@ class ShadowingProvider extends ChangeNotifier {
     _player.dispose();
     _recorder.dispose();
     _recordingTimer?.cancel();
+    _autoStopTimer?.cancel();
     _countdownTimer?.cancel();
     _positionTimer?.cancel();
     super.dispose();
@@ -357,7 +359,8 @@ class ShadowingProvider extends ChangeNotifier {
         });
 
         // Auto-stop after 30 seconds
-        Timer(const Duration(seconds: 30), () {
+        _autoStopTimer?.cancel();
+        _autoStopTimer = Timer(const Duration(seconds: 30), () {
           if (_state == ShadowingState.recording) {
             debugPrint('🎤 Auto-stopping recording (30s limit)');
             stopRecording();
@@ -375,6 +378,7 @@ class ShadowingProvider extends ChangeNotifier {
 
   Future<void> stopRecording() async {
     if (_state != ShadowingState.recording) return;
+    _autoStopTimer?.cancel(); // Hủy timer ngay khi dừng
 
     debugPrint('🎤 Stopping recording...');
     _recordingTimer?.cancel();

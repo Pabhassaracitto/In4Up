@@ -455,11 +455,13 @@ class ShadowingProvider extends ChangeNotifier {
               '      /${ps.phoneme}/ = ${ps.scorePercent}% [${ps.grade}]');
         }
       }
-
-      _setState(ShadowingState.showingResults);
     } catch (e) {
       debugPrint('❌ Error analyzing: $e');
       _setState(ShadowingState.idle);
+    } finally {
+      if (_state == ShadowingState.analyzing) {
+        _setState(ShadowingState.showingResults);
+      }
     }
   }
 

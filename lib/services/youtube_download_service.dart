@@ -297,8 +297,6 @@ class YoutubeDownloadService {
       ));
 
       ctrl.close();
-      _cleanup(videoId);
-
       debugPrint('✅ Download complete: $filePath');
     } catch (e) {
       debugPrint('YoutubeDownloadService._doDownload error: $e');
@@ -309,6 +307,7 @@ class YoutubeDownloadService {
         errorMessage: _friendlyError(e.toString()),
       ));
       ctrl.close();
+    } finally {
       if (videoId.isNotEmpty) _cleanup(videoId);
     }
   }

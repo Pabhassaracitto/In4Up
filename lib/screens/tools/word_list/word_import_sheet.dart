@@ -1,9 +1,3 @@
-//
-// Import từ vào Word List từ 3 nguồn:
-//  1. Clipboard — paste text, tự parse ra từng từ
-//  2. TextProvider — văn bản đang mở trong app
-//  3. File CSV/TXT
-
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -11,23 +5,24 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
+import '../../../providers/vocabulary_provider.dart';
 import '../../../utils/text_parser.dart';
-import 'word_list_controller.dart';
-import 'word_list_models.dart';
 
 class WordImportSheet extends StatefulWidget {
-  final WordListController ctrl;
+  const WordImportSheet({super.key});
 
-  const WordImportSheet({super.key, required this.ctrl});
-
-  static Future<void> show(BuildContext context, WordListController ctrl) {
+  static Future<void> show(BuildContext context) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => ChangeNotifierProvider.value(
-        value: context.read<TextProvider>(),
-        child: WordImportSheet(ctrl: ctrl),
+      builder: (ctx) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: context.read<TextProvider>()),
+          ChangeNotifierProvider.value(
+              value: context.read<VocabularyProvider>()),
+        ],
+        child: const WordImportSheet(),
       ),
     );
   }
@@ -40,19 +35,17 @@ class _WordImportSheetState extends State<WordImportSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
-  // ── Clipboard / Manual tab ────────────────────────────────
   final _pasteCtrl = TextEditingController();
   List<_ImportCandidate> _parsedWords = [];
   int _minLength = 3;
   bool _excludeStopWords = true;
   bool _onlyNewWords = true;
-  // ignore: prefer_final_fields
-  String _selectedFolder = WordFolder.defaultFolder.id;
 
-  // ── File tab ──────────────────────────────────────────────
   String? _filePath;
   List<_ImportCandidate> _fileWords = [];
   bool _isLoadingFile = false;
+
+  VocabularyProvider get _provider => context.read<VocabularyProvider>();
 
   @override
   void initState() {
@@ -67,14 +60,13 @@ class _WordImportSheetState extends State<WordImportSheet>
     super.dispose();
   }
 
-  // ── Parse text thành danh sách từ ─────────────────────────
   List<_ImportCandidate> _parseText(String text) {
     final freq =
         TextParser.wordFrequency(text, excludeStopWords: _excludeStopWords);
 
     return freq.entries
         .where((e) => e.key.length >= _minLength)
-        .where((e) => !_onlyNewWords || !widget.ctrl.hasWord(e.key))
+        .where((e) => !_onlyNewWords || !_provider.hasWord(e.key))
         .map((e) => _ImportCandidate(
               word: e.key,
               frequency: e.value,
@@ -92,14 +84,12 @@ class _WordImportSheetState extends State<WordImportSheet>
     });
   }
 
-  // ── Import từ TextProvider ─────────────────────────────────
   List<_ImportCandidate> _parseFromProvider(TextProvider tp) {
     final text = tp.fullText;
     if (text.isEmpty) return [];
     return _parseText(text);
   }
 
-  // ── Load file CSV/TXT ──────────────────────────────────────
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -139,14 +129,13 @@ class _WordImportSheetState extends State<WordImportSheet>
     final candidates = <_ImportCandidate>[];
 
     for (final line in lines) {
-      // CSV format: word,meaning hoặc word;meaning
       final parts = line.split(RegExp(r'[,;]'));
       final word = parts.first.trim().toLowerCase();
       final meaning =
           parts.length > 1 ? parts.sublist(1).join(',').trim() : null;
 
       if (word.isEmpty || word.length < 2) continue;
-      if (_onlyNewWords && widget.ctrl.hasWord(word)) continue;
+      if (_onlyNewWords && _provider.hasWord(word)) continue;
 
       candidates.add(_ImportCandidate(
         word: word,
@@ -157,20 +146,19 @@ class _WordImportSheetState extends State<WordImportSheet>
     return candidates;
   }
 
-  // ── Thực hiện import ──────────────────────────────────────
+  // ★ UPDATED: Dùng VocabularyProvider.addWithAutoClassify thay vì WordEntry.manual
   void _doImport(List<_ImportCandidate> candidates) {
     final selected = candidates.where((c) => c.selected).toList();
     if (selected.isEmpty) return;
 
+    final provider = _provider;
     int count = 0;
     for (final c in selected) {
-      if (!widget.ctrl.hasWord(c.word)) {
-        widget.ctrl.addManualEntry(WordEntry.manual(
-          id: 'import_${DateTime.now().millisecondsSinceEpoch}_$count',
-          word: c.word,
-          shortDefinition: c.meaning,
-          folderId: _selectedFolder,
-        ));
+      if (!provider.hasWord(c.word)) {
+        provider.addWithAutoClassify(
+          text: c.word,
+          meaning: c.meaning ?? '',
+        );
         count++;
       }
     }
@@ -200,7 +188,6 @@ class _WordImportSheetState extends State<WordImportSheet>
         ),
         child: Column(
           children: [
-            // Handle
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 10, bottom: 6),
@@ -212,8 +199,6 @@ class _WordImportSheetState extends State<WordImportSheet>
                 ),
               ),
             ),
-
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
               child: Row(
@@ -243,8 +228,6 @@ class _WordImportSheetState extends State<WordImportSheet>
                 ],
               ),
             ),
-
-            // Tabs
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -279,11 +262,7 @@ class _WordImportSheetState extends State<WordImportSheet>
               ),
             ),
             const SizedBox(height: 8),
-
-            // Options bar
             _buildOptionsBar(),
-
-            // Tab content
             Expanded(
               child: TabBarView(
                 controller: _tabCtrl,
@@ -294,7 +273,6 @@ class _WordImportSheetState extends State<WordImportSheet>
                 ],
               ),
             ),
-
             SizedBox(height: bottomPad + 4),
           ],
         ),
@@ -307,7 +285,6 @@ class _WordImportSheetState extends State<WordImportSheet>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          // Min length
           _OptionChip(
             label: 'Tối thiểu $_minLength ký tự',
             icon: Icons.text_fields,
@@ -318,7 +295,6 @@ class _WordImportSheetState extends State<WordImportSheet>
             },
           ),
           const SizedBox(width: 8),
-          // Exclude stop words
           _OptionChip(
             label: 'Bỏ stop words',
             icon: Icons.filter_list,
@@ -329,7 +305,6 @@ class _WordImportSheetState extends State<WordImportSheet>
             },
           ),
           const SizedBox(width: 8),
-          // Only new
           _OptionChip(
             label: 'Chỉ từ mới',
             icon: Icons.new_releases_outlined,
@@ -344,13 +319,11 @@ class _WordImportSheetState extends State<WordImportSheet>
     );
   }
 
-  // ── Tab 1: Clipboard ──────────────────────────────────────
   Widget _buildClipboardTab(ScrollController scroll) {
     return ListView(
       controller: scroll,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
-        // Paste area
         Container(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.04),
@@ -406,9 +379,7 @@ class _WordImportSheetState extends State<WordImportSheet>
             ],
           ),
         ),
-
         const SizedBox(height: 12),
-
         if (_parsedWords.isNotEmpty) ...[
           _buildWordList(_parsedWords, (idx) {
             setState(
@@ -429,7 +400,6 @@ class _WordImportSheetState extends State<WordImportSheet>
     );
   }
 
-  // ── Tab 2: TextProvider ───────────────────────────────────
   Widget _buildTextProviderTab(ScrollController scroll) {
     return Consumer<TextProvider>(
       builder: (_, tp, __) {
@@ -458,7 +428,6 @@ class _WordImportSheetState extends State<WordImportSheet>
           controller: scroll,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
-            // Info card
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -483,7 +452,6 @@ class _WordImportSheetState extends State<WordImportSheet>
               ),
             ),
             const SizedBox(height: 12),
-
             if (words.isEmpty)
               Center(
                 child: Text('Tất cả từ đã có trong danh sách',
@@ -500,13 +468,11 @@ class _WordImportSheetState extends State<WordImportSheet>
     );
   }
 
-  // ── Tab 3: File ───────────────────────────────────────────
   Widget _buildFileTab(ScrollController scroll) {
     return ListView(
       controller: scroll,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
-        // Format hint
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -536,8 +502,6 @@ class _WordImportSheetState extends State<WordImportSheet>
           ),
         ),
         const SizedBox(height: 12),
-
-        // Pick file button
         GestureDetector(
           onTap: _pickFile,
           child: Container(
@@ -568,7 +532,6 @@ class _WordImportSheetState extends State<WordImportSheet>
           ),
         ),
         const SizedBox(height: 12),
-
         if (_isLoadingFile)
           const Center(child: CircularProgressIndicator(strokeWidth: 2))
         else if (_fileWords.isNotEmpty) ...[
@@ -583,7 +546,6 @@ class _WordImportSheetState extends State<WordImportSheet>
     );
   }
 
-  // ── Shared: Word list preview ─────────────────────────────
   Widget _buildWordList(
       List<_ImportCandidate> words, void Function(int) onToggle) {
     final selectedCount = words.where((w) => w.selected).length;
@@ -591,7 +553,6 @@ class _WordImportSheetState extends State<WordImportSheet>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         Row(
           children: [
             Text(
@@ -601,7 +562,9 @@ class _WordImportSheetState extends State<WordImportSheet>
             const Spacer(),
             TextButton(
               onPressed: () => setState(() {
-                for (final w in words) w.selected = true;
+                for (final w in words) {
+                  w.selected = true;
+                }
               }),
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
               child: const Text('Chọn tất',
@@ -609,7 +572,9 @@ class _WordImportSheetState extends State<WordImportSheet>
             ),
             TextButton(
               onPressed: () => setState(() {
-                for (final w in words) w.selected = false;
+                for (final w in words) {
+                  w.selected = false;
+                }
               }),
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
               child: Text('Bỏ chọn',
@@ -618,12 +583,12 @@ class _WordImportSheetState extends State<WordImportSheet>
           ],
         ),
         const SizedBox(height: 6),
-
-        // Word chips
         Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: words.take(80).mapIndexed((i, w) {
+          children: words.take(80).toList().asMap().entries.map((entry) {
+            final i = entry.key;
+            final w = entry.value;
             return GestureDetector(
               onTap: () => onToggle(i),
               child: AnimatedContainer(
@@ -666,7 +631,6 @@ class _WordImportSheetState extends State<WordImportSheet>
             );
           }).toList(),
         ),
-
         if (words.length > 80)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -679,7 +643,6 @@ class _WordImportSheetState extends State<WordImportSheet>
     );
   }
 
-  // ── Import button ─────────────────────────────────────────
   Widget _buildImportButton(List<_ImportCandidate> candidates) {
     final count = candidates.where((c) => c.selected).length;
 
@@ -705,7 +668,6 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 }
 
-// ── Helper models ─────────────────────────────────────────
 class _ImportCandidate {
   final String word;
   final String? meaning;
@@ -769,15 +731,5 @@ class _OptionChip extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Extension helper
-extension _IterableIndexed<T> on Iterable<T> {
-  Iterable<R> mapIndexed<R>(R Function(int index, T item) f) sync* {
-    int i = 0;
-    for (final item in this) {
-      yield f(i++, item);
-    }
   }
 }

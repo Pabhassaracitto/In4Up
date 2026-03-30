@@ -43,7 +43,7 @@ dependencies:
   uuid: ^4.2.1                    # Generate unique IDs
   share_plus: ^7.2.1              # Share segments
   shared_preferences: ^2.3.5  # THÊM DÒNG NÀY
-  flutter_tts: ^4.0.2  # THÊM DÒNG NÀY
+  flutter_tts: ^4.2.0  # THÊM DÒNG NÀY
   just_waveform: ^0.0.7  # Đọc waveform từ audio file
   record: ^6.1.2 # ghi âm
   record_windows: ^1.0.1 # ★ BẮT BUỘC cho Windows

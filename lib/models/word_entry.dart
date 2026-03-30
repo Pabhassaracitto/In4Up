@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'sm2_algorithm.dart';
+import 'vocabulary_type.dart';
+import 'vocab_context.dart';
 
 const double kThreshold = 0.6;
 
@@ -19,64 +20,64 @@ enum MasteryZone {
 extension MasteryZoneInfo on MasteryZone {
   String get label {
     switch (this) {
-      case MasteryZone.blindSpot: return 'Điểm mù';
-      case MasteryZone.understandOnly: return 'Chỉ Hiểu';
-      case MasteryZone.listenOnly: return 'Chỉ Nghe';
-      case MasteryZone.readOnly: return 'Chỉ Đọc';
-      case MasteryZone.understandListen: return 'Hiểu + Nghe';
-      case MasteryZone.understandRead: return 'Hiểu + Đọc';
-      case MasteryZone.listenRead: return 'Nghe + Đọc';
-      case MasteryZone.mastered: return 'Thành thạo';
+      case MasteryZone.blindSpot:         return 'Điểm mù';
+      case MasteryZone.understandOnly:    return 'Chỉ Hiểu';
+      case MasteryZone.listenOnly:        return 'Chỉ Nghe';
+      case MasteryZone.readOnly:          return 'Chỉ Đọc';
+      case MasteryZone.understandListen:  return 'Hiểu + Nghe';
+      case MasteryZone.understandRead:    return 'Hiểu + Đọc';
+      case MasteryZone.listenRead:        return 'Nghe + Đọc';
+      case MasteryZone.mastered:          return 'Thành thạo';
     }
   }
 
   Color get color {
     switch (this) {
-      case MasteryZone.blindSpot: return const Color(0xFF616161);
-      case MasteryZone.understandOnly: return const Color(0xFF42A5F5);
-      case MasteryZone.listenOnly: return const Color(0xFF66BB6A);
-      case MasteryZone.readOnly: return const Color(0xFFEF5350);
-      case MasteryZone.understandListen: return const Color(0xFF26C6DA);
-      case MasteryZone.understandRead: return const Color(0xFFAB47BC);
-      case MasteryZone.listenRead: return const Color(0xFFFFA726);
-      case MasteryZone.mastered: return const Color(0xFFFFD54F);
+      case MasteryZone.blindSpot:         return const Color(0xFF616161);
+      case MasteryZone.understandOnly:    return const Color(0xFF42A5F5);
+      case MasteryZone.listenOnly:        return const Color(0xFF66BB6A);
+      case MasteryZone.readOnly:          return const Color(0xFFEF5350);
+      case MasteryZone.understandListen:  return const Color(0xFF26C6DA);
+      case MasteryZone.understandRead:    return const Color(0xFFAB47BC);
+      case MasteryZone.listenRead:        return const Color(0xFFFFA726);
+      case MasteryZone.mastered:          return const Color(0xFFFFD54F);
     }
   }
 
   IconData get icon {
     switch (this) {
-      case MasteryZone.blindSpot: return Icons.visibility_off;
-      case MasteryZone.understandOnly: return Icons.lightbulb_outline;
-      case MasteryZone.listenOnly: return Icons.hearing;
-      case MasteryZone.readOnly: return Icons.auto_stories;
-      case MasteryZone.understandListen: return Icons.psychology;
-      case MasteryZone.understandRead: return Icons.school;
-      case MasteryZone.listenRead: return Icons.record_voice_over;
-      case MasteryZone.mastered: return Icons.star;
+      case MasteryZone.blindSpot:         return Icons.visibility_off;
+      case MasteryZone.understandOnly:    return Icons.lightbulb_outline;
+      case MasteryZone.listenOnly:        return Icons.hearing;
+      case MasteryZone.readOnly:          return Icons.auto_stories;
+      case MasteryZone.understandListen:  return Icons.psychology;
+      case MasteryZone.understandRead:    return Icons.school;
+      case MasteryZone.listenRead:        return Icons.record_voice_over;
+      case MasteryZone.mastered:          return Icons.star;
     }
   }
 
   String get tip {
     switch (this) {
-      case MasteryZone.blindSpot: return 'Cần học cả 3 chiều: hiểu, nghe, đọc';
-      case MasteryZone.understandOnly: return 'Biết nghĩa nhưng chưa nghe/đọc được';
-      case MasteryZone.listenOnly: return 'Nghe được nhưng chưa hiểu nghĩa/đọc được';
-      case MasteryZone.readOnly: return 'Đọc được nhưng chưa hiểu nghĩa/nghe được';
-      case MasteryZone.understandListen: return 'Cần luyện ĐỌC thêm';
-      case MasteryZone.understandRead: return 'Cần luyện NGHE thêm';
-      case MasteryZone.listenRead: return 'Cần luyện HIỂU NGHĨA thêm';
-      case MasteryZone.mastered: return 'Tuyệt vời! Đã thông thạo cả 3 chiều';
+      case MasteryZone.blindSpot:         return 'Cần học cả 3 chiều: hiểu, nghe, đọc';
+      case MasteryZone.understandOnly:    return 'Biết nghĩa nhưng chưa nghe/đọc được';
+      case MasteryZone.listenOnly:        return 'Nghe được nhưng chưa hiểu nghĩa/đọc được';
+      case MasteryZone.readOnly:          return 'Đọc được nhưng chưa hiểu nghĩa/nghe được';
+      case MasteryZone.understandListen:  return 'Cần luyện ĐỌC thêm';
+      case MasteryZone.understandRead:    return 'Cần luyện NGHE thêm';
+      case MasteryZone.listenRead:        return 'Cần luyện HIỂU NGHĨA thêm';
+      case MasteryZone.mastered:          return 'Tuyệt vời! Đã thông thạo cả 3 chiều';
     }
   }
 }
 
 /// ═══════════════════════════════════════════════════════════════
-///  SKILL REVIEW DATA - Dữ liệu SM-2 cho từng chiều kỹ năng
+/// SKILL REVIEW DATA — SM-2 cho từng chiều kỹ năng
 /// ═══════════════════════════════════════════════════════════════
 class SkillReviewData {
-  double score;           // 0.0 → 1.0
+  double score;          // 0.0 → 1.0
   double easeFactor;
-  int interval;           // ngày
+  int interval;          // ngày
   int repetitions;
   DateTime? nextReview;
   int totalReviews;
@@ -92,22 +93,38 @@ class SkillReviewData {
     this.correctReviews = 0,
   });
 
-  bool get isDue => SM2Algorithm.isDue(nextReview);
-  int get daysUntilDue => SM2Algorithm.daysUntilDue(nextReview);
+  bool get isDue {
+    if (nextReview == null) return true;
+    return DateTime.now().isAfter(nextReview!);
+  }
+
+  int get daysUntilDue {
+    if (nextReview == null) return 0;
+    final diff = nextReview!.difference(DateTime.now()).inDays;
+    return diff < 0 ? 0 : diff;
+  }
+
   double get accuracy => totalReviews > 0 ? correctReviews / totalReviews : 0;
 
   void review(int quality) {
-    final result = SM2Algorithm.calculate(
-      quality: quality,
-      currentEF: easeFactor,
-      currentInterval: interval,
-      currentReps: repetitions,
-    );
+    // SM-2 algorithm inline
+    if (quality >= 3) {
+      if (repetitions == 0) {
+        interval = 1;
+      } else if (repetitions == 1) {
+        interval = 6;
+      } else {
+        interval = (interval * easeFactor).round();
+      }
+      repetitions++;
+    } else {
+      repetitions = 0;
+      interval = 1;
+    }
 
-    easeFactor = result.easeFactor;
-    interval = result.interval;
-    repetitions = result.repetitions;
-    nextReview = result.nextReview;
+    easeFactor = (easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
+        .clamp(1.3, 2.5);
+    nextReview = DateTime.now().add(Duration(days: interval));
 
     totalReviews++;
     if (quality >= 3) {
@@ -121,30 +138,30 @@ class SkillReviewData {
   }
 
   Map<String, dynamic> toJson() => {
-    'score': score,
-    'easeFactor': easeFactor,
-    'interval': interval,
-    'repetitions': repetitions,
-    'nextReview': nextReview?.toIso8601String(),
-    'totalReviews': totalReviews,
-    'correctReviews': correctReviews,
-  };
+        'score': score,
+        'easeFactor': easeFactor,
+        'interval': interval,
+        'repetitions': repetitions,
+        'nextReview': nextReview?.toIso8601String(),
+        'totalReviews': totalReviews,
+        'correctReviews': correctReviews,
+      };
 
   factory SkillReviewData.fromJson(Map<String, dynamic> json) => SkillReviewData(
-    score: (json['score'] as num?)?.toDouble() ?? 0.0,
-    easeFactor: (json['easeFactor'] as num?)?.toDouble() ?? 2.5,
-    interval: json['interval'] as int? ?? 0,
-    repetitions: json['repetitions'] as int? ?? 0,
-    nextReview: json['nextReview'] != null 
-        ? DateTime.parse(json['nextReview'] as String) 
-        : null,
-    totalReviews: json['totalReviews'] as int? ?? 0,
-    correctReviews: json['correctReviews'] as int? ?? 0,
-  );
+        score: (json['score'] as num?)?.toDouble() ?? 0.0,
+        easeFactor: (json['easeFactor'] as num?)?.toDouble() ?? 2.5,
+        interval: json['interval'] as int? ?? 0,
+        repetitions: json['repetitions'] as int? ?? 0,
+        nextReview: json['nextReview'] != null
+            ? DateTime.parse(json['nextReview'] as String)
+            : null,
+        totalReviews: json['totalReviews'] as int? ?? 0,
+        correctReviews: json['correctReviews'] as int? ?? 0,
+      );
 }
 
 /// ═══════════════════════════════════════════════════════════════
-///  WORD ENTRY - Mô hình từ vựng 3 chiều + SM-2 riêng mỗi chiều
+/// WORD ENTRY — 3 chiều SM-2 + Hierarchical Vocabulary
 /// ═══════════════════════════════════════════════════════════════
 class WordEntry {
   final String id;
@@ -163,6 +180,13 @@ class WordEntry {
   DateTime lastReviewed;
   DateTime createdAt;
 
+  // ── ★ MỚI: Hierarchical fields ──
+  VocabularyType vocabType;
+  List<VocabContext> contexts;
+  List<String> parentIds;
+  List<String> childIds;
+  String? personalNotes;
+
   WordEntry({
     required this.id,
     required this.word,
@@ -179,22 +203,32 @@ class WordEntry {
     SkillReviewData? readData,
     DateTime? lastReviewed,
     DateTime? createdAt,
+    VocabularyType? vocabType,
+    List<VocabContext>? contexts,
+    List<String>? parentIds,
+    List<String>? childIds,
+    this.personalNotes,
   })  : tags = tags ?? [],
-        understandData = understandData ?? SkillReviewData(score: understand),
-        listenData = listenData ?? SkillReviewData(score: listen),
-        readData = readData ?? SkillReviewData(score: read),
-        lastReviewed = lastReviewed ?? DateTime.now(),
-        createdAt = createdAt ?? DateTime.now();
+       understandData = understandData ?? SkillReviewData(score: understand),
+       listenData = listenData ?? SkillReviewData(score: listen),
+       readData = readData ?? SkillReviewData(score: read),
+       lastReviewed = lastReviewed ?? DateTime.now(),
+       createdAt = createdAt ?? DateTime.now(),
+       vocabType = vocabType ?? VocabularyType.word,
+       contexts = contexts ?? [],
+       parentIds = parentIds ?? [],
+       childIds = childIds ?? [];
 
   // ═══════════════════════════════════════
-  //  GETTERS cho compatibility
+  // SKILL SCORE GETTERS
   // ═══════════════════════════════════════
+
   double get understand => understandData.score;
   set understand(double v) => understandData.score = v.clamp(0.0, 1.0);
-  
+
   double get listen => listenData.score;
   set listen(double v) => listenData.score = v.clamp(0.0, 1.0);
-  
+
   double get read => readData.score;
   set read(double v) => readData.score = v.clamp(0.0, 1.0);
 
@@ -222,26 +256,23 @@ class WordEntry {
   }
 
   // ═══════════════════════════════════════
-  //  SM-2 per skill
+  // SM-2 PER SKILL
   // ═══════════════════════════════════════
-  
+
   SkillReviewData getSkillData(Skill skill) {
     switch (skill) {
       case Skill.understand: return understandData;
-      case Skill.listen: return listenData;
-      case Skill.read: return readData;
+      case Skill.listen:     return listenData;
+      case Skill.read:       return readData;
     }
   }
 
   bool isSkillDue(Skill skill) => getSkillData(skill).isDue;
-  
   int skillDaysUntilDue(Skill skill) => getSkillData(skill).daysUntilDue;
 
-  /// Từ có cần review skill nào không
-  bool get hasAnyDue => 
+  bool get hasAnyDue =>
       understandData.isDue || listenData.isDue || readData.isDue;
 
-  /// Danh sách skill cần review
   List<Skill> get dueSkills {
     final list = <Skill>[];
     if (understandData.isDue) list.add(Skill.understand);
@@ -250,8 +281,8 @@ class WordEntry {
     return list;
   }
 
-  // Backwards compatibility
   bool get isDue => hasAnyDue;
+
   int get daysUntilDue {
     final days = [
       understandData.daysUntilDue,
@@ -261,14 +292,14 @@ class WordEntry {
     return days.reduce((a, b) => a < b ? a : b);
   }
 
-  int get totalReviews => 
-      understandData.totalReviews + 
-      listenData.totalReviews + 
+  int get totalReviews =>
+      understandData.totalReviews +
+      listenData.totalReviews +
       readData.totalReviews;
 
-  int get correctReviews => 
-      understandData.correctReviews + 
-      listenData.correctReviews + 
+  int get correctReviews =>
+      understandData.correctReviews +
+      listenData.correctReviews +
       readData.correctReviews;
 
   double get accuracy => totalReviews > 0 ? correctReviews / totalReviews : 0;
@@ -280,8 +311,8 @@ class WordEntry {
   ].reduce((a, b) => a > b ? a : b);
 
   double get easeFactor => (
-    understandData.easeFactor + 
-    listenData.easeFactor + 
+    understandData.easeFactor +
+    listenData.easeFactor +
     readData.easeFactor
   ) / 3;
 
@@ -302,11 +333,47 @@ class WordEntry {
   }
 
   // ═══════════════════════════════════════
-  //  VISUAL PROPERTIES
+  // HIERARCHICAL GETTERS
+  // ═══════════════════════════════════════
+
+  int get encounterCount => contexts.length;
+  bool get isRoot => parentIds.isEmpty;
+  bool get hasChildren => childIds.isNotEmpty;
+  bool get hasParents => parentIds.isNotEmpty;
+
+  Set<String> get sourceFiles =>
+      contexts.where((c) => c.sourceName != null).map((c) => c.sourceName!).toSet();
+
+  VocabContext? get latestContext {
+    if (contexts.isEmpty) return null;
+    final sorted = List<VocabContext>.from(contexts)
+      ..sort((a, b) => b.encounteredAt.compareTo(a.encounteredAt));
+    return sorted.first;
+  }
+
+  void addContext(VocabContext ctx) {
+    final isDuplicate = contexts.any((c) =>
+        c.sourceName == ctx.sourceName &&
+        c.surroundingText == ctx.surroundingText);
+    if (!isDuplicate) contexts.add(ctx);
+  }
+
+  void addParent(String parentId) {
+    if (!parentIds.contains(parentId)) parentIds.add(parentId);
+  }
+
+  void addChild(String childId) {
+    if (!childIds.contains(childId)) childIds.add(childId);
+  }
+
+  void removeParent(String parentId) => parentIds.remove(parentId);
+  void removeChild(String childId) => childIds.remove(childId);
+
+  // ═══════════════════════════════════════
+  // VISUAL PROPERTIES
   // ═══════════════════════════════════════
 
   double get visualSize => 52.0 - mastery * 39.0;
-
   double get visualOpacity => 1.0 - mastery * 0.65;
 
   Color get visualColor {
@@ -322,17 +389,14 @@ class WordEntry {
       mastery < 0.4 ? FontWeight.w800 : FontWeight.w400;
 
   // ═══════════════════════════════════════
-  //  ACTIONS
+  // ACTIONS
   // ═══════════════════════════════════════
 
   void updateScore(Skill skill, double value) {
     switch (skill) {
-      case Skill.understand:
-        understandData.score = value.clamp(0.0, 1.0);
-      case Skill.listen:
-        listenData.score = value.clamp(0.0, 1.0);
-      case Skill.read:
-        readData.score = value.clamp(0.0, 1.0);
+      case Skill.understand: understandData.score = value.clamp(0.0, 1.0);
+      case Skill.listen:     listenData.score = value.clamp(0.0, 1.0);
+      case Skill.read:       readData.score = value.clamp(0.0, 1.0);
     }
   }
 
@@ -351,52 +415,33 @@ class WordEntry {
     lastReviewed = DateTime.now();
   }
 
-  /// Review với SM-2 cho một skill cụ thể
   void reviewSkill(Skill skill, int quality) {
     getSkillData(skill).review(quality);
     lastReviewed = DateTime.now();
   }
 
-  /// Backwards compatibility
   void review({required int quality}) {
-    // Review skill yếu nhất
     reviewSkill(weakestSkill, quality);
   }
 
   void setZone(MasteryZone newZone) {
     switch (newZone) {
       case MasteryZone.blindSpot:
-        understandData.score = 0.2;
-        listenData.score = 0.2;
-        readData.score = 0.2;
+        understandData.score = 0.2; listenData.score = 0.2; readData.score = 0.2;
       case MasteryZone.understandOnly:
-        understandData.score = 0.8;
-        listenData.score = 0.2;
-        readData.score = 0.2;
+        understandData.score = 0.8; listenData.score = 0.2; readData.score = 0.2;
       case MasteryZone.listenOnly:
-        understandData.score = 0.2;
-        listenData.score = 0.8;
-        readData.score = 0.2;
+        understandData.score = 0.2; listenData.score = 0.8; readData.score = 0.2;
       case MasteryZone.readOnly:
-        understandData.score = 0.2;
-        listenData.score = 0.2;
-        readData.score = 0.8;
+        understandData.score = 0.2; listenData.score = 0.2; readData.score = 0.8;
       case MasteryZone.understandListen:
-        understandData.score = 0.8;
-        listenData.score = 0.8;
-        readData.score = 0.2;
+        understandData.score = 0.8; listenData.score = 0.8; readData.score = 0.2;
       case MasteryZone.understandRead:
-        understandData.score = 0.8;
-        listenData.score = 0.2;
-        readData.score = 0.8;
+        understandData.score = 0.8; listenData.score = 0.2; readData.score = 0.8;
       case MasteryZone.listenRead:
-        understandData.score = 0.2;
-        listenData.score = 0.8;
-        readData.score = 0.8;
+        understandData.score = 0.2; listenData.score = 0.8; readData.score = 0.8;
       case MasteryZone.mastered:
-        understandData.score = 0.9;
-        listenData.score = 0.9;
-        readData.score = 0.9;
+        understandData.score = 0.9; listenData.score = 0.9; readData.score = 0.9;
     }
     lastReviewed = DateTime.now();
   }
@@ -404,32 +449,54 @@ class WordEntry {
   double scoreOf(Skill s) {
     switch (s) {
       case Skill.understand: return understand;
-      case Skill.listen: return listen;
-      case Skill.read: return read;
+      case Skill.listen:     return listen;
+      case Skill.read:       return read;
     }
   }
 
   // ═══════════════════════════════════════
-  //  SERIALIZATION
+  // SERIALIZATION
   // ═══════════════════════════════════════
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'word': word,
-    'meaning': meaning,
-    'phonetic': phonetic,
-    'example': example,
-    'imageUrl': imageUrl,
-    'tags': tags,
-    'understandData': understandData.toJson(),
-    'listenData': listenData.toJson(),
-    'readData': readData.toJson(),
-    'lastReviewed': lastReviewed.toIso8601String(),
-    'createdAt': createdAt.toIso8601String(),
-  };
+        'id': id,
+        'word': word,
+        'meaning': meaning,
+        'phonetic': phonetic,
+        'example': example,
+        'imageUrl': imageUrl,
+        'tags': tags,
+        'understandData': understandData.toJson(),
+        'listenData': listenData.toJson(),
+        'readData': readData.toJson(),
+        'lastReviewed': lastReviewed.toIso8601String(),
+        'createdAt': createdAt.toIso8601String(),
+        'vocabType': vocabType.name,
+        'contexts': contexts.map((c) => c.toJson()).toList(),
+        'parentIds': parentIds,
+        'childIds': childIds,
+        'personalNotes': personalNotes,
+      };
 
   factory WordEntry.fromJson(Map<String, dynamic> json) {
-    // Handle old format
+    // Parse vocabType
+    VocabularyType type = VocabularyType.word;
+    if (json['vocabType'] != null) {
+      type = VocabularyType.values.firstWhere(
+        (t) => t.name == json['vocabType'],
+        orElse: () => VocabularyType.word,
+      );
+    }
+
+    // Parse contexts
+    List<VocabContext> contexts = [];
+    if (json['contexts'] is List) {
+      contexts = (json['contexts'] as List)
+          .map((c) => VocabContext.fromJson(c as Map<String, dynamic>))
+          .toList();
+    }
+
+    // Backward compatibility: old format without understandData
     if (json.containsKey('understand') && !json.containsKey('understandData')) {
       return WordEntry(
         id: json['id'] as String,
@@ -448,6 +515,11 @@ class WordEntry {
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)
             : null,
+        vocabType: type,
+        contexts: contexts,
+        parentIds: (json['parentIds'] as List?)?.cast<String>() ?? [],
+        childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
+        personalNotes: json['personalNotes'] as String?,
       );
     }
 
@@ -459,13 +531,13 @@ class WordEntry {
       example: json['example'] as String?,
       imageUrl: json['imageUrl'] as String?,
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
-      understandData: json['understandData'] != null 
+      understandData: json['understandData'] != null
           ? SkillReviewData.fromJson(json['understandData'])
           : null,
-      listenData: json['listenData'] != null 
+      listenData: json['listenData'] != null
           ? SkillReviewData.fromJson(json['listenData'])
           : null,
-      readData: json['readData'] != null 
+      readData: json['readData'] != null
           ? SkillReviewData.fromJson(json['readData'])
           : null,
       lastReviewed: json['lastReviewed'] != null
@@ -474,6 +546,11 @@ class WordEntry {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
+      vocabType: type,
+      contexts: contexts,
+      parentIds: (json['parentIds'] as List?)?.cast<String>() ?? [],
+      childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
+      personalNotes: json['personalNotes'] as String?,
     );
   }
 
@@ -482,18 +559,26 @@ class WordEntry {
     String? meaning,
     String? phonetic,
     String? example,
-  }) => WordEntry(
-    id: id,
-    word: word ?? this.word,
-    meaning: meaning ?? this.meaning,
-    phonetic: phonetic ?? this.phonetic,
-    example: example ?? this.example,
-    imageUrl: imageUrl,
-    tags: tags,
-    understandData: understandData,
-    listenData: listenData,
-    readData: readData,
-    lastReviewed: lastReviewed,
-    createdAt: createdAt,
-  );
+    VocabularyType? vocabType,
+    String? personalNotes,
+  }) =>
+      WordEntry(
+        id: id,
+        word: word ?? this.word,
+        meaning: meaning ?? this.meaning,
+        phonetic: phonetic ?? this.phonetic,
+        example: example ?? this.example,
+        imageUrl: imageUrl,
+        tags: tags,
+        understandData: understandData,
+        listenData: listenData,
+        readData: readData,
+        lastReviewed: lastReviewed,
+        createdAt: createdAt,
+        vocabType: vocabType ?? this.vocabType,
+        contexts: contexts,
+        parentIds: parentIds,
+        childIds: childIds,
+        personalNotes: personalNotes ?? this.personalNotes,
+      );
 }

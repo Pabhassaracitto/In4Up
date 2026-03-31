@@ -23,6 +23,9 @@ import 'widgets/pdf_word_overlay.dart';
 import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_word_tap_sheet.dart';
 import 'widgets/pdf_annotation_sheet.dart';
+import 'package:provider/provider.dart';
+import '../../models/vocab_context.dart';
+import '../../providers/vocabulary_provider.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
@@ -131,8 +134,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         pageOverlaysBuilder: (context, pageRect, page) {
           final pageIndex = page.pageNumber - 1;
           final words = _controller.getWordsForPage(pageIndex);
-          final annotations =
-              _controller.annotationsForPage(pageIndex);
+          final annotations = _controller.annotationsForPage(pageIndex);
 
           return [
             // Layer 1: Word highlight (CEFR / WordType)
@@ -302,8 +304,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         content: Text('✅ Đã load "${_title}" vào Text Studio'),
         backgroundColor: const Color(0xFF2196F3),
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -369,8 +370,7 @@ class _WordTapDetector extends StatelessWidget {
           // Convert screen tap position → PDF coordinates
           final tapX = details.localPosition.dx * scaleX;
           // PDF Y: bottom-left origin
-          final tapY =
-              page.height - details.localPosition.dy * scaleY;
+          final tapY = page.height - details.localPosition.dy * scaleY;
 
           final words = controller.getWordsForPage(pageIndex);
           if (words.isEmpty) return;
@@ -393,8 +393,7 @@ class _WordTapDetector extends StatelessWidget {
             }
           }
 
-          if (tappedWord != null &&
-              tappedWord.text.trim().length > 1) {
+          if (tappedWord != null && tappedWord.text.trim().length > 1) {
             HapticFeedback.selectionClick();
             PdfWordTapSheet.show(context, tappedWord, controller);
           }
@@ -402,8 +401,7 @@ class _WordTapDetector extends StatelessWidget {
         onLongPressStart: (details) {
           // Long press → Add annotation
           final tapX = details.localPosition.dx * scaleX;
-          final tapY =
-              page.height - details.localPosition.dy * scaleY;
+          final tapY = page.height - details.localPosition.dy * scaleY;
 
           // Tìm từ tại vị trí này
           final words = controller.getWordsForPage(pageIndex);
@@ -449,7 +447,47 @@ class _SelectionBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Speak
+
+          // ★ MỚI: Save to Wordlist (Cấp 1)
+          IconButton(
+            icon: const Icon(Icons.bookmark_add,
+                color: Color(0xFF4CAF50), size: 20),
+            onPressed: () {
+              final provider = context.read<VocabularyProvider>();
+              final text = controller.selectedText ?? '';
+              if (text.trim().isEmpty) return;
+
+              final pdfName =
+                  controller.pdfPath.split(Platform.pathSeparator).last;
+              final ctx = VocabContext.fromPdf(
+                fileName: pdfName,
+                page: controller.currentPage + 1,
+                surroundingText: text,
+              );
+
+              provider.addWithAutoClassify(
+                text: text.trim(),
+                meaning: '',
+                context: ctx,
+              );
+
+              controller.clearSelection();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Đã lưu vào Wordlist'),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: Color(0xFF4CAF50),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Lưu vào Wordlist',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
+
+          // Speak (giữ nguyên)
           IconButton(
             icon: const Icon(Icons.volume_up, color: Colors.blue, size: 20),
             onPressed: controller.speakSelectedText,
@@ -457,7 +495,8 @@ class _SelectionBar extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
-          // Save to Memory
+
+          // Save to Memory (giữ nguyên)
           IconButton(
             icon: const Icon(Icons.psychology, color: Colors.purple, size: 20),
             onPressed: () {
@@ -475,7 +514,8 @@ class _SelectionBar extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
-          // Close
+
+          // Close (giữ nguyên)
           IconButton(
             icon: const Icon(Icons.close, color: Colors.grey, size: 18),
             onPressed: controller.clearSelection,

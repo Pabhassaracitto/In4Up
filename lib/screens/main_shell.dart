@@ -25,6 +25,8 @@ import 'tools/venn_tab.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
+import 'tools/word_list/timeline_view.dart';
+import 'tools/word_list/stats_dashboard.dart';
 
 const int _kHome = -1;
 
@@ -120,6 +122,14 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         nav.push(MaterialPageRoute(builder: (_) => const WordListScreen()));
         break;
 
+      case 'timeline':
+        nav.push(MaterialPageRoute(builder: (_) => const TimelineView()));
+        break;
+
+      case 'wordlist_stats':
+        nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
+        break;
+
       case 'web_reader':
         nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
         break;
@@ -182,6 +192,23 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         color: Color(0xFF6C63FF),
         isAvailable: true,
       ),
+      const tools.ToolItem(
+        id: 'timeline',
+        title: 'Timeline',
+        subtitle: 'Hành trình học từ theo thời gian',
+        icon: Icons.timeline,
+        color: Color(0xFF9C27B0),
+        isAvailable: true,
+      ),
+      const tools.ToolItem(
+        id: 'wordlist_stats',
+        title: 'Wordlist Stats',
+        subtitle: 'Thống kê từ vựng chi tiết',
+        icon: Icons.analytics_outlined,
+        color: Color(0xFF42A5F5),
+        isAvailable: true,
+      ),
+
       const tools.ToolItem(
         id: 'web_reader',
         title: 'Web Reader',

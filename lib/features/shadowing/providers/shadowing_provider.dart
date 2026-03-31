@@ -353,8 +353,8 @@ class ShadowingProvider extends ChangeNotifier {
 
         _recordingTimer?.cancel();
         _recordingTimer =
-            Timer.periodic(const Duration(milliseconds: 100), (timer) {
-          _recordingDuration += const Duration(milliseconds: 100);
+            Timer.periodic(const Duration(milliseconds: 200), (timer) {
+          _recordingDuration += const Duration(milliseconds: 200);
           notifyListeners();
         });
 

@@ -220,17 +220,29 @@ class PlayerProvider extends ChangeNotifier {
 
   void _onStateChanged(PlaybackState state) {
     final previousPosition = _state.position;
+
+    // ✅ Tối ưu: Chỉ notify khi có thay đổi đáng kể (Status, Speed hoặc Position > 200ms)
+    bool shouldNotify = state.status != _state.status ||
+        state.speed != _state.speed ||
+        (state.position.inMilliseconds - _state.position.inMilliseconds).abs() >
+            200;
+
     _state = state;
 
     if (_isLooping && _loopEnd != null && !_isWaitingGap) {
       _checkLoopPosition(state.position, previousPosition);
+      // Nếu vừa lặp lại (về vạch xuất phát), cần notify ngay để cập nhật thanh tiến trình
+      if (state.position < previousPosition) shouldNotify = true;
     }
 
     if (state.status == PlaybackStatus.playing && _sessionStartTime != null) {
+      // Vẫn cộng dồn thời gian chính xác cho stats dựa trên tần suất thực tế của stream
       _totalListeningTime += const Duration(milliseconds: 100);
     }
 
-    notifyListeners();
+    if (shouldNotify) {
+      notifyListeners();
+    }
   }
 
   // ==================== VIP MODE ====================

@@ -8,6 +8,7 @@ import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_provider.dart';
+import '../providers/vocabulary_bridge.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
@@ -47,6 +48,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    // ✅ Init VocabularyBridge với provider từ context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final vocabProvider = context.read<VocabularyProvider>();
+      VocabularyBridge.init(vocabProvider);
+    });
+
     _transitionController = AnimationController(
       duration: const Duration(milliseconds: 250),
       vsync: this,

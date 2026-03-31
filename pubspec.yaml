@@ -72,6 +72,7 @@ dependencies:
   # Youtube
   youtube_explode_dart: ^2.3.6
   pdfrx: ^1.0.79          # PDF render + text extraction (Android/iOS/Windows)
+  graphview: ^1.2.0  
 dependency_overrides:
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^
   just_audio_web: 0.4.16                # KHÔNG dùng ^

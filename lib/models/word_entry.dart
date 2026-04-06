@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'vocabulary_type.dart';
 import 'vocab_context.dart';
+import '../models/vocabulary_type.dart';
 
 const double kThreshold = 0.6;
 
@@ -20,53 +21,85 @@ enum MasteryZone {
 extension MasteryZoneInfo on MasteryZone {
   String get label {
     switch (this) {
-      case MasteryZone.blindSpot:         return 'Điểm mù';
-      case MasteryZone.understandOnly:    return 'Chỉ Hiểu';
-      case MasteryZone.listenOnly:        return 'Chỉ Nghe';
-      case MasteryZone.readOnly:          return 'Chỉ Đọc';
-      case MasteryZone.understandListen:  return 'Hiểu + Nghe';
-      case MasteryZone.understandRead:    return 'Hiểu + Đọc';
-      case MasteryZone.listenRead:        return 'Nghe + Đọc';
-      case MasteryZone.mastered:          return 'Thành thạo';
+      case MasteryZone.blindSpot:
+        return 'Điểm mù';
+      case MasteryZone.understandOnly:
+        return 'Chỉ Hiểu';
+      case MasteryZone.listenOnly:
+        return 'Chỉ Nghe';
+      case MasteryZone.readOnly:
+        return 'Chỉ Đọc';
+      case MasteryZone.understandListen:
+        return 'Hiểu + Nghe';
+      case MasteryZone.understandRead:
+        return 'Hiểu + Đọc';
+      case MasteryZone.listenRead:
+        return 'Nghe + Đọc';
+      case MasteryZone.mastered:
+        return 'Thành thạo';
     }
   }
 
   Color get color {
     switch (this) {
-      case MasteryZone.blindSpot:         return const Color(0xFF616161);
-      case MasteryZone.understandOnly:    return const Color(0xFF42A5F5);
-      case MasteryZone.listenOnly:        return const Color(0xFF66BB6A);
-      case MasteryZone.readOnly:          return const Color(0xFFEF5350);
-      case MasteryZone.understandListen:  return const Color(0xFF26C6DA);
-      case MasteryZone.understandRead:    return const Color(0xFFAB47BC);
-      case MasteryZone.listenRead:        return const Color(0xFFFFA726);
-      case MasteryZone.mastered:          return const Color(0xFFFFD54F);
+      case MasteryZone.blindSpot:
+        return const Color(0xFF616161);
+      case MasteryZone.understandOnly:
+        return const Color(0xFF42A5F5);
+      case MasteryZone.listenOnly:
+        return const Color(0xFF66BB6A);
+      case MasteryZone.readOnly:
+        return const Color(0xFFEF5350);
+      case MasteryZone.understandListen:
+        return const Color(0xFF26C6DA);
+      case MasteryZone.understandRead:
+        return const Color(0xFFAB47BC);
+      case MasteryZone.listenRead:
+        return const Color(0xFFFFA726);
+      case MasteryZone.mastered:
+        return const Color(0xFFFFD54F);
     }
   }
 
   IconData get icon {
     switch (this) {
-      case MasteryZone.blindSpot:         return Icons.visibility_off;
-      case MasteryZone.understandOnly:    return Icons.lightbulb_outline;
-      case MasteryZone.listenOnly:        return Icons.hearing;
-      case MasteryZone.readOnly:          return Icons.auto_stories;
-      case MasteryZone.understandListen:  return Icons.psychology;
-      case MasteryZone.understandRead:    return Icons.school;
-      case MasteryZone.listenRead:        return Icons.record_voice_over;
-      case MasteryZone.mastered:          return Icons.star;
+      case MasteryZone.blindSpot:
+        return Icons.visibility_off;
+      case MasteryZone.understandOnly:
+        return Icons.lightbulb_outline;
+      case MasteryZone.listenOnly:
+        return Icons.hearing;
+      case MasteryZone.readOnly:
+        return Icons.auto_stories;
+      case MasteryZone.understandListen:
+        return Icons.psychology;
+      case MasteryZone.understandRead:
+        return Icons.school;
+      case MasteryZone.listenRead:
+        return Icons.record_voice_over;
+      case MasteryZone.mastered:
+        return Icons.star;
     }
   }
 
   String get tip {
     switch (this) {
-      case MasteryZone.blindSpot:         return 'Cần học cả 3 chiều: hiểu, nghe, đọc';
-      case MasteryZone.understandOnly:    return 'Biết nghĩa nhưng chưa nghe/đọc được';
-      case MasteryZone.listenOnly:        return 'Nghe được nhưng chưa hiểu nghĩa/đọc được';
-      case MasteryZone.readOnly:          return 'Đọc được nhưng chưa hiểu nghĩa/nghe được';
-      case MasteryZone.understandListen:  return 'Cần luyện ĐỌC thêm';
-      case MasteryZone.understandRead:    return 'Cần luyện NGHE thêm';
-      case MasteryZone.listenRead:        return 'Cần luyện HIỂU NGHĨA thêm';
-      case MasteryZone.mastered:          return 'Tuyệt vời! Đã thông thạo cả 3 chiều';
+      case MasteryZone.blindSpot:
+        return 'Cần học cả 3 chiều: hiểu, nghe, đọc';
+      case MasteryZone.understandOnly:
+        return 'Biết nghĩa nhưng chưa nghe/đọc được';
+      case MasteryZone.listenOnly:
+        return 'Nghe được nhưng chưa hiểu nghĩa/đọc được';
+      case MasteryZone.readOnly:
+        return 'Đọc được nhưng chưa hiểu nghĩa/nghe được';
+      case MasteryZone.understandListen:
+        return 'Cần luyện ĐỌC thêm';
+      case MasteryZone.understandRead:
+        return 'Cần luyện NGHE thêm';
+      case MasteryZone.listenRead:
+        return 'Cần luyện HIỂU NGHĨA thêm';
+      case MasteryZone.mastered:
+        return 'Tuyệt vời! Đã thông thạo cả 3 chiều';
     }
   }
 }
@@ -75,9 +108,9 @@ extension MasteryZoneInfo on MasteryZone {
 /// SKILL REVIEW DATA — SM-2 cho từng chiều kỹ năng
 /// ═══════════════════════════════════════════════════════════════
 class SkillReviewData {
-  double score;          // 0.0 → 1.0
+  double score; // 0.0 → 1.0
   double easeFactor;
-  int interval;          // ngày
+  int interval; // ngày
   int repetitions;
   DateTime? nextReview;
   int totalReviews;
@@ -122,8 +155,9 @@ class SkillReviewData {
       interval = 1;
     }
 
-    easeFactor = (easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
-        .clamp(1.3, 2.5);
+    easeFactor =
+        (easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
+            .clamp(1.3, 2.5);
     nextReview = DateTime.now().add(Duration(days: interval));
 
     totalReviews++;
@@ -147,7 +181,8 @@ class SkillReviewData {
         'correctReviews': correctReviews,
       };
 
-  factory SkillReviewData.fromJson(Map<String, dynamic> json) => SkillReviewData(
+  factory SkillReviewData.fromJson(Map<String, dynamic> json) =>
+      SkillReviewData(
         score: (json['score'] as num?)?.toDouble() ?? 0.0,
         easeFactor: (json['easeFactor'] as num?)?.toDouble() ?? 2.5,
         interval: json['interval'] as int? ?? 0,
@@ -209,15 +244,15 @@ class WordEntry {
     List<String>? childIds,
     this.personalNotes,
   })  : tags = tags ?? [],
-       understandData = understandData ?? SkillReviewData(score: understand),
-       listenData = listenData ?? SkillReviewData(score: listen),
-       readData = readData ?? SkillReviewData(score: read),
-       lastReviewed = lastReviewed ?? DateTime.now(),
-       createdAt = createdAt ?? DateTime.now(),
-       vocabType = vocabType ?? VocabularyType.word,
-       contexts = contexts ?? [],
-       parentIds = parentIds ?? [],
-       childIds = childIds ?? [];
+        understandData = understandData ?? SkillReviewData(score: understand),
+        listenData = listenData ?? SkillReviewData(score: listen),
+        readData = readData ?? SkillReviewData(score: read),
+        lastReviewed = lastReviewed ?? DateTime.now(),
+        createdAt = createdAt ?? DateTime.now(),
+        vocabType = vocabType ?? VocabularyType.word,
+        contexts = contexts ?? [],
+        parentIds = parentIds ?? [],
+        childIds = childIds ?? [];
 
   // ═══════════════════════════════════════
   // SKILL SCORE GETTERS
@@ -261,9 +296,12 @@ class WordEntry {
 
   SkillReviewData getSkillData(Skill skill) {
     switch (skill) {
-      case Skill.understand: return understandData;
-      case Skill.listen:     return listenData;
-      case Skill.read:       return readData;
+      case Skill.understand:
+        return understandData;
+      case Skill.listen:
+        return listenData;
+      case Skill.read:
+        return readData;
     }
   }
 
@@ -305,22 +343,22 @@ class WordEntry {
   double get accuracy => totalReviews > 0 ? correctReviews / totalReviews : 0;
 
   int get interval => [
-    understandData.interval,
-    listenData.interval,
-    readData.interval,
-  ].reduce((a, b) => a > b ? a : b);
+        understandData.interval,
+        listenData.interval,
+        readData.interval,
+      ].reduce((a, b) => a > b ? a : b);
 
-  double get easeFactor => (
-    understandData.easeFactor +
-    listenData.easeFactor +
-    readData.easeFactor
-  ) / 3;
+  double get easeFactor =>
+      (understandData.easeFactor +
+          listenData.easeFactor +
+          readData.easeFactor) /
+      3;
 
   int get repetitions => [
-    understandData.repetitions,
-    listenData.repetitions,
-    readData.repetitions,
-  ].reduce((a, b) => a < b ? a : b);
+        understandData.repetitions,
+        listenData.repetitions,
+        readData.repetitions,
+      ].reduce((a, b) => a < b ? a : b);
 
   DateTime? get nextReview {
     final dates = [
@@ -341,8 +379,10 @@ class WordEntry {
   bool get hasChildren => childIds.isNotEmpty;
   bool get hasParents => parentIds.isNotEmpty;
 
-  Set<String> get sourceFiles =>
-      contexts.where((c) => c.sourceName != null).map((c) => c.sourceName!).toSet();
+  Set<String> get sourceFiles => contexts
+      .where((c) => c.sourceName != null)
+      .map((c) => c.sourceName!)
+      .toSet();
 
   VocabContext? get latestContext {
     if (contexts.isEmpty) return null;
@@ -394,9 +434,12 @@ class WordEntry {
 
   void updateScore(Skill skill, double value) {
     switch (skill) {
-      case Skill.understand: understandData.score = value.clamp(0.0, 1.0);
-      case Skill.listen:     listenData.score = value.clamp(0.0, 1.0);
-      case Skill.read:       readData.score = value.clamp(0.0, 1.0);
+      case Skill.understand:
+        understandData.score = value.clamp(0.0, 1.0);
+      case Skill.listen:
+        listenData.score = value.clamp(0.0, 1.0);
+      case Skill.read:
+        readData.score = value.clamp(0.0, 1.0);
     }
   }
 
@@ -427,30 +470,49 @@ class WordEntry {
   void setZone(MasteryZone newZone) {
     switch (newZone) {
       case MasteryZone.blindSpot:
-        understandData.score = 0.2; listenData.score = 0.2; readData.score = 0.2;
+        understandData.score = 0.2;
+        listenData.score = 0.2;
+        readData.score = 0.2;
       case MasteryZone.understandOnly:
-        understandData.score = 0.8; listenData.score = 0.2; readData.score = 0.2;
+        understandData.score = 0.8;
+        listenData.score = 0.2;
+        readData.score = 0.2;
       case MasteryZone.listenOnly:
-        understandData.score = 0.2; listenData.score = 0.8; readData.score = 0.2;
+        understandData.score = 0.2;
+        listenData.score = 0.8;
+        readData.score = 0.2;
       case MasteryZone.readOnly:
-        understandData.score = 0.2; listenData.score = 0.2; readData.score = 0.8;
+        understandData.score = 0.2;
+        listenData.score = 0.2;
+        readData.score = 0.8;
       case MasteryZone.understandListen:
-        understandData.score = 0.8; listenData.score = 0.8; readData.score = 0.2;
+        understandData.score = 0.8;
+        listenData.score = 0.8;
+        readData.score = 0.2;
       case MasteryZone.understandRead:
-        understandData.score = 0.8; listenData.score = 0.2; readData.score = 0.8;
+        understandData.score = 0.8;
+        listenData.score = 0.2;
+        readData.score = 0.8;
       case MasteryZone.listenRead:
-        understandData.score = 0.2; listenData.score = 0.8; readData.score = 0.8;
+        understandData.score = 0.2;
+        listenData.score = 0.8;
+        readData.score = 0.8;
       case MasteryZone.mastered:
-        understandData.score = 0.9; listenData.score = 0.9; readData.score = 0.9;
+        understandData.score = 0.9;
+        listenData.score = 0.9;
+        readData.score = 0.9;
     }
     lastReviewed = DateTime.now();
   }
 
   double scoreOf(Skill s) {
     switch (s) {
-      case Skill.understand: return understand;
-      case Skill.listen:     return listen;
-      case Skill.read:       return read;
+      case Skill.understand:
+        return understand;
+      case Skill.listen:
+        return listen;
+      case Skill.read:
+        return read;
     }
   }
 

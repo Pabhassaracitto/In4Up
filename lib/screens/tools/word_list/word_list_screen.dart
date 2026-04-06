@@ -13,10 +13,11 @@ import '../../../models/vocabulary_type.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../features/tts/tts_service.dart';
-
 import 'loop_count_picker.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'youglish_mini_sheet.dart';
+import 'knowledge_graph_screen.dart';
+import 'single_word_review_screen.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -210,6 +211,17 @@ class _WordListScreenState extends State<WordListScreen> {
             icon: Icon(Icons.view_sidebar_outlined,
                 color: Colors.grey[400], size: 20),
             onPressed: () => _showSmartGroupsSheet(p),
+          ),
+          // Knowledge Graph button
+          IconButton(
+            icon: Icon(Icons.hub_outlined, color: Colors.grey[400], size: 20),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const KnowledgeGraphScreen(),
+              ),
+            ),
+            tooltip: 'Knowledge Graph',
           ),
           _buildOverflowMenu(p),
         ],
@@ -1393,10 +1405,11 @@ class _CompactListItem extends StatelessWidget {
               onTap: onEdit),
           const SizedBox(width: 8),
           _ActionBtn(
-              icon: Icons.play_arrow,
-              label: 'Ôn',
-              color: const Color(0xFF4CAF50),
-              onTap: () {}),
+            icon: Icons.play_arrow,
+            label: 'Ôn',
+            color: const Color(0xFF4CAF50),
+            onTap: () => _navigateToReview(ctx, entry),
+          ),
           const Spacer(),
           _ActionBtn(
               icon: Icons.delete_outline,
@@ -1405,6 +1418,16 @@ class _CompactListItem extends StatelessWidget {
               onTap: () => provider.removeWord(entry.id)),
         ]),
       ]),
+    );
+  }
+
+  void _navigateToReview(BuildContext ctx, WordEntry word) {
+    // Filter provider để chỉ hiện word này trước
+    // Sau đó navigate đến ReviewTab
+    Navigator.of(ctx).push(
+      MaterialPageRoute(
+        builder: (_) => SingleWordReviewScreen(word: word),
+      ),
     );
   }
 }

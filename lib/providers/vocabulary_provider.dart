@@ -7,6 +7,7 @@ import '../models/vocabulary_type.dart';
 import '../models/vocab_context.dart';
 import '../services/vocab_classifier.dart';
 import '../services/vocab_sync_service.dart';
+import '../models/vocabulary_type.dart';
 
 class VocabularyProvider extends ChangeNotifier {
   static const String _boxName = 'vocabulary_v2';
@@ -38,16 +39,19 @@ class VocabularyProvider extends ChangeNotifier {
       list = list.where((w) => w.vocabType == _filterType).toList();
     }
     if (_filterSource != null && _filterSource!.isNotEmpty) {
-      list = list.where((w) =>
-          w.contexts.any((c) => c.sourceName == _filterSource)).toList();
+      list = list
+          .where((w) => w.contexts.any((c) => c.sourceName == _filterSource))
+          .toList();
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((w) =>
-          w.word.toLowerCase().contains(q) ||
-          w.meaning.toLowerCase().contains(q) ||
-          w.contexts.any((c) =>
-              c.surroundingText.toLowerCase().contains(q))).toList();
+      list = list
+          .where((w) =>
+              w.word.toLowerCase().contains(q) ||
+              w.meaning.toLowerCase().contains(q) ||
+              w.contexts
+                  .any((c) => c.surroundingText.toLowerCase().contains(q)))
+          .toList();
     }
     return list;
   }
@@ -61,9 +65,12 @@ class VocabularyProvider extends ChangeNotifier {
     return m;
   }
 
-  int get wordCount => _words.where((w) => w.vocabType == VocabularyType.word).length;
-  int get phraseCount => _words.where((w) => w.vocabType == VocabularyType.phrase).length;
-  int get sentenceCount => _words.where((w) => w.vocabType == VocabularyType.sentence).length;
+  int get wordCount =>
+      _words.where((w) => w.vocabType == VocabularyType.word).length;
+  int get phraseCount =>
+      _words.where((w) => w.vocabType == VocabularyType.phrase).length;
+  int get sentenceCount =>
+      _words.where((w) => w.vocabType == VocabularyType.sentence).length;
 
   // ─── By Source ─────────────────────────────────────────────
   Map<String, List<WordEntry>> get wordsBySource {
@@ -106,10 +113,12 @@ class VocabularyProvider extends ChangeNotifier {
 
   List<WordEntry> get addedToday {
     final now = DateTime.now();
-    return _words.where((w) =>
-        w.createdAt.year == now.year &&
-        w.createdAt.month == now.month &&
-        w.createdAt.day == now.day).toList();
+    return _words
+        .where((w) =>
+            w.createdAt.year == now.year &&
+            w.createdAt.month == now.month &&
+            w.createdAt.day == now.day)
+        .toList();
   }
 
   List<WordEntry> get addedThisWeek {
@@ -288,7 +297,8 @@ class VocabularyProvider extends ChangeNotifier {
   void addWords(List<WordEntry> words) {
     bool changed = false;
     for (final w in words) {
-      if (_words.any((e) => e.word.toLowerCase() == w.word.toLowerCase())) continue;
+      if (_words.any((e) => e.word.toLowerCase() == w.word.toLowerCase()))
+        continue;
       _words.add(w);
       _saveWord(w);
       changed = true;

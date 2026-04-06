@@ -25,6 +25,7 @@ import 'widgets/pdf_word_tap_sheet.dart';
 import 'widgets/pdf_annotation_sheet.dart';
 import '../../models/vocab_context.dart';
 import '../../providers/vocabulary_provider.dart';
+import 'widgets/pdf_wordlist_panel.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
@@ -38,6 +39,7 @@ class PdfReaderScreen extends StatefulWidget {
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
   late final PdfReaderController _controller;
   final PdfViewerController _pdfViewerController = PdfViewerController();
+  bool _showWordlistPanel = false;
 
   @override
   void initState() {
@@ -76,17 +78,51 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           Expanded(
             child: _controller.viewMode == PdfViewMode.textMode
                 ? _buildTextMode()
-                : _buildPdfMode(),
+                : _buildSplitOrPdf(),
           ),
 
           // ── Bottom TTS Bar ─────────────────────────────
           PdfTtsBar(controller: _controller),
         ],
       ),
+      floatingActionButton: FloatingActionButton.small(
+        heroTag: 'wordlist_panel',
+        backgroundColor: _showWordlistPanel
+            ? const Color(0xFF6C63FF)
+            : const Color(0xFF1A2235),
+        onPressed: () {
+          setState(() => _showWordlistPanel = !_showWordlistPanel);
+          HapticFeedback.lightImpact();
+        },
+        child: Icon(
+          _showWordlistPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+          color: Colors.white,
+          size: 18,
+        ),
+      ),
     );
   }
 
   // ── PDF View Mode ──────────────────────────────────────
+
+  Widget _buildSplitOrPdf() {
+    if (!_showWordlistPanel) return _buildPdfMode();
+
+    final pdfName = widget.pdfPath.split(Platform.pathSeparator).last;
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 65,
+          child: _buildPdfMode(),
+        ),
+        Expanded(
+          flex: 35,
+          child: PdfWordlistPanel(pdfFileName: pdfName),
+        ),
+      ],
+    );
+  }
 
   Widget _buildPdfMode() {
     if (_controller.errorMessage != null) {
@@ -107,8 +143,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   valueColor: AlwaysStoppedAnimation(Color(0xFF2196F3)),
                 ),
                 SizedBox(height: 16),
-                Text('Đang mở PDF...',
-                    style: TextStyle(color: Colors.white70)),
+                Text('Đang mở PDF...', style: TextStyle(color: Colors.white70)),
               ],
             ),
           );

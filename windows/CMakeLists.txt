@@ -111,3 +111,17 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+  # === Manual Firebase SDK Management ===
+  # Khai báo đường dẫn cố định đến SDK (nên đặt ngoài thư mục project hoặc trong một thư mục 'sdks' riêng)
+  set(FIREBASE_SDK_DIR "D:/4_DU_AN/flutterprojects/sdks/firebase_cpp_sdk_windows")
+
+  # Copy các file DLL cần thiết của Firebase vào thư mục thực thi khi cài đặt/đóng gói
+  if(EXISTS "${FIREBASE_SDK_DIR}")
+      file(GLOB FIREBASE_DLLS "${FIREBASE_SDK_DIR}/bin/*.dll")
+      install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+  endif()
+
+  install(CODE "
+  message(STATUS \"[VipSound] Using Manual Firebase SDK from: ${FIREBASE_SDK_DIR}\")
+" COMPONENT Runtime)

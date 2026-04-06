@@ -1,5 +1,5 @@
-name: ultra_music_player
-description: Music Player with UltraTimeStretch Engine - Speed 0.05x to 10.0x
+name: vipsound
+description: Read + Remember + Learn + Music Player with UltraTimeStretch Engine - Speed 0.05x to 10.0x
 
 publish_to: 'none'
 
@@ -54,13 +54,13 @@ dependencies:
   connectivity_plus: ^6.1.4    # Check network
   crypto: ^3.0.6                 # MD5 hash cho cache key
 # Firebase core (bắt buộc)
-  firebase_core: ^3.8.1
+  firebase_core: ^3.3.1 #change from 3.8.1
   
   # Firebase Auth (đăng nhập anonymous)
   firebase_auth: ^5.3.3
   
   # Cloud Firestore (database)
-  cloud_firestore: ^5.5.0
+  cloud_firestore: ^5.2.0 #change from 5.5.0
   google_sign_in: ^6.2.0
   googleapis: ^13.2.0
 

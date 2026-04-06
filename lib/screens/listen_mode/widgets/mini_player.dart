@@ -670,12 +670,12 @@ class _SongInfoWidget extends StatelessWidget {
         color: const Color(0xFFFF9800).withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _PulsingDot(color: const Color(0xFFFF9800)),
-          const SizedBox(width: 3),
-          const Text(
+          _PulsingDot(color: Color(0xFFFF9800)),
+          SizedBox(width: 3),
+          Text(
             'Gap',
             style: TextStyle(
               color: Color(0xFFFF9800),

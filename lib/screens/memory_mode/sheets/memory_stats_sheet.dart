@@ -208,18 +208,18 @@ class MemoryStatsSheet extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.psychology,
                               size: 18,
                               color: Color(0xFF2196F3),
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                             Text(
                               'Khoa học trí nhớ',
                               style: TextStyle(
-                                color: const Color(0xFF2196F3),
+                                color: Color(0xFF2196F3),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),

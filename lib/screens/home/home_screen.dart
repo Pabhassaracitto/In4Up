@@ -197,11 +197,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 _Divider(),
                 _MemoryStatItem(),
                 _Divider(),
-                _StatItem(
+                const _StatItem(
                   icon: Icons.local_fire_department,
                   label: 'Streak',
                   value: '— ngày',
-                  color: const Color(0xFFFF6B35),
+                  color: Color(0xFFFF6B35),
                 ),
               ],
             ),

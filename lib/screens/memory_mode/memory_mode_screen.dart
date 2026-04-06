@@ -152,25 +152,25 @@ class MemoryModeScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // Guide
-            _GuideCard(
+            const _GuideCard(
               emoji: '🌰',
               title: 'Hột giống',
               desc: 'Từ mới vừa lưu, cần tưới ngay',
-              color: const Color(0xFFFF5252),
+              color: Color(0xFFFF5252),
             ),
             const SizedBox(height: 8),
-            _GuideCard(
+            const _GuideCard(
               emoji: '🌱',
               title: 'Cây non → 🌺 Hoa',
               desc: 'Ôn tập đều để từ trưởng thành',
-              color: const Color(0xFF4CAF50),
+              color: Color(0xFF4CAF50),
             ),
             const SizedBox(height: 8),
-            _GuideCard(
+            const _GuideCard(
               emoji: '🧠',
               title: 'Spaced Repetition',
               desc: 'Ôn đúng lúc sắp quên = nhớ lâu nhất',
-              color: const Color(0xFF2196F3),
+              color: Color(0xFF2196F3),
             ),
 
             const SizedBox(height: 24),

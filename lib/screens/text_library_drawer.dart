@@ -440,7 +440,7 @@ class _CloudTabState extends State<_CloudTab> {
             builder: (context, snap) {
               // Chưa đăng nhập
               if (!_svc.isAvailable) {
-                return _EmptyState(
+                return const _EmptyState(
                   icon: Icons.cloud_off_outlined,
                   title: 'Chưa đăng nhập',
                   subtitle: 'Đăng nhập Google để dùng thư viện cloud',

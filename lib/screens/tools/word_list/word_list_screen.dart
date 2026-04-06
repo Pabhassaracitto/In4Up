@@ -617,17 +617,6 @@ class _WordListScreenState extends State<WordListScreen> {
   // ═══════════════════════════════════════════════════════
   // TTS PLAYBACK
   // ═══════════════════════════════════════════════════════
-  Future<void> _playSingle(WordEntry entry) async {
-    HapticFeedback.lightImpact();
-    final repeat = _getRepeatCount(entry.id);
-    for (int i = 0; i < repeat; i++) {
-      if (_stopRequested || !mounted) break;
-      await _tts.speak(entry.word);
-      if (i < repeat - 1 && !_stopRequested && mounted) {
-        await Future.delayed(const Duration(milliseconds: 600));
-      }
-    }
-  }
 
   Future<void> _playAll(List<WordEntry> items) async {
     if (_isPlaying) {
@@ -1327,7 +1316,7 @@ class _CompactListItem extends StatelessWidget {
 
         // Relationships
         if (parents.isNotEmpty || children.isNotEmpty) ...[
-          _SectionHeader(icon: Icons.link, label: 'Liên kết'),
+          const _SectionHeader(icon: Icons.link, label: 'Liên kết'),
           const SizedBox(height: 6),
           if (parents.isNotEmpty) ...[
             Text('Xuất hiện trong:',
@@ -1357,7 +1346,7 @@ class _CompactListItem extends StatelessWidget {
 
         // Notes
         if (entry.personalNotes != null && entry.personalNotes!.isNotEmpty) ...[
-          _SectionHeader(icon: Icons.note_alt_outlined, label: 'Ghi chú'),
+          const _SectionHeader(icon: Icons.note_alt_outlined, label: 'Ghi chú'),
           const SizedBox(height: 4),
           Text(entry.personalNotes!,
               style: TextStyle(
@@ -1366,7 +1355,7 @@ class _CompactListItem extends StatelessWidget {
         ],
 
         // SM-2 Skills
-        _SectionHeader(icon: Icons.bar_chart, label: 'Ôn tập'),
+        const _SectionHeader(icon: Icons.bar_chart, label: 'Ôn tập'),
         const SizedBox(height: 6),
         Row(children: [
           _SkillBar(

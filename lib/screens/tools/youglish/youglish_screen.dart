@@ -222,7 +222,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                   const SizedBox(width: 5),
                   Text(
                     label(item),
-                    style: TextStyle(color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
               ),

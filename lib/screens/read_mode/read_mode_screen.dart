@@ -85,7 +85,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           return Column(
             children: [
               const ReadTopBar(),
-              if (textProvider.showTranslation) TranslationToolbar(),
+              if (textProvider.showTranslation) const TranslationToolbar(),
               Expanded(
                 child: GestureDetector(
                   onTap: () => _controller.removeFloatingMenu(),

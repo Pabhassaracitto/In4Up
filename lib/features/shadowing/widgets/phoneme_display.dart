@@ -139,21 +139,21 @@ class PhonemeDisplay extends StatelessWidget {
   }
 
   Widget _buildLegend() {
-    return Row(
+    return const Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _LegendItem(
-          color: const Color(0xFFFF5722),
+          color: Color(0xFFFF5722),
           label: 'Vowel',
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         _LegendItem(
-          color: const Color(0xFF2196F3),
+          color: Color(0xFF2196F3),
           label: 'Consonant',
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         _LegendItem(
-          color: const Color(0xFF9C27B0),
+          color: Color(0xFF9C27B0),
           label: 'Diphthong',
         ),
       ],

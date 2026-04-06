@@ -103,7 +103,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Tiêu đề
-                    _FieldLabel(label: 'Tiêu đề *'),
+                    const _FieldLabel(label: 'Tiêu đề *'),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _titleCtrl,
@@ -119,7 +119,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                     const SizedBox(height: 16),
 
                     // Chủ đề / Category (tuỳ chọn)
-                    _FieldLabel(label: 'Chủ đề (tuỳ chọn)'),
+                    const _FieldLabel(label: 'Chủ đề (tuỳ chọn)'),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _categoryCtrl,
@@ -133,7 +133,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                     const SizedBox(height: 16),
 
                     // Nội dung
-                    _FieldLabel(label: 'Nội dung *'),
+                    const _FieldLabel(label: 'Nội dung *'),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _contentCtrl,

@@ -1151,19 +1151,19 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _GuideStep(
+            const _GuideStep(
               number: '1',
               text: 'Long press vào câu muốn lặp',
               icon: Icons.touch_app,
             ),
             const SizedBox(height: 12),
-            _GuideStep(
+            const _GuideStep(
               number: '2',
               text: 'Hoặc dùng nút A-B trong player',
               icon: Icons.repeat,
             ),
             const SizedBox(height: 12),
-            _GuideStep(
+            const _GuideStep(
               number: '3',
               text: 'Điều chỉnh vùng loop trên waveform',
               icon: Icons.tune,

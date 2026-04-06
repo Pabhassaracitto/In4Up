@@ -581,18 +581,18 @@ class _YouTubeTab extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Tips
-          _TipRow(
+          const _TipRow(
             icon: Icons.music_note,
             text: 'Dán URL YouTube → tải audio M4A chất lượng cao',
           ),
           const SizedBox(height: 8),
-          _TipRow(
+          const _TipRow(
             icon: Icons.subtitles,
             text:
                 'Tải captions → mở trong Understand Mode để học đồng bộ',
           ),
           const SizedBox(height: 8),
-          _TipRow(
+          const _TipRow(
             icon: Icons.link,
             text:
                 'Tải cả audio + captions → link lại để phát đồng bộ',

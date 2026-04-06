@@ -1,5 +1,10 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# Suppress warnings from dependencies
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+cmake_policy(SET CMP0175 NEW)
+
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
 project(vipsound LANGUAGES CXX)
 

@@ -88,7 +88,7 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== MEANING =====
                   if (item.meaning != null) ...[
-                    _SectionTitle(label: 'Nghĩa', icon: Icons.translate),
+                    const _SectionTitle(label: 'Nghĩa', icon: Icons.translate),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -116,7 +116,7 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== EXAMPLE =====
                   if (item.example != null) ...[
-                    _SectionTitle(label: 'Ví dụ', icon: Icons.format_quote),
+                    const _SectionTitle(label: 'Ví dụ', icon: Icons.format_quote),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -147,7 +147,7 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== CONTEXT (dòng gốc) =====
                   if (item.context != null) ...[
-                    _SectionTitle(label: 'Ngữ cảnh gốc', icon: Icons.article),
+                    const _SectionTitle(label: 'Ngữ cảnh gốc', icon: Icons.article),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -169,14 +169,14 @@ class WordDetailSheet extends StatelessWidget {
                   ],
 
                   // ===== MEMORY STATS =====
-                  _SectionTitle(
+                  const _SectionTitle(
                       label: 'Trạng thái trí nhớ', icon: Icons.psychology),
                   const SizedBox(height: 12),
                   _buildMemoryStats(stage),
                   const SizedBox(height: 20),
 
                   // ===== STAGE JOURNEY =====
-                  _SectionTitle(label: 'Hành trình', icon: Icons.timeline),
+                  const _SectionTitle(label: 'Hành trình', icon: Icons.timeline),
                   const SizedBox(height: 12),
                   _buildStageJourney(stage),
                   const SizedBox(height: 24),

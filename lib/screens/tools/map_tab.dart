@@ -25,7 +25,7 @@ class MapTab extends StatefulWidget {
 
 class _MapTabState extends State<MapTab> {
   MasteryZone? _filterZone;
-  String _sortMode = 'mastery'; // 'mastery' | 'understand' | 'listen' | 'read'
+// 'mastery' | 'understand' | 'listen' | 'read'
   WordEntry? _selectedWord;
 
   @override

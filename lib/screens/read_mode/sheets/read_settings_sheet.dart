@@ -80,20 +80,20 @@ class _SettingsContent extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // ===== FONT SIZE =====
-                  _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
+                  const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
                   const SizedBox(height: 12),
                   _FontSizeControl(tp: tp),
                   const SizedBox(height: 24),
 
                   // ===== TTS =====
-                  _SectionTitle(
+                  const _SectionTitle(
                       title: 'Text-to-Speech', icon: Icons.record_voice_over),
                   const SizedBox(height: 12),
                   _TtsControls(tp: tp),
                   const SizedBox(height: 24),
 
                   // ===== COLOR MODE =====
-                  _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
+                  const _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
                   const SizedBox(height: 12),
                   _ColorModeSelector(tp: tp),
 
@@ -105,7 +105,7 @@ class _SettingsContent extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // ===== DISPLAY OPTIONS =====
-                  _SectionTitle(title: 'Hiển thị', icon: Icons.visibility),
+                  const _SectionTitle(title: 'Hiển thị', icon: Icons.visibility),
                   const SizedBox(height: 12),
                   _DisplayOptions(tp: tp),
 

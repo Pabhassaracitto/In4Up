@@ -123,11 +123,11 @@ class _MemoryListTile extends StatelessWidget {
                     ),
                   ),
                   if (item.needsReview)
-                    Text(
+                    const Text(
                       'Cần ôn',
                       style: TextStyle(
                         fontSize: 9,
-                        color: const Color(0xFFFF5252),
+                        color: Color(0xFFFF5252),
                         fontWeight: FontWeight.bold,
                       ),
                     )

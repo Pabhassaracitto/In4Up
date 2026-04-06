@@ -113,7 +113,7 @@ class FolderTreeManager {
     FolderNode(
       id: 'default',
       name: 'Mặc định',
-      color: Color(0xFF6C63FF),
+      color: const Color(0xFF6C63FF),
       icon: Icons.folder_outlined,
     ),
   ];

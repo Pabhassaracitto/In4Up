@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: Text('just_audio Windows Test')),
+        appBar: AppBar(title: const Text('just_audio Windows Test')),
         body: AudioTest(),
       ),
     );
@@ -90,19 +90,19 @@ class _AudioTestState extends State<AudioTest> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           ElevatedButton(
             onPressed: _testJustAudio,
-            child: Text('Test just_audio'),
+            child: const Text('Test just_audio'),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Expanded(
             child: SingleChildScrollView(
               child: Text(
                 _log,
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),
             ),
           ),

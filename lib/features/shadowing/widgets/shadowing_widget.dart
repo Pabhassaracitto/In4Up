@@ -365,12 +365,12 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const _RecordingDot(),
-              const SizedBox(width: 8),
-              const Text(
+              _RecordingDot(),
+              SizedBox(width: 8),
+              Text(
                 'Đang ghi âm...',
                 style: TextStyle(
                   color: Colors.red,

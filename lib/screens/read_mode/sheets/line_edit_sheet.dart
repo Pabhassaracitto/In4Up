@@ -220,7 +220,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               const SizedBox(height: 14),
 
               // ── Field: Văn bản gốc ───────────────────────────
-              _FieldLabel(
+              const _FieldLabel(
                 icon: Icons.article_outlined,
                 label: 'Văn bản gốc',
                 hint: 'Enter để tách dòng mới',
@@ -238,11 +238,11 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               const SizedBox(height: 12),
 
               // ── Field: Bản dịch ──────────────────────────────
-              _FieldLabel(
+              const _FieldLabel(
                 icon: Icons.translate,
                 label: 'Bản dịch',
                 hint: 'Tuỳ chọn · Enter để tách theo dòng gốc',
-                color: const Color(0xFF4CAF50),
+                color: Color(0xFF4CAF50),
               ),
               const SizedBox(height: 6),
               _EditField(

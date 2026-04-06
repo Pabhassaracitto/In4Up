@@ -179,7 +179,9 @@ class ShadowingProvider extends ChangeNotifier {
   }) {
     if (_loopStart == start &&
         _loopEnd == end &&
-        _originalAudioPath == audioPath) return; // ← THÊM
+        _originalAudioPath == audioPath) {
+      return; // ← THÊM
+    }
     _loopStart = start;
     _loopEnd = end;
     _originalAudioPath = audioPath;
@@ -471,7 +473,7 @@ class ShadowingProvider extends ChangeNotifier {
     if (!await file.exists()) return [];
 
     try {
-      final waveformFile = File('${path}.waveform');
+      final waveformFile = File('$path.waveform');
       final progressStream = jw.JustWaveform.extract(
         audioInFile: file,
         waveOutFile: waveformFile,

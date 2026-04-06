@@ -699,21 +699,21 @@ class _AdvancedSheet extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Section: Loop
-                        _SheetSection(
+                        const _SheetSection(
                           title: 'AB Loop',
                           icon: Icons.loop,
-                          iconColor: const Color(0xFF4CAF50),
-                          child: const ABLoopControls(),
+                          iconColor: Color(0xFF4CAF50),
+                          child: ABLoopControls(),
                         ),
 
                         const _Divider(),
 
                         // Section: Speed
-                        _SheetSection(
+                        const _SheetSection(
                           title: 'Tốc độ',
                           icon: Icons.speed,
                           iconColor: Colors.orange,
-                          child: const SpeedControlWidget(),
+                          child: SpeedControlWidget(),
                         ),
 
                         const _Divider(),

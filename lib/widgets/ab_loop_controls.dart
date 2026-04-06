@@ -318,7 +318,7 @@ class _StatusIcon extends StatelessWidget {
     if (player.isLooping) {
       return _AnimatedLoopIcon();
     }
-    return Icon(
+    return const Icon(
       Icons.loop,
       size: 18,
       color: Colors.grey,

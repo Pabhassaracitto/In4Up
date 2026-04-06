@@ -99,15 +99,15 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       params: PdfViewerParams(
         backgroundColor: const Color(0xFF1A1A2E),
         loadingBannerBuilder: (context, bytesDownloaded, totalBytes) {
-          return Center(
+          return const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(
+                CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation(Color(0xFF2196F3)),
                 ),
-                const SizedBox(height: 16),
-                const Text('Đang mở PDF...',
+                SizedBox(height: 16),
+                Text('Đang mở PDF...',
                     style: TextStyle(color: Colors.white70)),
               ],
             ),
@@ -300,7 +300,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✅ Đã load "${_title}" vào Text Studio'),
+        content: Text('✅ Đã load "$_title" vào Text Studio'),
         backgroundColor: const Color(0xFF2196F3),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

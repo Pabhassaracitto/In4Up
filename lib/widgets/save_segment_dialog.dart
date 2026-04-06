@@ -57,11 +57,11 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             const SizedBox(height: 20),
 
             // Title
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.bookmark_add, color: Colors.amber, size: 28),
-                const SizedBox(width: 12),
-                const Text(
+                Icon(Icons.bookmark_add, color: Colors.amber, size: 28),
+                SizedBox(width: 12),
+                Text(
                   'Lưu đoạn này',
                   style: TextStyle(
                     fontSize: 20,

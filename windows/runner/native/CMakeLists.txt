@@ -9,7 +9,8 @@ add_definitions(-DNOMINMAX)
 add_definitions(-D_USE_MATH_DEFINES)
 
 # Path to shared native code
-set(NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../native")
+# Sử dụng absolute path hoặc kiểm tra sự tồn tại của thư mục native
+get_filename_component(NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../native" ABSOLUTE)
 message(STATUS "NATIVE_DIR = ${NATIVE_DIR}")
 
 # Include headers
@@ -61,6 +62,12 @@ if(WIN32)
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
         _USE_MATH_DEFINES
+    )
+    # /wd4267: Tắt cảnh báo size_t to int
+    # /MP: Biên dịch song song để build nhanh hơn
+    target_compile_options(ultratimestretch PRIVATE 
+        /wd4267 
+        /MP
     )
 endif()
 

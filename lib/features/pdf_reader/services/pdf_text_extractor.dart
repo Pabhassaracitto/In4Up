@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../../models/color_mode.dart';

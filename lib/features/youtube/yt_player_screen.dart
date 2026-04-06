@@ -6,7 +6,6 @@
 // • Nút ✓ Known | 📖 Learning
 // • Tab TỪ: Known 36 / Learning 3 / Ignored 7, rank filter
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -31,27 +30,42 @@ class LrWord {
 
   Color get typeColor {
     switch (type) {
-      case 'verb': return const Color(0xFF4CAF50);      // xanh lá
-      case 'noun': return const Color(0xFFFF9800);      // cam
-      case 'proper': return const Color(0xFF9C27B0);    // tím
-      case 'adj': return const Color(0xFF2196F3);       // xanh
-      case 'adv': return const Color(0xFFFFCA28);       // vàng
+      case 'verb':
+        return const Color(0xFF4CAF50); // xanh lá
+      case 'noun':
+        return const Color(0xFFFF9800); // cam
+      case 'proper':
+        return const Color(0xFF9C27B0); // tím
+      case 'adj':
+        return const Color(0xFF2196F3); // xanh
+      case 'adv':
+        return const Color(0xFFFFCA28); // vàng
       case 'prep':
-      case 'conj': return const Color(0xFF78909C);      // xám
-      default: return Colors.white;
+      case 'conj':
+        return const Color(0xFF78909C); // xám
+      default:
+        return Colors.white;
     }
   }
 
   String get typeLabel {
     switch (type) {
-      case 'verb': return 'động từ';
-      case 'noun': return 'danh từ';
-      case 'proper': return 'tên riêng';
-      case 'adj': return 'tính từ';
-      case 'adv': return 'trạng từ';
-      case 'prep': return 'giới từ';
-      case 'conj': return 'liên từ';
-      default: return 'từ';
+      case 'verb':
+        return 'động từ';
+      case 'noun':
+        return 'danh từ';
+      case 'proper':
+        return 'tên riêng';
+      case 'adj':
+        return 'tính từ';
+      case 'adv':
+        return 'trạng từ';
+      case 'prep':
+        return 'giới từ';
+      case 'conj':
+        return 'liên từ';
+      default:
+        return 'từ';
     }
   }
 }
@@ -129,24 +143,30 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         SubtitleLine(
           start: const Duration(seconds: 2),
           end: const Duration(seconds: 6),
-          text: "I need you to grab Liam after school because I'm working a double.",
-          translation: 'Tôi cần bạn đón Liam sau giờ học vì tôi làm việc hai ca.',
+          text:
+              "I need you to grab Liam after school because I'm working a double.",
+          translation:
+              'Tôi cần bạn đón Liam sau giờ học vì tôi làm việc hai ca.',
           words: _parseWords(
               "I need you to grab Liam after school because I'm working a double."),
         ),
         SubtitleLine(
           start: const Duration(seconds: 7),
           end: const Duration(seconds: 12),
-          text: "I need you to grab Liam. So our verb, a proper noun, 'after school' a noun;",
-          translation: "Tôi cần bạn đón Liam. Vậy động từ của chúng ta, tên riêng, 'sau giờ học' là một danh từ;",
+          text:
+              "I need you to grab Liam. So our verb, a proper noun, 'after school' a noun;",
+          translation:
+              "Tôi cần bạn đón Liam. Vậy động từ của chúng ta, tên riêng, 'sau giờ học' là một danh từ;",
           words: _parseWords(
               "I need you to grab Liam. So our verb, a proper noun, 'after school' a noun;"),
         ),
         SubtitleLine(
           start: const Duration(seconds: 13),
           end: const Duration(seconds: 18),
-          text: "because 'I'm working' a little bit there; 'a double' another noun. 'A double' means a",
-          translation: "bởi vì 'tôi đang làm việc' một chút ở đó; 'một ca làm thêm' một danh từ khác.",
+          text:
+              "because 'I'm working' a little bit there; 'a double' another noun. 'A double' means a",
+          translation:
+              "bởi vì 'tôi đang làm việc' một chút ở đó; 'một ca làm thêm' một danh từ khác.",
           words: _parseWords(
               "because 'I'm working' a little bit there; 'a double' another noun."),
         ),
@@ -164,11 +184,30 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   List<LrWord> _parseWords(String text) {
     // Simple word type assignment (simplified)
     const verbWords = {
-      'need', 'grab', 'working', 'means', 'shifts', 'know', 'go',
-      'said', 'make', 'take', 'get', 'see', 'come', 'think'
+      'need',
+      'grab',
+      'working',
+      'means',
+      'shifts',
+      'know',
+      'go',
+      'said',
+      'make',
+      'take',
+      'get',
+      'see',
+      'come',
+      'think'
     };
     const nounWords = {
-      'school', 'noun', 'double', 'shift', 'row', 'verb', 'day', 'time'
+      'school',
+      'noun',
+      'double',
+      'shift',
+      'row',
+      'verb',
+      'day',
+      'time'
     };
     const adjWords = {'little', 'proper', 'another', 'two'};
     const prepWords = {'in', 'after', 'because', 'a', 'an', 'the'};
@@ -374,8 +413,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 ),
                 GestureDetector(
                   onTap: () => setState(() {
-                    if (_currentLineIdx < _lines.length - 1)
-                      _currentLineIdx++;
+                    if (_currentLineIdx < _lines.length - 1) _currentLineIdx++;
                   }),
                   child: Icon(Icons.navigate_next,
                       color: Colors.grey[500], size: 22),
@@ -388,20 +426,20 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           Wrap(
             spacing: 4,
             runSpacing: 2,
-            children: line.words.map((w) => _WordChip(
-              word: w,
-              onTap: () => _showWordPopup(w),
-            )).toList(),
+            children: line.words
+                .map((w) => _WordChip(
+                      word: w,
+                      onTap: () => _showWordPopup(w),
+                    ))
+                .toList(),
           ),
           const SizedBox(height: 6),
           // Translation
           if (line.translation != null)
             Text(
               line.translation!,
-              style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 12,
-                  height: 1.4),
+              style:
+                  TextStyle(color: Colors.grey[400], fontSize: 12, height: 1.4),
             ),
         ],
       ),
@@ -431,8 +469,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           // Toggle sidebar arrow
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Icon(Icons.chevron_right,
-                color: Colors.grey[600], size: 18),
+            child: Icon(Icons.chevron_right, color: Colors.grey[600], size: 18),
           ),
           // Tabs
           Expanded(
@@ -442,8 +479,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               indicatorColor: const Color(0xFF9C27B0),
               labelColor: Colors.white,
               unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold),
+              labelStyle:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               tabs: const [
                 Tab(text: 'VĂN BẢN'),
                 Tab(text: 'TỪ'),
@@ -537,8 +574,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                       if (line.translation != null)
                         Text(
                           line.translation!,
-                          style: TextStyle(
-                              color: Colors.grey[500], fontSize: 11),
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 11),
                         ),
                     ],
                   ),
@@ -669,10 +706,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                                     fontWeight: w.state != WordState.unknown
                                         ? FontWeight.bold
                                         : FontWeight.normal,
-                                    decoration:
-                                        w.state == WordState.ignored
-                                            ? TextDecoration.lineThrough
-                                            : null,
+                                    decoration: w.state == WordState.ignored
+                                        ? TextDecoration.lineThrough
+                                        : null,
                                   ),
                                 ),
                               ))
@@ -710,8 +746,7 @@ class _WordPopup extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 20)
+                color: Colors.black.withValues(alpha: 0.5), blurRadius: 20)
           ],
         ),
         child: Column(
@@ -731,24 +766,21 @@ class _WordPopup extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(word.typeLabel,
-                      style: TextStyle(
-                          color: Colors.grey[500], fontSize: 12)),
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.close,
-                        color: Colors.grey[600], size: 18),
+                    child: Icon(Icons.close, color: Colors.grey[600], size: 18),
                   ),
                 ],
               ),
             ),
-            Divider(
-                color: Colors.white.withValues(alpha: 0.08), height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
 
             // Meanings list
             ...meanings.map((m) => Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -771,8 +803,7 @@ class _WordPopup extends StatelessWidget {
                   ),
                 )),
 
-            Divider(
-                color: Colors.white.withValues(alpha: 0.08), height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
 
             // Action buttons
             Padding(
@@ -854,11 +885,9 @@ class _WordChip extends StatelessWidget {
           fontSize: 18,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          decoration: word.state == WordState.known
-              ? TextDecoration.underline
-              : null,
-          decorationColor:
-              const Color(0xFF4CAF50).withValues(alpha: 0.5),
+          decoration:
+              word.state == WordState.known ? TextDecoration.underline : null,
+          decorationColor: const Color(0xFF4CAF50).withValues(alpha: 0.5),
         ),
       ),
     );
@@ -891,36 +920,34 @@ class _WordStatsRowState extends State<_WordStatsRow> {
               label: '✓ ${widget.known}',
               color: const Color(0xFF4CAF50),
               bgColor: const Color(0xFF1B5E20),
-              onTap: () =>
-                  setState(() => _tooltip = _tooltip == 'known' ? null : 'known'),
+              onTap: () => setState(
+                  () => _tooltip = _tooltip == 'known' ? null : 'known'),
             ),
             const SizedBox(width: 6),
             _StatChip(
               label: '📖 ${widget.learning}',
               color: const Color(0xFF9C27B0),
               bgColor: const Color(0xFF4A148C),
-              onTap: () => setState(() =>
-                  _tooltip = _tooltip == 'learning' ? null : 'learning'),
+              onTap: () => setState(
+                  () => _tooltip = _tooltip == 'learning' ? null : 'learning'),
             ),
             const SizedBox(width: 6),
             _StatChip(
               label: '⊘ ${widget.ignored}',
               color: Colors.grey,
               bgColor: Colors.grey.withValues(alpha: 0.2),
-              onTap: () => setState(() =>
-                  _tooltip = _tooltip == 'ignored' ? null : 'ignored'),
+              onTap: () => setState(
+                  () => _tooltip = _tooltip == 'ignored' ? null : 'ignored'),
             ),
             const SizedBox(width: 8),
             Text('/ ${widget.total}',
-                style:
-                    TextStyle(color: Colors.grey[600], fontSize: 11)),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
           ],
         ),
         if (_tooltip != null) ...[
           const SizedBox(height: 4),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
@@ -966,9 +993,7 @@ class _StatChip extends StatelessWidget {
         ),
         child: Text(label,
             style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.bold)),
+                color: color, fontSize: 12, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -1005,9 +1030,7 @@ class _ActionBtn extends StatelessWidget {
             const SizedBox(width: 4),
             Text(label,
                 style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold)),
+                    color: color, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -1037,9 +1060,7 @@ class _PopupBtn extends StatelessWidget {
         child: Center(
           child: Text(label,
               style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold)),
+                  color: color, fontSize: 10, fontWeight: FontWeight.bold)),
         ),
       ),
     );

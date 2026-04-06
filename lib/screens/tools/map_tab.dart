@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
-import '../../widgets/word_bubble.dart';
 import '../../widgets/word_detail_sheet.dart';
 
 class MapTab extends StatefulWidget {

@@ -30,6 +30,5 @@ class PdfWordInfo {
         return (analyzed!.userDifficulty?.color ?? Colors.transparent)
             .withAlpha((255 * 0.28).round());
     }
-    return Colors.transparent;
   }
 }

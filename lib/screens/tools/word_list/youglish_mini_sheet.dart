@@ -2,7 +2,6 @@
 // Mini bottom sheet hiển thị YouGlish trực tiếp từ Word List row
 // Mở nhanh, không cần navigate sang màn hình riêng
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -178,15 +177,15 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation(
-                                    Color(0xFF00BCD4)),
+                                valueColor:
+                                    AlwaysStoppedAnimation(Color(0xFF00BCD4)),
                                 strokeWidth: 2,
                               ),
                               SizedBox(height: 12),
                               Text(
                                 'Đang tải YouGlish...',
-                                style: TextStyle(
-                                    color: Colors.grey, fontSize: 13),
+                                style:
+                                    TextStyle(color: Colors.grey, fontSize: 13),
                               ),
                             ],
                           ),
@@ -222,8 +221,8 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: sel
                         ? const Color(0xFF00BCD4)
@@ -262,8 +261,8 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: sel
                           ? const Color(0xFF4CAF50)

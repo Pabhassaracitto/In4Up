@@ -9,10 +9,11 @@
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command)
 {
-  // FIX: Thiết lập môi trường ngay lập tức để tránh lỗi EGL và GPU trên Windows
-  // Force ANGLE software renderer để tránh EGL Context Lost (12302)
+  // ✅ FIX: Force ANGLE software renderer để tránh EGL Context Lost (12302)
   ::SetEnvironmentVariableW(L"FLUTTER_WINDOWS_FORCE_SOFTWARE_RENDERING", L"1");
-  
+  ::SetEnvironmentVariableW(L"FLUTTER_SOFTWARE_RENDERING", L"1");
+  ::SetEnvironmentVariableW(L"FLUTTER_ANGLE_GLES_RENDERER", L"warp"); // ← THÊM dòng này
+
   // Suppress việc báo cáo lỗi EGL nếu context vẫn bị mất để tránh spam terminal
   ::SetEnvironmentVariableW(L"FLUTTER_WINDOWS_NO_REPORT_EGL_ERROR", L"1");
 

@@ -23,7 +23,6 @@ import 'widgets/pdf_word_overlay.dart';
 import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_word_tap_sheet.dart';
 import 'widgets/pdf_annotation_sheet.dart';
-import 'package:provider/provider.dart';
 import '../../models/vocab_context.dart';
 import '../../providers/vocabulary_provider.dart';
 

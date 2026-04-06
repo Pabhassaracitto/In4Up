@@ -16,7 +16,6 @@ import '../../models/word_entry.dart';
 import '../../models/sm2_algorithm.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/skill_triangle.dart';
-import '../../widgets/word_detail_sheet.dart';
 
 class ReviewTab extends StatefulWidget {
   const ReviewTab({super.key});

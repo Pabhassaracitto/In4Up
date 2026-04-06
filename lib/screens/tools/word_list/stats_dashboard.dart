@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/word_entry.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../providers/vocabulary_provider.dart';
 
@@ -63,13 +62,25 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _SummaryCard(value: '${provider.total}', label: 'Tổng', color: const Color(0xFF6C63FF)),
+        _SummaryCard(
+            value: '${provider.total}',
+            label: 'Tổng',
+            color: const Color(0xFF6C63FF)),
         const SizedBox(width: 8),
-        _SummaryCard(value: '${provider.wordCount}', label: 'Từ', color: VocabularyType.word.color),
+        _SummaryCard(
+            value: '${provider.wordCount}',
+            label: 'Từ',
+            color: VocabularyType.word.color),
         const SizedBox(width: 8),
-        _SummaryCard(value: '${provider.phraseCount}', label: 'Cụm', color: VocabularyType.phrase.color),
+        _SummaryCard(
+            value: '${provider.phraseCount}',
+            label: 'Cụm',
+            color: VocabularyType.phrase.color),
         const SizedBox(width: 8),
-        _SummaryCard(value: '${provider.sentenceCount}', label: 'Câu', color: VocabularyType.sentence.color),
+        _SummaryCard(
+            value: '${provider.sentenceCount}',
+            label: 'Câu',
+            color: VocabularyType.sentence.color),
       ],
     );
   }
@@ -78,7 +89,8 @@ class _SummaryRow extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   final String value, label;
   final Color color;
-  const _SummaryCard({required this.value, required this.label, required this.color});
+  const _SummaryCard(
+      {required this.value, required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +105,12 @@ class _SummaryCard extends StatelessWidget {
         child: Column(
           children: [
             Text(value,
-                style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w800)),
+                style: TextStyle(
+                    color: color, fontSize: 22, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text(label,
-                style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 11)),
+                style: TextStyle(
+                    color: color.withValues(alpha: 0.7), fontSize: 11)),
           ],
         ),
       ),
@@ -121,7 +135,10 @@ class _ProgressSection extends StatelessWidget {
           Row(
             children: [
               Text('$pct% đã ôn tập',
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600)),
               const Spacer(),
               Text('$reviewed lượt ôn',
                   style: TextStyle(color: Colors.grey[500], fontSize: 11)),
@@ -140,11 +157,20 @@ class _ProgressSection extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _MiniStat(icon: Icons.alarm, label: '${provider.dueCount} cần ôn', color: const Color(0xFFFF5722)),
+              _MiniStat(
+                  icon: Icons.alarm,
+                  label: '${provider.dueCount} cần ôn',
+                  color: const Color(0xFFFF5722)),
               const SizedBox(width: 16),
-              _MiniStat(icon: Icons.star, label: '${provider.masteredCount} thành thạo', color: const Color(0xFFFFD54F)),
+              _MiniStat(
+                  icon: Icons.star,
+                  label: '${provider.masteredCount} thành thạo',
+                  color: const Color(0xFFFFD54F)),
               const SizedBox(width: 16),
-              _MiniStat(icon: Icons.visibility_off, label: '${provider.blindSpots} điểm mù', color: const Color(0xFF616161)),
+              _MiniStat(
+                  icon: Icons.visibility_off,
+                  label: '${provider.blindSpots} điểm mù',
+                  color: const Color(0xFF616161)),
             ],
           ),
         ],
@@ -177,7 +203,10 @@ class _ActivitySection extends StatelessWidget {
               child: Column(
                 children: [
                   Text('+$thisWeekAdded',
-                      style: const TextStyle(color: Color(0xFF4CAF50), fontSize: 20, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(
+                          color: Color(0xFF4CAF50),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800)),
                   const Text('từ mới',
                       style: TextStyle(color: Color(0xFF4CAF50), fontSize: 11)),
                 ],
@@ -195,7 +224,10 @@ class _ActivitySection extends StatelessWidget {
               child: Column(
                 children: [
                   Text('$thisWeekReviewed',
-                      style: const TextStyle(color: Color(0xFF2196F3), fontSize: 20, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(
+                          color: Color(0xFF2196F3),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800)),
                   const Text('lượt ôn',
                       style: TextStyle(color: Color(0xFF2196F3), fontSize: 11)),
                 ],
@@ -213,7 +245,10 @@ class _ActivitySection extends StatelessWidget {
               child: Column(
                 children: [
                   Text('${(provider.avgAccuracy * 100).toInt()}%',
-                      style: const TextStyle(color: Color(0xFFFF9800), fontSize: 20, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(
+                          color: Color(0xFFFF9800),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800)),
                   const Text('chính xác',
                       style: TextStyle(color: Color(0xFFFF9800), fontSize: 11)),
                 ],
@@ -237,11 +272,20 @@ class _SkillBreakdown extends StatelessWidget {
       title: '3 Chiều Kỹ Năng',
       child: Row(
         children: [
-          _SkillGauge(label: 'Hiểu', value: provider.avgUnderstand, color: const Color(0xFF42A5F5)),
+          _SkillGauge(
+              label: 'Hiểu',
+              value: provider.avgUnderstand,
+              color: const Color(0xFF42A5F5)),
           const SizedBox(width: 16),
-          _SkillGauge(label: 'Nghe', value: provider.avgListen, color: const Color(0xFF66BB6A)),
+          _SkillGauge(
+              label: 'Nghe',
+              value: provider.avgListen,
+              color: const Color(0xFF66BB6A)),
           const SizedBox(width: 16),
-          _SkillGauge(label: 'Đọc', value: provider.avgRead, color: const Color(0xFFEF5350)),
+          _SkillGauge(
+              label: 'Đọc',
+              value: provider.avgRead,
+              color: const Color(0xFFEF5350)),
         ],
       ),
     );
@@ -252,7 +296,8 @@ class _SkillGauge extends StatelessWidget {
   final String label;
   final double value;
   final Color color;
-  const _SkillGauge({required this.label, required this.value, required this.color});
+  const _SkillGauge(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -273,13 +318,15 @@ class _SkillGauge extends StatelessWidget {
                   valueColor: AlwaysStoppedAnimation(color),
                 ),
                 Text('$pct%',
-                    style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w700)),
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
               ],
             ),
           ),
           const SizedBox(height: 6),
-          Text(label,
-              style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+          Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
         ],
       ),
     );
@@ -321,12 +368,18 @@ class _MostForgotten extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text('${i + 1}',
-                      style: const TextStyle(color: Color(0xFFEF5350), fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(
+                          color: Color(0xFFEF5350),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(w.word,
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
                 ),
                 Text('sai $wrong/${w.totalReviews} lần',
                     style: TextStyle(color: Colors.grey[500], fontSize: 11)),
@@ -352,39 +405,52 @@ class _FrequentSection extends StatelessWidget {
     return _Card(
       title: '📌 Gặp nhiều lần (${frequent.length})',
       child: Column(
-        children: frequent.take(5).map((w) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFB300).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text('${w.encounterCount}×',
-                        style: const TextStyle(color: Color(0xFFFFB300), fontSize: 9, fontWeight: FontWeight.w700)),
+        children: frequent
+            .take(5)
+            .map((w) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFFFFB300).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('${w.encounterCount}×',
+                            style: const TextStyle(
+                                color: Color(0xFFFFB300),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(w.word,
+                                style: TextStyle(
+                                    color: w.vocabType.color,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                            Text(w.meaning,
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 10),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      Text('${w.sourceFiles.length} nguồn',
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 10)),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(w.word,
-                            style: TextStyle(color: w.vocabType.color, fontSize: 13, fontWeight: FontWeight.w600)),
-                        Text(w.meaning,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 10),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                  Text('${w.sourceFiles.length} nguồn',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 10)),
-                ],
-              ),
-            )).toList(),
+                ))
+            .toList(),
       ),
     );
   }
@@ -409,7 +475,10 @@ class _Card extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           child,
         ],
@@ -422,7 +491,8 @@ class _MiniStat extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  const _MiniStat({required this.icon, required this.label, required this.color});
+  const _MiniStat(
+      {required this.icon, required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -431,7 +501,9 @@ class _MiniStat extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: color),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: TextStyle(
+                color: color, fontSize: 10, fontWeight: FontWeight.w600)),
       ],
     );
   }

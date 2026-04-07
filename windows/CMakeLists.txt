@@ -113,15 +113,27 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 
   # === Manual Firebase SDK Management ===
-  # Khai báo đường dẫn cố định đến SDK (nên đặt ngoài thư mục project hoặc trong một thư mục 'sdks' riêng)
-  set(FIREBASE_SDK_DIR "D:/4_DU_AN/flutterprojects/sdks/firebase_cpp_sdk_windows")
+  # Đọc đường dẫn từ Biến môi trường hệ thống để dùng chung cho mọi dự án
+  # LƯU Ý: Phải dùng tên FIREBASE_CPP_SDK_DIR để các plugin Firebase tự động nhận diện
+  set(FIREBASE_SDK_DIR "$ENV{FIREBASE_CPP_SDK_DIR}")
 
-  # Copy các file DLL cần thiết của Firebase vào thư mục thực thi khi cài đặt/đóng gói
-  if(EXISTS "${FIREBASE_SDK_DIR}")
-      file(GLOB FIREBASE_DLLS "${FIREBASE_SDK_DIR}/bin/*.dll")
-      install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+  if(FIREBASE_SDK_DIR)
+    message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
+  else()
+    message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR is NOT set.")
   endif()
 
-  install(CODE "
-  message(STATUS \"[VipSound] Using Manual Firebase SDK from: ${FIREBASE_SDK_DIR}\")
-" COMPONENT Runtime)
+  # Copy các file DLL cần thiết của Firebase vào thư mục thực thi khi cài đặt/đóng gói
+  if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
+      # Tìm kiếm DLL ở thư mục gốc và thư mục bin của SDK
+      file(GLOB FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll" "${FIREBASE_SDK_DIR}/bin/*.dll")
+      
+      if(FIREBASE_DLLS)
+          install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+          install(CODE "message(STATUS \"[VipSound] Integrated Firebase SDK from: ${FIREBASE_SDK_DIR}\")" COMPONENT Runtime)
+      else()
+          message(WARNING "[VipSound] No DLLs found in ${FIREBASE_SDK_DIR}. Please check if the path points to the SDK root (containing bin/ folder).")
+      endif()
+  else()
+      message(WARNING "[VipSound] FIREBASE_CPP_SDK_DIR is not found. Firebase plugins might fail to configure after flutter clean.")
+  endif()

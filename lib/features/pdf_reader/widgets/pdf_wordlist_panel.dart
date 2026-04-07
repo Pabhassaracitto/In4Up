@@ -51,23 +51,26 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
       builder: (_, provider, __) {
         final words = _getWordsFromFile(provider);
 
-        return Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF080B1A),
-            border: Border(
-              left: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.08), width: 1),
-            ),
-          ),
-          child: Column(
-            children: [
-              _buildHeader(words.length),
-              _buildSortBar(),
-              Expanded(
-                child:
-                    words.isEmpty ? _buildEmpty() : _buildList(words, provider),
+        return RepaintBoundary(
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF080B1A),
+              border: Border(
+                left: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.08), width: 1),
               ),
-            ],
+            ),
+            child: Column(
+              children: [
+                _buildHeader(words.length),
+                _buildSortBar(),
+                Expanded(
+                  child: words.isEmpty
+                      ? _buildEmpty()
+                      : _buildList(words, provider),
+                ),
+              ],
+            ),
           ),
         );
       },

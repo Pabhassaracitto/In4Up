@@ -305,34 +305,36 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
       minScale: 0.3,
       maxScale: 3.0,
       transformationController: _transformCtrl,
-      child: GraphView(
-        graph: _graph,
-        algorithm: _getAlgorithm(),
-        paint: Paint()
-          ..color = Colors.white.withValues(alpha: 0.15)
-          ..strokeWidth = 1.2
-          ..style = PaintingStyle.stroke,
-        builder: (Node node) {
-          final wordId = _nodeToWordId[node.key?.value];
-          if (wordId == null) return const SizedBox.shrink();
+      child: RepaintBoundary(
+        child: GraphView(
+          graph: _graph,
+          algorithm: _getAlgorithm(),
+          paint: Paint()
+            ..color = Colors.white.withValues(alpha: 0.15)
+            ..strokeWidth = 1.2
+            ..style = PaintingStyle.stroke,
+          builder: (Node node) {
+            final wordId = _nodeToWordId[node.key?.value];
+            if (wordId == null) return const SizedBox.shrink();
 
-          WordEntry? word;
-          try {
-            word = _provider.allWords.firstWhere((w) => w.id == wordId);
-          } catch (_) {
-            return const SizedBox.shrink();
-          }
+            WordEntry? word;
+            try {
+              word = _provider.allWords.firstWhere((w) => w.id == wordId);
+            } catch (_) {
+              return const SizedBox.shrink();
+            }
 
-          return _GraphNode(
-            word: word,
-            isSelected: _selectedWord?.id == word.id,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _selectedWord = word);
-              _showWordDetail(word!);
-            },
-          );
-        },
+            return _GraphNode(
+              word: word,
+              isSelected: _selectedWord?.id == word.id,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _selectedWord = word);
+                _showWordDetail(word!);
+              },
+            );
+          },
+        ),
       ),
     );
   }

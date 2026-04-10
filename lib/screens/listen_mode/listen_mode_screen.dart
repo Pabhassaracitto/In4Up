@@ -879,10 +879,11 @@ class _QuickBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isActive
-              ? color.withOpacity(0.18)
+              ? color.withValues(alpha: 0.18)
               : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(10),
-          border: isActive ? Border.all(color: color.withOpacity(0.4)) : null,
+          border:
+              isActive ? Border.all(color: color.withValues(alpha: 0.4)) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

@@ -35,6 +35,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
   WordEntry? _selectedWord;
   VocabularyType? _filterType;
   String _layoutMode = 'tree'; // 'tree' | 'force' | 'layered'
+  Algorithm? _algorithm;
 
   late VocabularyProvider _provider;
   final TransformationController _transformCtrl = TransformationController();
@@ -105,16 +106,18 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
       }
     }
 
-    if (mounted) setState(() {});
+    // Không gọi setState ở đây nếu được gọi từ didChangeDependencies
+    // vì Flutter sẽ tự động build sau đó.
   }
 
   // ── Get WordEntry từ Node ───────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<VocabularyProvider>(
-      builder: (_, provider, __) {
-        _provider = provider;
+    return Selector<VocabularyProvider, int>(
+      selector: (_, prov) => prov.allWords.length,
+      builder: (context, wordCount, child) {
+        _provider = context.read<VocabularyProvider>();
         return Scaffold(
           backgroundColor: const Color(0xFF080B1A),
           body: SafeArea(
@@ -185,6 +188,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
           _LayoutToggle(
             current: _layoutMode,
             onChanged: (mode) {
+              _algorithm = null; // Reset algorithm để tạo lại theo mode mới
               setState(() => _layoutMode = mode);
               _buildGraph();
             },
@@ -340,23 +344,28 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
   }
 
   Algorithm _getAlgorithm() {
+    if (_algorithm != null) return _algorithm!;
+
     switch (_layoutMode) {
       case 'force':
-        return FruchtermanReingoldAlgorithm(
+        _algorithm = FruchtermanReingoldAlgorithm(
           FruchtermanReingoldConfiguration()..iterations = 300,
         );
+        break;
       case 'layered':
-        return SugiyamaAlgorithm(
+        _algorithm = SugiyamaAlgorithm(
           SugiyamaConfiguration()
             ..nodeSeparation = 40
             ..levelSeparation = 80,
         );
+        break;
       default:
-        return BuchheimWalkerAlgorithm(
+        _algorithm = BuchheimWalkerAlgorithm(
           _config,
           TreeEdgeRenderer(_config),
         );
     }
+    return _algorithm!;
   }
 
   Widget _buildEmptyState() {

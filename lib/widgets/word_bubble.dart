@@ -30,7 +30,7 @@ class WordBubble extends StatelessWidget {
           vertical: word.visualSize * 0.15,
         ),
         decoration: BoxDecoration(
-          color: selected 
+          color: selected
               ? word.visualColor.withOpacity(0.3)
               : word.visualColor.withOpacity(0.15),
           borderRadius: BorderRadius.circular(word.visualSize * 0.4),
@@ -47,9 +47,8 @@ class WordBubble extends StatelessWidget {
               ),
           ],
         ),
-        transform: dragging 
-            ? (Matrix4.identity()..scale(1.1)) 
-            : Matrix4.identity(),
+        transform:
+            dragging ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -83,8 +82,8 @@ class WordBubble extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  word.daysUntilDue < 0 
-                      ? '${-word.daysUntilDue}d overdue' 
+                  word.daysUntilDue < 0
+                      ? '${-word.daysUntilDue}d overdue'
                       : 'Due',
                   style: const TextStyle(
                     fontSize: 8,

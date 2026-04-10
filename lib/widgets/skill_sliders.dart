@@ -132,9 +132,9 @@ class _SkillSlidersState extends State<SkillSliders> {
           child: SliderTheme(
             data: SliderThemeData(
               activeTrackColor: color,
-              inactiveTrackColor: color.withOpacity(0.2),
+              inactiveTrackColor: color.withValues(alpha: 0.2),
               thumbColor: color,
-              overlayColor: color.withOpacity(0.2),
+              overlayColor: color.withValues(alpha: 0.2),
               trackHeight: 6,
             ),
             child: Slider(value: value, onChanged: onChanged),
@@ -176,7 +176,7 @@ class _SkillSlidersState extends State<SkillSliders> {
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: color,
-              inactiveTrackColor: color.withOpacity(0.2),
+              inactiveTrackColor: color.withValues(alpha: 0.2),
               thumbColor: color,
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
@@ -245,9 +245,9 @@ class _SkillSlidersState extends State<SkillSliders> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Text(
           label,

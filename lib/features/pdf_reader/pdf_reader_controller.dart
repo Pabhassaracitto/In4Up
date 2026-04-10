@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:pdfrx/pdfrx.dart';
+import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';

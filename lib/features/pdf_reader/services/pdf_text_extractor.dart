@@ -1,9 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../../models/color_mode.dart';
 import '../../../services/syntax_highlighter_service.dart';
 import '../models/pdf_word_info.dart';
-import 'package:flutter/material.dart';
 
 class PdfTextExtractor {
   // Cache kết quả per-page để tránh recompute
@@ -17,18 +17,32 @@ class PdfTextExtractor {
     }
 
     try {
-      final textPage = await page.loadText();
-      final buffer = StringBuffer();
+      // ✅ Ép kiểu rõ ràng sang PdfTextPage? để tránh lỗi PdfPageRawText
+      final textPage = (await page.loadText());
 
-      for (final fragment in textPage.fragments) {
-        buffer.write(fragment.text);
-        // Thêm space nếu fragment không kết thúc bằng space
-        if (!fragment.text.endsWith(' ')) buffer.write(' ');
+      if (textPage == null) {
+        _textCache[pageIndex] = '';
+        return '';
       }
 
-      final text = _cleanExtractedText(buffer.toString());
+      // ✅ Bây giờ fullText sẽ được nhận diện chính xác
+      final text = _cleanExtractedText(textPage.fullText);
       _textCache[pageIndex] = text;
       return text;
+
+      // HOẶC nếu cần dùng fragments:
+      // final buffer = StringBuffer();
+      // for (final fragment in textPage.fragments) {
+      //   final fragmentText = textPage.fullText.substring(
+      //     fragment.index,
+      //     fragment.end,
+      //   );
+      //   buffer.write(fragmentText);
+      //   if (!fragmentText.endsWith(' ')) buffer.write(' ');
+      // }
+      // final text = _cleanExtractedText(buffer.toString());
+      // _textCache[pageIndex] = text;
+      // return text;
     } catch (e) {
       debugPrint('PdfTextExtractor: error extracting page $pageIndex: $e');
       return '';
@@ -60,67 +74,59 @@ class PdfTextExtractor {
     }
 
     try {
-      final textPage = await page.loadText();
+      final textPage = await page.loadText(); // <- thực tế là PdfPageRawText?
+      if (textPage == null) return [];
+
+      final fullText = textPage.fullText;
+      final charRects = textPage
+          .charRects; // <- có từ engine: PdfPageRawText(fullText, charRects)
+
       final words = <PdfWordInfo>[];
 
-      for (final fragment in textPage.fragments) {
-        final rawText = fragment.text.trim();
-        if (rawText.isEmpty) continue;
+      for (final m in RegExp(r'\S+').allMatches(fullText)) {
+        final token = m.group(0)!.trim();
+        if (token.isEmpty) continue;
 
-        // Tách fragments thành từng từ nếu fragment chứa nhiều từ
-        final subWords = rawText.split(RegExp(r'\s+'));
+        final bounds = _rectFromCharRects(charRects, m.start, m.end);
 
-        if (subWords.length == 1) {
-          // Single word - dùng bounds trực tiếp
-          final analyzed = colorMode != ColorMode.none
-              ? SyntaxHighlighterService.instance.analyzeWord(
-                  rawText.toLowerCase().replaceAll(RegExp(r'[^\w]'), ''))
-              : null;
+        final normalized = token.toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
+        final analyzed = (colorMode != ColorMode.none && normalized.isNotEmpty)
+            ? SyntaxHighlighterService.instance.analyzeWord(normalized)
+            : null;
 
-          words.add(PdfWordInfo(
-            text: rawText,
-            bounds: _pdfRectToRect(fragment.bounds),
-            pageIndex: pageIndex,
-            analyzed: analyzed,
-          ));
-        } else {
-          // Multi-word fragment - chia bounds đều (approximate)
-          final totalWidth = fragment.bounds.width;
-          final wordWidth = totalWidth / subWords.length;
-
-          for (int wi = 0; wi < subWords.length; wi++) {
-            final word = subWords[wi].trim();
-            if (word.isEmpty) continue;
-
-            final wordBounds = Rect.fromLTWH(
-              fragment.bounds.left + wi * wordWidth,
-              fragment.bounds.top,
-              wordWidth,
-              fragment.bounds.height,
-            );
-
-            final analyzed = colorMode != ColorMode.none
-                ? SyntaxHighlighterService.instance.analyzeWord(
-                    word.toLowerCase().replaceAll(RegExp(r'[^\w]'), ''))
-                : null;
-
-            words.add(PdfWordInfo(
-              text: word,
-              bounds: wordBounds,
-              pageIndex: pageIndex,
-              analyzed: analyzed,
-            ));
-          }
-        }
+        words.add(PdfWordInfo(
+          text: token,
+          bounds: bounds,
+          pageIndex: pageIndex,
+          analyzed: analyzed,
+        ));
       }
 
-      _pageCache[pageIndex] = words;
+      if (colorMode == ColorMode.none) {
+        _pageCache[pageIndex] = words;
+      }
       return words;
     } catch (e) {
       debugPrint(
           'PdfTextExtractor: error extracting words page $pageIndex: $e');
       return [];
     }
+  }
+
+  /// Gom bounds từ charRects[start..end)
+  Rect _rectFromCharRects(List<PdfRect> charRects, int start, int end) {
+    if (charRects.isEmpty) return Rect.zero;
+
+    final s = start.clamp(0, charRects.length);
+    final e = end.clamp(s, charRects.length);
+    if (s >= e) return Rect.zero;
+
+    Rect? out;
+    for (int i = s; i < e; i++) {
+      final r = _pdfRectToRect(charRects[i]); // dùng helper hiện có của bạn
+      out = (out == null) ? r : out!.expandToInclude(r);
+    }
+    return out ?? Rect.zero;
   }
 
   /// Convert PDF PdfRect → Flutter Rect

@@ -53,8 +53,7 @@ class PdfAnnotationSheet {
 class _AnnotationSheet extends StatefulWidget {
   final PdfAnnotation annotation;
   final PdfReaderController controller;
-  const _AnnotationSheet(
-      {required this.annotation, required this.controller});
+  const _AnnotationSheet({required this.annotation, required this.controller});
 
   @override
   State<_AnnotationSheet> createState() => _AnnotationSheetState();
@@ -67,8 +66,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
   @override
   void initState() {
     super.initState();
-    _noteCtrl =
-        TextEditingController(text: widget.annotation.note ?? '');
+    _noteCtrl = TextEditingController(text: widget.annotation.note ?? '');
   }
 
   @override
@@ -146,10 +144,10 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: widget.annotation.color.withOpacity(0.1),
+              color: widget.annotation.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: widget.annotation.color.withOpacity(0.3)),
+                  color: widget.annotation.color.withValues(alpha: 0.3)),
             ),
             child: Text(
               '"${widget.annotation.selectedText}"',
@@ -188,10 +186,9 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
               children: [
                 Expanded(
                   child: TextButton(
-                    onPressed: () =>
-                        setState(() => _isEditing = false),
-                    child: const Text('Hủy',
-                        style: TextStyle(color: Colors.grey)),
+                    onPressed: () => setState(() => _isEditing = false),
+                    child:
+                        const Text('Hủy', style: TextStyle(color: Colors.grey)),
                   ),
                 ),
                 Expanded(
@@ -244,8 +241,8 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
           // Speak
           const SizedBox(height: 12),
           TextButton.icon(
-            onPressed: () => widget.controller
-                .speakText(widget.annotation.selectedText),
+            onPressed: () =>
+                widget.controller.speakText(widget.annotation.selectedText),
             icon: const Icon(Icons.volume_up, size: 16),
             label: const Text('Đọc đoạn này'),
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
@@ -332,7 +329,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _selectedColor.withOpacity(0.15),
+              color: _selectedcolor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -362,8 +359,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
                           color: c,
                           shape: BoxShape.circle,
                           border: _selectedColor == c
-                              ? Border.all(
-                                  color: Colors.white, width: 2)
+                              ? Border.all(color: Colors.white, width: 2)
                               : null,
                         ),
                       ),
@@ -398,8 +394,8 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
               Expanded(
                 child: TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Hủy',
-                      style: TextStyle(color: Colors.grey)),
+                  child:
+                      const Text('Hủy', style: TextStyle(color: Colors.grey)),
                 ),
               ),
               Expanded(
@@ -411,9 +407,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
                       bounds: widget.selectionRect,
                       text: widget.selectedText,
                       color: _selectedColor,
-                      note: _noteCtrl.text.isNotEmpty
-                          ? _noteCtrl.text
-                          : null,
+                      note: _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null,
                     );
                     if (context.mounted) Navigator.pop(context);
                   },

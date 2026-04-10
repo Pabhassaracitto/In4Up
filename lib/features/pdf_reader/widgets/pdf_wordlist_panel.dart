@@ -47,8 +47,10 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<VocabularyProvider>(
-      builder: (_, provider, __) {
+    return Selector<VocabularyProvider, int>(
+      selector: (_, prov) => prov.allWords.length,
+      builder: (context, wordCount, child) {
+        final provider = context.read<VocabularyProvider>();
         final words = _getWordsFromFile(provider);
 
         return RepaintBoundary(

@@ -46,8 +46,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
   }
 
   void _submit() {
-    final url =
-        WebReaderController.normalizeUrl(_urlCtrl.text.trim());
+    final url = WebReaderController.normalizeUrl(_urlCtrl.text.trim());
     if (url.isEmpty) return;
     _isEditing = false;
     _focusNode.unfocus();
@@ -139,15 +138,14 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                                 color: Colors.white, fontSize: 12),
                             decoration: const InputDecoration(
                               hintText: 'URL hoặc tìm kiếm...',
-                              hintStyle: TextStyle(
-                                  color: Colors.grey, fontSize: 12),
+                              hintStyle:
+                                  TextStyle(color: Colors.grey, fontSize: 12),
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
                             ),
                             onTap: () => setState(() => _isEditing = true),
-                            onChanged: (_) =>
-                                setState(() => _isEditing = true),
+                            onChanged: (_) => setState(() => _isEditing = true),
                             onSubmitted: (_) => _submit(),
                             textInputAction: TextInputAction.go,
                           ),
@@ -201,12 +199,9 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: LinearProgressIndicator(
-                value: ctrl.loadingProgress < 1.0
-                    ? ctrl.loadingProgress
-                    : null,
+                value: ctrl.loadingProgress < 1.0 ? ctrl.loadingProgress : null,
                 backgroundColor: Colors.white12,
-                valueColor:
-                    const AlwaysStoppedAnimation(Color(0xFF2196F3)),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFF2196F3)),
                 minHeight: 2,
                 borderRadius: BorderRadius.circular(1),
               ),
@@ -241,8 +236,7 @@ class _ColorModeButton extends StatelessWidget {
               : Colors.white.withOpacity(0.07),
           borderRadius: BorderRadius.circular(8),
           border: isActive
-              ? Border.all(
-                  color: const Color(0xFF2196F3).withOpacity(0.4))
+              ? Border.all(color: const Color(0xFF2196F3).withOpacity(0.4))
               : null,
         ),
         child: Row(
@@ -251,8 +245,7 @@ class _ColorModeButton extends StatelessWidget {
             Icon(
               controller.colorMode.icon,
               size: 13,
-              color:
-                  isActive ? const Color(0xFF2196F3) : Colors.grey,
+              color: isActive ? const Color(0xFF2196F3) : Colors.grey,
             ),
             if (isActive) ...[
               const SizedBox(width: 3),
@@ -310,7 +303,7 @@ class _ToolbarBtn extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             color: isActive
-                ? activeColor.withOpacity(0.15)
+                ? activecolor.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),

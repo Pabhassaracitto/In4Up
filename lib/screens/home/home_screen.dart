@@ -522,7 +522,7 @@ class _ModeCardState extends State<_ModeCard> {
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: widget.color.withOpacity(0.3),
+                color: widget.color.withValues(alpha: 0.3),
               ),
             ),
             child: Stack(
@@ -534,7 +534,7 @@ class _ModeCardState extends State<_ModeCard> {
                   child: Icon(
                     widget.icon,
                     size: 64,
-                    color: widget.color.withOpacity(0.08),
+                    color: widget.color.withValues(alpha: 0.08),
                   ),
                 ),
 
@@ -547,7 +547,7 @@ class _ModeCardState extends State<_ModeCard> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: widget.color.withOpacity(0.2),
+                          color: widget.color.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -625,7 +625,7 @@ class _ImportCardState extends State<_ImportCard> {
             color: Colors.white.withOpacity(0.04),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: widget.color.withOpacity(0.2),
+              color: widget.color.withValues(alpha: 0.2),
             ),
           ),
           child: Row(
@@ -633,7 +633,7 @@ class _ImportCardState extends State<_ImportCard> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.15),
+                  color: widget.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(widget.icon, color: widget.color, size: 18),
@@ -662,7 +662,7 @@ class _ImportCardState extends State<_ImportCard> {
                 ),
               ),
               Icon(Icons.add_circle_outline,
-                  color: widget.color.withOpacity(0.6), size: 18),
+                  color: widget.color.withValues(alpha: 0.6), size: 18),
             ],
           ),
         ),

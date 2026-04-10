@@ -105,13 +105,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   // ── Subtitle state ────────────────────────────────────────
   final List<SubtitleLine> _lines = [];
   int _currentLineIdx = 0;
-  bool _loadingSubtitles = false;
+  //del bool _loadingSubtitles = false;
 
   // ── Word knowledge ────────────────────────────────────────
   final Map<String, WordState> _wordStates = {};
 
   // ── Selected word for popup ───────────────────────────────
-  LrWord? _selectedWord;
+  //del LrWord? _selectedWord;
 
   @override
   void initState() {

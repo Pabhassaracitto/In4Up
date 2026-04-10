@@ -1,4 +1,4 @@
-//
+//lid/features/pdf_reader/pdf_reader_screen.dart
 // Màn hình đọc PDF với:
 //  - Render PDF gốc (pdfrx)
 //  - Overlay highlight theo CEFR / WordType / Difficulty
@@ -8,23 +8,24 @@
 //  - Text Mode: extract toàn bộ text → load vào Read Mode cũ
 
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pdfrx/pdfrx.dart';
+import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
 import '../../models/color_mode.dart';
+import '../../models/vocab_context.dart';
 import '../../providers/text_provider.dart';
-import 'pdf_reader_controller.dart';
+import '../../providers/vocabulary_provider.dart';
 import 'models/pdf_word_info.dart';
+import 'pdf_reader_controller.dart';
+import 'widgets/pdf_annotation_layer.dart';
+import 'widgets/pdf_annotation_sheet.dart';
 import 'widgets/pdf_toolbar.dart';
 import 'widgets/pdf_tts_bar.dart';
 import 'widgets/pdf_word_overlay.dart';
-import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_word_tap_sheet.dart';
-import 'widgets/pdf_annotation_sheet.dart';
-import '../../models/vocab_context.dart';
-import '../../providers/vocabulary_provider.dart';
 import 'widgets/pdf_wordlist_panel.dart';
 
 class PdfReaderScreen extends StatefulWidget {
@@ -46,6 +47,13 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     super.initState();
     _controller = PdfReaderController(pdfPath: widget.pdfPath);
     _controller.addListener(_onControllerUpdate);
+
+    // Đồng bộ vùng chọn từ PDF Viewer vào controller
+    _pdfViewerController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   void _onControllerUpdate() {
@@ -78,7 +86,17 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           Expanded(
             child: _controller.viewMode == PdfViewMode.textMode
                 ? _buildTextMode()
-                : _buildSplitOrPdf(),
+                : Stack(
+                    children: [
+                      _buildSplitOrPdf(),
+                      if (_controller.selectedText != null)
+                        Positioned(
+                            bottom: 20,
+                            left: 20,
+                            right: 20,
+                            child: _SelectionBar(controller: _controller)),
+                    ],
+                  ),
           ),
 
           // ── Bottom TTS Bar ─────────────────────────────
@@ -134,6 +152,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       controller: _pdfViewerController,
       params: PdfViewerParams(
         backgroundColor: const Color(0xFF1A1A2E),
+        // Text selection được xử lý qua PdfViewerController hoặc gestures
         loadingBannerBuilder: (context, bytesDownloaded, totalBytes) {
           return const Center(
             child: Column(
@@ -266,7 +285,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         // Banner thông báo Text Mode
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: const Color(0xFF1A237E).withOpacity(0.5),
+          color: const Color(0xFF1A237E).withValues(alpha: 0.5),
           child: Row(
             children: [
               const Icon(Icons.text_fields, color: Colors.blue, size: 16),
@@ -491,14 +510,16 @@ class _SelectionBar extends StatelessWidget {
               final text = controller.selectedText ?? '';
               if (text.trim().isEmpty) return;
 
-              final pdfName =
-                  controller.pdfPath.split(Platform.pathSeparator).last;
+              final pdfName = controller.pdfPath
+                  .split(Platform.isWindows ? '\\' : '/')
+                  .last;
               final ctx = VocabContext.fromPdf(
                 fileName: pdfName,
                 page: controller.currentPage + 1,
                 surroundingText: text,
               );
 
+              // Tự động phân loại dựa trên nội dung text được chọn
               provider.addWithAutoClassify(
                 text: text.trim(),
                 meaning: '',

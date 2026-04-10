@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pdfrx/pdfrx.dart';
-
-import '../models/pdf_annotation.dart';
+import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
+import 'package:vipsound/features/pdf_reader/models/pdf_annotation.dart';
 
 /// Layer hiển thị tất cả annotations (highlight + note icons) trên PDF page
 class PdfAnnotationLayer extends StatelessWidget {
@@ -45,7 +44,7 @@ class PdfAnnotationLayer extends StatelessWidget {
                   // Highlight color strip
                   Container(
                     decoration: BoxDecoration(
-                      color: ann.color.withOpacity(0.35),
+                      color: ann.color.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(2),
                       border: Border(
                         bottom: BorderSide(color: ann.color, width: 2),
@@ -64,7 +63,7 @@ class PdfAnnotationLayer extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                               blurRadius: 4,
                             ),
                           ],

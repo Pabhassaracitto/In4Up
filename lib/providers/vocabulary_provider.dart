@@ -1,13 +1,13 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../models/word_entry.dart';
-import '../models/vocabulary_type.dart';
 import '../models/vocab_context.dart';
+import '../models/vocabulary_type.dart';
+import '../models/word_entry.dart';
 import '../services/vocab_classifier.dart';
 import '../services/vocab_sync_service.dart';
-import '../models/vocabulary_type.dart';
 
 class VocabularyProvider extends ChangeNotifier {
   static const String _boxName = 'vocabulary_v2';

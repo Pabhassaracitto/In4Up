@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/player_provider.dart';
 import '../../../features/youtube/youtube_sheet.dart';
+import '../../../providers/player_provider.dart';
 import 'google_drive_browser.dart';
 
 class AudioLibraryDrawer extends StatefulWidget {
@@ -127,15 +127,14 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
         indicator: BoxDecoration(
           color: const Color(0xFF6C63FF).withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
+          border:
+              Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: const Color(0xFF6C63FF),
         unselectedLabelColor: Colors.grey,
-        labelStyle:
-            const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(fontSize: 11),
         tabs: const [
           Tab(
@@ -285,12 +284,12 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                       Icon(Icons.music_off, size: 44, color: Colors.grey[700]),
                       const SizedBox(height: 12),
                       Text('Chưa có bài nào đang phát',
-                          style: TextStyle(
-                              color: Colors.grey[500], fontSize: 13)),
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 13)),
                       const SizedBox(height: 6),
                       Text('Chọn file để bắt đầu',
-                          style: TextStyle(
-                              color: Colors.grey[700], fontSize: 11)),
+                          style:
+                              TextStyle(color: Colors.grey[700], fontSize: 11)),
                     ],
                   ),
                 );
@@ -340,8 +339,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                     ..._playlist.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final file = entry.value;
-                      final isCurrent =
-                          player.currentSongPath == file.path;
+                      final isCurrent = player.currentSongPath == file.path;
                       return GestureDetector(
                         onTap: () => _playFile(file),
                         child: Container(
@@ -420,8 +418,8 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C63FF)
-                                .withValues(alpha: 0.2),
+                            color:
+                                const Color(0xFF6C63FF).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -435,19 +433,14 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ...player
-                        .getSegmentsForCurrentSong()
-                        .asMap()
-                        .entries
-                        .map(
+                    ...player.getSegmentsForCurrentSong().asMap().entries.map(
                           (e) => _SegmentTile(
                             segment: e.value,
                             onPlay: () {
                               player.playSegment(e.value, index: e.key);
                               widget.onClose();
                             },
-                            onDelete: () =>
-                                player.deleteSegment(e.value.id),
+                            onDelete: () => player.deleteSegment(e.value.id),
                           ),
                         ),
                   ],
@@ -535,8 +528,7 @@ class _YouTubeTab extends StatelessWidget {
                       SizedBox(height: 2),
                       Text(
                         'Tải audio · Captions · Khám phá kênh',
-                        style:
-                            TextStyle(color: Colors.white60, fontSize: 11),
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
                       ),
                     ],
                   ),
@@ -588,14 +580,12 @@ class _YouTubeTab extends StatelessWidget {
           const SizedBox(height: 8),
           const _TipRow(
             icon: Icons.subtitles,
-            text:
-                'Tải captions → mở trong Understand Mode để học đồng bộ',
+            text: 'Tải captions → mở trong Understand Mode để học đồng bộ',
           ),
           const SizedBox(height: 8),
           const _TipRow(
             icon: Icons.link,
-            text:
-                'Tải cả audio + captions → link lại để phát đồng bộ',
+            text: 'Tải cả audio + captions → link lại để phát đồng bộ',
           ),
         ],
       ),
@@ -671,8 +661,7 @@ class _ActionTile extends StatelessWidget {
                           fontSize: 13)),
                   Text(subtitle,
                       style: TextStyle(
-                          color: color.withValues(alpha: 0.7),
-                          fontSize: 11)),
+                          color: color.withValues(alpha: 0.7), fontSize: 11)),
                 ],
               ),
             ),
@@ -823,8 +812,8 @@ class _SegmentTile extends StatelessWidget {
                 color: Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.delete_outline,
-                  color: Colors.red, size: 14),
+              child:
+                  const Icon(Icons.delete_outline, color: Colors.red, size: 14),
             ),
           ),
         ],

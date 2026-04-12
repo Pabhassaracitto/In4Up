@@ -78,6 +78,15 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
             children: [
               // Back
               _ToolbarBtn(
+                icon: Icons.home_outlined,
+                size: 20,
+                enabled: true,
+                onTap: () => widget.onNavigate(''), // Rỗng để về Dashboard
+                tooltip: 'Trang chủ Dashboard',
+              ),
+              const SizedBox(width: 2),
+
+              _ToolbarBtn(
                 icon: Icons.arrow_back_ios_new,
                 size: 16,
                 enabled: ctrl.canGoBack,
@@ -273,7 +282,7 @@ class _ToolbarBtn extends StatelessWidget {
   final bool isActive;
   final VoidCallback? onTap;
   final String? tooltip;
-  final Color activeColor;
+  final Color? activeColor;
 
   const _ToolbarBtn({
     required this.icon,
@@ -282,15 +291,16 @@ class _ToolbarBtn extends StatelessWidget {
     this.isActive = false,
     this.onTap,
     this.tooltip,
-    this.activeColor = Colors.white70,
+    this.activeColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveActiveColor = activeColor ?? const Color(0xFF2196F3);
     final color = !enabled
         ? Colors.grey[700]!
         : isActive
-            ? activeColor
+            ? effectiveActiveColor
             : Colors.white70;
 
     return Tooltip(
@@ -303,7 +313,7 @@ class _ToolbarBtn extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             color: isActive
-                ? activecolor.withValues(alpha: 0.15)
+                ? effectiveActiveColor.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),

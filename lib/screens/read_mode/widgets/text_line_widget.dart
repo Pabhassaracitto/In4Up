@@ -35,7 +35,7 @@ class TextLineWidget extends StatelessWidget {
         // Crash xảy ra khi translateAll gọi notifyListeners() đồng thời
         // với một thay đổi lines khác (autoSplit, loadText...) làm lines ngắn lại
         // nhưng ListView vẫn giữ widget cũ với index >= lines.length
-        if (index >= tp.lines.length) {
+        if (index < 0 || index >= tp.lines.length) {
           return const _LineData.empty();
         }
 
@@ -81,7 +81,7 @@ class TextLineWidget extends StatelessWidget {
         final controller = context.read<ReadModeController>();
 
         // ★ FIX: Guard khi lines có thể đã thay đổi trước khi gesture hoàn thành
-        if (index >= tp.lines.length) return false;
+        if (index < 0 || index >= tp.lines.length) return false;
 
         if (direction == DismissDirection.endToStart) {
           HapticFeedback.mediumImpact();
@@ -125,7 +125,7 @@ class TextLineWidget extends StatelessWidget {
       onTap: () {
         final controller = context.read<ReadModeController>();
         final tp = context.read<TextProvider>();
-        if (index >= tp.lines.length) return; // ★ FIX
+        if (index < 0 || index >= tp.lines.length) return; // ★ FIX
         controller.removeFloatingMenu();
         tp.setCurrentLine(index);
         HapticFeedback.selectionClick();

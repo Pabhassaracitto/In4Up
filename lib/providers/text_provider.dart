@@ -54,6 +54,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   double _fontSize = 18.0;
   // bool _showTranslation = true; // REMOVED
   bool _showWordTypes = false;
+  bool _showLineNumbers = true;
 
   // ==================== GETTERS ====================
   TextDocument? get currentDocument => _currentDocument;
@@ -79,6 +80,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool get showTranslation =>
       translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
+  bool get showLineNumbers => _showLineNumbers;
 
   // ==================== CONSTRUCTOR ====================
 
@@ -869,6 +871,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       setTranslationDisplayMode(TranslationDisplayMode.hidden);
     }
     _storage.saveShowTranslation(showTranslation);
+    notifyListeners();
+  }
+
+  void toggleLineNumbers() {
+    _showLineNumbers = !_showLineNumbers;
     notifyListeners();
   }
 

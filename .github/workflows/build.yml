@@ -100,9 +100,6 @@ jobs:
           rm -rf lib/features/DeepLX || true
           rm -rf lib/features/deeplx || true
 
-      - name: Clean Build Cache
-        run: flutter clean
-
       - name: Get dependencies again
         run: flutter pub get
 

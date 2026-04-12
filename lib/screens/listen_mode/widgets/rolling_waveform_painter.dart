@@ -70,25 +70,26 @@ class RollingWaveformPainter extends CustomPainter {
     // Tránh lỗi chia cho 0 nếu size.width = 0
     if (size.width <= 0) return;
 
-    final samplesPerPixel = visibleSamples.length / size.width;
+    // ★ TỐI ƯU: Tăng bước nhảy (step) để vẽ ít bar hơn nhưng vẫn đủ nhìn
+    const double barWidth = 2.0;
+    const double spacing = 1.0;
+    final double step = barWidth + spacing;
+    final samplesPerStep = visibleSamples.length / (size.width / step);
 
-    // Vẽ từng bar
-    for (int i = 0; i < size.width.toInt(); i++) {
-      final sampleIndex = (i * samplesPerPixel).floor();
+    for (double x = 0; x < size.width; x += step) {
+      final sampleIndex = (x / step * samplesPerStep).floor();
       if (sampleIndex >= visibleSamples.length) break;
       if (sampleIndex < 0) continue;
 
       final amplitude = visibleSamples[sampleIndex];
       final safeAmplitude =
           amplitude.isFinite ? amplitude.clamp(0.0, 1.0) : 0.0;
-      final barHeight =
-          safeAmplitude * (size.height / 2) * 0.9; // 90% max height
+      final barHeight = safeAmplitude * (size.height / 2) * 0.9;
 
-      // Xác định màu dựa vào vị trí so với playhead
       Color barColor;
-      if (i < playheadX - 5) {
+      if (x < playheadX - 5) {
         barColor = pastColor; // Quá khứ
-      } else if (i > playheadX + 5) {
+      } else if (x > playheadX + 5) {
         barColor = futureColor; // Tương lai
       } else {
         barColor = currentColor; // Hiện tại (vùng highlight)
@@ -96,9 +97,9 @@ class RollingWaveformPainter extends CustomPainter {
 
       // Vẽ bar (symmetric)
       final rect = Rect.fromLTWH(
-        i.toDouble(),
+        x,
         centerY - barHeight / 2,
-        1.5, // bar width
+        barWidth,
         barHeight,
       );
 
@@ -238,8 +239,13 @@ class RollingWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RollingWaveformPainter oldDelegate) {
-    // SỬA LỖI: Luôn trả về true hoặc so sánh properties nếu cần thiết.
-    // Vì controller là mutable object, so sánh reference (==) sẽ luôn trả về false.
-    return true;
+    // Chỉ repaint khi các thông số quan trọng thực sự thay đổi
+    return oldDelegate.controller.position != controller.position ||
+        oldDelegate.controller.zoom != controller.zoom ||
+        oldDelegate.controller.waveformData != controller.waveformData ||
+        oldDelegate.controller.loopRegions.length !=
+            controller.loopRegions.length ||
+        oldDelegate.currentColor != currentColor ||
+        oldDelegate.pastColor != pastColor;
   }
 }

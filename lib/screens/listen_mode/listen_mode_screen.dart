@@ -54,6 +54,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   // Trạng thái hiển thị của ứng dụng để giảm tải GPU
   bool _isAppVisible = true;
+  bool _isUserSeeking = false;
 
   @override
   void initState() {
@@ -107,13 +108,22 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     // ★ FIX: Bảo vệ Engine khi mất Context hoặc ứng dụng ẩn
     if (!mounted || !_isAppVisible) return;
 
+    // ★ MỚI: Kiểm tra xem màn hình này có đang ở trên cùng không
+    // Nếu có màn hình khác (Tools, Sheets) đè lên, ngừng cập nhật Waveform
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
+    if (!isCurrentRoute) return;
+
+    // Nếu người dùng đang kéo waveform, không cập nhật vị trí từ player
+    // để tránh xung đột buffer và hiện tượng "giật ngược"
+    if (_isUserSeeking) return;
+
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null || !player.isPlaying) return;
 
     final now = DateTime.now();
-    // ★ FIX: Giới hạn tần suất cập nhật (Max ~60fps) để GPU kịp xử lý
-    if (now.difference(_lastUiUpdate).inMilliseconds < 16) return;
+    // ★ TỐI ƯU: Nâng ngưỡng lên 32ms (30fps) để giải phóng Buffer Queue trên các máy yếu
+    if (now.difference(_lastUiUpdate).inMilliseconds < 32) return;
 
     // ★ FIX: Chỉ cập nhật nếu vị trí thực sự thay đổi (tránh spam khi đứng yên)
     if (player.state.position == _lastPosition) return;
@@ -197,13 +207,20 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: RepaintBoundary(
-                      child: RollingWaveformView(
-                        controller: _waveformController,
-                        onSeek: (pos) => player.seek(pos),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          player.togglePlayPause();
-                        },
+                      child: Listener(
+                        onPointerUp: (_) => _isUserSeeking = false,
+                        onPointerCancel: (_) => _isUserSeeking = false,
+                        child: RollingWaveformView(
+                          controller: _waveformController,
+                          onSeek: (pos) {
+                            _isUserSeeking = true;
+                            player.seek(pos);
+                          },
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            player.togglePlayPause();
+                          },
+                        ),
                       ),
                     ),
                   ),

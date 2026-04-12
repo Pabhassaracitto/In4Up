@@ -54,7 +54,14 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   ColorMode _lastColorMode = ColorMode.none;
 
   void _onStateChanged() {
-    if (!mounted) { return; }
+    if (!mounted) {
+      return;
+    }
+
+    // ★ MỚI: Nếu không phải màn hình hiện tại, đừng xử lý logic highlight/rebuild
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
+    if (!isCurrentRoute) return;
+
     // Nếu color mode thay đổi (từ toolbar) → apply/remove highlight
     if (_controller.colorMode != _lastColorMode) {
       _lastColorMode = _controller.colorMode;
@@ -65,8 +72,11 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       }
       _updateFab();
     }
-    setState(() {});
+    // ★ TỐI ƯU: Chỉ gọi setState nếu thực sự cần update UI của Screen
+    // Các thành phần như Toolbar đã lắng nghe controller riêng, không nên rebuild cả Screen.
+    // setState(() {});
   }
+
   void _initMobile() {
     _mobileCtrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -332,12 +342,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   void _showSnack(String msg, {int duration = 3}) {
     final now = DateTime.now();
-    if (_lastSnackbar != null &&
-        now.difference(_lastSnackbar!).inSeconds < 1) {
+    if (_lastSnackbar != null && now.difference(_lastSnackbar!).inSeconds < 1) {
       return;
     }
     _lastSnackbar = now;
-    if (!mounted) { return; }
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: const Color(0xFF1A237E),
@@ -374,8 +385,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                     ? _controller.loadingProgress
                     : null,
                 backgroundColor: Colors.white12,
-                valueColor:
-                    const AlwaysStoppedAnimation(Color(0xFF2196F3)),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFF2196F3)),
                 minHeight: 2,
               )
             : null,
@@ -403,12 +413,18 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           Expanded(
             child: Stack(
               children: [
-                // Chọn WebView theo platform
-                if (Platform.isWindows && _winCtrl != null)
-                  WinWebViewWidget(controller: _winCtrl!)
-                else if (_mobileCtrl != null)
-                  WebViewWidget(controller: _mobileCtrl!)
-                else
+                // ★ TỐI ƯU: Cô lập WebView trong một widget không đổi để tránh Buffer starvation
+                Positioned.fill(
+                  child: Platform.isWindows
+                      ? (_winCtrl != null
+                          ? WinWebViewWidget(controller: _winCtrl!)
+                          : const SizedBox())
+                      : (_mobileCtrl != null
+                          ? WebViewWidget(controller: _mobileCtrl!)
+                          : const SizedBox()),
+                ),
+
+                if (_controller.state == WebReaderState.loading)
                   const Center(
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation(Color(0xFF6C63FF)),
@@ -512,14 +528,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.volume_up,
-                  color: Colors.white, size: 18),
+              child: const Icon(Icons.volume_up, color: Colors.white, size: 18),
             ),
           ),
           const SizedBox(width: 6),
           GestureDetector(
-            onTap: () =>
-                setState(() => _showSelectionBar = false),
+            onTap: () => setState(() => _showSelectionBar = false),
             child: const Icon(Icons.close, color: Colors.white, size: 18),
           ),
         ],

@@ -79,6 +79,13 @@ class _SettingsContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
+                  // ===== EXPERIENCE MODE =====
+                  const _SectionTitle(
+                      title: 'Chế độ trải nghiệm', icon: Icons.auto_awesome),
+                  const SizedBox(height: 12),
+                  _SubModeSelector(tp: tp),
+                  const SizedBox(height: 24),
+
                   // ===== FONT SIZE =====
                   const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
                   const SizedBox(height: 12),
@@ -105,7 +112,8 @@ class _SettingsContent extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // ===== DISPLAY OPTIONS =====
-                  const _SectionTitle(title: 'Hiển thị', icon: Icons.visibility),
+                  const _SectionTitle(
+                      title: 'Hiển thị', icon: Icons.visibility),
                   const SizedBox(height: 12),
                   _DisplayOptions(tp: tp),
 
@@ -566,12 +574,98 @@ class _DisplayOptions extends StatelessWidget {
                 style: TextStyle(color: Colors.white, fontSize: 14)),
             subtitle: Text('Hiện số thứ tự và timestamp',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-            value: true, // TODO: add to provider
+            value: tp.showLineNumbers,
             activeColor: const Color(0xFF2196F3),
-            onChanged: (_) {},
+            onChanged: (_) => tp.toggleLineNumbers(),
+          ),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+          SwitchListTile(
+            title: const Text('Tách dòng thông minh',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text('Tự động tối ưu độ dài câu để dễ đọc',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            value: tp.useAutoSplit,
+            activeColor: const Color(0xFF9C27B0),
+            onChanged: (v) => tp.toggleAutoSplit(v),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SubModeSelector extends StatelessWidget {
+  final TextProvider tp;
+  const _SubModeSelector({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          _SubModeItem(
+            icon: Icons.menu_book,
+            label: 'Chế độ Đọc',
+            isSelected: tp.subMode == ReadSubMode.reading,
+            onTap: () => tp.setSubMode(ReadSubMode.reading),
+          ),
+          _SubModeItem(
+            icon: Icons.record_voice_over,
+            label: 'Chế độ Nghe (TTS)',
+            isSelected: tp.subMode == ReadSubMode.listening,
+            onTap: () => tp.setSubMode(ReadSubMode.listening),
+          ),
+          _SubModeItem(
+            icon: Icons.translate,
+            label: 'Chế độ Dịch',
+            isSelected: tp.subMode == ReadSubMode.translation,
+            onTap: () => tp.setSubMode(ReadSubMode.translation),
+          ),
+          _SubModeItem(
+            icon: Icons.directions_car,
+            label: 'Chế độ Lái xe',
+            isSelected: tp.subMode == ReadSubMode.driving,
+            onTap: () => tp.setSubMode(ReadSubMode.driving),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubModeItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SubModeItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading:
+          Icon(icon, color: isSelected ? const Color(0xFF2196F3) : Colors.grey),
+      title: Text(label,
+          style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey[400],
+              fontSize: 14)),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: Color(0xFF2196F3), size: 18)
+          : null,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onTap: onTap,
+      dense: true,
     );
   }
 }

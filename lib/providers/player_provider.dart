@@ -108,6 +108,7 @@ class PlayerProvider extends ChangeNotifier {
 
   // === SAVED POSITIONS ===
   Timer? _positionSaverTimer;
+  RecentAudio? _pendingRecentUpdate;
 
   // === SEGMENTS ===
   final List<Segment> _segments = [];
@@ -235,12 +236,46 @@ class PlayerProvider extends ChangeNotifier {
     if (now.difference(_lastRecentUpdate).inSeconds < 30) return;
     _lastRecentUpdate = now;
 
-    final audioId = 'local_${_currentSongPath.hashCode}';
+    final normalizedPath = _currentSongPath!.replaceAll('\\', '/');
+    final audioId = 'local_${normalizedPath.toLowerCase().hashCode}';
     _recentAudio.updatePosition(
       audioId,
       position: position,
       totalDuration: _state.duration,
     );
+  }
+
+  void _onStateChanged(PlaybackState state) {
+    final previousPosition = _state.position;
+
+    // Tối ưu: Chỉ notifyListeners khi trạng thái/tốc độ đổi hoặc vị trí nhảy đáng kể (>250ms)
+    // giúp giảm tải GPU Buffer Queue trên Windows/Android yếu
+    bool shouldNotify = state.status != _state.status ||
+        state.speed != _state.speed ||
+        (state.position.inMilliseconds - _state.position.inMilliseconds).abs() >
+            250;
+
+    _state = state;
+
+    // Cập nhật RecentAudio khi duration đã sẵn sàng (Xử lý cho bài mới load)
+    if (_pendingRecentUpdate != null && state.duration > Duration.zero) {
+      final entry = _pendingRecentUpdate!;
+      _pendingRecentUpdate = null;
+      _recentAudio.updatePosition(entry.id,
+          position: Duration.zero, totalDuration: state.duration);
+    }
+
+    if (_isLooping && _loopEnd != null && !_isWaitingGap) {
+      _checkLoopPosition(state.position, previousPosition);
+      if (state.position < previousPosition) shouldNotify = true;
+    }
+
+    if (state.status == PlaybackStatus.playing) {
+      _totalListeningTime += const Duration(milliseconds: 100);
+      _maybeUpdateRecentPosition(state.position);
+    }
+
+    if (shouldNotify) notifyListeners();
   }
 
   // ==================== VIP MODE ====================
@@ -287,6 +322,7 @@ class PlayerProvider extends ChangeNotifier {
       path: path,
       title: title ?? path.split('/').last.split('\\').last,
     );
+    _pendingRecentUpdate = recentEntry;
     // Fire-and-forget — không await để không block playback
     _recentAudio.addOrUpdate(recentEntry);
 

@@ -1,20 +1,24 @@
 // lib/screens/read_mode/read_mode_screen.dart
-// Orchestrator: gọn ~120 dòng, chỉ ghép các widget lại
-
+// Thêm tracking tiến độ đọc vào code hiện tại
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/translation/translation_toolbar.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
-import '../../features/translation/translation_toolbar.dart';
 import 'controllers/read_mode_controller.dart';
+import 'models/recent_file.dart';
+import 'services/recent_files_service.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/text_line_widget.dart';
 
 class ReadModeScreen extends StatefulWidget {
-  const ReadModeScreen({super.key});
+  // ★ THÊM: Nhận RecentFile để biết đang đọc file nào
+  final RecentFile? currentFile;
+
+  const ReadModeScreen({super.key, this.currentFile});
 
   @override
   State<ReadModeScreen> createState() => _ReadModeScreenState();
@@ -29,6 +33,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   // ★ FIX: Lưu reference PlayerProvider để dùng trong dispose()
   PlayerProvider? _playerProviderRef;
+
+  // ★ THÊM: Track progress
+  final _recentService = RecentFilesService();
+  int _lastSavedLine = 0;
 
   @override
   void didChangeDependencies() {
@@ -53,6 +61,28 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       };
       pp.addListener(_playerListener!);
       _controllerInitialized = true;
+    }
+  }
+
+  // ★ THÊM: Lưu tiến độ khi scroll
+  void _onScrollEnd(TextProvider tp) {
+    if (widget.currentFile == null) return;
+    if (tp.lines.isEmpty) return;
+
+    // Ước tính dòng hiện tại dựa trên scroll position
+    final offset = _scrollController.offset;
+    final maxOffset = _scrollController.position.maxScrollExtent;
+    final approxLine =
+        maxOffset > 0 ? ((offset / maxOffset) * tp.lines.length).round() : 0;
+
+    // Chỉ lưu nếu thay đổi đáng kể (tránh write quá nhiều)
+    if ((approxLine - _lastSavedLine).abs() >= 3) {
+      _lastSavedLine = approxLine;
+      _recentService.updateProgress(
+        widget.currentFile!.id,
+        currentLine: approxLine,
+        totalLines: tp.lines.length,
+      );
     }
   }
 
@@ -107,6 +137,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           _controller.setScrolling(true);
         } else if (notification is ScrollEndNotification) {
           _controller.setScrolling(false);
+          // ★ THÊM: Lưu tiến độ khi dừng scroll
+          _onScrollEnd(textProvider);
         }
         return false;
       },

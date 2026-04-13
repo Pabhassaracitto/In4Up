@@ -229,7 +229,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 // LAYER 1: Nút Play trung tâm + skip minimal
                 // Dùng Consumer riêng
                 Consumer<PlayerProvider>(
-                  builder: (_, p, __) => _CorePlayerControls(player: p),
+                  builder: (_, p, __) => _CorePlayerControls(
+                    player: p,
+                    sheetController: _sheetController,
+                  ),
                 ),
 
                 // Spacer để nhường chỗ cho bottom sheet (collapsed)
@@ -509,48 +512,95 @@ class _SongInfoBar extends StatelessWidget {
 
 class _CorePlayerControls extends StatelessWidget {
   final PlayerProvider player;
+  final DraggableScrollableController sheetController;
 
-  const _CorePlayerControls({required this.player});
+  const _CorePlayerControls({
+    required this.player,
+    required this.sheetController,
+  });
+
+  void _toggleSheet(bool expand) {
+    if (!sheetController.isAttached) return;
+    
+    sheetController.animateTo(
+      expand ? 0.55 : 0.10,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutQuart,
+    );
+    HapticFeedback.mediumImpact();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SizedBox(
-        height: 64, // Chiều cao cố định bằng nút Play để Stack tính toán đúng
+        height: 100, // Tăng chiều cao để chứa chỉ báo chevron
         width: double
             .infinity, // ★ FIX: Mở rộng chiều ngang để badge dạt sang 2 bên
         child: Stack(
           alignment: Alignment.center,
+          clipBehavior: Clip.none,
           children: [
-            // CENTER: PLAY / PAUSE
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.mediumImpact();
-                player.togglePlayPause();
-              },
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6C63FF).withOpacity(0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+            // INDICATOR: Ký hiệu ^^ (Double Chevron)
+            Positioned(
+              top: 0,
+              child: GestureDetector(
+                onTap: () => _toggleSheet(true),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.keyboard_double_arrow_up,
+                      size: 20,
+                      color: Colors.white.withOpacity(0.3),
                     ),
+                    const SizedBox(height: 4),
                   ],
                 ),
-                child: Icon(
-                  player.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 32,
+              ),
+            ),
+
+            // CENTER: PLAY / PAUSE
+            Positioned(
+              top: 25,
+              child: GestureDetector(
+                onVerticalDragEnd: (details) {
+                  // Vuốt lên (velocity âm) -> Mở
+                  if (details.primaryVelocity! < -300) {
+                    _toggleSheet(true);
+                  }
+                  // Vuốt xuống (velocity dương) -> Đóng
+                  else if (details.primaryVelocity! > 300) {
+                    _toggleSheet(false);
+                  }
+                },
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  player.togglePlayPause();
+                },
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6C63FF).withOpacity(0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    player.isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
               ),
             ),
@@ -559,6 +609,7 @@ class _CorePlayerControls extends StatelessWidget {
             if (player.isLooping)
               Positioned(
                 left: 24,
+                top: 40,
                 child: GestureDetector(
                   onTap: () {
                     HapticFeedback.selectionClick();

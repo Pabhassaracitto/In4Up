@@ -1,5 +1,22 @@
 // lib/screens/read_mode/widgets/empty_state_widget.dart
+// Thay toàn bộ nội dung cũ bằng redirect sang ReadLibraryScreen
 
+import 'package:flutter/material.dart';
+import 'library_screen.dart';
+
+/// ReadEmptyState giờ chỉ là alias trỏ tới ReadLibraryScreen
+/// Giữ nguyên tên class để không cần sửa read_mode_screen.dart
+class ReadEmptyState extends StatelessWidget {
+  const ReadEmptyState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const ReadLibraryScreen();
+  }
+}
+
+// lib/screens/read_mode/widgets/empty_state_widget.dart
+/*
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +24,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
+import 'library_screen.dart';
 
 class ReadEmptyState extends StatelessWidget {
   const ReadEmptyState({super.key});
@@ -336,3 +354,4 @@ class _ImportCard extends StatelessWidget {
     );
   }
 }
+*/

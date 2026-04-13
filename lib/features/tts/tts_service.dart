@@ -1,15 +1,15 @@
 // lib/features/tts/tts_service.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:just_audio/just_audio.dart';
 
+import 'cache/tts_cache.dart';
+import 'engines/fpt_tts_engine.dart';
 import 'engines/tts_engine.dart';
 import 'engines/google_tts_engine.dart';
-import 'engines/fpt_tts_engine.dart';
-import 'engines/zalo_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
-import 'cache/tts_cache.dart';
+import 'engines/zalo_tts_engine.dart';
 import 'language_detector.dart';
 import 'tts_settings.dart';
 
@@ -47,6 +47,7 @@ class TtsService extends ChangeNotifier {
   // Status
   bool _isSpeaking = false;
   bool _isLoading = false;
+  bool _stopRequested = false;
   String _lastUsedEngine = '';
   String _detectedLanguage = '';
   String? _error;
@@ -476,6 +477,7 @@ class TtsService extends ChangeNotifier {
   Future<void> stop() async {
     _isSpeaking = false;
     _isLoading = false;
+    _stopRequested = true;
     _usingOfflineEngine = false; // ★ FIX: Reset cờ khi stop
     try {
       await _audioPlayer.stop();
@@ -508,14 +510,22 @@ class TtsService extends ChangeNotifier {
     void Function(int currentIndex)? onLineChanged,
   }) async {
     _isSpeaking = true;
+    _stopRequested = false;
     _safeNotify();
 
     for (int i = 0; i < lines.length; i++) {
-      if (!_isSpeaking) break;
+      if (_stopRequested) break;
       onLineChanged?.call(i);
+
       await speak(lines[i]);
+
+      // Đảm bảo trạng thái vẫn đang trong phiên đọc
+      _isSpeaking = true;
+
       await _waitForCompletion();
-      if (_isSpeaking && i < lines.length - 1) {
+      if (_stopRequested) break;
+
+      if (i < lines.length - 1) {
         await Future.delayed(pauseBetween);
       }
     }

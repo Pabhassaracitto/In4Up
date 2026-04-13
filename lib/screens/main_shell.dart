@@ -7,8 +7,8 @@ import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
 import '../providers/player_provider.dart';
-import '../providers/vocabulary_provider.dart';
 import '../providers/vocabulary_bridge.dart';
+import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
@@ -23,11 +23,11 @@ import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
+import 'tools/word_list/stats_dashboard.dart';
+import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
-import 'tools/word_list/timeline_view.dart';
-import 'tools/word_list/stats_dashboard.dart';
 
 const int _kHome = -1;
 
@@ -357,6 +357,14 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 child: _buildCurrentScreen(),
               ),
             ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
+          if (_currentIndex != 1)
             RepaintBoundary(
               child: Consumer<PlayerProvider>(
                 builder: (context, player, _) {
@@ -372,10 +380,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 },
               ),
             ),
-          ],
-        ),
+          _buildBottomNav(),
+        ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 

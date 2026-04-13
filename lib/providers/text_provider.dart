@@ -19,6 +19,8 @@ import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
 
+enum ReadSubMode { reading, listening, translation, driving }
+
 class TextProvider extends ChangeNotifier with TranslationMixin {
   final TtsService _ttsService = TtsService();
   final StorageService _storage = StorageService();
@@ -55,6 +57,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // bool _showTranslation = true; // REMOVED
   bool _showWordTypes = false;
   bool _showLineNumbers = true;
+  bool _useAutoSplit = true; // Mặc định bật tách dòng thông minh
+  ReadSubMode _subMode = ReadSubMode.reading;
+  TextAlign _textAlign = TextAlign.left; // Mặc định căn lề trái
 
   // ==================== GETTERS ====================
   TextDocument? get currentDocument => _currentDocument;
@@ -81,6 +86,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
   bool get showLineNumbers => _showLineNumbers;
+  bool get useAutoSplit => _useAutoSplit;
+  ReadSubMode get subMode => _subMode;
+  TextAlign get textAlign => _textAlign;
 
   // ==================== CONSTRUCTOR ====================
 
@@ -94,7 +102,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     try {
       _fontSize = _storage.getFontSize();
-      _ttsSpeed = _storage.getTtsSpeed();
+
+      // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
+      final savedSpeed = _storage.getTtsSpeed();
+      _ttsSpeed = (savedSpeed == 1.75 || savedSpeed == 0.0) ? 1.0 : savedSpeed;
+      _ttsService.configure(speed: _ttsSpeed);
 
       if (_storage.getShowTranslation()) {
         setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
@@ -108,6 +120,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         (m) => m.name == savedColorMode,
         orElse: () => ColorMode.none,
       );
+
+      // Restore alignment
+      // final savedAlign = _storage.getTextAlign(); // Tạm thời bỏ qua nếu StorageService chưa có
+      // _textAlign = savedAlign == 'center' ? TextAlign.center : TextAlign.left;
 
       // Restore text segments
       final savedSegments = _storage.getAllTextSegments();
@@ -206,8 +222,16 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void _parsePlainText(String content, {String? title}) {
     _fullText = content;
-    final lineStrings =
-        content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+
+    List<String> lineStrings;
+    if (_useAutoSplit) {
+      // Mặc định tách dòng thông minh
+      lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
+    } else {
+      // Hiển thị nguyên bản (theo dòng trong file)
+      lineStrings =
+          content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    }
 
     _lines = lineStrings.asMap().entries.map((entry) {
       return TextItem(
@@ -610,18 +634,25 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     await _ttsService.speak(_selectedText!);
   }
 
-  Future<void> speakAllLines() async {
+  Future<void> speakAllLines({int startIndex = 0}) async {
     if (_lines.isEmpty) return;
+
+    // Dừng mọi tiến trình đang nói cũ
+    await _ttsService.stop();
+
     _isSpeaking = true;
     notifyListeners();
 
-    final lineTexts = _lines.map((l) => l.content).toList();
+    // Lấy danh sách văn bản từ dòng bắt đầu đến hết bài
+    final lineTexts = _lines.sublist(startIndex).map((l) => l.content).toList();
+
     await _ttsService.speakLines(
       lineTexts,
       onLineChanged: (index) {
         // Guard: widget có thể đã unmount
         if (!hasListeners) return;
-        _currentLineIndex = index;
+        _currentLineIndex =
+            startIndex + index; // Cộng thêm offset của startIndex
         notifyListeners();
       },
     );
@@ -877,6 +908,22 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   void toggleLineNumbers() {
     _showLineNumbers = !_showLineNumbers;
     notifyListeners();
+  }
+
+  void setSubMode(ReadSubMode mode) {
+    _subMode = mode;
+    notifyListeners();
+  }
+
+  void setTextAlign(TextAlign align) {
+    _textAlign = align;
+    // _storage.saveTextAlign(align == TextAlign.center ? 'center' : 'left'); // Tạm thời bỏ qua
+    notifyListeners();
+  }
+
+  void toggleAutoSplit(bool value) {
+    _useAutoSplit = value;
+    _parsePlainText(_fullText, title: _currentDocument?.title);
   }
 
   void toggleWordTypes() {

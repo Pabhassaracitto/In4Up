@@ -86,13 +86,6 @@ class _SettingsContent extends StatelessWidget {
                   _SubModeSelector(tp: tp),
                   const SizedBox(height: 24),
 
-                  // ===== ALIGNMENT =====
-                  const _SectionTitle(
-                      title: 'Căn lề văn bản', icon: Icons.format_align_center),
-                  const SizedBox(height: 12),
-                  _AlignmentSelector(tp: tp),
-                  const SizedBox(height: 24),
-
                   // ===== FONT SIZE =====
                   const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
                   const SizedBox(height: 12),
@@ -159,60 +152,6 @@ class _SettingsContent extends StatelessWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _AlignmentSelector extends StatelessWidget {
-  final TextProvider tp;
-  const _AlignmentSelector({required this.tp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          _buildAlignBtn(Icons.format_align_left, 'Trái', TextAlign.left),
-          const SizedBox(width: 8),
-          _buildAlignBtn(Icons.format_align_center, 'Giữa', TextAlign.center),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAlignBtn(IconData icon, String label, TextAlign align) {
-    final isSelected = tp.textAlign == align;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => tp.setTextAlign(align),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF2196F3) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon,
-                  size: 16, color: isSelected ? Colors.white : Colors.grey),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -380,7 +319,10 @@ class _TtsControls extends StatelessWidget {
                   enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
                   onTap: () {
                     Navigator.pop(context);
-                    tp.speakAllLines();
+                    // Phát từ dòng hiện tại thay vì luôn phát từ đầu
+                    tp.speakAllLines(
+                        startIndex:
+                            tp.currentLineIndex >= 0 ? tp.currentLineIndex : 0);
                   },
                 ),
               ),

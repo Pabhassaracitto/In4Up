@@ -48,6 +48,8 @@ class TextLineWidget extends StatelessWidget {
           isCurrentLine: index == tp.currentLineIndex,
           isPlaying: _checkIsPlaying(tp, pp, index),
           colorMode: tp.colorMode,
+          showLineNumbers: tp.showLineNumbers,
+          textAlign: tp.textAlign,
           fontSize: tp.fontSize,
           displayMode: tp.translationDisplayMode,
           isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
@@ -91,7 +93,7 @@ class TextLineWidget extends StatelessWidget {
         } else if (direction == DismissDirection.startToEnd) {
           HapticFeedback.lightImpact();
           tp.setCurrentLine(index);
-          tp.speakCurrentLine();
+          tp.speakAllLines(startIndex: index);
           return false;
         }
         return false;
@@ -163,7 +165,9 @@ class TextLineWidget extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: data.textAlign == TextAlign.center
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
           children: [
             _LineHeader(index: index, data: data),
             const SizedBox(height: 6),
@@ -189,6 +193,7 @@ class TextLineWidget extends StatelessWidget {
     if (data.colorMode == ColorMode.none) {
       return SelectableText(
         data.content,
+        textAlign: data.textAlign,
         style: TextStyle(
           fontSize: data.fontSize,
           color: Colors.white,
@@ -214,11 +219,16 @@ class TextLineWidget extends StatelessWidget {
       );
     }
 
-    return ColoredTextWidget(
-      words: data.analyzedWords,
-      fontSize: data.fontSize,
-      colorMode: data.colorMode,
-      lineIndex: index,
+    return Align(
+      alignment: data.textAlign == TextAlign.center
+          ? Alignment.center
+          : Alignment.centerLeft,
+      child: ColoredTextWidget(
+        words: data.analyzedWords,
+        fontSize: data.fontSize,
+        colorMode: data.colorMode,
+        lineIndex: index,
+      ),
     );
   }
 
@@ -251,29 +261,34 @@ class _LineHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: data.textAlign == TextAlign.center
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: data.isCurrentLine
-                ? const Color(0xFF2196F3).withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            '${index + 1}',
-            style: TextStyle(
+        if (data.showLineNumbers) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
               color: data.isCurrentLine
-                  ? const Color(0xFF2196F3)
-                  : Colors.grey[600],
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+                  ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                color: data.isCurrentLine
+                    ? const Color(0xFF2196F3)
+                    : Colors.grey[600],
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
-        ),
-        if (data.startTime != null) ...[
           const SizedBox(width: 6),
+        ],
+        if (data.startTime != null) ...[
           Icon(
             Icons.access_time,
             size: 10,
@@ -314,6 +329,8 @@ class _LineData {
   final bool isCurrentLine;
   final bool isPlaying;
   final ColorMode colorMode;
+  final bool showLineNumbers;
+  final TextAlign textAlign;
   final double fontSize;
   final TranslationDisplayMode displayMode;
   final bool isSpeaking;
@@ -330,6 +347,8 @@ class _LineData {
     required this.isCurrentLine,
     required this.isPlaying,
     required this.colorMode,
+    required this.showLineNumbers,
+    required this.textAlign,
     required this.fontSize,
     required this.displayMode,
     required this.isSpeaking,
@@ -346,6 +365,8 @@ class _LineData {
         isCurrentLine = false,
         isPlaying = false,
         colorMode = ColorMode.none,
+        showLineNumbers = true,
+        textAlign = TextAlign.left,
         fontSize = 18,
         displayMode = TranslationDisplayMode.hidden,
         isSpeaking = false,
@@ -366,6 +387,8 @@ class _LineData {
         isCurrentLine == other.isCurrentLine &&
         isPlaying == other.isPlaying &&
         colorMode == other.colorMode &&
+        showLineNumbers == other.showLineNumbers &&
+        textAlign == other.textAlign &&
         fontSize == other.fontSize &&
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking;
@@ -379,6 +402,8 @@ class _LineData {
           isCurrentLine,
           isPlaying,
           colorMode,
+          showLineNumbers,
+          textAlign,
           fontSize,
           displayMode,
           isSpeaking,

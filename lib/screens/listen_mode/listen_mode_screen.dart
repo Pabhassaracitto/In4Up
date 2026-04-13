@@ -164,6 +164,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   }
 
   void _onWaveformChange() {
+    // ★ THÊM: Guard tương tự như _onPlayerChange để tránh leak rendering
+    if (!mounted || !_isAppVisible || !ModalRoute.of(context)!.isCurrent)
+      return;
+
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;

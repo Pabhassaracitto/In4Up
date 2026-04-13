@@ -129,7 +129,8 @@ class MiniPlayer extends StatefulWidget {
   State<MiniPlayer> createState() => _MiniPlayerState();
 }
 
-class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
+class _MiniPlayerState extends State<MiniPlayer>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // ★ THAY: 1 controller cho toàn bộ animation
   late final AnimationController _animController;
   late final AnimationController _pulseController;
@@ -139,6 +140,9 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
 
   // ★ THAY: State thay vì bool
   MiniPlayerState _playerState = MiniPlayerState.micro;
+
+  // Trạng thái hiển thị để tắt Blur khi ẩn ứng dụng (Tránh lỗi EGL Windows)
+  bool _isAppVisible = true;
 
   Timer? _sleepDisplayTimer;
   Duration? _displayedSleepRemaining;
@@ -153,6 +157,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _animController = AnimationController(
       duration: MiniPlayerAnimations.normal,
@@ -188,12 +193,15 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   }
 
   @override
-  void didUpdateWidget(MiniPlayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    setState(() {
+      _isAppVisible = state == AppLifecycleState.resumed;
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animController.dispose();
     _pulseController.dispose();
     _rotateController.dispose();
@@ -310,8 +318,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(MiniPlayerDimensions.borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: _buildBlurWrapper(
           child: Material(
             color: Colors.transparent,
             // ★ Dùng SingleChildScrollView để tránh hiện sọc vàng đen khi đang animate height
@@ -359,6 +366,16 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
           ),
         ),
       ),
+    );
+  }
+
+  /// Bọc BackdropFilter khi app đang hiển thị, tắt khi ẩn để tránh lỗi EGL/GPU context
+  Widget _buildBlurWrapper({required Widget child}) {
+    if (!_isAppVisible) return child;
+
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: child,
     );
   }
 }

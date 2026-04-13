@@ -61,40 +61,76 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
   // ── Grouped ──────────────────────────────────────────────────
   List<RecentAudio> get _inProgress =>
       _files.where((f) => f.isInProgress).toList();
-  List<RecentAudio> get _newFiles =>
-      _files.where((f) => f.isNew).toList();
+  List<RecentAudio> get _newFiles => _files.where((f) => f.isNew).toList();
   List<RecentAudio> get _completed =>
       _files.where((f) => f.isCompleted).toList();
 
   // ── Open audio ───────────────────────────────────────────────
   Future<void> _openAudio(RecentAudio audio) async {
-    // Lưu refs TRƯỚC khi await
     final player = context.read<PlayerProvider>();
 
     switch (audio.type) {
       case RecentAudioType.local:
         if (audio.localPath == null) return;
+
         await player.loadSong(
           path: audio.localPath!,
           title: audio.title,
-          autoPlay: true,
+          autoPlay: false, // ★ THAY: false để seek trước khi play
         );
         if (!mounted) return;
+
         // Resume vị trí đã nghe
-        if (audio.lastPosition > Duration.zero) {
+        if (audio.lastPosition > Duration.zero &&
+            audio.lastPosition.inSeconds > 5) {
           await player.seek(audio.lastPosition);
+
+          // Thông báo resume
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(
+                    Icons.history_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tiếp tục từ ${_fmtDuration(audio.lastPosition)}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF6C63FF),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              duration: const Duration(seconds: 2),
+              action: SnackBarAction(
+                label: 'Từ đầu',
+                textColor: Colors.white70,
+                onPressed: () => player.seek(Duration.zero),
+              ),
+            ),
+          );
         }
+
+        // Play sau khi đã seek
+        await player.play();
+
+        if (!mounted) return;
+
         // Cập nhật recent
         await _service.addOrUpdate(
           audio.copyWith(
             lastOpened: DateTime.now(),
-            totalDuration: player.state.duration,
           ),
         );
         break;
 
       case RecentAudioType.youtube:
-        // Hiện snackbar hướng dẫn
         if (!mounted) return;
         _showSnack(
           icon: Icons.swipe_left_alt,
@@ -103,6 +139,15 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
         );
         break;
     }
+  }
+
+// ★ THÊM helper format duration
+  String _fmtDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (h > 0) return '$h:$m:$s';
+    return '$m:$s';
   }
 
   // ── Pick audio file ──────────────────────────────────────────
@@ -173,8 +218,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Text(audio.typeEmoji,
-                      style: const TextStyle(fontSize: 18)),
+                  Text(audio.typeEmoji, style: const TextStyle(fontSize: 18)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -239,15 +283,13 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             Icon(icon, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(message,
-                  style: const TextStyle(color: Colors.white)),
+              child: Text(message, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -434,8 +476,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 700),
               curve: Curves.elasticOut,
-              builder: (_, v, child) =>
-                  Transform.scale(scale: v, child: child),
+              builder: (_, v, child) => Transform.scale(scale: v, child: child),
               child: const Text(
                 '🎧',
                 style: TextStyle(fontSize: 72),
@@ -520,8 +561,7 @@ class _SectionHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),

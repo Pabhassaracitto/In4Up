@@ -1013,10 +1013,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   final List<AnalyzedWord> _savedWords = [];
   List<AnalyzedWord> get savedWords => List.unmodifiable(_savedWords);
 
-  /// Lưu từ vựng (Hỗ trợ cả lưu nhanh và lưu kèm nghĩa tùy chỉnh)
+  /// Lưu từ vựng (Đồng bộ logic với PDF Reader)
   void saveWord(AnalyzedWord word,
       {String? customMeaning, String? customNote}) {
-    // 1. Cập nhật hoặc thêm vào danh sách local của Provider
     final existingIndex = _savedWords.indexWhere((w) => w.word == word.word);
     final updatedWord = word.copyWith(
       meaning: customMeaning ?? word.meaning,
@@ -1028,7 +1027,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       _savedWords.add(updatedWord);
     }
 
-    // 2. Lưu vào Storage local (Tab Đọc)
+    // Lưu local storage cho tab Đọc
     _storage.saveWord(word.word, {
       'word': updatedWord.word,
       'meaning': updatedWord.meaning,

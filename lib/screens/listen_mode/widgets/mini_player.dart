@@ -75,25 +75,35 @@ class MiniPlayerTheme {
 
 /// Standard dimensions
 abstract class MiniPlayerDimensions {
-  static const double collapsedHeight = 72.0;
-  static const double expandedHeight = 340.0;
+  // ★ THÊM: 3 heights
+  static const double microHeight = 52.0;
+  static const double mediumHeight = 88.0;
+  static const double fullHeight = 340.0;
+
+  // Giữ lại cho backward compat
+  static const double collapsedHeight = microHeight;
+  static const double expandedHeight = fullHeight;
+
   static const double borderRadius = 20.0;
-  static const double albumArtSize = 52.0;
+  static const double albumArtSize = 44.0;
   static const double iconSizeSmall = 18.0;
   static const double iconSizeMedium = 24.0;
   static const double iconSizeLarge = 32.0;
   static const double spacing = 12.0;
   static const double paddingHorizontal = 16.0;
-  static const double paddingVertical = 12.0;
+  static const double paddingVertical = 10.0;
 }
 
 /// Standard animation durations
 abstract class MiniPlayerAnimations {
   static const Duration fast = Duration(milliseconds: 150);
-  static const Duration normal = Duration(milliseconds: 300);
+  static const Duration normal = Duration(milliseconds: 280);
   static const Duration slow = Duration(milliseconds: 500);
   static const Curve defaultCurve = Curves.easeInOutCubic;
 }
+
+/// ★ THÊM: Enum 3 trạng thái
+enum MiniPlayerState { micro, medium, full }
 
 // =============================================================================
 // MAIN WIDGET
@@ -120,44 +130,39 @@ class MiniPlayer extends StatefulWidget {
 }
 
 class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
-  late final AnimationController _expandController;
+  // ★ THAY: 1 controller cho toàn bộ animation
+  late final AnimationController _animController;
   late final AnimationController _pulseController;
   late final AnimationController _rotateController;
 
-  late final Animation<double> _expandAnimation;
   late final Animation<double> _fadeAnimation;
-  late final Animation<double> _scaleAnimation;
 
-  bool _isExpanded = false;
+  // ★ THAY: State thay vì bool
+  MiniPlayerState _playerState = MiniPlayerState.micro;
+
   Timer? _sleepDisplayTimer;
   Duration? _displayedSleepRemaining;
+
+  // Heights tương ứng với từng state
+  static const _heights = {
+    MiniPlayerState.micro: MiniPlayerDimensions.microHeight,
+    MiniPlayerState.medium: MiniPlayerDimensions.mediumHeight,
+    MiniPlayerState.full: MiniPlayerDimensions.fullHeight,
+  };
 
   @override
   void initState() {
     super.initState();
-    _isExpanded = widget.initiallyExpanded;
 
-    _expandController = AnimationController(
+    _animController = AnimationController(
       duration: MiniPlayerAnimations.normal,
       vsync: this,
     );
 
-    _expandAnimation = CurvedAnimation(
-      parent: _expandController,
-      curve: MiniPlayerAnimations.defaultCurve,
-    );
-
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _expandController,
+        parent: _animController,
         curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _expandController,
-        curve: MiniPlayerAnimations.defaultCurve,
       ),
     );
 
@@ -171,8 +176,9 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
       vsync: this,
     );
 
-    if (_isExpanded) {
-      _expandController.value = 1.0;
+    if (widget.initiallyExpanded) {
+      _playerState = MiniPlayerState.full;
+      _animController.value = 1.0;
     }
 
     _sleepDisplayTimer = Timer.periodic(
@@ -184,21 +190,11 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(MiniPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initiallyExpanded != oldWidget.initiallyExpanded) {
-      setState(() {
-        _isExpanded = widget.initiallyExpanded;
-      });
-      if (_isExpanded) {
-        _expandController.forward();
-      } else {
-        _expandController.reverse();
-      }
-    }
   }
 
   @override
   void dispose() {
-    _expandController.dispose();
+    _animController.dispose();
     _pulseController.dispose();
     _rotateController.dispose();
     _sleepDisplayTimer?.cancel();
@@ -216,20 +212,38 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
     }
   }
 
-  void _toggleExpand() {
+  // ★ THAY: Toggle theo vòng micro → medium → full → micro
+  void _cycleState() {
     HapticFeedback.selectionClick();
-
     setState(() {
-      _isExpanded = !_isExpanded;
+      switch (_playerState) {
+        case MiniPlayerState.micro:
+          _playerState = MiniPlayerState.medium;
+          _animController.animateTo(
+            0.35,
+            duration: MiniPlayerAnimations.normal,
+            curve: MiniPlayerAnimations.defaultCurve,
+          );
+          break;
+        case MiniPlayerState.medium:
+          _playerState = MiniPlayerState.full;
+          _animController.animateTo(
+            1.0,
+            duration: MiniPlayerAnimations.normal,
+            curve: MiniPlayerAnimations.defaultCurve,
+          );
+          break;
+        case MiniPlayerState.full:
+          _playerState = MiniPlayerState.micro;
+          _animController.animateTo(
+            0.0,
+            duration: MiniPlayerAnimations.normal,
+            curve: MiniPlayerAnimations.defaultCurve,
+          );
+          break;
+      }
     });
-
-    if (_isExpanded) {
-      _expandController.forward();
-    } else {
-      _expandController.reverse();
-    }
-
-    widget.onExpandChanged?.call(_isExpanded);
+    widget.onExpandChanged?.call(_playerState == MiniPlayerState.full);
   }
 
   void _handlePlayStateChange(bool isPlaying) {
@@ -243,6 +257,9 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
     }
   }
 
+  // ★ Target height theo state
+  double get _targetHeight => _heights[_playerState]!;
+
   @override
   Widget build(BuildContext context) {
     // Dùng Consumer để lắng nghe mọi thay đổi (isPlaying, position, mode...)
@@ -255,21 +272,12 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
           _handlePlayStateChange(player.isPlaying);
         });
 
-        return AnimatedBuilder(
-          animation: _expandAnimation,
-          builder: (context, child) {
-            final height = lerpDouble(
-              MiniPlayerDimensions.collapsedHeight,
-              MiniPlayerDimensions.expandedHeight,
-              _expandAnimation.value,
-            )!;
-
-            return Container(
-              height: height,
-              margin: widget.margin,
-              child: _buildPlayerContainer(player, theme),
-            );
-          },
+        return AnimatedContainer(
+          duration: MiniPlayerAnimations.normal,
+          curve: MiniPlayerAnimations.defaultCurve,
+          height: _targetHeight,
+          margin: widget.margin,
+          child: _buildPlayerContainer(player, theme),
         );
       },
     );
@@ -287,15 +295,15 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
         boxShadow: widget.showShadow
             ? [
                 BoxShadow(
-                  color: theme.primaryColor.withValues(alpha: 0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: theme.primaryColor.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                   spreadRadius: -4,
                 ),
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ]
             : null,
@@ -306,36 +314,456 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Material(
             color: Colors.transparent,
-            child: Column(
-              children: [
-                _MiniPlayerHeader(
-                  player: player,
-                  theme: theme,
-                  isExpanded: _isExpanded,
-                  expandAnimation: _expandAnimation,
-                  rotateController: _rotateController,
-                  pulseController: _pulseController,
-                  onTap: widget.onTap,
-                  onToggleExpand: _toggleExpand,
-                ),
-                Expanded(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: _isExpanded || _expandAnimation.value > 0
-                          ? _MiniPlayerExpandedContent(
-                              player: player,
-                              theme: theme,
-                            )
-                          : const SizedBox.shrink(),
+            // ★ Dùng SingleChildScrollView để tránh hiện sọc vàng đen khi đang animate height
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  // ── State 0: Micro — chỉ controls ──────────────
+                  if (_playerState == MiniPlayerState.micro)
+                    _MicroBar(
+                      player: player,
+                      theme: theme,
+                      onCycle: _cycleState,
                     ),
-                  ),
-                ),
-              ],
+
+                  // ── State 1: Medium — info + controls ──────────
+                  if (_playerState == MiniPlayerState.medium ||
+                      _playerState == MiniPlayerState.full)
+                    _MediumBar(
+                      player: player,
+                      theme: theme,
+                      pulseController: _pulseController,
+                      rotateController: _rotateController,
+                      onCycle: _cycleState,
+                      isFull: _playerState == MiniPlayerState.full,
+                    ),
+
+                  // ── State 2: Full — Phần mở rộng ─────────────
+                  if (_playerState == MiniPlayerState.full)
+                    SizedBox(
+                      // Chiều cao cố định = Full - Medium để không gây overflow lỗi
+                      height: MiniPlayerDimensions.fullHeight -
+                          MiniPlayerDimensions.mediumHeight,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: _MiniPlayerExpandedContent(
+                          player: player,
+                          theme: theme,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// ★ MỚI: MICRO BAR — State 0
+// =============================================================================
+
+class _MicroBar extends StatelessWidget {
+  final PlayerProvider player;
+  final MiniPlayerTheme theme;
+  final VoidCallback onCycle;
+
+  const _MicroBar({
+    required this.player,
+    required this.theme,
+    required this.onCycle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: MiniPlayerDimensions.microHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: MiniPlayerDimensions.paddingHorizontal,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _MicroBtn(
+              icon: Icons.replay_10,
+              onTap: () => player.replay10(),
+            ),
+            _MicroPlayBtn(
+              isPlaying: player.isPlaying,
+              theme: theme,
+              onTap: () => player.togglePlayPause(),
+            ),
+            _MicroBtn(
+              icon: Icons.forward_10,
+              onTap: () => player.forward10(),
+            ),
+            _CycleButton(
+              state: MiniPlayerState.micro,
+              onTap: onCycle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// ★ MỚI: MEDIUM BAR — State 1 + header của State 2
+// =============================================================================
+
+class _MediumBar extends StatelessWidget {
+  final PlayerProvider player;
+  final MiniPlayerTheme theme;
+  final AnimationController pulseController;
+  final AnimationController rotateController;
+  final VoidCallback onCycle;
+  final bool isFull;
+
+  const _MediumBar({
+    required this.player,
+    required this.theme,
+    required this.pulseController,
+    required this.rotateController,
+    required this.onCycle,
+    this.isFull = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: MiniPlayerDimensions.mediumHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: MiniPlayerDimensions.paddingHorizontal,
+          vertical: 6,
+        ),
+        child: Row(
+          children: [
+            _SmallAlbumArt(
+              theme: theme,
+              isPlaying: player.isPlaying,
+              pulseController: pulseController,
+              rotateController: rotateController,
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: _MediumInfo(player: player)),
+            const SizedBox(width: 8),
+            _MicroBtn(
+              icon: Icons.replay_10,
+              onTap: () => player.replay10(),
+            ),
+            _MicroPlayBtn(
+              isPlaying: player.isPlaying,
+              theme: theme,
+              size: 36,
+              onTap: () => player.togglePlayPause(),
+            ),
+            _MicroBtn(
+              icon: Icons.forward_10,
+              onTap: () => player.forward10(),
+            ),
+            const SizedBox(width: 4),
+            _CycleButton(
+              state: isFull ? MiniPlayerState.full : MiniPlayerState.medium,
+              onTap: onCycle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// ★ MỚI: CYCLE BUTTON
+// =============================================================================
+
+class _CycleButton extends StatelessWidget {
+  final MiniPlayerState state;
+  final VoidCallback onTap;
+
+  const _CycleButton({required this.state, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: MiniPlayerAnimations.fast,
+            transitionBuilder: (child, anim) => RotationTransition(
+              turns: Tween(begin: 0.25, end: 0.0).animate(anim),
+              child: FadeTransition(opacity: anim, child: child),
+            ),
+            child: Icon(
+              _icon,
+              key: ValueKey(state),
+              color: Colors.white.withValues(alpha: 0.9),
+              size: 18,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData get _icon {
+    switch (state) {
+      case MiniPlayerState.micro:
+        return Icons.keyboard_arrow_up_rounded;
+      case MiniPlayerState.medium:
+        return Icons.keyboard_double_arrow_up_rounded;
+      case MiniPlayerState.full:
+        return Icons.keyboard_arrow_down_rounded;
+    }
+  }
+}
+
+// =============================================================================
+// ★ MỚI: SUB-WIDGETS
+// =============================================================================
+
+class _MicroBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _MicroBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Icon(
+          icon,
+          size: 22,
+          color: Colors.white.withValues(alpha: 0.88),
+        ),
+      ),
+    );
+  }
+}
+
+class _MicroPlayBtn extends StatelessWidget {
+  final bool isPlaying;
+  final MiniPlayerTheme theme;
+  final double size;
+  final VoidCallback onTap;
+
+  const _MicroPlayBtn({
+    required this.isPlaying,
+    required this.theme,
+    this.size = 40,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap();
+      },
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          color: theme.primaryColor,
+          size: size * 0.55,
+        ),
+      ),
+    );
+  }
+}
+
+class _SmallAlbumArt extends StatelessWidget {
+  final MiniPlayerTheme theme;
+  final bool isPlaying;
+  final AnimationController pulseController;
+  final AnimationController rotateController;
+
+  const _SmallAlbumArt({
+    required this.theme,
+    required this.isPlaying,
+    required this.pulseController,
+    required this.rotateController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: pulseController,
+      builder: (_, __) {
+        return Container(
+          width: MiniPlayerDimensions.albumArtSize,
+          height: MiniPlayerDimensions.albumArtSize,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+            boxShadow: isPlaying
+                ? [
+                    BoxShadow(
+                      color: theme.accentColor.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: RotationTransition(
+              turns: isPlaying
+                  ? Tween(begin: 0.0, end: 1.0).animate(rotateController)
+                  : const AlwaysStoppedAnimation(0),
+              child: Icon(
+                theme.modeIcon,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MediumInfo extends StatelessWidget {
+  final PlayerProvider player;
+  const _MediumInfo({required this.player});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center, // ★ Căn giữa Column
+      children: [
+        Text(
+          player.currentSongTitle ?? 'Unknown',
+          textAlign: TextAlign.center, // ★ Căn giữa text khi xuống dòng
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.1,
+          ),
+          maxLines: 2, // Cho phép xuống dòng nếu tiêu đề quá dài
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 3),
+        Row(
+          mainAxisAlignment:
+              MainAxisAlignment.center, // ★ Căn giữa các thông số
+          children: [
+            Text(
+              _fmt(player.state.position),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.65),
+                fontSize: 11,
+              ),
+            ),
+            Text(
+              ' / ${_fmt(player.state.duration)}',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 11,
+              ),
+            ),
+            if (player.state.speed != 1.0) ...[
+              const SizedBox(width: 6),
+              _Chip(
+                label: '${player.state.speed.toStringAsFixed(2)}x',
+                color: Colors.orange,
+              ),
+            ],
+            if (player.isLooping) ...[
+              const SizedBox(width: 4),
+              _Chip(
+                label: player.maxLoopCount > 0
+                    ? '${player.loopCount}/${player.maxLoopCount}'
+                    : '∞',
+                color: const Color(0xFF4CAF50),
+                icon: Icons.loop,
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData? icon;
+
+  const _Chip({required this.label, required this.color, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 9, color: color),
+            const SizedBox(width: 2),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -369,61 +797,57 @@ class _MiniPlayerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: MiniPlayerDimensions.collapsedHeight,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: MiniPlayerDimensions.paddingHorizontal,
-          ),
-          child: Row(
-            children: [
-              _AlbumArtWidget(
-                mode: player.currentMode,
-                isPlaying: player.isPlaying,
-                theme: theme,
-                rotateController: rotateController,
-                pulseController: pulseController,
-              ),
-              const SizedBox(width: MiniPlayerDimensions.spacing),
-              Expanded(
-                child: _SongInfoWidget(
-                  title: player.currentSongTitle ?? 'Unknown',
-                  artist: player.currentSongArtist,
-                  position: player.state.position,
-                  duration: player.state.duration,
-                  isLooping: player.isLooping,
-                  loopCount: player.loopCount,
-                  maxLoopCount: player.maxLoopCount,
-                  speed: player.state.speed,
-                  isWaitingGap: player.isWaitingGap,
+        height: MiniPlayerDimensions.collapsedHeight,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: MiniPlayerDimensions.paddingHorizontal,
+            ),
+            child: Row(
+              children: [
+                _AlbumArtWidget(
+                  mode: player.currentMode,
+                  isPlaying: player.isPlaying,
                   theme: theme,
+                  rotateController: rotateController,
+                  pulseController: pulseController,
                 ),
-              ),
-              const SizedBox(width: 8),
-              _PlayControlsWidget(
-                isPlaying: player.isPlaying,
-                theme: theme,
-                onPlayPause: () => player.togglePlayPause(),
-                onPrevious: () => player.replay10(),
-                onNext: () => player.forward10(),
-              ),
-              _ExpandButton(
-                isExpanded: isExpanded,
-                expandAnimation: expandAnimation,
-                onTap: onToggleExpand,
-              ),
-            ],
+                const SizedBox(width: MiniPlayerDimensions.spacing),
+                Expanded(
+                  child: _SongInfoWidget(
+                    title: player.currentSongTitle ?? 'Unknown',
+                    artist: player.currentSongArtist,
+                    position: player.state.position,
+                    duration: player.state.duration,
+                    isLooping: player.isLooping,
+                    loopCount: player.loopCount,
+                    maxLoopCount: player.maxLoopCount,
+                    speed: player.state.speed,
+                    isWaitingGap: player.isWaitingGap,
+                    theme: theme,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _PlayControlsWidget(
+                  isPlaying: player.isPlaying,
+                  theme: theme,
+                  onPlayPause: () => player.togglePlayPause(),
+                  onPrevious: () => player.replay10(),
+                  onNext: () => player.forward10(),
+                ),
+                const SizedBox(width: 8),
+                _ExpandButton(
+                  isExpanded: isExpanded,
+                  expandAnimation: expandAnimation,
+                  onTap: onToggleExpand,
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }
-
-// =============================================================================
-// ALBUM ART WIDGET
-// =============================================================================
 
 class _AlbumArtWidget extends StatelessWidget {
   final VipMode mode;
@@ -533,10 +957,6 @@ class _AlbumArtWidget extends StatelessWidget {
     ));
   }
 }
-
-// =============================================================================
-// SONG INFO WIDGET
-// =============================================================================
 
 class _SongInfoWidget extends StatelessWidget {
   final String title;
@@ -695,10 +1115,6 @@ class _SongInfoWidget extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// EXPAND BUTTON
-// =============================================================================
-
 class _ExpandButton extends StatelessWidget {
   final bool isExpanded;
   final Animation<double> expandAnimation;
@@ -732,10 +1148,6 @@ class _ExpandButton extends StatelessWidget {
     );
   }
 }
-
-// =============================================================================
-// PULSING DOT WIDGET
-// =============================================================================
 
 class _PulsingDot extends StatefulWidget {
   final Color color;
@@ -785,10 +1197,6 @@ class _PulsingDotState extends State<_PulsingDot>
     );
   }
 }
-
-// =============================================================================
-// PLAY CONTROLS WIDGET
-// =============================================================================
 
 class _PlayControlsWidget extends StatelessWidget {
   final bool isPlaying;
@@ -947,10 +1355,6 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
   }
 }
 
-// =============================================================================
-// EXPANDED CONTENT
-// =============================================================================
-
 class _MiniPlayerExpandedContent extends StatelessWidget {
   final PlayerProvider player;
   final MiniPlayerTheme theme;
@@ -973,24 +1377,24 @@ class _MiniPlayerExpandedContent extends StatelessWidget {
             loopStart: player.loopStart,
             loopEnd: player.loopEnd,
             isLooping: player.isLooping,
-            onSeek: (position) => player.seek(position),
+            onSeek: (pos) => player.seek(pos),
             theme: theme,
           ),
           const SizedBox(height: 16),
           _SpeedControlWidget(
             speed: player.state.speed,
-            onSpeedChanged: (speed) => player.setSpeed(speed),
+            onSpeedChanged: (s) => player.setSpeed(s),
             theme: theme,
           ),
           const SizedBox(height: 16),
-          if (player.isLooping || player.loopStart != null)
+          if (player.isLooping || player.loopStart != null) ...[
             _GapControlWidget(
               gapDuration: player.gapDuration,
-              onGapChanged: (gap) => player.setGapDuration(gap),
+              onGapChanged: (g) => player.setGapDuration(g),
               theme: theme,
             ),
-          if (player.isLooping || player.loopStart != null)
             const SizedBox(height: 16),
+          ],
           _QuickActionsWidget(
             player: player,
             theme: theme,

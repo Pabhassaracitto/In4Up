@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 enum RecentAudioType { local, youtube }
 
 class RecentAudio {
@@ -97,9 +95,8 @@ class RecentAudio {
       ),
       localPath: json['localPath'] as String?,
       youtubeUrl: json['youtubeUrl'] as String?,
-      lastOpened:
-          DateTime.tryParse(json['lastOpened'] as String? ?? '') ??
-              DateTime.now(),
+      lastOpened: DateTime.tryParse(json['lastOpened'] as String? ?? '') ??
+          DateTime.now(),
       totalDuration: Duration(
         milliseconds: json['totalDuration'] as int? ?? 0,
       ),
@@ -136,15 +133,15 @@ class RecentAudio {
     String? title,
     Duration totalDuration = Duration.zero,
   }) {
-    final name = path.split('/').last.split('\\').last;
-    final nameNoExt = name.contains('.')
-        ? name.substring(0, name.lastIndexOf('.'))
-        : name;
+    final normalizedPath = path.replaceAll('\\', '/');
+    final name = normalizedPath.split('/').last;
+    final nameNoExt =
+        name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
     return RecentAudio(
-      id: 'local_${path.hashCode}',
+      id: 'local_${normalizedPath.toLowerCase().hashCode}',
       title: title ?? nameNoExt,
       type: RecentAudioType.local,
-      localPath: path,
+      localPath: normalizedPath,
       lastOpened: DateTime.now(),
       totalDuration: totalDuration,
       thumbnailEmoji: '🎵',

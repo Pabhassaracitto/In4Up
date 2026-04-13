@@ -13,6 +13,7 @@ import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
 import 'library_add_sheet.dart';
 import 'recent_file_card.dart';
+import 'cloud_picker_sheet.dart';
 
 class ReadLibraryScreen extends StatefulWidget {
   const ReadLibraryScreen({super.key});
@@ -210,12 +211,15 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   }
 
   // ── Handler: cloud ───────────────────────────────────────────
-  void _handleOpenCloud() {
-    _showSnack(
-      icon: Icons.swipe_right_alt,
-      message: 'Vuốt từ trái → để mở Thư viện Cloud',
-      color: const Color(0xFF1565C0),
-    );
+  Future<void> _handleOpenCloud() async {
+    // Mở CloudPickerSheet
+    final loaded = await CloudPickerSheet.show(context);
+    if (!mounted) return;
+
+    // Nếu đã load thành công → reload list
+    if (loaded) {
+      await _load();
+    }
   }
 
   // ── Manual input dialog ──────────────────────────────────────

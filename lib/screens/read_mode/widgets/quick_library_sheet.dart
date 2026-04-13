@@ -12,6 +12,9 @@ import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
+import '../../../services/text_library_service.dart';
+import '../../../providers/text_provider.dart';
+import 'cloud_picker_sheet.dart';
 
 class QuickLibrarySheet extends StatefulWidget {
   const QuickLibrarySheet({super.key});
@@ -85,25 +88,33 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
         break;
 
       case RecentFileType.cloud:
-        // Gợi ý mở TextLibraryDrawer
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.swipe_right_alt, color: Colors.white, size: 16),
-                SizedBox(width: 8),
-                Text('Vuốt từ trái → để mở Thư viện Cloud'),
-              ],
-            ),
-            backgroundColor: const Color(0xFF1565C0),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+
+        // Đóng QuickLibrarySheet trước
+        Navigator.pop(context);
+
+        // Mở CloudPickerSheet với cloudId được lọc sẵn
+        if (file.cloudId != null) {
+          // Load trực tiếp từ Firestore theo id
+          final svc = TextLibraryService();
+          final entry = await svc.getById(file.cloudId!);
+          if (!mounted) return;
+
+          if (entry != null) {
+            final tp = context.read<TextProvider>();
+            tp.loadFromString(entry.content, title: entry.title);
+
+            // Cập nhật recent
+            await _service.addOrUpdate(
+              file.copyWith(lastOpened: DateTime.now()),
+            );
+          } else {
+            // Entry bị xóa khỏi cloud → mở CloudPickerSheet để chọn lại
+            if (mounted) {
+              CloudPickerSheet.show(context);
+            }
+          }
+        }
         break;
     }
   }

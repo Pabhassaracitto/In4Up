@@ -86,13 +86,13 @@ class LibraryAddSheet extends StatelessWidget {
 
           // ── Option 1: Nhập tay ──────────────────────────────
           _OptionTile(
-            icon: Icons.edit_note_rounded,
-            label: 'Nhập / dán văn bản',
-            description: 'Gõ tay hoặc paste từ clipboard',
-            color: const Color(0xFFFF9800),
+            icon: Icons.cloud_download_rounded,
+            label: 'Thư viện Cloud',
+            description: 'Chọn từ văn bản đã lưu', // ← sửa text
+            color: const Color(0xFF2196F3),
             onTap: () {
               Navigator.pop(context);
-              onAddManualText();
+              onOpenCloud();
             },
           ),
           const SizedBox(height: 10),

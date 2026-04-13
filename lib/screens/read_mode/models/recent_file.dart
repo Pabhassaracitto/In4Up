@@ -1,7 +1,5 @@
 // lib/screens/read_mode/models/recent_file.dart
 
-import 'dart:convert';
-
 enum RecentFileType { localText, localPdf, cloud }
 
 class RecentFile {
@@ -132,15 +130,16 @@ class RecentFile {
 
   /// Từ file text local (.txt / .lrc / .srt)
   factory RecentFile.fromLocalText(String path) {
-    final name = path.split('/').last.split('\\').last;
+    final normalizedPath = path.replaceAll('\\', '/');
+    final name = normalizedPath.split('/').last;
     final title =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
     return RecentFile(
-      id: 'local_${path.hashCode}',
+      id: 'local_${normalizedPath.toLowerCase().hashCode}',
       title: title,
-      subtitle: path,
+      subtitle: normalizedPath,
       type: RecentFileType.localText,
-      localPath: path,
+      localPath: normalizedPath,
       lastOpened: DateTime.now(),
       thumbnailEmoji: '📝',
     );
@@ -148,15 +147,16 @@ class RecentFile {
 
   /// Từ file PDF local
   factory RecentFile.fromLocalPdf(String path) {
-    final name = path.split('/').last.split('\\').last;
+    final normalizedPath = path.replaceAll('\\', '/');
+    final name = normalizedPath.split('/').last;
     final title =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
     return RecentFile(
-      id: 'pdf_${path.hashCode}',
+      id: 'pdf_${normalizedPath.toLowerCase().hashCode}',
       title: title,
-      subtitle: path,
+      subtitle: normalizedPath,
       type: RecentFileType.localPdf,
-      localPath: path,
+      localPath: normalizedPath,
       lastOpened: DateTime.now(),
       thumbnailEmoji: '📄',
     );

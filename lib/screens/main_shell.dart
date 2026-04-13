@@ -371,11 +371,12 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   if (player.currentSongPath == null) {
                     return const SizedBox.shrink();
                   }
-                  return GestureDetector(
+                  // ★ Không cần GestureDetector nữa
+                  // MiniPlayer tự xử lý cycle state
+                  // Chỉ navigate to Listen khi ở Home và tap vào play area
+                  return MiniPlayer(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                     onTap: _isHome ? () => _navigateTo(1) : null,
-                    child: const MiniPlayer(
-                      margin: EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    ),
                   );
                 },
               ),
@@ -388,71 +389,136 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   Widget _buildAppBar() {
     final titles = {
-      0: '📖 Chế độ Đọc',
-      1: '🎧 Chế độ Nghe',
-      2: '💡 Chế độ Hiểu',
-      3: '🧠 Vườn Trí Nhớ',
+      0: 'Chế độ Đọc',
+      1: 'Chế độ Nghe',
+      2: 'Chế độ Hiểu',
+      3: 'Vườn Trí Nhớ',
     };
 
+    final tabColors = {
+      0: const Color(0xFF2196F3),
+      1: const Color(0xFF6C63FF),
+      2: const Color(0xFFFFB300),
+      3: const Color(0xFF4CAF50),
+    };
+
+    final String titleText =
+        _isHome ? 'VipSound' : (titles[_currentIndex] ?? 'VipSound');
+
+    final Color titleColor =
+        _isHome ? Colors.white : (tabColors[_currentIndex] ?? Colors.white);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
           bottom: BorderSide(
             color: _isHome
                 ? Colors.white.withValues(alpha: 0.06)
-                : _currentColor.withValues(alpha: 0.2),
+                : titleColor.withValues(alpha: 0.2),
           ),
         ),
       ),
       child: Row(
         children: [
-          if (!_isHome) ...[
-            _AppBarIconButton(
-              icon: Icons.menu_book,
-              color: const Color(0xFF2196F3),
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            const SizedBox(width: 12),
-          ],
+          // ── Trái: Text Library button ──────────────────────────
+          _LibraryButton(
+            icon: Icons.menu_book_rounded,
+            color: const Color(0xFF2196F3),
+            tooltip: 'Thư viện văn bản',
+            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+
+          // ── Giữa: Tab title ────────────────────────────────────
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _isHome ? 'VipSound' : (titles[_currentIndex] ?? 'VipSound'),
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: _isHome ? Colors.white : _currentColor,
+            child: GestureDetector(
+              // Tap vào title khi ở Home → không làm gì
+              // Tap khi ở tab → cũng không làm gì (title thuần display)
+              onTap: () {},
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon + tên tab
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      _isHome ? '🎵 VipSound' : _tabEmoji + titleText,
+                      key: ValueKey(_currentIndex),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: _isHome ? 18 : 15,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
                   ),
-                ),
-                Consumer<PlayerProvider>(
-                  builder: (context, player, _) {
-                    if (player.currentSongTitle == null) {
-                      return const SizedBox.shrink();
-                    }
-                    return Text(
-                      player.currentSongTitle!,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  },
-                ),
-              ],
+                  // Song đang phát (nhỏ bên dưới)
+                  Consumer<PlayerProvider>(
+                    builder: (_, player, __) {
+                      if (player.currentSongTitle == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.music_note,
+                              size: 9,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                player.currentSongTitle!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-          _AppBarIconButton(
-            icon: Icons.library_music,
+
+          // ── Phải: Audio Library button ─────────────────────────
+          _LibraryButton(
+            icon: Icons.library_music_rounded,
             color: const Color(0xFF6C63FF),
+            tooltip: 'Thư viện âm thanh',
             onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
       ),
     );
+  }
+
+// ★ THÊM: Helper lấy emoji theo tab
+  String get _tabEmoji {
+    switch (_currentIndex) {
+      case 0:
+        return '📖 ';
+      case 1:
+        return '🎧 ';
+      case 2:
+        return '💡 ';
+      case 3:
+        return '🧠 ';
+      default:
+        return '';
+    }
   }
 
   Widget _buildBottomNav() {
@@ -722,6 +788,63 @@ class _AppBarIconButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
+      ),
+    );
+  }
+}
+
+// ── Library Button — dùng cho cả Text và Audio library ───────
+class _LibraryButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _LibraryButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: color.withValues(alpha: 0.25),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ≡ menu lines
+              Icon(
+                Icons.menu_rounded,
+                size: 13,
+                color: color.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 4),
+              // Main icon
+              Icon(
+                icon,
+                size: 18,
+                color: color,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

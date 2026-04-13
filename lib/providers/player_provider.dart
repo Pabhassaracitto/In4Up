@@ -8,10 +8,11 @@ import 'package:flutter/foundation.dart';
 import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
-import '../services/storage_service.dart';
+import '../screens/listen_mode/models/recent_audio.dart';
 // ★ THÊM import
 import '../screens/listen_mode/services/recent_audio_service.dart';
-import '../screens/listen_mode/models/recent_audio.dart';
+import '../services/storage_service.dart';
+import 'text_provider.dart'; // Import TextProvider
 
 // ... giữ nguyên enum VipMode, ModeSettings ...
 
@@ -76,6 +77,7 @@ class PlayerProvider extends ChangeNotifier {
   final AudioPlayerService _audioService = AudioPlayerService();
   final StorageService _storage = StorageService();
   // ★ THÊM
+  TextProvider? _textProvider; // Thêm tham chiếu đến TextProvider
   final RecentAudioService _recentAudio = RecentAudioService();
 
   // === PLAYBACK STATE ===
@@ -182,6 +184,11 @@ class PlayerProvider extends ChangeNotifier {
 
     _sessionStartTime = DateTime.now();
     _restoreFromStorage();
+  }
+
+  // Setter để gán TextProvider
+  void setTextProvider(TextProvider textProvider) {
+    _textProvider = textProvider;
   }
 
   Future<void> _restoreFromStorage() async {
@@ -359,10 +366,28 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> togglePlayPause() async {
-    if (isPlaying) {
-      await pause();
+    // Nếu đang ở chế độ đọc (English hoặc Buddhism) và có TextProvider
+    if ((_currentMode == VipMode.english || _currentMode == VipMode.buddhism) &&
+        _textProvider != null) {
+      if (_textProvider!.isSpeaking) {
+        await _textProvider!.stopSpeaking();
+        // Cập nhật trạng thái isPlaying của PlayerProvider
+        // (dù không phát audio, nhưng UI có thể lắng nghe trạng thái này)
+        await pause();
+      } else {
+        // Bắt đầu đọc từ dòng hiện tại, hoặc từ đầu nếu chưa đọc gì
+        int startIndex = _textProvider!.currentLineIndex;
+        if (startIndex == -1) startIndex = 0; // Bắt đầu từ dòng đầu tiên
+        await _textProvider!.speakAllLines(startIndex: startIndex);
+        // Cập nhật trạng thái isPlaying của PlayerProvider
+        await play();
+      }
     } else {
-      await play();
+      // Logic cũ cho chế độ nghe nhạc
+      if (isPlaying)
+        await pause();
+      else
+        await play();
     }
   }
 

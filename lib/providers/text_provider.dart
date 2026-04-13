@@ -640,24 +640,24 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     // Dừng mọi tiến trình đang nói cũ
     await _ttsService.stop();
 
+    // Đảm bảo cờ _isSpeaking được đặt trước khi bắt đầu vòng lặp
     _isSpeaking = true;
     notifyListeners();
 
-    // Lấy danh sách văn bản từ dòng bắt đầu đến hết bài
-    final lineTexts = _lines.sublist(startIndex).map((l) => l.content).toList();
-
-    await _ttsService.speakLines(
-      lineTexts,
-      onLineChanged: (index) {
-        // Guard: widget có thể đã unmount
-        if (!hasListeners) return;
-        _currentLineIndex =
-            startIndex + index; // Cộng thêm offset của startIndex
-        notifyListeners();
-      },
-    );
+    for (int i = startIndex; i < _lines.length; i++) {
+      if (!_isSpeaking) {
+        // Kiểm tra nếu stopSpeaking được gọi từ bên ngoài
+        break;
+      }
+      _currentLineIndex = i;
+      notifyListeners(); // Thông báo để UI highlight dòng hiện tại
+      await _ttsService.speak(_lines[i].content);
+      // Tùy chọn: Thêm một khoảng dừng nhỏ giữa các dòng để dễ đọc hơn
+      // await Future.delayed(const Duration(milliseconds: 200));
+    }
 
     _isSpeaking = false;
+    _currentLineIndex = -1; // Reset sau khi hoàn thành
     notifyListeners();
   }
 
@@ -1013,57 +1013,64 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   final List<AnalyzedWord> _savedWords = [];
   List<AnalyzedWord> get savedWords => List.unmodifiable(_savedWords);
 
-  void saveWord(AnalyzedWord word) {
-    if (!_savedWords.any((w) => w.word == word.word)) {
-      _savedWords.add(word);
+  /// Lưu từ vựng (Hỗ trợ cả lưu nhanh và lưu kèm nghĩa tùy chỉnh)
+  void saveWord(AnalyzedWord word,
+      {String? customMeaning, String? customNote}) {
+    // 1. Cập nhật hoặc thêm vào danh sách local của Provider
+    final existingIndex = _savedWords.indexWhere((w) => w.word == word.word);
+    final updatedWord = word.copyWith(
+      meaning: customMeaning ?? word.meaning,
+    );
 
-      // Phần này lưu cho list "Saved Words" của tab Đọc (giữ nguyên của bạn)
-      _storage.saveWord(word.word, {
-        'word': word.word,
-        'originalWord': word.originalWord,
-        'wordType': word.wordType.name,
-        'cefrLevel': word.cefrLevel.name,
-        'meaning': word.meaning,
-        'phonetic': word.phonetic,
-        'example': word.example,
-        'savedAt': DateTime.now().toIso8601String(),
-      });
+    if (existingIndex >= 0) {
+      _savedWords[existingIndex] = updatedWord;
+    } else {
+      _savedWords.add(updatedWord);
+    }
 
-      // ★ THÊM: Đồng bộ sang hệ thống chung
-      Future.microtask(() {
-        VocabularyBridge.addFromAnalyzed(
-          word: word.word,
-          meaning: word.meaning,
+    // 2. Lưu vào Storage local (Tab Đọc)
+    _storage.saveWord(word.word, {
+      'word': updatedWord.word,
+      'meaning': updatedWord.meaning,
+      'phonetic': word.phonetic,
+      'example': word.example,
+      'savedAt': DateTime.now().toIso8601String(),
+    });
+
+    // ★ THÊM: Đồng bộ sang hệ thống chung
+    Future.microtask(() {
+      VocabularyBridge.addFromAnalyzed(
+        word: updatedWord.word,
+        meaning: updatedWord.meaning,
+        phonetic: word.phonetic,
+        example: word.example,
+        wordTypeName: updatedWord.wordType.name,
+        cefrLevelName: updatedWord.cefrLevel.name,
+        sourceFile: _currentTextPath?.split('/').last ?? 'Text',
+      );
+    });
+
+    // ★ SỬA LẠI ĐOẠN NÀY:
+    // Bọc trong Future.microtask để tránh xung đột luồng (Race Condition) và Stack Overflow
+    Future.microtask(() {
+      try {
+        debugPrint('🔄 Đang gửi từ "${word.word}" sang Vườn Nhớ...');
+        MemoryProvider.addWord(
+          word: updatedWord.word,
+          meaning: updatedWord.meaning,
           phonetic: word.phonetic,
           example: word.example,
-          wordTypeName: word.wordType.name,
-          cefrLevelName: word.cefrLevel.name,
-          sourceFile: _currentTextPath?.split('/').last ?? 'Text',
+          wordType: updatedWord.wordType.name,
+          cefrLevel: updatedWord.cefrLevel.name,
+          sourceFile: _currentTextPath?.split('/').last ?? 'Read Mode',
         );
-      });
+        debugPrint('✅ Đã gửi xong!');
+      } catch (e) {
+        debugPrint('⚠️ Lỗi gửi sang Memory (không ảnh hưởng app): $e');
+      }
+    });
 
-      // ★ SỬA LẠI ĐOẠN NÀY:
-      // Bọc trong Future.microtask để tránh xung đột luồng (Race Condition) và Stack Overflow
-      Future.microtask(() {
-        try {
-          debugPrint('🔄 Đang gửi từ "${word.word}" sang Vườn Nhớ...');
-          MemoryProvider.addWord(
-            word: word.word,
-            meaning: word.meaning,
-            phonetic: word.phonetic,
-            example: word.example,
-            wordType: word.wordType.name,
-            cefrLevel: word.cefrLevel.name,
-            sourceFile: _currentTextPath?.split('/').last ?? 'Unknown',
-          );
-          debugPrint('✅ Đã gửi xong!');
-        } catch (e) {
-          debugPrint('⚠️ Lỗi gửi sang Memory (không ảnh hưởng app): $e');
-        }
-      });
-
-      notifyListeners();
-    }
+    notifyListeners();
   }
 
   // ==================== DISPOSE ====================

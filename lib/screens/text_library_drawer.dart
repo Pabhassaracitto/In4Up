@@ -20,6 +20,9 @@ import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
 import 'text_library/text_entry_dialog.dart';
 
+import 'read_mode/models/recent_file.dart';
+import 'read_mode/services/recent_files_service.dart';
+
 class TextLibraryDrawer extends StatefulWidget {
   const TextLibraryDrawer({super.key});
 
@@ -269,6 +272,11 @@ class _LocalTab extends StatelessWidget {
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;
+    if (!context.mounted) return;
+
+    // ★ THÊM: Lưu vào recent trước khi navigate
+    final file = RecentFile.fromLocalPdf(path);
+    await RecentFilesService().addOrUpdate(file);
 
     if (context.mounted) {
       onClose();
@@ -289,10 +297,21 @@ class _LocalTab extends StatelessWidget {
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;
+    if (!context.mounted) return;
+
+    // Load vào TextProvider
+    final tp = context.read<TextProvider>();
+    await tp.loadTextFile(path);
+
+    // ★ THÊM: Lưu vào recent
     if (context.mounted) {
-      await context.read<TextProvider>().loadTextFile(path);
-      onClose();
+      final file = RecentFile.fromLocalText(path).copyWith(
+        totalLines: tp.lines.length,
+      );
+      await RecentFilesService().addOrUpdate(file);
     }
+
+    onClose();
   }
 }
 

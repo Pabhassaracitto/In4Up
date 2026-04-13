@@ -194,9 +194,15 @@ class _MiniPlayerState extends State<MiniPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    setState(() {
-      _isAppVisible = state == AppLifecycleState.resumed;
-    });
+    final isVisible = state == AppLifecycleState.resumed;
+    if (_isAppVisible != isVisible) {
+      setState(() {
+        _isAppVisible = isVisible;
+      });
+      // ★ CHIẾN LƯỢC: Dừng ngay lập tức các Ticker animation để giải phóng GPU Buffer
+      final player = context.read<PlayerProvider>();
+      _handlePlayStateChange(player.isPlaying);
+    }
   }
 
   @override
@@ -255,7 +261,8 @@ class _MiniPlayerState extends State<MiniPlayer>
   }
 
   void _handlePlayStateChange(bool isPlaying) {
-    if (isPlaying) {
+    // Chỉ chạy animation khi đang phát nhạc VÀ ứng dụng đang hiển thị
+    if (isPlaying && _isAppVisible) {
       _pulseController.repeat(reverse: true);
       _rotateController.repeat();
     } else {

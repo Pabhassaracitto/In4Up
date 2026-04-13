@@ -282,11 +282,12 @@ class PlayerProvider extends ChangeNotifier {
     _storage.saveLastAudioPath(path);
     notifyListeners();
 
-    // Lưu vào recent ngay
+    // ★ THÊM: Lưu vào recent ngay khi load
     final recentEntry = RecentAudio.fromLocalFile(
       path: path,
       title: title ?? path.split('/').last.split('\\').last,
     );
+    // Fire-and-forget — không await để không block playback
     _recentAudio.addOrUpdate(recentEntry);
 
     final success = await _audioService.loadFile(path);
@@ -295,57 +296,19 @@ class PlayerProvider extends ChangeNotifier {
       if (savedMs != null && savedMs > 5000) {
         await seek(Duration(milliseconds: savedMs));
       }
-      if (autoPlay) await play();
+      if (autoPlay) {
+        await play();
+      }
 
-      // ★ THAY: Không update duration ngay
-      // Thay bằng: chờ duration sẵn sàng qua _onStateChanged
-      _pendingRecentUpdate = recentEntry;
-    }
-  }
-
-// ★ THÊM field:
-  RecentAudio? _pendingRecentUpdate;
-
-  void _onStateChanged(PlaybackState state) {
-    final previousPosition = _state.position;
-
-    // ★ TỐI ƯU: Nâng ngưỡng lên 250ms thay vì 200ms để ổn định EGL trên Windows
-    bool shouldNotify = state.status != _state.status ||
-        state.speed != _state.speed ||
-        (state.position.inMilliseconds - _state.position.inMilliseconds).abs() >
-            250;
-
-    _state = state;
-
-    // ★ THÊM: Cập nhật duration khi đã có (Xử lý resume bài mới load)
-    if (_pendingRecentUpdate != null && state.duration > Duration.zero) {
-      final entry = _pendingRecentUpdate!;
-      _pendingRecentUpdate = null;
-
-      final savedMs = _storage.getSavedPosition(entry.localPath ?? '');
-      final savedPos = savedMs != null && savedMs > 5000
-          ? Duration(milliseconds: savedMs)
-          : Duration.zero;
-
-      _recentAudio.updatePosition(
-        entry.id,
-        position: savedPos,
-        totalDuration: state.duration,
-      );
-    }
-
-    if (_isLooping && _loopEnd != null && !_isWaitingGap) {
-      _checkLoopPosition(state.position, previousPosition);
-      if (state.position < previousPosition) shouldNotify = true;
-    }
-
-    if (state.status == PlaybackStatus.playing) {
-      _totalListeningTime += const Duration(milliseconds: 100);
-      _maybeUpdateRecentPosition(state.position);
-    }
-
-    if (shouldNotify) {
-      notifyListeners();
+      // ★ THÊM: Cập nhật totalDuration sau khi load xong
+      final duration = _state.duration;
+      if (duration > Duration.zero) {
+        _recentAudio.updatePosition(
+          recentEntry.id,
+          position: Duration.zero,
+          totalDuration: duration,
+        );
+      }
     }
   }
 

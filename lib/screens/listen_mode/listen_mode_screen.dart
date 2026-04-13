@@ -25,6 +25,12 @@ import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 
+//new
+import 'widgets/listen_library_screen.dart';
+import 'widgets/quick_audio_sheet.dart';
+import 'services/recent_audio_service.dart';
+import 'models/recent_audio.dart';
+
 class ListenModeScreen extends StatefulWidget {
   const ListenModeScreen({super.key});
 
@@ -200,6 +206,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     HapticFeedback.selectionClick();
                     setState(() => _showProgressBar = !_showProgressBar);
                   },
+                  onTitleTap: () => QuickAudioSheet.show(context), // ← THÊM
                 ),
 
                 // LAYER 1: Waveform – trái tim của màn hình
@@ -277,25 +284,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.headphones, size: 64, color: Colors.grey[700]),
-          const SizedBox(height: 16),
-          Text('Chưa có audio', style: TextStyle(color: Colors.grey[500])),
-          const SizedBox(height: 32),
-          FilledButton.icon(
-            onPressed: () => _pickAudioFile(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Chọn file Audio'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF6C63FF),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const ListenLibraryScreen();
   }
 
   Future<void> _pickAudioFile(BuildContext context) async {
@@ -329,11 +318,13 @@ class _SongInfoBar extends StatelessWidget {
   final PlayerProvider player;
   final bool showProgressBar;
   final VoidCallback onTap;
+  final VoidCallback onTitleTap; // ← THÊM
 
   const _SongInfoBar({
     required this.player,
     required this.showProgressBar,
     required this.onTap,
+    required this.onTitleTap, // ← THÊM
   });
 
   @override
@@ -352,51 +343,76 @@ class _SongInfoBar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 children: [
-                  // Album art
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6C63FF), Color(0xFF5B52CC)],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      player.isPlaying ? Icons.equalizer : Icons.music_note,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // Title + artist
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          player.currentSongTitle ?? 'Unknown',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        onTitleTap();
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        children: [
+                          // Album art (giữ nguyên)
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF6C63FF), Color(0xFF5B52CC)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              player.isPlaying
+                                  ? Icons.equalizer
+                                  : Icons.music_note,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          player.currentSongArtist ?? '',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[500],
+                          const SizedBox(width: 12),
+                          // Title + dropdown icon
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        player.currentSongTitle ?? 'Unknown',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    // ← THÊM: mũi tên chỉ báo có thể bấm
+                                    const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 16,
+                                      color: Color(0xFF6C63FF),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  player.currentSongArtist ??
+                                      'Nhấn để đổi audio',
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.grey[500]),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
 
@@ -521,7 +537,7 @@ class _CorePlayerControls extends StatelessWidget {
 
   void _toggleSheet(bool expand) {
     if (!sheetController.isAttached) return;
-    
+
     sheetController.animateTo(
       expand ? 0.55 : 0.10,
       duration: const Duration(milliseconds: 300),

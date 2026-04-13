@@ -15,6 +15,9 @@ import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/youtube/youtube_sheet.dart';
 import '../providers/text_provider.dart';
 import '../services/text_library_service.dart';
+//news
+import 'read_mode/models/recent_file.dart';
+import 'read_mode/services/recent_files_service.dart';
 import 'text_library/text_entry_dialog.dart';
 
 class TextLibraryDrawer extends StatefulWidget {
@@ -102,7 +105,7 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Thư viện Text',
+                  'Thư viện Đọc',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -324,10 +327,23 @@ class _CloudTabState extends State<_CloudTab> {
   // ── Load văn bản vào TextProvider ─────────────────────────
   void _loadEntry(BuildContext context, TextLibraryEntry entry) {
     HapticFeedback.mediumImpact();
+
+    // Load text vào TextProvider
     context.read<TextProvider>().loadFromString(
           entry.content,
           title: entry.title,
         );
+
+    // ★ THÊM: Lưu vào RecentFiles để hiện trong thư viện đọc
+    final file = RecentFile.fromCloud(
+      id: entry.id,
+      title: entry.title,
+      category: entry.category,
+      totalLines: entry.lineCount,
+    );
+    // Fire-and-forget
+    RecentFilesService().addOrUpdate(file);
+
     widget.onClose();
   }
 

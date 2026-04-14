@@ -343,7 +343,7 @@ class _OptionSwitch extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF4CAF50),
+            activeThumbColor: const Color(0xFF4CAF50),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
           ),
         ],

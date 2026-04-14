@@ -1,6 +1,7 @@
 // lib/widgets/rolling_waveform_controller.dart
 //Quản lý trạng thái của RollingWaveformWidget, bao gồm dữ liệu waveform, vị trí hiện tại, zoom level và loop regions.
 import 'package:flutter/material.dart';
+
 import '../../../models/waveform_data.dart';
 
 class RollingWaveformController extends ChangeNotifier {
@@ -26,9 +27,9 @@ class RollingWaveformController extends ChangeNotifier {
   }
 
   // Setters
-  void setWaveformData(WaveformData data) {
+  void setWaveformData(WaveformData? data) {
     _waveformData = data;
-    _duration = data.duration;
+    _duration = data?.duration ?? Duration.zero;
     notifyListeners();
   }
 

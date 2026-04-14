@@ -186,7 +186,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 enabled: ctrl.state == WebReaderState.ready,
                 onTap: widget.onExtractText,
                 tooltip: 'Mở trong Text Studio',
-                activeColor: const Color(0xFF2196F3),
+                activeThumbColor: const Color(0xFF2196F3),
               ),
 
               // Bookmark
@@ -197,7 +197,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 18,
                 enabled: ctrl.state == WebReaderState.ready,
                 onTap: ctrl.toggleBookmark,
-                activeColor: Colors.amber,
+                activeThumbColor: Colors.amber,
                 isActive: ctrl.isBookmarked(ctrl.currentUrl),
               ),
             ],
@@ -282,7 +282,7 @@ class _ToolbarBtn extends StatelessWidget {
   final bool isActive;
   final VoidCallback? onTap;
   final String? tooltip;
-  final Color? activeColor;
+  final Color? activeThumbColor;
 
   const _ToolbarBtn({
     required this.icon,
@@ -291,16 +291,17 @@ class _ToolbarBtn extends StatelessWidget {
     this.isActive = false,
     this.onTap,
     this.tooltip,
-    this.activeColor,
+    this.activeThumbColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveActiveColor = activeColor ?? const Color(0xFF2196F3);
+    final effectiveactiveThumbColor =
+        activeThumbColor ?? const Color(0xFF2196F3);
     final color = !enabled
         ? Colors.grey[700]!
         : isActive
-            ? effectiveActiveColor
+            ? effectiveactiveThumbColor
             : Colors.white70;
 
     return Tooltip(
@@ -313,7 +314,7 @@ class _ToolbarBtn extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             color: isActive
-                ? effectiveActiveColor.withValues(alpha: 0.15)
+                ? effectiveactiveThumbColor.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),

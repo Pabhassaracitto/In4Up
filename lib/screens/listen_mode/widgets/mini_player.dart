@@ -326,51 +326,54 @@ class _MiniPlayerState extends State<MiniPlayer>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(MiniPlayerDimensions.borderRadius),
         child: _buildBlurWrapper(
-          child: Material(
-            color: Colors.transparent,
-            // ★ Dùng SingleChildScrollView để tránh hiện sọc vàng đen khi đang animate height
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: Column(
-                children: [
-                  // ── State 0: Micro — chỉ controls ──────────────
-                  if (_playerState == MiniPlayerState.micro)
-                    _MicroBar(
-                      player: player,
-                      theme: theme,
-                      onCycle: _cycleState,
-                    ),
+          // ★ TỐI ƯU: Nếu app ẩn, không render Material phức tạp
+          child: !_isAppVisible
+              ? Container(color: theme.primaryColor.withOpacity(0.9))
+              : Material(
+                  color: Colors.transparent,
+                  // ★ Dùng SingleChildScrollView để tránh hiện sọc vàng đen khi đang animate height
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        // ── State 0: Micro — chỉ controls ──────────────
+                        if (_playerState == MiniPlayerState.micro)
+                          _MicroBar(
+                            player: player,
+                            theme: theme,
+                            onCycle: _cycleState,
+                          ),
 
-                  // ── State 1: Medium — info + controls ──────────
-                  if (_playerState == MiniPlayerState.medium ||
-                      _playerState == MiniPlayerState.full)
-                    _MediumBar(
-                      player: player,
-                      theme: theme,
-                      pulseController: _pulseController,
-                      rotateController: _rotateController,
-                      onCycle: _cycleState,
-                      isFull: _playerState == MiniPlayerState.full,
-                    ),
+                        // ── State 1: Medium — info + controls ──────────
+                        if (_playerState == MiniPlayerState.medium ||
+                            _playerState == MiniPlayerState.full)
+                          _MediumBar(
+                            player: player,
+                            theme: theme,
+                            pulseController: _pulseController,
+                            rotateController: _rotateController,
+                            onCycle: _cycleState,
+                            isFull: _playerState == MiniPlayerState.full,
+                          ),
 
-                  // ── State 2: Full — Phần mở rộng ─────────────
-                  if (_playerState == MiniPlayerState.full)
-                    SizedBox(
-                      // Chiều cao cố định = Full - Medium để không gây overflow lỗi
-                      height: MiniPlayerDimensions.fullHeight -
-                          MiniPlayerDimensions.mediumHeight,
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: _MiniPlayerExpandedContent(
-                          player: player,
-                          theme: theme,
-                        ),
-                      ),
+                        // ── State 2: Full — Phần mở rộng ─────────────
+                        if (_playerState == MiniPlayerState.full)
+                          SizedBox(
+                            // Chiều cao cố định = Full - Medium để không gây overflow lỗi
+                            height: MiniPlayerDimensions.fullHeight -
+                                MiniPlayerDimensions.mediumHeight,
+                            child: FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: _MiniPlayerExpandedContent(
+                                player: player,
+                                theme: theme,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
-            ),
-          ),
+                  ),
+                ),
         ),
       ),
     );
@@ -1893,7 +1896,7 @@ class _QuickActionsWidget extends StatelessWidget {
           icon: Icons.loop,
           label: player.isLooping ? 'Stop Loop' : 'Loop',
           isActive: player.isLooping,
-          activeColor: const Color(0xFF4CAF50),
+          activeThumbColor: const Color(0xFF4CAF50),
           onTap: () {
             if (player.isLooping) {
               player.clearLoop();
@@ -1910,14 +1913,14 @@ class _QuickActionsWidget extends StatelessWidget {
               ? _formatRemaining(player.sleepRemaining)
               : 'Sleep',
           isActive: player.hasSleepTimer,
-          activeColor: const Color(0xFF9C27B0),
+          activeThumbColor: const Color(0xFF9C27B0),
           onTap: () => _showSleepTimerSheet(context, player),
         ),
         _QuickActionButton(
           icon: theme.modeIcon,
           label: theme.modeName,
           isActive: true,
-          activeColor: theme.primaryColor,
+          activeThumbColor: theme.primaryColor,
           onTap: () => _showModeSheet(context, player),
         ),
       ],
@@ -1957,14 +1960,14 @@ class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
-  final Color activeColor;
+  final Color activeThumbColor;
   final VoidCallback onTap;
 
   const _QuickActionButton({
     required this.icon,
     required this.label,
     required this.isActive,
-    required this.activeColor,
+    required this.activeThumbColor,
     required this.onTap,
   });
 
@@ -1979,12 +1982,12 @@ class _QuickActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isActive
-              ? activeColor.withValues(alpha: 0.2)
+              ? activeThumbColor.withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isActive
-                ? activeColor.withValues(alpha: 0.5)
+                ? activeThumbColor.withValues(alpha: 0.5)
                 : Colors.white.withValues(alpha: 0.2),
           ),
         ),
@@ -1994,15 +1997,16 @@ class _QuickActionButton extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color:
-                  isActive ? activeColor : Colors.white.withValues(alpha: 0.7),
+              color: isActive
+                  ? activeThumbColor
+                  : Colors.white.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: isActive
-                    ? activeColor
+                    ? activeThumbColor
                     : Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,

@@ -54,8 +54,7 @@ class PdfToolbar extends StatelessWidget {
 
           // Page counter
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.08),
               borderRadius: BorderRadius.circular(12),
@@ -301,8 +300,7 @@ class _TtsLanguageSelector extends StatelessWidget {
           onTap: () => controller.setTtsLanguage(opt.$1),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
                   ? const Color(0xFF2196F3)

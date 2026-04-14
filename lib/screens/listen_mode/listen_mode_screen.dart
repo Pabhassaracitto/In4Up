@@ -24,12 +24,9 @@ import '../../widgets/ab_loop_controls.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
-
 //new
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
-import 'services/recent_audio_service.dart';
-import 'models/recent_audio.dart';
 
 class ListenModeScreen extends StatefulWidget {
   const ListenModeScreen({super.key});
@@ -61,6 +58,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // Trạng thái hiển thị của ứng dụng để giảm tải GPU
   bool _isAppVisible = true;
   bool _isUserSeeking = false;
+  bool _isCurrentRoute = true;
 
   @override
   void initState() {
@@ -72,6 +70,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       if (!mounted) return; // ★ FIX: Kiểm tra mounted trước khi dùng context
       _setupListeners();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Cập nhật trạng thái route an toàn trong lifecycle của framework
+    _isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
   }
 
   @override
@@ -103,6 +108,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _playerProvider?.removeListener(_onPlayerChange);
     _waveformProvider?.removeListener(_onWaveformChange);
+    // ★ FIX: Clear data trong controller để giải phóng Buffer đồ họa
+    // Bằng cách set data thành null
+    _waveformController.setWaveformData(null);
     _waveformController.dispose();
     _sheetController.dispose();
     super.dispose();
@@ -112,12 +120,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   void _onPlayerChange() {
     // ★ FIX: Bảo vệ Engine khi mất Context hoặc ứng dụng ẩn
-    if (!mounted || !_isAppVisible) return;
-
-    // ★ MỚI: Kiểm tra xem màn hình này có đang ở trên cùng không
-    // Nếu có màn hình khác (Tools, Sheets) đè lên, ngừng cập nhật Waveform
-    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
-    if (!isCurrentRoute) return;
+    // Thêm check isCurrent để tránh update khi màn hình đã bị push/pop
+    // Sử dụng biến _isCurrentRoute thay vì gọi ModalRoute.of(context) để tránh lỗi assertion
+    if (!mounted || !_isAppVisible || !_isCurrentRoute) return;
 
     // Nếu người dùng đang kéo waveform, không cập nhật vị trí từ player
     // để tránh xung đột buffer và hiện tượng "giật ngược"
@@ -165,8 +170,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   void _onWaveformChange() {
     // ★ THÊM: Guard tương tự như _onPlayerChange để tránh leak rendering
-    if (!mounted || !_isAppVisible || !ModalRoute.of(context)!.isCurrent)
-      return;
+    if (!mounted || !_isAppVisible || !_isCurrentRoute) return;
 
     final player = _playerProvider;
     final waveform = _waveformProvider;

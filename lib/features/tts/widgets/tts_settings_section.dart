@@ -305,7 +305,7 @@ class _EngineOrderSection extends StatelessWidget {
                 trailing: Switch(
                   value: engine.isEnabled,
                   onChanged: (v) => onToggle(engine.id, v),
-                  activeColor: color,
+                  activeThumbColor: color,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),

@@ -53,7 +53,7 @@ class ReadBottomBar extends StatelessWidget {
                   _BarAction(
                     icon: Icons.translate,
                     isActive: tp.showTranslation,
-                    activeColor: const Color(0xFF4CAF50),
+                    activeThumbColor: const Color(0xFF4CAF50),
                     onTap: () => tp.toggleTranslation(),
                   ),
 
@@ -63,7 +63,7 @@ class ReadBottomBar extends StatelessWidget {
                         ? Icons.stop_circle_outlined
                         : Icons.record_voice_over,
                     isActive: tp.isSpeaking,
-                    activeColor: Colors.orange,
+                    activeThumbColor: Colors.orange,
                     onTap: () {
                       if (tp.isSpeaking) {
                         tp.stopSpeaking();
@@ -77,7 +77,7 @@ class ReadBottomBar extends StatelessWidget {
                   _BarAction(
                     icon: Icons.bookmark,
                     isActive: tp.segments.isNotEmpty,
-                    activeColor: Colors.amber,
+                    activeThumbColor: Colors.amber,
                     badge:
                         tp.segments.isNotEmpty ? '${tp.segments.length}' : null,
                     onTap: () => SegmentsListSheet.show(context),
@@ -119,21 +119,21 @@ class _BarAction extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool isActive;
-  final Color? activeColor;
+  final Color? activeThumbColor;
   final String? badge;
 
   const _BarAction({
     required this.icon,
     required this.onTap,
     this.isActive = false,
-    this.activeColor,
+    this.activeThumbColor,
     this.badge,
   });
 
   @override
   Widget build(BuildContext context) {
     final color =
-        isActive ? (activeColor ?? const Color(0xFF2196F3)) : Colors.grey;
+        isActive ? (activeThumbColor ?? const Color(0xFF2196F3)) : Colors.grey;
 
     return GestureDetector(
       onTap: () {
@@ -161,7 +161,7 @@ class _BarAction extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: activeColor ?? Colors.amber,
+                  color: activeThumbColor ?? Colors.amber,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

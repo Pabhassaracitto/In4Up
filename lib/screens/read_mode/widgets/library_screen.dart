@@ -28,7 +28,7 @@ class ReadLibraryScreen extends StatefulWidget {
 }
 
 class _ReadLibraryScreenState extends State<ReadLibraryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ── Services ───────────────────────────────────────────────
   final _service = RecentFilesService();
 

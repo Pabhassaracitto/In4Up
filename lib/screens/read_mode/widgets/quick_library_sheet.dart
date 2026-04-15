@@ -13,7 +13,6 @@ import '../../../providers/text_provider.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
 import '../../../services/text_library_service.dart';
-import '../../../providers/text_provider.dart';
 import 'cloud_picker_sheet.dart';
 
 class QuickLibrarySheet extends StatefulWidget {

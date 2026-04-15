@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'vocabulary_type.dart';
 import 'vocab_context.dart';
-import '../models/vocabulary_type.dart';
 
 const double kThreshold = 0.6;
 

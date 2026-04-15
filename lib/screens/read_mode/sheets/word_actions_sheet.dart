@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-// KHÔNG DÙNG: import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+// XÓA: import 'package:vipsound_core/vocab_level_difficulty.dart';
+// XÓA: import '../../../models/segment.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 class WordActionsSheet {
   WordActionsSheet._();

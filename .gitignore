@@ -313,4 +313,5 @@ fdroid/
 thongtinduan.txt
 backups.env
 *.env
-packages
+packages/vipsound_core
+.ai_handoff/

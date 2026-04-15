@@ -1,3 +1,7 @@
+// lib/models/segment.dart
+import 'package:flutter/material.dart'; // ← THÊM (fix Color/Icons undefined)
+import 'package:vipsound_core/vocab_level_difficulty.dart'; // ← THÊM (dùng DifficultyLevel từ core)
+
 class Segment {
   final String id;
   final String audioPath;
@@ -50,8 +54,14 @@ class Segment {
       title: json['title'],
       startTime: Duration(milliseconds: json['startTime']),
       endTime: Duration(milliseconds: json['endTime']),
-      type: SegmentType.values.firstWhere((e) => e.name == json['type']),
-      difficulty: DifficultyLevel.values.firstWhere((e) => e.name == json['difficulty']),
+      type: SegmentType.values.firstWhere(
+        (e) => e.name == json['type'],
+      ),
+      difficulty: DifficultyLevel.values.firstWhere(
+        (e) => e.name == json['difficulty'],
+        orElse: () =>
+            DifficultyLevel.medium, // ← THÊM fallback (vì core có veryHard)
+      ),
       repeatCount: json['repeatCount'],
       note: json['note'],
       createdAt: DateTime.parse(json['createdAt']),
@@ -61,14 +71,27 @@ class Segment {
 }
 
 enum SegmentType {
-  dharma,    // Pháp thoại
-  english,   // Luyện tiếng Anh
-  favorite,  // Yêu thích
-  practice,  // Cần luyện tập
+  dharma, // Pháp thoại
+  english, // Luyện tiếng Anh
+  favorite, // Yêu thích
+  practice, // Cần luyện tập
 }
 
-enum DifficultyLevel {
-  easy,    // Dễ - lặp 1 lần
-  medium,  // Vừa - lặp 3 lần
-  hard,    // Khó - lặp 5 lần
+// ← XÓA toàn bộ enum DifficultyLevel + extension DifficultyLevelX
+// Dùng DifficultyLevel từ vipsound_core (có đầy đủ label/color/icon/repeatCount/ttsSpeed)
+// NHƯNG vipsound_core chưa có .icon → thêm extension riêng ở đây:
+
+extension SegmentDifficultyIcon on DifficultyLevel {
+  IconData get icon {
+    switch (this) {
+      case DifficultyLevel.easy:
+        return Icons.sentiment_satisfied_rounded;
+      case DifficultyLevel.medium:
+        return Icons.sentiment_neutral_rounded;
+      case DifficultyLevel.hard:
+        return Icons.sentiment_very_dissatisfied_rounded;
+      case DifficultyLevel.veryHard:
+        return Icons.sentiment_very_dissatisfied_rounded;
+    }
+  }
 }

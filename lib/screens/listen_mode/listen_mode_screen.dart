@@ -16,6 +16,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_stt/vipsound_stt.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
@@ -694,6 +695,126 @@ class _CorePlayerControls extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Widget nút "Tạo lời thoại (LRC)" với progress indicator
+class GenerateLrcButton extends StatelessWidget {
+  const GenerateLrcButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, provider, _) {
+        return StreamBuilder<SttProgress>(
+          stream: provider.sttProgressStream,
+          initialData: SttProgress.idle,
+          builder: (context, snapshot) {
+            final progress = snapshot.data ?? SttProgress.idle;
+            final isActive = progress.isActive;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(height: 4),
+                  secondChild: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LinearProgressIndicator(
+                        value: progress.progress,
+                        backgroundColor: Colors.grey.shade800,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          progress.status == SttFacadeStatus.error
+                              ? Colors.red
+                              : Colors.blue.shade400,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        progress.message,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[400]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  crossFadeState: isActive
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 300),
+                ),
+                const SizedBox(height: 8),
+                _LrcModelSelector(
+                  isProcessing: isActive,
+                  onGenerate: (level) =>
+                      provider.generateLrcForCurrentAudio(level: level),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _LrcModelSelector extends StatefulWidget {
+  final bool isProcessing;
+  final Future<SttTranscribeOutput?> Function(WhisperModelLevel) onGenerate;
+
+  const _LrcModelSelector(
+      {required this.isProcessing, required this.onGenerate});
+
+  @override
+  State<_LrcModelSelector> createState() => _LrcModelSelectorState();
+}
+
+class _LrcModelSelectorState extends State<_LrcModelSelector> {
+  WhisperModelLevel _selectedLevel = WhisperModelLevel.base;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: WhisperModelLevel.values.map((level) {
+            final info = context.read<PlayerProvider>().getSttModelInfo(level);
+            return FilterChip(
+              label: Text(
+                  '${level.name.toUpperCase()} (${level.sizeInMB}MB)${info.isReady ? ' ✓' : ''}'),
+              selected: _selectedLevel == level,
+              onSelected: widget.isProcessing
+                  ? null
+                  : (_) => setState(() => _selectedLevel = level),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton.icon(
+          onPressed: widget.isProcessing
+              ? null
+              : () => widget.onGenerate(_selectedLevel),
+          icon: widget.isProcessing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.subtitles_outlined),
+          label: Text(
+              widget.isProcessing ? 'Đang xử lý...' : 'Tạo lời thoại (LRC)'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade700,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+        ),
+      ],
     );
   }
 }

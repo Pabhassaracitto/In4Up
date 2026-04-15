@@ -4,14 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
-import '../../../models/word_analysis.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
+import '../../../models/segment.dart';
 
 /// Bottom sheet hiện ra khi user tap vào một từ trong PDF
 class PdfWordTapSheet {
@@ -688,47 +689,5 @@ class _IconActionBtn extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Extensions cần thêm vào DifficultyLevel (nếu chưa có)
-extension DifficultyLevelUI on DifficultyLevel {
-  Color get color {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return const Color(0xFF4CAF50);
-      case DifficultyLevel.medium:
-        return const Color(0xFFFF9800);
-      case DifficultyLevel.hard:
-        return const Color(0xFFEF5350);
-      case DifficultyLevel.veryHard:
-        return const Color(0xFF9C27B0);
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return Icons.sentiment_satisfied;
-      case DifficultyLevel.medium:
-        return Icons.sentiment_neutral;
-      case DifficultyLevel.hard:
-        return Icons.sentiment_dissatisfied;
-      case DifficultyLevel.veryHard:
-        return Icons.sentiment_very_dissatisfied;
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return 'Dễ';
-      case DifficultyLevel.medium:
-        return 'Vừa';
-      case DifficultyLevel.hard:
-        return 'Khó';
-      case DifficultyLevel.veryHard:
-        return 'Rất khó';
-    }
   }
 }

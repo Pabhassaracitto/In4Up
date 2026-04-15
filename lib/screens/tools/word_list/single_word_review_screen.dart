@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/word_entry.dart';
-import '../../../models/vocabulary_type.dart'; // ← FIX: thêm import
+// ← FIX: thêm import
 import '../../../models/sm2_algorithm.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/skill_triangle.dart';

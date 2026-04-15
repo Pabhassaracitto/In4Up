@@ -124,7 +124,7 @@ class PdfTextExtractor {
     Rect? out;
     for (int i = s; i < e; i++) {
       final r = _pdfRectToRect(charRects[i]); // dùng helper hiện có của bạn
-      out = (out == null) ? r : out!.expandToInclude(r);
+      out = (out == null) ? r : out.expandToInclude(r);
     }
     return out ?? Rect.zero;
   }

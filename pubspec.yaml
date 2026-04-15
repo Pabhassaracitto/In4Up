@@ -11,6 +11,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  vipsound_stt:
+    path: ./packages/vipsound_stt
+  vipsound_core:
+    path: ./packages/vipsound_core
+  # UI
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2 # change from ^0.18.0
 
   # State Management
   provider: ^6.1.2
@@ -54,14 +62,14 @@ dependencies:
   connectivity_plus: ^7.1.0    # Check network
   crypto: ^3.0.6                 # MD5 hash cho cache key
 # Firebase core (bắt buộc)
-  firebase_core: ^4.6.0 #change from 3.8.1
+  firebase_core: ^4.0.0
   
   # Firebase Auth (đăng nhập anonymous)
-  firebase_auth: ^6.3.0
+  firebase_auth: ^6.0.0
   
   # Cloud Firestore (database)
-  cloud_firestore: ^6.2.0 #change from 5.5.0
-  google_sign_in: ^5.4.4 #change from 7.2.0
+  cloud_firestore: ^6.0.0
+  google_sign_in: ^6.2.2 # Giữ nguyên hoặc nâng lên mới nhất
   googleapis: ^16.0.0
 
   # Youglish Android & iOS

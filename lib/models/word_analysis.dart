@@ -1,6 +1,6 @@
 // lib/models/word_analysis.dart
 import 'package:flutter/material.dart';
-
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 import 'color_mode.dart';
 
 // ===== WORD TYPE ENUM =====
@@ -145,53 +145,6 @@ enum CEFRLevel {
   }
 }
 
-// ===== DIFFICULTY LEVEL ENUM =====
-enum DifficultyLevel {
-  easy,
-  medium,
-  hard,
-  veryHard;
-
-  String get label {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return 'Dễ';
-      case DifficultyLevel.medium:
-        return 'Trung bình';
-      case DifficultyLevel.hard:
-        return 'Khó';
-      case DifficultyLevel.veryHard:
-        return 'Rất khó';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return const Color(0xFF4CAF50);
-      case DifficultyLevel.medium:
-        return const Color(0xFFFF9800);
-      case DifficultyLevel.hard:
-        return const Color(0xFFF44336);
-      case DifficultyLevel.veryHard:
-        return const Color(0xFF9C27B0);
-    }
-  }
-
-  int get repeatCount {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return 1;
-      case DifficultyLevel.medium:
-        return 3;
-      case DifficultyLevel.hard:
-        return 5;
-      case DifficultyLevel.veryHard:
-        return 8;
-    }
-  }
-}
-
 // ===== EXTENSIONS =====
 extension WordTypeExtra on WordType {
   String get abbreviation {
@@ -241,21 +194,6 @@ extension CEFRLevelExtra on CEFRLevel {
         return 'Thành thạo';
       case CEFRLevel.unknown:
         return 'Không rõ';
-    }
-  }
-}
-
-extension DifficultyLevelExtra on DifficultyLevel {
-  double get ttsSpeed {
-    switch (this) {
-      case DifficultyLevel.easy:
-        return 1.0;
-      case DifficultyLevel.medium:
-        return 0.85;
-      case DifficultyLevel.hard:
-        return 0.70;
-      case DifficultyLevel.veryHard:
-        return 0.60;
     }
   }
 }

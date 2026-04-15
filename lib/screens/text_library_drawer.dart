@@ -20,9 +20,6 @@ import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
 import 'text_library/text_entry_dialog.dart';
 
-import 'read_mode/models/recent_file.dart';
-import 'read_mode/services/recent_files_service.dart';
-
 class TextLibraryDrawer extends StatefulWidget {
   const TextLibraryDrawer({super.key});
 

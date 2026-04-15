@@ -1,5 +1,8 @@
+// lib/widgets/save_segment_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart';
+
 import '../providers/player_provider.dart';
 import '../models/segment.dart';
 
@@ -384,6 +387,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
         return '🤔';
       case DifficultyLevel.hard:
         return '😤';
+      case DifficultyLevel.veryHard:
+        return '🤯'; // ← THÊM
     }
   }
 
@@ -392,9 +397,11 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
       case DifficultyLevel.easy:
         return 'Dễ';
       case DifficultyLevel.medium:
-        return 'Vừa';
+        return 'Trung bình';
       case DifficultyLevel.hard:
         return 'Khó';
+      case DifficultyLevel.veryHard:
+        return 'Rất khó'; // ← THÊM
     }
   }
 
@@ -406,6 +413,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
         return Colors.orange;
       case DifficultyLevel.hard:
         return Colors.red;
+      case DifficultyLevel.veryHard:
+        return Colors.purple;
     }
   }
 
@@ -417,6 +426,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
         return 3;
       case DifficultyLevel.hard:
         return 5;
+      case DifficultyLevel.veryHard:
+        return 7;
     }
   }
 

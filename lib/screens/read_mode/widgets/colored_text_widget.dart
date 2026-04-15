@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';

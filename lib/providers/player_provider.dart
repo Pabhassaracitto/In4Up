@@ -4,7 +4,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-
+import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
@@ -79,6 +80,13 @@ class PlayerProvider extends ChangeNotifier {
   // ★ THÊM
   TextProvider? _textProvider; // Thêm tham chiếu đến TextProvider
   final RecentAudioService _recentAudio = RecentAudioService();
+
+  // ★ THÊM: STT Facade
+  final SttServiceFacade _sttService = SttServiceFacade();
+
+  // ★ THÊM: Trạng thái STT
+  SttTranscribeOutput? _lastTranscribeOutput;
+  SttTranscribeOutput? get lastTranscribeOutput => _lastTranscribeOutput;
 
   // === PLAYBACK STATE ===
   PlaybackState _state = const PlaybackState();
@@ -185,12 +193,86 @@ class PlayerProvider extends ChangeNotifier {
 
     _sessionStartTime = DateTime.now();
     _restoreFromStorage();
+    _initializeStt();
   }
 
   // Setter để gán TextProvider
   void setTextProvider(TextProvider textProvider) {
     _textProvider = textProvider;
   }
+
+  // ─── THÊM METHODS STT ───────────────────────────────────────────────────
+
+  /// Khởi tạo STT (gọi trong constructor)
+  Future<void> _initializeStt() async {
+    try {
+      await _sttService.initialize();
+      debugPrint('✅ PlayerProvider: STT initialized');
+    } catch (e) {
+      debugPrint('⚠️ PlayerProvider: STT init failed (non-fatal): $e');
+    }
+  }
+
+  /// Stream progress STT (dùng cho LinearProgressIndicator trong UI)
+  Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
+  SttProgress get sttProgress => _sttService.currentProgress;
+
+  /// Tạo LRC từ bài audio hiện tại (Deep Learning mode)
+  Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
+    WhisperModelLevel level = WhisperModelLevel.small,
+  }) async {
+    if (_currentSongPath == null) {
+      debugPrint('❌ No audio loaded');
+      return null;
+    }
+
+    try {
+      notifyListeners(); // Để UI biết đang xử lý
+
+      final output = await _sttService.transcribeDeep(
+        _currentSongPath!,
+        level: level,
+        language: 'en',
+      );
+
+      _lastTranscribeOutput = output;
+
+      if (output.success) {
+        debugPrint('✅ LRC generated: ${output.lrcFilePath}');
+      }
+
+      notifyListeners();
+      return output;
+    } on InsufficientStorageException catch (e) {
+      debugPrint('❌ $e');
+      if (level != WhisperModelLevel.tiny) {
+        debugPrint('💡 Thử lại với model Tiny hoặc Base để tiết kiệm bộ nhớ');
+      }
+      notifyListeners();
+      return SttTranscribeOutput.failure(e.toString());
+    } catch (e) {
+      debugPrint('❌ generateLrcForCurrentAudio error: $e');
+      notifyListeners();
+      return SttTranscribeOutput.failure(e.toString());
+    }
+  }
+
+  /// Transcribe nhanh (Native) - dùng cho Shadowing
+  Future<String> transcribeForShadowing(String audioPath) async {
+    try {
+      final output = await _sttService.transcribeQuick(audioPath);
+      return output.success ? output.result.fullText : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Lấy trạng thái model Whisper
+  SttModelInfo getSttModelInfo(WhisperModelLevel level) =>
+      _sttService.getModelInfo(level);
+
+  Stream<SttModelInfo> watchSttModel(WhisperModelLevel level) =>
+      _sttService.watchModel(level);
 
   Future<void> _restoreFromStorage() async {
     if (!_storage.isInitialized) {
@@ -645,18 +727,12 @@ class PlayerProvider extends ChangeNotifier {
       }
     }
 
-    int repeatCount;
-    switch (difficulty) {
-      case DifficultyLevel.easy:
-        repeatCount = 2;
-        break;
-      case DifficultyLevel.medium:
-        repeatCount = 4;
-        break;
-      case DifficultyLevel.hard:
-        repeatCount = 7;
-        break;
-    }
+    final repeatCount = switch (difficulty) {
+      DifficultyLevel.easy => 2,
+      DifficultyLevel.medium => 4,
+      DifficultyLevel.hard => 7,
+      DifficultyLevel.veryHard => 10, // ← THÊM
+    };
 
     final segment = Segment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -810,6 +886,7 @@ class PlayerProvider extends ChangeNotifier {
     if (_totalListeningTime.inSeconds > 0) {
       _storage.addListeningTime(_totalListeningTime.inSeconds);
     }
+    _sttService.dispose(); // ★ THÊM
     _sleepTimer?.cancel();
     _positionSaverTimer?.cancel();
     _gapTimer?.cancel();

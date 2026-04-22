@@ -175,15 +175,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF6C63FF).withOpacity(0.15),
-                  const Color(0xFF2196F3).withOpacity(0.08),
+                  const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                  const Color(0xFF2196F3).withValues(alpha: 0.08),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF6C63FF).withOpacity(0.2),
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
               ),
             ),
             child: Row(
@@ -399,7 +399,7 @@ class _BgPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Orb 1 - Purple
     final p1 = Paint()
-      ..color = const Color(0xFF6C63FF).withOpacity(0.08)
+      ..color = const Color(0xFF6C63FF).withValues(alpha: 0.08)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 60);
     canvas.drawCircle(
       Offset(
@@ -412,7 +412,7 @@ class _BgPainter extends CustomPainter {
 
     // Orb 2 - Blue
     final p2 = Paint()
-      ..color = const Color(0xFF2196F3).withOpacity(0.06)
+      ..color = const Color(0xFF2196F3).withValues(alpha: 0.06)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
     canvas.drawCircle(
       Offset(
@@ -425,7 +425,7 @@ class _BgPainter extends CustomPainter {
 
     // Orb 3 - Green
     final p3 = Paint()
-      ..color = const Color(0xFF4CAF50).withOpacity(0.05)
+      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.05)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100);
     canvas.drawCircle(
       Offset(
@@ -515,7 +515,7 @@ class _ModeCardState extends State<_ModeCard> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: widget.gradientColors
-                    .map((c) => c.withOpacity(0.18))
+                    .map((c) => c.withValues(alpha: 0.18))
                     .toList(),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -622,7 +622,7 @@ class _ImportCardState extends State<_ImportCard> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
+            color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: widget.color.withValues(alpha: 0.2),
@@ -757,7 +757,7 @@ class _Divider extends StatelessWidget {
     return Container(
       width: 1,
       height: 40,
-      color: Colors.white.withOpacity(0.08),
+      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 }
@@ -809,9 +809,9 @@ class _SettingsChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -864,9 +864,9 @@ class _FirebaseAuthButtonState extends State<_FirebaseAuthButton> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -875,8 +875,8 @@ class _FirebaseAuthButtonState extends State<_FirebaseAuthButton> {
                 CircleAvatar(
                   radius: 12,
                   backgroundColor: isAnonymous
-                      ? const Color(0xFF6C63FF).withOpacity(0.3)
-                      : const Color(0xFF4CAF50).withOpacity(0.3),
+                      ? const Color(0xFF6C63FF).withValues(alpha: 0.3)
+                      : const Color(0xFF4CAF50).withValues(alpha: 0.3),
                   backgroundImage:
                       photoUrl != null ? NetworkImage(photoUrl) : null,
                   child: photoUrl == null
@@ -1052,9 +1052,9 @@ class _AuthSheetState extends State<_AuthSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -1105,9 +1105,9 @@ class _AuthSheetState extends State<_AuthSheet> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -1117,7 +1117,7 @@ class _AuthSheetState extends State<_AuthSheet> {
               color: (isAnonymous
                       ? const Color(0xFF6C63FF)
                       : const Color(0xFF4CAF50))
-                  .withOpacity(0.15),
+                  .withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1170,7 +1170,7 @@ class _AuthSheetState extends State<_AuthSheet> {
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1A1A2E),
-        disabledBackgroundColor: Colors.white.withOpacity(0.5),
+        disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
@@ -1208,7 +1208,7 @@ class _AuthSheetState extends State<_AuthSheet> {
       onPressed: _isLoading ? null : _handleSignOut,
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.redAccent,
-        side: BorderSide(color: Colors.redAccent.withOpacity(0.5)),
+        side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),

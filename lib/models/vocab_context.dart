@@ -3,8 +3,8 @@
 /// Nguyên tắc Context-Accumulation: nhiều context = từ quan trọng hơn.
 class VocabContext {
   final String id;
-  final String sourceType;      // 'pdf', 'web', 'youtube', 'manual', 'clipboard'
-  final String? sourceName;     // "ML_101.pdf", "https://...", "YouTube: TED Talk"
+  final String sourceType; // 'pdf', 'web', 'youtube', 'manual', 'clipboard'
+  final String? sourceName; // "ML_101.pdf", "https://...", "YouTube: TED Talk"
   final String? pageOrPosition; // "trang 42", "02:15", "đoạn 3"
   final String surroundingText; // Câu/đoạn văn chứa từ (để bold highlight)
   final DateTime encounteredAt;
@@ -33,11 +33,18 @@ class VocabContext {
   /// Icon theo loại nguồn
   String get sourceIcon {
     switch (sourceType) {
-      case 'pdf':       return '📄';
-      case 'web':       return '🌐';
-      case 'youtube':   return '▶️';
-      case 'clipboard': return '📋';
-      default:          return '✏️';
+      case 'pdf':
+        return '📄';
+      case 'web':
+        return '🌐';
+      case 'youtube':
+        return '▶️';
+      case 'clipboard':
+        return '📋';
+      case 'story':
+        return '📖';
+      default:
+        return '✏️';
     }
   }
 
@@ -80,6 +87,21 @@ class VocabContext {
         sourceType: 'pdf',
         sourceName: fileName,
         pageOrPosition: 'trang $page',
+        surroundingText: surroundingText,
+        encounteredAt: DateTime.now(),
+      );
+
+  /// /// Tạo context từ Read Mode / Story
+  factory VocabContext.fromStory({
+    required String storyTitle,
+    required int lineIndex,
+    required String surroundingText,
+  }) =>
+      VocabContext(
+        id: 'ctx_${DateTime.now().millisecondsSinceEpoch}',
+        sourceType: 'story',
+        sourceName: storyTitle,
+        pageOrPosition: 'dòng ${lineIndex + 1}',
         surroundingText: surroundingText,
         encounteredAt: DateTime.now(),
       );

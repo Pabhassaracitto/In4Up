@@ -374,8 +374,9 @@ class UltraEngineFFIV2 {
   /// Debug: Get current active engine mode
   /// 0=V1_Standard, 1=V2_Hybrid, 2=V2_MultiRes
   String debugActiveMode() {
-    if (_enginePtr == null || _getActiveEngineMode == null)
+    if (_enginePtr == null || _getActiveEngineMode == null) {
       return 'N/A (Not Init/Symbol Missing)';
+    }
     final m = _getActiveEngineMode!(_enginePtr!);
     switch (m) {
       case 0:

@@ -297,8 +297,9 @@ class VocabularyProvider extends ChangeNotifier {
   void addWords(List<WordEntry> words) {
     bool changed = false;
     for (final w in words) {
-      if (_words.any((e) => e.word.toLowerCase() == w.word.toLowerCase()))
+      if (_words.any((e) => e.word.toLowerCase() == w.word.toLowerCase())) {
         continue;
+      }
       _words.add(w);
       _saveWord(w);
       changed = true;

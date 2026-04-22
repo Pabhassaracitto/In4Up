@@ -1,6 +1,7 @@
 // lib/screens/tools/youtube/youtube_sheet.dart
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +15,8 @@ class YoutubeSheet extends StatefulWidget {
 
   const YoutubeSheet({super.key, this.captionsFirst = false});
 
-  static Future<String?> show(BuildContext context, {bool captionsFirst = false}) {
+  static Future<String?> show(BuildContext context,
+      {bool captionsFirst = false}) {
     return showModalBottomSheet<String>(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -45,21 +47,19 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
   final _urlCtrl = TextEditingController();
   final _svc = YoutubeDownloadService();
 
-  String _phase = 'input'; // input | info | download_audio | download_caption | done | error
+  String _phase =
+      'input'; // input | info | download_audio | download_caption | done | error
 
   YtVideoInfo? _videoInfo;
   DownloadProgress? _audioProgress;
   String? _errorMessage;
-  
+
   // Audio
   StreamSubscription<DownloadProgress>? _audioSub;
 
   // Captions
-  List<YtCaptionLine> _captions = [];
   List<({String code, String name})> _availableLangs = [];
   String _selectedLang = 'en';
-  bool _isFetchingLangs = false;
-  bool _isFetchingCaptions = false;
 
   @override
   void initState() {
@@ -94,7 +94,6 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
     setState(() {
       _phase = 'info';
       _errorMessage = null;
-      _isFetchingLangs = true;
     });
 
     try {
@@ -104,7 +103,9 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       ]);
 
       final info = results[0] as YtVideoInfo?;
-      final langs = widget.captionsFirst ? (results[1] as List<({String code, String name})>) : <({String code, String name})>[];
+      final langs = widget.captionsFirst
+          ? (results[1] as List<({String code, String name})>)
+          : <({String code, String name})>[];
 
       if (info == null) {
         setState(() {
@@ -120,12 +121,10 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
         if (langs.isNotEmpty && !langs.any((l) => l.code == _selectedLang)) {
           _selectedLang = langs.first.code;
         }
-        _isFetchingLangs = false;
-        
+
         // If captions first mode, stay on info screen to select language
         // If audio mode, maybe auto start? No, let user confirm.
       });
-
     } catch (e) {
       setState(() {
         _errorMessage = 'Lỗi: $e';
@@ -140,7 +139,10 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
 
     setState(() {
       _phase = 'download_audio';
-      _audioProgress = DownloadProgress(videoId: _videoInfo!.id, title: _videoInfo!.title, status: DownloadStatus.fetchingInfo);
+      _audioProgress = DownloadProgress(
+          videoId: _videoInfo!.id,
+          title: _videoInfo!.title,
+          status: DownloadStatus.fetchingInfo);
     });
 
     final stream = _svc.downloadAudio(_videoInfo!.id);
@@ -148,12 +150,13 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       if (!mounted) return;
       setState(() => _audioProgress = progress);
 
-      if (progress.status == DownloadStatus.completed && progress.savedPath != null) {
+      if (progress.status == DownloadStatus.completed &&
+          progress.savedPath != null) {
         context.read<PlayerProvider>().loadSong(
-          path: progress.savedPath!,
-          title: progress.title,
-          autoPlay: true,
-        );
+              path: progress.savedPath!,
+              title: progress.title,
+              autoPlay: true,
+            );
         Navigator.pop(context, progress.savedPath);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Đã tải và phát audio')),
@@ -172,7 +175,6 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
     if (_videoInfo == null) return;
 
     setState(() {
-      _isFetchingCaptions = true;
       _phase = 'download_caption';
     });
 
@@ -181,18 +183,20 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       if (_availableLangs.isEmpty) {
         final langs = await _svc.getAvailableLanguages(_urlCtrl.text);
         if (langs.isEmpty) {
-           throw Exception('Video không có phụ đề');
+          throw Exception('Video không có phụ đề');
         }
         _availableLangs = langs;
         // Pick lang logic
       }
 
-      final captions = await _svc.fetchCaptions(_videoInfo!.id, languageCode: _selectedLang);
-      
-      if (captions.isEmpty) throw Exception('Không tải được phụ đề $_selectedLang');
+      final captions =
+          await _svc.fetchCaptions(_videoInfo!.id, languageCode: _selectedLang);
+
+      if (captions.isEmpty)
+        throw Exception('Không tải được phụ đề $_selectedLang');
 
       final lrcPath = await _svc.saveCaptionsAsLrc(captions, _videoInfo!);
-      
+
       if (mounted) {
         context.read<TextProvider>().loadTextFile(lrcPath!);
         Navigator.pop(context);
@@ -200,12 +204,10 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
           const SnackBar(content: Text('✅ Đã tải và mở phụ đề')),
         );
       }
-
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
         _phase = 'error';
-        _isFetchingCaptions = false;
       });
     }
   }
@@ -221,10 +223,14 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
           // Header
           Row(
             children: [
-              const Icon(Icons.download_for_offline, color: Color(0xFFFF0000), size: 28),
+              const Icon(Icons.download_for_offline,
+                  color: Color(0xFFFF0000), size: 28),
               const SizedBox(width: 12),
               const Text('YouTube Downloader',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.grey),
@@ -257,7 +263,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
             hintText: 'Dán link YouTube (youtu.be, shorts...)',
             hintStyle: TextStyle(color: Colors.grey[600]),
             filled: true,
-            fillColor: Colors.white.withAlpha(12),
+            fillColor: Colors.white.withValues(alpha: 12 / 255),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             suffixIcon: IconButton(
               icon: const Icon(Icons.search),
@@ -275,7 +281,8 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
               backgroundColor: const Color(0xFFFF0000),
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: const Text('Lấy thông tin', style: TextStyle(color: Colors.white)),
+            child: const Text('Lấy thông tin',
+                style: TextStyle(color: Colors.white)),
           ),
         ),
       ],
@@ -290,15 +297,20 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(12),
+            color: Colors.white.withValues(alpha: 12 / 255),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(info.thumbnailUrl ?? '', width: 80, height: 60, fit: BoxFit.cover,
-                  errorBuilder: (_,__,___) => Container(width: 80, height: 60, color: Colors.grey[800]),
+                child: Image.network(
+                  info.thumbnailUrl ?? '',
+                  width: 80,
+                  height: 60,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      Container(width: 80, height: 60, color: Colors.grey[800]),
                 ),
               ),
               const SizedBox(width: 12),
@@ -306,8 +318,13 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(info.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), maxLines: 2),
-                    Text(info.author, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(info.title,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                        maxLines: 2),
+                    Text(info.author,
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
               ),
@@ -336,7 +353,9 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
                 onTap: () {
                   if (_availableLangs.isEmpty) {
                     // Fetch langs first if not yet (when started from Audio side)
-                    setState(() => widget.captionsFirst ? null : null); // trigger rebuild/fetch logic if needed
+                    setState(() => widget.captionsFirst
+                        ? null
+                        : null); // trigger rebuild/fetch logic if needed
                     // Simple hack: call _downloadCaptions which will fetch langs if empty
                   }
                   _downloadCaptions();
@@ -345,16 +364,19 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
             ),
           ],
         ),
-        
+
         if (widget.captionsFirst && _availableLangs.isNotEmpty) ...[
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             value: _selectedLang,
             dropdownColor: const Color(0xFF2A2A3E),
-            items: _availableLangs.map((l) => DropdownMenuItem(
-              value: l.code,
-              child: Text(l.name, style: const TextStyle(color: Colors.white)),
-            )).toList(),
+            items: _availableLangs
+                .map((l) => DropdownMenuItem(
+                      value: l.code,
+                      child: Text(l.name,
+                          style: const TextStyle(color: Colors.white)),
+                    ))
+                .toList(),
             onChanged: (v) => setState(() => _selectedLang = v!),
             decoration: const InputDecoration(labelText: 'Ngôn ngữ phụ đề'),
           ),
@@ -369,9 +391,14 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       children: [
         const CircularProgressIndicator(color: Color(0xFF6C63FF)),
         const SizedBox(height: 16),
-        Text(p?.status == DownloadStatus.downloading ? 'Đang tải audio...' : 'Đang xử lý...',
+        Text(
+            p?.status == DownloadStatus.downloading
+                ? 'Đang tải audio...'
+                : 'Đang xử lý...',
             style: const TextStyle(color: Colors.white)),
-        if (p != null) Text(p.progressText, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        if (p != null)
+          Text(p.progressText,
+              style: const TextStyle(color: Colors.grey, fontSize: 12)),
       ],
     );
   }
@@ -392,7 +419,8 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
         const Icon(Icons.error_outline, color: Colors.red, size: 48),
         const SizedBox(height: 12),
         Text(_errorMessage ?? 'Lỗi không xác định',
-            style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+            style: const TextStyle(color: Colors.white),
+            textAlign: TextAlign.center),
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: () => setState(() => _phase = 'input'),
@@ -409,7 +437,11 @@ class _OptionBtn extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _OptionBtn({required this.icon, required this.label, required this.color, required this.onTap});
+  const _OptionBtn(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -418,15 +450,16 @@ class _OptionBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: color.withAlpha(38),
+          color: color.withValues(alpha: 38 / 255),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withAlpha(76)),
+          border: Border.all(color: color.withValues(alpha: 76 / 255)),
         ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 28),
             const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            Text(label,
+                style: TextStyle(color: color, fontWeight: FontWeight.bold)),
           ],
         ),
       ),

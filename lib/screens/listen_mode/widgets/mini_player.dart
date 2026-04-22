@@ -328,7 +328,7 @@ class _MiniPlayerState extends State<MiniPlayer>
         child: _buildBlurWrapper(
           // ★ TỐI ƯU: Nếu app ẩn, không render Material phức tạp
           child: !_isAppVisible
-              ? Container(color: theme.primaryColor.withOpacity(0.9))
+              ? Container(color: theme.primaryColor.withValues(alpha: 0.9))
               : Material(
                   color: Colors.transparent,
                   // ★ Dùng SingleChildScrollView để tránh hiện sọc vàng đen khi đang animate height

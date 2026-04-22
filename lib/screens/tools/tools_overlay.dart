@@ -60,7 +60,6 @@ class _ToolsOverlayEntry extends StatelessWidget {
   final ValueChanged<String?> onClosed;
 
   const _ToolsOverlayEntry({
-    super.key,
     required this.tools,
     required this.onClosed,
   });
@@ -83,7 +82,6 @@ class _ToolsOverlayScreen extends StatefulWidget {
   final ValueChanged<String?> onClosed;
 
   const _ToolsOverlayScreen({
-    super.key,
     required this.tools,
     required this.onClosed,
   });

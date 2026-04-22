@@ -56,8 +56,9 @@ class _VipSoundMainScreenState extends State<VipSoundMainScreen> {
             bottom: 0,
             child: Consumer<PlayerProvider>(
               builder: (context, player, _) {
-                if (player.currentSongPath == null)
+                if (player.currentSongPath == null) {
                   return const SizedBox.shrink();
+                }
                 return const MiniPlayer();
               },
             ),

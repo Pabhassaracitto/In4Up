@@ -16,13 +16,13 @@ class RollingWaveformView extends StatefulWidget {
   final bool showControls;
 
   const RollingWaveformView({
-    Key? key,
+    super.key,
     required this.controller,
     this.height = 200,
     this.onSeek,
     this.onTap,
     this.showControls = true,
-  }) : super(key: key);
+  });
 
   @override
   State<RollingWaveformView> createState() => _RollingWaveformViewState();

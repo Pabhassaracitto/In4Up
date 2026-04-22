@@ -26,7 +26,7 @@ class PdfToolbar extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0D1117),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.07)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
         ),
       ),
       child: Row(
@@ -56,7 +56,7 @@ class PdfToolbar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -108,11 +108,12 @@ class _ColorModeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF2196F3).withOpacity(0.2)
-              : Colors.white.withOpacity(0.07),
+              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(14),
           border: isActive
-              ? Border.all(color: const Color(0xFF2196F3).withOpacity(0.4))
+              ? Border.all(
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.4))
               : null,
         ),
         child: Row(
@@ -160,7 +161,7 @@ class _ViewModeButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.07),
+          color: Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
@@ -186,7 +187,7 @@ class _MoreButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.07),
+          color: Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Icon(Icons.more_vert, size: 16, color: Colors.white70),
@@ -304,7 +305,7 @@ class _TtsLanguageSelector extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelected
                   ? const Color(0xFF2196F3)
-                  : Colors.white.withOpacity(0.08),
+                  : Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(

@@ -31,8 +31,8 @@ class WordBubble extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: selected
-              ? word.visualColor.withOpacity(0.3)
-              : word.visualColor.withOpacity(0.15),
+              ? word.visualColor.withValues(alpha: 0.3)
+              : word.visualColor.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(word.visualSize * 0.4),
           border: Border.all(
             color: selected ? Colors.white : word.visualColor,
@@ -41,7 +41,7 @@ class WordBubble extends StatelessWidget {
           boxShadow: [
             if (word.mastery < 0.3 || selected || dragging)
               BoxShadow(
-                color: word.visualColor.withOpacity(dragging ? 0.6 : 0.4),
+                color: word.visualColor.withValues(alpha: dragging ? 0.6 : 0.4),
                 blurRadius: dragging ? 12 : 8,
                 spreadRadius: dragging ? 2 : 1,
               ),
@@ -78,7 +78,7 @@ class WordBubble extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 2),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.8),
+                  color: Colors.orange.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -105,9 +105,9 @@ class WordBubble extends StatelessWidget {
       height: s,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: score >= kThreshold ? color : color.withOpacity(0.2),
+        color: score >= kThreshold ? color : color.withValues(alpha: 0.2),
         border: Border.all(
-          color: color.withOpacity(0.5),
+          color: color.withValues(alpha: 0.5),
           width: 0.5,
         ),
       ),

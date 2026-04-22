@@ -95,7 +95,7 @@ class _WordHighlightPainter extends CustomPainter {
             const Radius.circular(3),
           ),
           Paint()
-            ..color = const Color(0xFFFFEB3B).withOpacity(0.6)
+            ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.6)
             ..style = PaintingStyle.fill,
         );
         // Border

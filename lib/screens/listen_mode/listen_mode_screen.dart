@@ -12,7 +12,6 @@
 
 import 'dart:ui';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -134,8 +133,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (player == null || waveform == null || !player.isPlaying) return;
 
     final now = DateTime.now();
-    // ★ TỐI ƯU: Nâng ngưỡng lên 32ms (30fps) để giải phóng Buffer Queue trên các máy yếu
-    if (now.difference(_lastUiUpdate).inMilliseconds < 32) return;
+    // ★ TỐI ƯU: Nâng ngưỡng lên 50ms (30fps) để giải phóng Buffer Queue trên các máy yếu
+    if (now.difference(_lastUiUpdate).inMilliseconds < 50) return;
 
     // ★ FIX: Chỉ cập nhật nếu vị trí thực sự thay đổi (tránh spam khi đứng yên)
     if (player.state.position == _lastPosition) return;
@@ -294,27 +293,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   Widget _buildEmptyState(BuildContext context) {
     return const ListenLibraryScreen();
-  }
-
-  Future<void> _pickAudioFile(BuildContext context) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
-        allowMultiple: false,
-      );
-      if (result != null &&
-          result.files.isNotEmpty &&
-          result.files.first.path != null &&
-          context.mounted) {
-        await context.read<PlayerProvider>().loadSong(
-              path: result.files.first.path!,
-              title: result.files.first.name,
-              autoPlay: true,
-            );
-      }
-    } catch (e) {
-      debugPrint('Error picking file: $e');
-    }
   }
 }
 
@@ -512,7 +490,7 @@ class _SongInfoBar extends StatelessWidget {
             thumbColor: const Color(0xFF6C63FF),
             activeTrackColor: const Color(0xFF6C63FF),
             inactiveTrackColor: Colors.white12,
-            overlayColor: const Color(0xFF6C63FF).withOpacity(0.2),
+            overlayColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
           ),
           child: Slider(
             value: progress,
@@ -577,7 +555,7 @@ class _CorePlayerControls extends StatelessWidget {
                     Icon(
                       Icons.keyboard_double_arrow_up,
                       size: 20,
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                     ),
                     const SizedBox(height: 4),
                   ],
@@ -615,7 +593,7 @@ class _CorePlayerControls extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6C63FF).withOpacity(0.4),
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
                         blurRadius: 16,
                         offset: const Offset(0, 4),
                       ),
@@ -644,10 +622,10 @@ class _CorePlayerControls extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4CAF50).withOpacity(0.15),
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFF4CAF50).withOpacity(0.4),
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
                       ),
                     ),
                     child: Row(
@@ -678,9 +656,10 @@ class _CorePlayerControls extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.15),
+                    color: Colors.orange.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                    border:
+                        Border.all(color: Colors.orange.withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     '${player.state.speed}×',
@@ -843,12 +822,12 @@ class _AdvancedSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         border: Border(
           top: BorderSide(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -1009,7 +988,7 @@ class _Divider extends StatelessWidget {
       height: 1,
       indent: 16,
       endIndent: 16,
-      color: Colors.white.withOpacity(0.06),
+      color: Colors.white.withValues(alpha: 0.06),
     );
   }
 }
@@ -1093,7 +1072,7 @@ class _QuickBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: isActive
               ? color.withValues(alpha: 0.18)
-              : Colors.white.withOpacity(0.05),
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(10),
           border:
               isActive ? Border.all(color: color.withValues(alpha: 0.4)) : null,

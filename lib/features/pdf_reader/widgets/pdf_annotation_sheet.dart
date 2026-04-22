@@ -173,7 +173,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
                 hintText: 'Thêm ghi chú...',
                 hintStyle: const TextStyle(color: Colors.grey),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.07),
+                fillColor: Colors.white.withValues(alpha: 0.07),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -220,10 +220,10 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       style: BorderStyle.solid),
                 ),
                 child: Row(
@@ -378,7 +378,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
               hintText: 'Ghi chú (tùy chọn)...',
               hintStyle: const TextStyle(color: Colors.grey),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.07),
+              fillColor: Colors.white.withValues(alpha: 0.07),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,

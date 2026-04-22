@@ -2,12 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+import '../../../models/vocab_context.dart';
+import '../../../providers/vocabulary_provider.dart';
 // XÓA: import 'package:vipsound_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 class WordActionsSheet {
   WordActionsSheet._();
@@ -337,6 +338,13 @@ class _WordActionsContent extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
+                child: _SaveToWordlistButton(
+                  word: word,
+                  lineIndex: lineIndex,
+                  onSaved: () => Navigator.pop(context),
+                ),
+              ),
+              /*Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
@@ -373,7 +381,7 @@ class _WordActionsContent extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
+              ),*/
             ],
           ),
 
@@ -491,6 +499,263 @@ class _StatItem extends StatelessWidget {
           style: TextStyle(color: Colors.grey[600], fontSize: 10),
         ),
       ],
+    );
+  }
+}
+// ═══════════════════════════════════════════════════════════════
+// SAVE TO WORDLIST BUTTON — tích hợp VocabularyProvider
+// ═══════════════════════════════════════════════════════════════
+
+class _SaveToWordlistButton extends StatefulWidget {
+  final AnalyzedWord word;
+  final int lineIndex;
+  final VoidCallback onSaved;
+
+  const _SaveToWordlistButton({
+    required this.word,
+    required this.lineIndex,
+    required this.onSaved,
+  });
+
+  @override
+  State<_SaveToWordlistButton> createState() => _SaveToWordlistButtonState();
+}
+
+class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
+  bool _showMeaningInput = false;
+  final _meaningCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _meaningCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vocabProvider = context.read<VocabularyProvider>();
+    final alreadyExists = vocabProvider.hasWord(widget.word.word);
+
+    if (alreadyExists) {
+      return _buildExistsButton(vocabProvider);
+    }
+
+    if (_showMeaningInput) {
+      return _buildMeaningInput(vocabProvider);
+    }
+
+    return _buildSaveButton(vocabProvider);
+  }
+
+  // ── Chưa có → hiện 2 nút ──────────────────────────────────
+
+  Widget _buildSaveButton(VocabularyProvider vocabProvider) {
+    return Row(
+      children: [
+        // Lưu nhanh (1 click)
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _saveQuick(vocabProvider),
+            icon: const Icon(Icons.bolt, size: 16),
+            label: const Text('Lưu nhanh'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF4CAF50),
+              side: const BorderSide(color: Color(0xFF4CAF50), width: 0.8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Lưu + nhập nghĩa
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _showMeaningInput = true),
+            icon: const Icon(Icons.edit_note, size: 16),
+            label: const Text('+ Nghĩa'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF2196F3),
+              side: const BorderSide(color: Color(0xFF2196F3), width: 0.8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Form nhập nghĩa (Cấp 2) ───────────────────────────────
+
+  Widget _buildMeaningInput(VocabularyProvider vocabProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _meaningCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Nhập nghĩa tiếng Việt...',
+                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF2196F3), width: 1.5),
+                  ),
+                ),
+                onSubmitted: (_) => _saveWithMeaning(vocabProvider),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _saveWithMeaning(vocabProvider),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 18),
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => setState(() => _showMeaningInput = false),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.close, color: Colors.grey, size: 18),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Đã tồn tại → thêm context ─────────────────────────────
+
+  Widget _buildExistsButton(VocabularyProvider vocabProvider) {
+    return OutlinedButton.icon(
+      onPressed: () => _addContextOnly(vocabProvider),
+      icon: const Icon(Icons.add_location_alt, size: 16),
+      label: const Text('+ Thêm ngữ cảnh'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFFFFB300),
+        side: const BorderSide(color: Color(0xFFFFB300), width: 0.8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ── Actions ────────────────────────────────────────────────
+
+  void _saveQuick(VocabularyProvider vocabProvider) {
+    final tp = context.read<TextProvider>();
+    final ctx = _buildContext(tp);
+
+    vocabProvider.addWithAutoClassify(
+      text: widget.word.word,
+      meaning: widget.word.meaning ?? '',
+      phonetic: widget.word.phonetic,
+      context: ctx,
+    );
+
+    // Vẫn lưu vào old system (backward compat)
+    tp.saveWord(widget.word);
+
+    widget.onSaved();
+    _showSavedSnack(context, widget.word.word);
+  }
+
+  void _saveWithMeaning(VocabularyProvider vocabProvider) {
+    final tp = context.read<TextProvider>();
+    final ctx = _buildContext(tp);
+    final meaning = _meaningCtrl.text.trim();
+
+    vocabProvider.addWithAutoClassify(
+      text: widget.word.word,
+      meaning: meaning.isNotEmpty ? meaning : (widget.word.meaning ?? ''),
+      phonetic: widget.word.phonetic,
+      context: ctx,
+    );
+
+    tp.saveWord(widget.word);
+    widget.onSaved();
+    _showSavedSnack(context, widget.word.word);
+  }
+
+  void _addContextOnly(VocabularyProvider vocabProvider) {
+    final tp = context.read<TextProvider>();
+    final ctx = _buildContext(tp);
+    final existing = vocabProvider.findByWord(widget.word.word);
+    if (existing != null) {
+      vocabProvider.addContextToWord(existing.id, ctx);
+    }
+    widget.onSaved();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('📌 Đã thêm ngữ cảnh mới cho "${widget.word.word}"'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF2A2A3E),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // ── Build context từ TextProvider ─────────────────────────
+
+  VocabContext _buildContext(TextProvider tp) {
+    final title = tp.currentDocument?.title ?? 'Text Studio';
+    final lineContent = widget.lineIndex < tp.lines.length
+        ? tp.lines[widget.lineIndex].content
+        : widget.word.word;
+
+    return VocabContext.fromStory(
+      storyTitle: title,
+      lineIndex: widget.lineIndex,
+      surroundingText: lineContent,
+    );
+  }
+
+  static void _showSavedSnack(BuildContext context, String word) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.bookmark_added,
+                color: Color(0xFF4CAF50), size: 18),
+            const SizedBox(width: 8),
+            Text('"$word" đã lưu vào Wordlist'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2A2A3E),
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 }

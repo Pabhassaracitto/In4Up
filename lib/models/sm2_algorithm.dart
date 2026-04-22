@@ -1,17 +1,18 @@
 /// ═══════════════════════════════════════════════════════════════
 ///  SM-2 ALGORITHM (SuperMemo 2)
-///  
+///
 ///  Thuật toán Spaced Repetition chuẩn Anki
-///  
+///
 ///  Quality (q): 0-5
 ///    0-2: Fail (reset)
 ///    3: Hard (repeat soon)
 ///    4: Good (normal interval)
 ///    5: Easy (longer interval)
-///  
+///
 ///  EaseFactor (EF): >= 1.3, default 2.5
 ///  Interval: số ngày đến lần review tiếp
 /// ═══════════════════════════════════════════════════════════════
+library;
 
 class SM2Result {
   final double easeFactor;
@@ -29,7 +30,7 @@ class SM2Result {
 
 class SM2Algorithm {
   /// Tính toán lịch review tiếp theo
-  /// 
+  ///
   /// [quality]: 0-5 (0-2: fail, 3: hard, 4: good, 5: easy)
   /// [currentEF]: EaseFactor hiện tại (default 2.5)
   /// [currentInterval]: Interval hiện tại (ngày)
@@ -99,8 +100,8 @@ class SM2Algorithm {
   /// Kiểm tra từ có cần review không
   static bool isDue(DateTime? nextReview) {
     if (nextReview == null) return true;
-    return DateTime.now().isAfter(nextReview) || 
-           DateTime.now().difference(nextReview).inHours.abs() < 12;
+    return DateTime.now().isAfter(nextReview) ||
+        DateTime.now().difference(nextReview).inHours.abs() < 12;
   }
 
   /// Tính độ ưu tiên review (số âm = overdue)

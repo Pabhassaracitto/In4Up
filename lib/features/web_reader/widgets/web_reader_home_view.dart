@@ -118,9 +118,9 @@ class WebReaderHomeView extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -153,10 +153,11 @@ class WebReaderHomeView extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
+          color: Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: Colors.white.withOpacity(0.05), style: BorderStyle.solid),
+              color: Colors.white.withValues(alpha: 0.05),
+              style: BorderStyle.solid),
         ),
         child: Column(
           children: [

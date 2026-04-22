@@ -5,6 +5,8 @@ enum ReviewGrade {
   hard,
   good,
   easy,
+  retired, // ← THÊM: Vuốt lên - đã thuộc lòng
+  snoozed, // ← THÊM: Vuốt xuống - hoãn học
 }
 
 extension ReviewGradeExtension on ReviewGrade {
@@ -18,6 +20,10 @@ extension ReviewGradeExtension on ReviewGrade {
         return 'Nhớ';
       case ReviewGrade.easy:
         return 'Dễ';
+      case ReviewGrade.retired:
+        return 'Thuộc lòng'; // ← THÊM
+      case ReviewGrade.snoozed:
+        return 'Hoãn học'; // ← THÊM
     }
   }
 
@@ -31,6 +37,10 @@ extension ReviewGradeExtension on ReviewGrade {
         return '😊';
       case ReviewGrade.easy:
         return '😎';
+      case ReviewGrade.retired:
+        return '⭐'; // ← THÊM
+      case ReviewGrade.snoozed:
+        return '💤'; // ← THÊM
     }
   }
 
@@ -44,6 +54,28 @@ extension ReviewGradeExtension on ReviewGrade {
         return 0xFF4CAF50;
       case ReviewGrade.easy:
         return 0xFF2196F3;
+      case ReviewGrade.retired:
+        return 0xFFFFD700; // ← THÊM vàng
+      case ReviewGrade.snoozed:
+        return 0xFF9E9E9E; // ← THÊM xám
+    }
+  }
+
+  // ← THÊM: Mapping grade → swipe direction (để UI hiển thị hint)
+  SwipeDirection? get swipeDirection {
+    switch (this) {
+      case ReviewGrade.forgot:
+        return SwipeDirection.left;
+      case ReviewGrade.hard:
+        return SwipeDirection.left;
+      case ReviewGrade.good:
+        return SwipeDirection.right;
+      case ReviewGrade.easy:
+        return SwipeDirection.right;
+      case ReviewGrade.retired:
+        return SwipeDirection.up;
+      case ReviewGrade.snoozed:
+        return SwipeDirection.down;
     }
   }
 }
@@ -101,3 +133,5 @@ enum ReviewMode {
   difficult,
   random,
 }
+
+enum SwipeDirection { left, right, up, down }

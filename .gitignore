@@ -315,3 +315,11 @@ backups.env
 *.env
 packages/vipsound_core
 .ai_handoff/
+*.bat
+*.iml
+*.log
+*.iml
+*.msi
+.flutter-plugins*
+third_party/
+build_log.txt

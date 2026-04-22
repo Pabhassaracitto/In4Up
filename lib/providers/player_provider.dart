@@ -125,7 +125,6 @@ class PlayerProvider extends ChangeNotifier {
   // === LEARNING STATS ===
   int _totalLoopsToday = 0;
   Duration _totalListeningTime = Duration.zero;
-  DateTime? _sessionStartTime;
 
   // ==================== GETTERS ====================
   PlaybackState get state => _state;
@@ -191,7 +190,6 @@ class PlayerProvider extends ChangeNotifier {
       (_) => _saveCurrentPosition(),
     );
 
-    _sessionStartTime = DateTime.now();
     _restoreFromStorage();
     _initializeStt();
   }
@@ -476,10 +474,11 @@ class PlayerProvider extends ChangeNotifier {
       }
     } else {
       // Logic cũ cho chế độ nghe nhạc
-      if (isPlaying)
+      if (isPlaying) {
         await pause();
-      else
+      } else {
         await play();
+      }
     }
   }
 
@@ -852,7 +851,6 @@ class PlayerProvider extends ChangeNotifier {
   void resetDailyStats() {
     _totalLoopsToday = 0;
     _totalListeningTime = Duration.zero;
-    _sessionStartTime = DateTime.now();
     notifyListeners();
   }
 

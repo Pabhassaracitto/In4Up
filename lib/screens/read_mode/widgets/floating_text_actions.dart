@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/create_segment_sheet.dart';
+import '../../../models/vocab_context.dart';
+import '../../../providers/vocabulary_provider.dart';
 
 class FloatingTextActions {
   FloatingTextActions._();
@@ -43,6 +45,50 @@ class _FloatingBar extends StatelessWidget {
     required this.lineIndex,
     required this.onDismiss,
   });
+  void _saveSelectionToWordlist(BuildContext context) {
+    final vocabProvider = context.read<VocabularyProvider>();
+    final tp = context.read<TextProvider>();
+
+    final title = tp.currentDocument?.title ?? 'Text Studio';
+    final lineContent = lineIndex < tp.lines.length
+        ? tp.lines[lineIndex].content
+        : selectedText;
+
+    final ctx = VocabContext.fromStory(
+      storyTitle: title,
+      lineIndex: lineIndex,
+      surroundingText: lineContent,
+    );
+
+    vocabProvider.addWithAutoClassify(
+      text: selectedText.trim(),
+      meaning: '',
+      context: ctx,
+    );
+
+    tp.clearSelection();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.library_add_check,
+                color: Color(0xFF4CAF50), size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '"${selectedText.length > 20 ? '${selectedText.substring(0, 20)}...' : selectedText}" → Wordlist',
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2A2A3E),
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +165,16 @@ class _FloatingBar extends StatelessWidget {
                 },
               ),
               const SizedBox(width: 6),
-
+              _ActionBtn(
+                icon: Icons.library_add,
+                color: const Color(0xFF4CAF50),
+                tooltip: 'Lưu Wordlist',
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _saveSelectionToWordlist(context);
+                  onDismiss();
+                },
+              ),
               // Copy
               _ActionBtn(
                 icon: Icons.copy,

@@ -284,9 +284,7 @@ class MemoryController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void gradeCurrentCard(ReviewGrade grade) {
-    if (currentCard == null) return;
-
+  Future<void> gradeCurrentCard(ReviewGrade grade) async {
     final item = currentCard!;
     MemoryItem updated;
 
@@ -303,14 +301,21 @@ class MemoryController extends ChangeNotifier {
         updated = item.markCorrect();
         _correctTodayCount++;
         break;
+      case ReviewGrade.retired: // ← THÊM
+        updated = item.markRetired();
+        _correctTodayCount++;
+        break;
+      case ReviewGrade.snoozed: // ← THÊM
+        updated = item.markSnoozed();
+        // Không tính vào correctToday
+        break;
     }
 
     final idx = _allItems.indexWhere((i) => i.id == item.id);
-    if (idx >= 0) {
-      _allItems[idx] = updated;
-    }
+    if (idx >= 0) _allItems[idx] = updated;
     _reviewedTodayCount++;
 
+    // Haptic theo grade
     switch (grade) {
       case ReviewGrade.forgot:
         HapticFeedback.heavyImpact();
@@ -322,10 +327,18 @@ class MemoryController extends ChangeNotifier {
       case ReviewGrade.easy:
         HapticFeedback.lightImpact();
         break;
+      case ReviewGrade.retired: // ← THÊM: double tap rung
+        HapticFeedback.mediumImpact();
+        await Future.delayed(const Duration(milliseconds: 100));
+        HapticFeedback.lightImpact();
+        break;
+      case ReviewGrade.snoozed: // ← THÊM: rung nhẹ 1 lần
+        HapticFeedback.selectionClick();
+        break;
     }
 
     _moveToNextCard();
-    _persist(); // Lưu sau mỗi lần grade
+    _persist();
   }
 
   void _moveToNextCard() {

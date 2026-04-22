@@ -80,7 +80,7 @@ class _TrianglePainter extends CustomPainter {
     });
 
     final fillPaint = Paint()
-      ..color = _getAreaColor().withOpacity(0.3)
+      ..color = _getAreaColor().withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
     final strokePaint = Paint()
       ..color = _getAreaColor()
@@ -140,7 +140,5 @@ class _TrianglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TrianglePainter old) =>
-      old.understand != understand ||
-      old.listen != listen ||
-      old.read != read;
+      old.understand != understand || old.listen != listen || old.read != read;
 }

@@ -13,8 +13,7 @@ import 'models/stt_model_info.dart';
 
 class SttModelManager {
   static SttModelManager? _instance;
-  factory SttModelManager() =>
-      _instance ??= SttModelManager._internal();
+  factory SttModelManager() => _instance ??= SttModelManager._internal();
   SttModelManager._internal();
 
   final _dio = Dio(BaseOptions(
@@ -22,15 +21,12 @@ class SttModelManager {
     receiveTimeout: const Duration(minutes: 30),
     // ✅ Header giả lập browser để HuggingFace không block
     headers: {
-      'User-Agent':
-          'Mozilla/5.0 (compatible; VipsoundApp/1.0)',
+      'User-Agent': 'Mozilla/5.0 (compatible; VipsoundApp/1.0)',
     },
   ));
 
-  final _modelStates =
-      <WhisperModelLevel, BehaviorSubject<SttModelInfo>>{};
-  final _activeDownloads =
-      <WhisperModelLevel, CancelToken>{};
+  final _modelStates = <WhisperModelLevel, BehaviorSubject<SttModelInfo>>{};
+  final _activeDownloads = <WhisperModelLevel, CancelToken>{};
   String? _modelDirectory;
 
   // ─── Initialization ─────────────────────────────────────────────────────
@@ -42,8 +38,7 @@ class SttModelManager {
     for (final level in WhisperModelLevel.values) {
       if (!_modelStates.containsKey(level)) {
         _modelStates[level] = BehaviorSubject<SttModelInfo>.seeded(
-          SttModelInfo(
-              level: level, status: ModelStatus.notDownloaded),
+          SttModelInfo(level: level, status: ModelStatus.notDownloaded),
         );
       }
     }
@@ -63,8 +58,7 @@ class SttModelManager {
     return _modelStates[level]!.value;
   }
 
-  bool isModelReady(WhisperModelLevel level) =>
-      getModelInfo(level).isReady;
+  bool isModelReady(WhisperModelLevel level) => getModelInfo(level).isReady;
 
   String? getModelPath(WhisperModelLevel level) {
     final info = getModelInfo(level);
@@ -129,8 +123,7 @@ class SttModelManager {
         return false;
       }
 
-      debugPrint(
-          '⚠️ $sourceName thất bại, chuyển sang nguồn tiếp theo...');
+      debugPrint('⚠️ $sourceName thất bại, chuyển sang nguồn tiếp theo...');
     }
 
     // Tất cả nguồn đều thất bại
@@ -236,8 +229,7 @@ class SttModelManager {
           localPath: savePath,
           progress: 1.0,
         );
-        debugPrint(
-            '✅ Download thành công từ $sourceName!');
+        debugPrint('✅ Download thành công từ $sourceName!');
         return true;
       } on DioException catch (e) {
         if (CancelToken.isCancel(e)) {
@@ -247,8 +239,7 @@ class SttModelManager {
         }
 
         final statusCode = e.response?.statusCode;
-        debugPrint(
-            '⚠️ $sourceName attempt $attempt/$maxRetries '
+        debugPrint('⚠️ $sourceName attempt $attempt/$maxRetries '
             'thất bại (HTTP $statusCode): ${e.message}');
 
         // Một số lỗi không nên retry
@@ -263,8 +254,7 @@ class SttModelManager {
           await Future.delayed(Duration(seconds: waitSec));
         }
       } catch (e) {
-        debugPrint(
-            '⚠️ $sourceName attempt $attempt/$maxRetries error: $e');
+        debugPrint('⚠️ $sourceName attempt $attempt/$maxRetries error: $e');
         if (attempt < maxRetries) {
           await Future.delayed(Duration(seconds: 2 * attempt));
         }
@@ -285,13 +275,11 @@ class SttModelManager {
         final sizeMB = await file.length() / 1024 / 1024;
 
         if (sizeMB < level.sizeInMB * 0.8) {
-          debugPrint(
-              '⚠️ Model ${level.name} corrupt '
+          debugPrint('⚠️ Model ${level.name} corrupt '
               '(${sizeMB.toStringAsFixed(1)}MB)');
           _emitState(level, ModelStatus.corrupted, localPath: path);
         } else {
-          debugPrint(
-              '✅ Model ${level.name} sẵn sàng '
+          debugPrint('✅ Model ${level.name} sẵn sàng '
               '(${sizeMB.toStringAsFixed(1)}MB)');
           _emitState(level, ModelStatus.downloaded, localPath: path);
         }
@@ -301,8 +289,7 @@ class SttModelManager {
 
   Future<String> _resolveModelDirectory() async {
     final appDir = await getApplicationSupportDirectory();
-    final modelDir =
-        Directory('${appDir.path}/whisper_models');
+    final modelDir = Directory('${appDir.path}/whisper_models');
     if (!await modelDir.exists()) {
       await modelDir.create(recursive: true);
     }
@@ -339,8 +326,7 @@ class SttModelManager {
     return 0;
   }
 
-  Future<bool> _verifyFile(
-      String path, WhisperModelLevel level) async {
+  Future<bool> _verifyFile(String path, WhisperModelLevel level) async {
     try {
       final file = File(path);
       if (!await file.exists()) return false;
@@ -350,8 +336,7 @@ class SttModelManager {
       final maxMB = level.sizeInMB * 1.1;
 
       if (sizeMB < minMB || sizeMB > maxMB) {
-        debugPrint(
-            '❌ Size không hợp lệ: ${sizeMB.toStringAsFixed(1)}MB '
+        debugPrint('❌ Size không hợp lệ: ${sizeMB.toStringAsFixed(1)}MB '
             '(kỳ vọng ${level.sizeInMB}MB ± 10%)');
         return false;
       }
@@ -365,8 +350,7 @@ class SttModelManager {
         debugPrint('⚠️ Tiếp tục dù SHA1 không khớp...');
       }
 
-      debugPrint(
-          '✅ Verify OK: ${sizeMB.toStringAsFixed(1)}MB');
+      debugPrint('✅ Verify OK: ${sizeMB.toStringAsFixed(1)}MB');
       return true;
     } catch (e) {
       debugPrint('❌ Verify error: $e');
@@ -398,8 +382,7 @@ class SttModelManager {
 
   void _ensureInitialized() {
     if (_modelDirectory == null) {
-      throw StateError(
-          'SttModelManager chưa được khởi tạo. '
+      throw StateError('SttModelManager chưa được khởi tạo. '
           'Gọi initialize() trước.');
     }
   }
@@ -414,4 +397,63 @@ class SttModelManager {
     }
     _instance = null;
   }
+
+  /// Copy model từ path bất kỳ vào model directory
+  /// Dùng cho dev: copy file từ máy tính vào app
+  Future<bool> importModelFromPath(
+    String sourcePath,
+    WhisperModelLevel level,
+  ) async {
+    _ensureInitialized();
+
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('❌ Source không tồn tại: $sourcePath');
+        return false;
+      }
+
+      final destPath = _getModelFilePath(level);
+      debugPrint('📋 Copying ${level.name}: $sourcePath → $destPath');
+
+      _emitState(level, ModelStatus.downloading, progress: 0.0);
+
+      // Copy với progress
+      final sourceSize = await sourceFile.length();
+      final destFile = File(destPath);
+      final sink = destFile.openWrite();
+      final stream = sourceFile.openRead();
+
+      int copied = 0;
+      await for (final chunk in stream) {
+        sink.add(chunk);
+        copied += chunk.length;
+        _emitState(
+          level,
+          ModelStatus.downloading,
+          progress: copied / sourceSize,
+        );
+      }
+      await sink.close();
+
+      // Verify
+      final valid = await _verifyFile(destPath, level);
+      if (!valid) {
+        await destFile.delete().catchError((_) => destFile);
+        _emitState(level, ModelStatus.corrupted);
+        return false;
+      }
+
+      _emitState(level, ModelStatus.downloaded, localPath: destPath);
+      debugPrint('✅ Import thành công: ${level.name}');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Import error: $e');
+      _emitState(level, ModelStatus.notDownloaded, errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  /// Lấy model directory path (dùng cho DevTools/debug)
+  String get modelDirectoryPath => _modelDirectory ?? 'Chưa khởi tạo';
 }

@@ -700,7 +700,9 @@ class _TriangleFramePainter extends CustomPainter {
     final linePaint = Paint()
       ..color = Colors.grey.shade300
       ..strokeWidth = 1;
-    for (final v in vertices) canvas.drawLine(center, v, linePaint);
+    for (final v in vertices) {
+      canvas.drawLine(center, v, linePaint);
+    }
 
     for (double scale = 0.25; scale <= 0.75; scale += 0.25) {
       final scaled = vertices

@@ -189,6 +189,28 @@ class MemoryItem {
     );
   }
 
+  /// Vuốt lên: Đã thuộc lòng - interval rất dài
+  MemoryItem markRetired() {
+    return _copyWith(
+      stage: MemoryStage.bloom,
+      correctCount: stage.requiredCorrectReviews,
+      totalReviews: totalReviews + 1,
+      easeFactor: (easeFactor + 0.2).clamp(1.3, 2.5),
+      lastReviewedAt: DateTime.now(),
+      nextReviewAt: DateTime.now().add(
+        const Duration(days: 90),
+      ),
+    );
+  }
+
+  /// Vuốt xuống: Hoãn học - bỏ qua tạm thời
+  MemoryItem markSnoozed({int snoozeDays = 14}) {
+    return _copyWith(
+      lastReviewedAt: DateTime.now(),
+      nextReviewAt: DateTime.now().add(Duration(days: snoozeDays)),
+    );
+  }
+
   // ==================== SERIALIZATION ====================
   Map<String, dynamic> toJson() {
     return {

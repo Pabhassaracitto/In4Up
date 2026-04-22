@@ -10,7 +10,14 @@ import '../controllers/read_mode_controller.dart';
 import '../sheets/segments_list_sheet.dart';
 
 class ReadBottomBar extends StatelessWidget {
-  const ReadBottomBar({super.key});
+  final VoidCallback? onToggleWordlist; // ← MỚI
+  final bool showWordlistPanel; // ← MỚI
+
+  const ReadBottomBar({
+    super.key,
+    this.onToggleWordlist,
+    this.showWordlistPanel = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +88,14 @@ class ReadBottomBar extends StatelessWidget {
                     badge:
                         tp.segments.isNotEmpty ? '${tp.segments.length}' : null,
                     onTap: () => SegmentsListSheet.show(context),
+                  ),
+                  _BarAction(
+                    icon: showWordlistPanel
+                        ? Icons.view_sidebar
+                        : Icons.view_sidebar_outlined,
+                    isActive: showWordlistPanel,
+                    activeThumbColor: const Color(0xFF6C63FF),
+                    onTap: () => onToggleWordlist?.call(),
                   ),
                 ],
               ),

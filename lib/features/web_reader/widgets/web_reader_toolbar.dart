@@ -67,7 +67,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
       decoration: BoxDecoration(
         color: const Color(0xFF0D1117),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.07)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
         ),
       ),
       child: Column(
@@ -118,12 +118,12 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.07),
+                      color: Colors.white.withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: _isEditing
-                            ? const Color(0xFF2196F3).withOpacity(0.5)
-                            : Colors.white.withOpacity(0.1),
+                            ? const Color(0xFF2196F3).withValues(alpha: 0.5)
+                            : Colors.white.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Row(
@@ -241,11 +241,12 @@ class _ColorModeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF2196F3).withOpacity(0.2)
-              : Colors.white.withOpacity(0.07),
+              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(8),
           border: isActive
-              ? Border.all(color: const Color(0xFF2196F3).withOpacity(0.4))
+              ? Border.all(
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.4))
               : null,
         ),
         child: Row(

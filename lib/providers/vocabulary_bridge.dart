@@ -28,8 +28,11 @@ class VocabularyBridge {
       return;
     }
     final normalized = word.toLowerCase().trim();
-    if (normalized.isEmpty || normalized.length < 2 || inst.hasWord(normalized))
+    if (normalized.isEmpty ||
+        normalized.length < 2 ||
+        inst.hasWord(normalized)) {
       return;
+    }
     inst.addWord(WordEntry(
       id: 'bridge_${DateTime.now().millisecondsSinceEpoch}',
       word: normalized,

@@ -9,7 +9,7 @@ class RollingWaveformController extends ChangeNotifier {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   double _zoom = 1.0; // 1.0 = normal, 2.0 = 2x zoom in
-  List<LoopRegion> _loopRegions = [];
+  final List<LoopRegion> _loopRegions = [];
 
   // Getters
   WaveformData? get waveformData => _waveformData;

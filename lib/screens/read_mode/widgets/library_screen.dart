@@ -105,13 +105,6 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     if (mounted) _fabAnim.forward();
   }
 
-  // ── Grouped lists ──────────────────────────────────────────
-  List<RecentFile> get _inProgress =>
-      _files.where((f) => f.isInProgress).toList();
-  List<RecentFile> get _newFiles => _files.where((f) => f.isNew).toList();
-  List<RecentFile> get _completed =>
-      _files.where((f) => f.isCompleted).toList();
-
   // ── Search filter ──────────────────────────────────────────
   List<RecentFile> get _filteredFiles {
     if (_searchQuery.isEmpty) return _files;

@@ -23,7 +23,7 @@ class PdfTtsBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0D1117),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.07)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
         ),
       ),
       child: Row(
@@ -88,7 +88,7 @@ class PdfTtsBar extends StatelessWidget {
                     color: (isPlaying
                             ? const Color(0xFFEF5350)
                             : const Color(0xFF2196F3))
-                        .withOpacity(0.35),
+                        .withValues(alpha: 0.35),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -128,7 +128,7 @@ class PdfTtsBar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
+                color: Colors.white.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -181,8 +181,7 @@ class PdfTtsBar extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [0.5, 0.7, 0.9, 1.0, 1.2, 1.5].map((speed) {
-                final isSelected =
-                    (controller.ttsSpeed - speed).abs() < 0.05;
+                final isSelected = (controller.ttsSpeed - speed).abs() < 0.05;
                 return GestureDetector(
                   onTap: () {
                     controller.setTtsSpeed(speed);
@@ -194,16 +193,15 @@ class PdfTtsBar extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF2196F3)
-                          : Colors.white.withOpacity(0.08),
+                          : Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${speed}x',
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.grey,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -231,7 +229,7 @@ class _BarBtn extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(onTap != null ? 0.07 : 0.03),
+          color: Colors.white.withValues(alpha: onTap != null ? 0.07 : 0.03),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(

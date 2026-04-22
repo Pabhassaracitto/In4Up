@@ -1,5 +1,7 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
+import 'package:flutter/foundation.dart'; // cho kDebugMode
+import 'package:file_picker/file_picker.dart'; // cho FilePicker
 import 'package:flutter/material.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
@@ -49,7 +51,7 @@ class _SourceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.blue.shade900.withOpacity(0.3),
+      color: Colors.blue.shade900.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -150,7 +152,7 @@ class _ModelCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade900.withOpacity(0.3),
+                      color: Colors.red.shade900.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -168,7 +170,8 @@ class _ModelCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (info.isDownloading)
+                    if (info.isDownloading) ...[
+                      // Nút Huỷ download
                       TextButton.icon(
                         icon: const Icon(Icons.cancel, size: 16),
                         label: const Text('Huỷ'),
@@ -176,8 +179,16 @@ class _ModelCard extends StatelessWidget {
                           foregroundColor: Colors.red,
                         ),
                         onPressed: () => manager.cancelDownload(level),
-                      )
-                    else if (info.isReady)
+                      ),
+                    ] else if (info.isReady) ...[
+                      // Nút Import (chỉ debug)
+                      if (kDebugMode)
+                        TextButton.icon(
+                          icon: const Icon(Icons.folder_open, size: 16),
+                          label: const Text('Import'),
+                          onPressed: () => _importModel(context, manager),
+                        ),
+                      // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
                         label: Text('Xoá (${level.sizeInMB}MB)'),
@@ -186,8 +197,16 @@ class _ModelCard extends StatelessWidget {
                         ),
                         onPressed: () =>
                             _confirmDelete(context, manager, level),
-                      )
-                    else ...[
+                      ),
+                    ] else ...[
+                      // Nút Import (chỉ debug)
+                      if (kDebugMode)
+                        TextButton.icon(
+                          icon: const Icon(Icons.folder_open, size: 16),
+                          label: const Text('Import'),
+                          onPressed: () => _importModel(context, manager),
+                        ),
+                      // Size label + Nút Tải
                       Text(
                         '${level.sizeInMB}MB',
                         style: Theme.of(context).textTheme.bodySmall,
@@ -196,11 +215,8 @@ class _ModelCard extends StatelessWidget {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.download, size: 16),
                         label: const Text('Tải về'),
-                        onPressed: () => _handleDownload(
-                          context,
-                          manager,
-                          level,
-                        ),
+                        onPressed: () =>
+                            _handleDownload(context, manager, level),
                       ),
                     ],
                   ],
@@ -245,6 +261,38 @@ class _ModelCard extends StatelessWidget {
     }
 
     manager.downloadModel(level);
+  }
+
+  Future<void> _importModel(
+    BuildContext context,
+    SttModelManager manager,
+  ) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+    );
+
+    if (result?.files.single.path == null) return;
+    if (!context.mounted) return;
+
+    final success = await manager.importModelFromPath(
+      result!.files.single.path!,
+      level,
+    );
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? '✅ Import ${level.name.toUpperCase()} thành công!'
+              : '❌ Import thất bại — sai file hoặc file bị lỗi',
+        ),
+        backgroundColor:
+            success ? const Color(0xFF1B5E20) : Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _confirmDelete(
@@ -333,9 +381,9 @@ class _StatusBadge extends StatelessWidget {
         vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         label,

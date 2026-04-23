@@ -1521,6 +1521,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  vipsound_ai:
+    dependency: "direct main"
+    description:
+      path: "packages/vipsound_ai"
+      relative: true
+    source: path
+    version: "1.0.0"
   vipsound_core:
     dependency: "direct main"
     description:

@@ -22,7 +22,6 @@ import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
-import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
@@ -393,13 +392,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                       ),
                     ),
                     openBuilder: (context, action) {
-                      // Khi mở ra, tự động chuyển focus index sang Tab Nghe
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (_currentIndex != 1) {
-                          setState(() => _currentIndex = 1);
-                        }
-                      });
                       return const ListenModeScreen();
+                    },
+                    onClosed: (_) {
+                      // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
                     },
                   );
                 },
@@ -601,7 +597,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    PuzzleNavButton(onTap: () {}), // UI placeholder inside Nav
+                    const Icon(Icons.extension_outlined), // ★ Icon thường
+                    /*const IgnorePointer(
+                        child: PuzzleNavButton(
+                            onTap: null)),*/ // UI placeholder inside Nav
                     if (due > 0)
                       Positioned(
                         top: -2,

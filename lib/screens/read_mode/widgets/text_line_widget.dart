@@ -11,6 +11,8 @@ import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
+import '../../../screens/read_mode/models/playback_recipe.dart';
+import '../../../screens/read_mode/services/playback_controller.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
@@ -29,40 +31,56 @@ class TextLineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector2<TextProvider, PlayerProvider, _LineData>(
-      selector: (_, tp, pp) {
-        // ★ FIX CHÍNH: Guard index trước khi truy cập tp.lines[index]
-        // Crash xảy ra khi translateAll gọi notifyListeners() đồng thời
-        // với một thay đổi lines khác (autoSplit, loadText...) làm lines ngắn lại
-        // nhưng ListView vẫn giữ widget cũ với index >= lines.length
-        if (index < 0 || index >= tp.lines.length) {
-          return const _LineData.empty();
-        }
+    // ★ THÊM: Lấy controller để dùng ValueNotifier
+    // Dùng listen: false vì rebuild được quản lý bởi ValueListenableBuilder
+    final playbackController = context.read<PlaybackController>();
 
-        final line = tp.lines[index];
-        return _LineData(
-          content: line.content,
-          translation: line.translation,
-          startTime: line.startTime,
-          endTime: line.endTime,
-          isCurrentLine: index == tp.currentLineIndex,
-          isPlaying: _checkIsPlaying(tp, pp, index),
-          colorMode: tp.colorMode,
-          showLineNumbers: tp.showLineNumbers,
-          textAlign: tp.textAlign,
-          fontSize: tp.fontSize,
-          displayMode: tp.translationDisplayMode,
-          isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
-          analyzedWords: index < tp.analyzedLines.length
-              ? tp.analyzedLines[index]
-              : const <AnalyzedWord>[],
+    return ValueListenableBuilder<int>(
+      valueListenable: playbackController.activeLineNotifier,
+      builder: (_, activeLine, __) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: playbackController.isENNotifier,
+          builder: (_, isEN, ___) {
+            // Ghost: dòng VI mờ khi đang phát EN
+            final isPlaybackActive = activeLine == index;
+            final ghostVI = isPlaybackActive &&
+                isEN &&
+                playbackController.recipe.mode != PlaybackMode.enOnly;
+
+            return Selector2<TextProvider, PlayerProvider, _LineData>(
+              selector: (_, tp, pp) {
+                if (index < 0 || index >= tp.lines.length) {
+                  return const _LineData.empty();
+                }
+                final line = tp.lines[index];
+                return _LineData(
+                  content: line.content,
+                  translation: line.translation,
+                  startTime: line.startTime,
+                  endTime: line.endTime,
+                  isCurrentLine:
+                      index == tp.currentLineIndex || isPlaybackActive,
+                  isPlaying: _checkIsPlaying(tp, pp, index),
+                  colorMode: tp.colorMode,
+                  showLineNumbers: tp.showLineNumbers,
+                  textAlign: tp.textAlign,
+                  fontSize: tp.fontSize,
+                  displayMode: tp.translationDisplayMode,
+                  isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
+                  analyzedWords: index < tp.analyzedLines.length
+                      ? tp.analyzedLines[index]
+                      : const <AnalyzedWord>[],
+                  ghostVI: ghostVI, // ★ Đảm bảo có dòng này
+                );
+              },
+              shouldRebuild: (prev, next) => prev != next,
+              builder: (context, data, _) {
+                if (data.isEmpty) return const SizedBox.shrink();
+                return _buildSwipeableLine(context, data);
+              },
+            );
+          },
         );
-      },
-      shouldRebuild: (prev, next) => prev != next,
-      builder: (context, data, _) {
-        // ★ FIX: Nếu index đã out of range, render widget rỗng thay vì crash
-        if (data.isEmpty) return const SizedBox.shrink();
-        return _buildSwipeableLine(context, data);
       },
     );
   }
@@ -176,9 +194,13 @@ class TextLineWidget extends StatelessWidget {
               translatedText: data.translation,
               displayMode: data.displayMode,
               originalWidget: _buildTextContent(context, data),
+              textAlign: data.textAlign,
+              // ★ Ghost Sentence: Mờ đi khi đang đọc Tiếng Anh (ghostVI = true)
               translationStyle: TextStyle(
                 fontSize: data.fontSize - 2,
-                color: Colors.grey[500],
+                color: data.ghostVI
+                    ? Colors.grey[500]!.withValues(alpha: 0.15)
+                    : Colors.grey[500],
                 fontStyle: FontStyle.italic,
                 height: 1.4,
               ),
@@ -335,9 +357,8 @@ class _LineData {
   final TranslationDisplayMode displayMode;
   final bool isSpeaking;
   final List<AnalyzedWord> analyzedWords;
-
-  // ★ FIX: Thêm flag để biết đây là empty data (index out of range)
   final bool isEmpty;
+  final bool ghostVI; // ★ ĐÃ THÊM
 
   const _LineData({
     required this.content,
@@ -354,9 +375,9 @@ class _LineData {
     required this.isSpeaking,
     required this.analyzedWords,
     this.isEmpty = false,
+    this.ghostVI = false, // ★ ĐÃ THÊM
   });
 
-  // ★ FIX: Constructor cho trường hợp index out of range
   const _LineData.empty()
       : content = '',
         translation = null,
@@ -371,7 +392,8 @@ class _LineData {
         displayMode = TranslationDisplayMode.hidden,
         isSpeaking = false,
         analyzedWords = const [],
-        isEmpty = true;
+        isEmpty = true,
+        ghostVI = false; // ★ ĐÃ THÊM
 
   @override
   bool operator ==(Object other) {
@@ -391,7 +413,8 @@ class _LineData {
         textAlign == other.textAlign &&
         fontSize == other.fontSize &&
         displayMode == other.displayMode &&
-        isSpeaking == other.isSpeaking;
+        isSpeaking == other.isSpeaking &&
+        ghostVI == other.ghostVI; // ★ ĐÃ THÊM
   }
 
   @override
@@ -407,5 +430,6 @@ class _LineData {
           fontSize,
           displayMode,
           isSpeaking,
+          ghostVI, // ★ ĐÃ THÊM
         );
 }

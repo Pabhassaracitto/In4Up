@@ -390,6 +390,7 @@ class TranslationLineDisplay extends StatelessWidget {
   final TranslationDisplayMode displayMode;
   final Widget originalWidget;
   final TextStyle? translationStyle;
+  final TextAlign? textAlign;
 
   const TranslationLineDisplay({
     super.key,
@@ -398,6 +399,7 @@ class TranslationLineDisplay extends StatelessWidget {
     required this.displayMode,
     required this.originalWidget,
     this.translationStyle,
+    this.textAlign,
   });
 
   @override
@@ -408,12 +410,16 @@ class TranslationLineDisplay extends StatelessWidget {
 
     if (displayMode == TranslationDisplayMode.stackedBelow) {
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           originalWidget,
           if (hasTranslation) ...[
             const SizedBox(height: 6),
-            _TranslationText(text: translatedText!, style: translationStyle),
+            _TranslationText(
+              text: translatedText!,
+              style: translationStyle,
+              textAlign: textAlign,
+            ),
           ],
         ],
       );
@@ -432,7 +438,10 @@ class TranslationLineDisplay extends StatelessWidget {
           Expanded(
             child: hasTranslation
                 ? _TranslationText(
-                    text: translatedText!, style: translationStyle)
+                    text: translatedText!,
+                    style: translationStyle,
+                    textAlign: textAlign,
+                  )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -444,7 +453,9 @@ class TranslationLineDisplay extends StatelessWidget {
 class _TranslationText extends StatelessWidget {
   final String text;
   final TextStyle? style;
-  const _TranslationText({required this.text, this.style});
+  final TextAlign? textAlign;
+
+  const _TranslationText({required this.text, this.style, this.textAlign});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -453,6 +464,7 @@ class _TranslationText extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(6)),
       child: Text(text,
+          textAlign: textAlign,
           style: style ??
               TextStyle(
                   fontSize: 13,

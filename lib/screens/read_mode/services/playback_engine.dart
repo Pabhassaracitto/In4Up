@@ -1,12 +1,13 @@
+// lib/screens/read_mode/services/playback_engine.dart
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-
+import '../../../models/text_item.dart'; // ← TextItem thay TextLine
 import '../models/playback_anchor.dart';
 import '../models/playback_event.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_run_token.dart';
 import '../models/playback_snapshot.dart';
-import '../models/text_line.dart';
 import 'tts_service.dart';
 
 typedef EngineError = ({String message, Object? cause});
@@ -19,7 +20,7 @@ class PlaybackEngine {
 
   Future<void> play({
     required PlaybackRunToken token,
-    required List<TextLine> lines,
+    required List<TextItem> lines, // ← TextItem
     required PlaybackRecipe recipe,
     required void Function(PlaybackEvent) onEvent,
     required VoidCallback onDone,
@@ -31,10 +32,10 @@ class PlaybackEngine {
     try {
       await tts.setSpeechRate(recipe.speed);
 
-      final total      = lines.length;
-      final passes     = recipe.totalPasses;
-      int   startLine  = resumeFrom?.lineIndex ?? 0;
-      int   pass       = 0;
+      final total = lines.length;
+      final passes = recipe.totalPasses;
+      int startLine = resumeFrom?.lineIndex ?? 0;
+      int pass = 0;
 
       while (!_cancel && (passes == 0 || pass < passes)) {
         final fromLine = pass == 0 ? startLine : 0;
@@ -47,33 +48,32 @@ class PlaybackEngine {
           for (int lr = fromLR; lr < recipe.lineRepeats; lr++) {
             if (_cancel) return;
 
-            // ── lineStart event ─────────────────────────────
+            // lineStart event
             onEvent(PlaybackEvent(
-              type:     PlaybackEventType.lineStart,
+              type: PlaybackEventType.lineStart,
               snapshot: _snap(i, total, pass, recipe, lr, true),
             ));
 
-            // ── EN phase ────────────────────────────────────
+            // ── EN phase ──────────────────────────────────
             if (recipe.mode != PlaybackMode.viOnly) {
               for (int e = 0; e < recipe.enRepeats; e++) {
                 if (_cancel) return;
                 onEvent(PlaybackEvent(
-                  type:     PlaybackEventType.phase,
+                  type: PlaybackEventType.phase,
                   snapshot: _snap(i, total, pass, recipe, lr, true),
                 ));
+                // ★ TextItem.content — tiếng Anh gốc
                 await tts.speak(lines[i].content);
               }
             }
 
-            // ── Rhythm Gap + language switch ─────────────────
+            // ── Rhythm Gap ────────────────────────────────
             final hasVI = recipe.mode != PlaybackMode.enOnly &&
                 (lines[i].translation?.isNotEmpty ?? false);
 
-            if (!_cancel &&
-                recipe.mode == PlaybackMode.interleaved &&
-                hasVI) {
+            if (!_cancel && recipe.mode == PlaybackMode.interleaved && hasVI) {
               onEvent(PlaybackEvent(
-                type:     PlaybackEventType.languageSwitch,
+                type: PlaybackEventType.languageSwitch,
                 snapshot: _snap(i, total, pass, recipe, lr, false),
               ));
               await Future.delayed(
@@ -81,14 +81,15 @@ class PlaybackEngine {
               );
             }
 
-            // ── VI phase ─────────────────────────────────────
+            // ── VI phase ──────────────────────────────────
             if (!_cancel && recipe.mode != PlaybackMode.enOnly && hasVI) {
               for (int v = 0; v < recipe.viRepeats; v++) {
                 if (_cancel) return;
                 onEvent(PlaybackEvent(
-                  type:     PlaybackEventType.phase,
+                  type: PlaybackEventType.phase,
                   snapshot: _snap(i, total, pass, recipe, lr, false),
                 ));
+                // ★ TextItem.translation — bản dịch tiếng Việt
                 await tts.speak(lines[i].translation!);
               }
             }
@@ -115,20 +116,23 @@ class PlaybackEngine {
     tts.stop();
   }
 
-  // ── Helper ──────────────────────────────────────────────
   PlaybackSnapshot _snap(
-    int line, int total, int pass,
-    PlaybackRecipe r, int lr, bool isEN,
+    int line,
+    int total,
+    int pass,
+    PlaybackRecipe r,
+    int lr,
+    bool isEN,
   ) =>
       PlaybackSnapshot(
-        line:             line,
-        totalLines:       total,
-        pass:             pass,
-        totalPasses:      r.totalPasses,
-        lineRepeat:       lr,
+        line: line,
+        totalLines: total,
+        pass: pass,
+        totalPasses: r.totalPasses,
+        lineRepeat: lr,
         totalLineRepeats: r.lineRepeats,
-        isEN:             isEN,
-        enRepeats:        r.enRepeats,
-        viRepeats:        r.viRepeats,
+        isEN: isEN,
+        enRepeats: r.enRepeats,
+        viRepeats: r.viRepeats,
       );
 }

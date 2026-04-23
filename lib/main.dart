@@ -159,15 +159,42 @@ class _MyAppState extends State<MyApp> {
               create: (_) => TtsNotificationService(),
             ),
 
+            // PlaybackEngine — không phải ChangeNotifier nên dùng Provider thường
             ProxyProvider<TtsService, PlaybackEngine>(
-              update: (_, tts, __) => PlaybackEngine(tts),
+              update: (_, tts, prev) => prev ?? PlaybackEngine(tts),
             ),
 
-            ProxyProvider3<PlaybackEngine, SharedPreferences,
-                TtsNotificationService, PlaybackController>(
-              update: (_, engine, prefs, notif, prev) =>
-                  prev ?? PlaybackController(engine, prefs, notif),
-              dispose: (_, c) => c.dispose(),
+            // ★ FIX: PlaybackController LÀ ChangeNotifier
+            // → PHẢI dùng ChangeNotifierProxyProvider
+            // PlaybackEngine
+            Provider<PlaybackEngine>(
+              create: (ctx) => PlaybackEngine(ctx.read<TtsService>()),
+              dispose: (_, e) => e.stop(),
+            ),
+/*// PlaybackEngine — không phải ChangeNotifier nên dùng Provider thường
+ProxyProvider<TtsService, PlaybackEngine>(
+  update: (_, tts, prev) => prev ?? PlaybackEngine(tts),
+),
+
+// ★ FIX: PlaybackController LÀ ChangeNotifier
+// → PHẢI dùng ChangeNotifierProxyProvider
+ChangeNotifierProxyProvider3<PlaybackEngine, SharedPreferences,
+    TtsNotificationService, PlaybackController>(
+  create: (_) => PlaybackController._placeholder(),
+  update: (_, engine, prefs, notif, prev) {
+    if (prev != null && prev._initialized) return prev;
+    return PlaybackController(engine, prefs, notif);
+  },
+),
+Nhưng vì PlaybackController không có _placeholder() constructor, cách đơn giản hơn là dùng pattern lazy init:
+ */
+// ★ FIX CHÍNH: ChangeNotifierProvider thay vì ProxyProvider
+            ChangeNotifierProvider<PlaybackController>(
+              create: (ctx) => PlaybackController(
+                ctx.read<PlaybackEngine>(),
+                ctx.read<SharedPreferences>(),
+                ctx.read<TtsNotificationService>(),
+              ),
             ),
 
             ChangeNotifierProvider<AiServiceFacade>(

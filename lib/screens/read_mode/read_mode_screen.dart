@@ -16,6 +16,7 @@ import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/text_line_widget.dart';
 import '../../providers/vocabulary_provider.dart';
+import 'widgets/smart_playback_bar.dart'; // ← THÊM
 
 class ReadModeScreen extends StatefulWidget {
   // ★ THÊM: Nhận RecentFile để biết đang đọc file nào
@@ -128,6 +129,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                         child: _buildTextList(textProvider),
                       ),
               ),
+              const SmartPlaybackBar(), // ← THÊM Smart Playback Bar
               ReadBottomBar(
                 showWordlistPanel: _showWordlistPanel,
                 onToggleWordlist: () {

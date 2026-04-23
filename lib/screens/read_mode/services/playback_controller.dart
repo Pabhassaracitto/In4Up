@@ -1,16 +1,18 @@
+// lib/screens/read_mode/services/playback_controller.dart
+// Chỉ thay đổi type List<TextLine> → List<TextItem>
+
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../models/text_item.dart'; // ← THÊM
 import '../models/playback_anchor.dart';
 import '../models/playback_event.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_run_token.dart';
 import '../models/playback_snapshot.dart';
-import '../models/text_line.dart';
 import 'playback_engine.dart';
 import 'tts_notification_service.dart';
 
@@ -19,7 +21,6 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   final SharedPreferences _prefs;
   final TtsNotificationService _notification;
 
-  // ── Selective rebuild notifiers ──────────────────────────
   final ValueNotifier<int> activeLineNotifier = ValueNotifier(-1);
   final ValueNotifier<bool> isENNotifier = ValueNotifier(true);
 
@@ -27,7 +28,9 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   PlaybackSnapshot? snapshot;
   PlaybackRunToken? _activeToken;
   Timer? _snapBackTimer;
-  List<TextLine>? _currentLines;
+
+  // ★ TextItem thay TextLine
+  List<TextItem>? _currentLines;
   String? _currentFileId;
   bool _disposed = false;
 
@@ -39,7 +42,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _loadRecipe();
   }
 
-  // ── Lifecycle ────────────────────────────────────────────
+  // ── Lifecycle ─────────────────────────────────────────────
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -55,10 +58,11 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ── Public API ───────────────────────────────────────────
+  // ── Public API ────────────────────────────────────────────
 
   Future<void> start(
-    List<TextLine> lines, {
+    List<TextItem> lines, {
+    // ← TextItem
     required String fileId,
     PlaybackAnchor? anchor,
   }) async {
@@ -67,7 +71,6 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _currentLines = lines;
     _currentFileId = fileId;
 
-    // Revoke session cũ
     _activeToken = null;
     _engine.stop();
     await Future.delayed(const Duration(milliseconds: 80));
@@ -148,8 +151,6 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _safeNotify();
   }
 
-  // ── Snap-back ─────────────────────────────────────────────
-
   void scheduleSnapBack(VoidCallback onSnap) {
     _snapBackTimer?.cancel();
     _snapBackTimer = Timer(const Duration(milliseconds: 2500), () {
@@ -158,8 +159,6 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void cancelSnapBack() => _snapBackTimer?.cancel();
-
-  // ── Anchor ───────────────────────────────────────────────
 
   PlaybackAnchor? loadAnchor(String fileId) {
     final raw = _prefs.getString('anchor_$fileId');
@@ -197,8 +196,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
         break;
 
       case PlaybackEventType.phase:
-        // Chỉ update snapshot, không haptic
-        break;
+        break; // chỉ update snapshot
     }
 
     _safeNotify();
@@ -212,10 +210,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       lineRepeatIndex: snapshot!.lineRepeat,
       savedAt: DateTime.now(),
     );
-    _prefs.setString(
-      'anchor_$fileId',
-      jsonEncode(anchor.toJson()),
-    );
+    _prefs.setString('anchor_$fileId', jsonEncode(anchor.toJson()));
   }
 
   void _forceStop() {

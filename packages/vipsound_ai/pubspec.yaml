@@ -1,0 +1,46 @@
+name: vipsound_ai
+description: AI Analysis module for Vipsound - Gemma/llama.cpp offline backend
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  vipsound_core:
+    path: ../vipsound_core
+
+  # FFI cho llama.cpp (pattern giống UltraEngineFFIV2)
+  ffi: ^2.1.3
+
+  # Stream & State
+  rxdart: ^0.28.0
+
+  # File system - tìm model file
+  path_provider: ^2.1.4
+
+  # File picker - user import model thủ công (Tầng B)
+  file_picker: ^8.1.2
+
+  # HTTP download (Tầng C - không dùng Firebase)
+  http: ^1.2.2
+
+  # Check network trước khi download
+  connectivity_plus: ^7.1.0
+
+  # Hash để verify model sau download
+  crypto: ^3.0.6
+
+  # Shared prefs lưu đường dẫn model đã chọn
+  shared_preferences: ^2.3.5
+
+flutter:
+  assets:
+    - assets/models/   # Tầng A: bundle sẵn (có thể rỗng lúc build)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0 #Change from: ^3.0.0

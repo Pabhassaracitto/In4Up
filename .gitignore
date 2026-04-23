@@ -326,3 +326,4 @@ build_log.txt
 lib/firebase_options.dart
 .firebase/
 **/.firebase/
+firebase_options.dart

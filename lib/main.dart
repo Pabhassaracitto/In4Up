@@ -3,10 +3,12 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart'; // Để dùng kIsWeb và defaultTargetPlatform
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_ai/vipsound_ai.dart';
 
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
@@ -17,18 +19,35 @@ import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
 import 'services/storage_service.dart';
 
+// Biến toàn cục để kiểm tra trạng thái Firebase
+bool isFirebaseAvailable = false;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // 1. Khởi tạo Firebase với Try-Catch để không chặn App nếu lỗi
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    isFirebaseAvailable = true;
+    debugPrint("✅ Firebase initialized successfully");
+  } catch (e) {
+    isFirebaseAvailable = false;
+    debugPrint("❌ Firebase initialization failed: $e");
+  }
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // 2. Cấu hình hướng màn hình (Chỉ dành cho Mobile)
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
+  // 3. Cấu hình giao diện hệ thống
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -54,7 +73,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // ✅ CHỈ KHỞI TẠO 1 LẦN DUY NHẤT
+    // Khởi tạo các dịch vụ local (Hive, Storage...)
     _initFuture = _initializeServices();
   }
 
@@ -63,6 +82,7 @@ class _MyAppState extends State<MyApp> {
     return FutureBuilder(
       future: _initFuture,
       builder: (context, snapshot) {
+        // Màn hình Loading khi đang khởi tạo Hive/Storage
         if (snapshot.connectionState != ConnectionState.done) {
           return const MaterialApp(
             debugShowCheckedModeBanner: false,
@@ -85,6 +105,7 @@ class _MyAppState extends State<MyApp> {
           );
         }
 
+        // Màn hình lỗi nếu khởi tạo Local Services thất bại
         if (snapshot.hasError) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
@@ -97,7 +118,7 @@ class _MyAppState extends State<MyApp> {
                     const Icon(Icons.error, color: Colors.red, size: 64),
                     const SizedBox(height: 20),
                     Text(
-                      'Error: ${snapshot.error}',
+                      'Initialization Error: ${snapshot.error}',
                       style: const TextStyle(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
@@ -108,7 +129,7 @@ class _MyAppState extends State<MyApp> {
           );
         }
 
-        // ✅ Chỉ dùng ChangeNotifierProvider cho classes THẬT SỰ extend ChangeNotifier
+        // Khi mọi thứ đã sẵn sàng
         return MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => PlayerProvider()),
@@ -116,15 +137,31 @@ class _MyAppState extends State<MyApp> {
             ChangeNotifierProvider(create: (_) => WaveformProvider()),
             ChangeNotifierProvider(create: (_) => VocabularyProvider()),
             ChangeNotifierProvider(create: (_) => ShadowingProvider()),
-            // ❌ XÓA: VocabularyBridge - là static utility class, không cần Provider
-            // ❌ XÓA: MemoryProvider - là static utility class, không cần Provider
+            ChangeNotifierProvider<AiServiceFacade>(
+              create: (_) {
+                final facade = AiServiceFacade();
+                facade.initializeAsync();
+                return facade;
+              },
+            ),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
-              brightness: Brightness.dark,
-              primaryColor: const Color(0xFF0F3460),
-              scaffoldBackgroundColor: const Color(0xFF1A1A2E),
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor:
+                    const Color(0xFF6C63FF), // Indigo làm gốc cho "Studio"
+                brightness: Brightness.dark,
+                surface: const Color(0xFF080B1A),
+                surfaceTint: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+              ),
+              appBarTheme: const AppBarTheme(
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                centerTitle: true,
+                backgroundColor: Color(0xFF1A1A2E),
+              ),
             ),
             home: const MainShell(),
           ),
@@ -134,17 +171,15 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _initializeServices() async {
-    // ✅ PHẢI CÓ: Khởi tạo Hive cho Flutter trước khi mở bất kỳ Box nào
+    // Khởi tạo Hive cho Flutter
     await Hive.initFlutter();
 
+    // Chạy song song các khởi tạo local
     await Future.wait([
       StorageService().initialize(),
       VocabularyProvider.ensureBoxOpen(),
       _openSyncBox(),
     ]);
-
-    // ✅ THÊM: Init VocabularyBridge sau khi VocabularyProvider sẵn sàng
-    // (Sẽ được gọi trong widget khi có context)
   }
 
   Future<void> _openSyncBox() async {

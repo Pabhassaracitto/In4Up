@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -371,12 +373,33 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   if (player.currentSongPath == null) {
                     return const SizedBox.shrink();
                   }
-                  // ★ Không cần GestureDetector nữa
-                  // MiniPlayer tự xử lý cycle state
-                  // Chỉ navigate to Listen khi ở Home và tap vào play area
-                  return MiniPlayer(
-                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    onTap: _isHome ? () => _navigateTo(1) : null,
+                  
+                  // Hiệu ứng Glassmorphism kết hợp OpenContainer M3
+                  return OpenContainer(
+                    transitionType: ContainerTransitionType.fadeThrough,
+                    openColor: const Color(0xFF080B1A),
+                    closedColor: Colors.transparent,
+                    closedElevation: 0,
+                    openElevation: 0,
+                    closedBuilder: (context, action) => ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: MiniPlayer(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          onTap: _isHome ? action : null,
+                        ),
+                      ),
+                    ),
+                    openBuilder: (context, action) {
+                      // Khi mở ra, tự động chuyển focus index sang Tab Nghe
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (_currentIndex != 1) {
+                          setState(() => _currentIndex = 1);
+                        }
+                      });
+                      return const ListenModeScreen();
+                    },
                   );
                 },
               ),
@@ -533,65 +556,47 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           ),
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              _HomeNavButton(
-                isActive: _isHome,
-                onTap: () {
-                  if (!_isHome) {
-                    HapticFeedback.selectionClick();
-                    _navigateTo(_kHome);
-                  }
-                },
-              ),
-              Container(
-                  width: 1,
-                  height: 32,
-                  color: Colors.white.withValues(alpha: 0.06)),
-              _NavButton(
-                tabIndex: 0,
-                currentIndex: _currentIndex,
-                icon: Icons.menu_book_outlined,
-                activeIcon: Icons.menu_book,
-                label: 'Đọc',
-                color: const Color(0xFF2196F3),
-                onTap: () => _onTabTapped(0),
-              ),
-              _NavButton(
-                tabIndex: 1,
-                currentIndex: _currentIndex,
-                icon: Icons.headphones_outlined,
-                activeIcon: Icons.headphones,
-                label: 'Nghe',
-                color: const Color(0xFF6C63FF),
-                onTap: () => _onTabTapped(1),
-              ),
-              _NavButton(
-                tabIndex: 2,
-                currentIndex: _currentIndex,
-                icon: Icons.lightbulb_outline,
-                activeIcon: Icons.lightbulb,
-                label: 'Hiểu',
-                color: const Color(0xFFFFB300),
-                onTap: () => _onTabTapped(2),
-              ),
-              _NavButton(
-                tabIndex: 3,
-                currentIndex: _currentIndex,
-                icon: Icons.psychology_outlined,
-                activeIcon: Icons.psychology,
-                label: 'Nhớ',
-                color: const Color(0xFF4CAF50),
-                onTap: () => _onTabTapped(3),
-              ),
-              Container(
-                  width: 1,
-                  height: 32,
-                  color: Colors.white.withValues(alpha: 0.06)),
+      child: NavigationBar(
+        selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
+        onDestinationSelected: (idx) {
+          if (idx == 0) _navigateTo(_kHome);
+          else if (idx <= 4) _onTabTapped(idx - 1);
+          else if (idx == 5) _openTools();
+        },
+        backgroundColor: const Color(0xFF111827),
+        indicatorColor: _currentColor.withValues(alpha: 0.2),
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Đọc',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.headphones_outlined),
+            selectedIcon: Icon(Icons.headphones),
+            label: 'Nghe',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.lightbulb_outline),
+            selectedIcon: Icon(Icons.lightbulb),
+            label: 'Hiểu',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.psychology_outlined),
+            selectedIcon: Icon(Icons.psychology),
+            label: 'Nhớ',
+          ),
+          NavigationDestination(
+            icon: PuzzleNavButton(onTap: () {}),
+            label: 'Tools',
+          ),
+        ],
+      ),
               Consumer<VocabularyProvider>(
                 builder: (_, vocab, __) {
                   final due = vocab.dueCount;

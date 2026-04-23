@@ -373,7 +373,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   if (player.currentSongPath == null) {
                     return const SizedBox.shrink();
                   }
-                  
+
                   // Hiệu ứng Glassmorphism kết hợp OpenContainer M3
                   return OpenContainer(
                     transitionType: ContainerTransitionType.fadeThrough,
@@ -559,8 +559,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       child: NavigationBar(
         selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
         onDestinationSelected: (idx) {
-          if (idx == 0) _navigateTo(_kHome);
-          else if (idx <= 4) _onTabTapped(idx - 1);
+          if (idx == 0)
+            _navigateTo(_kHome);
+          else if (idx <= 4)
+            _onTabTapped(idx - 1);
           else if (idx == 5) _openTools();
         },
         backgroundColor: const Color(0xFF111827),
@@ -592,46 +594,42 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             label: 'Nhớ',
           ),
           NavigationDestination(
-            icon: PuzzleNavButton(onTap: () {}),
-            label: 'Tools',
-          ),
-        ],
-      ),
-              Consumer<VocabularyProvider>(
-                builder: (_, vocab, __) {
-                  final due = vocab.dueCount;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      PuzzleNavButton(onTap: _openTools),
-                      if (due > 0)
-                        Positioned(
-                          top: -2,
-                          right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              due > 99 ? '99+' : '$due',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
+            icon: Consumer<VocabularyProvider>(
+              builder: (_, vocab, __) {
+                final due = vocab.dueCount;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const PuzzleNavButton(
+                        onTap: null), // UI placeholder inside Nav
+                    if (due > 0)
+                      Positioned(
+                        top: -2,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            due > 99 ? '99+' : '$due',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-            ],
+                      ),
+                  ],
+                );
+              },
+            ),
+            label: 'Tools',
           ),
-        ),
+        ],
       ),
     );
   }

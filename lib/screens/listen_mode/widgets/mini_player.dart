@@ -817,8 +817,8 @@ class _MiniPlayerHeader extends StatelessWidget {
     required this.expandAnimation,
     required this.rotateController,
     required this.pulseController,
-    this.onTap,
     required this.onToggleExpand,
+    this.onTap,
   });
 
   @override

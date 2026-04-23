@@ -9,38 +9,38 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Local packages
   vipsound_core:
     path: ../vipsound_core
 
-  # FFI cho llama.cpp (pattern giống UltraEngineFFIV2)
+  # FFI cho llama.cpp
   ffi: ^2.1.3
 
   # Stream & State
   rxdart: ^0.28.0
 
-  # File system - tìm model file
-  path_provider: ^2.1.4
+  # File operations
+  path_provider: ^2.1.5
+  file_picker: ^11.0.2
 
-  # File picker - user import model thủ công (Tầng B)
-  file_picker: ^8.1.2
-
-  # HTTP download (Tầng C - không dùng Firebase)
+  # HTTP download (Tầng C)
   http: ^1.2.2
 
-  # Check network trước khi download
+  # Network check
   connectivity_plus: ^7.1.0
 
-  # Hash để verify model sau download
+  # Hash verify
   crypto: ^3.0.6
 
-  # Shared prefs lưu đường dẫn model đã chọn
+  # Settings storage — CHỈ KHAI BÁO 1 LẦN
   shared_preferences: ^2.3.5
 
 flutter:
   assets:
-    - assets/models/   # Tầng A: bundle sẵn (có thể rỗng lúc build)
+    - assets/models/
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0 #Change from: ^3.0.0
+  flutter_lints: ^6.0.0

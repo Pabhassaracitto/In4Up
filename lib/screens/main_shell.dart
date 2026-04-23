@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -154,7 +155,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         break;
 
       case 'pdf_reader':
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['pdf'],
         );
@@ -600,8 +601,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const PuzzleNavButton(
-                        onTap: null), // UI placeholder inside Nav
+                    PuzzleNavButton(onTap: () {}), // UI placeholder inside Nav
                     if (due > 0)
                       Positioned(
                         top: -2,

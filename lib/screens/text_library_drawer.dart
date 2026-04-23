@@ -262,7 +262,7 @@ class _LocalTab extends StatelessWidget {
   }
 
   Future<void> _importPdfFile(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
@@ -287,7 +287,7 @@ class _LocalTab extends StatelessWidget {
   }
 
   Future<void> _importTextFile(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['txt', 'lrc', 'srt'],
     );

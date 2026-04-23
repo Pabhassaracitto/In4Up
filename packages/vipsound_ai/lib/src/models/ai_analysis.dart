@@ -1,5 +1,3 @@
-import 'package:vipsound_core/vocab_level_difficulty.dart';
-
 /// JSON Schema chuẩn - mọi output của Gemma PHẢI khớp schema này
 /// Nếu không khớp → AiModelMapper trả về AiAnalysis.fallback()
 class AiAnalysis {
@@ -131,13 +129,13 @@ class AiAnalysis {
 // ─── Sub-models ───────────────────────────────────────────
 
 class GrammarAnalysis {
-  final String subjectPart;    // Ngón 1: Chủ ngữ
-  final String verbPart;       // Ngón 2: Động từ
-  final String objectPart;     // Ngón 3: Tân ngữ
+  final String subjectPart; // Ngón 1: Chủ ngữ
+  final String verbPart; // Ngón 2: Động từ
+  final String objectPart; // Ngón 3: Tân ngữ
   final String? complementPart; // Ngón 4: Bổ ngữ
-  final String? adverbialPart;  // Ngón 5: Trạng ngữ
-  final String patternLabel;   // Ví dụ: "S + V + O"
-  final String explanationVi;  // Giải thích bằng tiếng Việt
+  final String? adverbialPart; // Ngón 5: Trạng ngữ
+  final String patternLabel; // Ví dụ: "S + V + O"
+  final String explanationVi; // Giải thích bằng tiếng Việt
 
   const GrammarAnalysis({
     required this.subjectPart,
@@ -166,10 +164,10 @@ class WordAnalysis {
   final String word;
   final String? meaning;
   final String? phonetic;
-  final String? cefrLevel;   // "B2", "C1"...
+  final String? cefrLevel; // "B2", "C1"...
   final String? wordTypeLabel; // "noun", "verb"...
   final String? etymologyHint;
-  final String? memoryHook;  // Gợi nhớ theo Wyner
+  final String? memoryHook; // Gợi nhớ theo Wyner
 
   const WordAnalysis({
     required this.word,
@@ -209,16 +207,16 @@ class WordAnalysis {
 // ─── Enums ────────────────────────────────────────────────
 
 enum AiAnalysisType {
-  wordLookup,    // Tra từ đơn
+  wordLookup, // Tra từ đơn
   sentenceAnalysis, // Phân tích câu
   shadowingContent, // Tạo nội dung shadowing
-  paoGeneration,    // Tạo PAO
+  paoGeneration, // Tạo PAO
   error,
 }
 
 enum AiAnalysisSource {
-  localDict,  // Tầng 1: offline_dictionary.dart
-  cmuDict,    // Tầng 2: CMU/Wiktionary
-  gemma,      // Tầng 3: Gemma Isolate
-  fallback,   // Không có gì hoạt động
+  localDict, // Tầng 1: offline_dictionary.dart
+  cmuDict, // Tầng 2: CMU/Wiktionary
+  gemma, // Tầng 3: Gemma Isolate
+  fallback, // Không có gì hoạt động
 }

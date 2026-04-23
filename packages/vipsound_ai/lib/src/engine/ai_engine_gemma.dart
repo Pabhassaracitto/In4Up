@@ -3,11 +3,9 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
-import 'package:ffi/ffi.dart';
 import '../models/ai_analysis.dart';
 import '../prompts/ai_prompts_library.dart';
 import '../mapper/ai_model_mapper.dart';
-import '../error/ai_error_handler.dart';
 import 'ai_engine.dart';
 
 class AiEngineGemma implements AiEngine {
@@ -157,8 +155,7 @@ class AiEngineGemma implements AiEngine {
       }
     });
 
-    _sendPort = await completer.future
-        .timeout(const Duration(seconds: 30));
+    _sendPort = await completer.future.timeout(const Duration(seconds: 30));
   }
 
   /// Chạy trong Isolate riêng - KHÔNG có Flutter context

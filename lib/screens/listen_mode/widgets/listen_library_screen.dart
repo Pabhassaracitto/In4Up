@@ -156,7 +156,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
 
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         type: FileType.audio,
         allowMultiple: false,
       );

@@ -1,7 +1,7 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
-import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:file_picker/file_picker.dart'; // cho FilePicker
+import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
@@ -267,7 +267,7 @@ class _ModelCard extends StatelessWidget {
     BuildContext context,
     SttModelManager manager,
   ) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.any,
     );
 

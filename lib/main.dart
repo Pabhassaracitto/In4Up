@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound_ai/vipsound_ai.dart';
 
 import 'features/shadowing/providers/shadowing_provider.dart';
@@ -18,6 +19,12 @@ import 'providers/vocabulary_provider.dart';
 import 'providers/waveform_provider.dart';
 import 'screens/main_shell.dart';
 import 'services/storage_service.dart';
+
+import 'screens/read_mode/services/tts_service.dart';
+import 'screens/read_mode/services/tts_service_impl.dart';
+import 'screens/read_mode/services/tts_notification_service.dart';
+import 'screens/read_mode/services/playback_engine.dart';
+import 'screens/read_mode/services/playback_controller.dart';
 
 // Biến toàn cục để kiểm tra trạng thái Firebase
 bool isFirebaseAvailable = false;
@@ -69,6 +76,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late Future<void> _initFuture;
+  late SharedPreferences _prefs;
 
   @override
   void initState() {
@@ -137,6 +145,31 @@ class _MyAppState extends State<MyApp> {
             ChangeNotifierProvider(create: (_) => WaveformProvider()),
             ChangeNotifierProvider(create: (_) => VocabularyProvider()),
             ChangeNotifierProvider(create: (_) => ShadowingProvider()),
+
+            // Cấu hình DI cho Playback & TTS System
+            // Thứ tự QUAN TRỌNG — phải đúng dependency order
+            Provider<SharedPreferences>.value(value: _prefs),
+
+            Provider<TtsService>(
+              create: (_) => FlutterTtsServiceImpl(),
+              dispose: (_, s) => s.dispose(),
+            ),
+
+            Provider<TtsNotificationService>(
+              create: (_) => TtsNotificationService(),
+            ),
+
+            ProxyProvider<TtsService, PlaybackEngine>(
+              update: (_, tts, __) => PlaybackEngine(tts),
+            ),
+
+            ProxyProvider3<PlaybackEngine, SharedPreferences,
+                TtsNotificationService, PlaybackController>(
+              update: (_, engine, prefs, notif, prev) =>
+                  prev ?? PlaybackController(engine, prefs, notif),
+              dispose: (_, c) => c.dispose(),
+            ),
+
             ChangeNotifierProvider<AiServiceFacade>(
               create: (_) {
                 final facade = AiServiceFacade();
@@ -175,11 +208,13 @@ class _MyAppState extends State<MyApp> {
     await Hive.initFlutter();
 
     // Chạy song song các khởi tạo local
-    await Future.wait([
+    final results = await Future.wait([
       StorageService().initialize(),
       VocabularyProvider.ensureBoxOpen(),
       _openSyncBox(),
+      SharedPreferences.getInstance(),
     ]);
+    _prefs = results[3] as SharedPreferences;
   }
 
   Future<void> _openSyncBox() async {

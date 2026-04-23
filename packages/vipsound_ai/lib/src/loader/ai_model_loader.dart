@@ -1,12 +1,13 @@
 import 'dart:io';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto/crypto.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:crypto/crypto.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 /// Kết quả load model
 class ModelLoadResult {
@@ -24,10 +25,10 @@ class ModelLoadResult {
 }
 
 enum ModelSource {
-  bundledAsset,  // Tầng A: assets/models/
-  userImported,  // Tầng B: user chọn file
-  downloaded,    // Tầng C: download từ URL
-  none,          // Không tìm thấy
+  bundledAsset, // Tầng A: assets/models/
+  userImported, // Tầng B: user chọn file
+  downloaded, // Tầng C: download từ URL
+  none, // Không tìm thấy
 }
 
 /// Config model mặc định
@@ -68,6 +69,7 @@ class AiModelLoader {
   Future<ModelLoadResult> findOrLoadModel({
     /// Callback để UI hiển thị progress khi download
     void Function(double progress)? onDownloadProgress,
+
     /// Có cho phép download không (cần WiFi)
     bool allowDownload = false,
   }) async {
@@ -201,7 +203,7 @@ class AiModelLoader {
   /// Gọi khi user nhấn nút "Import Model"
   Future<ModelLoadResult> importModelFromUser() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.any,
         allowMultiple: false,
         dialogTitle: 'Chọn file AI Model (.gguf)',
@@ -273,8 +275,8 @@ class AiModelLoader {
   }) async {
     try {
       // Kiểm tra network
-      final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity.contains(ConnectivityResult.none)) {
+      final results = await Connectivity().checkConnectivity();
+      if (results.contains(ConnectivityResult.none) || results.isEmpty) {
         return const ModelLoadResult(
           success: false,
           source: ModelSource.none,
@@ -283,7 +285,7 @@ class AiModelLoader {
       }
 
       // Chỉ download trên WiFi (model lớn ~1.5GB)
-      if (!connectivity.contains(ConnectivityResult.wifi)) {
+      if (!results.contains(ConnectivityResult.wifi)) {
         return const ModelLoadResult(
           success: false,
           source: ModelSource.none,

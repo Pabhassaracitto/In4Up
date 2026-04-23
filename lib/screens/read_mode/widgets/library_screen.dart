@@ -200,7 +200,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['txt', 'lrc', 'srt'],
       );
@@ -230,7 +230,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
       );
@@ -1176,7 +1176,7 @@ class _DeviceTabState extends State<_DeviceTab> {
   Future<void> _pickFile({required bool isPdf}) async {
     setState(() => _picking = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: isPdf ? ['pdf'] : ['txt', 'lrc', 'srt'],
         allowMultiple: false,

@@ -189,7 +189,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
   List<PlatformFile> _playlist = [];
 
   Future<void> _pickSingleFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.audio,
       allowMultiple: false,
     );
@@ -207,7 +207,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
   }
 
   Future<void> _pickMultipleFiles() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
     );

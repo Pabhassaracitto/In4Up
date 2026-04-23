@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -91,7 +92,7 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['txt', 'csv'],
     );

@@ -1,16 +1,18 @@
 import '../models/ai_analysis.dart';
-import '../engine/ai_engine.dart';
 
 /// Chiến lược xử lý lỗi và retry
 class AiErrorHandler {
-
   /// Retry với temperature thấp hơn khi detect hallucination
   static double getRetryTemperature(int attemptCount) {
     switch (attemptCount) {
-      case 1: return 0.1;   // Lần 1: standard
-      case 2: return 0.05;  // Lần 2: conservative
-      case 3: return 0.01;  // Lần 3: almost deterministic
-      default: return 0.0;
+      case 1:
+        return 0.1; // Lần 1: standard
+      case 2:
+        return 0.05; // Lần 2: conservative
+      case 3:
+        return 0.01; // Lần 3: almost deterministic
+      default:
+        return 0.0;
     }
   }
 
@@ -79,7 +81,7 @@ class ErrorLogEntry {
   final String rawOutput;
   final List<String> issues;
   final DateTime timestamp;
-  
+
   const ErrorLogEntry({
     required this.inputText,
     required this.rawOutput,
@@ -88,9 +90,9 @@ class ErrorLogEntry {
   });
 
   Map<String, dynamic> toJson() => {
-    'input': inputText,
-    'raw_output': rawOutput,
-    'issues': issues,
-    'timestamp': timestamp.toIso8601String(),
-  };
+        'input': inputText,
+        'raw_output': rawOutput,
+        'issues': issues,
+        'timestamp': timestamp.toIso8601String(),
+      };
 }

@@ -301,7 +301,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
           ElevatedButton(
             onPressed: () {
               // Lấy error log từ facade
-              final log = facade.reportError(reason: 'User reported incorrect');
+              facade.reportError(reason: 'User reported incorrect');
               // TODO: Lưu log vào vipsound_storage
               // context.read<StorageService>().saveErrorLog(log);
               Navigator.pop(context);

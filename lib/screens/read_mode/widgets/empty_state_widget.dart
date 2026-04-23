@@ -2,6 +2,7 @@
 // Thay toàn bộ nội dung cũ bằng redirect sang ReadLibraryScreen
 
 import 'package:flutter/material.dart';
+
 import 'library_screen.dart';
 
 /// ReadEmptyState giờ chỉ là alias trỏ tới ReadLibraryScreen
@@ -168,7 +169,7 @@ class ReadEmptyState extends StatelessWidget {
   Future<void> _importFile(
       BuildContext context, List<String> extensions) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.instance.pickFiles(
         type: FileType.custom,
         allowedExtensions: extensions,
       );

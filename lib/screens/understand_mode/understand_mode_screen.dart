@@ -1,10 +1,10 @@
 // lib/screens/understand_mode/understand_mode_screen.dart
 // VipSound - Chế độ HIỂU (Fixed version)
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
@@ -133,7 +133,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   Future<void> _pickAudio(BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+      final result = await FilePicker.pickFiles(type: FileType.audio);
       if (result != null && result.files.single.path != null) {
         if (context.mounted) {
           // Gọi hàm play của PlayerProvider để phát file vừa chọn
@@ -149,7 +149,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   Future<void> _pickText(BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['lrc', 'srt', 'txt'],
       );

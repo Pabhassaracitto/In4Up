@@ -327,3 +327,4 @@ lib/firebase_options.dart
 .firebase/
 **/.firebase/
 firebase_options.dart
+auth_service.dart

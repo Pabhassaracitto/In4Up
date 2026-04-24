@@ -21,6 +21,14 @@ class VocabularyProvider extends ChangeNotifier {
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
+  VocabularyProvider() {
+    _initBox();
+  }
+
+  Future<void> _initBox() async {
+    await ensureBoxOpen();
+    await loadData();
+  }
 
   // ─── Getters ─────────────────────────────────────────────
   List<WordEntry> get allWords => _words;

@@ -328,3 +328,4 @@ lib/firebase_options.dart
 **/.firebase/
 firebase_options.dart
 auth_service.dart
+google_sign_in_config.dart

@@ -387,7 +387,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                         child: MiniPlayer(
                           margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                          onTap: _isHome ? action : null,
+                          onTap:
+                              null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
                         ),
                       ),
                     ),

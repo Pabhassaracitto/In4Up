@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/word_entry.dart';
 
 class WordBubble extends StatelessWidget {

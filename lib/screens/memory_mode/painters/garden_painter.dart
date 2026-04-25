@@ -33,8 +33,8 @@ class GardenPainter extends CustomPainter {
       end: Alignment.bottomCenter,
       colors: [
         Colors.transparent,
-        const Color(0xFF1B5E20).withValues(alpha: 0.05),
-        const Color(0xFF1B5E20).withValues(alpha: 0.1),
+        Color(0xFF1B5E20).withValues(alpha: 0.05),
+        Color(0xFF1B5E20).withValues(alpha: 0.1),
       ],
     );
 

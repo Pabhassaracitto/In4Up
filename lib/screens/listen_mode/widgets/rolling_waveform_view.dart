@@ -188,7 +188,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+              color: Color(0xFF6C63FF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: AnimatedBuilder(

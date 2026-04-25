@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
 
-import '../providers/player_provider.dart';
 import '../models/segment.dart';
+import '../providers/player_provider.dart';
 
 class SaveSegmentDialog extends StatefulWidget {
   const SaveSegmentDialog({super.key});
@@ -80,7 +80,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                color: Color(0xFF6C63FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(

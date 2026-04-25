@@ -1,13 +1,19 @@
 import 'dart:math' as math;
-
+import 'package:animations/animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/player_provider.dart';
+import '../../providers/focus_provider.dart';
 import '../../screens/memory_mode/controllers/memory_controller.dart';
 import '../../services/auth_service.dart';
+
+import 'widgets/focus_streak_card.dart';
+import 'widgets/memory_garden_card.dart';
+import 'widgets/hebbian_input_card.dart';
+import 'widgets/knowledge_graph_preview.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToListen;
@@ -29,42 +35,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _bgController;
-  late AnimationController _cardController;
-  late List<Animation<double>> _cardAnims;
 
   @override
   void initState() {
     super.initState();
-
     _bgController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 15),
     )..repeat(reverse: true);
-
-    _cardController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-
-    // Staggered card animations
-    _cardAnims = List.generate(4, (i) {
-      final start = i * 0.15;
-      final end = (start + 0.55).clamp(0.0, 1.0);
-      return Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(
-          parent: _cardController,
-          curve: Interval(start, end, curve: Curves.easeOutBack),
-        ),
-      );
-    });
-
-    _cardController.forward();
   }
 
   @override
   void dispose() {
     _bgController.dispose();
-    _cardController.dispose();
     super.dispose();
   }
 
@@ -74,302 +57,352 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: const Color(0xFF080B1A),
       body: Stack(
         children: [
-          // Animated background
+          // Animated Abstract Background
           _AnimatedBackground(controller: _bgController),
 
-          // Content
+          // Main Content
           SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: _buildHeader()),
-                SliverToBoxAdapter(child: _buildQuickStats()),
-                SliverToBoxAdapter(child: _buildModesSection()),
-                SliverToBoxAdapter(child: _buildImportSection()),
-                SliverToBoxAdapter(child: _buildBottomActions()),
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              ],
+            child: RefreshIndicator(
+              onRefresh: () async {
+                // Refresh data logic
+              },
+              backgroundColor: const Color(0xFF1A1A2E),
+              color: const Color(0xFF6C63FF),
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(child: _buildGlassHeader()),
+
+                  // FOCUS & MOMENTUM SECTION
+                  const SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    sliver: SliverToBoxAdapter(
+                      child: FocusStreakCard(),
+                    ),
+                  ),
+
+                  // MEMORY GARDEN (LIVESTATUS)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    sliver: SliverToBoxAdapter(
+                      child: MemoryGardenCard(
+                        onStartReview: widget.onNavigateToMemory,
+                      ),
+                    ),
+                  ),
+
+                  // QUICK INPUT & HEBBIAN SUGGESTION
+                  const SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    sliver: SliverToBoxAdapter(
+                      child: HebbianInputCard(),
+                    ),
+                  ),
+
+                  // MODES SECTION (BENTO GRID)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildBentoModesGrid(),
+                    ),
+                  ),
+
+                  // KNOWLEDGE GRAPH PREVIEW
+                  const SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    sliver: SliverToBoxAdapter(
+                      child: KnowledgeGraphPreview(),
+                    ),
+                  ),
+
+                  // BOTTOM SPACING
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
             ),
+          ),
+
+          // MINI PLAYER OVERLAY
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _GlobalMiniPlayer(),
           ),
         ],
       ),
+      floatingActionButton: _buildOmniMicrophone(),
     );
   }
 
-  // ─── HEADER ───────────────────────────────────────────────
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+  Widget _buildGlassHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       child: Row(
         children: [
-          // Logo + Title
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6C63FF), Color(0xFF2196F3)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.graphic_eq,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'VipSound',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
               Text(
-                _getGreeting(),
+                'COMMAND CENTER',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.blue[400],
+                  letterSpacing: 2,
+                ),
+              ),
+              const Text(
+                'Hệ điều hành Tri thức',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
                 ),
               ),
             ],
           ),
-
           const Spacer(),
-
-          // Firebase auth button
           _FirebaseAuthButton(),
         ],
       ),
     );
   }
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Buổi sáng tốt lành ☀️';
-    if (hour < 18) return 'Buổi chiều vui vẻ 🌤️';
-    return 'Buổi tối an lành 🌙';
-  }
-
-  // ─── QUICK STATS ──────────────────────────────────────────
-  Widget _buildQuickStats() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Consumer<PlayerProvider>(
-        builder: (context, player, _) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF6C63FF).withValues(alpha: 0.15),
-                  const Color(0xFF2196F3).withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
-              ),
+  Widget _buildBentoModesGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'PHÒNG STUDIO',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.4,
+          children: [
+            _BentoCard(
+              icon: Icons.headphones,
+              title: 'NGHE',
+              color: const Color(0xFF6C63FF),
+              onTap: widget.onNavigateToListen,
             ),
-            child: Row(
-              children: [
-                _StatItem(
-                  icon: Icons.headphones,
-                  label: 'Đang phát',
-                  value: player.currentSongTitle != null ? '1 bài' : 'Chưa có',
-                  color: const Color(0xFF6C63FF),
-                ),
-                _Divider(),
-                _MemoryStatItem(),
-                _Divider(),
-                const _StatItem(
-                  icon: Icons.local_fire_department,
-                  label: 'Streak',
-                  value: '— ngày',
-                  color: Color(0xFFFF6B35),
-                ),
-              ],
+            _BentoCard(
+              icon: Icons.menu_book,
+              title: 'ĐỌC',
+              color: const Color(0xFF2196F3),
+              onTap: widget.onNavigateToRead,
             ),
-          );
-        },
-      ),
+            _BentoCard(
+              icon: Icons.lightbulb,
+              title: 'HIỂU',
+              color: const Color(0xFFFFB300),
+              onTap: widget.onNavigateToUnderstand,
+            ),
+            _BentoCard(
+              icon: Icons.psychology,
+              title: 'NHỚ',
+              color: const Color(0xFF4CAF50),
+              onTap: widget.onNavigateToMemory,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  // ─── MODES SECTION ────────────────────────────────────────
-  Widget _buildModesSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionLabel(text: 'CHẾ ĐỘ HỌC'),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _ModeCard(
-                  index: 0,
-                  anim: _cardAnims[0],
-                  icon: Icons.headphones,
-                  label: 'Nghe',
-                  sublabel: 'Luyện tai',
-                  color: const Color(0xFF6C63FF),
-                  gradientColors: [
-                    const Color(0xFF6C63FF),
-                    const Color(0xFF9C56FF),
-                  ],
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    widget.onNavigateToListen();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ModeCard(
-                  index: 1,
-                  anim: _cardAnims[1],
-                  icon: Icons.menu_book,
-                  label: 'Đọc',
-                  sublabel: 'Hiểu văn bản',
-                  color: const Color(0xFF2196F3),
-                  gradientColors: [
-                    const Color(0xFF2196F3),
-                    const Color(0xFF00BCD4),
-                  ],
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    widget.onNavigateToRead();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _ModeCard(
-                  index: 2,
-                  anim: _cardAnims[2],
-                  icon: Icons.lightbulb,
-                  label: 'Hiểu',
-                  sublabel: 'Phân tích sâu',
-                  color: const Color(0xFFFFB300),
-                  gradientColors: [
-                    const Color(0xFFFF8F00),
-                    const Color(0xFFFFB300),
-                  ],
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    widget.onNavigateToUnderstand();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ModeCard(
-                  index: 3,
-                  anim: _cardAnims[3],
-                  icon: Icons.psychology,
-                  label: 'Nhớ',
-                  sublabel: 'Vườn trí nhớ',
-                  color: const Color(0xFF4CAF50),
-                  gradientColors: [
-                    const Color(0xFF2E7D32),
-                    const Color(0xFF4CAF50),
-                  ],
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    widget.onNavigateToMemory();
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
+  Widget _buildOmniMicrophone() {
+    return OpenContainer(
+      transitionType: ContainerTransitionType.fade,
+      openBuilder: (context, _) => const _SttDialog(),
+      closedElevation: 6.0,
+      closedShape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(56 / 2)),
       ),
-    );
-  }
-
-  // ─── IMPORT SECTION ───────────────────────────────────────
-  Widget _buildImportSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionLabel(text: 'THÊM NỘI DUNG'),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _ImportCard(
-                  icon: Icons.audio_file,
-                  label: 'Audio',
-                  sublabel: 'MP3, WAV, FLAC...',
-                  color: const Color(0xFF6C63FF),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    widget.onNavigateToListen();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ImportCard(
-                  icon: Icons.text_snippet,
-                  label: 'Text',
-                  sublabel: 'TXT, SRT, LRC...',
-                  color: const Color(0xFF2196F3),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    widget.onNavigateToRead();
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── BOTTOM ACTIONS ───────────────────────────────────────
-  Widget _buildBottomActions() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionLabel(text: 'CÀI ĐẶT'),
-          const SizedBox(height: 14),
-          _SettingsRow(),
-        ],
+      closedColor: const Color(0xFF6C63FF),
+      closedBuilder: (context, openContainer) => FloatingActionButton(
+        onPressed: openContainer,
+        backgroundColor: const Color(0xFF6C63FF),
+        child: const Icon(Icons.mic, color: Colors.white, size: 30),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// SUB WIDGETS
-// ─────────────────────────────────────────────────────────────
+class _BentoCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _BentoCard({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -10,
+              top: -10,
+              child: Icon(icon, size: 60, color: color.withValues(alpha: 0.05)),
+            ),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: color, size: 28),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlobalMiniPlayer extends StatelessWidget {
+  const _GlobalMiniPlayer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        if (player.currentSongTitle == null) return const SizedBox.shrink();
+
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.music_note, color: Color(0xFF6C63FF)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      player.currentSongTitle ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const Text(
+                      'Đang phát',
+                      style: TextStyle(color: Colors.grey, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.play_arrow, color: Colors.white),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SttDialog extends StatelessWidget {
+  const _SttDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF080B1A),
+      appBar: AppBar(
+        title: const Text('Ghi chú nhanh'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.mic, size: 80, color: Color(0xFF6C63FF)),
+            const SizedBox(height: 24),
+            const Text(
+              'Đang lắng nghe...',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+            const SizedBox(height: 48),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hoàn tất'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _AnimatedBackground extends StatelessWidget {
   final AnimationController controller;
@@ -377,866 +410,103 @@ class _AnimatedBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (_, __) {
-          return CustomPaint(
-            painter: _BgPainter(controller.value),
-            size: Size.infinite,
-          );
-        },
-      ),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) {
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _BackgroundPainter(controller.value),
+        );
+      },
     );
   }
 }
 
-class _BgPainter extends CustomPainter {
+class _BackgroundPainter extends CustomPainter {
   final double t;
-  _BgPainter(this.t);
+  _BackgroundPainter(this.t);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Orb 1 - Purple
-    final p1 = Paint()
-      ..color = const Color(0xFF6C63FF).withValues(alpha: 0.08)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 60);
-    canvas.drawCircle(
-      Offset(
-        size.width * (0.2 + 0.1 * math.sin(t * math.pi * 2)),
-        size.height * (0.15 + 0.05 * math.cos(t * math.pi * 2)),
-      ),
-      160,
-      p1,
-    );
-
-    // Orb 2 - Blue
-    final p2 = Paint()
-      ..color = const Color(0xFF2196F3).withValues(alpha: 0.06)
+    final paint = Paint()
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
+
+    // Deep Indigo Orb
+    paint.color = const Color(0xFF6C63FF).withValues(alpha: 0.1);
     canvas.drawCircle(
       Offset(
-        size.width * (0.8 + 0.08 * math.cos(t * math.pi * 2)),
-        size.height * (0.4 + 0.1 * math.sin(t * math.pi * 1.3)),
+        size.width * (0.3 + 0.1 * math.sin(t * 2 * math.pi)),
+        size.height * (0.2 + 0.1 * math.cos(t * 2 * math.pi)),
       ),
-      180,
-      p2,
+      size.width * 0.4,
+      paint,
     );
 
-    // Orb 3 - Green
-    final p3 = Paint()
-      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.05)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100);
+    // Deep Ocean Orb
+    paint.color = const Color(0xFF2196F3).withValues(alpha: 0.08);
     canvas.drawCircle(
       Offset(
-        size.width * (0.3 + 0.12 * math.sin(t * math.pi * 1.7)),
-        size.height * (0.75 + 0.06 * math.cos(t * math.pi * 1.7)),
+        size.width * (0.8 + 0.1 * math.cos(t * 2 * math.pi)),
+        size.height * (0.7 + 0.1 * math.sin(t * 2 * math.pi)),
       ),
-      140,
-      p3,
+      size.width * 0.5,
+      paint,
     );
   }
 
   @override
-  bool shouldRepaint(_BgPainter old) => old.t != t;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: Colors.grey[600],
-        letterSpacing: 1.5,
-      ),
-    );
-  }
-}
-
-class _ModeCard extends StatefulWidget {
-  final int index;
-  final Animation<double> anim;
-  final IconData icon;
-  final String label;
-  final String sublabel;
-  final Color color;
-  final List<Color> gradientColors;
-  final VoidCallback onTap;
-
-  const _ModeCard({
-    required this.index,
-    required this.anim,
-    required this.icon,
-    required this.label,
-    required this.sublabel,
-    required this.color,
-    required this.gradientColors,
-    required this.onTap,
-  });
-
-  @override
-  State<_ModeCard> createState() => _ModeCardState();
-}
-
-class _ModeCardState extends State<_ModeCard> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.anim,
-      builder: (_, child) {
-        return Transform.scale(
-          scale: widget.anim.value,
-          child: Opacity(
-            opacity: widget.anim.value.clamp(0.0, 1.0),
-            child: child,
-          ),
-        );
-      },
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.93 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          child: Container(
-            height: 120,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: widget.gradientColors
-                    .map((c) => c.withValues(alpha: 0.18))
-                    .toList(),
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: widget.color.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Background icon (decorative)
-                Positioned(
-                  right: -8,
-                  bottom: -8,
-                  child: Icon(
-                    widget.icon,
-                    size: 64,
-                    color: widget.color.withValues(alpha: 0.08),
-                  ),
-                ),
-
-                // Content
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: widget.color.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          widget.icon,
-                          color: widget.color,
-                          size: 20,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        widget.label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.sublabel,
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ImportCard extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final String sublabel;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ImportCard({
-    required this.icon,
-    required this.label,
-    required this.sublabel,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  State<_ImportCard> createState() => _ImportCardState();
-}
-
-class _ImportCardState extends State<_ImportCard> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: widget.color.withValues(alpha: 0.2),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: widget.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(widget.icon, color: widget.color, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      widget.sublabel,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.add_circle_outline,
-                  color: widget.color.withValues(alpha: 0.6), size: 18),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MemoryStatItem extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // Try to get memory controller if available
-    try {
-      final ctrl = context.read<MemoryController>();
-      return Expanded(
-        child: Column(
-          children: [
-            const Icon(Icons.psychology, color: Color(0xFF4CAF50), size: 20),
-            const SizedBox(height: 6),
-            Text(
-              '${ctrl.dueItems.length} từ',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Cần ôn',
-              style: TextStyle(color: Colors.grey[600], fontSize: 10),
-            ),
-          ],
-        ),
-      );
-    } catch (_) {
-      return const _StatItem(
-        icon: Icons.psychology,
-        label: 'Cần ôn',
-        value: '— từ',
-        color: Color(0xFF4CAF50),
-      );
-    }
-  }
-}
-
-class _Divider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 40,
-      color: Colors.white.withValues(alpha: 0.08),
-    );
-  }
-}
-
-class _SettingsRow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _SettingsChip(
-            icon: Icons.tune,
-            label: 'Cài đặt',
-            onTap: () {
-              // TODO: mở settings sheet
-            },
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SettingsChip(
-            icon: Icons.info_outline,
-            label: 'Giới thiệu',
-            onTap: () {
-              // TODO: mở about
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SettingsChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _SettingsChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.grey[400], size: 16),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Firebase Auth Button ─────────────────────────────────────
-class _FirebaseAuthButton extends StatefulWidget {
-  @override
-  State<_FirebaseAuthButton> createState() => _FirebaseAuthButtonState();
-}
-
-class _FirebaseAuthButtonState extends State<_FirebaseAuthButton> {
-  // Lắng nghe auth state thay đổi để tự rebuild
-  late final Stream<User?> _authStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _authStream = AuthService().authStateChanges;
-  }
-
+class _FirebaseAuthButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: _authStream,
+      stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        final user = snapshot.data ?? AuthService().currentUser;
-        final isAnonymous = user == null || (user.isAnonymous);
-        final displayName = user?.displayName;
-        final photoUrl = user?.photoURL;
-
-        return GestureDetector(
-          onTap: () => _showAuthSheet(context, isAnonymous),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(strokeWidth: 2));
+        }
+        final user = snapshot.data;
+        if (user == null) {
+          return IconButton(
+            icon: const Icon(Icons.account_circle_outlined,
+                color: Colors.white, size: 28),
+            onPressed: () => _handleSignIn(context),
+          );
+        }
+        return Row(
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundImage:
+                  user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+              child: user.photoURL == null
+                  ? Text(user.displayName?[0] ?? 'U')
+                  : null,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Avatar
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: isAnonymous
-                      ? const Color(0xFF6C63FF).withValues(alpha: 0.3)
-                      : const Color(0xFF4CAF50).withValues(alpha: 0.3),
-                  backgroundImage:
-                      photoUrl != null ? NetworkImage(photoUrl) : null,
-                  child: photoUrl == null
-                      ? Icon(
-                          isAnonymous ? Icons.person_outline : Icons.person,
-                          color: isAnonymous
-                              ? const Color(0xFF6C63FF)
-                              : const Color(0xFF4CAF50),
-                          size: 14,
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                // Label
-                Text(
-                  isAnonymous
-                      ? 'Ẩn danh'
-                      : (displayName?.split(' ').first ?? 'Tôi'),
-                  style: TextStyle(
-                    color: isAnonymous ? Colors.white70 : Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_down,
-                    color: Colors.grey[600], size: 16),
-              ],
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+              onPressed: () => AuthService().signOut(),
             ),
-          ),
+          ],
         );
       },
     );
   }
 
-  void _showAuthSheet(BuildContext context, bool isAnonymous) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF111827),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      isScrollControlled: true,
-      builder: (_) => _AuthSheet(isAnonymous: isAnonymous),
-    );
-  }
-}
-
-class _AuthSheet extends StatefulWidget {
-  final bool isAnonymous;
-  const _AuthSheet({required this.isAnonymous});
-
-  @override
-  State<_AuthSheet> createState() => _AuthSheetState();
-}
-
-class _AuthSheetState extends State<_AuthSheet> {
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+  Future<void> _handleSignIn(BuildContext context) async {
     try {
-      final user = await AuthService().signInWithGoogle();
-
-      if (!mounted) return;
-
-      if (user != null) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Đã đăng nhập: ${user.displayName ?? user.email ?? "Thành công"}',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      } else {
-        // User chủ động cancel → không hiện lỗi
-        setState(() => _isLoading = false);
-      }
-    } on AuthException catch (e) {
-      // Lỗi rõ ràng từ AuthService (chưa config, hết giờ, v.v.)
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.message;
-      });
+      await AuthService().signInWithGoogle();
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Lỗi không xác định: $e';
-      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Đăng nhập thất bại: $e')));
+      }
     }
-  }
-
-  Future<void> _handleSignOut() async {
-    setState(() => _isLoading = true);
-    await AuthService().signOut();
-    if (!mounted) return;
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 28,
-        right: 28,
-        top: 28,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 28,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[700],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Title
-          const Text(
-            'Tài khoản',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.isAnonymous
-                ? 'Đăng nhập để đồng bộ vườn nhớ trên tất cả thiết bị'
-                : 'Đang đăng nhập với tài khoản Google',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 28),
-
-          // Status card
-          _buildStatusCard(),
-          const SizedBox(height: 14),
-
-          // Error message
-          if (_errorMessage != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline,
-                      color: Colors.redAccent, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                          color: Colors.redAccent, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
-
-          // Action button
-          SizedBox(
-            width: double.infinity,
-            child: widget.isAnonymous
-                ? _buildGoogleSignInButton()
-                : _buildSignOutButton(),
-          ),
-
-          const SizedBox(height: 12),
-          Text(
-            widget.isAnonymous
-                ? 'Đăng nhập Google giúp đồng bộ vườn nhớ\nkhi chuyển thiết bị hoặc cài lại ứng dụng.'
-                : 'Đăng xuất sẽ chuyển về chế độ ẩn danh.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 11,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusCard() {
-    final isAnonymous = widget.isAnonymous;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: (isAnonymous
-                      ? const Color(0xFF6C63FF)
-                      : const Color(0xFF4CAF50))
-                  .withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isAnonymous ? Icons.shield_outlined : Icons.verified_user,
-              color: isAnonymous
-                  ? const Color(0xFF6C63FF)
-                  : const Color(0xFF4CAF50),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isAnonymous ? 'Chế độ ẩn danh' : 'Google Account',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  isAnonymous
-                      ? 'Đang hoạt động · Dữ liệu lưu trên thiết bị này'
-                      : (AuthService().email ??
-                          AuthService().displayName ??
-                          'Đã đăng nhập'),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.check_circle,
-            color:
-                isAnonymous ? const Color(0xFF6C63FF) : const Color(0xFF4CAF50),
-            size: 18,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGoogleSignInButton() {
-    return ElevatedButton(
-      onPressed: _isLoading ? null : _handleGoogleSignIn,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1A2E),
-        disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        elevation: 0,
-      ),
-      child: _isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: Color(0xFF1A1A2E),
-              ),
-            )
-          : const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.g_mobiledata, size: 22),
-                SizedBox(width: 8),
-                Text(
-                  'Đăng nhập với Google',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildSignOutButton() {
-    return OutlinedButton(
-      onPressed: _isLoading ? null : _handleSignOut,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.redAccent,
-        side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      child: _isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: Colors.redAccent,
-              ),
-            )
-          : const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout, size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'Đăng xuất',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-    );
   }
 }

@@ -202,7 +202,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF0000).withValues(alpha: 0.15),
+                color: Color(0xFFFF0000).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.play_circle_fill,
@@ -300,7 +300,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                 decoration: BoxDecoration(
                   color: _isFetchingVideo
                       ? Colors.grey.withValues(alpha: 0.2)
-                      : const Color(0xFFFF0000).withValues(alpha: 0.85),
+                      : Color(0xFFFF0000).withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: _isFetchingVideo

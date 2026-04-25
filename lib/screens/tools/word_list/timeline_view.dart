@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/word_entry.dart';
 import '../../../models/vocabulary_type.dart';
+import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 
 class TimelineView extends StatelessWidget {
@@ -135,7 +135,7 @@ class _DateGroup extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isFirst
                         ? const Color(0xFF6C63FF)
-                        : const Color(0xFF6C63FF).withValues(alpha: 0.4),
+                        : Color(0xFF6C63FF).withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                     boxShadow: isFirst
                         ? [
@@ -175,7 +175,7 @@ class _DateGroup extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                        color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text('+${entries.length}',
@@ -237,7 +237,7 @@ class _TimelineEntry extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isReencounter
-              ? const Color(0xFFFFB300).withValues(alpha: 0.2)
+              ? Color(0xFFFFB300).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.05),
         ),
       ),
@@ -288,7 +288,7 @@ class _TimelineEntry extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                color: Color(0xFFFFB300).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text('Gặp lần $encounterCount!',

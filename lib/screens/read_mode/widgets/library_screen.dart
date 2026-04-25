@@ -778,7 +778,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(11),
           border: Border.all(
-            color: const Color(0xFF2196F3).withValues(alpha: 0.4),
+            color: Color(0xFF2196F3).withValues(alpha: 0.4),
           ),
         ),
         child: TextField(
@@ -1346,7 +1346,7 @@ class _CloudEntryTile extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+            color: Color(0xFF2196F3).withValues(alpha: 0.2),
           ),
         ),
         child: Row(
@@ -1393,8 +1393,7 @@ class _CloudEntryTile extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color:
-                                const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                            color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

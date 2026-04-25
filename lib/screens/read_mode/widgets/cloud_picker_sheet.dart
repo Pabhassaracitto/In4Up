@@ -112,7 +112,7 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+              color: Color(0xFF2196F3).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
@@ -332,7 +332,7 @@ class _CloudEntryTile extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+            color: Color(0xFF2196F3).withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -382,8 +382,8 @@ class _CloudEntryTile extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C63FF)
-                                .withValues(alpha: 0.15),
+                            color:
+                                const Color(0xFF6C63FF).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

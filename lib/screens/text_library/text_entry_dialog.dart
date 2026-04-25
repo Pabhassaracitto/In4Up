@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../services/text_library_service.dart';
 
 class TextEntryDialog extends StatefulWidget {
@@ -112,8 +113,9 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         hint: 'VD: Hội thoại tại quầy Check-in',
                         icon: Icons.title,
                       ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Nhập tiêu đề' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập tiêu đề'
+                          : null,
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
@@ -150,8 +152,9 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                       ),
                       maxLines: 12,
                       minLines: 6,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Nhập nội dung' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập nội dung'
+                          : null,
                     ),
 
                     // Word count hint
@@ -204,7 +207,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+              color: Color(0xFF2196F3).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -257,7 +260,8 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                 child: const Center(
                   child: Text(
                     'Hủy',
-                    style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: Colors.white70, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -280,7 +284,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+                      color: Color(0xFF2196F3).withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -300,7 +304,9 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _isEditing ? Icons.save : Icons.cloud_upload_outlined,
+                              _isEditing
+                                  ? Icons.save
+                                  : Icons.cloud_upload_outlined,
                               color: Colors.white,
                               size: 16,
                             ),
@@ -323,7 +329,8 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
     );
   }
 
-  InputDecoration _inputDecoration({required String hint, required IconData icon}) {
+  InputDecoration _inputDecoration(
+      {required String hint, required IconData icon}) {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),

@@ -199,10 +199,10 @@ class MemoryStatsSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+                      color: Color(0xFF2196F3).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+                        color: Color(0xFF2196F3).withValues(alpha: 0.15),
                       ),
                     ),
                     child: Column(

@@ -66,7 +66,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF6C63FF).withValues(alpha: 0.15),
+            Color(0xFF6C63FF).withValues(alpha: 0.15),
             Colors.transparent,
           ],
           begin: Alignment.topCenter,
@@ -78,7 +78,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+              color: Color(0xFF6C63FF).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.library_music,
@@ -125,10 +125,9 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
       child: TabBar(
         controller: _tabCtrl,
         indicator: BoxDecoration(
-          color: const Color(0xFF6C63FF).withValues(alpha: 0.25),
+          color: Color(0xFF6C63FF).withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(9),
-          border:
-              Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
+          border: Border.all(color: Color(0xFF6C63FF).withValues(alpha: 0.4)),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
@@ -418,8 +417,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
-                            color:
-                                const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                            color: Color(0xFF6C63FF).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -507,10 +505,10 @@ class _YouTubeTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFF0000).withValues(alpha: 0.08),
+              color: Color(0xFFFF0000).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: const Color(0xFFFF0000).withValues(alpha: 0.2)),
+              border:
+                  Border.all(color: Color(0xFFFF0000).withValues(alpha: 0.2)),
             ),
             child: const Row(
               children: [
@@ -562,8 +560,7 @@ class _YouTubeTab extends StatelessWidget {
             label: const Text('Tải Lyrics / Captions'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF4CAF50),
-              side: BorderSide(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.5)),
+              side: BorderSide(color: Color(0xFF4CAF50).withValues(alpha: 0.5)),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -691,10 +688,9 @@ class _CurrentTrackCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+          color: Color(0xFF6C63FF).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.35)),
+          border: Border.all(color: Color(0xFF6C63FF).withValues(alpha: 0.35)),
         ),
         child: Row(
           children: [
@@ -704,7 +700,7 @@ class _CurrentTrackCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isPlaying
                     ? const Color(0xFF6C63FF)
-                    : const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                    : Color(0xFF6C63FF).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -795,7 +791,7 @@ class _SegmentTile extends StatelessWidget {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                color: Color(0xFF4CAF50).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.play_arrow,

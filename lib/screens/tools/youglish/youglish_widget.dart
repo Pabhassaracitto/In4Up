@@ -6,11 +6,10 @@
 // ★ FIX setState: guard `if (mounted)` trong callbacks
 
 import 'dart:io';
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
 // Mobile: webview_flutter
 import 'package:webview_flutter/webview_flutter.dart';
-
 // Windows: webview_win_floating (cùng API, chỉ khác tên class)
 import 'package:webview_win_floating/webview_win_floating.dart';
 
@@ -126,12 +125,12 @@ class _YouGlishWidgetState extends State<YouGlishWidget> {
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+          color: Color(0xFF6C63FF).withValues(alpha: 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+            color: Color(0xFF6C63FF).withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),

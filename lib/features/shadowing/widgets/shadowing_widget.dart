@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../shadowing/models/shadowing_result.dart';
 import '../../../providers/player_provider.dart';
+import '../../shadowing/models/shadowing_result.dart';
 import '../providers/shadowing_provider.dart';
 import 'waveform_comparison_painter.dart';
 
@@ -64,13 +64,13 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0xFF1A237E).withValues(alpha: 0.3),
+                Color(0xFF1A237E).withValues(alpha: 0.3),
                 const Color(0xFF0D1B2A),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+              color: Color(0xFF2196F3).withValues(alpha: 0.3),
             ),
           ),
           child: Column(
@@ -101,7 +101,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+            color: Color(0xFF2196F3).withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -335,7 +335,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+                    color: Color(0xFF2196F3).withValues(alpha: 0.2),
                     border: Border.all(
                       color: const Color(0xFF2196F3),
                       width: 3,

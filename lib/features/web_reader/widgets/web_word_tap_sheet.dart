@@ -41,8 +41,7 @@ class WebWordTapSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cleanWord =
-        word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
+    final cleanWord = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
 
     return Padding(
       padding: EdgeInsets.only(
@@ -125,9 +124,9 @@ class WebWordTapSheet extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+                    color: Color(0xFF2196F3).withValues(alpha: 0.15),
                     border: Border.all(
-                        color: const Color(0xFF2196F3).withValues(alpha: 0.3)),
+                        color: Color(0xFF2196F3).withValues(alpha: 0.3)),
                   ),
                   child: const Icon(Icons.volume_up_rounded,
                       color: Color(0xFF2196F3), size: 20),
@@ -164,8 +163,7 @@ class WebWordTapSheet extends StatelessWidget {
           ],
 
           // ── CEFR level description ────────────────────────
-          if (analyzed != null &&
-              analyzed!.cefrLevel != CEFRLevel.unknown) ...[
+          if (analyzed != null && analyzed!.cefrLevel != CEFRLevel.unknown) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -181,7 +179,8 @@ class WebWordTapSheet extends StatelessWidget {
                 Text(
                   '${analyzed!.cefrLevel.shortLabel} — ${_cefrDescVi(analyzed!.cefrLevel)}',
                   style: TextStyle(
-                      color: _cefrColor(analyzed!.cefrLevel).withValues(alpha: 0.9),
+                      color: _cefrColor(analyzed!.cefrLevel)
+                          .withValues(alpha: 0.9),
                       fontSize: 12),
                 ),
               ],
@@ -198,8 +197,7 @@ class WebWordTapSheet extends StatelessWidget {
                 flex: 3,
                 child: GestureDetector(
                   onTap: () {
-                    controller.saveWordToMemory(cleanWord,
-                        analyzed: analyzed);
+                    controller.saveWordToMemory(cleanWord, analyzed: analyzed);
                     HapticFeedback.mediumImpact();
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -216,11 +214,10 @@ class WebWordTapSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                      color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color:
-                              const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                          color: Color(0xFF6C63FF).withValues(alpha: 0.3)),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -289,8 +286,8 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-            color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style:
+            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
   }

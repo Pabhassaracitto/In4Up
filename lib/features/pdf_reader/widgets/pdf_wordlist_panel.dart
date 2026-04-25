@@ -105,7 +105,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+              color: Color(0xFF6C63FF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -311,12 +311,12 @@ class _SortBtn extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                ? Color(0xFF6C63FF).withValues(alpha: 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF6C63FF).withValues(alpha: 0.4)
+                  ? Color(0xFF6C63FF).withValues(alpha: 0.4)
                   : Colors.transparent,
             ),
           ),

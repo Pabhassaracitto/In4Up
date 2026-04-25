@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
+
+import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
-import '../../../models/vocab_context.dart';
 import '../../../providers/vocabulary_provider.dart';
 // XÓA: import 'package:vipsound_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
@@ -143,7 +144,7 @@ class _WordActionsContent extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+                    color: Color(0xFF2196F3).withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -272,8 +273,8 @@ class _WordActionsContent extends StatelessWidget {
                         : level.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: level.color.withValues(
-                        alpha: isSelected ? 1.0 : 0.4,
+                      color: level.color.withValues(alpha: 
+                        isSelected ? 1.0 : 0.4,
                       ),
                       width: isSelected ? 2 : 1,
                     ),

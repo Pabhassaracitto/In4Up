@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'youglish_config.dart';
 import 'youglish_widget.dart';
 
@@ -126,12 +127,12 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                        color: Color(0xFF6C63FF).withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.25)),
+                        color: Color(0xFF6C63FF).withValues(alpha: 0.25)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -268,7 +269,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                        ? Color(0xFF6C63FF).withValues(alpha: 0.25)
                         : const Color(0xFF1A1A2E),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(

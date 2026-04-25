@@ -10,9 +10,9 @@ import 'package:provider/provider.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
+import '../../../services/text_library_service.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
-import '../../../services/text_library_service.dart';
 import 'cloud_picker_sheet.dart';
 
 class QuickLibrarySheet extends StatefulWidget {
@@ -285,10 +285,10 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withValues(alpha: 0.15),
+                    color: Color(0xFF1565C0).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF1565C0).withValues(alpha: 0.4),
+                      color: Color(0xFF1565C0).withValues(alpha: 0.4),
                     ),
                   ),
                   child: const Row(

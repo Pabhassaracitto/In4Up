@@ -490,7 +490,7 @@ class _SongInfoBar extends StatelessWidget {
             thumbColor: const Color(0xFF6C63FF),
             activeTrackColor: const Color(0xFF6C63FF),
             inactiveTrackColor: Colors.white12,
-            overlayColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+            overlayColor: Color(0xFF6C63FF).withValues(alpha: 0.2),
           ),
           child: Slider(
             value: progress,
@@ -593,7 +593,7 @@ class _CorePlayerControls extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
+                        color: Color(0xFF6C63FF).withValues(alpha: 0.4),
                         blurRadius: 16,
                         offset: const Offset(0, 4),
                       ),
@@ -622,10 +622,10 @@ class _CorePlayerControls extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                      color: Color(0xFF4CAF50).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
+                        color: Color(0xFF4CAF50).withValues(alpha: 0.4),
                       ),
                     ),
                     child: Row(

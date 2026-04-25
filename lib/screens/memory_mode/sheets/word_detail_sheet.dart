@@ -94,11 +94,10 @@ class WordDetailSheet extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
+                        color: Color(0xFF4CAF50).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color:
-                              const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                          color: Color(0xFF4CAF50).withValues(alpha: 0.15),
                         ),
                       ),
                       child: Text(
@@ -116,7 +115,8 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== EXAMPLE =====
                   if (item.example != null) ...[
-                    const _SectionTitle(label: 'Ví dụ', icon: Icons.format_quote),
+                    const _SectionTitle(
+                        label: 'Ví dụ', icon: Icons.format_quote),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -126,8 +126,7 @@ class WordDetailSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border(
                           left: BorderSide(
-                            color:
-                                const Color(0xFF2196F3).withValues(alpha: 0.5),
+                            color: Color(0xFF2196F3).withValues(alpha: 0.5),
                             width: 3,
                           ),
                         ),
@@ -147,7 +146,8 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== CONTEXT (dòng gốc) =====
                   if (item.context != null) ...[
-                    const _SectionTitle(label: 'Ngữ cảnh gốc', icon: Icons.article),
+                    const _SectionTitle(
+                        label: 'Ngữ cảnh gốc', icon: Icons.article),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -176,7 +176,8 @@ class WordDetailSheet extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // ===== STAGE JOURNEY =====
-                  const _SectionTitle(label: 'Hành trình', icon: Icons.timeline),
+                  const _SectionTitle(
+                      label: 'Hành trình', icon: Icons.timeline),
                   const SizedBox(height: 12),
                   _buildStageJourney(stage),
                   const SizedBox(height: 24),
@@ -192,8 +193,7 @@ class WordDetailSheet extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF2196F3),
                           side: BorderSide(
-                            color:
-                                const Color(0xFF2196F3).withValues(alpha: 0.3),
+                            color: Color(0xFF2196F3).withValues(alpha: 0.3),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(

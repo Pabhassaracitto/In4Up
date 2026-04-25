@@ -285,7 +285,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         // Banner thông báo Text Mode
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: const Color(0xFF1A237E).withValues(alpha: 0.5),
+          color: Color(0xFF1A237E).withValues(alpha: 0.5),
           child: Row(
             children: [
               const Icon(Icons.text_fields, color: Colors.blue, size: 16),

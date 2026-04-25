@@ -121,7 +121,7 @@ class MemoryItem {
 
   Color get displayBackgroundColor {
     if (needsReview && overdueHours > 24) {
-      return const Color(0xFFFF1744).withValues(alpha: 0.25);
+      return Color(0xFFFF1744).withValues(alpha: 0.25);
     }
     return stage.backgroundColor;
   }

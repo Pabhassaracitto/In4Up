@@ -1,6 +1,7 @@
 // lib/features/tts/widgets/auto_split_section.dart
 
 import 'package:flutter/material.dart';
+
 import '../../../services/text_splitter_service.dart';
 
 /// Widget tách dòng tự động - nhúng vào Settings

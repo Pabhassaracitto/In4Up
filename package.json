@@ -1,0 +1,11 @@
+{
+  "name": "vipsound",
+  "version": "1.0.0",
+  "description": "Vipsound - Language Learning App",
+  "scripts": {
+    "build": "flutter build web",
+    "start": "flutter run -d web-server --web-hostname 0.0.0.0 --web-port 3000"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

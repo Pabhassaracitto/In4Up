@@ -197,7 +197,7 @@ class _ActivitySection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
+                color: Color(0xFF4CAF50).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -218,7 +218,7 @@ class _ActivitySection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+                color: Color(0xFF2196F3).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -239,7 +239,7 @@ class _ActivitySection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF9800).withValues(alpha: 0.08),
+                color: Color(0xFFFF9800).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -364,7 +364,7 @@ class _MostForgotten extends StatelessWidget {
                   height: 22,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF5350).withValues(alpha: 0.15),
+                    color: Color(0xFFEF5350).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text('${i + 1}',
@@ -416,8 +416,7 @@ class _FrequentSection extends StatelessWidget {
                         height: 22,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFFFB300).withValues(alpha: 0.15),
+                          color: Color(0xFFFFB300).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text('${w.encounterCount}×',

@@ -378,10 +378,10 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.12),
+                color: Color(0xFF6C63FF).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(9),
                 border: Border.all(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                  color: Color(0xFF6C63FF).withValues(alpha: 0.3),
                 ),
               ),
               child: const Icon(

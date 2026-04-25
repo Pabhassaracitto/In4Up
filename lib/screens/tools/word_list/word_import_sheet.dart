@@ -207,7 +207,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                      color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.download_outlined,
@@ -238,10 +238,10 @@ class _WordImportSheetState extends State<WordImportSheet>
               child: TabBar(
                 controller: _tabCtrl,
                 indicator: BoxDecoration(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                  color: Color(0xFF6C63FF).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: const Color(0xFF6C63FF).withValues(alpha: 0.5)),
+                      color: Color(0xFF6C63FF).withValues(alpha: 0.5)),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
@@ -432,10 +432,10 @@ class _WordImportSheetState extends State<WordImportSheet>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+                color: Color(0xFF2196F3).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2)),
+                border:
+                    Border.all(color: Color(0xFF2196F3).withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -508,10 +508,10 @@ class _WordImportSheetState extends State<WordImportSheet>
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+              color: Color(0xFF4CAF50).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.35)),
+              border:
+                  Border.all(color: Color(0xFF4CAF50).withValues(alpha: 0.35)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -598,12 +598,12 @@ class _WordImportSheetState extends State<WordImportSheet>
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: w.selected
-                      ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                      ? Color(0xFF6C63FF).withValues(alpha: 0.2)
                       : Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: w.selected
-                        ? const Color(0xFF6C63FF).withValues(alpha: 0.5)
+                        ? Color(0xFF6C63FF).withValues(alpha: 0.5)
                         : Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
@@ -658,8 +658,7 @@ class _WordImportSheetState extends State<WordImportSheet>
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF6C63FF),
-          disabledBackgroundColor:
-              const Color(0xFF6C63FF).withValues(alpha: 0.3),
+          disabledBackgroundColor: Color(0xFF6C63FF).withValues(alpha: 0.3),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -704,12 +703,12 @@ class _OptionChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
+              ? Color(0xFF6C63FF).withValues(alpha: 0.15)
               : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isActive
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.4)
+                ? Color(0xFF6C63FF).withValues(alpha: 0.4)
                 : Colors.white.withValues(alpha: 0.08),
           ),
         ),

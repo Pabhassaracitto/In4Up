@@ -19,7 +19,7 @@ class MemoryTopBar extends StatelessWidget {
         color: const Color(0xFF1A1A2E),
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+            color: Color(0xFF4CAF50).withValues(alpha: 0.1),
           ),
         ),
       ),
@@ -38,7 +38,7 @@ class MemoryTopBar extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5252).withValues(alpha: 0.2),
+                color: Color(0xFFFF5252).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -212,7 +212,7 @@ class _ToggleBtn extends StatelessWidget {
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+              ? Color(0xFF4CAF50).withValues(alpha: 0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),

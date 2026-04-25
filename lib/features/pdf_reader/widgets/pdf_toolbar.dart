@@ -108,12 +108,11 @@ class _ColorModeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+              ? Color(0xFF2196F3).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(14),
           border: isActive
-              ? Border.all(
-                  color: const Color(0xFF2196F3).withValues(alpha: 0.4))
+              ? Border.all(color: Color(0xFF2196F3).withValues(alpha: 0.4))
               : null,
         ),
         child: Row(

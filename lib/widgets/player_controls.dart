@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/player_provider.dart';
 import '../models/playback_state.dart';
+import '../providers/player_provider.dart';
 
 class PlayerControls extends StatelessWidget {
   const PlayerControls({super.key});
@@ -112,7 +112,7 @@ class PlayerControls extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
+            color: Color(0xFF6C63FF).withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),

@@ -22,7 +22,7 @@ class GuideStep extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+            color: Color(0xFF4CAF50).withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Center(

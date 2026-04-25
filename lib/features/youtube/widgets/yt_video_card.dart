@@ -68,7 +68,7 @@ class YtVideoCard extends StatelessWidget {
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: showPreview
-                    ? const Color(0xFFFF0000).withValues(alpha: 0.2)
+                    ? Color(0xFFFF0000).withValues(alpha: 0.2)
                     : Colors.white.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(8),
               ),

@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/word_entry.dart';
+import '../../../features/tts/tts_service.dart';
 // ← FIX: thêm import
 import '../../../models/sm2_algorithm.dart';
+import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/skill_triangle.dart';
-import '../../../features/tts/tts_service.dart';
 
 class SingleWordReviewScreen extends StatefulWidget {
   // ← FIX: bỏ dấu _

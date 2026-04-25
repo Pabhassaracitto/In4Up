@@ -1,5 +1,7 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
+
 import '../models/word_entry.dart';
 
 class SkillTriangle extends StatelessWidget {

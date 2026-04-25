@@ -6,13 +6,13 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
 
+import '../../../models/segment.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
-import '../../../models/segment.dart';
 
 /// Bottom sheet hiện ra khi user tap vào một từ trong PDF
 class PdfWordTapSheet {
@@ -381,8 +381,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: const Color(0xFF2196F3).withValues(alpha: 0.3)),
+        border: Border.all(color: Color(0xFF2196F3).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,10 +474,9 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFB300).withValues(alpha: 0.08),
+        color: Color(0xFFFFB300).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.2)),
+        border: Border.all(color: Color(0xFFFFB300).withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -501,7 +499,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                color: Color(0xFFFFB300).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Text('+ Thêm ngữ cảnh',
@@ -521,7 +519,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
+        color: Color(0xFF4CAF50).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: const Row(

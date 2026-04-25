@@ -43,11 +43,11 @@ enum VocabularyType {
   Color get bgColor {
     switch (this) {
       case VocabularyType.word:
-        return const Color(0xFF4CAF50).withValues(alpha: 0.12);
+        return Color(0xFF4CAF50).withValues(alpha: 0.12);
       case VocabularyType.phrase:
-        return const Color(0xFF2196F3).withValues(alpha: 0.12);
+        return Color(0xFF2196F3).withValues(alpha: 0.12);
       case VocabularyType.sentence:
-        return const Color(0xFFFF9800).withValues(alpha: 0.12);
+        return Color(0xFFFF9800).withValues(alpha: 0.12);
     }
   }
 

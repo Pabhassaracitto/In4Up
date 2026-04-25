@@ -121,7 +121,7 @@ class TextLineWidget extends StatelessWidget {
         padding: const EdgeInsets.only(left: 20),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+          color: Color(0xFF2196F3).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(Icons.volume_up, color: Color(0xFF2196F3), size: 20),
@@ -168,16 +168,16 @@ class TextLineWidget extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: data.isCurrentLine
-              ? const Color(0xFF2196F3).withValues(alpha: 0.08)
+              ? Color(0xFF2196F3).withValues(alpha: 0.08)
               : data.isPlaying
-                  ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
+                  ? Color(0xFF4CAF50).withValues(alpha: 0.08)
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: data.isCurrentLine
-                ? const Color(0xFF2196F3).withValues(alpha: 0.25)
+                ? Color(0xFF2196F3).withValues(alpha: 0.25)
                 : data.isPlaying
-                    ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
+                    ? Color(0xFF4CAF50).withValues(alpha: 0.25)
                     : Colors.transparent,
             width: data.isCurrentLine ? 1.5 : 1.0,
           ),
@@ -292,7 +292,7 @@ class _LineHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: data.isCurrentLine
-                  ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+                  ? Color(0xFF2196F3).withValues(alpha: 0.2)
                   : Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(4),
             ),

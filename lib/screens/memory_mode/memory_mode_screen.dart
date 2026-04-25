@@ -92,10 +92,10 @@ class MemoryModeScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                  color: Color(0xFF4CAF50).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                    color: Color(0xFF4CAF50).withValues(alpha: 0.2),
                     width: 2,
                   ),
                 ),
@@ -140,7 +140,7 @@ class MemoryModeScreen extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF4CAF50),
                 side: BorderSide(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                  color: Color(0xFF4CAF50).withValues(alpha: 0.3),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,

@@ -12,11 +12,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound_ai/vipsound_ai.dart';
 
 import 'features/shadowing/providers/shadowing_provider.dart';
+import 'screens/memory_mode/controllers/memory_controller.dart';
+import 'screens/memory_mode/memory_provider.dart';
 import 'firebase_options.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
 import 'providers/waveform_provider.dart';
+import 'providers/focus_provider.dart';
 import 'screens/main_shell.dart';
 import 'services/storage_service.dart';
 
@@ -145,6 +148,8 @@ class _MyAppState extends State<MyApp> {
             ChangeNotifierProvider(create: (_) => WaveformProvider()),
             ChangeNotifierProvider(create: (_) => VocabularyProvider()),
             ChangeNotifierProvider(create: (_) => ShadowingProvider()),
+            ChangeNotifierProvider(create: (_) => FocusProvider()),
+            ChangeNotifierProvider(create: (_) => MemoryProvider.controller),
 
             // Cấu hình DI cho Playback & TTS System
             // Thứ tự QUAN TRỌNG — phải đúng dependency order
@@ -214,7 +219,7 @@ Nhưng vì PlaybackController không có _placeholder() constructor, cách đơn
                     const Color(0xFF6C63FF), // Indigo làm gốc cho "Studio"
                 brightness: Brightness.dark,
                 surface: const Color(0xFF080B1A),
-                surfaceTint: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+                surfaceTint: Color(0xFF6C63FF).withValues(alpha: 0.1),
               ),
               appBarTheme: const AppBarTheme(
                 elevation: 0,

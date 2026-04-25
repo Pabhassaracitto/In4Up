@@ -49,10 +49,10 @@ class ReadEmptyState extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+                  color: Color(0xFF2196F3).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+                    color: Color(0xFF2196F3).withValues(alpha: 0.2),
                     width: 2,
                   ),
                 ),

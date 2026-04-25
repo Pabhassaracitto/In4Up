@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/text_item.dart';
 import '../../../providers/text_provider.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
@@ -574,8 +573,8 @@ class _LiveStatusBar extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: snapshot.isEN
-                        ? const Color(0xFF3B82F6).withValues(alpha: 0.2)
-                        : const Color(0xFFEF4444).withValues(alpha: 0.2),
+                        ? Color(0xFF3B82F6).withValues(alpha: 0.2)
+                        : Color(0xFFEF4444).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -609,7 +608,7 @@ class _LiveStatusBar extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: (speed - 1.0).abs() > 0.01
-                          ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                          ? Color(0xFF6C63FF).withValues(alpha: 0.2)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -718,7 +717,7 @@ class _PresetSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                  color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
@@ -742,7 +741,7 @@ class _PresetSheet extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 decoration: BoxDecoration(
                   color: isActive
-                      ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
+                      ? Color(0xFF6C63FF).withValues(alpha: 0.15)
                       : Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
@@ -908,7 +907,7 @@ class _ModeBtn extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                ? Color(0xFF6C63FF).withValues(alpha: 0.25)
                 : Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
@@ -949,7 +948,7 @@ class _SpeedChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: modified
-              ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+              ? Color(0xFF6C63FF).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -1144,7 +1143,7 @@ class _StepBtn extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        splashColor: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+        splashColor: Color(0xFF6C63FF).withValues(alpha: 0.3),
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Icon(

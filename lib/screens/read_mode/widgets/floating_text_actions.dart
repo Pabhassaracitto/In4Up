@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/vocab_context.dart';
 import '../../../providers/text_provider.dart';
+import '../../../providers/vocabulary_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/create_segment_sheet.dart';
-import '../../../models/vocab_context.dart';
-import '../../../providers/vocabulary_provider.dart';
 
 class FloatingTextActions {
   FloatingTextActions._();

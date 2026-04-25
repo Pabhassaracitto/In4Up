@@ -4,6 +4,7 @@
 // THÊM: hiển thị quality badge trên nút tải
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -440,10 +441,10 @@ class _YtTabAudioState extends State<YtTabAudio>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                color: Color(0xFF4CAF50).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.3)),
+                    color: Color(0xFF4CAF50).withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -575,10 +576,10 @@ class _QualityBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+          color: Color(0xFF6C63FF).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
+              color: Color(0xFF6C63FF).withValues(alpha: 0.4)),
         ),
         child: Text(_label,
             style: const TextStyle(
@@ -652,12 +653,12 @@ class _QualitySheet extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                      ? Color(0xFF6C63FF).withValues(alpha: 0.2)
                       : Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: isSelected
                       ? Border.all(
-                          color: const Color(0xFF6C63FF).withValues(alpha: 0.5))
+                          color: Color(0xFF6C63FF).withValues(alpha: 0.5))
                       : Border.all(
                           color: Colors.white.withValues(alpha: 0.08)),
                 ),
@@ -744,12 +745,12 @@ class _QualitySheet extends StatelessWidget {
                         horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                          ? Color(0xFF6C63FF).withValues(alpha: 0.2)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
-                            ? const Color(0xFF6C63FF).withValues(alpha: 0.5)
+                            ? Color(0xFF6C63FF).withValues(alpha: 0.5)
                             : Colors.white.withValues(alpha: 0.08),
                       ),
                     ),

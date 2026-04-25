@@ -279,13 +279,13 @@ class _DueIndicator extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              const Color(0xFF4CAF50).withValues(alpha: 0.2),
-              const Color(0xFF4CAF50).withValues(alpha: 0.05),
+              Color(0xFF4CAF50).withValues(alpha: 0.2),
+              Color(0xFF4CAF50).withValues(alpha: 0.05),
             ],
           ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+            color: Color(0xFF4CAF50).withValues(alpha: 0.3),
           ),
         ),
         child: Row(

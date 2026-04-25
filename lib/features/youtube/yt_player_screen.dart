@@ -886,7 +886,7 @@ class _WordChip extends StatelessWidget {
           height: 1.4,
           decoration:
               word.state == WordState.known ? TextDecoration.underline : null,
-          decorationColor: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+          decorationColor: Color(0xFF4CAF50).withValues(alpha: 0.5),
         ),
       ),
     );

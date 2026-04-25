@@ -238,7 +238,7 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF7C4DFF).withValues(alpha: 0.4),
+                    color: Color(0xFF7C4DFF).withValues(alpha: 0.4),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -596,7 +596,7 @@ class _PuzzleNavButtonState extends State<PuzzleNavButton>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF7C4DFF).withValues(alpha: glow),
+                        color: Color(0xFF7C4DFF).withValues(alpha: glow),
                         blurRadius: 12,
                         spreadRadius: 1,
                       ),

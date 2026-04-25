@@ -132,7 +132,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                    color: Color(0xFF4CAF50).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.audio_file,
@@ -194,7 +194,8 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     // Tạo URL có auth token embed (just_audio hỗ trợ custom headers)
     // Cách đơn giản: dùng URL với Bearer token
     final token = info.headers['Authorization'] ?? '';
-    final urlWithToken = '${info.url}&access_token=${token.replaceFirst('Bearer ', '')}';
+    final urlWithToken =
+        '${info.url}&access_token=${token.replaceFirst('Bearer ', '')}';
 
     await player.loadSong(
       path: urlWithToken,
@@ -378,8 +379,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Tìm file âm thanh trên Drive...',
-                  hintStyle:
-                      TextStyle(color: Colors.grey[600], fontSize: 12),
+                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 9),
@@ -438,8 +438,8 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
               if (i < breadcrumb.length - 1)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4),
-                  child: Icon(Icons.chevron_right,
-                      color: Colors.grey, size: 14),
+                  child:
+                      Icon(Icons.chevron_right, color: Colors.grey, size: 14),
                 ),
             ],
           ],
@@ -456,9 +456,8 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
       itemBuilder: (_, i) => _DriveItemTile(
         item: _items[i],
         isDownloading: _downloadingId == _items[i].id,
-        downloadProgress: _downloadingId == _items[i].id
-            ? _downloadProgress
-            : 0,
+        downloadProgress:
+            _downloadingId == _items[i].id ? _downloadProgress : 0,
         onTap: () => _playFile(_items[i]),
       ),
     );
@@ -589,7 +588,7 @@ class _DriveItemTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isDownloading
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.4)
+                ? Color(0xFF6C63FF).withValues(alpha: 0.4)
                 : Colors.white.withValues(alpha: 0.07),
           ),
         ),
@@ -645,7 +644,9 @@ class _DriveItemTile extends StatelessWidget {
 
                 // Arrow for folder / play for file
                 Icon(
-                  item.isFolder ? Icons.chevron_right : Icons.play_circle_outline,
+                  item.isFolder
+                      ? Icons.chevron_right
+                      : Icons.play_circle_outline,
                   color: Colors.grey[600],
                   size: 18,
                 ),
@@ -660,16 +661,14 @@ class _DriveItemTile extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: downloadProgress,
                   backgroundColor: Colors.white12,
-                  valueColor:
-                      const AlwaysStoppedAnimation(Color(0xFF6C63FF)),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6C63FF)),
                   minHeight: 3,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 'Đang tải ${(downloadProgress * 100).toInt()}%...',
-                style: const TextStyle(
-                    color: Color(0xFF9C8FFF), fontSize: 10),
+                style: const TextStyle(color: Color(0xFF9C8FFF), fontSize: 10),
               ),
             ],
           ],
@@ -709,8 +708,7 @@ class _GoogleSignInButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),

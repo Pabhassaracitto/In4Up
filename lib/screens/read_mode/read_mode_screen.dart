@@ -8,15 +8,15 @@ import 'package:vipsound/models/word_entry.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
+import '../../providers/vocabulary_provider.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/recent_files_service.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
-import 'widgets/text_line_widget.dart';
-import '../../providers/vocabulary_provider.dart';
 import 'widgets/smart_playback_bar.dart'; // ← THÊM
+import 'widgets/text_line_widget.dart';
 
 class ReadModeScreen extends StatefulWidget {
   // ★ THÊM: Nhận RecentFile để biết đang đọc file nào

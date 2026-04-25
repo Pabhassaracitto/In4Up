@@ -216,10 +216,10 @@ class _QuickAudioSheetState extends State<QuickAudioSheet> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 13),
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.12),
+              color: Color(0xFF6C63FF).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                color: Color(0xFF6C63FF).withValues(alpha: 0.35),
               ),
             ),
             child: const Row(

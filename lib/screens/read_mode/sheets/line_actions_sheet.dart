@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/text_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import 'create_segment_sheet.dart';
 
@@ -46,10 +46,10 @@ class LineActionsSheet {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+                color: Color(0xFF2196F3).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2)),
+                    color: Color(0xFF2196F3).withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

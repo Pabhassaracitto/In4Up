@@ -277,12 +277,12 @@ class _ModeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
+              ? Color(0xFF4CAF50).withValues(alpha: 0.15)
               : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
+                ? Color(0xFF4CAF50).withValues(alpha: 0.5)
                 : Colors.white.withValues(alpha: 0.08),
             width: isSelected ? 1.5 : 1,
           ),

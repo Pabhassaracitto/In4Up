@@ -26,13 +26,13 @@ class PhonemeDisplay extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A1A2E).withValues(alpha: 0.95),
-            const Color(0xFF16213E).withValues(alpha: 0.95),
+            Color(0xFF1A1A2E).withValues(alpha: 0.95),
+            Color(0xFF16213E).withValues(alpha: 0.95),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF9C27B0).withValues(alpha: 0.3),
+          color: Color(0xFF9C27B0).withValues(alpha: 0.3),
         ),
       ),
       child: Column(

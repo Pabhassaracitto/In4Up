@@ -119,17 +119,17 @@ extension MemoryStageExtension on MemoryStage {
   Color get backgroundColor {
     switch (this) {
       case MemoryStage.seed:
-        return const Color(0xFFFF5252).withValues(alpha: 0.20);
+        return Color(0xFFFF5252).withValues(alpha: 0.20);
       case MemoryStage.sprout:
-        return const Color(0xFFFF9800).withValues(alpha: 0.15);
+        return Color(0xFFFF9800).withValues(alpha: 0.15);
       case MemoryStage.tree:
-        return const Color(0xFFFFEB3B).withValues(alpha: 0.10);
+        return Color(0xFFFFEB3B).withValues(alpha: 0.10);
       case MemoryStage.branch:
-        return const Color(0xFF4CAF50).withValues(alpha: 0.08);
+        return Color(0xFF4CAF50).withValues(alpha: 0.08);
       case MemoryStage.bud:
-        return const Color(0xFF2196F3).withValues(alpha: 0.06);
+        return Color(0xFF2196F3).withValues(alpha: 0.06);
       case MemoryStage.bloom:
-        return const Color(0xFF9C27B0).withValues(alpha: 0.04);
+        return Color(0xFF9C27B0).withValues(alpha: 0.04);
     }
   }
 

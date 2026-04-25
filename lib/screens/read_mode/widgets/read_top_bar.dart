@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/text_provider.dart';
 import '../../../models/color_mode.dart';
+import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
 import 'quick_library_sheet.dart'; // ← THÊM
@@ -116,10 +116,10 @@ class _TitleButton extends StatelessWidget {
               vertical: 6,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+              color: Color(0xFF2196F3).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: const Color(0xFF2196F3).withValues(alpha: 0.25),
+                color: Color(0xFF2196F3).withValues(alpha: 0.25),
               ),
             ),
             child: Row(
@@ -201,12 +201,12 @@ class _ColorModeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+              ? Color(0xFF2196F3).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: isActive
               ? Border.all(
-                  color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+                  color: Color(0xFF2196F3).withValues(alpha: 0.3),
                 )
               : null,
         ),
@@ -249,7 +249,7 @@ class _AutoSyncChip extends StatelessWidget {
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: controller.autoSyncEnabled
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+              ? Color(0xFF4CAF50).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),

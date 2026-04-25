@@ -81,7 +81,7 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF2196F3).withValues(alpha: 0.15),
+            Color(0xFF2196F3).withValues(alpha: 0.15),
             Colors.transparent,
           ],
           begin: Alignment.topCenter,
@@ -93,7 +93,7 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+              color: Color(0xFF2196F3).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child:
@@ -136,10 +136,10 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
       child: TabBar(
         controller: _tabCtrl,
         indicator: BoxDecoration(
-          color: const Color(0xFF2196F3).withValues(alpha: 0.25),
+          color: Color(0xFF2196F3).withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(9),
           border: Border.all(
-            color: const Color(0xFF2196F3).withValues(alpha: 0.4),
+            color: Color(0xFF2196F3).withValues(alpha: 0.4),
           ),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
@@ -635,7 +635,7 @@ class _CloudEntryCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.12),
+                    color: Color(0xFF2196F3).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -742,7 +742,7 @@ class _AddButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+              color: Color(0xFF2196F3).withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

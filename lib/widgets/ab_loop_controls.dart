@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/player_provider.dart';
 import 'save_segment_dialog.dart';
 
@@ -71,20 +72,20 @@ class ABLoopControls extends StatelessWidget {
 
   Color _getBackgroundColor(PlayerProvider player) {
     if (player.isWaitingGap) {
-      return const Color(0xFFFF9800).withValues(alpha: 0.15); // Đang chờ gap
+      return Color(0xFFFF9800).withValues(alpha: 0.15); // Đang chờ gap
     }
     if (player.isLooping) {
-      return const Color(0xFF4CAF50).withValues(alpha: 0.15); // Đang loop
+      return Color(0xFF4CAF50).withValues(alpha: 0.15); // Đang loop
     }
     return Colors.white.withValues(alpha: 0.05); // Mặc định
   }
 
   Color _getBorderColor(PlayerProvider player) {
     if (player.isWaitingGap) {
-      return const Color(0xFFFF9800).withValues(alpha: 0.5);
+      return Color(0xFFFF9800).withValues(alpha: 0.5);
     }
     if (player.isLooping) {
-      return const Color(0xFF4CAF50).withValues(alpha: 0.5);
+      return Color(0xFF4CAF50).withValues(alpha: 0.5);
     }
     return Colors.transparent;
   }
@@ -710,7 +711,7 @@ class _GapDurationSlider extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: player.gapDuration > 0
-                      ? const Color(0xFFFF9800).withValues(alpha: 0.2)
+                      ? Color(0xFFFF9800).withValues(alpha: 0.2)
                       : Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -737,7 +738,7 @@ class _GapDurationSlider extends StatelessWidget {
               activeTrackColor: const Color(0xFFFF9800),
               inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
               thumbColor: const Color(0xFFFF9800),
-              overlayColor: const Color(0xFFFF9800).withValues(alpha: 0.2),
+              overlayColor: Color(0xFFFF9800).withValues(alpha: 0.2),
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
             ),
@@ -764,7 +765,7 @@ class _GapDurationSlider extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? const Color(0xFFFF9800).withValues(alpha: 0.3)
+                        ? Color(0xFFFF9800).withValues(alpha: 0.3)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
@@ -989,7 +990,7 @@ class ABLoopControlsCompact extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: player.isLooping
-                ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+                ? Color(0xFF4CAF50).withValues(alpha: 0.2)
                 : Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),

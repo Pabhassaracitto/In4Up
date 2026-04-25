@@ -1117,7 +1117,7 @@ class _SongInfoWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF9800).withValues(alpha: 0.25),
+        color: Color(0xFFFF9800).withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
       ),
       child: const Row(
@@ -1563,7 +1563,7 @@ class _ProgressBarWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                  color: Color(0xFF4CAF50).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1603,10 +1603,10 @@ class _ProgressBarWidget extends StatelessWidget {
           bottom: 0,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+              color: Color(0xFF4CAF50).withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
               border: Border.all(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+                color: Color(0xFF4CAF50).withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
@@ -1767,7 +1767,7 @@ class _GapControlWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: gapDuration > 0
-                    ? const Color(0xFFFF9800).withValues(alpha: 0.2)
+                    ? Color(0xFFFF9800).withValues(alpha: 0.2)
                     : Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),

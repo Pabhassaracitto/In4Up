@@ -8,16 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/word_entry.dart';
+import '../../../features/tts/tts_service.dart';
 import '../../../models/vocabulary_type.dart';
+import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
-import '../../../features/tts/tts_service.dart';
+import 'knowledge_graph_screen.dart';
 import 'loop_count_picker.dart';
+import 'single_word_review_screen.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'youglish_mini_sheet.dart';
-import 'knowledge_graph_screen.dart';
-import 'single_word_review_screen.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -556,7 +556,7 @@ class _WordListScreenState extends State<WordListScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                color: Color(0xFF6C63FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.volume_up,
                 color: Color(0xFF9C8FFF), size: 18)),
@@ -1091,24 +1091,24 @@ class _CompactListItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
           color: isPlaying
-              ? const Color(0xFF6C63FF).withValues(alpha: 0.12)
+              ? Color(0xFF6C63FF).withValues(alpha: 0.12)
               : isSelected
-                  ? const Color(0xFF2196F3).withValues(alpha: 0.10)
+                  ? Color(0xFF2196F3).withValues(alpha: 0.10)
                   : isExpanded
                       ? const Color(0xFF111827)
                       : isDue
-                          ? const Color(0xFFFF5722).withValues(alpha: 0.04)
+                          ? Color(0xFFFF5722).withValues(alpha: 0.04)
                           : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isPlaying
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.4)
+                ? Color(0xFF6C63FF).withValues(alpha: 0.4)
                 : isSelected
-                    ? const Color(0xFF2196F3).withValues(alpha: 0.35)
+                    ? Color(0xFF2196F3).withValues(alpha: 0.35)
                     : isExpanded
                         ? typeColor.withValues(alpha: 0.3)
                         : isDue
-                            ? const Color(0xFFFF5722).withValues(alpha: 0.15)
+                            ? Color(0xFFFF5722).withValues(alpha: 0.15)
                             : Colors.white.withValues(alpha: 0.06),
             width: isPlaying ? 1.5 : 1,
           ),
@@ -1221,7 +1221,7 @@ class _CompactListItem extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
-                        color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                        color: Color(0xFFFFB300).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4)),
                     child: Text('📌${entry.encounterCount}',
                         style: const TextStyle(fontSize: 9))),
@@ -1241,7 +1241,7 @@ class _CompactListItem extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                        color: const Color(0xFF00BCD4).withValues(alpha: 0.12),
+                        color: Color(0xFF00BCD4).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(7)),
                     child: const Icon(Icons.record_voice_over,
                         size: 13, color: Color(0xFF00BCD4))),
@@ -1256,7 +1256,7 @@ class _CompactListItem extends StatelessWidget {
                     height: 28,
                     decoration: BoxDecoration(
                         color: isPlaying
-                            ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                            ? Color(0xFF6C63FF).withValues(alpha: 0.25)
                             : Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(7)),
                     child: Icon(Icons.volume_up_outlined,
@@ -1611,7 +1611,7 @@ class _SortSheet extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                   decoration: BoxDecoration(
                       color: sel
-                          ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
+                          ? Color(0xFF6C63FF).withValues(alpha: 0.15)
                           : Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(10),
                       border: sel
@@ -1896,12 +1896,12 @@ class _ListRepeatButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
               color: count != 1
-                  ? const Color(0xFFFFB300).withValues(alpha: 0.15)
+                  ? Color(0xFFFFB300).withValues(alpha: 0.15)
                   : Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                   color: count != 1
-                      ? const Color(0xFFFFB300).withValues(alpha: 0.3)
+                      ? Color(0xFFFFB300).withValues(alpha: 0.3)
                       : Colors.white.withValues(alpha: 0.1))),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.repeat,
@@ -1948,12 +1948,12 @@ class _PerWordRepeatBtn extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
             decoration: BoxDecoration(
                 color: count > 1
-                    ? const Color(0xFFFFB300).withValues(alpha: 0.15)
+                    ? Color(0xFFFFB300).withValues(alpha: 0.15)
                     : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(7),
                 border: Border.all(
                     color: count > 1
-                        ? const Color(0xFFFFB300).withValues(alpha: 0.4)
+                        ? Color(0xFFFFB300).withValues(alpha: 0.4)
                         : Colors.white.withValues(alpha: 0.08))),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.repeat,

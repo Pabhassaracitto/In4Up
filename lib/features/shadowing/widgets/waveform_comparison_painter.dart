@@ -1,5 +1,6 @@
 // NEW - Vẽ so sánh sóng
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Vẽ 2 sóng âm chồng lên nhau để so sánh

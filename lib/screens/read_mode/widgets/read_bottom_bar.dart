@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/text_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/segments_list_sheet.dart';
 

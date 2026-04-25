@@ -2,6 +2,8 @@
 // Mini bottom sheet hiển thị YouGlish trực tiếp từ Word List row
 // Mở nhanh, không cần navigate sang màn hình riêng
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -19,6 +21,8 @@ class YouGlishMiniSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
       builder: (_) => YouGlishMiniSheet(word: word),
     );
   }
@@ -84,122 +88,157 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.72,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0D1117),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 6),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[700],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.82,
+      minChildSize: 0.5,
+      maxChildSize: 0.96,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0D1117),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00BCD4), Color(0xFF26C6DA)],
+          child: Column(
+            children: [
+              // Handle (Draggable part)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: const Icon(Icons.record_voice_over,
-                      size: 16, color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  widget.word,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Spacer(),
-                // Copy word
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: widget.word));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã copy'),
-                        duration: Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  child: Icon(Icons.copy_outlined,
-                      color: Colors.grey[600], size: 18),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Icon(Icons.close, color: Colors.grey[600], size: 20),
-                ),
-              ],
-            ),
-          ),
+              ),
 
-          // Lang + Accent selector
-          _buildControls(),
-
-          const SizedBox(height: 8),
-
-          // WebView
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Row(
                   children: [
-                    if (_ctrl != null) WebViewWidget(controller: _ctrl!),
-                    if (_isLoading)
-                      Container(
-                        color: const Color(0xFF1A1A2E),
-                        child: const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                valueColor:
-                                    AlwaysStoppedAnimation(Color(0xFF00BCD4)),
-                                strokeWidth: 2,
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                'Đang tải YouGlish...',
-                                style:
-                                    TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                            ],
-                          ),
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00BCD4), Color(0xFF26C6DA)],
                         ),
+                        borderRadius: BorderRadius.circular(9),
                       ),
+                      child: const Icon(Icons.record_voice_over,
+                          size: 16, color: Colors.white),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.word,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Reload button
+                    IconButton(
+                      icon: const Icon(Icons.refresh,
+                          size: 18, color: Colors.grey),
+                      onPressed: _reload,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 12),
+                    // Copy word
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: widget.word));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Đã copy'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Icon(Icons.copy_outlined,
+                          color: Colors.grey[600], size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child:
+                          Icon(Icons.close, color: Colors.grey[600], size: 20),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ),
 
-          SizedBox(height: bottomPad + 8),
-        ],
-      ),
+              // Lang + Accent selector
+              _buildControls(),
+
+              const SizedBox(height: 8),
+
+              // WebView
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      children: [
+                        if (_ctrl != null)
+                          WebViewWidget(
+                            controller: _ctrl!,
+                            gestureRecognizers: {
+                              Factory<VerticalDragGestureRecognizer>(
+                                  () => VerticalDragGestureRecognizer()),
+                              Factory<HorizontalDragGestureRecognizer>(
+                                  () => HorizontalDragGestureRecognizer()),
+                              Factory<ScaleGestureRecognizer>(
+                                  () => ScaleGestureRecognizer()),
+                              Factory<TapGestureRecognizer>(
+                                  () => TapGestureRecognizer()),
+                            },
+                          ),
+                        if (_isLoading)
+                          Container(
+                            color: const Color(0xFF1A1A2E),
+                            child: const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation(
+                                        Color(0xFF00BCD4)),
+                                    strokeWidth: 2,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Đang tải YouGlish...',
+                                    style: TextStyle(
+                                        color: Colors.grey, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: bottomPad + 8),
+            ],
+          ),
+        );
+      },
     );
   }
 

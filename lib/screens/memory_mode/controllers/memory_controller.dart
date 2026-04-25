@@ -48,9 +48,10 @@ class MemoryController extends ChangeNotifier {
   MemorySortMode _sortMode = MemorySortMode.urgency;
   MemorySortMode get sortMode => _sortMode;
 
-  // ==================== STATS ====================
+  // ==================== STATS = [CACHE] ====================
   int _reviewedTodayCount = 0;
   int _correctTodayCount = 0;
+  MemoryStats? _cachedStats;
 
   // ==================== STORAGE ====================
   final MemoryStorageService _storage = MemoryStorageService.instance;
@@ -88,12 +89,14 @@ class MemoryController extends ChangeNotifier {
   }
 
   MemoryStats get stats {
+    if (_cachedStats != null) return _cachedStats!;
+
     final distribution = <MemoryStage, int>{};
     for (final stage in MemoryStage.values) {
       distribution[stage] = _allItems.where((i) => i.stage == stage).length;
     }
 
-    return MemoryStats(
+    _cachedStats = MemoryStats(
       totalItems: _allItems.length,
       stageDistribution: distribution,
       dueToday: dueItems.length,
@@ -104,6 +107,13 @@ class MemoryController extends ChangeNotifier {
           : _allItems.map((i) => i.accuracy).reduce((a, b) => a + b) /
               _allItems.length,
     );
+    return _cachedStats!;
+  }
+
+  @override
+  void notifyListeners() {
+    _cachedStats = null; // Clear cache on any change
+    super.notifyListeners();
   }
 
   // ==================== INIT ====================

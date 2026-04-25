@@ -130,59 +130,29 @@ class MemoryCardWidget extends StatelessWidget {
   }
 }
 
-class _PulseDot extends StatefulWidget {
+class _PulseDot extends StatelessWidget {
   final Color color;
   final double size;
 
   const _PulseDot({required this.color, required this.size});
 
   @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-        child: AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color:
-                widget.color.withValues(alpha: 0.5 + _controller.value * 0.5),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withValues(alpha: 0.3 * _controller.value),
-                blurRadius: widget.size * _controller.value,
-                spreadRadius: widget.size * 0.3 * _controller.value,
-              ),
-            ],
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: size * 0.5,
+            spreadRadius: size * 0.2,
           ),
-        );
-      },
-    ));
+        ],
+      ),
+    );
   }
 }
 

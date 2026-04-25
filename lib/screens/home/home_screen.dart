@@ -33,21 +33,14 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  late AnimationController _bgController;
-
+class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _bgController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 15),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _bgController.dispose();
     super.dispose();
   }
 
@@ -57,8 +50,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: const Color(0xFF080B1A),
       body: Stack(
         children: [
-          // Animated Abstract Background
-          _AnimatedBackground(controller: _bgController),
+          // Static Abstract Background
+          const _AnimatedBackground(),
 
           // Main Content
           SafeArea(
@@ -405,26 +398,23 @@ class _SttDialog extends StatelessWidget {
 }
 
 class _AnimatedBackground extends StatelessWidget {
-  final AnimationController controller;
-  const _AnimatedBackground({required this.controller});
+  const _AnimatedBackground();
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (_, __) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _BackgroundPainter(controller.value),
-        );
-      },
+    return const RepaintBoundary(
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: _BackgroundPainter(
+            0.5), // Fixed value instead of animated controller
+      ),
     );
   }
 }
 
 class _BackgroundPainter extends CustomPainter {
   final double t;
-  _BackgroundPainter(this.t);
+  const _BackgroundPainter(this.t);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -455,7 +445,7 @@ class _BackgroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _FirebaseAuthButton extends StatelessWidget {

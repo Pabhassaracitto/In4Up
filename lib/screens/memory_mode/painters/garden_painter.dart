@@ -92,7 +92,10 @@ class GardenPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(GardenPainter oldDelegate) =>
-      oldDelegate.animationValue != animationValue ||
-      oldDelegate.distribution != distribution;
+  bool shouldRepaint(GardenPainter oldDelegate) {
+    // Với controller cache, identity check (==) là đủ và nhanh nhất.
+    // AnimationValue đã được fix ở 0.5 để giảm tải GPU.
+    return oldDelegate.animationValue != animationValue ||
+        oldDelegate.distribution != distribution;
+  }
 }

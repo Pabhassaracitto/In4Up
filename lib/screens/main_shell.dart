@@ -374,23 +374,17 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                     return const SizedBox.shrink();
                   }
 
-                  // Hiệu ứng Glassmorphism kết hợp OpenContainer M3
+                  // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
                   return OpenContainer(
                     transitionType: ContainerTransitionType.fadeThrough,
                     openColor: const Color(0xFF080B1A),
                     closedColor: Colors.transparent,
                     closedElevation: 0,
                     openElevation: 0,
-                    closedBuilder: (context, action) => ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: MiniPlayer(
-                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                          onTap:
-                              null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
-                        ),
-                      ),
+                    closedBuilder: (context, action) => MiniPlayer(
+                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      onTap:
+                          null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
                     ),
                     openBuilder: (context, action) {
                       return const ListenModeScreen();

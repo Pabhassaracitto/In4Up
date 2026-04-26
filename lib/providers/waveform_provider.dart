@@ -1,13 +1,14 @@
 // lib/providers/waveform_provider.dart
 
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
 import 'dart:isolate';
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // FIX LỖI 1: Import package just_waveform
 import 'package:just_waveform/just_waveform.dart' as jw;
+
 import '../models/audio_marker.dart';
 
 class WaveformProvider extends ChangeNotifier {
@@ -55,7 +56,6 @@ class WaveformProvider extends ChangeNotifier {
 
   /// Load waveform từ file audio
   Future<void> loadWaveform(String filePath, Duration duration) async {
-    if (_currentFilePath == filePath &&
     // ★ CHUẨN HÓA: Đảm bảo so sánh chính xác trên Windows
     final normalizedPath = filePath.replaceAll('\\', '/');
 
@@ -66,7 +66,6 @@ class WaveformProvider extends ChangeNotifier {
     }
 
     _isLoading = true;
-    _currentFilePath = filePath;
     _currentFilePath = normalizedPath;
     _audioDuration = duration;
     notifyListeners();
@@ -74,8 +73,6 @@ class WaveformProvider extends ChangeNotifier {
     try {
       // Chạy file I/O + parsing trên background isolate
       final samples =
-          await Isolate.run(() => _extractWaveformSamples(filePath));
-      if (_currentFilePath == filePath) {
           await Isolate.run(() => _extractWaveformSamples(normalizedPath));
       if (_currentFilePath == normalizedPath) {
         // Guard: tránh race condition khi user đổi bài nhanh

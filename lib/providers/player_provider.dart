@@ -325,7 +325,7 @@ class PlayerProvider extends ChangeNotifier {
     if (now.difference(_lastRecentUpdate).inSeconds < 30) return;
     _lastRecentUpdate = now;
 
-    final normalizedPath = _currentSongPath!.replaceAll('\\', '/');
+    final normalizedPath = _currentSongPath!; // Đã được chuẩn hóa ở loadSong
     final audioId = 'local_${normalizedPath.toLowerCase().hashCode}';
     _recentAudio.updatePosition(
       audioId,
@@ -425,28 +425,40 @@ class PlayerProvider extends ChangeNotifier {
     String? artist,
     bool autoPlay = false,
   }) async {
-    _currentSongPath = path;
-    _currentSongTitle = title ?? path.split('/').last;
+    // ★ CHUẨN HÓA: Đưa về dấu / để nhất quán trên Windows/Mobile
+    final normalizedPath = path.replaceAll('\\', '/');
+
+    _currentSongPath = normalizedPath;
+    _currentSongTitle = title ?? normalizedPath.split('/').last;
     _currentSongArtist = artist;
 
     clearLoop();
+    _hasHandledCompletion = false; // Reset trạng thái kết thúc khi đổi bài
     _currentSegmentIndex = -1;
-    _storage.saveLastAudioPath(path);
+    _storage.saveLastAudioPath(normalizedPath);
     notifyListeners();
 
     // ★ THÊM: Lưu vào recent ngay khi load
     final recentEntry = RecentAudio.fromLocalFile(
-      path: path,
-      title: title ?? path.split('/').last.split('\\').last,
+      path: normalizedPath,
+      title: _currentSongTitle!,
     );
     _pendingRecentUpdate = recentEntry;
     // Fire-and-forget — không await để không block playback
     _recentAudio.addOrUpdate(recentEntry);
 
-    final success = await _audioService.loadFile(path);
+    final success = await _audioService.loadFile(normalizedPath);
     if (success) {
-      final savedMs = _storage.getSavedPosition(path);
-      if (savedMs != null && savedMs > 5000) {
+      // Lấy duration thực tế từ service
+      final durationMs = _audioService.currentState.duration.inMilliseconds;
+      final savedMs = _storage.getSavedPosition(normalizedPath);
+
+      // Kiểm tra xem vị trí đã lưu có quá gần cuối bài không (còn dưới 2 giây hoặc > 98%)
+      bool isFinished = durationMs > 0 &&
+          (savedMs != null &&
+              (savedMs > durationMs * 0.98 || savedMs > durationMs - 2000));
+
+      if (savedMs != null && savedMs > 5000 && !isFinished) {
         await seek(Duration(milliseconds: savedMs));
       }
       if (autoPlay) {

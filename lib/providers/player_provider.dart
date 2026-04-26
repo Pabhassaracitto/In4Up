@@ -4,8 +4,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:vipsound_stt/vipsound_stt.dart';
+
 import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
@@ -101,9 +102,11 @@ class PlayerProvider extends ChangeNotifier {
   // === A-B LOOP ===
   Duration? _loopStart;
   Duration? _loopEnd;
+  Duration? _pendingLoopA;
   bool _isLooping = false;
   int _loopCount = 0;
   int _maxLoopCount = 0;
+  bool _repeatTrack = false;
 
   double _gapDuration = 0.0;
   bool _isWaitingGap = false;
@@ -135,6 +138,7 @@ class PlayerProvider extends ChangeNotifier {
   bool get isPaused => _state.status == PlaybackStatus.paused;
   bool get isStopped => _state.status == PlaybackStatus.stopped;
   bool get isLoading => _state.status == PlaybackStatus.loading;
+  bool get isCompleted => _state.status == PlaybackStatus.completed;
 
   VipMode get currentMode => _currentMode;
   ModeSettings get modeSettings => _modeSettings;
@@ -144,9 +148,12 @@ class PlayerProvider extends ChangeNotifier {
 
   Duration? get loopStart => _loopStart;
   Duration? get loopEnd => _loopEnd;
+  Duration? get pendingLoopA => _pendingLoopA;
+  bool get hasCompletedLoop => _loopStart != null && _loopEnd != null;
   bool get isLooping => _isLooping;
   int get loopCount => _loopCount;
   int get maxLoopCount => _maxLoopCount;
+  bool get repeatTrack => _repeatTrack;
   double get gapDuration => _gapDuration;
   bool get isWaitingGap => _isWaitingGap;
   bool get hasLoop => _loopStart != null && _loopEnd != null;
@@ -556,6 +563,47 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   // ==================== A-B LOOP ====================
+  void setLoopPointA(Duration position) {
+    _pendingLoopA = position;
+    _loopStart = position;
+    _loopEnd = null;
+    notifyListeners();
+  }
+
+  void setLoopPointB(Duration position) {
+    if (_pendingLoopA == null) {
+      setLoopPointA(position);
+      return;
+    }
+    final a = _pendingLoopA!;
+    if (position <= a) {
+      _loopStart = position;
+      _loopEnd = a;
+    } else {
+      _loopStart = a;
+      _loopEnd = position;
+    }
+    _pendingLoopA = null;
+    _isLooping = true;
+    notifyListeners();
+  }
+
+  void clearLoopPoints() {
+    _pendingLoopA = null;
+    _repeatTrack = false;
+    clearLoop();
+  }
+
+  void setLoopCount(int count) {
+    _maxLoopCount = count;
+
+    // Nếu không có AB loop, kích hoạt repeat track
+    if (_loopStart == null) {
+      _repeatTrack = (count != 0);
+    }
+    notifyListeners();
+  }
+
   void setLoopStart() {
     _loopStart = _state.position;
     notifyListeners();
@@ -581,6 +629,37 @@ class PlayerProvider extends ChangeNotifier {
       _maxLoopCount = _modeSettings.defaultLoopCount;
     }
 
+    notifyListeners();
+  }
+
+  Future<void> _handleRepeatTrack() async {
+    if (_currentSongPath == null) return;
+
+    _totalLoopsToday++;
+    _storage.incrementLoopCount();
+
+    if (_gapDuration > 0) {
+      await _audioService.pause();
+      await Future.delayed(
+          Duration(milliseconds: (_gapDuration * 1000).round()));
+      if (_repeatTrack) {
+        await seek(Duration.zero);
+        await _audioService.play();
+      }
+    } else {
+      await seek(Duration.zero);
+      await _audioService.play();
+    }
+
+    // Quản lý số lần lặp nếu không phải vô tận (-1)
+    if (_maxLoopCount > 0) {
+      _loopCount++;
+      if (_loopCount >= _maxLoopCount) {
+        _repeatTrack = false;
+        _loopCount = 0;
+        _maxLoopCount = 0;
+      }
+    }
     notifyListeners();
   }
 
@@ -678,6 +757,7 @@ class PlayerProvider extends ChangeNotifier {
     _loopCount = 0;
     _maxLoopCount = 0;
     _isWaitingGap = false;
+    _repeatTrack = false;
     notifyListeners();
   }
 

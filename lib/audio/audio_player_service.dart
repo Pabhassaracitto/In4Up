@@ -84,7 +84,7 @@ class AudioPlayerService {
       } else if (state.playing) {
         status = PlaybackStatus.playing;
       } else if (state.processingState == ProcessingState.completed) {
-        status = PlaybackStatus.stopped;
+        status = PlaybackStatus.completed;
       } else {
         status = PlaybackStatus.paused;
       }

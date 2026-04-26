@@ -3,6 +3,8 @@
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:isolate';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // FIX LỖI 1: Import package just_waveform
 import 'package:just_waveform/just_waveform.dart' as jw;
@@ -43,11 +45,16 @@ class WaveformProvider extends ChangeNotifier {
   // FIX LỖI 4: Thêm getter để sử dụng _draggingMarker
   AudioMarker? get draggingMarker => _draggingMarker;
 
+  List<double> get displayWaveform =>
+      _waveformData.isNotEmpty ? _waveformData : _placeholderWaveform;
+
+  static final List<double> _placeholderWaveform =
+      _generateFakeWaveformStatic(500);
+
   // ==================== WAVEFORM LOADING ====================
 
   /// Load waveform từ file audio
   Future<void> loadWaveform(String filePath, Duration duration) async {
-    // Guard: không load lại nếu cùng file và đã có data
     if (_currentFilePath == filePath &&
         _waveformData.isNotEmpty &&
         _audioDuration == duration) {
@@ -60,35 +67,105 @@ class WaveformProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        _waveformData = _generateFakeWaveform(1000);
-        _isLoading = false;
-        notifyListeners();
-        return;
+      // Chạy file I/O + parsing trên background isolate
+      final samples =
+          await Isolate.run(() => _extractWaveformSamples(filePath));
+      if (_currentFilePath == filePath) {
+        // Guard: tránh race condition khi user đổi bài nhanh
+        _waveformData = samples;
       }
-
-      // Thử dùng just_waveform trước (hỗ trợ MP3, M4A, WAV, FLAC...)
-      final waveform = await _loadWithJustWaveform(filePath);
-      if (waveform != null && waveform.isNotEmpty) {
-        _waveformData = waveform;
-        _isLoading = false;
-        notifyListeners();
-        debugPrint(
-            'Waveform loaded with just_waveform: ${waveform.length} samples');
-        return;
-      }
-
-      // Fallback: raw bytes parsing (chỉ cho WAV)
-      final bytes = await file.readAsBytes();
-      _waveformData = _generateWaveformFromBytes(bytes, filePath);
     } catch (e) {
       debugPrint('Waveform load error: $e');
-      _waveformData = _generateFakeWaveform(1000);
+      if (_currentFilePath == filePath) {
+        _waveformData = _generateFakeWaveform(1000);
+      }
     }
 
-    _isLoading = false;
-    notifyListeners();
+    if (_currentFilePath == filePath) {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+// ── Top-level function (bắt buộc cho compute()) ──
+// Đặt NGOÀI class WaveformProvider
+  static Future<List<double>> _extractWaveformSamples(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return _generateFakeWaveformStatic(1000);
+      }
+
+      // just_waveform extract
+      final waveformFile = File('$filePath.waveform');
+      jw.Waveform? waveform;
+
+      final progressStream = jw.JustWaveform.extract(
+        audioInFile: File(filePath),
+        waveOutFile: waveformFile,
+        zoom: const jw.WaveformZoom.pixelsPerSecond(100),
+      );
+
+      await for (final progress in progressStream) {
+        if (progress.waveform != null) {
+          waveform = progress.waveform;
+        }
+      }
+
+      // Cleanup
+      try {
+        if (await waveformFile.exists()) await waveformFile.delete();
+      } catch (_) {}
+
+      if (waveform == null || waveform.data.isEmpty) {
+        return _generateFakeWaveformStatic(1000);
+      }
+
+      // Normalize + downsample
+      const targetSamples = 2000;
+      final data = waveform.data;
+      int maxAmp = 1;
+      for (final v in data) {
+        final abs = v.abs();
+        if (abs > maxAmp) maxAmp = abs;
+      }
+
+      final step = max(1, data.length ~/ targetSamples);
+      final samples = <double>[];
+
+      for (int i = 0; i < data.length; i += step) {
+        double peak = 0.0;
+        for (int j = i; j < min(i + step, data.length); j++) {
+          final n = data[j].abs() / maxAmp;
+          if (n > peak) peak = n;
+        }
+        samples.add(peak.clamp(0.02, 1.0));
+      }
+
+      // Smooth
+      for (int i = 1; i < samples.length - 1; i++) {
+        samples[i] = (samples[i - 1] + samples[i] * 2 + samples[i + 1]) / 4;
+      }
+
+      return samples;
+    } catch (e) {
+      return _generateFakeWaveformStatic(1000);
+    }
+  }
+
+// Static version của fake waveform (dùng được trong isolate)
+  static List<double> _generateFakeWaveformStatic(int count) {
+    final random = Random(42);
+    final samples = <double>[];
+    for (int i = 0; i < count; i++) {
+      double v = sin(i * 0.1) * 0.3 +
+          sin(i * 0.05) * 0.2 +
+          (random.nextDouble() - 0.5) * 0.4;
+      v = v.abs().clamp(0.05, 1.0);
+      if (i % 100 > 80) v *= 0.3;
+      samples.add(v);
+    }
+    return samples;
   }
 
   /// Dùng just_waveform package để đọc waveform

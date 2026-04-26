@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 /// Playback status enum - More detailed than simple bool
 enum PlaybackStatus {
   stopped, // Not playing, position at zero
+  completed,
   loading, // Loading audio file
   playing, // Currently playing
   paused, // Paused

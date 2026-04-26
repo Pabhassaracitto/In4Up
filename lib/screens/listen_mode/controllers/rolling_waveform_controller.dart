@@ -11,6 +11,10 @@ class RollingWaveformController extends ChangeNotifier {
   double _zoom = 1.0; // 1.0 = normal, 2.0 = 2x zoom in
   final List<LoopRegion> _loopRegions = [];
 
+  // ── Throttle repaint ──
+  DateTime _lastNotify = DateTime.now();
+  static const _kMinRepaintInterval = Duration(milliseconds: 32); // ~30fps
+
   // Getters
   WaveformData? get waveformData => _waveformData;
   Duration get position => _position;
@@ -35,7 +39,13 @@ class RollingWaveformController extends ChangeNotifier {
 
   void updatePosition(Duration position) {
     _position = position;
-    notifyListeners();
+
+    // Throttle: chỉ notify tối đa 30fps để tránh tràn buffer queue
+    final now = DateTime.now();
+    if (now.difference(_lastNotify) >= _kMinRepaintInterval) {
+      _lastNotify = now;
+      notifyListeners();
+    }
   }
 
   void setZoom(double zoom) {

@@ -56,6 +56,10 @@ class WaveformProvider extends ChangeNotifier {
   /// Load waveform từ file audio
   Future<void> loadWaveform(String filePath, Duration duration) async {
     if (_currentFilePath == filePath &&
+    // ★ CHUẨN HÓA: Đảm bảo so sánh chính xác trên Windows
+    final normalizedPath = filePath.replaceAll('\\', '/');
+
+    if (_currentFilePath == normalizedPath &&
         _waveformData.isNotEmpty &&
         _audioDuration == duration) {
       return;
@@ -63,6 +67,7 @@ class WaveformProvider extends ChangeNotifier {
 
     _isLoading = true;
     _currentFilePath = filePath;
+    _currentFilePath = normalizedPath;
     _audioDuration = duration;
     notifyListeners();
 
@@ -71,6 +76,8 @@ class WaveformProvider extends ChangeNotifier {
       final samples =
           await Isolate.run(() => _extractWaveformSamples(filePath));
       if (_currentFilePath == filePath) {
+          await Isolate.run(() => _extractWaveformSamples(normalizedPath));
+      if (_currentFilePath == normalizedPath) {
         // Guard: tránh race condition khi user đổi bài nhanh
         _waveformData = samples;
       }

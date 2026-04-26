@@ -2,24 +2,31 @@
 import 'package:flutter/material.dart';
 
 class WaveformData {
-  final List<double> samples; // Giá trị từ 0.0 đến 1.0
+  final List<double> samples;
   final Duration duration;
-  final int sampleRate; // samples per second
+  final int sampleRate;
 
   WaveformData({
     required this.samples,
     required this.duration,
-    this.sampleRate = 100, // 100 samples/second mặc định
+    this.sampleRate = 100,
   });
 
-  // Tính index tương ứng với position
   int getIndexAtPosition(Duration position) {
-    final progress = position.inMilliseconds / duration.inMilliseconds;
-    return (progress * samples.length).round().clamp(0, samples.length - 1);
+    final durMs = duration.inMilliseconds;
+    if (durMs <= 0 || samples.isEmpty) return 0;
+
+    final progress = position.inMilliseconds / durMs;
+    if (progress.isNaN || progress.isInfinite) return 0;
+
+    return (progress * samples.length)
+        .clamp(0.0, samples.isEmpty ? 0.0 : (samples.length - 1).toDouble())
+        .round();
   }
 
-  // Lấy mẫu trong khoảng thời gian
   List<double> getSamplesInRange(Duration start, Duration end) {
+    if (duration.inMilliseconds <= 0 || samples.isEmpty) return [];
+
     final startIndex = getIndexAtPosition(start);
     final endIndex = getIndexAtPosition(end);
 
@@ -30,7 +37,6 @@ class WaveformData {
     return samples.sublist(startIndex, endIndex);
   }
 
-  // Downsample để performance tốt hơn
   WaveformData downsample(int targetSamples) {
     if (samples.length <= targetSamples) return this;
 
@@ -41,7 +47,6 @@ class WaveformData {
       final start = (i * ratio).floor();
       final end = ((i + 1) * ratio).ceil().clamp(0, samples.length);
 
-      // Lấy giá trị max trong chunk (để waveform rõ hơn)
       double maxValue = 0.0;
       for (int j = start; j < end; j++) {
         if (samples[j] > maxValue) maxValue = samples[j];
@@ -52,17 +57,18 @@ class WaveformData {
     return WaveformData(
       samples: downsampled,
       duration: duration,
-      sampleRate: (targetSamples / duration.inSeconds).round(),
+      sampleRate: duration.inSeconds > 0
+          ? (targetSamples / duration.inSeconds).round()
+          : sampleRate,
     );
   }
 }
 
-// Loop Region
 class LoopRegion {
   final Duration start;
   final Duration end;
   final Color color;
-
+// Loop Region
   LoopRegion({
     required this.start,
     required this.end,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../../../models/waveform_data.dart';
@@ -42,9 +43,12 @@ class RollingWaveformPainter extends CustomPainter {
 
   void _drawWaveform(
       Canvas canvas, Size size, double playheadX, WaveformData data) {
-    final centerY = size.height / 2;
+    if (data.samples.isEmpty ||
+        data.duration.inMilliseconds <= 0 ||
+        size.width <= 0 ||
+        size.height <= 0) return;
 
-    // Tính toán window hiển thị
+    final centerY = size.height / 2;
     final visibleDuration = controller.visibleDuration;
     if (visibleDuration.inMilliseconds == 0) return;
     final halfVisible =
@@ -70,11 +74,17 @@ class RollingWaveformPainter extends CustomPainter {
     // Tránh lỗi chia cho 0 nếu size.width = 0
     if (size.width <= 0) return;
 
-    // ★ TỐI ƯU: Tăng bước nhảy (step) để vẽ ít bar hơn nhưng vẫn đủ nhìn
     const double barWidth = 2.0;
     const double spacing = 1.0;
     final double step = barWidth + spacing;
-    final samplesPerStep = visibleSamples.length / (size.width / step);
+
+    final barsCount = size.width / step;
+    if (barsCount <= 0) return;
+
+    final samplesPerStep = visibleSamples.length / barsCount;
+    if (samplesPerStep.isNaN ||
+        samplesPerStep.isInfinite ||
+        samplesPerStep <= 0) return;
 
     for (double x = 0; x < size.width; x += step) {
       final sampleIndex = (x / step * samplesPerStep).floor();
@@ -239,12 +249,12 @@ class RollingWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RollingWaveformPainter oldDelegate) {
-    // Chỉ repaint khi các thông số quan trọng thực sự thay đổi
+    // Tối ưu hóa: Tránh repaint khi sai lệch vị trí cực nhỏ (< 5ms)
     return oldDelegate.controller.position != controller.position ||
         oldDelegate.controller.zoom != controller.zoom ||
         oldDelegate.controller.waveformData != controller.waveformData ||
-        oldDelegate.controller.loopRegions.length !=
-            controller.loopRegions.length ||
+        !listEquals(
+            oldDelegate.controller.loopRegions, controller.loopRegions) ||
         oldDelegate.currentColor != currentColor ||
         oldDelegate.pastColor != pastColor;
   }

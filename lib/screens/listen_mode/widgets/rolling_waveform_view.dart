@@ -70,7 +70,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
 
       // Long press: action sheet
       onLongPressStart: (details) {
-        if (_isDragging) return;
+        if (_isDragging) return; // Block long-press khi đang drag seek
         final pos = _xToPosition(details.localPosition.dx);
         widget.onLongPressPosition?.call(pos);
       },

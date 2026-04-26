@@ -74,17 +74,18 @@ class AudioPlayerService {
   }
 
   void _setupListeners() {
-    // Listen to AudioPlayer state changes
     _audioPlayer.playerStateStream.listen((state) {
       PlaybackStatus status;
-      if (state.processingState == ProcessingState.loading) {
+
+      // ── FIX: Check completed TRƯỚC khi check playing ──
+      if (state.processingState == ProcessingState.completed) {
+        status = PlaybackStatus.completed;
+      } else if (state.processingState == ProcessingState.loading) {
         status = PlaybackStatus.loading;
       } else if (state.processingState == ProcessingState.buffering) {
         status = PlaybackStatus.buffering;
       } else if (state.playing) {
         status = PlaybackStatus.playing;
-      } else if (state.processingState == ProcessingState.completed) {
-        status = PlaybackStatus.completed;
       } else {
         status = PlaybackStatus.paused;
       }
@@ -92,12 +93,10 @@ class AudioPlayerService {
       _updateState(status: status);
     });
 
-    // Listen to position changes
     _audioPlayer.positionStream.listen((position) {
       _updateState(position: position);
     });
 
-    // Listen to duration changes
     _audioPlayer.durationStream.listen((duration) {
       if (duration != null) {
         _updateState(duration: duration);

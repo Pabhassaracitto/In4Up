@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
+import '../../models/loop_presets.dart';
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/waveform_provider.dart';
@@ -47,9 +48,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   String? _lastSyncedPath;
   PlayerProvider? _playerProvider;
   WaveformProvider? _waveformProvider;
-
-  DateTime _lastUiUpdate = DateTime.now();
-  Duration _lastPosition = Duration.zero;
 
   bool _isAppVisible = true;
   bool _isUserSeeking = false;
@@ -114,7 +112,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
 
-    // Sync waveform loading
+    // Reload waveform nếu cần
     final needsReload = player.currentSongPath != null &&
         (waveform.currentFilePath != player.currentSongPath ||
             (waveform.waveformData.isEmpty &&
@@ -126,16 +124,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       return;
     }
 
-    if (!player.isPlaying) return;
-
-    final now = DateTime.now();
-    if (now.difference(_lastUiUpdate).inMilliseconds < 50) return;
-    if (player.state.position == _lastPosition) return;
-
-    _lastUiUpdate = now;
-    _lastPosition = player.state.position;
-
-    _waveformController.updatePosition(player.state.position);
+    // Luôn update position khi playing (throttle nằm trong controller)
+    if (player.isPlaying) {
+      _waveformController.updatePosition(player.state.position);
+    }
     _syncLoopRegions(player);
   }
 
@@ -604,7 +596,7 @@ class _CorePlayerControls extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Progress bar (always visible)
-          _SlimProgress(player: player),
+          const _SlimProgress(),
           SizedBox(height: isNarrow ? 4 : 8),
 
           // Responsive layout
@@ -638,40 +630,58 @@ class _CorePlayerControls extends StatelessWidget {
 // ── Slim Progress Bar ──────────────────────────────────────────
 
 class _SlimProgress extends StatelessWidget {
-  final PlayerProvider player;
-  const _SlimProgress({required this.player});
+  const _SlimProgress();
 
   @override
   Widget build(BuildContext context) {
-    final pos = player.state.position;
-    final dur = player.state.duration;
-    final pct = dur.inMilliseconds > 0
-        ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        final pos = player.state.position;
+        final dur = player.state.duration;
 
-    return Row(
-      children: [
-        Text(_fmt(pos),
-            style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-        const SizedBox(width: 8),
-        Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 2,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-              thumbColor: const Color(0xFF6C63FF),
-              activeTrackColor: const Color(0xFF6C63FF),
-              inactiveTrackColor: Colors.white12,
+        // ── FIX: Guard chặt hơn tránh NaN/Infinity ──
+        final durMs = dur.inMilliseconds;
+        final posMs = pos.inMilliseconds;
+
+        final pct =
+            (durMs > 0 && posMs >= 0) ? (posMs / durMs).clamp(0.0, 1.0) : 0.0;
+
+        // Double-check NaN
+        final safePct = pct.isNaN || pct.isInfinite ? 0.0 : pct;
+
+        return Row(
+          children: [
+            Text(_fmt(pos),
+                style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 2,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 4),
+                  overlayShape:
+                      const RoundSliderOverlayShape(overlayRadius: 10),
+                  thumbColor: const Color(0xFF6C63FF),
+                  activeTrackColor: const Color(0xFF6C63FF),
+                  inactiveTrackColor: Colors.white12,
+                ),
+                child: Slider(
+                  value: safePct, // ← dùng safePct
+                  min: 0.0, // ← thêm min explicit
+                  max: 1.0, // ← thêm max explicit
+                  onChanged: durMs > 0 // ← disable khi chưa load
+                      ? (v) => player.seekToPercent(v)
+                      : null,
+                ),
+              ),
             ),
-            child:
-                Slider(value: pct, onChanged: (v) => player.seekToPercent(v)),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(_fmt(dur),
-            style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-      ],
+            const SizedBox(width: 8),
+            Text(_fmt(dur),
+                style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+          ],
+        );
+      },
     );
   }
 
@@ -786,14 +796,16 @@ class _StatusBadge extends StatelessWidget {
   factory _StatusBadge.repeat(PlayerProvider player) {
     const modes = [0, 1, 3, 5, -1];
     const labels = ['Lặp', '1×', '3×', '5×', '∞'];
-    final currentValue = player.maxLoopCount;
-    final idx = modes.indexOf(currentValue).clamp(0, modes.length - 1);
+
+    // ✅ maxLoopCount = mục tiêu, loopCount = đã đạt được
+    final idx = modes.indexOf(player.maxLoopCount).clamp(0, modes.length - 1);
+    final isActive = player.maxLoopCount != 0;
 
     return _StatusBadge(
       emoji: '🔁',
       label: labels[idx],
       color: const Color(0xFF4CAF50),
-      isActive: currentValue != 0,
+      isActive: isActive,
       onTap: () {
         HapticFeedback.selectionClick();
         final nextIdx = (idx + 1) % modes.length;

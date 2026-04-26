@@ -37,9 +37,11 @@ void main() async {
 
   // 1. Khởi tạo Firebase với Try-Catch để không chặn App nếu lỗi
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
     isFirebaseAvailable = true;
     debugPrint("✅ Firebase initialized successfully");
   } catch (e) {

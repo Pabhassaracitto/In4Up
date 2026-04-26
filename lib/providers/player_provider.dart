@@ -107,6 +107,7 @@ class PlayerProvider extends ChangeNotifier {
   int _loopCount = 0;
   int _maxLoopCount = 0;
   bool _repeatTrack = false;
+  bool _hasHandledCompletion = false; // Chống double-trigger khi kết thúc bài
 
   double _gapDuration = 0.0;
   bool _isWaitingGap = false;
@@ -164,7 +165,8 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   double get loopProgress {
-    if (_maxLoopCount == 0) return 0.0;
+    if (_maxLoopCount <= 0) return 0.0;
+    if (_loopCount.isNaN || _maxLoopCount.isNaN) return 0.0;
     return (_loopCount / _maxLoopCount).clamp(0.0, 1.0);
   }
 
@@ -333,36 +335,64 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void _onStateChanged(PlaybackState state) {
+    final previousStatus = _state.status;
     final previousPosition = _state.position;
 
-    // Tối ưu: Chỉ notifyListeners khi trạng thái/tốc độ đổi hoặc vị trí nhảy đáng kể (>250ms)
-    // giúp giảm tải GPU Buffer Queue trên Windows/Android yếu
+    // ── LOG mọi status change ──
+    if (state.status != _state.status) {}
+
+    // ── FIX 1: Hạ ngưỡng xuống 16ms (~60fps) để thanh chạy mượt ──
     bool shouldNotify = state.status != _state.status ||
         state.speed != _state.speed ||
         (state.position.inMilliseconds - _state.position.inMilliseconds).abs() >
-            250;
+            16;
 
     _state = state;
 
-    // Cập nhật RecentAudio khi duration đã sẵn sàng (Xử lý cho bài mới load)
+    // ── FIX 2: Xử lý completed KHÔNG dùng return sớm ──
+    if (state.status == PlaybackStatus.completed &&
+        previousStatus != PlaybackStatus.completed &&
+        !_hasHandledCompletion) {
+      debugPrint('🏁 COMPLETED CAUGHT: repeatTrack=$_repeatTrack');
+
+      if (_repeatTrack) {
+        _hasHandledCompletion = true;
+        _handleRepeatTrack(); // fire and forget
+      }
+    }
+
+    // Reset flag khi playing bình thường
+    if (state.status == PlaybackStatus.playing) {
+      _hasHandledCompletion = false;
+    }
+
+    // Pending recent update
     if (_pendingRecentUpdate != null && state.duration > Duration.zero) {
       final entry = _pendingRecentUpdate!;
       _pendingRecentUpdate = null;
-      _recentAudio.updatePosition(entry.id,
-          position: Duration.zero, totalDuration: state.duration);
+      _recentAudio.updatePosition(
+        entry.id,
+        position: Duration.zero,
+        totalDuration: state.duration,
+      );
     }
 
+    // AB Loop check
     if (_isLooping && _loopEnd != null && !_isWaitingGap) {
       _checkLoopPosition(state.position, previousPosition);
       if (state.position < previousPosition) shouldNotify = true;
     }
 
+    // Stats
     if (state.status == PlaybackStatus.playing) {
       _totalListeningTime += const Duration(milliseconds: 100);
       _maybeUpdateRecentPosition(state.position);
     }
 
-    if (shouldNotify) notifyListeners();
+    // Luôn notify khi playing để UI (thanh progress, waveform) cập nhật mượt
+    if (shouldNotify || state.status == PlaybackStatus.playing) {
+      notifyListeners();
+    }
   }
 
   // ==================== VIP MODE ====================
@@ -597,10 +627,14 @@ class PlayerProvider extends ChangeNotifier {
   void setLoopCount(int count) {
     _maxLoopCount = count;
 
-    // Nếu không có AB loop, kích hoạt repeat track
+    // Nếu không có vùng lặp AB -> kích hoạt lặp toàn bài (Repeat Track)
     if (_loopStart == null) {
       _repeatTrack = (count != 0);
     }
+    debugPrint('🔁 setLoopCount: max=$_maxLoopCount '
+        'repeatTrack=$_repeatTrack loopStart=$_loopStart');
+    notifyListeners();
+
     notifyListeners();
   }
 
@@ -638,28 +672,44 @@ class PlayerProvider extends ChangeNotifier {
     _totalLoopsToday++;
     _storage.incrementLoopCount();
 
-    if (_gapDuration > 0) {
-      await _audioService.pause();
-      await Future.delayed(
-          Duration(milliseconds: (_gapDuration * 1000).round()));
-      if (_repeatTrack) {
-        await seek(Duration.zero);
-        await _audioService.play();
-      }
-    } else {
-      await seek(Duration.zero);
-      await _audioService.play();
-    }
-
-    // Quản lý số lần lặp nếu không phải vô tận (-1)
+    // 1. Kiểm tra số lần lặp nếu không phải vô tận (-1)
     if (_maxLoopCount > 0) {
       _loopCount++;
       if (_loopCount >= _maxLoopCount) {
+        // Đã đủ số lần lặp -> Dừng lặp
         _repeatTrack = false;
         _loopCount = 0;
         _maxLoopCount = 0;
+        _hasHandledCompletion = false;
+        notifyListeners();
+        return;
       }
     }
+
+    // 2. Xử lý khoảng lặng (Gap) nếu có
+    if (_gapDuration > 0 &&
+        !_gapDuration.isNaN && // ← THÊM guard
+        !_gapDuration.isInfinite) {
+      // ← THÊM guard
+      _isWaitingGap = true;
+      notifyListeners();
+
+      await _audioService.pause();
+
+      final gapMs = (_gapDuration * 1000).clamp(0.0, 30000.0).toInt();
+      await Future.delayed(Duration(milliseconds: gapMs));
+
+      if (!_repeatTrack) return; // Guard: người dùng tắt lặp trong khi chờ
+      _isWaitingGap = false;
+    }
+
+    // 3. Thực hiện quay lại đầu bài và phát
+    await _audioService.seek(Duration.zero);
+    // Một delay nhỏ giúp engine ổn định hơn trên một số thiết bị
+    await Future.delayed(const Duration(milliseconds: 150));
+    await _audioService.play();
+
+    _hasHandledCompletion = false;
     notifyListeners();
   }
 
@@ -758,6 +808,7 @@ class PlayerProvider extends ChangeNotifier {
     _maxLoopCount = 0;
     _isWaitingGap = false;
     _repeatTrack = false;
+    _hasHandledCompletion = false;
     notifyListeners();
   }
 

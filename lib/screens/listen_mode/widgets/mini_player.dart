@@ -1811,7 +1811,9 @@ class _GapControlWidget extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  preset == 0 ? 'Off' : '${preset.toInt()}s',
+                  preset == 0
+                      ? 'Off'
+                      : '${preset.isFinite ? preset.toInt() : 0}s',
                   style: TextStyle(
                     color:
                         isActive ? color : Colors.white.withValues(alpha: 0.6),

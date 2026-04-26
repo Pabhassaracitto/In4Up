@@ -22,9 +22,92 @@ import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 enum ReadSubMode { reading, listening, translation, driving }
 
+enum TtsPlaybackOwner {
+  none,
+  allLines, // Play toàn bộ / song ngữ tuần tự
+  preview, // Icon loa / swipe phát âm 1 dòng
+  segment, // Segment playback
+  vocabReview, // Đọc từ khó
+}
+
 class TextProvider extends ChangeNotifier with TranslationMixin {
   final TtsService _ttsService = TtsService();
   final StorageService _storage = StorageService();
+  Future<int> _startExclusiveTtsSession(
+    TtsPlaybackOwner owner, {
+    bool clearSegmentState = true,
+  }) async {
+    _ttsSessionId++;
+    final sessionId = _ttsSessionId;
+
+    // Dừng mọi âm thanh TTS cũ trước khi bắt đầu cái mới
+    await _ttsService.stop();
+
+    _ttsOwner = owner;
+    _isSpeaking = owner == TtsPlaybackOwner.allLines;
+    _isPlayingSegment = owner == TtsPlaybackOwner.segment ||
+        owner == TtsPlaybackOwner.vocabReview;
+
+    if (clearSegmentState &&
+        owner != TtsPlaybackOwner.segment &&
+        owner != TtsPlaybackOwner.vocabReview) {
+      _currentPlayingSegment = null;
+      _currentRepeatIndex = 0;
+    }
+
+    notifyListeners();
+    return sessionId;
+  }
+
+  bool _isActiveSession(int sessionId, TtsPlaybackOwner owner) {
+    return _ttsSessionId == sessionId && _ttsOwner == owner;
+  }
+
+  void _finishTtsSession(
+    int sessionId,
+    TtsPlaybackOwner owner, {
+    bool clearReadingCursor = false,
+  }) {
+    if (!_isActiveSession(sessionId, owner)) return;
+
+    _ttsOwner = TtsPlaybackOwner.none;
+
+    if (owner == TtsPlaybackOwner.allLines) {
+      _isSpeaking = false;
+      if (clearReadingCursor) {
+        _currentLineIndex = -1;
+      }
+    }
+
+    if (owner == TtsPlaybackOwner.segment ||
+        owner == TtsPlaybackOwner.vocabReview) {
+      _isPlayingSegment = false;
+      _currentPlayingSegment = null;
+      _currentRepeatIndex = 0;
+    }
+
+    notifyListeners();
+  }
+
+//take over broadcasting rights
+  Future<void> _stopAllTts({
+    bool clearReadingCursor = true,
+  }) async {
+    _ttsSessionId++; // invalidate mọi session cũ
+
+    _ttsOwner = TtsPlaybackOwner.none;
+    _isSpeaking = false;
+    _isPlayingSegment = false;
+    _currentPlayingSegment = null;
+    _currentRepeatIndex = 0;
+
+    if (clearReadingCursor) {
+      _currentLineIndex = -1;
+    }
+
+    await _ttsService.stop();
+    notifyListeners();
+  }
 
   // ====================  TEXT DATA ====================
   TextDocument? _currentDocument;
@@ -47,7 +130,13 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   double _ttsPitch = 1.0;
   String _ttsLanguage = 'en-US';
   bool _isSpeaking = false;
+  //TTS session management
+  TtsPlaybackOwner _ttsOwner = TtsPlaybackOwner.none;
+  int _ttsSessionId = 0;
 
+  TtsPlaybackOwner get ttsOwner => _ttsOwner;
+  bool get isPreviewSpeaking => _ttsOwner == TtsPlaybackOwner.preview;
+  bool get isAnyTtsActive => _ttsOwner != TtsPlaybackOwner.none;
   // ==================== SEGMENT PLAYBACK ====================
   bool _isPlayingSegment = false;
   TextSegment? _currentPlayingSegment;
@@ -631,63 +720,60 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TTS FUNCTIONS ====================
 
   Future<void> speakSelected() async {
-    if (_selectedText == null || _selectedText!.isEmpty) return;
-    await _ttsService.speak(_selectedText!);
+    if (_selectedText == null || _selectedText!.trim().isEmpty) return;
+    await speak(_selectedText!);
   }
 
   Future<void> speakAllLines({int startIndex = 0}) async {
     if (_lines.isEmpty) return;
 
-    // Dừng mọi tiến trình đang nói cũ
-    await _ttsService.stop();
-
-    // Đảm bảo cờ _isSpeaking được đặt trước khi bắt đầu vòng lặp
-    _isSpeaking = true;
-    notifyListeners();
+    final sessionId =
+        await _startExclusiveTtsSession(TtsPlaybackOwner.allLines);
 
     for (int i = startIndex; i < _lines.length; i++) {
-      if (!_isSpeaking) {
-        // Kiểm tra nếu stopSpeaking được gọi từ bên ngoài
-        break;
-      }
+      if (!_isActiveSession(sessionId, TtsPlaybackOwner.allLines)) break;
+
       _currentLineIndex = i;
-      notifyListeners(); // Thông báo để UI highlight dòng hiện tại
+      notifyListeners();
+
       await _ttsService.speak(_lines[i].content);
-      // Tùy chọn: Thêm một khoảng dừng nhỏ giữa các dòng để dễ đọc hơn
-      // await Future.delayed(const Duration(milliseconds: 200));
+
+      // Nếu user vừa bấm icon loa / swipe preview thì session này bị vô hiệu hóa
+      if (!_isActiveSession(sessionId, TtsPlaybackOwner.allLines)) break;
     }
 
-    _isSpeaking = false;
-    _currentLineIndex = -1; // Reset sau khi hoàn thành
-    notifyListeners();
+    _finishTtsSession(
+      sessionId,
+      TtsPlaybackOwner.allLines,
+      clearReadingCursor: true,
+    );
   }
 
   Future<void> speakCurrentLine() async {
-    // ★ FIX: Guard khi chưa chọn dòng
-    if (_currentLineIndex < 0 || _currentLineIndex >= _lines.length) {
-      // Nếu chưa có dòng nào được chọn, phát dòng đầu tiên
-      if (_lines.isNotEmpty) {
-        _currentLineIndex = 0;
-        notifyListeners();
-        await _ttsService.speak(_lines[0].content);
-      }
-      return;
-    }
-    await _ttsService.speak(_lines[_currentLineIndex].content);
+    if (_lines.isEmpty) return;
+
+    final index = (_currentLineIndex >= 0 && _currentLineIndex < _lines.length)
+        ? _currentLineIndex
+        : 0;
+
+    await speak(_lines[index].content);
   }
 
   Future<void> speak(String text) async {
-    if (text.isEmpty) return;
+    if (text.trim().isEmpty) return;
+
+    final sessionId = await _startExclusiveTtsSession(TtsPlaybackOwner.preview);
+
+    // QUAN TRỌNG:
+    // preview KHÔNG thay _currentLineIndex
+    // để tab đếm câu / highlight không bị nhảy lung tung
     await _ttsService.speak(text);
+
+    _finishTtsSession(sessionId, TtsPlaybackOwner.preview);
   }
 
   Future<void> stopSpeaking() async {
-    _isSpeaking = false;
-    _isPlayingSegment = false;
-    _currentPlayingSegment = null;
-    _currentRepeatIndex = 0;
-    await _ttsService.stop();
-    notifyListeners();
+    await _stopAllTts(clearReadingCursor: true);
   }
 
   Future<void> setTtsSpeed(double speed) async {
@@ -712,7 +798,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== SEGMENT TTS ====================
 
   Future<void> speakSegment(TextSegment segment) async {
-    _isPlayingSegment = true;
+    final sessionId = await _startExclusiveTtsSession(TtsPlaybackOwner.segment);
+
     _currentPlayingSegment = segment;
     _currentRepeatIndex = 0;
     notifyListeners();
@@ -721,11 +808,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _ttsService.configure(speed: segment.ttsSpeed);
 
     for (int i = 0; i < segment.repeatCount; i++) {
-      if (!_isPlayingSegment) break;
+      if (!_isActiveSession(sessionId, TtsPlaybackOwner.segment)) break;
+
       _currentRepeatIndex = i + 1;
       notifyListeners();
 
       await _ttsService.speak(segment.content);
+
+      if (!_isActiveSession(sessionId, TtsPlaybackOwner.segment)) break;
+
       await Future.delayed(Duration(
         milliseconds:
             segment.difficulty == TextSegmentDifficulty.hard ? 1500 : 800,
@@ -734,7 +825,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     _ttsService.configure(speed: originalSpeed);
 
-    if (_isPlayingSegment) {
+    if (_isActiveSession(sessionId, TtsPlaybackOwner.segment)) {
       final updated = segment.copyWith(
         lastPracticed: DateTime.now(),
         practiceCount: segment.practiceCount + 1,
@@ -743,18 +834,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       updateSegment(updated);
     }
 
-    _isPlayingSegment = false;
-    _currentPlayingSegment = null;
-    _currentRepeatIndex = 0;
-    notifyListeners();
+    _finishTtsSession(sessionId, TtsPlaybackOwner.segment);
   }
 
-  void stopSegmentPlayback() {
-    _isPlayingSegment = false;
-    _currentPlayingSegment = null;
-    _currentRepeatIndex = 0;
-    _ttsService.stop();
-    notifyListeners();
+  Future<void> stopSegmentPlayback() async {
+    await _stopAllTts(clearReadingCursor: false);
   }
 
   double _calculateNewMastery(TextSegment segment) {
@@ -804,33 +888,40 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       }
     }
 
+    if (difficultWords.isEmpty) return;
+
     difficultWords.sort((a, b) {
       final aLevel = a.userDifficulty?.index ?? 0;
       final bLevel = b.userDifficulty?.index ?? 0;
       return bLevel.compareTo(aLevel);
     });
 
-    _isPlayingSegment = true;
-    notifyListeners();
+    final sessionId =
+        await _startExclusiveTtsSession(TtsPlaybackOwner.vocabReview);
 
     for (final word in difficultWords) {
-      if (!_isPlayingSegment) break;
+      if (!_isActiveSession(sessionId, TtsPlaybackOwner.vocabReview)) break;
+
       final repeatCount = word.userDifficulty?.repeatCount ?? 1;
       final speed = word.userDifficulty?.ttsSpeed ?? 1.0;
+
       await setTtsSpeed(speed);
+
       for (int i = 0; i < repeatCount; i++) {
-        if (!_isPlayingSegment) break;
-        await speak(word.word);
+        if (!_isActiveSession(sessionId, TtsPlaybackOwner.vocabReview)) break;
+
+        await _ttsService.speak(word.word);
+
         if (i < repeatCount - 1) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
+
       await Future.delayed(const Duration(milliseconds: 800));
     }
 
     await setTtsSpeed(1.0);
-    _isPlayingSegment = false;
-    notifyListeners();
+    _finishTtsSession(sessionId, TtsPlaybackOwner.vocabReview);
   }
 
   // ==================== STATISTICS ====================

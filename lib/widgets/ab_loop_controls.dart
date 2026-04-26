@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/loop_presets.dart';
 import '../providers/player_provider.dart';
 import 'save_segment_dialog.dart';
 
@@ -647,15 +648,15 @@ class _LoopCountSelector extends StatelessWidget {
           const Icon(Icons.repeat_one, size: 14, color: Colors.white70),
           const SizedBox(width: 4),
           DropdownButton<int>(
-            value: player.maxLoopCount,
+            value: LoopPresets.safeDropdownValue(player.maxLoopCount),
             dropdownColor: const Color(0xFF2D2D44),
             underline: const SizedBox(),
             isDense: true,
             style: const TextStyle(color: Colors.white, fontSize: 12),
-            items: [0, 3, 5, 7, 10, 15, 20].map((count) {
+            items: LoopPresets.dropdownValues.map((count) {
               return DropdownMenuItem(
                 value: count,
-                child: Text(count == 0 ? '∞' : '${count}x'),
+                child: Text(LoopPresets.labelFor(count)),
               );
             }).toList(),
             onChanged: (value) {

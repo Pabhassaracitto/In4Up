@@ -15,6 +15,7 @@ import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
+import '../screens/listen_mode/listen_mode_screen.dart'; // Import để dùng GenerateLrcButton
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
 import 'widgets/auto_scroll_button.dart';
@@ -240,6 +241,21 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   _pickText(context);
                 },
               ),
+              if (hasAudio) ...[
+                const SizedBox(height: 24),
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 16),
+                const Text(
+                  'Hoặc sử dụng trí tuệ nhân tạo:',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                // Tái sử dụng widget từ Listen Mode
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: GenerateLrcButton(),
+                ),
+              ],
             ],
           ],
         ),

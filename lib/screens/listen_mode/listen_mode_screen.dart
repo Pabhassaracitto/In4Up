@@ -19,7 +19,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
-import '../../models/loop_presets.dart';
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/waveform_provider.dart';
@@ -1062,7 +1061,7 @@ class _AdvancedSheet extends StatelessWidget {
                           Icon(Icons.tune, size: 13, color: Colors.grey[600]),
                           const SizedBox(width: 5),
                           Text(
-                            'AB Loop · Tốc độ · Hẹn giờ',
+                            'AB Loop · Tốc độ · Hẹn giờ · AI',
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[600]),
                           ),
@@ -1091,6 +1090,13 @@ class _AdvancedSheet extends StatelessWidget {
                           icon: Icons.bolt,
                           iconColor: const Color(0xFF6C63FF),
                           child: _QuickActionsRow(player: player),
+                        ),
+                        const _Divider(),
+                        const _SheetSection(
+                          title: 'Trí tuệ nhân tạo',
+                          icon: Icons.auto_awesome,
+                          iconColor: Colors.blue,
+                          child: GenerateLrcButton(),
                         ),
                         const SizedBox(height: 16),
                       ],

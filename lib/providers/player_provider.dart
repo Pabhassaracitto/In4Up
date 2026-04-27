@@ -246,6 +246,11 @@ class PlayerProvider extends ChangeNotifier {
 
       if (output.success) {
         debugPrint('✅ LRC generated: ${output.lrcFilePath}');
+        // ★ QUAN TRỌNG: Nạp ngay file lời thoại vừa tạo vào TextProvider để hiển thị lên UI
+        if (output.lrcFilePath != null) {
+          await _textProvider?.loadTextFile(output.lrcFilePath!);
+          notifyListeners();
+        }
       }
 
       notifyListeners();

@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/player_provider.dart';
-import '../../providers/focus_provider.dart';
-import '../../screens/memory_mode/controllers/memory_controller.dart';
 import '../../services/auth_service.dart';
 
 import 'widgets/focus_streak_card.dart';

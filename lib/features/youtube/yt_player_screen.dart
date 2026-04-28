@@ -6,9 +6,13 @@
 // • Nút ✓ Known | 📖 Learning
 // • Tab TỪ: Known 36 / Learning 3 / Ignored 7, rank filter
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../word_lookup/word_analysis_sheet.dart';
 
+import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
 
 // ─── Word knowledge state ─────────────────────────────────
@@ -101,28 +105,29 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   late WebViewController _ytCtrl;
+  Timer? _timer;
+  bool _isLoading = true;
 
   // ── Subtitle state ────────────────────────────────────────
   final List<SubtitleLine> _lines = [];
   int _currentLineIdx = 0;
-  //del bool _loadingSubtitles = false;
+  double _currentTime = 0;
 
   // ── Word knowledge ────────────────────────────────────────
   final Map<String, WordState> _wordStates = {};
-
-  // ── Selected word for popup ───────────────────────────────
-  //del LrWord? _selectedWord;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     _initWebView();
-    _loadMockSubtitles();
+    _loadRealSubtitles();
+    _startTimer();
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -131,53 +136,109 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _ytCtrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (url) {
+            _injectSyncScript();
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'YtSync',
+        onMessageReceived: (msg) {
+          final time = double.tryParse(msg.message) ?? 0;
+          _updateTime(time);
+        },
+      )
       ..loadRequest(Uri.parse(
-          'https://www.youtube.com/embed/${widget.video.id}?enablejsapi=1&cc_load_policy=1'));
+          'https://www.youtube.com/embed/${widget.video.id}?enablejsapi=1&cc_load_policy=0&rel=0&autoplay=1'));
   }
 
-  // ── Mock subtitles (thực tế fetch từ YouTube API) ─────────
-  void _loadMockSubtitles() {
+  void _injectSyncScript() {
+    const js = """
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+      var player;
+      function onYouTubeIframeAPIReady() {
+        player = new YT.Player(document.querySelector('iframe') || window, {
+          events: {
+            'onReady': onPlayerReady
+          }
+        });
+      }
+
+      function onPlayerReady(event) {
+        setInterval(function() {
+          if (player && player.getCurrentTime) {
+            YtSync.postMessage(player.getCurrentTime().toString());
+          }
+        }, 500);
+      }
+      
+      // Fallback nếu api không ready
+      setInterval(function() {
+        var video = document.querySelector('video');
+        if (video) {
+          YtSync.postMessage(video.currentTime.toString());
+        }
+      }, 500);
+    """;
+    _ytCtrl.runJavaScript(js);
+  }
+
+  void _updateTime(double time) {
+    if (!mounted) return;
     setState(() {
-      _lines.addAll([
-        SubtitleLine(
-          start: const Duration(seconds: 2),
-          end: const Duration(seconds: 6),
-          text:
-              "I need you to grab Liam after school because I'm working a double.",
-          translation:
-              'Tôi cần bạn đón Liam sau giờ học vì tôi làm việc hai ca.',
-          words: _parseWords(
-              "I need you to grab Liam after school because I'm working a double."),
-        ),
-        SubtitleLine(
-          start: const Duration(seconds: 7),
-          end: const Duration(seconds: 12),
-          text:
-              "I need you to grab Liam. So our verb, a proper noun, 'after school' a noun;",
-          translation:
-              "Tôi cần bạn đón Liam. Vậy động từ của chúng ta, tên riêng, 'sau giờ học' là một danh từ;",
-          words: _parseWords(
-              "I need you to grab Liam. So our verb, a proper noun, 'after school' a noun;"),
-        ),
-        SubtitleLine(
-          start: const Duration(seconds: 13),
-          end: const Duration(seconds: 18),
-          text:
-              "because 'I'm working' a little bit there; 'a double' another noun. 'A double' means a",
-          translation:
-              "bởi vì 'tôi đang làm việc' một chút ở đó; 'một ca làm thêm' một danh từ khác.",
-          words: _parseWords(
-              "because 'I'm working' a little bit there; 'a double' another noun."),
-        ),
-        SubtitleLine(
-          start: const Duration(seconds: 19),
-          end: const Duration(seconds: 23),
-          text: "double shift, so two shifts in a row.",
-          translation: 'ca làm việc kép, tức là hai ca liên tiếp.',
-          words: _parseWords("double shift, so two shifts in a row."),
-        ),
-      ]);
+      _currentTime = time;
+      // Find current line
+      final ms = (time * 1000).round();
+      final idx = _lines.indexWhere(
+          (l) => ms >= l.start.inMilliseconds && ms <= l.end.inMilliseconds);
+      if (idx != -1 && idx != _currentLineIdx) {
+        _currentLineIdx = idx;
+      }
     });
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      // Script injection fallback if needed
+      _ytCtrl.runJavaScript(
+          "if(document.querySelector('video')) YtSync.postMessage(document.querySelector('video').currentTime.toString())");
+    });
+  }
+
+  Future<void> _loadRealSubtitles() async {
+    setState(() => _isLoading = true);
+    try {
+      final captions = await YtService.instance.fetchBilingualCaptions(
+        widget.video.id,
+        lang1: 'en',
+        lang2: 'vi',
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _lines.clear();
+        for (final c in captions) {
+          _lines.add(SubtitleLine(
+            start: c.start,
+            end: c.end,
+            text: c.text,
+            translation: c.translation,
+            words: _parseWords(c.text),
+          ));
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Load subtitles error: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   List<LrWord> _parseWords(String text) {
@@ -293,6 +354,33 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   Widget _buildPortrait() {
     return Column(
       children: [
+        // Title Bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: const Color(0xFF161B22),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child:
+                    const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.video.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
         // Video player
         AspectRatio(
           aspectRatio: 16 / 9,
@@ -308,25 +396,54 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   Widget _buildLandscape() {
-    return Row(
+    return Column(
       children: [
-        // Left: video + subtitle
-        Expanded(
-          flex: 5,
-          child: Column(
+        // Title Bar (Compact)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          color: const Color(0xFF161B22),
+          child: Row(
             children: [
-              Expanded(child: _buildVideoPlayer()),
-              _buildSubtitleArea(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child:
+                    const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.video.title,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),
-        // Right: tabs
         Expanded(
-          flex: 4,
-          child: Column(
+          child: Row(
             children: [
-              _buildTabBar(),
-              Expanded(child: _buildTabContent()),
+              // Left: video + subtitle
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    Expanded(child: _buildVideoPlayer()),
+                    _buildSubtitleArea(),
+                  ],
+                ),
+              ),
+              // Right: tabs
+              Expanded(
+                flex: 4,
+                child: Column(
+                  children: [
+                    _buildTabBar(),
+                    Expanded(child: _buildTabContent()),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -336,39 +453,35 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   // ── Video Player ──────────────────────────────────────────
   Widget _buildVideoPlayer() {
-    return Stack(
-      children: [
-        WebViewWidget(controller: _ytCtrl),
-        // Back button overlay
-        Positioned(
-          top: 8,
-          left: 8,
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  color: Colors.white, size: 16),
-            ),
-          ),
-        ),
-      ],
-    );
+    return WebViewWidget(controller: _ytCtrl);
   }
 
   // ── Subtitle area ─────────────────────────────────────────
   Widget _buildSubtitleArea() {
-    if (_lines.isEmpty) return const SizedBox.shrink();
+    if (_isLoading) {
+      return Container(
+        height: 120,
+        alignment: Alignment.center,
+        child: const CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (_lines.isEmpty) {
+      return Container(
+        height: 120,
+        alignment: Alignment.center,
+        child:
+            const Text('Không có phụ đề', style: TextStyle(color: Colors.grey)),
+      );
+    }
     final line = _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      color: const Color(0xFF0D1117),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0D1117),
+        border: Border(top: BorderSide(color: Colors.white12)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -377,10 +490,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             children: [
               _ActionBtn(
                 icon: Icons.check,
-                label: '✓',
+                label: 'Biết hết',
                 color: const Color(0xFF4CAF50),
                 onTap: () {
-                  // Mark current line words as known
                   for (final w in line.words) {
                     _setWordState(w.text, WordState.known);
                   }
@@ -389,10 +501,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               const SizedBox(width: 8),
               _ActionBtn(
                 icon: Icons.menu_book,
-                label: '📖',
+                label: 'Học cả câu',
                 color: const Color(0xFF9C27B0),
                 onTap: () {
-                  // Mark as learning
                   for (final w in line.words) {
                     if (w.state == WordState.unknown) {
                       _setWordState(w.text, WordState.learning);
@@ -403,28 +514,38 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               const Spacer(),
               // Navigation
               Row(children: [
-                GestureDetector(
-                  onTap: () => setState(() {
-                    if (_currentLineIdx > 0) _currentLineIdx--;
-                  }),
-                  child: Icon(Icons.navigate_before,
-                      color: Colors.grey[500], size: 22),
+                _navBtn(
+                  Icons.replay_10,
+                  () => _seekTo(_currentTime - 10),
                 ),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    if (_currentLineIdx < _lines.length - 1) _currentLineIdx++;
-                  }),
-                  child: Icon(Icons.navigate_next,
-                      color: Colors.grey[500], size: 22),
+                const SizedBox(width: 10),
+                _navBtn(
+                  Icons.skip_previous,
+                  () {
+                    if (_currentLineIdx > 0) {
+                      _seekTo(_lines[_currentLineIdx - 1].start.inMilliseconds /
+                          1000);
+                    }
+                  },
+                ),
+                const SizedBox(width: 10),
+                _navBtn(
+                  Icons.skip_next,
+                  () {
+                    if (_currentLineIdx < _lines.length - 1) {
+                      _seekTo(_lines[_currentLineIdx + 1].start.inMilliseconds /
+                          1000);
+                    }
+                  },
                 ),
               ]),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
           // Colored words subtitle
           Wrap(
-            spacing: 4,
-            runSpacing: 2,
+            spacing: 5,
+            runSpacing: 4,
             children: line.words
                 .map((w) => _WordChip(
                       word: w,
@@ -432,29 +553,57 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                     ))
                 .toList(),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           // Translation
           if (line.translation != null)
             Text(
               line.translation!,
-              style:
-                  TextStyle(color: Colors.grey[400], fontSize: 12, height: 1.4),
+              style: TextStyle(
+                color: Colors.amber.withValues(alpha: 0.8),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
             ),
         ],
       ),
     );
   }
 
+  Widget _navBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, color: Colors.grey[400], size: 20),
+      ),
+    );
+  }
+
+  void _seekTo(double seconds) {
+    if (seconds < 0) seconds = 0;
+    _ytCtrl.runJavaScript(
+        "if(player && player.seekTo) player.seekTo($seconds, true); else if(document.querySelector('video')) document.querySelector('video').currentTime = $seconds;");
+  }
+
   void _showWordPopup(LrWord word) {
-    showDialog(
+    // Lấy context câu từ subtitle đang phát
+    String? contextSentence;
+    if (_lines.isNotEmpty && _currentLineIdx < _lines.length) {
+      contextSentence = _lines[_currentLineIdx].text;
+    }
+
+    showModalBottomSheet(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (_) => _WordPopup(
-        word: word,
-        onSetState: (state) {
-          _setWordState(word.text, state);
-          Navigator.pop(context);
-        },
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => WordAnalysisSheet(
+        selectedWord: word.text,
+        sentenceContext: contextSentence,
       ),
     );
   }

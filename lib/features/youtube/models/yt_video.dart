@@ -38,7 +38,8 @@ class YtVideo {
     final p = RegExp(r'(?:v=|youtu\.be/|embed/|shorts/)([a-zA-Z0-9_-]{11})');
     final m = p.firstMatch(input.trim());
     if (m != null) return m.group(1);
-    if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(input.trim())) return input.trim();
+    if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(input.trim()))
+      return input.trim();
     return null;
   }
 }
@@ -49,14 +50,24 @@ class YtCaptionLine {
   final Duration start;
   final Duration end;
   final String text;
+  final String? translation;
 
-  const YtCaptionLine(this.start, this.end, this.text);
+  const YtCaptionLine(this.start, this.end, this.text, {this.translation});
 
   String toLrc() {
     final mm = start.inMinutes.remainder(60).toString().padLeft(2, '0');
     final ss = start.inSeconds.remainder(60).toString().padLeft(2, '0');
-    final cs = (start.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');
+    final cs =
+        (start.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');
+    if (translation != null) {
+      return '[$mm:$ss.$cs]$text | $translation';
+    }
     return '[$mm:$ss.$cs]$text';
+  }
+
+  YtCaptionLine copyWith({String? translation}) {
+    return YtCaptionLine(start, end, text,
+        translation: translation ?? this.translation);
   }
 }
 

@@ -15,7 +15,8 @@ import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
-import '../screens/listen_mode/listen_mode_screen.dart'; // Import để dùng GenerateLrcButton
+import '../listen_mode/listen_mode_screen.dart';
+// Import để dùng GenerateLrcButton
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
 import 'widgets/auto_scroll_button.dart';

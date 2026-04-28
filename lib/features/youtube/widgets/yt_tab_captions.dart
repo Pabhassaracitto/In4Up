@@ -5,6 +5,8 @@ import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../models/yt_video.dart';
 import '../services/yt_service.dart';
+import '../youtube_explorer_screen.dart';
+import '../yt_player_screen.dart';
 import 'yt_video_card.dart';
 
 class YtTabCaptions extends StatefulWidget {
@@ -63,8 +65,8 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
       _error = null;
     });
 
-    final lines = await YtService.instance
-        .fetchCaptions(widget.video!.id, lang: _lang);
+    final lines =
+        await YtService.instance.fetchCaptions(widget.video!.id, lang: _lang);
 
     if (!mounted) return;
 
@@ -84,8 +86,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
 
   Future<String?> _ensureLrcSaved() async {
     if (_savedLrcPath != null) return _savedLrcPath;
-    final path =
-        await YtService.instance.saveLrc(_captions, widget.video!);
+    final path = await YtService.instance.saveLrc(_captions, widget.video!);
     if (path != null) setState(() => _savedLrcPath = path);
     return path;
   }
@@ -172,8 +173,8 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: sel
                       ? const Color(0xFF2196F3)
@@ -182,8 +183,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                 ),
                 child: Text(l.$2,
                     style: TextStyle(
-                        color: sel ? Colors.white : Colors.grey,
-                        fontSize: 11)),
+                        color: sel ? Colors.white : Colors.grey, fontSize: 11)),
               ),
             );
           }),
@@ -204,8 +204,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
               const SizedBox(width: 6),
               Expanded(
                 child: Text(_error!,
-                    style:
-                        const TextStyle(color: Colors.amber, fontSize: 11)),
+                    style: const TextStyle(color: Colors.amber, fontSize: 11)),
               ),
             ],
           ),
@@ -225,14 +224,12 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                       valueColor: AlwaysStoppedAnimation(Colors.white)),
                 )
               : const Icon(Icons.download, size: 16),
-          label: Text(_isFetching
-              ? 'Đang tải...'
-              : 'Lấy captions ($_lang)'),
+          label: Text(_isFetching ? 'Đang tải...' : 'Lấy captions ($_lang)'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
             padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
       );
@@ -265,8 +262,10 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
           ),
           const Divider(height: 1, color: Colors.white12),
           ...preview.map((c) {
-            final mm = c.start.inMinutes.remainder(60).toString().padLeft(2, '0');
-            final ss = c.start.inSeconds.remainder(60).toString().padLeft(2, '0');
+            final mm =
+                c.start.inMinutes.remainder(60).toString().padLeft(2, '0');
+            final ss =
+                c.start.inSeconds.remainder(60).toString().padLeft(2, '0');
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               child: Row(
@@ -316,8 +315,9 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                 color: const Color(0xFF2196F3),
                 onTap: () {
                   final plain = _captions.map((c) => c.text).join('\n');
-                  context.read<TextProvider>().loadText(plain,
-                      title: widget.video!.title);
+                  context
+                      .read<TextProvider>()
+                      .loadText(plain, title: widget.video!.title);
                   Navigator.pop(context);
                   _snack('✅ Loaded vào Text Studio');
                 },
@@ -346,14 +346,23 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
           children: [
             Expanded(
               child: YtActionBtn(
-                icon: Icons.save_alt,
-                label: 'Lưu .lrc',
-                color: const Color(0xFF6C63FF),
-                onTap: () async {
-                  final path = await _ensureLrcSaved();
-                  if (path != null) {
-                    _snack('💾 ${path.split('/').last}');
-                  }
+                icon: Icons.school,
+                label: 'Smart Study',
+                color: const Color(0xFFE91E63),
+                onTap: () {
+                  final exVideo = YtExVideo(
+                    id: widget.video!.id,
+                    title: widget.video!.title,
+                    channelId: '',
+                    channelTitle: widget.video!.channel,
+                    thumb: widget.video!.thumb,
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => YtPlayerScreen(video: exVideo),
+                    ),
+                  );
                 },
               ),
             ),

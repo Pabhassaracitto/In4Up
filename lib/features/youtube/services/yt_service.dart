@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_exp;
+import '../../translation/translation_service.dart';
 
 import '../models/yt_video.dart';
 
@@ -24,9 +25,8 @@ class YtService {
     try {
       final url = 'https://www.youtube.com/oembed?format=json&url='
           '${Uri.encodeComponent('https://www.youtube.com/watch?v=$videoId')}';
-      final resp = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10));
+      final resp =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
       if (resp.statusCode != 200) return null;
 
       final body = resp.body;
@@ -106,6 +106,77 @@ class YtService {
     return [];
   }
 
+  /// Lấy captions song ngữ (vd: EN + VI)
+  /// Thử lấy captions có sẵn trên YT cho cả 2 lang, nếu lang2 không có thì dùng auto-translate
+  Future<List<YtCaptionLine>> fetchBilingualCaptions(
+    String videoId, {
+    String lang1 = 'en',
+    String lang2 = 'vi',
+    bool useAiFallback = true,
+  }) async {
+    final l1Lines = await fetchCaptions(videoId, lang: lang1);
+    if (l1Lines.isEmpty) return [];
+
+    final l2Lines = await fetchCaptions(videoId, lang: lang2);
+
+    if (l2Lines.isNotEmpty) {
+      // Merge base on timestamps
+      return _mergeCaptions(l1Lines, l2Lines);
+    } else if (useAiFallback) {
+      // Dùng máy dịch (batch dịch cho nhanh)
+      debugPrint('🔄 Lang2 ($lang2) không có trên YT, dùng AI translate...');
+      final texts = l1Lines.map((e) => e.text).toList();
+
+      // Config translation service
+      final ts = TranslationService();
+      ts.configure(sourceLang: lang1, targetLang: lang2.toUpperCase());
+
+      final results = await ts.translateBatch(texts);
+      final merged = <YtCaptionLine>[];
+      for (int i = 0; i < l1Lines.length; i++) {
+        merged.add(l1Lines[i].copyWith(
+          translation: results[i].translatedText,
+        ));
+      }
+      return merged;
+    }
+
+    return l1Lines;
+  }
+
+  List<YtCaptionLine> _mergeCaptions(
+    List<YtCaptionLine> base,
+    List<YtCaptionLine> target,
+  ) {
+    if (target.isEmpty) return base;
+    final merged = <YtCaptionLine>[];
+
+    for (final b in base) {
+      // Tìm dòng ở target có overlap thời gian nhiều nhất với line b
+      YtCaptionLine? bestMatch;
+      int maxOverlapMs = 0;
+
+      for (final t in target) {
+        final start = b.start > t.start ? b.start : t.start;
+        final end = b.end < t.end ? b.end : t.end;
+        final overlapMs = end.inMilliseconds - start.inMilliseconds;
+
+        if (overlapMs > maxOverlapMs) {
+          maxOverlapMs = overlapMs;
+          bestMatch = t;
+        }
+      }
+
+      if (bestMatch != null && maxOverlapMs > 0) {
+        merged.add(b.copyWith(translation: bestMatch.text));
+      } else {
+        merged.add(b);
+      }
+    }
+
+    return merged;
+  }
+
   /// Lấy danh sách ngôn ngữ có sẵn
   Future<List<({String code, String name})>> getAvailableLanguages(
       String videoId) async {
@@ -113,8 +184,7 @@ class YtService {
     try {
       final yt = yt_exp.YoutubeExplode();
       try {
-        final manifest =
-            await yt.videos.closedCaptions.getManifest(videoId);
+        final manifest = await yt.videos.closedCaptions.getManifest(videoId);
         if (manifest.tracks.isNotEmpty) {
           // Loại bỏ auto-generated duplicates (a.en vs en)
           final seen = <String>{};
@@ -125,9 +195,7 @@ class YtService {
             final display = code.startsWith('a.')
                 ? '${code.substring(2)} (auto)'
                 : t.language.name;
-            final key = code.startsWith('a.')
-                ? code.substring(2)
-                : code;
+            final key = code.startsWith('a.') ? code.substring(2) : code;
             if (!seen.contains(key)) {
               seen.add(key);
               result.add((code: code, name: display));
@@ -161,8 +229,7 @@ class YtService {
   }) async {
     final yt = yt_exp.YoutubeExplode();
     try {
-      final manifest =
-          await yt.videos.closedCaptions.getManifest(videoId);
+      final manifest = await yt.videos.closedCaptions.getManifest(videoId);
       if (manifest.tracks.isEmpty) return [];
 
       yt_exp.ClosedCaptionTrackInfo? track;
@@ -172,12 +239,11 @@ class YtService {
 
       // 2. Prefix match: 'en' match 'en-US', 'en-GB'
       if (track == null) {
-        track = manifest.tracks
-            .cast<yt_exp.ClosedCaptionTrackInfo?>()
-            .firstWhere(
-              (t) => t!.language.code.startsWith('$lang-'),
-              orElse: () => null,
-            );
+        track =
+            manifest.tracks.cast<yt_exp.ClosedCaptionTrackInfo?>().firstWhere(
+                  (t) => t!.language.code.startsWith('$lang-'),
+                  orElse: () => null,
+                );
       }
 
       // 3. Auto-generated: 'en' → 'a.en'
@@ -187,12 +253,11 @@ class YtService {
 
       // 4. Auto-generated với hyphen: 'a.en-US'
       if (track == null) {
-        track = manifest.tracks
-            .cast<yt_exp.ClosedCaptionTrackInfo?>()
-            .firstWhere(
-              (t) => t!.language.code.startsWith('a.$lang'),
-              orElse: () => null,
-            );
+        track =
+            manifest.tracks.cast<yt_exp.ClosedCaptionTrackInfo?>().firstWhere(
+                  (t) => t!.language.code.startsWith('a.$lang'),
+                  orElse: () => null,
+                );
       }
 
       // 5. Không tìm thấy đúng lang → không fallback sang lang khác
@@ -277,19 +342,17 @@ class YtService {
 
     // Pattern 3: bất kỳ timedtext URL (fallback)
     if (baseUrl == null) {
-      final p3 = RegExp(
-          r'"baseUrl":"(https://www\.youtube\.com/api/timedtext[^"]+)"');
+      final p3 =
+          RegExp(r'"baseUrl":"(https://www\.youtube\.com/api/timedtext[^"]+)"');
       baseUrl = p3.firstMatch(body)?.group(1);
     }
 
     if (baseUrl == null) return [];
 
-    baseUrl =
-        baseUrl.replaceAll(r'\u0026', '&').replaceAll(r'\/', '/');
+    baseUrl = baseUrl.replaceAll(r'\u0026', '&').replaceAll(r'\/', '/');
 
-    final captResp = await http
-        .get(Uri.parse(baseUrl))
-        .timeout(const Duration(seconds: 12));
+    final captResp =
+        await http.get(Uri.parse(baseUrl)).timeout(const Duration(seconds: 12));
 
     if (captResp.statusCode != 200) return [];
     return _parseXml(captResp.body);
@@ -302,8 +365,8 @@ class YtService {
     final variants = <String>[lang];
     switch (lang) {
       case 'en':
-        variants.addAll(['en-US', 'en-GB', 'en-CA', 'en-AU',
-            'a.en', 'a.en-US', 'a.en-GB']);
+        variants.addAll(
+            ['en-US', 'en-GB', 'en-CA', 'en-AU', 'a.en', 'a.en-US', 'a.en-GB']);
         break;
       case 'zh':
       case 'zh-Hans':
@@ -387,8 +450,7 @@ class YtService {
     return buf.toString();
   }
 
-  Future<String?> saveLrc(
-      List<YtCaptionLine> captions, YtVideo video) async {
+  Future<String?> saveLrc(List<YtCaptionLine> captions, YtVideo video) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final folder = Directory('${dir.path}/youtube_captions');

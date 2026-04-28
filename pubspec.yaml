@@ -103,4 +103,6 @@ ffigen: ^9.1.3
 flutter:
   uses-material-design: true
   assets:
-    - assets/dictionary/    
+    - assets/dictionary/ 
+    - assets/icons/   
+    - assets/whisper_models/

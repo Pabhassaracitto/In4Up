@@ -12,22 +12,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound_ai/vipsound_ai.dart';
 
 import 'features/shadowing/providers/shadowing_provider.dart';
-import 'screens/memory_mode/controllers/memory_controller.dart';
-import 'screens/memory_mode/memory_provider.dart';
 import 'firebase_options.dart';
+import 'providers/focus_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
 import 'providers/waveform_provider.dart';
-import 'providers/focus_provider.dart';
 import 'screens/main_shell.dart';
-import 'services/storage_service.dart';
-
+import 'screens/memory_mode/memory_provider.dart';
+import 'screens/read_mode/services/playback_controller.dart';
+import 'screens/read_mode/services/playback_engine.dart';
+import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
-import 'screens/read_mode/services/tts_notification_service.dart';
-import 'screens/read_mode/services/playback_engine.dart';
-import 'screens/read_mode/services/playback_controller.dart';
+import 'services/storage_service.dart';
 
 // Biến toàn cục để kiểm tra trạng thái Firebase
 bool isFirebaseAvailable = false;
@@ -41,9 +39,14 @@ void main() async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      isFirebaseAvailable = true;
+      debugPrint("✅ Firebase initialized successfully.");
+    } else {
+      // Firebase đã được khởi tạo (thường là do Hot Restart)
+      isFirebaseAvailable = true; // Giả định là có sẵn
+      debugPrint(
+          "ℹ️ Firebase [DEFAULT] app already initialized (likely hot restart).");
     }
-    isFirebaseAvailable = true;
-    debugPrint("✅ Firebase initialized successfully");
   } catch (e) {
     isFirebaseAvailable = false;
     debugPrint("❌ Firebase initialization failed: $e");

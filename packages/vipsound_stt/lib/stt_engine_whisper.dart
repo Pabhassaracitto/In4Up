@@ -3,7 +3,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:whisper_flutter_new/whisper_flutter_new.dart';
 
 import 'models/stt_model_info.dart';
@@ -60,6 +64,11 @@ class SttEngineWhisper {
       final wavPath = await _ensureWavFormat(audioPath);
       _progressController.add(0.1);
 
+      // Kiểm tra file wav sau khi convert có hợp lệ không
+      if (!await File(wavPath).exists() || await File(wavPath).length() < 100) {
+        throw Exception('File audio chuẩn hóa không hợp lệ hoặc quá nhỏ.');
+      }
+
       // ── FIX 1: Dùng WhisperModel.base thay vì WhisperModel.custom ────
       // whisper_flutter_new không có constant 'custom'
       // Model path được truyền qua modelPath field của TranscribeRequest
@@ -111,13 +120,37 @@ class SttEngineWhisper {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
+  /// Đảm bảo audio đúng định dạng Whisper yêu cầu: WAV PCM 16-bit, 16kHz, Mono.
+  /// Nếu không đúng, sử dụng lệnh shell hoặc thư viện để convert.
   Future<String> _ensureWavFormat(String audioPath) async {
-    if (audioPath.toLowerCase().endsWith('.wav')) {
+    final extension = p.extension(audioPath).toLowerCase();
+    final tempDir = await getTemporaryDirectory();
+    final outputPath = p.join(
+      tempDir.path,
+      'whisper_input_${DateTime.now().millisecondsSinceEpoch}.wav',
+    );
+
+    debugPrint('🔄 Chuẩn hóa audio cho Whisper: $extension -> 16kHz WAV Mono');
+
+    try {
+      // Lệnh FFmpeg ép file về: wav, pcm 16bit, 16000Hz, mono (1 channel)
+      final session = await FFmpegKit.execute(
+        '-y -i "$audioPath" -ar 16000 -ac 1 -c:a pcm_s16le "$outputPath"',
+      );
+      final returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        debugPrint('✅ Chuẩn hóa audio thành công: $outputPath');
+        return outputPath;
+      } else {
+        final logs = await session.getLogs();
+        debugPrint('❌ FFmpeg lỗi: ${logs.lastOrNull?.getMessage()}');
+        return audioPath;
+      }
+    } catch (e) {
+      debugPrint('❌ Lỗi xử lý FFmpeg: $e');
       return audioPath;
     }
-    debugPrint('⚠️ Non-WAV file. Consider converting to WAV 16kHz mono '
-        'for best Whisper results.');
-    return audioPath;
   }
 
   SttResult _parseWhisperResult(

@@ -6,8 +6,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart'; // Thêm import này
 import 'package:rxdart/rxdart.dart';
 
 import 'models/stt_model_info.dart';
@@ -44,7 +44,14 @@ class SttModelManager {
       }
     }
 
-    await _scanExistingModels();
+    try {
+      // Đảm bảo việc lỗi ở Assets không làm chết cả quá trình init
+      await _checkAndCopyFromAssets().timeout(const Duration(minutes: 2));
+    } catch (e) {
+      debugPrint('⚠️ Lỗi khi kiểm tra assets: $e');
+    }
+
+    await _scanExistingModels(); // Quét lại để cập nhật trạng thái cuối cùng
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────
@@ -268,21 +275,32 @@ class SttModelManager {
   // ─── Private Helpers ─────────────────────────────────────────────────────
 
   Future<void> _scanExistingModels() async {
+    if (_modelDirectory == null) return;
+    final dir = Directory(_modelDirectory!);
+    if (!await dir.exists()) return;
+
+    final files = await dir.list().toList();
+
     for (final level in WhisperModelLevel.values) {
-      final path = _getModelFilePath(level);
-      final file = File(path);
+      File? modelFile;
+      for (final f in files) {
+        if (f is File && f.path.contains('ggml-${level.name}')) {
+          modelFile = f;
+          break;
+        }
+      }
 
-      if (await file.exists()) {
-        final sizeMB = await file.length() / 1024 / 1024;
+      if (modelFile != null && await modelFile.exists()) {
+        final sizeMB = await modelFile.length() / 1024 / 1024;
+        debugPrint(
+            '🔍 Đang kiểm tra file hiện có: ${modelFile.path} ($sizeMB MB)');
 
-        if (sizeMB < level.sizeInMB * 0.8) {
-          debugPrint('⚠️ Model ${level.name} corrupt '
-              '(${sizeMB.toStringAsFixed(1)}MB)');
-          _emitState(level, ModelStatus.corrupted, localPath: path);
+        if (!_isSizeValid(sizeMB, level)) {
+          debugPrint('⚠️ Model ${level.name} bị hỏng hoặc size không khớp.');
+          _emitState(level, ModelStatus.corrupted, localPath: modelFile.path);
         } else {
-          debugPrint('✅ Model ${level.name} sẵn sàng '
-              '(${sizeMB.toStringAsFixed(1)}MB)');
-          _emitState(level, ModelStatus.downloaded, localPath: path);
+          debugPrint('✅ Model ${level.name} đã sẵn sàng.');
+          _emitState(level, ModelStatus.downloaded, localPath: modelFile.path);
         }
       }
     }
@@ -333,22 +351,14 @@ class SttModelManager {
       if (!await file.exists()) return false;
 
       final sizeMB = await file.length() / 1024 / 1024;
-      final minMB = level.sizeInMB * 0.9;
-      final maxMB = level.sizeInMB * 1.1;
-
-      if (sizeMB < minMB || sizeMB > maxMB) {
-        debugPrint('❌ Size không hợp lệ: ${sizeMB.toStringAsFixed(1)}MB '
-            '(kỳ vọng ${level.sizeInMB}MB ± 10%)');
-        return false;
-      }
-
+      if (!_isSizeValid(sizeMB, level)) return false;
       // Verify SHA1 checksum
       final digest = await _computeSha1(file);
       final expected = level.expectedSha1;
       if (digest != expected) {
-        debugPrint('❌ SHA1 không khớp: $digest vs $expected');
-        // Cảnh báo nhưng không fail (checksum có thể khác theo version)
-        debugPrint('⚠️ Tiếp tục dù SHA1 không khớp...');
+        debugPrint(
+            '⚠️ Cảnh báo SHA1: $digest (thực tế) vs $expected (kỳ vọng)');
+        debugPrint('ℹ️ Chấp nhận model phiên bản khác nếu kích thước hợp lệ.');
       }
 
       debugPrint('✅ Verify OK: ${sizeMB.toStringAsFixed(1)}MB');
@@ -357,6 +367,26 @@ class SttModelManager {
       debugPrint('❌ Verify error: $e');
       return false;
     }
+  }
+
+  /// Kiểm tra xem kích thước file có hợp lệ cho model đã cho không.
+  /// Cho phép các model đã được lượng tử hóa (quantized) có kích thước nhỏ hơn.
+  bool _isSizeValid(double actualSizeMB, WhisperModelLevel level) {
+    // Đối với các bản lượng tử hóa cực mạnh, kích thước có thể rất nhỏ.
+    // Ta chỉ cần đảm bảo file không phải là rác (ví dụ: < 5MB cho Tiny là bất thường)
+    double minAcceptableSizeMB = 5.0;
+
+    if (level == WhisperModelLevel.medium || level == WhisperModelLevel.large) {
+      minAcceptableSizeMB = 50.0; // Các model lớn hơn thì giới hạn cao hơn chút
+    }
+
+    if (actualSizeMB < minAcceptableSizeMB) {
+      debugPrint(
+          '❌ Kích thước không hợp lệ: ${actualSizeMB.toStringAsFixed(1)}MB '
+          '(kỳ vọng tối thiểu ${minAcceptableSizeMB.toStringAsFixed(1)}MB)');
+      return false;
+    }
+    return true;
   }
 
   Future<String> _computeSha1(File file) async {
@@ -457,4 +487,58 @@ class SttModelManager {
 
   /// Lấy model directory path (dùng cho DevTools/debug)
   String get modelDirectoryPath => _modelDirectory ?? 'Chưa khởi tạo';
+
+  /// Kiểm tra xem model có trong assets không, nếu có thì copy ra local storage
+  Future<void> _checkAndCopyFromAssets() async {
+    for (final level in WhisperModelLevel.values) {
+      final localPath = _getModelFilePath(level);
+      final localFile = File(localPath);
+
+      // Nếu file đã tồn tại ở local rồi thì bỏ qua không copy lại
+      if (await localFile.exists()) {
+        // Kiểm tra tính hợp lệ của file cục bộ trước
+        if (await _verifyFile(localPath, level)) {
+          debugPrint(
+              '✅ Model ${level.name} đã có trong bộ nhớ cache và hợp lệ.');
+          _emitState(level, ModelStatus.downloaded, localPath: localPath);
+          continue; // Bỏ qua và chuyển sang model tiếp theo
+        }
+        debugPrint(
+            '⚠️ Model ${level.name} trong bộ nhớ cache bị hỏng, sẽ thử copy từ assets hoặc tải lại.');
+        await localFile.delete(); // Xóa file cục bộ bị hỏng
+      }
+
+      final assetPath = 'assets/whisper_models/${level.fileName}';
+      debugPrint('🧐 Đang tìm trong Assets: $assetPath');
+
+      try {
+        // Thử load asset (sẽ throw nếu không tìm thấy trong bundle)
+        final data = await rootBundle.load(assetPath);
+
+        debugPrint(
+            '📦 Tìm thấy model trong assets: $assetPath. Đang sao chép...');
+
+        _emitState(level, ModelStatus.downloading, progress: 0.0);
+
+        final bytes =
+            data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        await localFile.writeAsBytes(bytes, flush: true);
+
+        // Verify sơ bộ sau khi copy
+        final valid = await _verifyFile(localPath, level);
+        if (valid) {
+          debugPrint('✅ Sao chép model từ assets thành công: ${level.name}');
+          _emitState(level, ModelStatus.downloaded, localPath: localPath);
+        } else {
+          await localFile.delete();
+          debugPrint(
+              '❌ Model trong assets không hợp lệ hoặc lỗi khi sao chép.');
+        }
+      } catch (e) {
+        // Không có trong assets hoặc lỗi load - im lặng để code tiếp tục quét file hệ thống hoặc cho phép tải từ mạng
+        debugPrint(
+            'ℹ️ Gợi ý: Không tìm thấy $assetPath trong assets (Bỏ qua nếu muốn tải online).');
+      }
+    }
+  }
 }

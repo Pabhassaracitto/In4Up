@@ -1,6 +1,6 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
-import 'package:file_picker/file_picker.dart'; // cho FilePicker
+import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
@@ -186,7 +186,8 @@ class _ModelCard extends StatelessWidget {
                         TextButton.icon(
                           icon: const Icon(Icons.folder_open, size: 16),
                           label: const Text('Import'),
-                          onPressed: () => _importModel(context, manager),
+                          onPressed: () =>
+                              _importModel(context, manager, level),
                         ),
                       // Nút Xoá
                       TextButton.icon(
@@ -204,7 +205,8 @@ class _ModelCard extends StatelessWidget {
                         TextButton.icon(
                           icon: const Icon(Icons.folder_open, size: 16),
                           label: const Text('Import'),
-                          onPressed: () => _importModel(context, manager),
+                          onPressed: () =>
+                              _importModel(context, manager, level),
                         ),
                       // Size label + Nút Tải
                       Text(
@@ -266,9 +268,11 @@ class _ModelCard extends StatelessWidget {
   Future<void> _importModel(
     BuildContext context,
     SttModelManager manager,
+    WhisperModelLevel level,
   ) async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.any,
+    final result = await fp.FilePicker.pickFiles(
+      type: fp.FileType.custom,
+      allowedExtensions: ['bin'], // Model Whisper (GGML) thường có đuôi .bin
     );
 
     if (result?.files.single.path == null) return;

@@ -2,32 +2,57 @@ enum WhisperModelLevel {
   tiny,
   base,
   small,
+  medium,
+  large,
 }
 
 extension WhisperModelLevelX on WhisperModelLevel {
   String get name {
     switch (this) {
-      case WhisperModelLevel.tiny:  return 'tiny';
-      case WhisperModelLevel.base:  return 'base';
-      case WhisperModelLevel.small: return 'small';
+      case WhisperModelLevel.tiny:
+        return 'tiny';
+      case WhisperModelLevel.base:
+        return 'base';
+      case WhisperModelLevel.small:
+        return 'small';
+      case WhisperModelLevel.medium:
+        return 'medium';
+      case WhisperModelLevel.large:
+        return 'large';
     }
   }
 
-  String get fileName => 'ggml-$name.en.bin';
+  /// Tên file mặc định khi tải về và tìm kiếm trong assets.
+  /// Hiện đang sử dụng phiên bản lượng tử hóa Q5_1.
+  String get fileName {
+    switch (this) {
+      case WhisperModelLevel.base:
+        return 'ggml-base.en-q5_1.bin';
+      default:
+        return 'ggml-$name-q5_1.bin';
+    }
+  }
 
   int get sizeInMB {
     switch (this) {
-      case WhisperModelLevel.tiny:  return 75;
-      case WhisperModelLevel.base:  return 145;
-      case WhisperModelLevel.small: return 466;
+      case WhisperModelLevel.tiny:
+        return 31; // tiny-q5_1 chuẩn
+      case WhisperModelLevel.base:
+        return 57; // base-q5_1 chuẩn
+      case WhisperModelLevel.small:
+        return 181; // small-q5_1 chuẩn
+      case WhisperModelLevel.medium:
+        return 515; // medium-q5_1 ước tính
+      case WhisperModelLevel.large:
+        return 1050; // large-v3-q5_1 ước tính
     }
   }
 
   /// ✅ Dùng Hugging Face — miễn phí, không cần thẻ tín dụng
   /// Model gốc từ ggerganov/whisper.cpp (official repo)
   String get downloadUrl {
-    const base =
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
+    // Cập nhật URL nếu các model q5_1 nằm ở một đường dẫn khác
+    const base = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
     return '$base/$fileName';
   }
 
@@ -42,11 +67,15 @@ extension WhisperModelLevelX on WhisperModelLevel {
   String get description {
     switch (this) {
       case WhisperModelLevel.tiny:
-        return 'Siêu nhẹ (~75MB) - Nhanh, phù hợp ghi chú nhanh';
+        return 'Siêu nhẹ (~31MB) - Nhanh, phù hợp ghi chú nhanh';
       case WhisperModelLevel.base:
-        return 'Cân bằng (~145MB) - Tốt cho hầu hết trường hợp';
+        return 'Cân bằng (~57MB) - Tốt cho hầu hết trường hợp';
       case WhisperModelLevel.small:
-        return 'Chính xác cao (~466MB) - Lý tưởng cho Deep Learning';
+        return 'Chính xác (~181MB) - Cân bằng giữa tốc độ và chất lượng';
+      case WhisperModelLevel.medium:
+        return 'Chuyên nghiệp (~515MB) - Rất tốt để phân tích phiên âm';
+      case WhisperModelLevel.large:
+        return 'Tối thượng (~1GB) - Tốt nhất để sửa lỗi phát âm';
     }
   }
 
@@ -56,11 +85,15 @@ extension WhisperModelLevelX on WhisperModelLevel {
   String get expectedSha1 {
     switch (this) {
       case WhisperModelLevel.tiny:
-        return 'bd577a113a864445d4c299885e0cb97d4ba92b5f';
+        return '2827a03e495b1ed3048ef28a6a4620537db4ee51';
       case WhisperModelLevel.base:
-        return '465707469ff3a37a2b9b8d8f89f2f99de7299dac';
+        return 'a3733eda680ef76256db5fc5dd9de8629e62c5e7';
       case WhisperModelLevel.small:
-        return '55356645c2b361a969dfd0ef2c5a50d530afd8d5';
+        return '6fe57ddcfdd1c6b07cdcc73aaf620810ce5fc771';
+      case WhisperModelLevel.medium:
+        return ''; // Cập nhật SHA1 sau khi bạn tải file thực tế
+      case WhisperModelLevel.large:
+        return ''; // Cập nhật SHA1 sau khi bạn tải file thực tế
     }
   }
 }
@@ -88,8 +121,7 @@ class SttModelInfo {
     this.errorMessage,
   });
 
-  bool get isReady =>
-      status == ModelStatus.downloaded && localPath != null;
+  bool get isReady => status == ModelStatus.downloaded && localPath != null;
 
   bool get isDownloading => status == ModelStatus.downloading;
 

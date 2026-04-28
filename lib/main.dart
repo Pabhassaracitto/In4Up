@@ -35,19 +35,23 @@ void main() async {
 
   // 1. Khởi tạo Firebase với Try-Catch để không chặn App nếu lỗi
   try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    isFirebaseAvailable = true;
+    debugPrint("✅ Firebase initialized successfully.");
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      // Đây là trường hợp bình thường khi Hot Restart nếu Firebase đã được khởi tạo
       isFirebaseAvailable = true;
-      debugPrint("✅ Firebase initialized successfully.");
-    } else {
-      // Firebase đã được khởi tạo (thường là do Hot Restart)
-      isFirebaseAvailable = true; // Giả định là có sẵn
       debugPrint(
           "ℹ️ Firebase [DEFAULT] app already initialized (likely hot restart).");
+    } else {
+      isFirebaseAvailable = false;
+      debugPrint("❌ Firebase initialization failed: $e");
     }
   } catch (e) {
+    // Bắt các lỗi khác không phải FirebaseException
     isFirebaseAvailable = false;
     debugPrint("❌ Firebase initialization failed: $e");
   }

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -362,42 +360,45 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           ],
         ),
       ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
-          if (_currentIndex != 1)
-            RepaintBoundary(
-              child: Consumer<PlayerProvider>(
-                builder: (context, player, _) {
-                  if (player.currentSongPath == null) {
-                    return const SizedBox.shrink();
-                  }
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
+            if (_currentIndex != 1)
+              RepaintBoundary(
+                child: Consumer<PlayerProvider>(
+                  builder: (context, player, _) {
+                    if (player.currentSongPath == null) {
+                      return const SizedBox.shrink();
+                    }
 
-                  // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
-                  return OpenContainer(
-                    transitionType: ContainerTransitionType.fadeThrough,
-                    openColor: const Color(0xFF080B1A),
-                    closedColor: Colors.transparent,
-                    closedElevation: 0,
-                    openElevation: 0,
-                    closedBuilder: (context, action) => MiniPlayer(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      onTap:
-                          null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
-                    ),
-                    openBuilder: (context, action) {
-                      return const ListenModeScreen();
-                    },
-                    onClosed: (_) {
-                      // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
-                    },
-                  );
-                },
+                    // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
+                    return OpenContainer(
+                      transitionType: ContainerTransitionType.fadeThrough,
+                      openColor: const Color(0xFF080B1A),
+                      closedColor: Colors.transparent,
+                      closedElevation: 0,
+                      openElevation: 0,
+                      closedBuilder: (context, action) => MiniPlayer(
+                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                        onTap:
+                            null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
+                      ),
+                      openBuilder: (context, action) {
+                        return const ListenModeScreen();
+                      },
+                      onClosed: (_) {
+                        // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          _buildBottomNav(),
-        ],
+            _buildBottomNav(),
+          ],
+        ),
       ),
     );
   }

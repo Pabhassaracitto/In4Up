@@ -18,6 +18,7 @@ import 'loop_count_picker.dart';
 import 'single_word_review_screen.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'youglish_mini_sheet.dart';
+import '../review_tab.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN

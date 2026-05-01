@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:vipsound_stt/stt_service_facade.dart' as _modelManager;
 
 import 'models/stt_config.dart';
 import 'models/stt_model_info.dart';
@@ -113,7 +114,11 @@ class SttServiceFacade extends ChangeNotifier {
 
   // ─── Initialization ───────────────────────────────────────────────────────
 
-  Future<void> initialize({SttConfig? config}) async {
+  Future<void> initialize({
+    SttConfig? config,
+    Map<WhisperModelLevel, List<String>>? modelUrls,
+    Map<WhisperModelLevel, List<String>>? acceptedModelNames,
+  }) async {
     if (_initialized) return;
 
     _emitProgress(SttFacadeStatus.initializing, 0.0, 'Đang khởi tạo...');
@@ -124,11 +129,14 @@ class SttServiceFacade extends ChangeNotifier {
     _modelManager = SttModelManager();
     _lrcConverter = SttLrcConverter();
 
-    // Khởi tạo model manager
+    _modelManager.configureSources(
+      urls: modelUrls,
+      acceptedFileNames: acceptedModelNames,
+    );
+
     await _modelManager.initialize();
     _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
 
-    // Khởi tạo native engine (không throw nếu thất bại)
     await _nativeEngine.initialize().catchError((e) {
       debugPrint('⚠️ Native STT init failed (non-fatal): $e');
     });
@@ -539,4 +547,14 @@ class ModelDownloadException implements Exception {
 
   @override
   String toString() => 'ModelDownloadException: $message';
+}
+
+Future<bool> importModelFromPath(
+  String sourcePath, {
+  WhisperModelLevel? level,
+}) {
+  return _modelManager.importModelFromPath(
+    sourcePath,
+    level: level,
+  );
 }

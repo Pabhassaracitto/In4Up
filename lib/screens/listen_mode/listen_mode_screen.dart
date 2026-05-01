@@ -306,61 +306,66 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           return const ListenLibraryScreen();
         }
 
-        return Stack(
-          children: [
-            Column(
+        return SafeArea(
+            bottom:
+                false, // Để sheet có thể kéo xuống sát mép nếu cần, hoặc true để tránh nút navigation
+            child: Stack(
               children: [
-                // Song info bar
-                _SongInfoBar(
-                  player: player,
-                  onTitleTap: () => QuickAudioSheet.show(context),
+                Column(
+                  children: [
+                    // Song info bar
+                    _SongInfoBar(
+                      player: player,
+                      onTitleTap: () => QuickAudioSheet.show(context),
+                    ),
+
+                    // Waveform (3-state)
+                    Expanded(
+                      child: _buildWaveform(player),
+                    ),
+
+                    // Core controls (always visible)
+                    Consumer<PlayerProvider>(
+                      builder: (_, p, __) => _CorePlayerControls(
+                        player: p,
+                        sheetController: _sheetController,
+                      ),
+                    ),
+
+                    // Giảm chiều cao cố định để tránh overflow trên màn hình nhỏ
+                    const SizedBox(height: 16),
+                  ],
                 ),
 
-                // Waveform (3-state)
-                Expanded(
-                  child: _buildWaveform(player),
-                ),
-
-                // Core controls (always visible)
-                Consumer<PlayerProvider>(
-                  builder: (_, p, __) => _CorePlayerControls(
-                    player: p,
-                    sheetController: _sheetController,
-                  ),
-                ),
-
-                const SizedBox(height: 72),
-              ],
-            ),
-
-            // Bottom sheet (advanced)
-            DraggableScrollableSheet(
-              controller: _sheetController,
-              initialChildSize: 0.10,
-              minChildSize: 0.10,
-              maxChildSize: 0.55,
-              snap: true,
-              snapSizes: const [0.10, 0.55],
-              builder: (context, scrollController) {
-                return NotificationListener<DraggableScrollableNotification>(
-                  onNotification: (n) {
-                    final wasExpanded = _sheetExpanded;
-                    final nowExpanded = n.extent > 0.20;
-                    if (wasExpanded != nowExpanded) {
-                      setState(() => _sheetExpanded = nowExpanded);
-                    }
-                    return false;
+                // Bottom sheet (advanced)
+                DraggableScrollableSheet(
+                  controller: _sheetController,
+                  initialChildSize: 0.10,
+                  minChildSize: 0.10,
+                  maxChildSize: 0.55,
+                  snap: true,
+                  snapSizes: const [0.10, 0.55],
+                  builder: (context, scrollController) {
+                    return NotificationListener<
+                        DraggableScrollableNotification>(
+                      onNotification: (n) {
+                        final wasExpanded = _sheetExpanded;
+                        final nowExpanded = n.extent > 0.20;
+                        if (wasExpanded != nowExpanded) {
+                          setState(() => _sheetExpanded = nowExpanded);
+                        }
+                        return false;
+                      },
+                      child: _AdvancedSheet(
+                        scrollController: scrollController,
+                        player: player,
+                        isExpanded: _sheetExpanded,
+                      ),
+                    );
                   },
-                  child: _AdvancedSheet(
-                    scrollController: scrollController,
-                    player: player,
-                    isExpanded: _sheetExpanded,
-                  ),
-                );
-              },
-            ),
-          ],
-        );
+                ),
+              ],
+            ));
       },
     );
   }

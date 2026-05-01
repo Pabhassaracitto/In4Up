@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+
 import 'package:flutter/foundation.dart';
+
+import '../mapper/ai_model_mapper.dart';
 import '../models/ai_analysis.dart';
 import '../prompts/ai_prompts_library.dart';
-import '../mapper/ai_model_mapper.dart';
 import 'ai_engine.dart';
 
 class AiEngineGemma implements AiEngine {

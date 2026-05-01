@@ -1,12 +1,12 @@
-// Thêm logic: thử primary URL → fallback mirror URL tự động
-
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -17,52 +17,74 @@ class SttModelManager {
   factory SttModelManager() => _instance ??= SttModelManager._internal();
   SttModelManager._internal();
 
-  final _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(minutes: 30),
-    // ✅ Header giả lập browser để HuggingFace không block
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; VipsoundApp/1.0)',
-    },
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 30),
+      headers: const {
+        'User-Agent': 'Mozilla/5.0 (compatible; VipsoundApp/1.0)',
+      },
+    ),
+  );
 
   final _modelStates = <WhisperModelLevel, BehaviorSubject<SttModelInfo>>{};
   final _activeDownloads = <WhisperModelLevel, CancelToken>{};
+
+  final Map<WhisperModelLevel, List<String>> _urlOverrides = {};
+  final Map<WhisperModelLevel, List<String>> _nameOverrides = {};
+
   String? _modelDirectory;
+  bool _initialized = false;
 
-  // ─── Initialization ─────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
+  // Public config
+  // ───────────────────────────────────────────────────────────────────────────
 
-  Future<void> initialize() async {
-    _modelDirectory = await _resolveModelDirectory();
-    debugPrint('📁 Model dir: $_modelDirectory');
-
-    for (final level in WhisperModelLevel.values) {
-      if (!_modelStates.containsKey(level)) {
-        _modelStates[level] = BehaviorSubject<SttModelInfo>.seeded(
-          SttModelInfo(level: level, status: ModelStatus.notDownloaded),
-        );
-      }
+  /// Gọi trước initialize().
+  ///
+  /// - urls: đúng 5 link bạn chỉ định cho từng model
+  /// - acceptedFileNames: thêm tên file custom nếu bạn muốn app auto nhận
+  void configureSources({
+    Map<WhisperModelLevel, List<String>>? urls,
+    Map<WhisperModelLevel, List<String>>? acceptedFileNames,
+  }) {
+    if (urls != null) {
+      _urlOverrides
+        ..clear()
+        ..addAll(urls.map(
+          (key, value) => MapEntry(key, _normalizeStringList(value)),
+        ));
     }
 
-    try {
-      // Đảm bảo việc lỗi ở Assets không làm chết cả quá trình init
-      await _checkAndCopyFromAssets().timeout(const Duration(minutes: 2));
-    } catch (e) {
-      debugPrint('⚠️ Lỗi khi kiểm tra assets: $e');
+    if (acceptedFileNames != null) {
+      _nameOverrides
+        ..clear()
+        ..addAll(acceptedFileNames.map(
+          (key, value) => MapEntry(key, _normalizeStringList(value)),
+        ));
     }
-
-    await _scanExistingModels(); // Quét lại để cập nhật trạng thái cuối cùng
   }
 
-  // ─── Public API ─────────────────────────────────────────────────────────
+  Future<void> initialize() async {
+    if (_initialized) return;
+
+    _ensureSubjects();
+    _modelDirectory = await _resolveModelDirectory();
+    debugPrint('📁 STT model dir: $_modelDirectory');
+
+    await _copyBundledAssetsIfAvailable();
+    await _scanExistingModels();
+
+    _initialized = true;
+  }
 
   Stream<SttModelInfo> watchModel(WhisperModelLevel level) {
-    _ensureInitialized();
+    _ensureSubjects();
     return _modelStates[level]!.stream;
   }
 
   SttModelInfo getModelInfo(WhisperModelLevel level) {
-    _ensureInitialized();
+    _ensureSubjects();
     return _modelStates[level]!.value;
   }
 
@@ -73,76 +95,104 @@ class SttModelManager {
     return info.isReady ? info.localPath : null;
   }
 
+  String get modelDirectoryPath => _modelDirectory ?? 'Chưa khởi tạo';
+
   Future<int> getFreeSpaceMB() => _getFreeSpaceMB();
 
-  /// Download với fallback tự động:
-  /// HuggingFace → GitHub Releases (mirror)
+  Future<void> rescan() async {
+    _ensureInitialized();
+    await _scanExistingModels();
+  }
+
+  Future<bool> ensureModel(WhisperModelLevel level) async {
+    _ensureInitialized();
+
+    final existing = await _findExistingModelFile(level);
+    if (existing != null) {
+      _emitState(
+        level,
+        ModelStatus.downloaded,
+        localPath: existing.path,
+        progress: 1.0,
+      );
+      return true;
+    }
+
+    return downloadModel(level);
+  }
+
   Future<bool> downloadModel(
     WhisperModelLevel level, {
-    int maxRetries = 3,
+    int maxRetries = 2,
   }) async {
     _ensureInitialized();
 
-    final info = getModelInfo(level);
-    if (info.isReady) return true;
-    if (info.isDownloading) return false;
+    if (isModelReady(level)) return true;
+    if (_activeDownloads.containsKey(level)) return false;
 
-    // Kiểm tra dung lượng
+    final urls = _urlsFor(level);
+    if (urls.isEmpty) {
+      _emitState(
+        level,
+        ModelStatus.notDownloaded,
+        errorMessage: 'Chưa cấu hình URL download cho model ${level.name}',
+      );
+      return false;
+    }
+
     final hasSpace = await _checkFreeSpace(level);
     if (!hasSpace) {
       final freeMB = await _getFreeSpaceMB();
       _emitState(
         level,
         ModelStatus.insufficientSpace,
-        errorMessage: 'Cần ${level.requiredFreeSpaceMB}MB, '
-            'còn $freeMB MB',
+        errorMessage: 'Cần ${level.requiredFreeSpaceMB}MB, còn $freeMB MB',
       );
       return false;
     }
 
-    _emitState(level, ModelStatus.downloading, progress: 0.0);
     final cancelToken = CancelToken();
     _activeDownloads[level] = cancelToken;
+    _emitState(level, ModelStatus.downloading, progress: 0.0);
 
-    // Danh sách URL thử theo thứ tự ưu tiên
-    final urlSources = [
-      ('HuggingFace', level.downloadUrl),
-      ('GitHub Mirror', level.mirrorUrl),
-    ];
+    try {
+      for (final url in urls) {
+        final success = await _downloadFromUrl(
+          level: level,
+          url: url,
+          cancelToken: cancelToken,
+          maxRetries: maxRetries,
+        );
 
-    for (final (sourceName, url) in urlSources) {
-      debugPrint('📥 Thử tải từ $sourceName: $url');
+        if (success) {
+          _activeDownloads.remove(level);
+          return true;
+        }
 
-      final success = await _downloadFromUrl(
-        url: url,
-        sourceName: sourceName,
-        level: level,
-        cancelToken: cancelToken,
-        maxRetries: maxRetries,
+        if (cancelToken.isCancelled) {
+          _activeDownloads.remove(level);
+          _emitState(level, ModelStatus.notDownloaded);
+          return false;
+        }
+      }
+
+      _activeDownloads.remove(level);
+      _emitState(
+        level,
+        ModelStatus.notDownloaded,
+        errorMessage:
+            'Không tải được model ${level.name} từ tất cả nguồn đã cấu hình',
       );
-
-      if (success) {
-        _activeDownloads.remove(level);
-        return true;
-      }
-
-      // Nếu bị cancel thì dừng hẳn, không thử mirror
-      if (!_activeDownloads.containsKey(level)) {
-        return false;
-      }
-
-      debugPrint('⚠️ $sourceName thất bại, chuyển sang nguồn tiếp theo...');
+      return false;
+    } catch (e) {
+      _activeDownloads.remove(level);
+      _emitState(
+        level,
+        ModelStatus.notDownloaded,
+        errorMessage: e.toString(),
+      );
+      return false;
     }
-
-    // Tất cả nguồn đều thất bại
-    _activeDownloads.remove(level);
-    _emitState(
-      level,
-      ModelStatus.notDownloaded,
-      errorMessage: 'Không thể tải từ tất cả nguồn. '
-          'Kiểm tra kết nối mạng.',
-    );
-    return false;
   }
 
   void cancelDownload(WhisperModelLevel level) {
@@ -153,83 +203,329 @@ class SttModelManager {
 
   Future<void> deleteModel(WhisperModelLevel level) async {
     _ensureInitialized();
-    final path = _getModelFilePath(level);
-    final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-      debugPrint('🗑️ Deleted: $path');
+
+    final files = await _listLocalBinFiles();
+    for (final file in files) {
+      if (await _belongsToLevel(file, level)) {
+        await file.delete().catchError((_) {});
+        await File('${file.path}.level').delete().catchError((_) {});
+        debugPrint('🗑️ Deleted model file: ${file.path}');
+      }
     }
+
     _emitState(level, ModelStatus.notDownloaded);
   }
 
-  // ─── Core Download Logic ─────────────────────────────────────────────────
-
-  Future<bool> _downloadFromUrl({
-    required String url,
-    required String sourceName,
-    required WhisperModelLevel level,
-    required CancelToken cancelToken,
-    required int maxRetries,
+  /// Import file .bin từ bất kỳ path nào.
+  ///
+  /// Nếu [level] == null:
+  /// - app sẽ cố detect theo tên file
+  /// - nếu không detect được, file vẫn được copy vào thư mục model
+  ///   nhưng bạn nên gọi lại với level cụ thể để pin chính xác
+  Future<bool> importModelFromPath(
+    String sourcePath, {
+    WhisperModelLevel? level,
   }) async {
-    final savePath = _getModelFilePath(level);
-    int attempt = 0;
+    _ensureInitialized();
 
-    while (attempt < maxRetries) {
-      attempt++;
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('❌ Source không tồn tại: $sourcePath');
+        return false;
+      }
 
-      // Nếu đã bị cancel
-      if (cancelToken.isCancelled) return false;
+      if (p.extension(sourcePath).toLowerCase() != '.bin') {
+        debugPrint('❌ File không phải .bin: $sourcePath');
+        return false;
+      }
+
+      final detectedLevel = level ?? detectLevelFromFileName(sourcePath);
+      final fileName = p.basename(sourcePath);
+      final destPath = p.join(_modelDirectory!, fileName);
+
+      _emitState(
+        detectedLevel ?? WhisperModelLevel.base,
+        ModelStatus.downloading,
+        progress: 0.0,
+      );
+
+      final total = await sourceFile.length();
+      var copied = 0;
+
+      final outFile = File(destPath);
+      final sink = outFile.openWrite();
+
+      await for (final chunk in sourceFile.openRead()) {
+        sink.add(chunk);
+        copied += chunk.length;
+
+        if (detectedLevel != null && total > 0) {
+          _emitState(
+            detectedLevel,
+            ModelStatus.downloading,
+            progress: copied / total,
+          );
+        }
+      }
+
+      await sink.flush();
+      await sink.close();
+
+      if (detectedLevel != null) {
+        final valid = await _verifyFile(destPath, detectedLevel);
+        if (!valid) {
+          await outFile.delete().catchError((_) {});
+          _emitState(detectedLevel, ModelStatus.corrupted);
+          return false;
+        }
+
+        await _writePinnedLevel(destPath, detectedLevel);
+        _emitState(
+          detectedLevel,
+          ModelStatus.downloaded,
+          localPath: destPath,
+          progress: 1.0,
+        );
+      }
+
+      await _scanExistingModels();
+      debugPrint('✅ Import thành công: $destPath');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Import error: $e');
+      return false;
+    }
+  }
+
+  WhisperModelLevel? detectLevelFromFileName(String pathOrName) {
+    final fileName = p.basename(pathOrName).toLowerCase();
+
+    for (final level in WhisperModelLevel.values) {
+      if (_matchScore(fileName, level) > 0) {
+        return level;
+      }
+    }
+    return null;
+  }
+
+  void dispose() {
+    for (final token in _activeDownloads.values) {
+      token.cancel('Disposed');
+    }
+    _activeDownloads.clear();
+
+    for (final subject in _modelStates.values) {
+      subject.close();
+    }
+    _modelStates.clear();
+
+    _instance = null;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Internal
+  // ───────────────────────────────────────────────────────────────────────────
+
+  void _ensureSubjects() {
+    for (final level in WhisperModelLevel.values) {
+      _modelStates.putIfAbsent(
+        level,
+        () => BehaviorSubject<SttModelInfo>.seeded(
+          SttModelInfo(level: level, status: ModelStatus.notDownloaded),
+        ),
+      );
+    }
+  }
+
+  void _ensureInitialized() {
+    if (_modelDirectory == null) {
+      throw StateError(
+        'SttModelManager chưa được khởi tạo. Gọi initialize() trước.',
+      );
+    }
+  }
+
+  Future<String> _resolveModelDirectory() async {
+    final appDir = await getApplicationSupportDirectory();
+    final dir = Directory(p.join(appDir.path, 'vipsound_whisper_models'));
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir.path;
+  }
+
+  List<String> _normalizeStringList(List<String> input) {
+    final result = <String>{};
+    for (final item in input) {
+      final trimmed = item.trim();
+      if (trimmed.isNotEmpty) result.add(trimmed);
+    }
+    return result.toList();
+  }
+
+  List<String> _acceptedFileNamesFor(WhisperModelLevel level) {
+    final merged = <String>{
+      ...level.candidateFileNames,
+      ...?_nameOverrides[level],
+    };
+    return merged.map((e) => e.toLowerCase()).toList();
+  }
+
+  List<String> _urlsFor(WhisperModelLevel level) {
+    final override = _urlOverrides[level];
+    if (override != null && override.isNotEmpty) {
+      return override;
+    }
+    return [level.downloadUrl, level.mirrorUrl];
+  }
+
+  Future<List<File>> _listLocalBinFiles() async {
+    _ensureInitialized();
+    final dir = Directory(_modelDirectory!);
+    final result = <File>[];
+
+    if (!await dir.exists()) return result;
+
+    await for (final entity in dir.list()) {
+      if (entity is File && p.extension(entity.path).toLowerCase() == '.bin') {
+        result.add(entity);
+      }
+    }
+    return result;
+  }
+
+  Future<void> _scanExistingModels() async {
+    _ensureInitialized();
+
+    final files = await _listLocalBinFiles();
+
+    for (final level in WhisperModelLevel.values) {
+      File? found;
+
+      for (final file in files) {
+        if (await _belongsToLevel(file, level) &&
+            await _verifyFile(file.path, level)) {
+          found = file;
+          break;
+        }
+      }
+
+      if (found != null) {
+        _emitState(
+          level,
+          ModelStatus.downloaded,
+          localPath: found.path,
+          progress: 1.0,
+        );
+      } else {
+        _emitState(level, ModelStatus.notDownloaded);
+      }
+    }
+  }
+
+  Future<bool> _belongsToLevel(File file, WhisperModelLevel level) async {
+    final pinned = await _readPinnedLevel(file.path);
+    if (pinned == level) return true;
+
+    final name = p.basename(file.path).toLowerCase();
+    return _matchScore(name, level) > 0;
+  }
+
+  int _matchScore(String fileName, WhisperModelLevel level) {
+    final lower = fileName.toLowerCase();
+    if (!lower.endsWith('.bin')) return 0;
+
+    final accepted = _acceptedFileNamesFor(level);
+    if (accepted.contains(lower)) return 1000;
+
+    final levelName = level.name.toLowerCase();
+
+    if (lower.contains('ggml-$levelName')) return 900;
+    if (lower.contains('whisper-$levelName')) return 850;
+    if (_containsToken(lower, levelName)) return 800;
+
+    if (level == WhisperModelLevel.large && lower.contains('large-v3')) {
+      return 880;
+    }
+
+    return 0;
+  }
+
+  bool _containsToken(String text, String token) {
+    final regex = RegExp('(^|[^a-z])${RegExp.escape(token)}([^a-z]|\$)');
+    return regex.hasMatch(text);
+  }
+
+  Future<File?> _findExistingModelFile(WhisperModelLevel level) async {
+    final files = await _listLocalBinFiles();
+
+    // Ưu tiên file pinned chính xác
+    for (final file in files) {
+      final pinned = await _readPinnedLevel(file.path);
+      if (pinned == level && await _verifyFile(file.path, level)) {
+        return file;
+      }
+    }
+
+    // Sau đó đến tên file exact/fuzzy
+    final scored = <MapEntry<File, int>>[];
+    for (final file in files) {
+      final score = _matchScore(p.basename(file.path), level);
+      if (score > 0) {
+        scored.add(MapEntry(file, score));
+      }
+    }
+
+    scored.sort((a, b) => b.value.compareTo(a.value));
+
+    for (final entry in scored) {
+      if (await _verifyFile(entry.key.path, level)) {
+        return entry.key;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _copyBundledAssetsIfAvailable() async {
+    _ensureInitialized();
+
+    final bundledAssets = await _listBundledBinAssets();
+    if (bundledAssets.isEmpty) {
+      debugPrint(
+          'ℹ️ Không tìm thấy model .bin nào trong assets/whisper_models');
+      return;
+    }
+
+    for (final level in WhisperModelLevel.values) {
+      final existing = await _findExistingModelFile(level);
+      if (existing != null) continue;
+
+      final assetPath = _pickBestAssetForLevel(level, bundledAssets);
+      if (assetPath == null) continue;
 
       try {
-        // Kiểm tra file đang tải dở
-        final resumeBytes = await _getResumedBytes(savePath);
-        final headers = resumeBytes > 0
-            ? {'Range': 'bytes=$resumeBytes-'}
-            : <String, dynamic>{};
-
-        if (resumeBytes > 0) {
-          debugPrint(
-              '↩️ Resume từ ${(resumeBytes / 1024 / 1024).toStringAsFixed(1)}MB');
-        }
-
-        await _dio.download(
-          url,
-          // Tải vào file tạm trước
-          '$savePath.tmp',
-          cancelToken: cancelToken,
-          deleteOnError: false, // Giữ file tạm để resume
-          onReceiveProgress: (received, total) {
-            if (total <= 0) return;
-            // Cộng thêm bytes đã resume
-            final totalReceived = received + resumeBytes;
-            final totalSize = total + resumeBytes;
-            final progress = totalReceived / totalSize;
-
-            _emitState(
-              level,
-              ModelStatus.downloading,
-              progress: progress,
-            );
-          },
-          options: Options(
-            headers: headers,
-            followRedirects: true,
-            maxRedirects: 5,
-          ),
+        final data = await rootBundle.load(assetPath);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
         );
 
-        // Rename file tạm → file chính
-        final tmpFile = File('$savePath.tmp');
-        if (await tmpFile.exists()) {
-          await tmpFile.rename(savePath);
-        }
+        final fileName = p.basename(assetPath);
+        final savePath = p.join(_modelDirectory!, fileName);
 
-        // Verify file
+        debugPrint('📦 Copy bundled model: $assetPath -> $savePath');
+
+        await File(savePath).writeAsBytes(bytes, flush: true);
+
         final valid = await _verifyFile(savePath, level);
         if (!valid) {
-          await File(savePath).delete().catchError((_) => File(savePath));
-          throw Exception('File verification failed');
+          await File(savePath).delete().catchError((_) {});
+          continue;
         }
+
+        await _writePinnedLevel(savePath, level);
 
         _emitState(
           level,
@@ -237,34 +533,129 @@ class SttModelManager {
           localPath: savePath,
           progress: 1.0,
         );
-        debugPrint('✅ Download thành công từ $sourceName!');
+      } catch (e) {
+        debugPrint('⚠️ Copy asset failed for ${level.name}: $e');
+      }
+    }
+  }
+
+  Future<List<String>> _listBundledBinAssets() async {
+    try {
+      final raw = await rootBundle.loadString('AssetManifest.json');
+      final decoded = json.decode(raw);
+
+      if (decoded is! Map<String, dynamic>) return const [];
+
+      return decoded.keys
+          .where((key) =>
+              key.toLowerCase().endsWith('.bin') &&
+              key.toLowerCase().contains('whisper_models'))
+          .toList();
+    } catch (e) {
+      debugPrint('ℹ️ Không đọc được AssetManifest.json: $e');
+      return const [];
+    }
+  }
+
+  String? _pickBestAssetForLevel(
+    WhisperModelLevel level,
+    List<String> assets,
+  ) {
+    String? bestPath;
+    int bestScore = 0;
+
+    for (final asset in assets) {
+      final fileName = p.basename(asset).toLowerCase();
+      final score = _matchScore(fileName, level);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPath = asset;
+      }
+    }
+
+    return bestPath;
+  }
+
+  Future<bool> _downloadFromUrl({
+    required WhisperModelLevel level,
+    required String url,
+    required CancelToken cancelToken,
+    required int maxRetries,
+  }) async {
+    var attempt = 0;
+
+    while (attempt < maxRetries) {
+      attempt++;
+
+      if (cancelToken.isCancelled) return false;
+
+      try {
+        final fileName = _safeFileNameFromUrl(url, fallback: level.fileName);
+        final savePath = p.join(_modelDirectory!, fileName);
+        final tmpPath = '$savePath.tmp';
+
+        debugPrint('📥 Download ${level.name} từ: $url');
+
+        await _dio.download(
+          url,
+          tmpPath,
+          cancelToken: cancelToken,
+          deleteOnError: true,
+          onReceiveProgress: (received, total) {
+            if (total <= 0) return;
+            _emitState(
+              level,
+              ModelStatus.downloading,
+              progress: received / total,
+            );
+          },
+        );
+
+        final tmpFile = File(tmpPath);
+        if (!await tmpFile.exists()) return false;
+
+        final finalFile = File(savePath);
+        if (await finalFile.exists()) {
+          await finalFile.delete().catchError((_) {});
+        }
+        await tmpFile.rename(savePath);
+
+        final valid = await _verifyFile(savePath, level);
+        if (!valid) {
+          await File(savePath).delete().catchError((_) {});
+          throw Exception('File verify failed: $savePath');
+        }
+
+        await _writePinnedLevel(savePath, level);
+
+        _emitState(
+          level,
+          ModelStatus.downloaded,
+          localPath: savePath,
+          progress: 1.0,
+        );
+
+        debugPrint('✅ Download thành công: $savePath');
         return true;
       } on DioException catch (e) {
         if (CancelToken.isCancel(e)) {
           debugPrint('🚫 Download bị huỷ');
-          _emitState(level, ModelStatus.notDownloaded);
           return false;
         }
 
-        final statusCode = e.response?.statusCode;
-        debugPrint('⚠️ $sourceName attempt $attempt/$maxRetries '
-            'thất bại (HTTP $statusCode): ${e.message}');
-
-        // Một số lỗi không nên retry
-        if (statusCode == 404 || statusCode == 403) {
-          debugPrint('❌ Lỗi $statusCode - không retry');
-          return false;
-        }
+        debugPrint(
+          '⚠️ Download ${level.name} thất bại '
+          '($attempt/$maxRetries) - HTTP ${e.response?.statusCode}: ${e.message}',
+        );
 
         if (attempt < maxRetries) {
-          final waitSec = 2 * attempt;
-          debugPrint('⏳ Chờ ${waitSec}s trước khi retry...');
-          await Future.delayed(Duration(seconds: waitSec));
+          await Future.delayed(Duration(seconds: attempt * 2));
         }
       } catch (e) {
-        debugPrint('⚠️ $sourceName attempt $attempt/$maxRetries error: $e');
+        debugPrint(
+            '⚠️ Download ${level.name} error ($attempt/$maxRetries): $e');
         if (attempt < maxRetries) {
-          await Future.delayed(Duration(seconds: 2 * attempt));
+          await Future.delayed(Duration(seconds: attempt * 2));
         }
       }
     }
@@ -272,51 +663,55 @@ class SttModelManager {
     return false;
   }
 
-  // ─── Private Helpers ─────────────────────────────────────────────────────
+  String _safeFileNameFromUrl(String url, {required String fallback}) {
+    try {
+      final uri = Uri.parse(url);
+      final name = p.basename(uri.path);
+      if (name.toLowerCase().endsWith('.bin')) return name;
+    } catch (_) {}
+    return fallback;
+  }
 
-  Future<void> _scanExistingModels() async {
-    if (_modelDirectory == null) return;
-    final dir = Directory(_modelDirectory!);
-    if (!await dir.exists()) return;
+  Future<bool> _verifyFile(String path, WhisperModelLevel level) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return false;
+      if (p.extension(path).toLowerCase() != '.bin') return false;
 
-    final files = await dir.list().toList();
-
-    for (final level in WhisperModelLevel.values) {
-      File? modelFile;
-      for (final f in files) {
-        if (f is File && f.path.contains('ggml-${level.name}')) {
-          modelFile = f;
-          break;
-        }
-      }
-
-      if (modelFile != null && await modelFile.exists()) {
-        final sizeMB = await modelFile.length() / 1024 / 1024;
+      final sizeMB = await file.length() / (1024 * 1024);
+      if (sizeMB < level.minimumAcceptedSizeMB) {
         debugPrint(
-            '🔍 Đang kiểm tra file hiện có: ${modelFile.path} ($sizeMB MB)');
+          '❌ File quá nhỏ cho ${level.name}: ${sizeMB.toStringAsFixed(1)}MB',
+        );
+        return false;
+      }
 
-        if (!_isSizeValid(sizeMB, level)) {
-          debugPrint('⚠️ Model ${level.name} bị hỏng hoặc size không khớp.');
-          _emitState(level, ModelStatus.corrupted, localPath: modelFile.path);
-        } else {
-          debugPrint('✅ Model ${level.name} đã sẵn sàng.');
-          _emitState(level, ModelStatus.downloaded, localPath: modelFile.path);
+      final expectedSha1 = level.expectedSha1;
+      final baseName = p.basename(path).toLowerCase();
+
+      // Chỉ cảnh báo SHA1, không block file custom khác nguồn.
+      if (expectedSha1.isNotEmpty &&
+          _acceptedFileNamesFor(level).contains(baseName)) {
+        final actualSha1 = await _computeSha1(file);
+        if (actualSha1 != expectedSha1) {
+          debugPrint(
+            '⚠️ SHA1 khác kỳ vọng cho ${level.name}: '
+            '$actualSha1 != $expectedSha1 (chấp nhận vì có thể là nguồn custom)',
+          );
         }
       }
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ Verify error: $e');
+      return false;
     }
   }
 
-  Future<String> _resolveModelDirectory() async {
-    final appDir = await getApplicationSupportDirectory();
-    final modelDir = Directory('${appDir.path}/whisper_models');
-    if (!await modelDir.exists()) {
-      await modelDir.create(recursive: true);
-    }
-    return modelDir.path;
+  Future<String> _computeSha1(File file) async {
+    final digest = await sha1.bind(file.openRead()).first;
+    return digest.toString();
   }
-
-  String _getModelFilePath(WhisperModelLevel level) =>
-      '$_modelDirectory/${level.fileName}';
 
   Future<bool> _checkFreeSpace(WhisperModelLevel level) async {
     final freeMB = await _getFreeSpaceMB();
@@ -325,74 +720,31 @@ class SttModelManager {
 
   Future<int> _getFreeSpaceMB() async {
     try {
-      // TODO: Thay bằng disk_space package khi cần chính xác
-      // import 'package:disk_space/disk_space.dart';
-      // return (await DiskSpace.getFreeDiskSpace ?? 2048).toInt();
       return 2048;
     } catch (_) {
-      return 500;
+      return 512;
     }
   }
 
-  /// Lấy số bytes đã tải (để resume)
-  Future<int> _getResumedBytes(String savePath) async {
+  Future<void> _writePinnedLevel(
+    String modelPath,
+    WhisperModelLevel level,
+  ) async {
+    final sidecar = File('$modelPath.level');
+    await sidecar.writeAsString(level.name, flush: true);
+  }
+
+  Future<WhisperModelLevel?> _readPinnedLevel(String modelPath) async {
     try {
-      final tmpFile = File('$savePath.tmp');
-      if (await tmpFile.exists()) {
-        return await tmpFile.length();
+      final sidecar = File('$modelPath.level');
+      if (!await sidecar.exists()) return null;
+
+      final raw = (await sidecar.readAsString()).trim();
+      for (final level in WhisperModelLevel.values) {
+        if (level.name == raw) return level;
       }
     } catch (_) {}
-    return 0;
-  }
-
-  Future<bool> _verifyFile(String path, WhisperModelLevel level) async {
-    try {
-      final file = File(path);
-      if (!await file.exists()) return false;
-
-      final sizeMB = await file.length() / 1024 / 1024;
-      if (!_isSizeValid(sizeMB, level)) return false;
-      // Verify SHA1 checksum
-      final digest = await _computeSha1(file);
-      final expected = level.expectedSha1;
-      if (digest != expected) {
-        debugPrint(
-            '⚠️ Cảnh báo SHA1: $digest (thực tế) vs $expected (kỳ vọng)');
-        debugPrint('ℹ️ Chấp nhận model phiên bản khác nếu kích thước hợp lệ.');
-      }
-
-      debugPrint('✅ Verify OK: ${sizeMB.toStringAsFixed(1)}MB');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Verify error: $e');
-      return false;
-    }
-  }
-
-  /// Kiểm tra xem kích thước file có hợp lệ cho model đã cho không.
-  /// Cho phép các model đã được lượng tử hóa (quantized) có kích thước nhỏ hơn.
-  bool _isSizeValid(double actualSizeMB, WhisperModelLevel level) {
-    // Đối với các bản lượng tử hóa cực mạnh, kích thước có thể rất nhỏ.
-    // Ta chỉ cần đảm bảo file không phải là rác (ví dụ: < 5MB cho Tiny là bất thường)
-    double minAcceptableSizeMB = 5.0;
-
-    if (level == WhisperModelLevel.medium || level == WhisperModelLevel.large) {
-      minAcceptableSizeMB = 50.0; // Các model lớn hơn thì giới hạn cao hơn chút
-    }
-
-    if (actualSizeMB < minAcceptableSizeMB) {
-      debugPrint(
-          '❌ Kích thước không hợp lệ: ${actualSizeMB.toStringAsFixed(1)}MB '
-          '(kỳ vọng tối thiểu ${minAcceptableSizeMB.toStringAsFixed(1)}MB)');
-      return false;
-    }
-    return true;
-  }
-
-  Future<String> _computeSha1(File file) async {
-    final stream = file.openRead();
-    final digest = await sha1.bind(stream).first;
-    return digest.toString();
+    return null;
   }
 
   void _emitState(
@@ -403,142 +755,13 @@ class SttModelManager {
     String? errorMessage,
   }) {
     final current = _modelStates[level]!.value;
-    _modelStates[level]!.add(current.copyWith(
-      status: status,
-      localPath: localPath,
-      downloadProgress: progress,
-      errorMessage: errorMessage,
-    ));
-  }
-
-  void _ensureInitialized() {
-    if (_modelDirectory == null) {
-      throw StateError('SttModelManager chưa được khởi tạo. '
-          'Gọi initialize() trước.');
-    }
-  }
-
-  void dispose() {
-    for (final token in _activeDownloads.values) {
-      token.cancel('Disposed');
-    }
-    _activeDownloads.clear();
-    for (final subject in _modelStates.values) {
-      subject.close();
-    }
-    _instance = null;
-  }
-
-  /// Copy model từ path bất kỳ vào model directory
-  /// Dùng cho dev: copy file từ máy tính vào app
-  Future<bool> importModelFromPath(
-    String sourcePath,
-    WhisperModelLevel level,
-  ) async {
-    _ensureInitialized();
-
-    try {
-      final sourceFile = File(sourcePath);
-      if (!await sourceFile.exists()) {
-        debugPrint('❌ Source không tồn tại: $sourcePath');
-        return false;
-      }
-
-      final destPath = _getModelFilePath(level);
-      debugPrint('📋 Copying ${level.name}: $sourcePath → $destPath');
-
-      _emitState(level, ModelStatus.downloading, progress: 0.0);
-
-      // Copy với progress
-      final sourceSize = await sourceFile.length();
-      final destFile = File(destPath);
-      final sink = destFile.openWrite();
-      final stream = sourceFile.openRead();
-
-      int copied = 0;
-      await for (final chunk in stream) {
-        sink.add(chunk);
-        copied += chunk.length;
-        _emitState(
-          level,
-          ModelStatus.downloading,
-          progress: copied / sourceSize,
-        );
-      }
-      await sink.close();
-
-      // Verify
-      final valid = await _verifyFile(destPath, level);
-      if (!valid) {
-        await destFile.delete().catchError((_) => destFile);
-        _emitState(level, ModelStatus.corrupted);
-        return false;
-      }
-
-      _emitState(level, ModelStatus.downloaded, localPath: destPath);
-      debugPrint('✅ Import thành công: ${level.name}');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Import error: $e');
-      _emitState(level, ModelStatus.notDownloaded, errorMessage: e.toString());
-      return false;
-    }
-  }
-
-  /// Lấy model directory path (dùng cho DevTools/debug)
-  String get modelDirectoryPath => _modelDirectory ?? 'Chưa khởi tạo';
-
-  /// Kiểm tra xem model có trong assets không, nếu có thì copy ra local storage
-  Future<void> _checkAndCopyFromAssets() async {
-    for (final level in WhisperModelLevel.values) {
-      final localPath = _getModelFilePath(level);
-      final localFile = File(localPath);
-
-      // Nếu file đã tồn tại ở local rồi thì bỏ qua không copy lại
-      if (await localFile.exists()) {
-        // Kiểm tra tính hợp lệ của file cục bộ trước
-        if (await _verifyFile(localPath, level)) {
-          debugPrint(
-              '✅ Model ${level.name} đã có trong bộ nhớ cache và hợp lệ.');
-          _emitState(level, ModelStatus.downloaded, localPath: localPath);
-          continue; // Bỏ qua và chuyển sang model tiếp theo
-        }
-        debugPrint(
-            '⚠️ Model ${level.name} trong bộ nhớ cache bị hỏng, sẽ thử copy từ assets hoặc tải lại.');
-        await localFile.delete(); // Xóa file cục bộ bị hỏng
-      }
-
-      final assetPath = 'assets/whisper_models/${level.fileName}';
-      debugPrint('🧐 Đang tìm trong Assets: $assetPath');
-
-      try {
-        // Thử load asset (sẽ throw nếu không tìm thấy trong bundle)
-        final data = await rootBundle.load(assetPath);
-
-        debugPrint(
-            '📦 Tìm thấy model trong assets: $assetPath. Đang sao chép...');
-
-        _emitState(level, ModelStatus.downloading, progress: 0.0);
-
-        final bytes =
-            data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-        await localFile.writeAsBytes(bytes, flush: true);
-
-        // Verify sơ bộ sau khi copy
-        final valid = await _verifyFile(localPath, level);
-        if (valid) {
-          debugPrint('✅ Sao chép model từ assets thành công: ${level.name}');
-          _emitState(level, ModelStatus.downloaded, localPath: localPath);
-        } else {
-          await localFile.delete();
-          debugPrint(
-              '❌ Model trong assets không hợp lệ hoặc lỗi khi sao chép.');
-        }
-      } catch (e) {
-        // Không có trong assets hoặc lỗi load - im lặng để code tiếp tục quét file hệ thống hoặc cho phép tải từ mạng
-        debugPrint(
-            'ℹ️ Gợi ý: Không tìm thấy $assetPath trong assets (Bỏ qua nếu muốn tải online).');
-      }
-    }
+    _modelStates[level]!.add(
+      current.copyWith(
+        status: status,
+        localPath: localPath,
+        downloadProgress: progress,
+        errorMessage: errorMessage,
+      ),
+    );
   }
 }

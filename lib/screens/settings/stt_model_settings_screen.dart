@@ -3,6 +3,7 @@
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
+import 'package:vipsound_stt/stt_service_facade.dart' as _modelManager;
 import 'package:vipsound_stt/vipsound_stt.dart';
 
 class SttModelSettingsScreen extends StatelessWidget {
@@ -272,15 +273,16 @@ class _ModelCard extends StatelessWidget {
   ) async {
     final result = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['bin'], // Model Whisper (GGML) thường có đuôi .bin
+      allowedExtensions: ['bin'],
     );
 
-    if (result?.files.single.path == null) return;
+    final filePath = result?.files.single.path;
+    if (filePath == null || filePath.isEmpty) return;
     if (!context.mounted) return;
 
     final success = await manager.importModelFromPath(
-      result!.files.single.path!,
-      level,
+      filePath,
+      level: level,
     );
 
     if (!context.mounted) return;
@@ -292,9 +294,6 @@ class _ModelCard extends StatelessWidget {
               ? '✅ Import ${level.name.toUpperCase()} thành công!'
               : '❌ Import thất bại — sai file hoặc file bị lỗi',
         ),
-        backgroundColor:
-            success ? const Color(0xFF1B5E20) : Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }

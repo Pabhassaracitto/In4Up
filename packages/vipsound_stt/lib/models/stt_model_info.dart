@@ -22,8 +22,6 @@ extension WhisperModelLevelX on WhisperModelLevel {
     }
   }
 
-  /// Tên file mặc định khi tải về và tìm kiếm trong assets.
-  /// Hiện đang sử dụng phiên bản lượng tử hóa Q5_1.
   String get fileName {
     switch (this) {
       case WhisperModelLevel.base:
@@ -33,32 +31,82 @@ extension WhisperModelLevelX on WhisperModelLevel {
     }
   }
 
-  int get sizeInMB {
+  /// Tên file ưu tiên + các tên có thể chấp nhận khi scan/import.
+  List<String> get candidateFileNames {
     switch (this) {
       case WhisperModelLevel.tiny:
-        return 31; // tiny-q5_1 chuẩn
+        return const [
+          'ggml-tiny-q5_1.bin',
+          'ggml-tiny.bin',
+          'tiny.bin',
+        ];
       case WhisperModelLevel.base:
-        return 57; // base-q5_1 chuẩn
+        return const [
+          'ggml-base.en-q5_1.bin',
+          'ggml-base-q5_1.bin',
+          'ggml-base.en.bin',
+          'ggml-base.bin',
+          'base.bin',
+        ];
       case WhisperModelLevel.small:
-        return 181; // small-q5_1 chuẩn
+        return const [
+          'ggml-small-q5_1.bin',
+          'ggml-small.bin',
+          'small.bin',
+        ];
       case WhisperModelLevel.medium:
-        return 515; // medium-q5_1 ước tính
+        return const [
+          'ggml-medium-q5_1.bin',
+          'ggml-medium.bin',
+          'medium.bin',
+        ];
       case WhisperModelLevel.large:
-        return 1050; // large-v3-q5_1 ước tính
+        return const [
+          'ggml-large-v3-q5_1.bin',
+          'ggml-large-v3.bin',
+          'ggml-large.bin',
+          'large.bin',
+        ];
     }
   }
 
-  /// ✅ Dùng Hugging Face — miễn phí, không cần thẻ tín dụng
-  /// Model gốc từ ggerganov/whisper.cpp (official repo)
+  /// Chỉ dùng để lọc file rác / file sai format quá nhỏ.
+  double get minimumAcceptedSizeMB {
+    switch (this) {
+      case WhisperModelLevel.tiny:
+        return 10;
+      case WhisperModelLevel.base:
+        return 20;
+      case WhisperModelLevel.small:
+        return 60;
+      case WhisperModelLevel.medium:
+        return 150;
+      case WhisperModelLevel.large:
+        return 300;
+    }
+  }
+
+  int get sizeInMB {
+    switch (this) {
+      case WhisperModelLevel.tiny:
+        return 31;
+      case WhisperModelLevel.base:
+        return 57;
+      case WhisperModelLevel.small:
+        return 181;
+      case WhisperModelLevel.medium:
+        return 515;
+      case WhisperModelLevel.large:
+        return 1050;
+    }
+  }
+
   String get downloadUrl {
-    // Cập nhật URL nếu các model q5_1 nằm ở một đường dẫn khác
     const base = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
     return '$base/$fileName';
   }
 
-  /// URL dự phòng nếu HuggingFace chậm
   String get mirrorUrl {
-    // GitHub Releases của whisper.cpp (bản official)
     const base =
         'https://github.com/ggerganov/whisper.cpp/releases/download/v1.5.4';
     return '$base/$fileName';
@@ -81,7 +129,6 @@ extension WhisperModelLevelX on WhisperModelLevel {
 
   int get requiredFreeSpaceMB => (sizeInMB * 1.2).ceil();
 
-  /// SHA1 checksum để verify file (lấy từ HuggingFace)
   String get expectedSha1 {
     switch (this) {
       case WhisperModelLevel.tiny:
@@ -91,9 +138,9 @@ extension WhisperModelLevelX on WhisperModelLevel {
       case WhisperModelLevel.small:
         return '6fe57ddcfdd1c6b07cdcc73aaf620810ce5fc771';
       case WhisperModelLevel.medium:
-        return ''; // Cập nhật SHA1 sau khi bạn tải file thực tế
+        return '';
       case WhisperModelLevel.large:
-        return ''; // Cập nhật SHA1 sau khi bạn tải file thực tế
+        return '';
     }
   }
 }

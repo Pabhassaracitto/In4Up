@@ -64,19 +64,12 @@ class SttEngineWhisper {
       final wavPath = await _ensureWavFormat(audioPath);
       _progressController.add(0.1);
 
-      // Kiểm tra file wav sau khi convert có hợp lệ không
-      if (!await File(wavPath).exists() || await File(wavPath).length() < 100) {
-        throw Exception('File audio chuẩn hóa không hợp lệ hoặc quá nhỏ.');
-      }
-
-      // ── FIX 1: Dùng WhisperModel.base thay vì WhisperModel.custom ────
-      // whisper_flutter_new không có constant 'custom'
-      // Model path được truyền qua modelPath field của TranscribeRequest
-      final whisper = Whisper(model: WhisperModel.base);
+      final whisper = Whisper(
+        model: _mapWhisperModel(level),
+      );
 
       _progressController.add(0.15);
 
-      // ── FIX 2: language là String? → dùng ?? '' để tránh null ────────
       final transcribeResult = await whisper.transcribe(
         transcribeRequest: TranscribeRequest(
           audio: wavPath,
@@ -121,7 +114,6 @@ class SttEngineWhisper {
   // ─── Private helpers ──────────────────────────────────────────────────────
 
   /// Đảm bảo audio đúng định dạng Whisper yêu cầu: WAV PCM 16-bit, 16kHz, Mono.
-  /// Nếu không đúng, sử dụng lệnh shell hoặc thư viện để convert.
   Future<String> _ensureWavFormat(String audioPath) async {
     final extension = p.extension(audioPath).toLowerCase();
     final tempDir = await getTemporaryDirectory();
@@ -133,7 +125,6 @@ class SttEngineWhisper {
     debugPrint('🔄 Chuẩn hóa audio cho Whisper: $extension -> 16kHz WAV Mono');
 
     try {
-      // Lệnh FFmpeg ép file về: wav, pcm 16bit, 16000Hz, mono (1 channel)
       final session = await FFmpegKit.execute(
         '-y -i "$audioPath" -ar 16000 -ac 1 -c:a pcm_s16le "$outputPath"',
       );
@@ -360,5 +351,20 @@ class SttEngineWhisper {
 
   void dispose() {
     _progressController.close();
+  }
+
+  WhisperModel _mapWhisperModel(WhisperModelLevel level) {
+    switch (level) {
+      case WhisperModelLevel.tiny:
+        return WhisperModel.tiny;
+      case WhisperModelLevel.base:
+        return WhisperModel.base;
+      case WhisperModelLevel.small:
+        return WhisperModel.small;
+      case WhisperModelLevel.medium:
+        return WhisperModel.medium;
+      case WhisperModelLevel.large:
+        return WhisperModel.largeV2;
+    }
   }
 }

@@ -38,7 +38,7 @@ class SttEngineWhisper {
     bool wordTimestamps = true,
   }) async {
     if (_isProcessing) {
-      throw StateError('Whisper engine đang xử lý file khác. Vui lòng đợi.');
+      throw StateError('Whisper engine đang xử lý file khác.');
     }
 
     final audioFile = File(audioPath);
@@ -46,29 +46,19 @@ class SttEngineWhisper {
       throw FileSystemException('File audio không tồn tại', audioPath);
     }
 
-    final modelPath = _modelManager.getModelPath(level);
-    if (modelPath == null) {
-      throw StateError('Model ${level.name} chưa được tải về. '
-          'Gọi SttModelManager().downloadModel() trước.');
-    }
-
     _isProcessing = true;
     _progressController.add(0.0);
     final stopwatch = Stopwatch()..start();
 
     try {
-      debugPrint('🎙️ Whisper transcribing: $audioPath');
-      debugPrint('   Model: ${level.name} ($modelPath)');
-      debugPrint('   Language: ${language ?? 'auto'}');
-
-      final wavPath = await _ensureWavFormat(audioPath);
-      _progressController.add(0.1);
-
       final whisper = Whisper(
         model: _mapWhisperModel(level),
       );
 
-      _progressController.add(0.15);
+      _progressController.add(0.3);
+
+      final wavPath = await _ensureWavFormat(audioPath);
+      debugPrint('🎙️ Whisper starting: $wavPath');
 
       final transcribeResult = await whisper.transcribe(
         transcribeRequest: TranscribeRequest(
@@ -81,7 +71,7 @@ class SttEngineWhisper {
         ),
       );
 
-      _progressController.add(0.85);
+      _progressController.add(0.9);
 
       final result = _parseWhisperResult(
         transcribeResult,
@@ -91,21 +81,10 @@ class SttEngineWhisper {
         hasWordTimestamps: wordTimestamps,
       );
 
-      if (wavPath != audioPath) {
-        await File(wavPath).delete().catchError((_) => File(wavPath));
-      }
-
       _progressController.add(1.0);
       stopwatch.stop();
 
-      debugPrint('✅ Whisper done: ${result.segments.length} segments, '
-          '${result.allWords.length} words, ${stopwatch.elapsed.inSeconds}s');
-
       return result;
-    } catch (e) {
-      stopwatch.stop();
-      debugPrint('❌ Whisper transcribe error: $e');
-      rethrow;
     } finally {
       _isProcessing = false;
     }
@@ -156,59 +135,98 @@ class SttEngineWhisper {
         return SttResult.empty(engineType);
       }
 
-      final segments = <SttSegment>[];
-      final fullTextBuffer = StringBuffer();
-      final rawSegments = _extractSegments(whisperOutput);
+      final WhisperTranscribeResponse response =
+          whisperOutput as WhisperTranscribeResponse;
 
-      for (int i = 0; i < rawSegments.length; i++) {
-        final rawSeg = rawSegments[i];
-        final segText = _extractField<String>(rawSeg, ['text', 'content'], '');
-        final startSec =
-            _extractField<double>(rawSeg, ['start', 'startTime', 't0'], 0.0);
-        final endSec =
-            _extractField<double>(rawSeg, ['end', 'endTime', 't1'], 0.0);
+      final rawSegments = response.segments;
 
-        final words = <SttWord>[];
-        if (hasWordTimestamps) {
-          final rawWords = _extractWordTimestamps(rawSeg, segText, startSec);
-          words.addAll(rawWords);
-        }
-
-        final confidence = _calculateSegmentConfidence(rawSeg, words);
-
-        segments.add(SttSegment(
-          id: i,
-          startSeconds: startSec,
-          endSeconds: endSec,
-          text: segText.trim(),
-          words: words,
-          avgConfidence: confidence,
-        ));
-
-        if (fullTextBuffer.isNotEmpty) fullTextBuffer.write(' ');
-        fullTextBuffer.write(segText.trim());
+      if (rawSegments == null || rawSegments.isEmpty) {
+        return SttResult.empty(engineType);
       }
 
+      final words = <SttWord>[];
+
+      for (final seg in rawSegments) {
+        final text = seg.text.trim();
+
+        if (text.isEmpty) continue;
+        if (_isNoise(text)) continue;
+
+        words.add(
+          SttWord(
+            word: _cleanWord(text),
+            startSeconds: seg.fromTs.inMilliseconds / 1000.0,
+            endSeconds: seg.toTs.inMilliseconds / 1000.0,
+            confidence: 1.0,
+          ),
+        );
+      }
+
+      if (words.isEmpty) {
+        return SttResult.empty(engineType);
+      }
+
+      final segments = _groupWords(words);
+
+      final fullText = segments.map((s) => s.text).join(" ");
+
       return SttResult(
-        fullText: fullTextBuffer.toString(),
+        fullText: fullText,
         segments: segments,
         engineUsed: engineType,
         language: language,
         processingTime: processingTime,
-        hasWordTimestamps: hasWordTimestamps,
+        hasWordTimestamps: true,
       );
     } catch (e) {
-      debugPrint('❌ Error parsing Whisper result: $e');
-      final rawText = whisperOutput?.toString() ?? '';
-      return SttResult(
-        fullText: _cleanRawWhisperText(rawText),
-        segments: [],
-        engineUsed: engineType,
-        language: language,
-        processingTime: processingTime,
-        hasWordTimestamps: false,
-      );
+      debugPrint("❌ Parse error: $e");
+      return SttResult.empty(engineType);
     }
+  }
+
+  String _cleanWord(String word) {
+    return word.replaceAll(RegExp(r"[^a-zA-Z0-9'-]"), '').toLowerCase();
+  }
+
+  List<SttSegment> _groupWords(List<SttWord> words) {
+    final segments = <SttSegment>[];
+    List<SttWord> current = [];
+
+    for (int i = 0; i < words.length; i++) {
+      current.add(words[i]);
+
+      bool breakHere = false;
+
+      if (i < words.length - 1) {
+        final gap = words[i + 1].startSeconds - words[i].endSeconds;
+        if (gap > 0.7) breakHere = true;
+      }
+
+      if (i == words.length - 1) breakHere = true;
+
+      if (breakHere) {
+        segments.add(
+          SttSegment(
+            id: segments.length,
+            startSeconds: current.first.startSeconds,
+            endSeconds: current.last.endSeconds,
+            text: current.map((w) => w.word).join(" "),
+            words: List.from(current),
+            avgConfidence: 1.0,
+          ),
+        );
+        current.clear();
+      }
+    }
+
+    return segments;
+  }
+
+  bool _isNoise(String text) {
+    final upper = text.toUpperCase();
+    return upper.contains("[MUSIC]") ||
+        upper.contains("[NOISE]") ||
+        upper.contains("[LAUGHTER]");
   }
 
   List<dynamic> _extractSegments(dynamic output) {
@@ -335,10 +353,6 @@ class SttEngineWhisper {
     if (value is int) return value.toDouble();
     if (value is String) return double.tryParse(value);
     return null;
-  }
-
-  String _cleanWord(String word) {
-    return word.replaceAll(RegExp(r"[^\w\'-]"), '').toLowerCase();
   }
 
   String _cleanRawWhisperText(String raw) {

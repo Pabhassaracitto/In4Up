@@ -150,7 +150,8 @@ class SttLrcConverter {
       // [MM:SS.cc] <MM:SS.cc>word1 <MM:SS.cc>word2 ...
       buffer.write(_formatTimestamp(lineStart));
       for (final word in line.words) {
-        buffer.write(' ${_formatTimestamp(word.startSeconds)}${word.word}');
+        buffer.write(
+            ' ${_formatInlineWordTimestamp(word.startSeconds)}${word.word}');
       }
       buffer.writeln();
     }
@@ -159,8 +160,8 @@ class SttLrcConverter {
   void _generateSegmentLevelLrc(StringBuffer buffer, SttResult result) {
     for (final segment in result.segments) {
       if (segment.text.isEmpty) continue;
-      buffer.writeln(
-          '${_formatTimestamp(segment.startSeconds)}${segment.text}');
+      buffer
+          .writeln('${_formatTimestamp(segment.startSeconds)}${segment.text}');
     }
   }
 
@@ -188,8 +189,7 @@ class SttLrcConverter {
 
       // 2. Dòng hiện tại đã dài quá giới hạn thời gian
       if (currentLine.length > 1) {
-        final lineDuration =
-            word.endSeconds - currentLine.first.startSeconds;
+        final lineDuration = word.endSeconds - currentLine.first.startSeconds;
         if (lineDuration >= maxLineSeconds) shouldBreak = true;
       }
 
@@ -223,18 +223,31 @@ class SttLrcConverter {
         '${centiseconds.toString().padLeft(2, '0')}]';
   }
 
+  String _formatInlineWordTimestamp(double seconds) {
+    final totalMs = (seconds * 1000).round();
+    final minutes = totalMs ~/ 60000;
+    final secs = (totalMs % 60000) ~/ 1000;
+    final centiseconds = (totalMs % 1000) ~/ 10;
+
+    return '<${minutes.toString().padLeft(2, '0')}:'
+        '${secs.toString().padLeft(2, '0')}.'
+        '${centiseconds.toString().padLeft(2, '0')}>';
+  }
+
   /// Xây dựng đường dẫn file LRC
   /// Quy tắc: thay extension của file audio bằng .lrc
   String _buildLrcPath(String audioPath, String? outputDir) {
     // Normalize path separators
     final normalized = audioPath.replaceAll('\\', '/');
     final lastDot = normalized.lastIndexOf('.');
-    final withoutExt = lastDot > 0 ? normalized.substring(0, lastDot) : normalized;
+    final withoutExt =
+        lastDot > 0 ? normalized.substring(0, lastDot) : normalized;
 
     if (outputDir != null) {
       final fileName = normalized.split('/').last;
-      final fileWithoutExt =
-          fileName.contains('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+      final fileWithoutExt = fileName.contains('.')
+          ? fileName.substring(0, fileName.lastIndexOf('.'))
+          : fileName;
       return '${outputDir.replaceAll('\\', '/')}/$fileWithoutExt.lrc';
     }
 
@@ -250,8 +263,16 @@ class SttLrcConverter {
   }
 
   bool _isMetadataLine(String line) {
-    final metaKeys = ['ti:', 'ar:', 'al:', 'by:', 're:', 've:',
-                      'length:', 'offset:'];
+    final metaKeys = [
+      'ti:',
+      'ar:',
+      'al:',
+      'by:',
+      're:',
+      've:',
+      'length:',
+      'offset:'
+    ];
     return metaKeys.any((key) => line.startsWith('[${key}'));
   }
 
@@ -285,6 +306,5 @@ class LrcLine {
   });
 
   @override
-  String toString() =>
-      'LrcLine(${timestamp.inSeconds}s: "$text")';
+  String toString() => 'LrcLine(${timestamp.inSeconds}s: "$text")';
 }

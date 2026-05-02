@@ -7,7 +7,7 @@ enum WhisperModelLevel {
 }
 
 extension WhisperModelLevelX on WhisperModelLevel {
-  String get name {
+  String get keyName {
     switch (this) {
       case WhisperModelLevel.tiny:
         return 'tiny';

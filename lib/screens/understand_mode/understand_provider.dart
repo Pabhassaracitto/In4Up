@@ -1,19 +1,25 @@
 // lib/screens/understand_mode/understand_provider.dart
 
 import 'package:flutter/material.dart';
+import 'package:vipsound_stt/stt_lrc_converter.dart';
 import 'models/understand_line.dart';
 import 'services/understand_service.dart';
 
 class UnderstandProvider extends ChangeNotifier {
   List<UnderstandLine> _understandLines = [];
-  int _currentLineIndex = -1;
+  int _currentUnderstandLineIndex = -1;
   bool _isUnderstanding = false;
   double _comprehensionScore = 0.0;
   final Map<int, DateTime> _lastReviewed = {};
   final Map<int, int> _reviewCounts = {};
 
-  List<UnderstandLine> get understandLines => _understandLines;
+  List<LrcLine> _lrcLines = [];
+  List<LrcLine> get lrcLines => _lrcLines;
+  int _currentLineIndex = -1;
   int get currentLineIndex => _currentLineIndex;
+
+  List<UnderstandLine> get understandLines => _understandLines;
+  int get currentUnderstandLineIndex => _currentUnderstandLineIndex;
   bool get isUnderstanding => _isUnderstanding;
   double get comprehensionScore => _comprehensionScore;
 
@@ -26,11 +32,35 @@ class UnderstandProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void loadLrcLines(List<LrcLine> lines) {
+    _lrcLines = lines.where((l) => l.text.isNotEmpty).toList();
+    _currentLineIndex = -1;
+    notifyListeners();
+  }
+
+  void updatePosition(Duration position) {
+    if (_lrcLines.isEmpty) return;
+
+    int newIndex = -1;
+    for (int i = 0; i < _lrcLines.length; i++) {
+      if (_lrcLines[i].timestamp <= position) {
+        newIndex = i;
+      } else {
+        break;
+      }
+    }
+
+    if (newIndex != _currentLineIndex) {
+      _currentLineIndex = newIndex;
+      notifyListeners();
+    }
+  }
+
   void setCurrentLine(int index) {
-    if (index != _currentLineIndex &&
+    if (index != _currentUnderstandLineIndex &&
         index >= 0 &&
         index < _understandLines.length) {
-      _currentLineIndex = index;
+      _currentUnderstandLineIndex = index;
       notifyListeners();
     }
   }
@@ -99,6 +129,6 @@ class UnderstandProvider extends ChangeNotifier {
 
   List<int> getSuggestedLines() {
     return UnderstandService.suggestNextLines(
-        _understandLines, _currentLineIndex);
+        _understandLines, _currentUnderstandLineIndex);
   }
 }

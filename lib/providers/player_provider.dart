@@ -11,6 +11,7 @@ import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
 import '../screens/listen_mode/models/recent_audio.dart';
+import '../screens/understand_mode/understand_mode.dart';
 // ★ THÊM import
 import '../screens/listen_mode/services/recent_audio_service.dart';
 import '../services/storage_service.dart';
@@ -80,6 +81,8 @@ class PlayerProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   // ★ THÊM
   TextProvider? _textProvider; // Thêm tham chiếu đến TextProvider
+  UnderstandProvider?
+      _understandProvider; // NEW: Reference to UnderstandProvider
   final RecentAudioService _recentAudio = RecentAudioService();
 
   // ★ THÊM: STT Facade
@@ -208,6 +211,11 @@ class PlayerProvider extends ChangeNotifier {
     _textProvider = textProvider;
   }
 
+  // NEW: Setter to assign UnderstandProvider
+  void setUnderstandProvider(UnderstandProvider understandProvider) {
+    _understandProvider = understandProvider;
+  }
+
   // ─── THÊM METHODS STT ───────────────────────────────────────────────────
 
   /// Khởi tạo STT (gọi trong constructor)
@@ -226,46 +234,53 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Tạo LRC từ bài audio hiện tại (Deep Learning mode)
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
-    WhisperModelLevel level = WhisperModelLevel.small,
+    WhisperModelLevel? level,
   }) async {
-    if (_currentSongPath == null) {
-      debugPrint('❌ No audio loaded');
+    final path = currentSongPath;
+    if (path == null) {
+      _lastSttError = 'Chưa có file audio đang phát';
+      notifyListeners();
       return null;
     }
 
+    _isGeneratingLrc = true;
+    _lastSttError = null;
+    notifyListeners();
+
     try {
-      notifyListeners(); // Để UI biết đang xử lý
+      final stt = SttServiceFacade();
 
-      final output = await _sttService.transcribeDeep(
-        _currentSongPath!,
-        level: level,
-        language: 'en',
-      );
-
-      _lastTranscribeOutput = output;
-
-      if (output.success) {
-        debugPrint('✅ LRC generated: ${output.lrcFilePath}');
-        // ★ QUAN TRỌNG: Nạp ngay file lời thoại vừa tạo vào TextProvider để hiển thị lên UI
-        if (output.lrcFilePath != null) {
-          await _textProvider?.loadTextFile(output.lrcFilePath!);
-          notifyListeners();
-        }
+      SttTranscribeOutput output;
+      if (level == null) {
+        // AUTO MODE
+        output = await stt.transcribeAuto(
+          path,
+          language: 'en',
+          generateLrc: true,
+        );
+      } else {
+        // USER-SELECTED MODEL
+        output = await stt.transcribeFile(
+          path,
+          config: SttConfig.deepLearning.copyWith(
+            preferredEngine: SttEngineType.whisper,
+            whisperModel: level,
+            language: 'en',
+            generateLrc: true,
+          ),
+          generateLrc: true,
+        );
       }
 
-      notifyListeners();
+      _lastSttOutput = output;
+      _lastSttError = output.success ? null : output.errorMessage;
       return output;
-    } on InsufficientStorageException catch (e) {
-      debugPrint('❌ $e');
-      if (level != WhisperModelLevel.tiny) {
-        debugPrint('💡 Thử lại với model Tiny hoặc Base để tiết kiệm bộ nhớ');
-      }
-      notifyListeners();
-      return SttTranscribeOutput.failure(e.toString());
     } catch (e) {
-      debugPrint('❌ generateLrcForCurrentAudio error: $e');
+      _lastSttError = e.toString();
+      return null;
+    } finally {
+      _isGeneratingLrc = false;
       notifyListeners();
-      return SttTranscribeOutput.failure(e.toString());
     }
   }
 
@@ -282,9 +297,6 @@ class PlayerProvider extends ChangeNotifier {
   // Lấy trạng thái model Whisper
   SttModelInfo getSttModelInfo(WhisperModelLevel level) =>
       _sttService.getModelInfo(level);
-
-  Stream<SttModelInfo> watchSttModel(WhisperModelLevel level) =>
-      _sttService.watchModel(level);
 
   Future<void> _restoreFromStorage() async {
     if (!_storage.isInitialized) {
@@ -1039,4 +1051,17 @@ class PlayerProvider extends ChangeNotifier {
     _audioService.dispose();
     super.dispose();
   }
+
+  SttTranscribeOutput? _lastSttOutput;
+  SttTranscribeOutput? get lastSttOutput => _lastSttOutput;
+
+  String? _lastSttError;
+  String? get lastSttError => _lastSttError;
+
+  bool _isGeneratingLrc = false;
+  bool get isGeneratingLrc => _isGeneratingLrc;
+
+  String get lastTranscriptText => _lastSttOutput?.result.fullText ?? '';
+
+  String? get lastGeneratedLrcPath => _lastSttOutput?.lrcFilePath;
 }

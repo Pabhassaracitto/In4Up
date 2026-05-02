@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
@@ -14,8 +15,8 @@ import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
-import '../listen_mode/widgets/rolling_waveform_view.dart';
 import '../listen_mode/listen_mode_screen.dart';
+import '../listen_mode/widgets/rolling_waveform_view.dart';
 // Import để dùng GenerateLrcButton
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
@@ -25,6 +26,8 @@ import 'widgets/progress_item.dart';
 import 'widgets/quick_button.dart';
 import 'widgets/shadowing_button.dart';
 import 'widgets/speed_chip.dart';
+import 'package:vipsound_stt/stt_lrc_converter.dart';
+import 'package:vipsound_stt/vipsound_stt.dart';
 // Import các components mới tách
 import 'widgets/status_circle.dart';
 
@@ -40,6 +43,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   late TabController _tabController;
   late RollingWaveformController _waveformController;
   final ScrollController _textScrollController = ScrollController();
+  late UnderstandProvider _understandProvider;
+  late final VoidCallback _playerListener;
+  final ScrollController _lrcScrollController = ScrollController();
 
   // Auto-scroll to current line
   bool _autoScroll = true;
@@ -49,10 +55,26 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _waveformController = RollingWaveformController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final player = context.read<PlayerProvider>();
+      _playerListener = () {
+        if (!mounted) return;
+        context
+            .read<UnderstandProvider>()
+            .updatePosition(player.state.position);
+
+        final idx = context.read<UnderstandProvider>().currentLineIndex;
+        if (idx >= 0 && _autoScroll) _scrollToLine(idx);
+      };
+      player.addListener(_playerListener);
+    });
   }
 
   @override
   void dispose() {
+    context.read<PlayerProvider>().removeListener(_playerListener);
+    _lrcScrollController.dispose();
     _tabController.dispose();
     _waveformController.dispose();
     _textScrollController.dispose();
@@ -133,6 +155,24 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     );
   }
 
+  // NEW: Auto-scroll to active line
+  void _scrollToLine(int index) {
+    if (!_textScrollController.hasClients || index < 0) return;
+
+    const double estimatedLineHeight = 52.0; // Average height of a line item
+
+    final targetOffset = index * estimatedLineHeight;
+    final viewportHeight = _textScrollController.position.viewportDimension;
+    final centerOffset =
+        targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
+
+    _textScrollController.animateTo(
+      centerOffset.clamp(0.0, _textScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
   Future<void> _pickAudio(BuildContext context) async {
     try {
       final result = await FilePicker.pickFiles(type: FileType.audio);
@@ -168,9 +208,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   }
 
   Widget _buildGuideState(BuildContext context, bool hasAudio, bool hasText) {
-    return Center(
+    // ★ FIX: Bọc SingleChildScrollView để tránh sọc vàng đen khi mở MiniPlayer hoặc STT
+    return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -344,7 +385,58 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         Expanded(
           child: Stack(
             children: [
-              _buildSyncedTextList(player, textProvider),
+              Consumer<UnderstandProvider>(
+                builder: (context, provider, _) {
+                  if (provider.lrcLines.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        "Chưa có nội dung\nHãy tạo LRC từ Tab Nghe",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    controller: _lrcScrollController,
+                    itemCount: provider.lrcLines.length,
+                    itemBuilder: (context, index) {
+                      final line = provider.lrcLines[index];
+                      final isActive = index == provider.currentLineIndex;
+
+                      return GestureDetector(
+                        onTap: () {
+                          context.read<PlayerProvider>().seek(line.timestamp);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF6C63FF).withOpacity(0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            line.text,
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.grey[500],
+                              fontSize: isActive ? 16 : 14,
+                              fontWeight: isActive
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
               Positioned(
                 top: 8,
                 right: 8,
@@ -352,9 +444,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   isActive: _autoScroll,
                   onToggle: () {
                     setState(() => _autoScroll = !_autoScroll);
-                    if (_autoScroll) {
-                      _scrollToCurrentLine(textProvider);
-                    }
+                    // _scrollToLine will be called automatically by UnderstandProvider listener
                   },
                 ),
               ),
@@ -363,157 +453,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         ),
         _buildQuickControls(player, textProvider),
       ],
-    );
-  }
-
-  Widget _buildSyncedTextList(
-      PlayerProvider player, TextProvider textProvider) {
-    if (_autoScroll && player.isPlaying) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToCurrentLine(textProvider);
-      });
-    }
-
-    return ListView.builder(
-      controller: _textScrollController,
-      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-      itemCount: textProvider.lines.length,
-      itemBuilder: (context, index) {
-        final line = textProvider.lines[index];
-        final isSynced = line.startTime != null;
-
-        bool isActive = false;
-        if (isSynced && line.startTime != null) {
-          isActive = player.state.position >= line.startTime! &&
-              (line.endTime == null || player.state.position <= line.endTime!);
-        }
-
-        if (isActive) {
-          textProvider.setCurrentLine(index);
-        }
-
-        return GestureDetector(
-          onTap: () {
-            if (isSynced && line.startTime != null) {
-              HapticFeedback.selectionClick();
-              player.seek(line.startTime!);
-              if (!player.isPlaying) player.play();
-            }
-          },
-          onLongPress: () {
-            if (isSynced && line.startTime != null && line.endTime != null) {
-              HapticFeedback.mediumImpact();
-              player.setLoop(line.startTime!, line.endTime!);
-              _showLoopSetSnackbar(context, index);
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: EdgeInsets.fromLTRB(
-              isActive ? 16 : 12,
-              12,
-              12,
-              12,
-            ),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? Color(0xFFFFB300).withValues(alpha: 0.15)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border(
-                left: BorderSide(
-                  color: isActive
-                      ? const Color(0xFFFFB300)
-                      : isSynced
-                          ? Colors.white24
-                          : Colors.transparent,
-                  width: isActive ? 4 : 2,
-                ),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 50,
-                  margin: const EdgeInsets.only(right: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isActive
-                              ? const Color(0xFFFFB300)
-                              : Colors.grey[600],
-                          fontWeight:
-                              isActive ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      if (isSynced && line.startTime != null)
-                        Text(
-                          _formatDuration(line.startTime!),
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: isActive
-                                ? Color(0xFFFFB300).withValues(alpha: 0.8)
-                                : Colors.grey[700],
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        line.content,
-                        style: TextStyle(
-                          color: isActive ? Colors.white : Colors.white70,
-                          fontSize: 15,
-                          height: 1.5,
-                          fontWeight:
-                              isActive ? FontWeight.w500 : FontWeight.normal,
-                        ),
-                      ),
-                      if (line.translation != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          line.translation!,
-                          style: TextStyle(
-                            color:
-                                isActive ? Colors.grey[400] : Colors.grey[600],
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (isActive)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFFFB300).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.graphic_eq,
-                      color: Color(0xFFFFB300),
-                      size: 16,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -1086,21 +1025,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ),
         ],
       ),
-    );
-  }
-
-  void _scrollToCurrentLine(TextProvider textProvider) {
-    if (textProvider.currentLineIndex < 0) return;
-
-    const itemHeight = 80.0;
-    final targetOffset = textProvider.currentLineIndex * itemHeight;
-    final viewportHeight = _textScrollController.position.viewportDimension;
-    final centerOffset = targetOffset - (viewportHeight / 2) + (itemHeight / 2);
-
-    _textScrollController.animateTo(
-      centerOffset.clamp(0.0, _textScrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
     );
   }
 

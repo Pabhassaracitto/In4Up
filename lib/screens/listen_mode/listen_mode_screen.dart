@@ -12,11 +12,15 @@
 //   - State AB Loop nằm ở PlayerProvider (single source of truth)
 //   - Waveform 3 trạng thái: loading / error / ready
 
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound/providers/text_provider.dart';
+import 'package:vipsound/screens/understand_mode/understand_provider.dart';
+import 'package:vipsound/screens/understand_mode/understand_tab_connector.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
 import '../../models/waveform_data.dart';
@@ -331,9 +335,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         sheetController: _sheetController,
                       ),
                     ),
-
-                    // Giảm chiều cao cố định để tránh overflow trên màn hình nhỏ
-                    const SizedBox(height: 16),
                   ],
                 ),
 
@@ -893,6 +894,7 @@ class GenerateLrcButton extends StatelessWidget {
 
             return Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AnimatedCrossFade(
                   firstChild: const SizedBox(height: 4),
@@ -915,7 +917,7 @@ class GenerateLrcButton extends StatelessWidget {
                             .textTheme
                             .bodySmall
                             ?.copyWith(color: Colors.grey[400]),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -927,9 +929,22 @@ class GenerateLrcButton extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _LrcModelSelector(
-                  isProcessing: isActive,
+                  isProcessing: isActive || provider.isGeneratingLrc,
                   onGenerate: (level) =>
                       provider.generateLrcForCurrentAudio(level: level),
+                ),
+                // NEW SHADOWING BUTTON
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        context.read<SttServiceFacade>().startListening();
+                      },
+                      icon: const Icon(Icons.mic),
+                      label: const Text("Shadowing"),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -942,7 +957,7 @@ class GenerateLrcButton extends StatelessWidget {
 
 class _LrcModelSelector extends StatefulWidget {
   final bool isProcessing;
-  final Future<SttTranscribeOutput?> Function(WhisperModelLevel) onGenerate;
+  final Future<SttTranscribeOutput?> Function(WhisperModelLevel?) onGenerate;
 
   const _LrcModelSelector(
       {required this.isProcessing, required this.onGenerate});
@@ -952,46 +967,65 @@ class _LrcModelSelector extends StatefulWidget {
 }
 
 class _LrcModelSelectorState extends State<_LrcModelSelector> {
-  WhisperModelLevel _selectedLevel = WhisperModelLevel.base;
+  WhisperModelLevel? _selectedLevel; // null = AUTO
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Wrap(
-          spacing: 8,
-          children: WhisperModelLevel.values.map((level) {
-            final info = context.read<PlayerProvider>().getSttModelInfo(level);
-            return FilterChip(
-              label: Text(
-                  '${level.name.toUpperCase()} (${level.sizeInMB}MB)${info.isReady ? ' ✓' : ''}'),
-              selected: _selectedLevel == level,
-              onSelected: widget.isProcessing
-                  ? null
-                  : (_) => setState(() => _selectedLevel = level),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: widget.isProcessing
-              ? null
-              : () => widget.onGenerate(_selectedLevel),
-          icon: widget.isProcessing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.subtitles_outlined),
-          label: Text(
-              widget.isProcessing ? 'Đang xử lý...' : 'Tạo lời thoại (LRC)'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    return Material(
+      color: Colors.transparent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: 8, // Khoảng cách giữa các chip
+            runSpacing: 8, // Khoảng cách giữa các dòng chip
+            children: [
+              ChoiceChip(
+                // Nút AUTO
+                label: const Text('AUTO'),
+                selected: _selectedLevel == null,
+                onSelected: widget.isProcessing
+                    ? null
+                    : (_) => setState(() => _selectedLevel = null),
+              ),
+              ...WhisperModelLevel.values.map((level) {
+                final info =
+                    context.read<PlayerProvider>().getSttModelInfo(level);
+                final isSelected = _selectedLevel == level;
+
+                return FilterChip(
+                  label: Text(
+                    '${level.name.toUpperCase()} (${level.sizeInMB}MB)${info.isReady ? ' ✓' : ''}',
+                  ),
+                  selected: isSelected,
+                  onSelected: widget.isProcessing
+                      ? null
+                      : (_) => setState(
+                          () => _selectedLevel = isSelected ? null : level),
+                );
+              }).toList(),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: widget.isProcessing
+                ? null
+                : () => widget.onGenerate(_selectedLevel),
+            icon: widget.isProcessing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.subtitles_outlined),
+            label: Text(
+                widget.isProcessing ? 'Đang xử lý...' : 'Tạo lời thoại (LRC)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1103,6 +1137,8 @@ class _AdvancedSheet extends StatelessWidget {
                           iconColor: Colors.blue,
                           child: GenerateLrcButton(),
                         ),
+                        const SizedBox(height: 12),
+                        _TranscriptPreview(),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -1263,5 +1299,182 @@ class _QuickBtn extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _TranscriptPreview extends StatefulWidget {
+  @override
+  State<_TranscriptPreview> createState() => _TranscriptPreviewState();
+}
+
+class _TranscriptPreviewState extends State<_TranscriptPreview> {
+  List<LrcLine>? _lines;
+  final Map<int, TextEditingController> _controllers = {};
+  String? _lastLrcPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, provider, _) {
+        final output = provider.lastSttOutput;
+        final lrcPath = provider.lastGeneratedLrcPath;
+        final error = provider.lastSttError;
+
+        if (error != null && error.isNotEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              error,
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          );
+        }
+
+        if (output == null ||
+            lrcPath == null ||
+            output.result.segments.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        if (lrcPath != _lastLrcPath) {
+          _lastLrcPath = lrcPath;
+          final lrcContent = File(lrcPath).readAsStringSync();
+          _lines = SttLrcConverter().parseLrcFile(lrcContent);
+          _controllers.clear();
+          for (int i = 0; i < _lines!.length; i++) {
+            _controllers[i] = TextEditingController(text: _lines![i].text);
+          }
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                "LRC Editor",
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 250,
+                child: ListView.builder(
+                  itemCount: _lines!.length,
+                  itemBuilder: (context, index) {
+                    return Row(
+                      children: [
+                        Text(
+                          "[${_formatDuration(_lines![index].timestamp)}] ",
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 10),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _controllers[index],
+                            style: const TextStyle(color: Colors.white),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      // Save edits (not implemented in this diff, but placeholder)
+                      // Logic to save edits to lrcPath
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                "Chức năng lưu chỉnh sửa chưa được triển khai.")),
+                      );
+                    },
+                    child: const Text("Lưu chỉnh sửa"),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      _addToText(context);
+
+                      // Navigate to Understand Mode
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UnderstandTabConnector(),
+                        ),
+                      );
+                    },
+                    child: const Text("Sử dụng LRC này"),
+                  ),
+                ],
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _addToText(BuildContext context) {
+    // ✅ Strip tất cả timestamp tags trước khi đưa vào Text
+    final cleanText = _controllers.values
+        .map((c) => _stripAllTags(c.text))
+        .where((line) => line.isNotEmpty)
+        .join("\n");
+
+    // ✅ Load vào TextProvider (Tab Đọc)
+    context.read<TextProvider>().loadFromString(
+          cleanText,
+          title: "Transcript",
+        );
+
+    // ✅ Load LRC lines vào UnderstandProvider (Tab Hiểu)
+    if (_lines != null) {
+      context.read<UnderstandProvider>().loadLrcLines(_lines!);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("✅ Đã tích hợp vào Tab Đọc và Tab Hiểu"),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ✅ Strip word timestamps <00:02.00> và line timestamps [00:02.00]
+  String _stripAllTags(String text) {
+    return text
+        .replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2}>'), '')
+        .replaceAll(RegExp(r'\[\d{2}:\d{2}\.\d{2}\]'), '')
+        .replaceAll(RegExp(r'\[ti:.*?\]'), '')
+        .replaceAll(RegExp(r'\[ar:.*?\]'), '')
+        .replaceAll(RegExp(r'\[al:.*?\]'), '')
+        .replaceAll(RegExp(r'\[by:.*?\]'), '')
+        .replaceAll(RegExp(r'\[re:.*?\]'), '')
+        .replaceAll(RegExp(r'\[ve:.*?\]'), '')
+        .trim();
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final cs = (d.inMilliseconds % 1000 ~/ 10).toString().padLeft(2, '0');
+    return "$m:$s.$cs";
   }
 }

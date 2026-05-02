@@ -36,7 +36,7 @@ final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
     'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin?download=true',
   ],
   WhisperModelLevel.small: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin?download=truehttps://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin?download=true',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin?download=truetrue',
   ],
   WhisperModelLevel.medium: [
     'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin?download=true',
@@ -76,8 +76,8 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
     'medium.bin',
   ],
   WhisperModelLevel.large: [
-    'ggml-large-v3-turbo-q5_0.bin'
-        'ggml-large-v3-q5_1.bin',
+    'ggml-large-v3-turbo-q5_0.bin',
+    'ggml-large-v3-q5_1.bin',
     'ggml-large-v3.bin',
     'ggml-large.bin',
     'large.bin',

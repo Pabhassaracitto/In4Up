@@ -709,7 +709,7 @@ class SttModelManager {
   }
 
   Future<String> _computeSha1(File file) async {
-    final digest = await sha1.bind(file.openRead()).first;
+    final digest = await sha1.bind(file.openRead()).last;
     return digest.toString();
   }
 
@@ -764,4 +764,28 @@ class SttModelManager {
       ),
     );
   }
+
+  WhisperModelLevel? getBestAvailableLocalModel({
+    List<WhisperModelLevel>? preferredOrder,
+  }) {
+    final order = preferredOrder ??
+        const [
+          WhisperModelLevel.base,
+          WhisperModelLevel.tiny,
+          WhisperModelLevel.small,
+          WhisperModelLevel.medium,
+          WhisperModelLevel.large,
+        ];
+
+    for (final level in order) {
+      final info = getModelInfo(level);
+      if (info.isReady && info.localPath != null) {
+        return level;
+      }
+    }
+    return null;
+  }
+
+  bool get hasAnyLocalModel =>
+      WhisperModelLevel.values.any((level) => getModelInfo(level).isReady);
 }

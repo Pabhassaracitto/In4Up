@@ -26,6 +26,10 @@ class UnderstandTabConnector extends StatelessWidget {
                 .map((line) => UnderstandLine.fromTextItem(line))
                 .toList();
             understand.setUnderstandLines(understandLines);
+
+            // NEW: Pass UnderstandProvider to PlayerProvider
+            // This needs to be done after the UnderstandProvider is created and ready.
+            player.setUnderstandProvider(understand);
           }
 
           return const UnderstandModeScreen();

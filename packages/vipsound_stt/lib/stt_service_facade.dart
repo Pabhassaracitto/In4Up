@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:vipsound_stt/stt_service_facade.dart' as _modelManager;
 
 import 'models/stt_config.dart';
 import 'models/stt_model_info.dart';
@@ -224,8 +223,24 @@ class SttServiceFacade extends ChangeNotifier {
     final cacheKey = _buildCacheKey(audioPath, cfg);
     if (cfg.cacheResults && _resultCache.containsKey(cacheKey)) {
       debugPrint('💾 Cache hit: $cacheKey');
+
+      final cached = _resultCache[cacheKey]!;
+      String? lrcPath;
+      bool lrcGenerated = false;
+
+      if (shouldGenerateLrc && cached.segments.isNotEmpty) {
+        lrcPath = await _generateAndSaveLrc(
+          cached,
+          audioPath,
+          lrcOutputPath,
+        );
+        lrcGenerated = lrcPath != null;
+      }
+
       return SttTranscribeOutput(
-        result: _resultCache[cacheKey]!,
+        result: cached,
+        lrcFilePath: lrcPath,
+        wasLrcGenerated: lrcGenerated,
         success: true,
       );
     }
@@ -318,79 +333,19 @@ class SttServiceFacade extends ChangeNotifier {
   ) async {
     final level = config.whisperModel;
 
-    // ── Kiểm tra & tải model ──────────────────────────────────────
-    if (!_modelManager.isModelReady(level)) {
-      _emitProgress(
-        SttFacadeStatus.processingWhisper,
-        0.0,
-        'Đang kiểm tra model ${level.name}...',
-      );
-
-      // Kiểm tra dung lượng đặc biệt cho model Small
-      if (level == WhisperModelLevel.small) {
-        final freeMB = await _modelManager.getFreeSpaceMB();
-        if (freeMB < level.requiredFreeSpaceMB) {
-          throw InsufficientStorageException(
-            required: level.requiredFreeSpaceMB,
-            available: freeMB,
-            modelLevel: level,
-          );
-        }
-      }
-
-      _emitProgress(
-        SttFacadeStatus.processingWhisper,
-        0.05,
-        'Đang tải model ${level.name} (${level.sizeInMB}MB)...',
-      );
-
-      // Theo dõi progress download
-      final downloadSub = _modelManager.watchModel(level).listen((info) {
-        if (info.isDownloading) {
-          _emitProgress(
-            SttFacadeStatus.processingWhisper,
-            info.downloadProgress * 0.4, // 0-40% cho download
-            'Đang tải model: '
-            '${(info.downloadProgress * 100).toStringAsFixed(0)}%',
-          );
-        }
-      });
-
-      final downloaded = await _modelManager.downloadModel(level);
-      await downloadSub.cancel();
-
-      if (!downloaded) {
-        throw ModelDownloadException('Không thể tải model ${level.name}');
-      }
-    }
-
     _emitProgress(
       SttFacadeStatus.processingWhisper,
-      0.45,
-      'Model đã sẵn sàng, đang phân tích...',
+      0.2,
+      'Đang xử lý bằng Whisper (${level.name})...',
       engine: SttEngineType.whisper,
     );
-
-    // ── Theo dõi progress Whisper transcribe ─────────────────────
-    final whisperSub = _whisperEngine.progressStream.listen((p) {
-      // Map 0.45 → 0.90 cho giai đoạn transcribe
-      final mappedProgress = 0.45 + p * 0.45;
-      _emitProgress(
-        SttFacadeStatus.processingWhisper,
-        mappedProgress,
-        p < 0.5 ? 'Đang phân tích âm thanh...' : 'Đang tạo văn bản...',
-        engine: SttEngineType.whisper,
-      );
-    });
 
     final result = await _whisperEngine.transcribe(
       audioPath,
       level: level,
-      language: config.language == 'en-US' ? 'en' : config.language,
+      language: config.language,
       wordTimestamps: true,
     );
-
-    await whisperSub.cancel();
 
     _emitProgress(
       SttFacadeStatus.processingWhisper,
@@ -400,6 +355,10 @@ class SttServiceFacade extends ChangeNotifier {
 
     return result;
   }
+
+  /// Xoá model
+  Future<void> deleteModel(WhisperModelLevel level) =>
+      _modelManager.deleteModel(level);
 
   // ─── LRC Generation ──────────────────────────────────────────────────────
 
@@ -416,7 +375,7 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
       // Lưu vào thư mục ẩn của App (cùng tên với audio file)
-      final appDir = await getApplicationSupportDirectory();
+      final appDir = await getApplicationDocumentsDirectory();
       final lrcDir = '${appDir.path}/.vipsound_lrc';
 
       final savedPath = await _lrcConverter.saveLrcFile(
@@ -439,18 +398,6 @@ class SttServiceFacade extends ChangeNotifier {
   /// Lấy trạng thái của model
   SttModelInfo getModelInfo(WhisperModelLevel level) =>
       _modelManager.getModelInfo(level);
-
-  /// Lắng nghe trạng thái model
-  Stream<SttModelInfo> watchModel(WhisperModelLevel level) =>
-      _modelManager.watchModel(level);
-
-  /// Tải model thủ công (dùng cho settings screen)
-  Future<bool> downloadModel(WhisperModelLevel level) =>
-      _modelManager.downloadModel(level);
-
-  /// Xoá model
-  Future<void> deleteModel(WhisperModelLevel level) =>
-      _modelManager.deleteModel(level);
 
   // ─── Live Listening ───────────────────────────────────────────────────────
 
@@ -505,9 +452,54 @@ class SttServiceFacade extends ChangeNotifier {
 
   void _ensureInitialized() {
     if (!_initialized) {
-      throw StateError('SttServiceFacade chưa được khởi tạo. '
-          'Gọi initialize() trong main() hoặc trước khi dùng.');
+      throw StateError('SttServiceFacade chưa được khởi tạo.');
     }
+  }
+
+  /// Import model từ đường dẫn ngoài
+  Future<bool> importModelFromPath(
+    String sourcePath, {
+    WhisperModelLevel? level,
+  }) {
+    _ensureInitialized();
+    return _modelManager.importModelFromPath(sourcePath, level: level);
+  }
+
+  /// Tự động tìm model tốt nhất hiện có để transcribe
+  Future<SttTranscribeOutput> transcribeAuto(
+    String audioPath, {
+    String language = 'en',
+    String? lrcOutputPath,
+    bool generateLrc = true,
+  }) async {
+    _ensureInitialized();
+
+    final localLevel = _modelManager.getBestAvailableLocalModel(
+      preferredOrder: const [
+        WhisperModelLevel.base,
+        WhisperModelLevel.tiny,
+        WhisperModelLevel.small,
+        WhisperModelLevel.medium,
+        WhisperModelLevel.large,
+      ],
+    );
+
+    if (localLevel == null) {
+      _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline sẵn.');
+      return SttTranscribeOutput.failure('Không có model offline sẵn.');
+    }
+
+    return transcribeFile(
+      audioPath,
+      config: _config.copyWith(
+        preferredEngine: SttEngineType.whisper,
+        whisperModel: localLevel,
+        language: language,
+        generateLrc: generateLrc,
+      ),
+      lrcOutputPath: lrcOutputPath,
+      generateLrc: generateLrc,
+    );
   }
 
   @override
@@ -547,14 +539,4 @@ class ModelDownloadException implements Exception {
 
   @override
   String toString() => 'ModelDownloadException: $message';
-}
-
-Future<bool> importModelFromPath(
-  String sourcePath, {
-  WhisperModelLevel? level,
-}) {
-  return _modelManager.importModelFromPath(
-    sourcePath,
-    level: level,
-  );
 }

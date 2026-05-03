@@ -79,8 +79,16 @@ class SttModelManager {
     _modelDirectory = await _resolveModelDirectory();
     debugPrint('📁 STT model dir: $_modelDirectory');
 
-    await _copyBundledAssetsIfAvailable();
+    // ★ Chỉ SCAN, không copy - nhanh hơn nhiều
     await _scanExistingModels();
+
+    // ★ Copy model chạy background, không await
+    _copyBundledAssetsIfAvailable().then((_) {
+      // Scan lại sau khi copy xong để cập nhật UI
+      _scanExistingModels();
+    }).catchError((e) {
+      debugPrint('⚠️ Copy bundled assets error: $e');
+    });
 
     _initialized = true;
   }
@@ -502,25 +510,36 @@ class SttModelManager {
       final level = entry.key;
       final assetPath = entry.value;
 
+      // ★ Kiểm tra file đã tồn tại chưa trước khi copy
       final existing = await _findExistingModelFile(level);
-      if (existing != null) continue;
+      if (existing != null) {
+        debugPrint('✅ Model ${level.name} đã có: ${existing.path}');
+        continue;
+      }
 
       try {
-        final data = await rootBundle.load(assetPath);
+        // ★ Check asset có tồn tại không trước khi load
+        ByteData? data;
+        try {
+          data = await rootBundle.load(assetPath);
+        } catch (_) {
+          continue;
+        }
+
         final bytes = data.buffer.asUint8List(
           data.offsetInBytes,
           data.lengthInBytes,
         );
 
+        // ★ File rỗng thì bỏ qua
+        if (bytes.isEmpty) continue;
+
         final savePath = p.join(_modelDirectory!, level.fileName);
-
-        debugPrint('📦 Copy bundled model: $assetPath -> $savePath');
-
         await File(savePath).writeAsBytes(bytes, flush: true);
 
         final valid = await _verifyFile(savePath, level);
         if (!valid) {
-          await File(savePath).delete().catchError((_) {});
+          try { await File(savePath).delete(); } catch (_) {}
           continue;
         }
 
@@ -532,9 +551,9 @@ class SttModelManager {
           localPath: savePath,
           progress: 1.0,
         );
+        debugPrint('✅ Copied bundled model: ${level.name}');
       } catch (e) {
-        debugPrint(
-            'ℹ️ Không có bundled asset cho ${level.name}: $assetPath ($e)');
+        debugPrint('ℹ️ Không có bundled asset cho ${level.name}: $e');
       }
     }
   }

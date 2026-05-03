@@ -72,21 +72,26 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await _bootstrapGlobalServices();
-
-  runApp(const MyApp());
-}
-
-/// Chỉ init các service cấp app / singleton ở đây.
-/// Không init lại trong widget tree.
-Future<void> _bootstrapGlobalServices() async {
+  // ★ Chỉ Firebase là bắt buộc trước runApp
   await _initializeFirebaseSafely();
 
-  await SttServiceFacade().initialize(
+  // ★ runApp ngay - không block
+  runApp(const MyApp());
+
+  // ★ STT init chạy background sau khi UI đã show
+  _bootstrapSttInBackground();
+}
+
+void _bootstrapSttInBackground() {
+  SttServiceFacade()
+      .initialize(
     config: SttConfig.balanced,
     modelUrls: _sttModelUrls,
     acceptedModelNames: _acceptedModelNames,
-  );
+  )
+      .catchError((e) {
+    debugPrint('⚠️ STT background init error: $e');
+  });
 }
 
 Future<FirebaseApp?> _initializeFirebaseSafely() async {
@@ -259,19 +264,57 @@ class _AppLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        backgroundColor: Color(0xFF1A1A2E),
+        backgroundColor: const Color(0xFF080B1A),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 20),
+              // Logo
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.headphones,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'VipSound',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
               Text(
-                'Loading VipSound...',
-                style: TextStyle(color: Colors.white),
+                'Đang khởi động...',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 40),
+              const SizedBox(
+                width: 200,
+                child: LinearProgressIndicator(
+                  backgroundColor: Colors.white12,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Color(0xFF6C63FF),
+                  ),
+                ),
               ),
             ],
           ),

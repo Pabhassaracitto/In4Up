@@ -51,14 +51,17 @@ class SttEngineWhisper {
     final stopwatch = Stopwatch()..start();
 
     try {
+      // ★ FIX: truyền modelDir để Whisper đọc đúng chỗ manager đã copy
       final whisper = Whisper(
         model: _mapWhisperModel(level),
+        modelDir: _modelManager.modelDirectoryPath,
       );
 
       _progressController.add(0.3);
 
       final wavPath = await _ensureWavFormat(audioPath);
       debugPrint('🎙️ Whisper starting: $wavPath');
+      debugPrint('📂 Model dir: ${_modelManager.modelDirectoryPath}');
 
       final transcribeResult = await whisper.transcribe(
         transcribeRequest: TranscribeRequest(

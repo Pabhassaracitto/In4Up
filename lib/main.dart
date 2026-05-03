@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
+import 'package:vipsound/services/storage_service.dart';
 import 'package:vipsound_ai/vipsound_ai.dart';
 import 'package:vipsound_stt/models/stt_config.dart';
 import 'package:vipsound_stt/models/stt_model_info.dart';
@@ -23,6 +24,7 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -30,19 +32,19 @@ bool isFirebaseAvailable = false;
 /// Nếu model đã có sẵn trong assets/local thì app sẽ dùng luôn, không tải lại.
 final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
   WhisperModelLevel.tiny: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q8_0.bin?download=true',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin?download=true',
   ],
   WhisperModelLevel.base: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin?download=true',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true',
   ],
   WhisperModelLevel.small: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin?download=truetrue',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true',
   ],
   WhisperModelLevel.medium: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin?download=true',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin?download=true',
   ],
   WhisperModelLevel.large: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin?download=true',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v2.bin?download=true',
   ],
 };
 
@@ -51,36 +53,19 @@ final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
 /// - bạn copy/import file .bin từ nguồn khác
 final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
   WhisperModelLevel.tiny: [
-    'ggml-tiny-q5_1.bin',
-    'ggml-tiny-q8_1.bin',
     'ggml-tiny.bin',
-    'tiny.bin',
   ],
   WhisperModelLevel.base: [
-    'ggml-base.en-q5_1.bin',
-    'ggml-base-q5_1.bin',
-    'ggml-base-q8_1.bin',
-    'ggml-base.en.bin',
     'ggml-base.bin',
-    'base.bin',
   ],
   WhisperModelLevel.small: [
-    'ggml-small-q5_1.bin',
-    'ggml-small-q8_1.bin',
     'ggml-small.bin',
-    'small.bin',
   ],
   WhisperModelLevel.medium: [
-    'ggml-medium-q5_1.bin',
     'ggml-medium.bin',
-    'medium.bin',
   ],
   WhisperModelLevel.large: [
-    'ggml-large-v3-turbo-q5_0.bin',
-    'ggml-large-v3-q5_1.bin',
-    'ggml-large-v3.bin',
-    'ggml-large.bin',
-    'large.bin',
+    'ggml-large-v2.bin',
   ],
 };
 
@@ -177,22 +162,25 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<_AppLocalServices> _initializeLocalServices() async {
-    await Hive.initFlutter();
+    // ★ THAY TOÀN BỘ: Dùng StorageService.initialize() thay vì tự mở Hive
+    // StorageService đã mở đủ tất cả các box cần thiết
+    final storage = StorageService();
+    await storage.initialize();
 
     final prefs = await SharedPreferences.getInstance();
 
+    // ★ Chỉ mở box này vì StorageService chưa mở
     if (!Hive.isBoxOpen('vocab_sync_pending')) {
       await Hive.openBox<String>('vocab_sync_pending');
     }
 
-    return _AppLocalServices(
-      prefs: prefs,
-    );
+    return _AppLocalServices(prefs: prefs);
   }
 
   Widget _buildApp(_AppLocalServices localServices) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => UnderstandProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),

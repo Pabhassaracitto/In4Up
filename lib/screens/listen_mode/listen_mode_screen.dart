@@ -12,15 +12,12 @@
 //   - State AB Loop nằm ở PlayerProvider (single source of truth)
 //   - Waveform 3 trạng thái: loading / error / ready
 
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/providers/text_provider.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
-import 'package:vipsound/screens/understand_mode/understand_tab_connector.dart';
+import 'package:vipsound/widgets/lrc_editor_panel.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
 import '../../models/waveform_data.dart';
@@ -310,63 +307,61 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           return const ListenLibraryScreen();
         }
 
+        // ★ Tính chiều cao tối thiểu của sheet
+        final screenHeight = MediaQuery.of(context).size.height;
+        final sheetMinHeight = screenHeight * 0.10;
+
         return SafeArea(
-            bottom:
-                false, // Để sheet có thể kéo xuống sát mép nếu cần, hoặc true để tránh nút navigation
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    // Song info bar
-                    _SongInfoBar(
+          bottom: false,
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  _SongInfoBar(
+                    player: player,
+                    onTitleTap: () => QuickAudioSheet.show(context),
+                  ),
+                  Expanded(
+                    child: _buildWaveform(player),
+                  ),
+                  Consumer<PlayerProvider>(
+                    builder: (_, p, __) => _CorePlayerControls(
+                      player: p,
+                      sheetController: _sheetController,
+                    ),
+                  ),
+                  // ★ THÊM: Spacer để controls không bị sheet đè
+                  SizedBox(height: sheetMinHeight),
+                ],
+              ),
+              DraggableScrollableSheet(
+                controller: _sheetController,
+                initialChildSize: 0.10,
+                minChildSize: 0.10,
+                maxChildSize: 0.55,
+                snap: true,
+                snapSizes: const [0.10, 0.55],
+                builder: (context, scrollController) {
+                  return NotificationListener<DraggableScrollableNotification>(
+                    onNotification: (n) {
+                      final wasExpanded = _sheetExpanded;
+                      final nowExpanded = n.extent > 0.20;
+                      if (wasExpanded != nowExpanded) {
+                        setState(() => _sheetExpanded = nowExpanded);
+                      }
+                      return false;
+                    },
+                    child: _AdvancedSheet(
+                      scrollController: scrollController,
                       player: player,
-                      onTitleTap: () => QuickAudioSheet.show(context),
+                      isExpanded: _sheetExpanded,
                     ),
-
-                    // Waveform (3-state)
-                    Expanded(
-                      child: _buildWaveform(player),
-                    ),
-
-                    // Core controls (always visible)
-                    Consumer<PlayerProvider>(
-                      builder: (_, p, __) => _CorePlayerControls(
-                        player: p,
-                        sheetController: _sheetController,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Bottom sheet (advanced)
-                DraggableScrollableSheet(
-                  controller: _sheetController,
-                  initialChildSize: 0.10,
-                  minChildSize: 0.10,
-                  maxChildSize: 0.55,
-                  snap: true,
-                  snapSizes: const [0.10, 0.55],
-                  builder: (context, scrollController) {
-                    return NotificationListener<
-                        DraggableScrollableNotification>(
-                      onNotification: (n) {
-                        final wasExpanded = _sheetExpanded;
-                        final nowExpanded = n.extent > 0.20;
-                        if (wasExpanded != nowExpanded) {
-                          setState(() => _sheetExpanded = nowExpanded);
-                        }
-                        return false;
-                      },
-                      child: _AdvancedSheet(
-                        scrollController: scrollController,
-                        player: player,
-                        isExpanded: _sheetExpanded,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ));
+                  );
+                },
+              ),
+            ],
+          ),
+        );
       },
     );
   }
@@ -1138,7 +1133,10 @@ class _AdvancedSheet extends StatelessWidget {
                           child: GenerateLrcButton(),
                         ),
                         const SizedBox(height: 12),
-                        _TranscriptPreview(),
+                        const LrcEditorPanel(
+                          initiallyExpanded: true,
+                          title: 'LRC Editor',
+                        ),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -1299,182 +1297,5 @@ class _QuickBtn extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _TranscriptPreview extends StatefulWidget {
-  @override
-  State<_TranscriptPreview> createState() => _TranscriptPreviewState();
-}
-
-class _TranscriptPreviewState extends State<_TranscriptPreview> {
-  List<LrcLine>? _lines;
-  final Map<int, TextEditingController> _controllers = {};
-  String? _lastLrcPath;
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, provider, _) {
-        final output = provider.lastSttOutput;
-        final lrcPath = provider.lastGeneratedLrcPath;
-        final error = provider.lastSttError;
-
-        if (error != null && error.isNotEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              error,
-              style: const TextStyle(color: Colors.redAccent),
-            ),
-          );
-        }
-
-        if (output == null ||
-            lrcPath == null ||
-            output.result.segments.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        if (lrcPath != _lastLrcPath) {
-          _lastLrcPath = lrcPath;
-          final lrcContent = File(lrcPath).readAsStringSync();
-          _lines = SttLrcConverter().parseLrcFile(lrcContent);
-          _controllers.clear();
-          for (int i = 0; i < _lines!.length; i++) {
-            _controllers[i] = TextEditingController(text: _lines![i].text);
-          }
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                "LRC Editor",
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 250,
-                child: ListView.builder(
-                  itemCount: _lines!.length,
-                  itemBuilder: (context, index) {
-                    return Row(
-                      children: [
-                        Text(
-                          "[${_formatDuration(_lines![index].timestamp)}] ",
-                          style:
-                              TextStyle(color: Colors.grey[400], fontSize: 10),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _controllers[index],
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      // Save edits (not implemented in this diff, but placeholder)
-                      // Logic to save edits to lrcPath
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                "Chức năng lưu chỉnh sửa chưa được triển khai.")),
-                      );
-                    },
-                    child: const Text("Lưu chỉnh sửa"),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      _addToText(context);
-
-                      // Navigate to Understand Mode
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const UnderstandTabConnector(),
-                        ),
-                      );
-                    },
-                    child: const Text("Sử dụng LRC này"),
-                  ),
-                ],
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _addToText(BuildContext context) {
-    // ✅ Strip tất cả timestamp tags trước khi đưa vào Text
-    final cleanText = _controllers.values
-        .map((c) => _stripAllTags(c.text))
-        .where((line) => line.isNotEmpty)
-        .join("\n");
-
-    // ✅ Load vào TextProvider (Tab Đọc)
-    context.read<TextProvider>().loadFromString(
-          cleanText,
-          title: "Transcript",
-        );
-
-    // ✅ Load LRC lines vào UnderstandProvider (Tab Hiểu)
-    if (_lines != null) {
-      context.read<UnderstandProvider>().loadLrcLines(_lines!);
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("✅ Đã tích hợp vào Tab Đọc và Tab Hiểu"),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  // ✅ Strip word timestamps <00:02.00> và line timestamps [00:02.00]
-  String _stripAllTags(String text) {
-    return text
-        .replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2}>'), '')
-        .replaceAll(RegExp(r'\[\d{2}:\d{2}\.\d{2}\]'), '')
-        .replaceAll(RegExp(r'\[ti:.*?\]'), '')
-        .replaceAll(RegExp(r'\[ar:.*?\]'), '')
-        .replaceAll(RegExp(r'\[al:.*?\]'), '')
-        .replaceAll(RegExp(r'\[by:.*?\]'), '')
-        .replaceAll(RegExp(r'\[re:.*?\]'), '')
-        .replaceAll(RegExp(r'\[ve:.*?\]'), '')
-        .trim();
-  }
-
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes.toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    final cs = (d.inMilliseconds % 1000 ~/ 10).toString().padLeft(2, '0');
-    return "$m:$s.$cs";
   }
 }

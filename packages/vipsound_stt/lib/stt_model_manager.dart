@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -26,6 +25,14 @@ class SttModelManager {
       },
     ),
   );
+
+  static const Map<WhisperModelLevel, String> _bundledAssetPaths = {
+    WhisperModelLevel.tiny: 'assets/whisper_models/ggml-tiny.bin',
+    WhisperModelLevel.base: 'assets/whisper_models/ggml-base.bin',
+    WhisperModelLevel.small: 'assets/whisper_models/ggml-small.bin',
+    WhisperModelLevel.medium: 'assets/whisper_models/ggml-medium.bin',
+    WhisperModelLevel.large: 'assets/whisper_models/ggml-large-v2.bin',
+  };
 
   final _modelStates = <WhisperModelLevel, BehaviorSubject<SttModelInfo>>{};
   final _activeDownloads = <WhisperModelLevel, CancelToken>{};
@@ -491,19 +498,12 @@ class SttModelManager {
   Future<void> _copyBundledAssetsIfAvailable() async {
     _ensureInitialized();
 
-    final bundledAssets = await _listBundledBinAssets();
-    if (bundledAssets.isEmpty) {
-      debugPrint(
-          'ℹ️ Không tìm thấy model .bin nào trong assets/whisper_models');
-      return;
-    }
+    for (final entry in _bundledAssetPaths.entries) {
+      final level = entry.key;
+      final assetPath = entry.value;
 
-    for (final level in WhisperModelLevel.values) {
       final existing = await _findExistingModelFile(level);
       if (existing != null) continue;
-
-      final assetPath = _pickBestAssetForLevel(level, bundledAssets);
-      if (assetPath == null) continue;
 
       try {
         final data = await rootBundle.load(assetPath);
@@ -512,8 +512,7 @@ class SttModelManager {
           data.lengthInBytes,
         );
 
-        final fileName = p.basename(assetPath);
-        final savePath = p.join(_modelDirectory!, fileName);
+        final savePath = p.join(_modelDirectory!, level.fileName);
 
         debugPrint('📦 Copy bundled model: $assetPath -> $savePath');
 
@@ -534,46 +533,10 @@ class SttModelManager {
           progress: 1.0,
         );
       } catch (e) {
-        debugPrint('⚠️ Copy asset failed for ${level.name}: $e');
+        debugPrint(
+            'ℹ️ Không có bundled asset cho ${level.name}: $assetPath ($e)');
       }
     }
-  }
-
-  Future<List<String>> _listBundledBinAssets() async {
-    try {
-      final raw = await rootBundle.loadString('AssetManifest.json');
-      final decoded = json.decode(raw);
-
-      if (decoded is! Map<String, dynamic>) return const [];
-
-      return decoded.keys
-          .where((key) =>
-              key.toLowerCase().endsWith('.bin') &&
-              key.toLowerCase().contains('whisper_models'))
-          .toList();
-    } catch (e) {
-      debugPrint('ℹ️ Không đọc được AssetManifest.json: $e');
-      return const [];
-    }
-  }
-
-  String? _pickBestAssetForLevel(
-    WhisperModelLevel level,
-    List<String> assets,
-  ) {
-    String? bestPath;
-    int bestScore = 0;
-
-    for (final asset in assets) {
-      final fileName = p.basename(asset).toLowerCase();
-      final score = _matchScore(fileName, level);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPath = asset;
-      }
-    }
-
-    return bestPath;
   }
 
   Future<bool> _downloadFromUrl({

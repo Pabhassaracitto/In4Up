@@ -274,6 +274,12 @@ class PlayerProvider extends ChangeNotifier {
 
       _lastSttOutput = output;
       _lastSttError = output.success ? null : output.errorMessage;
+
+      // ★ THÊM: Lưu lrcPath riêng
+      if (output.lrcFilePath != null) {
+        _lastGeneratedLrcPath = output.lrcFilePath;
+      }
+
       return output;
     } catch (e) {
       _lastSttError = e.toString();
@@ -1063,5 +1069,6 @@ class PlayerProvider extends ChangeNotifier {
 
   String get lastTranscriptText => _lastSttOutput?.result.fullText ?? '';
 
-  String? get lastGeneratedLrcPath => _lastSttOutput?.lrcFilePath;
+  String? _lastGeneratedLrcPath;
+  String? get lastGeneratedLrcPath => _lastGeneratedLrcPath;
 }

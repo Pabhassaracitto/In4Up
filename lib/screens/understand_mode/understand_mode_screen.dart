@@ -14,6 +14,7 @@ import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
+import '../../widgets/lrc_editor_panel.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
@@ -26,8 +27,6 @@ import 'widgets/progress_item.dart';
 import 'widgets/quick_button.dart';
 import 'widgets/shadowing_button.dart';
 import 'widgets/speed_chip.dart';
-import 'package:vipsound_stt/stt_lrc_converter.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
 // Import các components mới tách
 import 'widgets/status_circle.dart';
 
@@ -144,7 +143,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 controller: _tabController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _buildSyncTab(player, textProvider),
+                  _buildSyncTab(player, textProvider), // ← ĐÚNG
                   _buildShadowingTab(player, textProvider, shadowing),
                 ],
               ),
@@ -292,10 +291,16 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
-                // Tái sử dụng widget từ Listen Mode
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: GenerateLrcButton(),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: LrcEditorPanel(
+                    initiallyExpanded: true,
+                    title: 'LRC Editor',
+                  ),
                 ),
               ],
             ],
@@ -363,9 +368,12 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     Expanded(
                       child: Slider(
                         value: player.state.duration.inMilliseconds > 0
-                            ? player.state.position.inMilliseconds /
-                                player.state.duration.inMilliseconds
+                            ? (player.state.position.inMilliseconds /
+                                    player.state.duration.inMilliseconds)
+                                .clamp(0.0, 1.0) // ← THÊM
                             : 0.0,
+                        min: 0.0,
+                        max: 1.0,
                         onChanged: (value) => player.seekToPercent(value),
                         activeColor: const Color(0xFFFFB300),
                         inactiveColor: Colors.white12,

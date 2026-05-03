@@ -24,10 +24,16 @@ extension WhisperModelLevelX on WhisperModelLevel {
 
   String get fileName {
     switch (this) {
+      case WhisperModelLevel.tiny:
+        return 'ggml-tiny.bin';
       case WhisperModelLevel.base:
-        return 'ggml-base.en-q5_1.bin';
-      default:
-        return 'ggml-$name-q5_1.bin';
+        return 'ggml-base.bin';
+      case WhisperModelLevel.small:
+        return 'ggml-small.bin';
+      case WhisperModelLevel.medium:
+        return 'ggml-medium.bin';
+      case WhisperModelLevel.large:
+        return 'ggml-large-v2.bin';
     }
   }
 
@@ -35,38 +41,15 @@ extension WhisperModelLevelX on WhisperModelLevel {
   List<String> get candidateFileNames {
     switch (this) {
       case WhisperModelLevel.tiny:
-        return const [
-          'ggml-tiny-q5_1.bin',
-          'ggml-tiny.bin',
-          'tiny.bin',
-        ];
+        return const ['ggml-tiny.bin'];
       case WhisperModelLevel.base:
-        return const [
-          'ggml-base.en-q5_1.bin',
-          'ggml-base-q5_1.bin',
-          'ggml-base.en.bin',
-          'ggml-base.bin',
-          'base.bin',
-        ];
+        return const ['ggml-base.bin'];
       case WhisperModelLevel.small:
-        return const [
-          'ggml-small-q5_1.bin',
-          'ggml-small.bin',
-          'small.bin',
-        ];
+        return const ['ggml-small.bin'];
       case WhisperModelLevel.medium:
-        return const [
-          'ggml-medium-q5_1.bin',
-          'ggml-medium.bin',
-          'medium.bin',
-        ];
+        return const ['ggml-medium.bin'];
       case WhisperModelLevel.large:
-        return const [
-          'ggml-large-v3-q5_1.bin',
-          'ggml-large-v3.bin',
-          'ggml-large.bin',
-          'large.bin',
-        ];
+        return const ['ggml-large-v2.bin'];
     }
   }
 

@@ -30,7 +30,7 @@ enum SttFacadeStatus {
 /// Sự kiện progress cho UI (dùng trong LinearProgressIndicator)
 class SttProgress {
   final SttFacadeStatus status;
-  final double progress; // 0.0 - 1.0
+  final double progress;
   final String message;
   final SttEngineType? activeEngine;
 
@@ -47,8 +47,20 @@ class SttProgress {
     message: '',
   );
 
-  bool get isActive =>
-      status != SttFacadeStatus.idle && status != SttFacadeStatus.ready;
+  // ★ FIX: error không còn tính là active
+  bool get isActive {
+    switch (status) {
+      case SttFacadeStatus.initializing:
+      case SttFacadeStatus.processingNative:
+      case SttFacadeStatus.processingWhisper:
+      case SttFacadeStatus.generatingLrc:
+        return true;
+      case SttFacadeStatus.idle:
+      case SttFacadeStatus.ready:
+      case SttFacadeStatus.error:
+        return false;
+    }
+  }
 }
 
 /// Kết quả đầy đủ bao gồm cả đường dẫn LRC (nếu được tạo)
@@ -88,62 +100,76 @@ class SttTranscribeOutput {
 /// final output = await stt.transcribeDeep(audioPath, audioPath);
 /// ```
 class SttServiceFacade extends ChangeNotifier {
-  // ─── Singleton ──────────────────────────────────────────────────────────
   static SttServiceFacade? _instance;
   factory SttServiceFacade() => _instance ??= SttServiceFacade._internal();
   SttServiceFacade._internal();
 
-  // ─── Dependencies ────────────────────────────────────────────────────────
   late final SttEngineNative _nativeEngine;
   late final SttEngineWhisper _whisperEngine;
   late final SttModelManager _modelManager;
   late final SttLrcConverter _lrcConverter;
 
-  // ─── State ───────────────────────────────────────────────────────────────
   bool _initialized = false;
   SttConfig _config = const SttConfig();
+
+  // ★ THÊM: mutex tránh init đúp
+  Future<void>? _initFuture;
 
   final _progressSubject =
       BehaviorSubject<SttProgress>.seeded(SttProgress.idle);
   Stream<SttProgress> get progressStream => _progressSubject.stream;
   SttProgress get currentProgress => _progressSubject.value;
 
-  /// Cache kết quả transcribe (path → SttResult)
   final _resultCache = <String, SttResult>{};
 
-  // ─── Initialization ───────────────────────────────────────────────────────
-
+  // ★ FIX: bọc bằng _initFuture để không chạy 2 lần song song
   Future<void> initialize({
     SttConfig? config,
     Map<WhisperModelLevel, List<String>>? modelUrls,
     Map<WhisperModelLevel, List<String>>? acceptedModelNames,
-  }) async {
-    if (_initialized) return;
-
-    _emitProgress(SttFacadeStatus.initializing, 0.0, 'Đang khởi tạo...');
-
-    _config = config ?? const SttConfig();
-    _nativeEngine = SttEngineNative();
-    _whisperEngine = SttEngineWhisper();
-    _modelManager = SttModelManager();
-    _lrcConverter = SttLrcConverter();
-
-    _modelManager.configureSources(
-      urls: modelUrls,
-      acceptedFileNames: acceptedModelNames,
+  }) {
+    if (_initialized) return Future.value();
+    return _initFuture ??= _initializeInternal(
+      config: config,
+      modelUrls: modelUrls,
+      acceptedModelNames: acceptedModelNames,
     );
+  }
 
-    await _modelManager.initialize();
-    _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
+  Future<void> _initializeInternal({
+    SttConfig? config,
+    Map<WhisperModelLevel, List<String>>? modelUrls,
+    Map<WhisperModelLevel, List<String>>? acceptedModelNames,
+  }) async {
+    try {
+      _emitProgress(SttFacadeStatus.initializing, 0.0, 'Đang khởi tạo...');
 
-    await _nativeEngine.initialize().catchError((e) {
-      debugPrint('⚠️ Native STT init failed (non-fatal): $e');
-    });
+      _config = config ?? const SttConfig();
+      _nativeEngine = SttEngineNative();
+      _whisperEngine = SttEngineWhisper();
+      _modelManager = SttModelManager();
+      _lrcConverter = SttLrcConverter();
 
-    _initialized = true;
-    _emitProgress(SttFacadeStatus.ready, 1.0, 'Sẵn sàng');
-    debugPrint('✅ SttServiceFacade initialized');
-    notifyListeners();
+      _modelManager.configureSources(
+        urls: modelUrls,
+        acceptedFileNames: acceptedModelNames,
+      );
+
+      await _modelManager.initialize();
+      _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
+
+      await _nativeEngine.initialize().catchError((e) {
+        debugPrint('⚠️ Native STT init failed (non-fatal): $e');
+      });
+
+      _initialized = true;
+      _emitProgress(SttFacadeStatus.ready, 1.0, 'Sẵn sàng');
+      debugPrint('✅ SttServiceFacade initialized');
+      notifyListeners();
+    } finally {
+      // Reset để nếu cần re-init sau này vẫn được
+      _initFuture = null;
+    }
   }
 
   // ─── Quick Transcribe (Native) ────────────────────────────────────────────
@@ -332,6 +358,16 @@ class SttServiceFacade extends ChangeNotifier {
     SttConfig config,
   ) async {
     final level = config.whisperModel;
+    final info = _modelManager.getModelInfo(level);
+
+    // ★ GUARD: không cho Whisper tự download
+    if (!info.isReady) {
+      throw StateError(
+        'Model ${level.name} chưa sẵn sàng offline. '
+        'Hãy đảm bảo file model đã được copy vào assets/whisper_models/ '
+        'hoặc tải xuống trước.',
+      );
+    }
 
     _emitProgress(
       SttFacadeStatus.processingWhisper,

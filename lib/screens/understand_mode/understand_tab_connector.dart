@@ -1,5 +1,3 @@
-// lib/screens/understand_mode/understand_tab_connector.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,27 +12,21 @@ class UnderstandTabConnector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UnderstandProvider()),
-      ],
-      child: Consumer3<PlayerProvider, TextProvider, UnderstandProvider>(
-        builder: (context, player, text, understand, _) {
-          // Sync understand lines when text changes
-          if (text.hasLyrics && understand.understandLines.isEmpty) {
-            final understandLines = text.lines
-                .map((line) => UnderstandLine.fromTextItem(line))
-                .toList();
+    return Consumer3<PlayerProvider, TextProvider, UnderstandProvider>(
+      builder: (context, player, text, understand, _) {
+        if (text.hasLyrics && understand.understandLines.isEmpty) {
+          final understandLines = text.lines
+              .map((line) => UnderstandLine.fromTextItem(line))
+              .toList();
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             understand.setUnderstandLines(understandLines);
-
-            // NEW: Pass UnderstandProvider to PlayerProvider
-            // This needs to be done after the UnderstandProvider is created and ready.
             player.setUnderstandProvider(understand);
-          }
+          });
+        }
 
-          return const UnderstandModeScreen();
-        },
-      ),
+        return const UnderstandModeScreen();
+      },
     );
   }
 }

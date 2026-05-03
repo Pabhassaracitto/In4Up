@@ -28,15 +28,15 @@ android {
         versionCode = 2
         versionName = "1.0.0"
 
-        // ndk {
-        //     abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
-        // }
-    }
+        ndk {
+             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+            }
+        }
 
     buildTypes {
     release {
-        isMinifyEnabled = true
-        isShrinkResources = true
+        isMinifyEnabled = false // thử tắt
+        isShrinkResources = false //
         // XÓA DÒNG signingConfig NÀY ĐI HOẶC ĐỂ MẶC ĐỊNH
         // signingConfig = signingConfigs.getByName("debug") 
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

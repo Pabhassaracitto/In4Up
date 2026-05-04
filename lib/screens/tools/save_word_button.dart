@@ -143,7 +143,7 @@
 ///           leading: const Icon(Icons.save_alt),
 ///           title: Text('Lưu "$word" vào Tools'),
 ///           onTap: () {
-///             Navigator.pop(context); 
+///             Navigator.pop(context);
 ///             // Sử dụng Future.microtask để đảm bảo context vẫn hợp lệ sau khi pop
 ///             Future.microtask(() {
 ///               if (context.mounted) _showSaveWordDialog(context, word);
@@ -340,8 +340,10 @@ class _SaveButton extends StatelessWidget {
           ),
           onSubmitted: (v) {
             Navigator.pop(context);
-            if (!context.mounted) return;
-            if (v.isNotEmpty) _doSave(context, v.trim());
+            Future.microtask(() {
+              // Sử dụng Future.microtask để đảm bảo an toàn sau Navigator.pop
+              if (context.mounted && v.isNotEmpty) _doSave(context, v.trim());
+            });
           },
         ),
         actions: [
@@ -352,8 +354,10 @@ class _SaveButton extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              if (!context.mounted) return;
-              _doSave(context, ctrl.text.trim());
+              Future.microtask(() {
+                // Sử dụng Future.microtask để đảm bảo an toàn sau Navigator.pop
+                if (context.mounted) _doSave(context, ctrl.text.trim());
+              });
             },
             child: const Text('Lưu'),
           ),
@@ -364,8 +368,9 @@ class _SaveButton extends StatelessWidget {
 
   void _doSave(BuildContext context, String meaningText) {
     // Đảm bảo Provider được lấy ra an toàn
-    final vocabularyProvider = Provider.of<VocabularyProvider>(context, listen: false);
-    
+    final vocabularyProvider =
+        Provider.of<VocabularyProvider>(context, listen: false);
+
     vocabularyProvider.addWord(WordEntry(
       id: 'vs_${DateTime.now().millisecondsSinceEpoch}',
       word: word.toLowerCase().trim(),

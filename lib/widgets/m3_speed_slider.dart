@@ -16,14 +16,12 @@ class M3SpeedSlider extends StatelessWidget {
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         valueIndicatorShape: const PaddleSliderValueIndicatorShape(),
-        valueIndicatorTextStyle: const TextStyle(
-          color: Colors.white, 
-          fontWeight: FontWeight.bold
-        ),
+        valueIndicatorTextStyle:
+            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-        showValueIndicator: ShowValueIndicator.always,
+        showValueIndicator: ShowValueIndicator.onDrag,
       ),
       child: Slider(
         value: currentSpeed.clamp(0.05, 10.0),

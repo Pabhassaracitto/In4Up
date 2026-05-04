@@ -1,9 +1,10 @@
 /// ═══════════════════════════════════════════════════════════════
 ///  TEXT PARSER
-///  
+///
 ///  Phân tích văn bản để tìm từ vựng
 ///  Hỗ trợ nhận diện từ đã biết / chưa biết
 /// ═══════════════════════════════════════════════════════════════
+library;
 
 class ParsedWord {
   final String original;
@@ -24,25 +25,147 @@ class ParsedWord {
 class TextParser {
   // Regex để tách từ (chữ cái và dấu ')
   static final RegExp _wordPattern = RegExp(r"[a-zA-Z']+");
-  
+
   // Các từ phổ biến nên bỏ qua
   static const Set<String> _stopWords = {
-    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-    'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare',
-    'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by',
-    'from', 'up', 'about', 'into', 'over', 'after', 'and', 'but', 'or',
-    'as', 'if', 'when', 'than', 'because', 'while', 'although', 'so',
-    'that', 'this', 'these', 'those', 'it', 'its', 'i', 'you', 'he',
-    'she', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your',
-    'his', 'our', 'their', 'mine', 'yours', 'hers', 'ours', 'theirs',
-    'what', 'which', 'who', 'whom', 'whose', 'where', 'why', 'how',
-    'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other',
-    'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'then',
-    'too', 'very', 'just', 'also', 'now', 'here', 'there', 'out',
-    'even', 'new', 'want', 'way', 'look', 'first', 'well', 'back',
-    'any', 'good', 'much', 'before', 'get', 'like', 'one', 'two',
-    'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'a',
+    'an',
+    'the',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'could',
+    'should',
+    'may',
+    'might',
+    'must',
+    'shall',
+    'can',
+    'need',
+    'dare',
+    'ought',
+    'used',
+    'to',
+    'of',
+    'in',
+    'for',
+    'on',
+    'with',
+    'at',
+    'by',
+    'from',
+    'up',
+    'about',
+    'into',
+    'over',
+    'after',
+    'and',
+    'but',
+    'or',
+    'as',
+    'if',
+    'when',
+    'than',
+    'because',
+    'while',
+    'although',
+    'so',
+    'that',
+    'this',
+    'these',
+    'those',
+    'it',
+    'its',
+    'i',
+    'you',
+    'he',
+    'she',
+    'we',
+    'they',
+    'me',
+    'him',
+    'her',
+    'us',
+    'them',
+    'my',
+    'your',
+    'his',
+    'our',
+    'their',
+    'mine',
+    'yours',
+    'hers',
+    'ours',
+    'theirs',
+    'what',
+    'which',
+    'who',
+    'whom',
+    'whose',
+    'where',
+    'why',
+    'how',
+    'all',
+    'each',
+    'every',
+    'both',
+    'few',
+    'more',
+    'most',
+    'other',
+    'some',
+    'such',
+    'no',
+    'nor',
+    'not',
+    'only',
+    'own',
+    'same',
+    'then',
+    'too',
+    'very',
+    'just',
+    'also',
+    'now',
+    'here',
+    'there',
+    'out',
+    'even',
+    'new',
+    'want',
+    'way',
+    'look',
+    'first',
+    'well',
+    'back',
+    'any',
+    'good',
+    'much',
+    'before',
+    'get',
+    'like',
+    'one',
+    'two',
+    'three',
+    'four',
+    'five',
+    'six',
+    'seven',
+    'eight',
+    'nine',
+    'ten',
   };
 
   /// Parse văn bản thành danh sách parsed words
@@ -90,7 +213,8 @@ class TextParser {
   }
 
   /// Lấy danh sách từ unique (không trùng lặp)
-  static List<String> extractUniqueWords(String text, {bool excludeStopWords = true}) {
+  static List<String> extractUniqueWords(String text,
+      {bool excludeStopWords = true}) {
     final parsed = parse(text);
     final words = <String>{};
 
@@ -106,7 +230,8 @@ class TextParser {
   }
 
   /// Đếm tần suất từ
-  static Map<String, int> wordFrequency(String text, {bool excludeStopWords = true}) {
+  static Map<String, int> wordFrequency(String text,
+      {bool excludeStopWords = true}) {
     final parsed = parse(text);
     final freq = <String, int>{};
 
@@ -122,5 +247,6 @@ class TextParser {
   }
 
   /// Kiểm tra từ có phải stop word không
-  static bool isStopWord(String word) => _stopWords.contains(word.toLowerCase());
+  static bool isStopWord(String word) =>
+      _stopWords.contains(word.toLowerCase());
 }

@@ -46,7 +46,9 @@ class RollingWaveformPainter extends CustomPainter {
     if (data.samples.isEmpty ||
         data.duration.inMilliseconds <= 0 ||
         size.width <= 0 ||
-        size.height <= 0) return;
+        size.height <= 0) {
+      return;
+    }
 
     final centerY = size.height / 2;
     final visibleDuration = controller.visibleDuration;
@@ -84,7 +86,9 @@ class RollingWaveformPainter extends CustomPainter {
     final samplesPerStep = visibleSamples.length / barsCount;
     if (samplesPerStep.isNaN ||
         samplesPerStep.isInfinite ||
-        samplesPerStep <= 0) return;
+        samplesPerStep <= 0) {
+      return;
+    }
 
     for (double x = 0; x < size.width; x += step) {
       final sampleIndex = (x / step * samplesPerStep).floor();

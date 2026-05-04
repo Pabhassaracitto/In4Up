@@ -552,9 +552,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       child: NavigationBar(
         selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
         onDestinationSelected: (idx) {
-          if (idx == 0)
+          if (idx == 0) {
             _navigateTo(_kHome);
-          else if (idx <= 4)
+          } else if (idx <= 4)
             _onTabTapped(idx - 1);
           else if (idx == 5) _openTools();
         },

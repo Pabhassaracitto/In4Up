@@ -238,27 +238,19 @@ class YtService {
       track = _findTrack(manifest.tracks, lang);
 
       // 2. Prefix match: 'en' match 'en-US', 'en-GB'
-      if (track == null) {
-        track =
-            manifest.tracks.cast<yt_exp.ClosedCaptionTrackInfo?>().firstWhere(
+      track ??= manifest.tracks.cast<yt_exp.ClosedCaptionTrackInfo?>().firstWhere(
                   (t) => t!.language.code.startsWith('$lang-'),
                   orElse: () => null,
                 );
-      }
 
       // 3. Auto-generated: 'en' → 'a.en'
-      if (track == null) {
-        track = _findTrack(manifest.tracks, 'a.$lang');
-      }
+      track ??= _findTrack(manifest.tracks, 'a.$lang');
 
       // 4. Auto-generated với hyphen: 'a.en-US'
-      if (track == null) {
-        track =
-            manifest.tracks.cast<yt_exp.ClosedCaptionTrackInfo?>().firstWhere(
+      track ??= manifest.tracks.cast<yt_exp.ClosedCaptionTrackInfo?>().firstWhere(
                   (t) => t!.language.code.startsWith('a.$lang'),
                   orElse: () => null,
                 );
-      }
 
       // 5. Không tìm thấy đúng lang → không fallback sang lang khác
       //    (để UI có thể thông báo đúng)
@@ -324,18 +316,14 @@ class YtService {
 
     // Pattern 1: exact lang
     final p1 = RegExp(
-      '"baseUrl":"([^"]+)"[^}]{0,200}"languageCode":"' +
-          RegExp.escape(lang) +
-          '"',
+      '"baseUrl":"([^"]+)"[^}]{0,200}"languageCode":"${RegExp.escape(lang)}"',
     );
     baseUrl = p1.firstMatch(body)?.group(1);
 
     // Pattern 2: auto-generated a.lang
     if (baseUrl == null) {
       final p2 = RegExp(
-        '"baseUrl":"([^"]+)"[^}]{0,200}"languageCode":"a\\.' +
-            RegExp.escape(lang) +
-            '"',
+        '"baseUrl":"([^"]+)"[^}]{0,200}"languageCode":"a\\.${RegExp.escape(lang)}"',
       );
       baseUrl = p2.firstMatch(body)?.group(1);
     }

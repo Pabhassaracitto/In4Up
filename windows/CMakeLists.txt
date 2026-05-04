@@ -134,11 +134,20 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
       if(FIREBASE_LIBS)
           message(STATUS "[VipSound] Firebase Static Libs validated in: ${FIREBASE_SDK_DIR}")
           
-          # Tìm và copy DLL nếu có (một số module Firebase có thể có DLL đi kèm)
+          # Tìm và copy các file DLL của Firebase
           file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
           if(FIREBASE_DLLS)
+              # Install phase
               install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-              install(CODE "message(STATUS \"[VipSound] Copied Firebase DLLs to bundle.\")" COMPONENT Runtime)
+              
+              foreach(dll_path ${FIREBASE_DLLS})
+                  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                      "${dll_path}"
+                      "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+                  )
+              endforeach()
+              message(STATUS "[VipSound] Registered automatic DLL copy for Firebase.")
           endif()
       else()
           message(WARNING "[VipSound] No .lib files found in ${FIREBASE_SDK_DIR}. Ensure you pointed to the SDK ROOT, not the libs folder.")
@@ -146,3 +155,17 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   else()
       message(WARNING "[VipSound] FIREBASE_CPP_SDK_DIR path is invalid or not set: ${FIREBASE_SDK_DIR}")
   endif()
+
+# === Manual External DLLs Management (Whisper, FFmpeg, etc.) ===
+file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
+if(EXTRA_DLLS)
+    message(STATUS "[VipSound] Found extra DLLs in libs/: ${EXTRA_DLLS}")
+    install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+    foreach(dll_path ${EXTRA_DLLS})
+        add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${dll_path}"
+            "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+        )
+    endforeach()
+endif()

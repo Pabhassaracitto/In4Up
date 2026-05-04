@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
+import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 import 'package:vipsound/services/storage_service.dart';
 import 'package:vipsound_ai/vipsound_ai.dart';
 import 'package:vipsound_stt/models/stt_config.dart';
@@ -24,7 +25,6 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -189,7 +189,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
-        ChangeNotifierProvider(create: (_) => VocabularyProvider()),
+        ChangeNotifierProvider(create: (_) => VocabularyProvider()..loadData()),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
 

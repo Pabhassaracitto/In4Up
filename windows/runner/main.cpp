@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <shlwapi.h>
 
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
@@ -6,9 +7,18 @@
 #include "flutter_window.h"
 #include "utils.h"
 
+// Cần link thư viện shlwapi để dùng PathRemoveFileSpecW
+#pragma comment(lib, "shlwapi.lib")
+
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command)
 {
+  // ✅ Đảm bảo ứng dụng tìm kiếm DLL trong thư mục cài đặt (Fix lỗi FFI lookup)
+  wchar_t buffer[MAX_PATH];
+  GetModuleFileNameW(NULL, buffer, MAX_PATH);
+  PathRemoveFileSpecW(buffer);
+  SetDllDirectoryW(buffer);
+
   // ✅ FIX: Force ANGLE software renderer để tránh EGL Context Lost (12302)
   ::SetEnvironmentVariableW(L"FLUTTER_WINDOWS_FORCE_SOFTWARE_RENDERING", L"1");
   ::SetEnvironmentVariableW(L"FLUTTER_SOFTWARE_RENDERING", L"1");

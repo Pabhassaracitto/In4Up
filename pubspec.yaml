@@ -71,7 +71,7 @@ dependencies:
   
   # Cloud Firestore (database)
   cloud_firestore: ^6.0.0
-  google_sign_in: ^7.2.0 # Giữ nguyên hoặc nâng lên mới nhất
+  google_sign_in: ^6.2.1 #7.2.0 Giữ nguyên hoặc nâng lên mới nhất
   googleapis: ^16.0.0
 
   # Youglish Android & iOS

@@ -112,60 +112,32 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
-  # === Manual Firebase SDK Management ===
-  # Đọc đường dẫn từ Biến môi trường hệ thống để dùng chung cho mọi dự án
-  # LƯU Ý: Phải dùng tên FIREBASE_CPP_SDK_DIR để các plugin Firebase tự động nhận diện
-  set(FIREBASE_SDK_DIR "$ENV{FIREBASE_CPP_SDK_DIR}")
-  
-  # Chuẩn hóa đường dẫn (thay đổi dấu \ thành /) để CMake không bị lỗi
-  file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
+# === Manual Firebase SDK Management ===
+set(FIREBASE_SDK_DIR "$ENV{FIREBASE_CPP_SDK_DIR}")
+file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
 
-  if(FIREBASE_SDK_DIR)
-    message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
-  else()
-    message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR is NOT set. Firebase will download SDK automatically.")
-  endif()
+if(FIREBASE_SDK_DIR)
+  message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
+else()
+  message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR is NOT set.")
+endif()
 
-  # === Quản lý Firebase SDK (Manual) ===
-  if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
-      # Kiểm tra sự tồn tại của .lib (Static Libs) để xác nhận SDK đúng cấu trúc
-      file(GLOB_RECURSE FIREBASE_LIBS "${FIREBASE_SDK_DIR}/*.lib")
-      
-      if(FIREBASE_LIBS)
-          message(STATUS "[VipSound] Firebase Static Libs validated in: ${FIREBASE_SDK_DIR}")
-          
-          # Tìm và copy các file DLL của Firebase
-          file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
-          if(FIREBASE_DLLS)
-              # Install phase
-              install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-              
-              foreach(dll_path ${FIREBASE_DLLS})
-                  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
-                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                      "${dll_path}"
-                      "$<TARGET_FILE_DIR:${BINARY_NAME}>"
-                  )
-              endforeach()
-              message(STATUS "[VipSound] Registered automatic DLL copy for Firebase.")
-          endif()
-      else()
-          message(WARNING "[VipSound] No .lib files found in ${FIREBASE_SDK_DIR}. Ensure you pointed to the SDK ROOT, not the libs folder.")
-      endif()
-  else()
-      message(WARNING "[VipSound] FIREBASE_CPP_SDK_DIR path is invalid or not set: ${FIREBASE_SDK_DIR}")
-  endif()
+# === Quản lý Firebase SDK (Manual) ===
+if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
+    file(GLOB_RECURSE FIREBASE_LIBS "${FIREBASE_SDK_DIR}/*.lib")
+    if(FIREBASE_LIBS)
+        message(STATUS "[VipSound] Firebase Static Libs validated.")
+        file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
+        if(FIREBASE_DLLS)
+            install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+            # Lưu ý: add_custom_command cho Firebase DLLs cũng nên dời vào runner nếu cần chạy debug
+        endif()
+    endif()
+endif()
 
 # === Manual External DLLs Management (Whisper, FFmpeg, etc.) ===
 file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
 if(EXTRA_DLLS)
     message(STATUS "[VipSound] Found extra DLLs in libs/: ${EXTRA_DLLS}")
     install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-    foreach(dll_path ${EXTRA_DLLS})
-        add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${dll_path}"
-            "$<TARGET_FILE_DIR:${BINARY_NAME}>"
-        )
-    endforeach()
 endif()

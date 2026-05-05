@@ -46,3 +46,15 @@ add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
     $<TARGET_FILE:ultratimestretch>
     $<TARGET_FILE_DIR:${BINARY_NAME}>
 )
+
+# Copy Whisper & GGML DLLs từ windows/libs/ sang thư mục build cạnh file .exe
+set(DLL_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libs")
+
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${DLL_SOURCE_DIR}/ggml.dll"
+    "$<TARGET_FILE_DIR:${BINARY_NAME}>/ggml.dll"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${DLL_SOURCE_DIR}/whisper.dll"
+    "$<TARGET_FILE_DIR:${BINARY_NAME}>/whisper.dll"
+)

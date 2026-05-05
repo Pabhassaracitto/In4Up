@@ -146,3 +146,16 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   else()
       message(WARNING "[VipSound] FIREBASE_CPP_SDK_DIR path is invalid or not set: ${FIREBASE_SDK_DIR}")
   endif()
+
+  # Đường dẫn tới thư mục chứa DLL
+set(DLL_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs")
+
+# Lệnh copy (giả sử tên target của bạn là 'my_whisper_plugin')
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DLL_SOURCE_DIR}/ggml.dll"
+        "$<TARGET_FILE_DIR:${BINARY_NAME}>/ggml.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DLL_SOURCE_DIR}/whisper.dll"
+        "$<TARGET_FILE_DIR:${BINARY_NAME}>/whisper.dll"
+)

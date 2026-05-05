@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'services/whisper_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -90,6 +91,11 @@ void _bootstrapSttInBackground() {
     acceptedModelNames: _acceptedModelNames,
   )
       .catchError((e) {
+    debugPrint('⚠️ STT background init error: $e');
+  });
+
+  // Initialize Native FFI Whisper if on Windows
+  WhisperService().initNativeContext().catchError((e) {
     debugPrint('⚠️ STT background init error: $e');
   });
 }

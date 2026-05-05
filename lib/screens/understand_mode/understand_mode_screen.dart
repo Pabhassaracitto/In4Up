@@ -43,6 +43,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   late RollingWaveformController _waveformController;
   final ScrollController _textScrollController = ScrollController();
   late UnderstandProvider _understandProvider;
+  PlayerProvider? _playerProvider;
   late final VoidCallback _playerListener;
   final ScrollController _lrcScrollController = ScrollController();
 
@@ -56,23 +57,26 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     _waveformController = RollingWaveformController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final player = context.read<PlayerProvider>();
+      if (!mounted) return;
+      _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
+      final player = _playerProvider!;
       _playerListener = () {
-        if (!mounted) return;
-        context
-            .read<UnderstandProvider>()
-            .updatePosition(player.state.position);
+        if (!mounted || !context.mounted) return;
 
-        final idx = context.read<UnderstandProvider>().currentLineIndex;
+        final understandProvider =
+            Provider.of<UnderstandProvider>(context, listen: false);
+        understandProvider.updatePosition(_playerProvider!.state.position);
+
+        final idx = understandProvider.currentLineIndex;
         if (idx >= 0 && _autoScroll) _scrollToLine(idx);
       };
-      player.addListener(_playerListener);
+      _playerProvider?.addListener(_playerListener);
     });
   }
 
   @override
   void dispose() {
-    context.read<PlayerProvider>().removeListener(_playerListener);
+    _playerProvider?.removeListener(_playerListener);
     _lrcScrollController.dispose();
     _tabController.dispose();
     _waveformController.dispose();

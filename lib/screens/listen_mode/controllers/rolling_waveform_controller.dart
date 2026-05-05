@@ -90,9 +90,4 @@ class RollingWaveformController extends ChangeNotifier {
     final targetMs = _position.inMilliseconds + deltaMs.round();
     return Duration(milliseconds: targetMs.clamp(0, _duration.inMilliseconds));
   }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

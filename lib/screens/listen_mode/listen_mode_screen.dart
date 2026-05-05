@@ -998,7 +998,7 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                       : (_) => setState(
                           () => _selectedLevel = isSelected ? null : level),
                 );
-              }).toList(),
+              }),
             ],
           ),
           const SizedBox(height: 12),

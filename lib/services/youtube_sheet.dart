@@ -192,8 +192,9 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       final captions =
           await _svc.fetchCaptions(_videoInfo!.id, languageCode: _selectedLang);
 
-      if (captions.isEmpty)
+      if (captions.isEmpty) {
         throw Exception('Không tải được phụ đề $_selectedLang');
+      }
 
       final lrcPath = await _svc.saveCaptionsAsLrc(captions, _videoInfo!);
 
@@ -368,7 +369,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
         if (widget.captionsFirst && _availableLangs.isNotEmpty) ...[
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selectedLang,
+            initialValue: _selectedLang,
             dropdownColor: const Color(0xFF2A2A3E),
             items: _availableLangs
                 .map((l) => DropdownMenuItem(

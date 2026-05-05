@@ -194,13 +194,14 @@ class _MiniPlayerState extends State<MiniPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
     final isVisible = state == AppLifecycleState.resumed;
     if (_isAppVisible != isVisible) {
       setState(() {
         _isAppVisible = isVisible;
       });
       // ★ CHIẾN LƯỢC: Dừng ngay lập tức các Ticker animation để giải phóng GPU Buffer
-      final player = context.read<PlayerProvider>();
+      final player = Provider.of<PlayerProvider>(context, listen: false);
       _handlePlayStateChange(player.isPlaying);
     }
   }
@@ -216,9 +217,9 @@ class _MiniPlayerState extends State<MiniPlayer>
   }
 
   void _updateSleepDisplay() {
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
 
-    final player = context.read<PlayerProvider>();
+    final player = Provider.of<PlayerProvider>(context, listen: false);
     if (player.sleepRemaining != _displayedSleepRemaining) {
       setState(() {
         _displayedSleepRemaining = player.sleepRemaining;

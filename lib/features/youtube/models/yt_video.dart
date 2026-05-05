@@ -38,8 +38,9 @@ class YtVideo {
     final p = RegExp(r'(?:v=|youtu\.be/|embed/|shorts/)([a-zA-Z0-9_-]{11})');
     final m = p.firstMatch(input.trim());
     if (m != null) return m.group(1);
-    if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(input.trim()))
+    if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(input.trim())) {
       return input.trim();
+    }
     return null;
   }
 }

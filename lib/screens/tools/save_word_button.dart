@@ -97,8 +97,11 @@
 ///
 /// ```dart
 /// // Trong ReadScreen hoặc bất kỳ nơi nào lưu từ:
+/// // Sử dụng async nếu có các tác vụ chờ đợi trước khi truy cập context
+/// Future<void> _saveWord(BuildContext context, String word, String meaning, {String? phonetic, String? example}) async {
+///   // Luôn kiểm tra mounted trước khi sử dụng context sau một lệnh await
+///   if (!context.mounted) return;
 ///
-/// void _saveWord(String word, String meaning, {String? phonetic, String? example}) {
 ///   final vocabProvider = context.read<VocabularyProvider>();
 ///
 ///   // Kiểm tra xem từ đã tồn tại chưa
@@ -141,7 +144,10 @@
 ///           title: Text('Lưu "$word" vào Tools'),
 ///           onTap: () {
 ///             Navigator.pop(context);
-///             _showSaveWordDialog(word);
+///             // Sử dụng Future.microtask để đảm bảo context vẫn hợp lệ sau khi pop
+///             Future.microtask(() {
+///               if (context.mounted) _showSaveWordDialog(context, word);
+///             });
 ///           },
 ///         ),
 ///         // ... other options
@@ -220,6 +226,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
 
@@ -333,7 +340,10 @@ class _SaveButton extends StatelessWidget {
           ),
           onSubmitted: (v) {
             Navigator.pop(context);
-            if (v.isNotEmpty) _doSave(context, v);
+            Future.microtask(() {
+              // Sử dụng Future.microtask để đảm bảo an toàn sau Navigator.pop
+              if (context.mounted && v.isNotEmpty) _doSave(context, v.trim());
+            });
           },
         ),
         actions: [
@@ -344,7 +354,10 @@ class _SaveButton extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _doSave(context, ctrl.text.isEmpty ? '' : ctrl.text);
+              Future.microtask(() {
+                // Sử dụng Future.microtask để đảm bảo an toàn sau Navigator.pop
+                if (context.mounted) _doSave(context, ctrl.text.trim());
+              });
             },
             child: const Text('Lưu'),
           ),
@@ -354,7 +367,11 @@ class _SaveButton extends StatelessWidget {
   }
 
   void _doSave(BuildContext context, String meaningText) {
-    prov.addWord(WordEntry(
+    // Đảm bảo Provider được lấy ra an toàn
+    final vocabularyProvider =
+        Provider.of<VocabularyProvider>(context, listen: false);
+
+    vocabularyProvider.addWord(WordEntry(
       id: 'vs_${DateTime.now().millisecondsSinceEpoch}',
       word: word.toLowerCase().trim(),
       meaning: meaningText,

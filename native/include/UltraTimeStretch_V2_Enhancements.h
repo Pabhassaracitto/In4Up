@@ -44,7 +44,9 @@ namespace UltraTimeStretch
 {
     namespace V2
     {
-
+        // Re-export từ namespace cha để dùng tiện trong V2
+        using Options = ::UltraTimeStretch::Options; // ← THÊM
+        using Quality = ::UltraTimeStretch::Quality; // ← THÊM
         //==============================================================================
         // Adaptive FFT Manager (ok to keep header-only: small, static, no state)
         //==============================================================================

@@ -65,9 +65,11 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
       // Tap: play/pause
       onTap: () => widget.onTap?.call(),
 
-      // Double tap: ẩn/hiện waveform
+      /*// Double tap: ẩn/hiện waveform
       onDoubleTap: () => setState(() => _isVisible = !_isVisible),
-
+*/
+      // Double tap: reset zoom
+      onDoubleTap: () => widget.controller.setZoom(1.0),
       // Long press: action sheet
       onLongPressStart: (details) {
         if (_isDragging) return; // Block long-press khi đang drag seek

@@ -1,12 +1,15 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
-#include <stdio.h> // <-- THÊM
-#include "UltraTimeStretch.h"
-#include "UltraTimeStretch_V2_Enhancements.h"
+#include <stdio.h>
+#include <cstdio>
+#include <iostream>
 
-using namespace UltraTimeStretch;
-using namespace UltraTimeStretch::V2;
+#include "../../../native/include/UltraTimeStretch.h"
+#include "../../../native/include/UltraTimeStretch_V2_Enhancements.h"
 
-// Helper để ghi log ra file debug
+namespace UTS = UltraTimeStretch;
+namespace UTS_V2 = UltraTimeStretch::V2;
+
 static void DebugLog(const char *msg)
 {
     FILE *f = fopen("C:\\temp\\ultratimestretch_debug.log", "a");
@@ -24,12 +27,15 @@ extern "C"
     __declspec(dllexport) void *CreateEngine(int sampleRate, int channels)
     {
         char buf[256];
-        sprintf(buf, "[CreateEngine] sampleRate=%d, channels=%d", sampleRate, channels);
+        snprintf(buf, sizeof(buf), "[CreateEngine] sampleRate=%d, channels=%d",
+                 sampleRate, channels);
         DebugLog(buf);
 
-        EngineV2 *engine = new EngineV2();
-        Options options;
-        options.quality = Quality::HighQuality;
+        UTS_V2::EngineV2 *engine = new UTS_V2::EngineV2();
+
+        // Options ở namespace CHA: UltraTimeStretch::Options
+        UTS::Options options;
+        options.quality = UTS::Quality::HighQuality;
         options.preserveTransients = true;
 
         if (!engine->initialize(sampleRate, channels, options))
@@ -39,23 +45,27 @@ extern "C"
             return nullptr;
         }
 
-        sprintf(buf, "[CreateEngine] SUCCESS, engine=%p", (void *)engine);
+        snprintf(buf, sizeof(buf), "[CreateEngine] SUCCESS, engine=%p", (void *)engine);
         DebugLog(buf);
-
         return engine;
     }
 
-    // Option B: Export CreateEngineV2 khớp với Dart FFI (5 tham số)
-    __declspec(dllexport) void *CreateEngineV2(int sampleRate, int channels, int quality, char preserveTransients, char preserveFormants)
+    __declspec(dllexport) void *CreateEngineV2(int sampleRate, int channels,
+                                               int quality,
+                                               char preserveTransients,
+                                               char preserveFormants)
     {
         char buf[256];
-        sprintf(buf, "[CreateEngineV2] sampleRate=%d, channels=%d, quality=%d", sampleRate, channels, quality);
+        snprintf(buf, sizeof(buf),
+                 "[CreateEngineV2] sampleRate=%d, channels=%d, quality=%d",
+                 sampleRate, channels, quality);
         DebugLog(buf);
 
-        EngineV2 *engine = new EngineV2();
-        Options options;
-        // Map int từ Dart sang Enum/Bool của C++
-        options.quality = static_cast<Quality>(quality);
+        UTS_V2::EngineV2 *engine = new UTS_V2::EngineV2();
+
+        // Options ở namespace CHA: UltraTimeStretch::Options
+        UTS::Options options;
+        options.quality = static_cast<UTS::Quality>(quality);
         options.preserveTransients = (preserveTransients != 0);
         options.preserveFormants = (preserveFormants != 0);
 
@@ -65,14 +75,13 @@ extern "C"
             delete engine;
             return nullptr;
         }
-
         return engine;
     }
 
     __declspec(dllexport) void DestroyEngine(void *enginePtr)
     {
         DebugLog("[DestroyEngine] called");
-        EngineV2 *engine = static_cast<EngineV2 *>(enginePtr);
+        UTS_V2::EngineV2 *engine = static_cast<UTS_V2::EngineV2 *>(enginePtr);
         if (engine)
         {
             engine->shutdown();
@@ -83,20 +92,19 @@ extern "C"
     __declspec(dllexport) void SetSpeed(void *enginePtr, float speed)
     {
         char buf[128];
-        sprintf(buf, "[SetSpeed] speed=%.3f", speed);
+        snprintf(buf, sizeof(buf), "[SetSpeed] speed=%.3f", speed);
         DebugLog(buf);
 
-        EngineV2 *engine = static_cast<EngineV2 *>(enginePtr);
+        UTS_V2::EngineV2 *engine = static_cast<UTS_V2::EngineV2 *>(enginePtr);
         if (engine)
-        {
             engine->setSpeed(speed);
-        }
     }
 
-    __declspec(dllexport) int ProcessAudio(void *enginePtr, float *input, int inputFrames,
+    __declspec(dllexport) int ProcessAudio(void *enginePtr,
+                                           float *input, int inputFrames,
                                            float *output, int maxOutputFrames)
     {
-        EngineV2 *engine = static_cast<EngineV2 *>(enginePtr);
+        UTS_V2::EngineV2 *engine = static_cast<UTS_V2::EngineV2 *>(enginePtr);
         if (!engine)
         {
             DebugLog("[ProcessAudio] engine is NULL!");
@@ -105,16 +113,15 @@ extern "C"
 
         int result = engine->processV2(input, inputFrames, output, maxOutputFrames);
 
-        // Log mỗi 100 lần để không spam
         static int callCount = 0;
         if (++callCount % 100 == 0)
         {
             char buf[256];
-            sprintf(buf, "[ProcessAudio] inputFrames=%d, maxOutput=%d, result=%d",
-                    inputFrames, maxOutputFrames, result);
+            snprintf(buf, sizeof(buf),
+                     "[ProcessAudio] inputFrames=%d, maxOutput=%d, result=%d",
+                     inputFrames, maxOutputFrames, result);
             DebugLog(buf);
         }
-
         return result;
     }
 

@@ -1,4 +1,4 @@
-# Project-level configuration.
+﻿# Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
 
 # Suppress warnings from dependencies
@@ -10,6 +10,15 @@ project(vipsound LANGUAGES CXX)
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "vipsound")
+
+# Khai báo các thư mục chứa file header (.h) cho toàn bộ dự án.
+# Điều này giúp trình biên dịch tìm thấy các file như UltraTimeStretch.h nằm trong các thư mục src/V1, src/V2.
+include_directories(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../native"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../native/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/V1"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../native/src/V2"
+)
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -130,7 +139,7 @@ if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
         file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
         if(FIREBASE_DLLS)
             install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-            # Lưu ý: add_custom_command cho Firebase DLLs cũng nên dời vào runner nếu cần chạy debug
+# Lưu ý: add_custom_command cho Firebase DLLs cũng nên dời vào runner nếu cần chạy debug
         endif()
     endif()
 endif()
@@ -140,4 +149,15 @@ file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
 if(EXTRA_DLLS)
     message(STATUS "[VipSound] Found extra DLLs in libs/: ${EXTRA_DLLS}")
     install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()
+# === Bundle ffmpeg.exe ===
+set(FFMPEG_EXE "${CMAKE_CURRENT_SOURCE_DIR}/libs/ffmpeg.exe")
+if(EXISTS "${FFMPEG_EXE}")
+    message(STATUS "[VipSound] Found ffmpeg.exe, bundling...")
+    install(FILES "${FFMPEG_EXE}"
+            DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+            COMPONENT Runtime)
+# KHONG dung add_custom_command o day - da chuyen sang runner/CMakeLists.txt
+else()
+    message(WARNING "[VipSound] ffmpeg.exe NOT found")
 endif()

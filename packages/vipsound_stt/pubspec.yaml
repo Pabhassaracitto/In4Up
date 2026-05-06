@@ -10,23 +10,24 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # Engine 1: Native STT (fast, offline)
   speech_to_text: ^7.3.0
   
-  # Engine 2: Whisper AI (accurate, offline)
+  # Whisper - chỉ dùng trên mobile/macOS
   whisper_flutter_new: ^1.0.1
-  #mp3 -> wav
+  
+  # FFmpeg - chỉ dùng trên mobile
   ffmpeg_kit_flutter_new: ^4.1.0
-  #ffmpeg_kit_flutter: ^6.0.3 #change from 2.2.0  
 
-  # Storage & networking
   path_provider: ^2.1.4
   dio: ^5.4.0
-  firebase_storage: 13.3.0 #change from ^13.0.0
+  firebase_storage: 13.3.0
   path: ^1.9.0
-  # Utilities
   rxdart: ^0.28.0
   crypto: ^3.0.6
+  
+  # FFI cho Windows Whisper trực tiếp
+  ffi: ^2.1.0
+  platform: ^3.1.6
 
 dev_dependencies:
   flutter_test:

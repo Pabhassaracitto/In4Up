@@ -2,6 +2,7 @@
 // Chỉ thay đổi 3 chỗ — giữ nguyên toàn bộ code cũ
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
@@ -11,9 +12,9 @@ import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
 import '../screens/listen_mode/models/recent_audio.dart';
-import '../screens/understand_mode/understand_mode.dart';
 // ★ THÊM import
 import '../screens/listen_mode/services/recent_audio_service.dart';
+import '../screens/understand_mode/understand_mode.dart';
 import '../services/storage_service.dart';
 import 'text_provider.dart'; // Import TextProvider
 
@@ -243,45 +244,45 @@ class PlayerProvider extends ChangeNotifier {
       return null;
     }
 
+    final actualPath = _normalizeAudioPath(path!);
+    debugPrint('📂 Generate LRC for: $actualPath');
+
     _isGeneratingLrc = true;
     _lastSttError = null;
     notifyListeners();
 
     try {
-      final stt = SttServiceFacade();
-
-      SttTranscribeOutput output;
+      final SttTranscribeOutput output;
       if (level == null) {
         // AUTO MODE
-        output = await stt.transcribeAuto(
-          path,
+        output = await _sttService.transcribeAuto(
+          actualPath,
           language: 'en',
           generateLrc: true,
         );
       } else {
         // USER-SELECTED MODEL
-        output = await stt.transcribeFile(
-          path,
-          config: SttConfig.deepLearning.copyWith(
-            preferredEngine: SttEngineType.whisper,
-            whisperModel: level,
-            language: 'en',
-            generateLrc: true,
-          ),
-          generateLrc: true,
+        output = await _sttService.transcribeDeep(
+          actualPath,
+          level: level,
+          language: 'en',
         );
       }
 
       _lastSttOutput = output;
-      _lastSttError = output.success ? null : output.errorMessage;
 
-      // ★ THÊM: Lưu lrcPath riêng
-      if (output.lrcFilePath != null) {
+      if (output.success && output.lrcFilePath != null) {
+        _lastSttError = null;
         _lastGeneratedLrcPath = output.lrcFilePath;
+        debugPrint('✅ LRC generated: ${output.lrcFilePath}');
+      } else {
+        _lastSttError = output.errorMessage ?? 'Transcribe failed';
+        debugPrint('⚠️ Generate LRC failed: $_lastSttError');
       }
 
       return output;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('❌ Generate LRC error: $e\n$stack');
       _lastSttError = e.toString();
       return null;
     } finally {
@@ -293,7 +294,8 @@ class PlayerProvider extends ChangeNotifier {
   /// Transcribe nhanh (Native) - dùng cho Shadowing
   Future<String> transcribeForShadowing(String audioPath) async {
     try {
-      final output = await _sttService.transcribeQuick(audioPath);
+      final actualPath = _normalizeAudioPath(audioPath);
+      final output = await _sttService.transcribeQuick(actualPath);
       return output.success ? output.result.fullText : '';
     } catch (_) {
       return '';
@@ -441,6 +443,60 @@ class PlayerProvider extends ChangeNotifier {
 
   // ==================== BASIC PLAYBACK ====================
 
+  // ★ THÊM: Debug loadAudio để kiểm tra lỗi path trên Windows
+  Future<void> loadAudio(String path) async {
+    debugPrint('════════════════════════════════════');
+    debugPrint('🎵 loadAudio() called');
+    debugPrint('   Input path: $path');
+
+    try {
+      String actualPath = _normalizeAudioPath(path);
+      debugPrint('   Normalized: $actualPath');
+      debugPrint('   File.existsSync: ${File(actualPath).existsSync()}');
+
+      // Test path variants
+      final variants = [
+        actualPath,
+        actualPath.replaceAll('\\', '/'),
+        Uri.file(actualPath).toString(),
+      ];
+
+      for (int i = 0; i < variants.length; i++) {
+        debugPrint('   Variant $i: ${variants[i]}');
+      }
+
+      // Try setFilePath
+      debugPrint('   Trying setFilePath...');
+      // Lưu ý: Nếu _audioService không expose trực tiếp player,
+      // bạn có thể cần truy cập thông qua một getter trong AudioPlayerService
+      await (_audioService as dynamic).setFilePath(actualPath);
+
+      _currentSongPath = actualPath;
+      notifyListeners();
+
+      debugPrint('✅ Audio loaded successfully');
+    } catch (e, stack) {
+      debugPrint('❌ setFilePath failed: $e');
+      debugPrint('Stack: $stack');
+
+      // Fallback: try URL
+      try {
+        debugPrint('   Trying setUrl with file:/// ...');
+        final uri = Uri.file(path);
+        await (_audioService as dynamic).setUrl(uri.toString());
+
+        _currentSongPath = path;
+        notifyListeners();
+
+        debugPrint('✅ Audio loaded via URL fallback');
+      } catch (e2, stack2) {
+        debugPrint('❌ setUrl also failed: $e2');
+        debugPrint('Stack: $stack2');
+      }
+    }
+    debugPrint('════════════════════════════════════');
+  }
+
   // ★ THAY THẾ loadSong() — thêm lưu recent
   Future<void> loadSong({
     required String path,
@@ -448,35 +504,36 @@ class PlayerProvider extends ChangeNotifier {
     String? artist,
     bool autoPlay = false,
   }) async {
-    // ★ CHUẨN HÓA: Đưa về dấu / để nhất quán trên Windows/Mobile
-    final normalizedPath = path.replaceAll('\\', '/');
+    // ★ FIX: Normalize path hệ thống
+    final actualPath = _normalizeAudioPath(path);
 
-    _currentSongPath = normalizedPath;
-    _currentSongTitle = title ?? normalizedPath.split('/').last;
+    // ★ FIX: just_audio trên Windows cần format URI (file:///) cho path có ký tự đặc biệt
+    final loadPath =
+        Platform.isWindows ? Uri.file(actualPath).toString() : actualPath;
+
+    _currentSongPath = actualPath; // Lưu path sạch
+    _currentSongTitle =
+        title ?? actualPath.split(Platform.isWindows ? '\\' : '/').last;
     _currentSongArtist = artist;
 
     clearLoop();
-    _hasHandledCompletion = false; // Reset trạng thái kết thúc khi đổi bài
+    _hasHandledCompletion = false;
     _currentSegmentIndex = -1;
-    _storage.saveLastAudioPath(normalizedPath);
+    _storage.saveLastAudioPath(actualPath);
     notifyListeners();
 
-    // ★ THÊM: Lưu vào recent ngay khi load
     final recentEntry = RecentAudio.fromLocalFile(
-      path: normalizedPath,
+      path: actualPath,
       title: _currentSongTitle!,
     );
     _pendingRecentUpdate = recentEntry;
-    // Fire-and-forget — không await để không block playback
     _recentAudio.addOrUpdate(recentEntry);
 
-    final success = await _audioService.loadFile(normalizedPath);
+    final success = await _audioService.loadFile(loadPath);
     if (success) {
-      // Lấy duration thực tế từ service
       final durationMs = _audioService.currentState.duration.inMilliseconds;
-      final savedMs = _storage.getSavedPosition(normalizedPath);
+      final savedMs = _storage.getSavedPosition(actualPath);
 
-      // Kiểm tra xem vị trí đã lưu có quá gần cuối bài không (còn dưới 2 giây hoặc > 98%)
       bool isFinished = durationMs > 0 &&
           (savedMs != null &&
               (savedMs > durationMs * 0.98 || savedMs > durationMs - 2000));
@@ -488,7 +545,6 @@ class PlayerProvider extends ChangeNotifier {
         await play();
       }
 
-      // ★ THÊM: Cập nhật totalDuration sau khi load xong
       final duration = _state.duration;
       if (duration > Duration.zero) {
         _recentAudio.updatePosition(
@@ -1041,6 +1097,40 @@ class PlayerProvider extends ChangeNotifier {
     setMode(VipMode.english);
     setSpeed(0.75);
     setGapDuration(2.0);
+  }
+
+  // ★ TEST: Debug path normalization
+  void debugTestPath() {
+    final testPaths = [
+      'file:///D:/TEST/JONATHAN%E2%80%99S/file.m4a',
+      'D:/TEST/JONATHAN\'S/file.m4a',
+      'D:\\TEST\\JONATHAN\'S\\file.m4a',
+    ];
+
+    for (final path in testPaths) {
+      final normalized = _normalizeAudioPath(path);
+      debugPrint('IN:  $path');
+      debugPrint('OUT: $normalized\n');
+    }
+  }
+
+  // ★ HELPERS
+  String _normalizeAudioPath(String path) {
+    try {
+      if (path.startsWith('file:///') || path.startsWith('file://')) {
+        return Uri.parse(path).toFilePath();
+      }
+
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+      }
+
+      // Windows path - trả về nguyên bản, KHÔNG decode
+      return path;
+    } catch (e) {
+      debugPrint('⚠️ Path normalization error: $e');
+      return path;
+    }
   }
 
   // ==================== DISPOSE ====================

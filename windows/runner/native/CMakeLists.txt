@@ -14,7 +14,12 @@ get_filename_component(NATIVE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../native" 
 message(STATUS "NATIVE_DIR = ${NATIVE_DIR}")
 
 # Include headers
-include_directories("${NATIVE_DIR}/include")
+include_directories(
+    "${NATIVE_DIR}"
+    "${NATIVE_DIR}/include"
+    "${NATIVE_DIR}/src/V1"
+    "${NATIVE_DIR}/src/V2"
+)
 
 # -------------------------
 # V1 sources

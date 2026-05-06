@@ -3,6 +3,7 @@
 // Được gọi từ PlayerProvider và thay thế OfflineSTTService
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -242,8 +243,27 @@ class SttServiceFacade extends ChangeNotifier {
   }) async {
     _ensureInitialized();
 
+    // ★ CHỈ normalize file:/// URI, KHÔNG decode %
+    String actualPath = audioPath;
+    if (audioPath.startsWith('file:///') || audioPath.startsWith('file://')) {
+      try {
+        final uri = Uri.parse(audioPath);
+        actualPath = uri.toFilePath();
+      } catch (e) {
+        debugPrint('⚠️ URI parse failed: $e');
+      }
+    }
+
     final cfg = config ?? _config;
     final shouldGenerateLrc = generateLrc || cfg.generateLrc;
+
+    // ── Kiểm tra file tồn tại ───────────────────────────────────
+    final audioFile = File(actualPath);
+    if (!await audioFile.exists()) {
+      return SttTranscribeOutput.failure(
+        'File audio không tồn tại: $actualPath',
+      );
+    }
 
     // ── Kiểm tra cache ────────────────────────────────────────────────
     final cacheKey = _buildCacheKey(audioPath, cfg);

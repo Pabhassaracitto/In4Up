@@ -3,20 +3,18 @@
 import 'dart:async';
 import 'dart:io';
 
-// Mobile imports - conditional
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart'
-    if (dart.library.io) 'stt_engine_whisper_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:whisper_flutter_new/whisper_flutter_new.dart'
-    if (dart.library.io) 'stt_engine_whisper_stub.dart';
 
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 // ★ THÊM: Import platform files
 import 'platform/wav_reader.dart';
 import 'platform/whisper_ffi_windows.dart';
+// Conditional import for mobile implementation
+import 'stt_engine_whisper_mobile.dart'
+    if (dart.library.windows) 'stt_engine_whisper_mobile_stub.dart';
 import 'stt_model_manager.dart';
 
 /// Engine Whisper AI - chạy offline trên thiết bị
@@ -267,6 +265,17 @@ class SttEngineWhisper {
     // Mobile implementation stub (giữ nguyên hoặc tách file)
     // Implement mobile logic here or import from separate file
     return SttResult.empty(SttEngineType.whisper);
+    // Call the actual mobile implementation or its stub
+    return transcribeMobileImpl(
+      audioPath: audioPath,
+      level: level,
+      language: language,
+      translateToEnglish: translateToEnglish,
+      wordTimestamps: wordTimestamps,
+      modelManager: _modelManager,
+      progressController: _progressController,
+      stopwatch: stopwatch,
+    );
   }
 
   void dispose() {

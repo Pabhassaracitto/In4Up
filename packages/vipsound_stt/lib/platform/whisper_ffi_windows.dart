@@ -1,6 +1,7 @@
 // packages/vipsound_stt/lib/stt_engine_whisper_mobile.dart
 import 'dart:ffi';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'dart:async';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -107,45 +108,65 @@ class WhisperFfiWindows {
     try {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
 
-      // ★ Load tất cả dependencies theo đúng thứ tự
+      debugPrint('📁 EXE Dir: $exeDir');
+
+      // List all DLLs in folder
+      final dllFiles = Directory(exeDir)
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.toLowerCase().endsWith('.dll'))
+          .map((f) => p.basename(f.path))
+          .toList();
+
+      debugPrint('📦 Available DLLs: ${dllFiles.join(", ")}');
+
+      // ★ Load dependencies với full path và SetDllDirectory
       final dependencies = [
         'ggml.dll',
-        'ggml-base.dll', // ← Thêm
+        'ggml-base.dll',
       ];
 
+      // Set DLL search path (Windows API)
+      _setDllDirectory(exeDir);
+
       for (final dll in dependencies) {
-        final path = '$exeDir\\$dll';
+        final fullPath = p.join(exeDir, dll);
 
-        if (!File(path).existsSync()) {
-          debugPrint('❌ Missing dependency: $dll');
+        if (!File(fullPath).existsSync()) {
+          debugPrint('⚠️ $dll not found, trying to continue...');
 
-          // ★ Fallback: nếu ggml-base.dll thiếu, copy từ ggml.dll
+          // Auto-create ggml-base.dll if missing
           if (dll == 'ggml-base.dll') {
-            final ggmlPath = '$exeDir\\ggml.dll';
+            final ggmlPath = p.join(exeDir, 'ggml.dll');
             if (File(ggmlPath).existsSync()) {
-              debugPrint('⚠️ Creating ggml-base.dll from ggml.dll');
-              File(ggmlPath).copySync(path);
-            } else {
-              return false;
+              File(ggmlPath).copySync(fullPath);
+              debugPrint('✅ Created ggml-base.dll from ggml.dll');
             }
-          } else {
-            return false;
           }
+          continue;
         }
 
         try {
-          DynamicLibrary.open(path);
+          final lib = DynamicLibrary.open(fullPath);
           debugPrint('✅ Loaded: $dll');
         } catch (e) {
           debugPrint('❌ Failed to load $dll: $e');
-          return false;
+
+          // Try load by name only (let system search)
+          try {
+            DynamicLibrary.open(dll);
+            debugPrint('✅ Loaded $dll (system search)');
+          } catch (e2) {
+            debugPrint('❌ Also failed with system search: $e2');
+            return false;
+          }
         }
       }
 
-      // Load whisper.dll cuối cùng
-      final whisperPath = '$exeDir\\whisper.dll';
+      // Load whisper.dll
+      final whisperPath = p.join(exeDir, 'whisper.dll');
       if (!File(whisperPath).existsSync()) {
-        debugPrint('❌ whisper.dll not found');
+        debugPrint('❌ whisper.dll not found at: $whisperPath');
         return false;
       }
 
@@ -153,11 +174,30 @@ class WhisperFfiWindows {
       _bindFunctions();
       _loaded = true;
 
-      debugPrint('✅ whisper.dll loaded successfully');
+      debugPrint('✅✅ whisper.dll loaded successfully!');
       return true;
     } catch (e, stack) {
-      debugPrint('❌ Load error: $e\n$stack');
+      debugPrint('❌ Load error: $e');
+      debugPrint('Stack: $stack');
       return false;
+    }
+  }
+
+// Helper to set DLL search directory (Windows only)
+  void _setDllDirectory(String dir) {
+    try {
+      final kernel32 = DynamicLibrary.open('kernel32.dll');
+      final setDllDirectory = kernel32.lookupFunction<
+          Int32 Function(Pointer<Utf16>),
+          int Function(Pointer<Utf16>)>('SetDllDirectoryW');
+
+      final dirPtr = dir.toNativeUtf16();
+      setDllDirectory(dirPtr);
+      malloc.free(dirPtr);
+
+      debugPrint('✅ SetDllDirectory: $dir');
+    } catch (e) {
+      debugPrint('⚠️ SetDllDirectory failed: $e (non-fatal)');
     }
   }
 
@@ -292,50 +332,17 @@ class WhisperFfiWindows {
   }
 
   void _fillParams(Pointer<Void> params, String language) {
-    // Zero toàn bộ buffer trước
-    final bytePtr = params.cast<Uint8>();
-    for (int i = 0; i < _kParamsSize; i++) {
-      bytePtr[i] = 0;
+    if (_defaultParamsByRef == null) {
+      debugPrint('❌ whisper_full_default_params_by_ref not available');
+      return;
     }
 
-    final int32Ptr = params.cast<Int32>();
+    // 0 = WHISPER_SAMPLING_GREEDY
+    _defaultParamsByRef!(params, 0);
 
-    // whisper_full_params layout (whisper.cpp, stable):
-    // [0]  int strategy          = 0 (GREEDY)
-    // [1]  int n_threads         = 4
-    // [2]  int n_max_text_ctx    = 16384
-    // [3]  int offset_ms         = 0
-    // [4]  int duration_ms       = 0 (0 = toàn bộ)
-    int32Ptr[0] = 0; // GREEDY
-    int32Ptr[1] = 4; // n_threads
-    int32Ptr[2] = 16384; // n_max_text_ctx
-    int32Ptr[3] = 0; // offset_ms
-    int32Ptr[4] = 0; // duration_ms
+    debugPrint('✅ Default whisper params loaded');
 
-    // bool fields bắt đầu từ offset 20 (sau 5 int32 = 20 bytes)
-    // [20] bool translate        = false
-    // [21] bool no_context       = false
-    // [22] bool no_timestamps    = false
-    // [23] bool single_segment   = false
-    // [24] bool print_special    = false
-    // [25] bool print_progress   = false
-    // [26] bool print_realtime   = false
-    // [27] bool print_timestamps = true
-    bytePtr[20] = 0; // translate = false
-    bytePtr[21] = 0; // no_context = false
-    bytePtr[22] = 0; // no_timestamps = false
-    bytePtr[23] = 0; // single_segment = false
-    bytePtr[24] = 0; // print_special = false
-    bytePtr[25] = 0; // print_progress = false
-    bytePtr[26] = 0; // print_realtime = false
-    bytePtr[27] = 1; // print_timestamps = true
-
-    // language string pointer tại offset 72 (sau bool fields + padding)
-    // Để null → whisper tự detect, hoặc dùng whisper_full_default_params_by_ref
-    // Nếu có _defaultParamsByRef thì dùng nó thay thế toàn bộ logic trên
-    if (_defaultParamsByRef != null) {
-      _defaultParamsByRef!(params, 0); // 0 = GREEDY
-    }
+    // KHÔNG set byte offsets thủ công nữa!
   }
 
   bool _isNoise(String text) {

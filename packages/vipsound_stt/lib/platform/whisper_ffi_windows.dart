@@ -21,46 +21,149 @@ typedef NativeWhisperFull = Int32 Function(Pointer<Void> ctx,
 typedef WhisperFullFn = int Function(Pointer<Void> ctx, Pointer<Void> params,
     Pointer<Float> samples, int nSamples);
 
-/// Định nghĩa Struct để khớp với ABI của whisper.cpp
+/// Định nghĩa Struct để khớp với ABI của `whisper_vad_params` trong `whisper.h`
+base class WhisperVadParams extends Struct {
+  @Float()
+  external double threshold;
+  @Int32()
+  external int min_speech_duration_ms;
+  @Int32()
+  external int min_silence_duration_ms;
+  @Float()
+  external double max_speech_duration_s;
+  @Int32()
+  external int speech_pad_ms;
+  @Float()
+  external double samples_overlap;
+}
+
+/// Định nghĩa Struct để khớp với ABI của `whisper_full_params` trong `whisper.h`
+/// Cần định nghĩa TẤT CẢ các trường để đảm bảo ABI tương thích và tránh corrupt memory.
 base class WhisperFullParams extends Struct {
   @Int32()
   external int strategy;
 
   @Int32()
   external int n_threads;
-
   @Int32()
   external int n_max_text_ctx;
-
   @Int32()
   external int offset_ms;
-
   @Int32()
   external int duration_ms;
 
   @Uint8()
   external int translate;
-
   @Uint8()
   external int no_context;
-
   @Uint8()
   external int no_timestamps;
-
   @Uint8()
   external int single_segment;
-
   @Uint8()
   external int print_special;
-
   @Uint8()
   external int print_progress;
-
   @Uint8()
   external int print_realtime;
-
   @Uint8()
   external int print_timestamps;
+
+  // [EXPERIMENTAL] token-level timestamps
+  @Uint8()
+  external int token_timestamps;
+  @Float()
+  external double thold_pt;
+  @Float()
+  external double thold_ptsum;
+  @Int32()
+  external int max_len;
+  @Uint8()
+  external int split_on_word;
+  @Int32()
+  external int max_tokens;
+
+  // [EXPERIMENTAL] speed-up techniques
+  @Uint8()
+  external int debug_mode;
+  @Int32()
+  external int audio_ctx;
+
+  // [EXPERIMENTAL] [TDRZ] tinydiarize
+  @Uint8()
+  external int tdrz_enable;
+
+  external Pointer<Utf8> suppress_regex;
+
+  external Pointer<Utf8> initial_prompt;
+  @Uint8()
+  external int carry_initial_prompt;
+  external Pointer<Int32> prompt_tokens;
+  @Int32()
+  external int prompt_n_tokens;
+
+  external Pointer<Utf8> language;
+  @Uint8()
+  external int detect_language;
+
+  @Uint8()
+  external int suppress_blank;
+  @Uint8()
+  external int suppress_nst;
+
+  @Float()
+  external double temperature;
+  @Float()
+  external double max_initial_ts;
+  @Float()
+  external double length_penalty;
+
+  // fallback parameters
+  @Float()
+  external double temperature_inc;
+  @Float()
+  external double entropy_thold;
+  @Float()
+  external double logprob_thold;
+  @Float()
+  external double no_speech_thold;
+
+  // Nested structs (greedy and beam_search) - Dart FFI flattens these
+  @Int32() // greedy.best_of
+  external int greedy_best_of;
+
+  @Int32() // beam_search.beam_size
+  external int beam_search_beam_size;
+  @Float() // beam_search.patience
+  external double beam_search_patience;
+
+  // Callbacks - represented as Pointer<Void> to match size/alignment
+  external Pointer<Void> new_segment_callback;
+  external Pointer<Void> new_segment_callback_user_data;
+  external Pointer<Void> progress_callback;
+  external Pointer<Void> progress_callback_user_data;
+  external Pointer<Void> encoder_begin_callback;
+  external Pointer<Void> encoder_begin_callback_user_data;
+  external Pointer<Void> abort_callback;
+  external Pointer<Void> abort_callback_user_data;
+  external Pointer<Void> logits_filter_callback;
+  external Pointer<Void> logits_filter_callback_user_data;
+
+  // Grammar
+  external Pointer<Pointer<Void>> grammar_rules;
+  @Size() // size_t n_grammar_rules;
+  external int n_grammar_rules;
+  @Size() // size_t i_start_rule;
+  external int i_start_rule;
+  @Float() // float grammar_penalty;
+  external double grammar_penalty;
+
+  // Voice Activity Detection (VAD) params
+  @Uint8()
+  external int vad;
+  external Pointer<Utf8> vad_model_path;
+
+  external WhisperVadParams vad_params; // Nested struct
 }
 
 typedef NativeWhisperFullDefaultParamsByRef = Void Function(
@@ -133,6 +236,7 @@ class WhisperFfiWindows {
   bool _loaded = false;
 
   late WhisperInitFromFileFn _initFromFile;
+  // Removed _free from here, it's defined below
   late WhisperFreeFn _free;
   late WhisperFullFn _full;
   late WhisperFullNSegmentsFn _nSegments;
@@ -145,6 +249,7 @@ class WhisperFfiWindows {
     if (_loaded) return true;
 
     try {
+      // Get the directory of the executable
       final exeDir = File(Platform.resolvedExecutable).parent.path;
 
       debugPrint('📁 EXE Dir: $exeDir');
@@ -159,7 +264,7 @@ class WhisperFfiWindows {
 
       debugPrint('📦 Available DLLs: ${dllFiles.join(", ")}');
 
-      // ★ Load dependencies với full path và SetDllDirectory
+      // Load dependencies with full path and SetDllDirectory
       final dependencies = [
         'ggml.dll',
         'ggml-base.dll',
@@ -174,12 +279,14 @@ class WhisperFfiWindows {
         if (!File(fullPath).existsSync()) {
           debugPrint('⚠️ $dll not found, trying to continue...');
 
-          // Auto-create ggml-base.dll if missing
+          // Auto-create ggml-base.dll if missing (common workaround)
           if (dll == 'ggml-base.dll') {
             final ggmlPath = p.join(exeDir, 'ggml.dll');
             if (File(ggmlPath).existsSync()) {
               File(ggmlPath).copySync(fullPath);
               debugPrint('✅ Created ggml-base.dll from ggml.dll');
+            } else {
+              debugPrint('❌ ggml.dll not found to create ggml-base.dll');
             }
           }
           continue;
@@ -214,7 +321,7 @@ class WhisperFfiWindows {
       _loaded = true;
 
       debugPrint('✅✅ whisper.dll loaded successfully!');
-      return true;
+      return true; // Return true if whisper.dll loaded
     } catch (e, stack) {
       debugPrint('❌ Load error: $e');
       debugPrint('Stack: $stack');
@@ -224,6 +331,7 @@ class WhisperFfiWindows {
 
 // Helper to set DLL search directory (Windows only)
   void _setDllDirectory(String dir) {
+    // Restored this function
     try {
       final kernel32 = DynamicLibrary.open('kernel32.dll');
       final setDllDirectory = kernel32.lookupFunction<
@@ -241,6 +349,7 @@ class WhisperFfiWindows {
   }
 
   void _bindFunctions() {
+    // Bind _initFromFile
     _initFromFile = _lib!
         .lookup<NativeFunction<NativeWhisperInitFromFile>>(
             'whisper_init_from_file')
@@ -250,10 +359,12 @@ class WhisperFfiWindows {
         .lookup<NativeFunction<NativeWhisperFree>>('whisper_free')
         .asFunction();
 
+    // Bind _full
     _full = _lib!
         .lookup<NativeFunction<NativeWhisperFull>>('whisper_full')
         .asFunction();
 
+    // Bind _nSegments
     _nSegments = _lib!
         .lookup<NativeFunction<NativeWhisperFullNSegments>>(
             'whisper_full_n_segments')
@@ -264,16 +375,19 @@ class WhisperFfiWindows {
             'whisper_full_get_segment_text')
         .asFunction();
 
+    // Bind _getSegmentT0
     _getSegmentT0 = _lib!
         .lookup<NativeFunction<NativeWhisperFullGetSegmentT0>>(
             'whisper_full_get_segment_t0')
         .asFunction();
 
+    // Bind _getSegmentT1
     _getSegmentT1 = _lib!
         .lookup<NativeFunction<NativeWhisperFullGetSegmentT1>>(
             'whisper_full_get_segment_t1')
         .asFunction();
 
+    // Bind _defaultParamsByRef
     _defaultParamsByRef = _lib!
         .lookup<NativeFunction<NativeWhisperFullDefaultParamsByRef>>(
             'whisper_full_default_params_by_ref')
@@ -311,6 +425,46 @@ class WhisperFfiWindows {
       params = calloc<WhisperFullParams>();
       _defaultParamsByRef(params, 0); // 0 = GREEDY
       debugPrint('✅ Default whisper params loaded');
+
+      // Áp dụng các ghi đè cụ thể để tắt VAD và các cài đặt khác theo yêu cầu
+      // Sử dụng try-catch như bạn yêu cầu, mặc dù với struct đầy đủ thì không cần thiết
+      // vì các trường này chắc chắn tồn tại.
+      try {
+        params.ref.vad = 0; // Tắt VAD
+      } catch (e) {
+        debugPrint('Failed to set params.ref.vad: $e');
+      }
+
+      try {
+        params.ref.vad_model_path =
+            nullptr; // Đặt đường dẫn VAD model thành null
+      } catch (e) {
+        debugPrint('Failed to set params.ref.vad_model_path: $e');
+      }
+
+      try {
+        params.ref.no_timestamps = 0; // Bật timestamps (0 = false)
+      } catch (e) {
+        debugPrint('Failed to set params.ref.no_timestamps: $e');
+      }
+
+      try {
+        params.ref.single_segment = 0; // Cho phép nhiều segment (0 = false)
+      } catch (e) {
+        debugPrint('Failed to set params.ref.single_segment: $e');
+      }
+
+      try {
+        params.ref.no_context =
+            0; // Sử dụng context từ các lần transcribe trước (0 = false)
+      } catch (e) {
+        debugPrint('Failed to set params.ref.no_context: $e');
+      }
+
+      // Các cài đặt print khác (để tránh log quá nhiều từ thư viện C)
+      params.ref.print_progress = 0;
+      params.ref.print_realtime = 0;
+      params.ref.print_special = 0;
 
       // 3. Alloc samples
       samplesPtr = malloc.allocate<Float>(pcmSamples.length * sizeOf<Float>());
@@ -361,7 +515,10 @@ class WhisperFfiWindows {
     } finally {
       // Free theo đúng thứ tự
       if (samplesPtr != nullptr) malloc.free(samplesPtr);
-      if (params != nullptr) calloc.free(params);
+      if (params != nullptr) {
+        if (params.ref.language != nullptr) malloc.free(params.ref.language);
+        calloc.free(params);
+      }
       if (ctx != nullptr && ctx.address != 0) _free(ctx);
       malloc.free(modelPathNative);
     }

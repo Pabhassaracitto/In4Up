@@ -77,6 +77,7 @@ class SttTranscribeOutput {
     this.lrcFilePath,
     this.wasLrcGenerated = false,
     this.errorMessage,
+    // ★ FIX: success dựa vào result.hasError hoặc errorMessage
     required this.success,
   });
 
@@ -293,23 +294,23 @@ class SttServiceFacade extends ChangeNotifier {
 
     try {
       SttResult? result;
-      String? engine = cfg.preferredEngine.name.toUpperCase();
+      String? engineName = cfg.preferredEngine.name.toUpperCase();
 
       // ── Engine Selection ───────────────────────────────────────────
       if (cfg.preferredEngine == SttEngineType.whisper) {
-        result = await _runWhisperEngine(audioPath, cfg);
+        result = await _runWhisperEngine(actualPath, cfg);
       } else {
-        result = await _runNativeEngine(audioPath, cfg);
-
+        result = await _runNativeEngine(actualPath, cfg);
         // Fallback sang Whisper nếu Native không hỗ trợ file
-        if (cfg.autoFallback && (result.fullText.isEmpty)) {
+        // ★ FIX: Fallback nếu Native trả về empty HOẶC có lỗi
+        if (cfg.autoFallback && (result.fullText.isEmpty || result.hasError)) {
           debugPrint('⚠️ Native failed/empty → fallback to Whisper');
-          engine = 'WHISPER (fallback)';
-          result = await _runWhisperEngine(audioPath, cfg);
+          engineName = 'WHISPER (fallback)';
+          result = await _runWhisperEngine(actualPath, cfg);
         }
       }
 
-      debugPrint('✅ Transcribe done via $engine: '
+      debugPrint('✅ Transcribe done via $engineName: '
           '${result.fullText.length} chars');
 
       // ── Cache kết quả ─────────────────────────────────────────────
@@ -336,7 +337,9 @@ class SttServiceFacade extends ChangeNotifier {
         result: result,
         lrcFilePath: lrcPath,
         wasLrcGenerated: lrcGenerated,
-        success: true,
+        // ★ FIX: success dựa vào result.hasError và errorMessage từ result
+        success: !result.hasError,
+        errorMessage: result.errorMessage,
       );
     } catch (e, stack) {
       debugPrint('❌ SttServiceFacade.transcribeFile error: $e');

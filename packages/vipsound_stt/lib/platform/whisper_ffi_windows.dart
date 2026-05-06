@@ -105,21 +105,42 @@ class WhisperFfiWindows {
     if (_loaded) return true;
 
     try {
+      // ★ FIX: Dùng full path thay vì tên DLL
       final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final dllPath = '$exeDir/whisper.dll';
+      final dllPath = '$exeDir\\whisper.dll'; // ← Backslash Windows
+      final ggmlPath = '$exeDir\\ggml.dll';
 
+      debugPrint('🔍 Loading DLL: $dllPath');
+
+      // Check file exists
       if (!File(dllPath).existsSync()) {
-        debugPrint('❌ whisper.dll không tìm thấy tại: $dllPath');
+        debugPrint('❌ whisper.dll not found at: $dllPath');
         return false;
       }
 
+      if (!File(ggmlPath).existsSync()) {
+        debugPrint(
+            '⚠️ ggml.dll not found at: $ggmlPath (may cause load failure)');
+      }
+
+      // ★ Load ggml.dll trước (dependency)
+      try {
+        DynamicLibrary.open(ggmlPath);
+        debugPrint('✅ ggml.dll loaded');
+      } catch (e) {
+        debugPrint('⚠️ ggml.dll load warning: $e');
+      }
+
+      // Load whisper.dll
       _lib = DynamicLibrary.open(dllPath);
       _bindFunctions();
       _loaded = true;
-      debugPrint('✅ whisper.dll loaded (direct FFI)');
+
+      debugPrint('✅ whisper.dll loaded successfully');
       return true;
-    } catch (e) {
-      debugPrint('❌ Không load được whisper.dll: $e');
+    } catch (e, stack) {
+      debugPrint('❌ Failed to load whisper.dll: $e');
+      debugPrint('Stack: $stack');
       return false;
     }
   }

@@ -15,8 +15,7 @@ class SttEngineNative {
   bool _isListening = false;
 
   /// Stream kết quả real-time (dùng cho live transcription)
-  final _resultController =
-      StreamController<SttResult>.broadcast();
+  final _resultController = StreamController<SttResult>.broadcast();
   Stream<SttResult> get resultStream => _resultController.stream;
 
   bool get isInitialized => _isInitialized;
@@ -108,15 +107,14 @@ class SttEngineNative {
 
   /// Transcribe từ file audio (simulate - Native STT không hỗ trợ trực tiếp)
   /// Đây là wrapper để SttServiceFacade có API nhất quán
-  /// 
+  ///
   /// NOTE: speech_to_text không hỗ trợ transcribe file trực tiếp.
   /// Dùng cho compatibility. Với file, ưu tiên dùng Whisper.
   Future<SttResult> transcribeFile(
     String audioPath, {
     String language = 'en-US',
   }) async {
-    debugPrint(
-        '⚠️ Native STT không hỗ trợ transcribe file trực tiếp. '
+    debugPrint('⚠️ Native STT không hỗ trợ transcribe file trực tiếp. '
         'Sử dụng Whisper để xử lý file: $audioPath');
 
     // Trả về kết quả rỗng để Facade có thể fallback sang Whisper
@@ -127,6 +125,8 @@ class SttEngineNative {
       language: language,
       processingTime: Duration.zero,
       hasWordTimestamps: false,
+      errorMessage:
+          'Native STT does not support file transcription directly.', // ★ THÊM: Thông báo lỗi cụ thể
     );
   }
 

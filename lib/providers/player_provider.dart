@@ -449,8 +449,8 @@ class PlayerProvider extends ChangeNotifier {
     debugPrint('🎵 loadAudio() called');
     debugPrint('   Input path: $path');
 
+    String actualPath = _normalizeAudioPath(path);
     try {
-      String actualPath = _normalizeAudioPath(path);
       debugPrint('   Normalized: $actualPath');
       debugPrint('   File.existsSync: ${File(actualPath).existsSync()}');
 
@@ -482,8 +482,10 @@ class PlayerProvider extends ChangeNotifier {
       // Fallback: try URL
       try {
         debugPrint('   Trying setUrl with file:/// ...');
-        final uri = Uri.file(path);
-        await (_audioService as dynamic).setUrl(uri.toString());
+        // Tránh dùng Uri.file(path) trực tiếp nếu path chứa '[' hoặc ']'
+        final uriString =
+            path.startsWith('file:') ? path : Uri.file(actualPath).toString();
+        await (_audioService as dynamic).setUrl(uriString);
 
         _currentSongPath = path;
         notifyListeners();
@@ -507,9 +509,9 @@ class PlayerProvider extends ChangeNotifier {
     // ★ FIX: Normalize path hệ thống
     final actualPath = _normalizeAudioPath(path);
 
-    // ★ FIX: just_audio trên Windows cần format URI (file:///) cho path có ký tự đặc biệt
-    final loadPath =
-        Platform.isWindows ? Uri.file(actualPath).toString() : actualPath;
+    // ★ FIX: Sử dụng raw system path cho Windows thay vì URI string.
+    // Việc dùng file:/// khiến File(path).exists() bên trong các service bị lỗi Illegal Character.
+    final loadPath = actualPath;
 
     _currentSongPath = actualPath; // Lưu path sạch
     _currentSongTitle =

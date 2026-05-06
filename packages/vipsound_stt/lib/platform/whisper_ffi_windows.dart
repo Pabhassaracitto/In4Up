@@ -1,11 +1,11 @@
 // packages/vipsound_stt/lib/stt_engine_whisper_mobile.dart
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
-import 'package:path/path.dart' as p;
-import 'dart:async';
+
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:path/path.dart' as p;
 
 // ─── Native typedefs ──────────────────────────────────────────────────────────
 
@@ -21,10 +21,52 @@ typedef NativeWhisperFull = Int32 Function(Pointer<Void> ctx,
 typedef WhisperFullFn = int Function(Pointer<Void> ctx, Pointer<Void> params,
     Pointer<Float> samples, int nSamples);
 
+/// Định nghĩa Struct để khớp với ABI của whisper.cpp
+base class WhisperFullParams extends Struct {
+  @Int32()
+  external int strategy;
+
+  @Int32()
+  external int n_threads;
+
+  @Int32()
+  external int n_max_text_ctx;
+
+  @Int32()
+  external int offset_ms;
+
+  @Int32()
+  external int duration_ms;
+
+  @Uint8()
+  external int translate;
+
+  @Uint8()
+  external int no_context;
+
+  @Uint8()
+  external int no_timestamps;
+
+  @Uint8()
+  external int single_segment;
+
+  @Uint8()
+  external int print_special;
+
+  @Uint8()
+  external int print_progress;
+
+  @Uint8()
+  external int print_realtime;
+
+  @Uint8()
+  external int print_timestamps;
+}
+
 typedef NativeWhisperFullDefaultParamsByRef = Void Function(
-    Pointer<Void> params, Int32 strategy);
-typedef WhisperFullDefaultParamsByRefFn = void Function(
-    Pointer<Void> params, int strategy);
+    Pointer<WhisperFullParams>, Int32);
+typedef WhisperFullDefaultParamsByRef = void Function(
+    Pointer<WhisperFullParams>, int);
 
 typedef NativeWhisperFullNSegments = Int32 Function(Pointer<Void> ctx);
 typedef WhisperFullNSegmentsFn = int Function(Pointer<Void> ctx);
@@ -97,10 +139,7 @@ class WhisperFfiWindows {
   late WhisperFullGetSegmentTextFn _getSegmentText;
   late WhisperFullGetSegmentT0Fn _getSegmentT0;
   late WhisperFullGetSegmentT1Fn _getSegmentT1;
-  WhisperFullDefaultParamsByRefFn? _defaultParamsByRef;
-
-  // whisper_full_params size ~512 bytes (safe upper bound cho mọi version)
-  static const int _kParamsSize = 512;
+  late WhisperFullDefaultParamsByRef _defaultParamsByRef;
 
   bool load() {
     if (_loaded) return true;
@@ -235,15 +274,10 @@ class WhisperFfiWindows {
             'whisper_full_get_segment_t1')
         .asFunction();
 
-    // Optional - có trong whisper.cpp mới
-    try {
-      _defaultParamsByRef = _lib!
-          .lookup<NativeFunction<NativeWhisperFullDefaultParamsByRef>>(
-              'whisper_full_default_params_by_ref')
-          .asFunction();
-    } catch (_) {
-      _defaultParamsByRef = null;
-    }
+    _defaultParamsByRef = _lib!
+        .lookup<NativeFunction<NativeWhisperFullDefaultParamsByRef>>(
+            'whisper_full_default_params_by_ref')
+        .asFunction();
   }
 
   /// Transcribe PCM samples bằng model tại [modelPath]
@@ -262,7 +296,7 @@ class WhisperFfiWindows {
 
     final modelPathNative = modelPath.toNativeUtf8();
     Pointer<Void> ctx = nullptr;
-    Pointer<Void> paramsPtr = nullptr;
+    Pointer<WhisperFullParams> params = nullptr;
     Pointer<Float> samplesPtr = nullptr;
 
     try {
@@ -273,9 +307,10 @@ class WhisperFfiWindows {
       }
       debugPrint('✅ Whisper context created');
 
-      // 2. Alloc & fill params
-      paramsPtr = malloc.allocate<Void>(_kParamsSize);
-      _fillParams(paramsPtr, language);
+      // 2. Allocate typed struct and get default params by ref
+      params = calloc<WhisperFullParams>();
+      _defaultParamsByRef(params, 0); // 0 = GREEDY
+      debugPrint('✅ Default whisper params loaded');
 
       // 3. Alloc samples
       samplesPtr = malloc.allocate<Float>(pcmSamples.length * sizeOf<Float>());
@@ -286,7 +321,8 @@ class WhisperFfiWindows {
       // 4. Run
       debugPrint(
           '🎯 whisper_full: ${pcmSamples.length} samples, lang=$language');
-      final ret = _full(ctx, paramsPtr, samplesPtr, pcmSamples.length);
+      final ret =
+          _full(ctx, params.cast<Void>(), samplesPtr, pcmSamples.length);
 
       if (ret != 0) {
         return WhisperFfiResult.error('whisper_full trả về lỗi: $ret');
@@ -325,24 +361,10 @@ class WhisperFfiWindows {
     } finally {
       // Free theo đúng thứ tự
       if (samplesPtr != nullptr) malloc.free(samplesPtr);
-      if (paramsPtr != nullptr) malloc.free(paramsPtr);
+      if (params != nullptr) calloc.free(params);
       if (ctx != nullptr && ctx.address != 0) _free(ctx);
       malloc.free(modelPathNative);
     }
-  }
-
-  void _fillParams(Pointer<Void> params, String language) {
-    if (_defaultParamsByRef == null) {
-      debugPrint('❌ whisper_full_default_params_by_ref not available');
-      return;
-    }
-
-    // 0 = WHISPER_SAMPLING_GREEDY
-    _defaultParamsByRef!(params, 0);
-
-    debugPrint('✅ Default whisper params loaded');
-
-    // KHÔNG set byte offsets thủ công nữa!
   }
 
   bool _isNoise(String text) {

@@ -256,6 +256,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
   }
 
   Future<void> _saveEdits() async {
+    // Kiểm tra mounted ngay sau await đầu tiên
     if (_lines == null || _lastLrcPath == null) return;
 
     final updatedLines = _buildUpdatedLines();
@@ -270,7 +271,6 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
 
     if (!mounted) return;
 
-    // Cập nhật UnderstandProvider
     context.read<UnderstandProvider>().loadLrcLines(updatedLines);
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -283,6 +283,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
   }
 
   void _useThisLrc() {
+    if (!mounted) return;
     if (_lines == null || _lines!.isEmpty) return;
 
     final updatedLines = _buildUpdatedLines();

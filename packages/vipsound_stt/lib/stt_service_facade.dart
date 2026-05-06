@@ -244,13 +244,13 @@ class SttServiceFacade extends ChangeNotifier {
   }) async {
     _ensureInitialized();
 
-    // ★ CHỈ normalize file:/// URI, KHÔNG decode %
     String actualPath = audioPath;
     if (audioPath.startsWith('file:///') || audioPath.startsWith('file://')) {
       try {
         final uri = Uri.parse(audioPath);
         actualPath = uri.toFilePath();
       } catch (e) {
+        actualPath = audioPath;
         debugPrint('⚠️ URI parse failed: $e');
       }
     }
@@ -273,27 +273,25 @@ class SttServiceFacade extends ChangeNotifier {
 
       final cached = _resultCache[cacheKey]!;
       String? lrcPath;
-      bool lrcGenerated = false;
 
       if (shouldGenerateLrc && cached.segments.isNotEmpty) {
         lrcPath = await _generateAndSaveLrc(
           cached,
-          audioPath,
+          actualPath,
           lrcOutputPath,
         );
-        lrcGenerated = lrcPath != null;
       }
 
       return SttTranscribeOutput(
         result: cached,
         lrcFilePath: lrcPath,
-        wasLrcGenerated: lrcGenerated,
+        wasLrcGenerated: lrcPath != null,
         success: true,
       );
     }
 
     try {
-      SttResult? result;
+      SttResult result = SttResult.empty(cfg.preferredEngine);
       String? engineName = cfg.preferredEngine.name.toUpperCase();
 
       // ── Engine Selection ───────────────────────────────────────────
@@ -320,15 +318,13 @@ class SttServiceFacade extends ChangeNotifier {
 
       // ── Tạo LRC file ──────────────────────────────────────────────
       String? lrcPath;
-      bool lrcGenerated = false;
 
       if (shouldGenerateLrc && result.segments.isNotEmpty) {
         lrcPath = await _generateAndSaveLrc(
           result,
-          audioPath,
+          actualPath,
           lrcOutputPath,
         );
-        lrcGenerated = lrcPath != null;
       }
 
       _emitProgress(SttFacadeStatus.ready, 1.0, 'Hoàn tất!');
@@ -336,8 +332,7 @@ class SttServiceFacade extends ChangeNotifier {
       return SttTranscribeOutput(
         result: result,
         lrcFilePath: lrcPath,
-        wasLrcGenerated: lrcGenerated,
-        // ★ FIX: success dựa vào result.hasError và errorMessage từ result
+        wasLrcGenerated: lrcPath != null,
         success: !result.hasError,
         errorMessage: result.errorMessage,
       );

@@ -1,7 +1,5 @@
 // packages/vipsound_stt/lib/models/stt_result.dart
 
-import 'package:vipsound_stt/vipsound_stt.dart';
-
 import 'stt_model_info.dart'; // For SttEngineType
 
 class SttResult {
@@ -25,6 +23,10 @@ class SttResult {
 
   bool get hasError =>
       errorMessage != null && errorMessage!.isNotEmpty; // ★ THÊM
+
+  /// Lấy toàn bộ danh sách từ từ tất cả các segments
+  List<SttWord> get allWords =>
+      segments.expand((segment) => segment.words).toList();
 
   factory SttResult.empty(SttEngineType engine, {String? errorMessage}) =>
       SttResult(

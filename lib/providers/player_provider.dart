@@ -244,7 +244,7 @@ class PlayerProvider extends ChangeNotifier {
       return null;
     }
 
-    final actualPath = _normalizeAudioPath(path!);
+    final actualPath = _normalizeAudioPath(path);
     debugPrint('📂 Generate LRC for: $actualPath');
 
     _isGeneratingLrc = true;
@@ -449,7 +449,8 @@ class PlayerProvider extends ChangeNotifier {
     debugPrint('🎵 loadAudio() called');
     debugPrint('   Input path: $path');
 
-    String actualPath = _normalizeAudioPath(path);
+    final String actualPath = _normalizeAudioPath(path);
+
     try {
       debugPrint('   Normalized: $actualPath');
       debugPrint('   File.existsSync: ${File(actualPath).existsSync()}');
@@ -509,10 +510,6 @@ class PlayerProvider extends ChangeNotifier {
     // ★ FIX: Normalize path hệ thống
     final actualPath = _normalizeAudioPath(path);
 
-    // ★ FIX: Sử dụng raw system path cho Windows thay vì URI string.
-    // Việc dùng file:/// khiến File(path).exists() bên trong các service bị lỗi Illegal Character.
-    final loadPath = actualPath;
-
     _currentSongPath = actualPath; // Lưu path sạch
     _currentSongTitle =
         title ?? actualPath.split(Platform.isWindows ? '\\' : '/').last;
@@ -531,7 +528,7 @@ class PlayerProvider extends ChangeNotifier {
     _pendingRecentUpdate = recentEntry;
     _recentAudio.addOrUpdate(recentEntry);
 
-    final success = await _audioService.loadFile(loadPath);
+    final success = await _audioService.loadFile(actualPath);
     if (success) {
       final durationMs = _audioService.currentState.duration.inMilliseconds;
       final savedMs = _storage.getSavedPosition(actualPath);

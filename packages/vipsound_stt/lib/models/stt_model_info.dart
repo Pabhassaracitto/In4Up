@@ -1,3 +1,8 @@
+enum SttEngineType {
+  native,
+  whisper,
+}
+
 enum WhisperModelLevel {
   tiny,
   base,

@@ -105,42 +105,58 @@ class WhisperFfiWindows {
     if (_loaded) return true;
 
     try {
-      // ★ FIX: Dùng full path thay vì tên DLL
       final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final dllPath = '$exeDir\\whisper.dll'; // ← Backslash Windows
-      final ggmlPath = '$exeDir\\ggml.dll';
 
-      debugPrint('🔍 Loading DLL: $dllPath');
+      // ★ Load tất cả dependencies theo đúng thứ tự
+      final dependencies = [
+        'ggml.dll',
+        'ggml-base.dll', // ← Thêm
+      ];
 
-      // Check file exists
-      if (!File(dllPath).existsSync()) {
-        debugPrint('❌ whisper.dll not found at: $dllPath');
+      for (final dll in dependencies) {
+        final path = '$exeDir\\$dll';
+
+        if (!File(path).existsSync()) {
+          debugPrint('❌ Missing dependency: $dll');
+
+          // ★ Fallback: nếu ggml-base.dll thiếu, copy từ ggml.dll
+          if (dll == 'ggml-base.dll') {
+            final ggmlPath = '$exeDir\\ggml.dll';
+            if (File(ggmlPath).existsSync()) {
+              debugPrint('⚠️ Creating ggml-base.dll from ggml.dll');
+              File(ggmlPath).copySync(path);
+            } else {
+              return false;
+            }
+          } else {
+            return false;
+          }
+        }
+
+        try {
+          DynamicLibrary.open(path);
+          debugPrint('✅ Loaded: $dll');
+        } catch (e) {
+          debugPrint('❌ Failed to load $dll: $e');
+          return false;
+        }
+      }
+
+      // Load whisper.dll cuối cùng
+      final whisperPath = '$exeDir\\whisper.dll';
+      if (!File(whisperPath).existsSync()) {
+        debugPrint('❌ whisper.dll not found');
         return false;
       }
 
-      if (!File(ggmlPath).existsSync()) {
-        debugPrint(
-            '⚠️ ggml.dll not found at: $ggmlPath (may cause load failure)');
-      }
-
-      // ★ Load ggml.dll trước (dependency)
-      try {
-        DynamicLibrary.open(ggmlPath);
-        debugPrint('✅ ggml.dll loaded');
-      } catch (e) {
-        debugPrint('⚠️ ggml.dll load warning: $e');
-      }
-
-      // Load whisper.dll
-      _lib = DynamicLibrary.open(dllPath);
+      _lib = DynamicLibrary.open(whisperPath);
       _bindFunctions();
       _loaded = true;
 
       debugPrint('✅ whisper.dll loaded successfully');
       return true;
     } catch (e, stack) {
-      debugPrint('❌ Failed to load whisper.dll: $e');
-      debugPrint('Stack: $stack');
+      debugPrint('❌ Load error: $e\n$stack');
       return false;
     }
   }

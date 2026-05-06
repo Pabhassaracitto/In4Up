@@ -29,6 +29,17 @@ class VocabularyProvider extends ChangeNotifier {
   VocabularyType? get filterType => _filterType;
   String? get filterSource => _filterSource;
 
+  SyncStatus get syncStatus => _sync.status.value;
+  DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;
+
+  ValueNotifier<SyncStatus> get syncStatusNotifier => _sync.status;
+  ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
+
+  Future<void> syncNow() async {
+    await _sync.pullFromFirestore();
+    _sync.flushPending();
+  }
+
   List<WordEntry> get displayedWords {
     var list = List<WordEntry>.from(_words);
 
@@ -309,7 +320,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   WordEntry addWithAutoClassify({
     required String text,
-    required String meaning,
+    String meaning = '',
     String? phonetic,
     VocabContext? context,
     VocabularyType? forceType,
@@ -335,6 +346,7 @@ class VocabularyProvider extends ChangeNotifier {
       phonetic: phonetic,
       vocabType: type,
       contexts: context != null ? [context] : [],
+      isUnborn: meaning.trim().isEmpty,
     );
 
     _words.add(entry);
@@ -434,9 +446,19 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       if (word != null) w.word = word;
-      if (meaning != null) w.meaning = meaning;
-      if (phonetic != null) w.phonetic = phonetic;
-      if (example != null) w.example = example;
+      if (meaning != null) {
+        w.meaning = meaning;
+        if (meaning.trim().isNotEmpty) w.isUnborn = false;
+      }
+      if (phonetic != null) {
+        w.phonetic = phonetic;
+        if (phonetic.trim().isNotEmpty) w.isUnborn = false;
+      }
+      if (example != null) {
+        w.example = example;
+        if (example.trim().isNotEmpty) w.isUnborn = false;
+      }
+      w.updatedAt = DateTime.now();
       _saveWord(w);
       notifyListeners();
     } catch (_) {}
@@ -446,6 +468,7 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       w.personalNotes = notes;
+      w.updatedAt = DateTime.now();
       _saveWord(w);
       notifyListeners();
     } catch (_) {}

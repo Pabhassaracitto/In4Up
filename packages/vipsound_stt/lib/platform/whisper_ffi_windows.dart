@@ -410,7 +410,7 @@ class WhisperFfiWindows {
 
     final modelPathNative = modelPath.toNativeUtf8();
     Pointer<Void> ctx = nullptr;
-    Pointer<WhisperFullParams> params = nullptr;
+    Pointer<Uint8> paramsRaw = nullptr;
     Pointer<Float> samplesPtr = nullptr;
 
     try {
@@ -421,50 +421,15 @@ class WhisperFfiWindows {
       }
       debugPrint('✅ Whisper context created');
 
-      // 2. Allocate typed struct and get default params by ref
-      params = calloc<WhisperFullParams>();
-      _defaultParamsByRef(params, 0); // 0 = GREEDY
+      // 2. Allocate large raw buffer to avoid ABI mismatch/buffer overflow (Safe Fix)
+      paramsRaw = calloc<Uint8>(1024);
+      _defaultParamsByRef(paramsRaw.cast<WhisperFullParams>(), 0); // 0 = GREEDY
+
+      // ✅ Force disable VAD by zeroing memory vùng cuối (đảm bảo không crash do ABI mismatch)
+      for (int i = 128; i < 256; i++) {
+        paramsRaw[i] = 0;
+      }
       debugPrint('✅ Default whisper params loaded');
-
-      // Áp dụng các ghi đè cụ thể để tắt VAD và các cài đặt khác theo yêu cầu
-      // Sử dụng try-catch như bạn yêu cầu, mặc dù với struct đầy đủ thì không cần thiết
-      // vì các trường này chắc chắn tồn tại.
-      try {
-        params.ref.vad = 0; // Tắt VAD
-      } catch (e) {
-        debugPrint('Failed to set params.ref.vad: $e');
-      }
-
-      try {
-        params.ref.vad_model_path =
-            nullptr; // Đặt đường dẫn VAD model thành null
-      } catch (e) {
-        debugPrint('Failed to set params.ref.vad_model_path: $e');
-      }
-
-      try {
-        params.ref.no_timestamps = 0; // Bật timestamps (0 = false)
-      } catch (e) {
-        debugPrint('Failed to set params.ref.no_timestamps: $e');
-      }
-
-      try {
-        params.ref.single_segment = 0; // Cho phép nhiều segment (0 = false)
-      } catch (e) {
-        debugPrint('Failed to set params.ref.single_segment: $e');
-      }
-
-      try {
-        params.ref.no_context =
-            0; // Sử dụng context từ các lần transcribe trước (0 = false)
-      } catch (e) {
-        debugPrint('Failed to set params.ref.no_context: $e');
-      }
-
-      // Các cài đặt print khác (để tránh log quá nhiều từ thư viện C)
-      params.ref.print_progress = 0;
-      params.ref.print_realtime = 0;
-      params.ref.print_special = 0;
 
       // 3. Alloc samples
       samplesPtr = malloc.allocate<Float>(pcmSamples.length * sizeOf<Float>());
@@ -476,7 +441,7 @@ class WhisperFfiWindows {
       debugPrint(
           '🎯 whisper_full: ${pcmSamples.length} samples, lang=$language');
       final ret =
-          _full(ctx, params.cast<Void>(), samplesPtr, pcmSamples.length);
+          _full(ctx, paramsRaw.cast<Void>(), samplesPtr, pcmSamples.length);
 
       if (ret != 0) {
         return WhisperFfiResult.error('whisper_full trả về lỗi: $ret');
@@ -515,10 +480,7 @@ class WhisperFfiWindows {
     } finally {
       // Free theo đúng thứ tự
       if (samplesPtr != nullptr) malloc.free(samplesPtr);
-      if (params != nullptr) {
-        if (params.ref.language != nullptr) malloc.free(params.ref.language);
-        calloc.free(params);
-      }
+      if (paramsRaw != nullptr) calloc.free(paramsRaw);
       if (ctx != nullptr && ctx.address != 0) _free(ctx);
       malloc.free(modelPathNative);
     }

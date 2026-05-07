@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'services/whisper_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,7 @@ import 'package:vipsound_stt/models/stt_model_info.dart';
 import 'package:vipsound_stt/stt_service_facade.dart';
 
 import 'features/shadowing/providers/shadowing_provider.dart';
+import 'features/shadowing/services/cmu_dictionary_service.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
 import 'providers/player_provider.dart';
@@ -26,6 +28,7 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -175,6 +178,8 @@ class _MyAppState extends State<MyApp> {
   Future<_AppLocalServices> _initializeLocalServices() async {
     // ★ THAY TOÀN BỘ: Dùng StorageService.initialize() thay vì tự mở Hive
     // StorageService đã mở đủ tất cả các box cần thiết
+    await CMUDictionaryService.initialize();
+
     final storage = StorageService();
     await storage.initialize();
 
@@ -191,9 +196,15 @@ class _MyAppState extends State<MyApp> {
   Widget _buildApp(_AppLocalServices localServices) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UnderstandProvider()),
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
+        ChangeNotifierProvider(create: (_) => UnderstandProvider()),
+        ChangeNotifierProxyProvider2<UnderstandProvider, TextProvider,
+            PlayerProvider>(
+          create: (context) => PlayerProvider(),
+          update: (_, understand, text, player) => (player ?? PlayerProvider())
+            ..setUnderstandProvider(understand)
+            ..setTextProvider(text),
+        ),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(create: (_) => VocabularyProvider()..loadData()),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),

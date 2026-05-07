@@ -237,33 +237,25 @@ class PlayerProvider extends ChangeNotifier {
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
   }) async {
-    final path = currentSongPath;
-    if (path == null) {
-      _lastSttError = 'Chưa có file audio đang phát';
-      notifyListeners();
+    if (_currentSongPath == null) {
+      debugPrint('❌ No audio loaded');
       return null;
     }
 
-    final actualPath = _normalizeAudioPath(path!);
-    debugPrint('📂 Generate LRC for: $actualPath');
-
     _isGeneratingLrc = true;
     _lastSttError = null;
-    notifyListeners();
+    notifyListeners(); // Để UI biết đang xử lý
 
     try {
       final SttTranscribeOutput output;
       if (level == null) {
-        // AUTO MODE
         output = await _sttService.transcribeAuto(
-          actualPath,
+          _currentSongPath!,
           language: 'en',
-          generateLrc: true,
         );
       } else {
-        // USER-SELECTED MODEL
         output = await _sttService.transcribeDeep(
-          actualPath,
+          _currentSongPath!,
           level: level,
           language: 'en',
         );
@@ -272,14 +264,12 @@ class PlayerProvider extends ChangeNotifier {
       _lastSttOutput = output;
 
       if (output.success && output.lrcFilePath != null) {
-        _lastSttError = null;
         _lastGeneratedLrcPath = output.lrcFilePath;
         debugPrint('✅ LRC generated: ${output.lrcFilePath}');
       } else {
         _lastSttError = output.errorMessage ?? 'Transcribe failed';
         debugPrint('⚠️ Generate LRC failed: $_lastSttError');
       }
-
       return output;
     } catch (e, stack) {
       debugPrint('❌ Generate LRC error: $e\n$stack');
@@ -305,6 +295,10 @@ class PlayerProvider extends ChangeNotifier {
   // Lấy trạng thái model Whisper
   SttModelInfo getSttModelInfo(WhisperModelLevel level) =>
       _sttService.getModelInfo(level);
+
+  /// Theo dõi tiến trình tải model
+  Stream<SttModelInfo> watchSttModel(WhisperModelLevel level) =>
+      _sttService.watchModel(level);
 
   Future<void> _restoreFromStorage() async {
     if (!_storage.isInitialized) {

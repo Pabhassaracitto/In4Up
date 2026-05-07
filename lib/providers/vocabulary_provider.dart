@@ -28,6 +28,7 @@ class VocabularyProvider extends ChangeNotifier {
   bool get isSyncEnabled => _isSyncEnabled;
   VocabularyType? get filterType => _filterType;
   String? get filterSource => _filterSource;
+  String get searchQuery => _searchQuery;
 
   SyncStatus get syncStatus => _sync.status.value;
   DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;

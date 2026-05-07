@@ -455,6 +455,14 @@ class SttServiceFacade extends ChangeNotifier {
   SttModelInfo getModelInfo(WhisperModelLevel level) =>
       _modelManager.getModelInfo(level);
 
+  /// Theo dõi trạng thái model (dùng cho UI download progress)
+  Stream<SttModelInfo> watchModel(WhisperModelLevel level) {
+    return Stream.periodic(const Duration(milliseconds: 500))
+        .map((_) => getModelInfo(level))
+        .distinct((a, b) =>
+            a.isReady == b.isReady && a.isDownloading == b.isDownloading);
+  }
+
   // ─── Live Listening ───────────────────────────────────────────────────────
 
   /// Bắt đầu lắng nghe real-time (Native)

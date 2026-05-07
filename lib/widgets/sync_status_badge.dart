@@ -29,7 +29,8 @@ class SyncStatusBadge extends StatelessWidget {
     );
   }
 
-  Widget _buildBadge(BuildContext context, SyncStatus status, DateTime? lastSync) {
+  Widget _buildBadge(
+      BuildContext context, SyncStatus status, DateTime? lastSync) {
     Color color;
     IconData icon;
     String label;
@@ -54,9 +55,8 @@ class SyncStatusBadge extends StatelessWidget {
       default:
         color = Colors.grey;
         icon = Icons.cloud_queue;
-        label = lastSync != null 
-            ? 'Đã lưu ${_formatTime(lastSync)}' 
-            : 'Sẵn sàng';
+        label =
+            lastSync != null ? 'Đã lưu ${_formatTime(lastSync)}' : 'Sẵn sàng';
     }
 
     return Container(

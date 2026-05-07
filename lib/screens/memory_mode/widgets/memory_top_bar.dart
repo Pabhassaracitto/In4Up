@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../widgets/sync_status_badge.dart';
 import '../controllers/memory_controller.dart';
 
 class MemoryTopBar extends StatelessWidget {
@@ -50,6 +51,8 @@ class MemoryTopBar extends StatelessWidget {
                 ),
               ),
             ),
+          const SizedBox(width: 8),
+          const SyncStatusBadge(),
           const Spacer(),
           _ViewToggle(
             current: controller.viewMode,

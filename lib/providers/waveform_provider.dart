@@ -1,7 +1,6 @@
 // lib/providers/waveform_provider.dart
 
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -71,9 +70,8 @@ class WaveformProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Chạy file I/O + parsing trên background isolate
-      final samples =
-          await Isolate.run(() => _extractWaveformSamples(normalizedPath));
+      // KHÔNG dùng Isolate cho Plugin (Platform Channels)
+      final samples = await _extractWaveformSamples(normalizedPath);
       if (_currentFilePath == normalizedPath) {
         // Guard: tránh race condition khi user đổi bài nhanh
         _waveformData = samples;

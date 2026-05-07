@@ -1,6 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'services/whisper_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +12,7 @@ import 'package:vipsound_stt/models/stt_model_info.dart';
 import 'package:vipsound_stt/stt_service_facade.dart';
 
 import 'features/shadowing/providers/shadowing_provider.dart';
+import 'features/shadowing/services/cmu_dictionary_service.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
 import 'providers/player_provider.dart';
@@ -26,6 +26,7 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -53,21 +54,11 @@ final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
 /// - build có sẵn trong assets
 /// - bạn copy/import file .bin từ nguồn khác
 final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
-  WhisperModelLevel.tiny: [
-    'ggml-tiny.bin',
-  ],
-  WhisperModelLevel.base: [
-    'ggml-base.bin',
-  ],
-  WhisperModelLevel.small: [
-    'ggml-small.bin',
-  ],
-  WhisperModelLevel.medium: [
-    'ggml-medium.bin',
-  ],
-  WhisperModelLevel.large: [
-    'ggml-large-v2.bin',
-  ],
+  WhisperModelLevel.tiny: ['ggml-tiny.bin'],
+  WhisperModelLevel.base: ['ggml-base.bin'],
+  WhisperModelLevel.small: ['ggml-small.bin'],
+  WhisperModelLevel.medium: ['ggml-medium.bin'],
+  WhisperModelLevel.large: ['ggml-large-v2.bin'],
 };
 
 Future<void> main() async {
@@ -79,6 +70,12 @@ Future<void> main() async {
   // ★ runApp ngay - không block
   runApp(const MyApp());
 
+  // Khởi tạo CMU Dictionary cho IPA lookup (Tầng 2 của AI Analysis)
+  // Việc này giúp AI có thể hiển thị phiên âm ngay cả khi offline
+  CMUDictionaryService.initialize().catchError((e) {
+    debugPrint('⚠️ CMU Dictionary init error: $e');
+  });
+
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();
 }
@@ -86,13 +83,13 @@ Future<void> main() async {
 void _bootstrapSttInBackground() {
   SttServiceFacade()
       .initialize(
-    config: SttConfig.balanced,
-    modelUrls: _sttModelUrls,
-    acceptedModelNames: _acceptedModelNames,
-  )
+        config: SttConfig.balanced,
+        modelUrls: _sttModelUrls,
+        acceptedModelNames: _acceptedModelNames,
+      )
       .catchError((e) {
-    debugPrint('⚠️ STT background init error: $e');
-  });
+        debugPrint('⚠️ STT background init error: $e');
+      });
 
   // Initialize Native FFI Whisper if on Windows
   WhisperService().initNativeContext().catchError((e) {
@@ -132,9 +129,7 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
 class _AppLocalServices {
   final SharedPreferences prefs;
 
-  const _AppLocalServices({
-    required this.prefs,
-  });
+  const _AppLocalServices({required this.prefs});
 }
 
 class MyApp extends StatefulWidget {
@@ -204,9 +199,7 @@ class _MyAppState extends State<MyApp> {
           value: MemoryProvider.controller,
         ),
 
-        Provider<SharedPreferences>.value(
-          value: localServices.prefs,
-        ),
+        Provider<SharedPreferences>.value(value: localServices.prefs),
 
         Provider<TtsService>(
           create: (_) => FlutterTtsServiceImpl(),
@@ -307,19 +300,14 @@ class _AppLoadingScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Đang khởi động...',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey[500], fontSize: 14),
               ),
               const SizedBox(height: 40),
               const SizedBox(
                 width: 200,
                 child: LinearProgressIndicator(
                   backgroundColor: Colors.white12,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Color(0xFF6C63FF),
-                  ),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
                 ),
               ),
             ],

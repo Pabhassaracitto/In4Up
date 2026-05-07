@@ -1,17 +1,18 @@
 import 'dart:math' as math;
+
 import 'package:animations/animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_ai/vipsound_ai.dart';
 
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
-
 import 'widgets/focus_streak_card.dart';
-import 'widgets/memory_garden_card.dart';
 import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
+import 'widgets/memory_garden_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToListen;
@@ -157,7 +158,79 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const Spacer(),
+          // Nút cấu hình AI Model
+          _buildAiStatusButton(context),
+          const SizedBox(width: 8),
           _FirebaseAuthButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiStatusButton(BuildContext context) {
+    return Consumer<AiServiceFacade>(
+      builder: (context, aiFacade, child) {
+        Color statusColor;
+        IconData icon;
+
+        if (aiFacade.facadeState == AiFacadeState.idle) {
+          statusColor = Colors.green;
+          icon = Icons.psychology;
+        } else if (aiFacade.facadeState == AiFacadeState.noModel) {
+          statusColor = Colors.orange;
+          icon = Icons.psychology_alt;
+        } else if (aiFacade.facadeState == AiFacadeState.loading) {
+          return const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        } else {
+          statusColor = Colors.red;
+          icon = Icons.error_outline;
+        }
+
+        return IconButton(
+          icon: Icon(icon, color: statusColor, size: 28),
+          onPressed: () => _showAiManagementDialog(context, aiFacade),
+          tooltip: 'Quản lý AI Model',
+        );
+      },
+    );
+  }
+
+  void _showAiManagementDialog(BuildContext context, AiServiceFacade aiFacade) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Cấu hình AI Engine',
+            style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Trạng thái: ${aiFacade.facadeState.name}',
+                style: const TextStyle(color: Colors.grey)),
+            Text('Nguồn: ${aiFacade.modelSourceLabel}',
+                style: const TextStyle(color: Colors.grey)),
+            if (aiFacade.lastError != null)
+              Text('Lỗi: ${aiFacade.lastError}',
+                  style: const TextStyle(color: Colors.red, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await aiFacade.importModelFromUser();
+            },
+            child: const Text('IMPORT .GGUF'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ĐÓNG'),
+          ),
         ],
       ),
     );

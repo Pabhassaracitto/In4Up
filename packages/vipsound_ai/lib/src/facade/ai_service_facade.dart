@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
-import '../models/ai_analysis.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
+import '../models/ai_analysis.dart';
 
 /// Orchestrator chính - tích hợp với Provider pattern của Vipsound
 /// Quản lý 3 tầng Cold Start + CMU IPA lookup
@@ -182,6 +184,8 @@ class AiServiceFacade extends ChangeNotifier {
     required AiAnalysisType type,
     String? context,
   }) async {
+    final stopwatch = Stopwatch()..start();
+
     while (_retryCount < _maxRetries) {
       final temperature = AiErrorHandler.getRetryTemperature(_retryCount + 1);
 
@@ -195,6 +199,9 @@ class AiServiceFacade extends ChangeNotifier {
           final check = AiErrorHandler.checkForHallucination(analysis);
 
           if (check.isClean) {
+            stopwatch.stop();
+            debugPrint(
+                '[AiFacade] Inference completed in ${stopwatch.elapsedMilliseconds}ms');
             _currentAnalysis = analysis;
             notifyListeners();
             return; // Thành công

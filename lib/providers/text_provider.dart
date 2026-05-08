@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
@@ -18,7 +19,6 @@ import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
 
 enum ReadSubMode { reading, listening, translation, driving }
 
@@ -1146,7 +1146,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     Future.microtask(() {
       try {
         debugPrint('🔄 Đang gửi từ "${word.word}" sang Vườn Nhớ...');
-        MemoryProvider.addWord(
+        MemoryProvider.controller.addWord(
           word: updatedWord.word,
           meaning: updatedWord.meaning,
           phonetic: word.phonetic,

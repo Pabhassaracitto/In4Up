@@ -84,6 +84,9 @@ dependencies:
   pdfrx: ^2.2.24          # PDF render + text extraction (Android/iOS/Windows)
   graphview: ^1.2.0  
   animations: ^2.1.2
+
+  # Me:
+  flutter_animate: ^4.5.2
 dependency_overrides:
   pdfium_flutter:
     path: third_party/pdfium_flutter

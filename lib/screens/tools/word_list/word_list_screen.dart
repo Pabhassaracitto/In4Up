@@ -6,19 +6,23 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/tts/tts_service.dart';
+import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
+import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
+import '../../../widgets/sync_status_badge.dart';
 import 'knowledge_graph_screen.dart';
 import 'loop_count_picker.dart';
 import 'single_word_review_screen.dart';
+import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'youglish_mini_sheet.dart';
-import '../review_tab.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -118,7 +122,7 @@ class _WordListScreenState extends State<WordListScreen> {
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: const Color(0xFF6C63FF),
-            onPressed: () => _showAddSheet(provider),
+            onPressed: () => _showAddMenu(provider),
             child: const Icon(Icons.add, color: Colors.white),
           ),
         );
@@ -169,6 +173,8 @@ class _WordListScreenState extends State<WordListScreen> {
                           setState(() => _sortMode = WordListSortMode.sm2Due),
                     ),
                   ],
+                  const SizedBox(width: 8),
+                  const SyncStatusBadge(),
                 ],
               ),
             ),
@@ -505,21 +511,198 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   Widget _buildEmptyState(VocabularyProvider p) {
+    final isSearching = p.searchQuery.isNotEmpty;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.library_books_outlined, size: 52, color: Colors.grey[800]),
+          Icon(isSearching ? Icons.search_off : Icons.library_books_outlined,
+              size: 52, color: Colors.grey[800]),
           const SizedBox(height: 16),
-          Text('Chưa có từ vựng',
+          Text(
+              isSearching
+                  ? 'Không tìm thấy "${p.searchQuery}"'
+                  : 'Chưa có từ vựng',
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 15,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Text('Bôi đen từ khi đọc hoặc thêm thủ công',
+          Text(
+              isSearching
+                  ? 'Bạn có muốn lưu từ này vào danh sách?'
+                  : 'Bôi đen từ khi đọc hoặc thêm thủ công',
               style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+          if (isSearching) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _addAndSaveNow(p, p.searchQuery),
+              icon: const Icon(Icons.add),
+              label: const Text('Lưu ngay từ này'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C63FF),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _addAndSaveNow(VocabularyProvider p, String text) {
+    VocabContext? context;
+    try {
+      final textProvider = this.context.read<TextProvider>();
+      if (textProvider.currentDocument != null &&
+          textProvider.currentLineIndex >= 0) {
+        final line = textProvider.lines[textProvider.currentLineIndex].content;
+        context = VocabContext.fromStory(
+          storyTitle: textProvider.currentDocument!.title,
+          lineIndex: textProvider.currentLineIndex,
+          surroundingText: line,
+        );
+      }
+    } catch (_) {}
+
+    final entry = p.addWithAutoClassify(
+      text: text,
+      context: context,
+    );
+
+    HapticFeedback.mediumImpact();
+    // Clear search after saving
+    setState(() {
+      _showSearch = false;
+      _searchCtrl.clear();
+      p.clearSearch();
+    });
+
+    final typeLabel = entry.vocabType == VocabularyType.word
+        ? 'Từ'
+        : entry.vocabType == VocabularyType.phrase
+            ? 'Cụm từ'
+            : 'Câu';
+
+    ScaffoldMessenger.of(this.context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Đã lưu $typeLabel: $text',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'SỬA',
+          textColor: Colors.white,
+          onPressed: () => _showEditSheet(entry, p),
+        ),
+      ),
+    );
+  }
+
+  void _showAddMenu(VocabularyProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0D1520),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            _addMenuItem(
+              icon: Icons.add_circle_outline,
+              title: 'Thêm thủ công',
+              subtitle: 'Nhập từ vựng, nghĩa và ví dụ bằng tay',
+              color: const Color(0xFF6C63FF),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showAddSheet(provider);
+              },
+            ),
+            const SizedBox(height: 12),
+            _addMenuItem(
+              icon: Icons.download_outlined,
+              title: 'Nhập hàng loạt',
+              subtitle: 'Import từ Clipboard, Text Provider hoặc File',
+              color: const Color(0xFF4CAF50),
+              onTap: () {
+                Navigator.pop(ctx);
+                WordImportSheet.show(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _addMenuItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[700]),
+          ],
+        ),
       ),
     );
   }
@@ -1141,19 +1324,23 @@ class _CompactListItem extends StatelessWidget {
                                 color: Colors.white, size: 13)
                             : null))
               else ...[
-                Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                        color: typeColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6)),
-                    alignment: Alignment.center,
-                    child: Text(entry.vocabType.badge,
-                        style: TextStyle(
-                            color: typeColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800))),
-                const SizedBox(width: 10),
+                if (entry.isUnborn)
+                  _buildUnbornIndicator()
+                else ...[
+                  Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                          color: typeColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6)),
+                      alignment: Alignment.center,
+                      child: Text(entry.vocabType.badge,
+                          style: TextStyle(
+                              color: typeColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 10),
+                ],
               ],
 
               // Word + meaning
@@ -1278,6 +1465,32 @@ class _CompactListItem extends StatelessWidget {
         ]),
       ),
     );
+  }
+
+  Widget _buildUnbornIndicator() {
+    return Container(
+      width: 24,
+      height: 24,
+      margin: const EdgeInsets.only(right: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFB300).withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.star, color: Color(0xFFFFB300), size: 14),
+    )
+        .animate(onPlay: (controller) => controller.repeat())
+        .scale(
+            duration: 1000.ms,
+            begin: const Offset(0.8, 0.8),
+            end: const Offset(1.1, 1.1),
+            curve: Curves.easeInOut)
+        .then()
+        .scale(
+            duration: 1000.ms,
+            begin: const Offset(1.1, 1.1),
+            end: const Offset(0.8, 0.8),
+            curve: Curves.easeInOut);
   }
 
   Widget _buildExpanded(BuildContext ctx) {
@@ -1708,6 +1921,33 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 (v) => _update(_s.copyWith(showFullDefinition: v))),
             _toggle('Ví dụ', Icons.format_quote_outlined, _s.showExample,
                 (v) => _update(_s.copyWith(showExample: v))),
+            const Divider(color: Color(0xFF1E2A3A), height: 32),
+            const Text('Đồng bộ dữ liệu',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const SyncStatusBadge(),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  context.read<VocabularyProvider>().syncNow();
+                },
+                icon: const Icon(Icons.sync, size: 18),
+                label: const Text('Đồng bộ ngay bây giờ',
+                    style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF6C63FF),
+                  side: const BorderSide(color: Color(0xFF6C63FF), width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
           ]),
     );
   }

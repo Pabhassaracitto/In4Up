@@ -213,6 +213,7 @@ class WordEntry {
 
   DateTime lastReviewed;
   DateTime createdAt;
+  DateTime updatedAt;
 
   // ── ★ MỚI: Hierarchical fields ──
   VocabularyType vocabType;
@@ -220,6 +221,7 @@ class WordEntry {
   List<String> parentIds;
   List<String> childIds;
   String? personalNotes;
+  bool isUnborn;
 
   WordEntry({
     required this.id,
@@ -237,17 +239,20 @@ class WordEntry {
     SkillReviewData? readData,
     DateTime? lastReviewed,
     DateTime? createdAt,
+    DateTime? updatedAt,
     VocabularyType? vocabType,
     List<VocabContext>? contexts,
     List<String>? parentIds,
     List<String>? childIds,
     this.personalNotes,
+    this.isUnborn = false,
   })  : tags = tags ?? [],
         understandData = understandData ?? SkillReviewData(score: understand),
         listenData = listenData ?? SkillReviewData(score: listen),
         readData = readData ?? SkillReviewData(score: read),
         lastReviewed = lastReviewed ?? DateTime.now(),
         createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now(),
         vocabType = vocabType ?? VocabularyType.word,
         contexts = contexts ?? [],
         parentIds = parentIds ?? [],
@@ -394,19 +399,37 @@ class WordEntry {
     final isDuplicate = contexts.any((c) =>
         c.sourceName == ctx.sourceName &&
         c.surroundingText == ctx.surroundingText);
-    if (!isDuplicate) contexts.add(ctx);
+    if (!isDuplicate) {
+      contexts.add(ctx);
+      updatedAt = DateTime.now();
+    }
   }
 
   void addParent(String parentId) {
-    if (!parentIds.contains(parentId)) parentIds.add(parentId);
+    if (!parentIds.contains(parentId)) {
+      parentIds.add(parentId);
+      updatedAt = DateTime.now();
+    }
   }
 
   void addChild(String childId) {
-    if (!childIds.contains(childId)) childIds.add(childId);
+    if (!childIds.contains(childId)) {
+      childIds.add(childId);
+      updatedAt = DateTime.now();
+    }
   }
 
-  void removeParent(String parentId) => parentIds.remove(parentId);
-  void removeChild(String childId) => childIds.remove(childId);
+  void removeParent(String parentId) {
+    if (parentIds.remove(parentId)) {
+      updatedAt = DateTime.now();
+    }
+  }
+
+  void removeChild(String childId) {
+    if (childIds.remove(childId)) {
+      updatedAt = DateTime.now();
+    }
+  }
 
   // ═══════════════════════════════════════
   // VISUAL PROPERTIES
@@ -440,12 +463,14 @@ class WordEntry {
       case Skill.read:
         readData.score = value.clamp(0.0, 1.0);
     }
+    updatedAt = DateTime.now();
   }
 
   void updateAllScores(double uScore, double lScore, double rScore) {
     understandData.score = uScore.clamp(0.0, 1.0);
     listenData.score = lScore.clamp(0.0, 1.0);
     readData.score = rScore.clamp(0.0, 1.0);
+    updatedAt = DateTime.now();
   }
 
   void quickAnswer(Skill skill, bool correct) {
@@ -455,11 +480,13 @@ class WordEntry {
     data.totalReviews++;
     if (correct) data.correctReviews++;
     lastReviewed = DateTime.now();
+    updatedAt = DateTime.now();
   }
 
   void reviewSkill(Skill skill, int quality) {
     getSkillData(skill).review(quality);
     lastReviewed = DateTime.now();
+    updatedAt = DateTime.now();
   }
 
   void review({required int quality}) {
@@ -502,6 +529,7 @@ class WordEntry {
         readData.score = 0.9;
     }
     lastReviewed = DateTime.now();
+    updatedAt = DateTime.now();
   }
 
   double scoreOf(Skill s) {
@@ -532,11 +560,13 @@ class WordEntry {
         'readData': readData.toJson(),
         'lastReviewed': lastReviewed.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
         'vocabType': vocabType.name,
         'contexts': contexts.map((c) => c.toJson()).toList(),
         'parentIds': parentIds,
         'childIds': childIds,
         'personalNotes': personalNotes,
+        'isUnborn': isUnborn,
       };
 
   factory WordEntry.fromJson(Map<String, dynamic> json) {
@@ -576,11 +606,15 @@ class WordEntry {
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)
             : null,
+        updatedAt: json['updatedAt'] != null
+            ? DateTime.parse(json['updatedAt'] as String)
+            : null,
         vocabType: type,
         contexts: contexts,
         parentIds: (json['parentIds'] as List?)?.cast<String>() ?? [],
         childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
         personalNotes: json['personalNotes'] as String?,
+        isUnborn: json['isUnborn'] as bool? ?? false,
       );
     }
 
@@ -612,6 +646,7 @@ class WordEntry {
       parentIds: (json['parentIds'] as List?)?.cast<String>() ?? [],
       childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
       personalNotes: json['personalNotes'] as String?,
+      isUnborn: json['isUnborn'] as bool? ?? false,
     );
   }
 
@@ -622,6 +657,7 @@ class WordEntry {
     String? example,
     VocabularyType? vocabType,
     String? personalNotes,
+    bool? isUnborn,
   }) =>
       WordEntry(
         id: id,
@@ -641,5 +677,6 @@ class WordEntry {
         parentIds: parentIds,
         childIds: childIds,
         personalNotes: personalNotes ?? this.personalNotes,
+        isUnborn: isUnborn ?? this.isUnborn,
       );
 }

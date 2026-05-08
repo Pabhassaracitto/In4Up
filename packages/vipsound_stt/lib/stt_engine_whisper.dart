@@ -11,6 +11,7 @@ import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 // ★ THÊM: Import platform files
 import 'platform/wav_reader.dart';
+import 'platform/whisper_cli_windows.dart'; // NEW: Import Whisper CLI for Windows
 import 'platform/whisper_ffi_windows.dart';
 // Conditional import for mobile implementation
 import 'stt_engine_whisper_mobile.dart'
@@ -118,29 +119,25 @@ class SttEngineWhisper {
 
     debugPrint('🎯 Whisper FFI: model=$modelPath, samples=${samples.length}');
 
-    // 4. Run Whisper
-    final whisper = WhisperFfiWindows();
-    if (!whisper.load()) {
-      debugPrint('❌ Failed to load whisper.dll');
-      return SttResult.empty(SttEngineType.whisper,
-          errorMessage: 'Failed to load whisper.dll');
-    }
-    final ffiResult = await whisper.transcribe(
+    // 4. Run Whisper CLI
+    final cliResult = await WhisperCliWindows.transcribe(
+      wavPath: wavPath,
       modelPath: modelPath,
-      pcmSamples: samples,
       language: language,
     );
 
     _progressController.add(0.95);
 
-    if (ffiResult.hasError) {
-      debugPrint('❌ Whisper error: ${ffiResult.error}');
-      return SttResult.empty(SttEngineType.whisper,
-          errorMessage: ffiResult.error);
+    if (cliResult.hasError) {
+      debugPrint('❌ Whisper error: ${cliResult.error}');
+      return SttResult.empty(
+        SttEngineType.whisper,
+        errorMessage: cliResult.error,
+      );
     }
 
     return _convertFfiResult(
-      ffiResult,
+      cliResult,
       language: language,
       processingTime: stopwatch.elapsed,
     );

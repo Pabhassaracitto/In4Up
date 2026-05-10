@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -29,6 +30,7 @@ import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/whisper_service.dart';
+import 'dart:async';
 
 bool isFirebaseAvailable = false;
 
@@ -205,8 +207,27 @@ class _MyAppState extends State<MyApp> {
             ..setUnderstandProvider(understand)
             ..setTextProvider(text),
         ),
+        ChangeNotifierProvider(
+          create: (_) {
+            final prov = VocabularyProvider();
+            prov.loadData();
+
+            // Tự động kích hoạt sync khi có User
+            FirebaseAuth.instance.authStateChanges().listen((user) {
+              if (user != null) {
+                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                unawaited(prov.enableSync(user.uid));
+              } else {
+                prov.disableSync();
+              }
+            });
+
+            return prov;
+          },
+        ),
+        // Đảm bảo WaveformProvider nằm TRƯỚC các Widget sử dụng nó (Tab Hiểu)
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
-        ChangeNotifierProvider(create: (_) => VocabularyProvider()..loadData()),
+        ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
 

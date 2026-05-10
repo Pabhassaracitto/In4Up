@@ -60,6 +60,12 @@
 
 #include "pffft.h"
 
+// Some upstream variants declare validation APIs with PFFFT_EXPORT.
+// This repo does not define it, which breaks MSVC parsing.
+#ifndef PFFFT_EXPORT
+#define PFFFT_EXPORT
+#endif
+
 /* detect compiler flavour */
 #if defined(_MSC_VER)
 #define COMPILER_MSVC
@@ -72,6 +78,30 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#if defined(_MSC_VER)
+#include <malloc.h>
+#endif
+
+void *pffft_aligned_malloc(size_t nb_bytes)
+{
+#if defined(_MSC_VER)
+  return _aligned_malloc(nb_bytes, 16);
+#else
+  void *ptr = NULL;
+  if (posix_memalign(&ptr, 16, nb_bytes) != 0)
+    return NULL;
+  return ptr;
+#endif
+}
+
+void pffft_aligned_free(void *ptr)
+{
+#if defined(_MSC_VER)
+  _aligned_free(ptr);
+#else
+  free(ptr);
+#endif
+}
 
 #if defined(COMPILER_GCC)
 #define ALWAYS_INLINE(return_type) inline return_type __attribute__((always_inline))

@@ -21,6 +21,8 @@ class VocabularyProvider extends ChangeNotifier {
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
+  bool _isEnablingSync = false;
+  String? _syncUid;
 
   // ─── Getters ─────────────────────────────────────────────
   List<WordEntry> get allWords => _words;
@@ -37,8 +39,20 @@ class VocabularyProvider extends ChangeNotifier {
   ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
 
   Future<void> syncNow() async {
-    await _sync.pullFromFirestore();
-    _sync.flushPending();
+    if (!_isSyncEnabled) {
+      debugPrint('⚠️ Đồng bộ thất bại: Bạn cần đăng nhập trước.');
+      return;
+    }
+
+    try {
+      debugPrint('🔄 Bắt đầu đồng bộ thủ công...');
+      // Vừa lấy dữ liệu mới về, vừa đẩy dữ liệu cũ lên
+      await _sync.pullFromFirestore();
+      await _sync.pushAll(); // Đảm bảo mọi từ local đều được đẩy lên
+      debugPrint('✅ Đồng bộ hoàn tất.');
+    } catch (e, stack) {
+      debugPrint('❌ syncNow error: $e\n$stack');
+    }
   }
 
   List<WordEntry> get displayedWords {
@@ -208,15 +222,30 @@ class VocabularyProvider extends ChangeNotifier {
   Box<String> get _box => Hive.box<String>(_boxName);
 
   Future<void> enableSync(String uid) async {
-    _isSyncEnabled = true;
-    await _sync.initialize(uid);
-    final pulled = await _sync.pullFromFirestore();
-    if (pulled > 0) await _reloadFromHive();
-    notifyListeners();
+    if (_isEnablingSync) return;
+    if (_isSyncEnabled && _syncUid == uid) return;
+
+    _isEnablingSync = true;
+    try {
+      await _sync.initialize(uid);
+      final pulled = await _sync.pullFromFirestore();
+      _isSyncEnabled = true;
+      _syncUid = uid;
+      if (pulled > 0) await _reloadFromHive();
+    } catch (e, stack) {
+      _isSyncEnabled = false;
+      _syncUid = null;
+      debugPrint('❌ enableSync error: $e\n$stack');
+    } finally {
+      _isEnablingSync = false;
+      notifyListeners();
+    }
   }
 
   void disableSync() {
     _isSyncEnabled = false;
+    _isEnablingSync = false;
+    _syncUid = null;
     _sync.dispose();
     notifyListeners();
   }

@@ -126,6 +126,7 @@ set(V1_SOURCES
 
 # V2 Enhancement Sources
 set(V2_SOURCES
+    src/V2/EngineV2.cpp
     src/V2/MultiResolutionPV.cpp
     src/V2/HarmonicPercussiveSeparator.cpp
     src/V2/FormantPreserver.cpp
@@ -140,8 +141,7 @@ endif()
 
 # Optional: Enhanced V1 files for V2
 set(V2_ENHANCED_SOURCES
-    src/V2/HybridStretcher_V2.cpp
-    src/V2/PhaseVocoder_Enhanced.cpp
+    src/V2/HybridStretcherV2.cpp
 )
 
 # Headers
@@ -192,7 +192,7 @@ endif()
 # ───────────────────────────────────────────────────────────────────────────
 if(BUILD_V2)
     # V2 includes all V1 sources + V2 enhancements
-    set(V2_ALL_SOURCES ${V1_SOURCES} ${V2_SOURCES})
+    set(V2_ALL_SOURCES ${V1_SOURCES} ${V2_SOURCES} ${V2_ENHANCED_SOURCES})
     
     if(BUILD_SHARED)
         add_library(UltraTimeStretch_V2 SHARED ${V2_ALL_SOURCES} ${HEADERS} ${WRAPPER_SOURCES})
@@ -206,7 +206,7 @@ if(BUILD_V2)
     )
     
     set_target_properties(UltraTimeStretch_V2 PROPERTIES
-        OUTPUT_NAME "UltraTimeStretch_V2"
+        OUTPUT_NAME "ultratimestretch"
         VERSION ${PROJECT_VERSION}
         SOVERSION 2
     )
@@ -318,35 +318,38 @@ endif()
 # INSTALLATION
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Install libraries
-if(BUILD_V1)
-    install(TARGETS UltraTimeStretch_V1
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-endif()
-
-if(BUILD_V2)
-    install(TARGETS UltraTimeStretch_V2
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-endif()
-
-# Install headers
-install(FILES ${HEADERS}
-    DESTINATION include/UltraTimeStretch
-)
-
-# Install examples (optional)
-if(BUILD_EXAMPLES)
+# Skip standalone install rules when included from Flutter Windows build.
+if(PROJECT_IS_TOP_LEVEL)
+    # Install libraries
     if(BUILD_V1)
-        install(TARGETS Example_V1 DESTINATION bin)
+        install(TARGETS UltraTimeStretch_V1
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib
+            RUNTIME DESTINATION bin
+        )
     endif()
+
     if(BUILD_V2)
-        install(TARGETS Example_V2 DESTINATION bin)
+        install(TARGETS UltraTimeStretch_V2
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib
+            RUNTIME DESTINATION bin
+        )
+    endif()
+
+    # Install headers
+    install(FILES ${HEADERS}
+        DESTINATION include/UltraTimeStretch
+    )
+
+    # Install examples (optional)
+    if(BUILD_EXAMPLES)
+        if(BUILD_V1)
+            install(TARGETS Example_V1 DESTINATION bin)
+        endif()
+        if(BUILD_V2)
+            install(TARGETS Example_V2 DESTINATION bin)
+        endif()
     endif()
 endif()
 

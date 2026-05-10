@@ -257,6 +257,9 @@ class VocabSyncService {
 
   Future<void> pushAll() async {
     if (_currentUid == null) return;
+    if (!Hive.isBoxOpen(_pendingBoxName)) {
+      await Hive.openBox<String>(_pendingBoxName);
+    }
     final vocabBox =
         Hive.isBoxOpen(_vocabBoxName) ? Hive.box<String>(_vocabBoxName) : null;
     if (vocabBox == null || vocabBox.isEmpty) return;

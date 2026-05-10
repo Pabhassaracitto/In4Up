@@ -311,6 +311,20 @@ class SttServiceFacade extends ChangeNotifier {
       debugPrint('✅ Transcribe done via $engineName: '
           '${result.fullText.length} chars');
 
+      final hasTranscriptText = result.fullText.trim().isNotEmpty;
+      final hasSegments = result.segments.isNotEmpty;
+      if (!result.hasError && (!hasTranscriptText || !hasSegments)) {
+        final selectedModel = cfg.whisperModel.name.toUpperCase();
+        final emptyReason = !hasTranscriptText
+            ? 'không có nội dung phiên âm'
+            : 'không có timestamp/segments';
+        final error =
+            'Whisper không trả dữ liệu hợp lệ ($selectedModel): $emptyReason.';
+        debugPrint('❌ $error');
+        _emitProgress(SttFacadeStatus.error, 0.0, error);
+        return SttTranscribeOutput.failure(error);
+      }
+
       // ── Cache kết quả ─────────────────────────────────────────────
       if (cfg.cacheResults) {
         _resultCache[cacheKey] = result;
@@ -547,8 +561,12 @@ class SttServiceFacade extends ChangeNotifier {
     );
 
     if (localLevel == null) {
-      _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline sẵn.');
-      return SttTranscribeOutput.failure('Không có model offline sẵn.');
+      final errorMsg =
+          'Lỗi Android: Không tìm thấy model nào trong bộ nhớ máy. '
+          'Vui lòng vào cài đặt AI để tải model hoặc kiểm tra assets.';
+      debugPrint('❌ $errorMsg');
+      _emitProgress(SttFacadeStatus.error, 0.0, errorMsg);
+      return SttTranscribeOutput.failure(errorMsg);
     }
 
     return transcribeFile(

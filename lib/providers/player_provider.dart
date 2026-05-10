@@ -268,9 +268,27 @@ class PlayerProvider extends ChangeNotifier {
 
       if (output.success && output.lrcFilePath != null) {
         _lastGeneratedLrcPath = output.lrcFilePath;
+        _lastSttError = null;
         debugPrint('✅ LRC generated: ${output.lrcFilePath}');
       } else {
-        _lastSttError = output.errorMessage ?? 'Transcribe failed';
+        final selectedModel = level?.name.toUpperCase() ?? 'AUTO';
+        final rawError = output.errorMessage?.trim();
+
+        if (!output.success) {
+          _lastSttError = (rawError != null && rawError.isNotEmpty)
+              ? 'Transcribe thất bại ($selectedModel): $rawError'
+              : 'Transcribe thất bại ($selectedModel): không nhận được nội dung phiên âm.';
+        } else if (output.lrcFilePath == null) {
+          _lastSttError =
+              'Transcribe thành công ($selectedModel) nhưng tạo LRC thất bại: '
+              'không có timestamp/segments hoặc không ghi được file .lrc.';
+        } else {
+          _lastSttError =
+              (rawError != null && rawError.isNotEmpty)
+                  ? 'Lỗi không xác định ($selectedModel): $rawError'
+                  : 'Lỗi không xác định ($selectedModel).';
+        }
+
         debugPrint('⚠️ Generate LRC failed: $_lastSttError');
       }
       return output;

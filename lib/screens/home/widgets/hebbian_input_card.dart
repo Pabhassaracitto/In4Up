@@ -41,7 +41,7 @@ class HebbianInputCard extends StatelessWidget {
               Expanded(
                 child: _QuickInputButton(
                   icon: Icons.auto_awesome,
-                  label: 'Hừm! Gợi ý',
+                  label: 'Gợi ý',
                   color: const Color(0xFF00D1FF),
                   onTap: () {
                     // Show random word with image

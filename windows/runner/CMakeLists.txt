@@ -60,6 +60,18 @@ if(EXISTS "${WHISPER_EXE_SRC}")
   )
 endif()
 
+# Copy ultratimestretch.dll (assuming it's built by the 'native' subdirectory)
+if(TARGET UltraTimeStretch_V2)
+  # Sử dụng generator expression để lấy đường dẫn file chính xác nhất
+  add_custom_command(
+    TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:UltraTimeStretch_V2>"
+      "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+    VERBATIM
+  )
+endif()
+
 # Copy ffmpeg.exe
 set(FFMPEG_EXE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../libs/ffmpeg.exe")
 if(EXISTS "${FFMPEG_EXE_SRC}")

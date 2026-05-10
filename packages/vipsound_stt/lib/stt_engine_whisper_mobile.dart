@@ -46,14 +46,41 @@ Future<SttResult> transcribeMobileImpl({
       ),
     );
 
-    progressController.add(0.9);
+    progressController.add(0.75);
 
-    return _parseWhisperResult(
+    var parsed = _parseWhisperResult(
       transcribeResult,
       processingTime: stopwatch.elapsed,
       language: language ?? 'en',
       hasWordTimestamps: wordTimestamps,
     );
+
+    // tiny/base đôi khi trả rỗng khi bật splitOnWord.
+    // Fallback sang segment-level để ưu tiên có transcript + LRC.
+    final isEmpty = parsed.fullText.trim().isEmpty || parsed.segments.isEmpty;
+    if (isEmpty && wordTimestamps) {
+      debugPrint('⚠️ Whisper word-level empty -> retry segment-level');
+      final retryResult = await whisper.transcribe(
+        transcribeRequest: TranscribeRequest(
+          audio: wavPath,
+          isTranslate: translateToEnglish,
+          isNoTimestamps: false,
+          splitOnWord: false,
+          diarize: false,
+          language: language ?? 'en',
+        ),
+      );
+
+      parsed = _parseWhisperResult(
+        retryResult,
+        processingTime: stopwatch.elapsed,
+        language: language ?? 'en',
+        hasWordTimestamps: false,
+      );
+    }
+
+    progressController.add(0.9);
+    return parsed;
   } catch (e) {
     debugPrint('❌ Mobile Whisper error: $e');
     return SttResult.empty(SttEngineType.whisper);
@@ -119,8 +146,12 @@ SttResult _parseWhisperResult(
       final text = seg.text.trim();
       if (text.isEmpty) continue;
 
+      final normalizedWord =
+          text.toLowerCase().replaceAll(RegExp(r"[^\p{L}\p{N}'-]", unicode: true), '');
+      if (normalizedWord.isEmpty) continue;
+
       words.add(SttWord(
-        word: text.toLowerCase().replaceAll(RegExp(r"[^a-zA-Z0-9'-]"), ''),
+        word: normalizedWord,
         startSeconds: seg.fromTs.inMilliseconds / 1000.0,
         endSeconds: seg.toTs.inMilliseconds / 1000.0,
         confidence: 1.0,

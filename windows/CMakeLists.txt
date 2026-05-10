@@ -1,5 +1,4 @@
-﻿# Project-level configuration.
-cmake_minimum_required(VERSION 3.14)
+﻿cmake_minimum_required(VERSION 3.14)
 
 # Suppress warnings from dependencies
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
@@ -63,6 +62,10 @@ endfunction()
 # Flutter library and tool build rules.
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
+
+# === Biên dịch thư viện Native C++ ===
+# Quan trọng: Phải thêm dòng này để target UltraTimeStretch_V2 được khởi tạo
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../native" native)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
@@ -150,6 +153,18 @@ if(EXTRA_DLLS)
     message(STATUS "[VipSound] Found extra DLLs in libs/: ${EXTRA_DLLS}")
     install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()
+
+# === Bundle whisper.exe ===
+set(WHISPER_EXE "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper.exe")
+if(EXISTS "${WHISPER_EXE}")
+    message(STATUS "[VipSound] Found whisper.exe, bundling...")
+    install(FILES "${WHISPER_EXE}"
+            DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+            COMPONENT Runtime)
+else()
+    message(WARNING "[VipSound] whisper.exe NOT found in libs/")
+endif()
+
 # === Bundle ffmpeg.exe ===
 set(FFMPEG_EXE "${CMAKE_CURRENT_SOURCE_DIR}/libs/ffmpeg.exe")
 if(EXISTS "${FFMPEG_EXE}")

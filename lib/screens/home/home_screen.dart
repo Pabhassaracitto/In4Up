@@ -4,10 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_stt/models/stt_model_info.dart';
 
 import '../../providers/player_provider.dart';
 import '../../providers/focus_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../screens/settings/stt_model_settings_screen.dart';
 import '../../widgets/sync_status_badge.dart';
 import '../../screens/memory_mode/controllers/memory_controller.dart';
 import '../../services/auth_service.dart';
@@ -161,6 +163,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const Spacer(),
+          const _AiSettingsButton(),
+          const SizedBox(width: 4),
           const SyncStatusBadge(),
           const SizedBox(width: 12),
           _FirebaseAuthButton(),
@@ -235,6 +239,53 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF6C63FF),
         child: const Icon(Icons.mic, color: Colors.white, size: 30),
       ),
+    );
+  }
+}
+
+class _AiSettingsButton extends StatelessWidget {
+  const _AiSettingsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (context, player, _) {
+        final hasReadyModel = WhisperModelLevel.values
+            .any((level) => player.getSttModelInfo(level).isReady);
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              tooltip: hasReadyModel
+                  ? 'AI settings'
+                  : 'AI settings - chưa có model sẵn sàng',
+              icon: const Icon(Icons.settings, color: Colors.white, size: 22),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SttModelSettingsScreen(),
+                  ),
+                );
+              },
+            ),
+            if (!hasReadyModel)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(color: const Color(0xFF080B1A), width: 1),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

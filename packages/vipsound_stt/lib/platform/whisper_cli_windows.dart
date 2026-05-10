@@ -19,20 +19,36 @@ class WhisperCliWindows {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     final candidates = [
       p.join(exeDir, 'whisper.exe'), // Ưu tiên tìm trong thư mục ứng dụng
+      p.join(Directory.current.path, 'windows', 'libs',
+          'whisper.exe'), // Folder libs gốc
+      p.join(exeDir, 'models', 'whisper.exe'), // Thư mục models thủ công
       'whisper', // Thử tìm trong PATH hệ thống
     ];
 
+    debugPrint('🔍 Searching whisper.exe in: $candidates');
+
     for (final path in candidates) {
+      final isSystemPath = path == 'whisper';
+      if (!isSystemPath && !File(path).existsSync()) {
+        debugPrint('   ❌ Not found at: $path');
+        continue;
+      }
+
       try {
-        // Chạy lệnh --help để kiểm tra xem whisper.exe có tồn tại và hoạt động không
-        final result = await Process.run(path, ['--help'], runInShell: true);
+        // Thử chạy để kiểm tra quyền và các DLL phụ thuộc
+        final result =
+            await Process.run(path, ['--help'], runInShell: isSystemPath);
         if (result.exitCode == 0) {
           _cachedWhisperCliPath = path;
-          debugPrint('✅ whisper.exe found: $path');
+          debugPrint('✅ whisper.exe found and verified: $path');
           return path;
+        } else {
+          debugPrint(
+              '⚠️ whisper.exe tại $path tồn tại nhưng lỗi exitCode: ${result.exitCode}. Có thể thiếu DLL?');
+          debugPrint('   Stderr: ${result.stderr}');
         }
-      } catch (_) {
-        // Bỏ qua lỗi, thử ứng cử viên tiếp theo
+      } catch (e) {
+        debugPrint('⚠️ Lỗi khi thực thi thử candidate $path: $e');
       }
     }
     debugPrint('❌ whisper.exe not found');

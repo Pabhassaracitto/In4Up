@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/vocabulary_provider.dart';
 import '../services/vocab_sync_service.dart';
 
@@ -11,7 +12,15 @@ class SyncStatusBadge extends StatelessWidget {
     return Consumer<VocabularyProvider>(
       builder: (context, provider, _) {
         if (!provider.isSyncEnabled) {
-          return const SizedBox.shrink();
+          return GestureDetector(
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text(
+                      'Vui lòng đăng nhập để sử dụng tính năng đồng bộ đám mây')),
+            ),
+            child: _buildBadge(context, SyncStatus.idle, null,
+                overrideLabel: 'Chưa đăng nhập', overrideColor: Colors.orange),
+          );
         }
 
         return ValueListenableBuilder<SyncStatus>(
@@ -30,33 +39,38 @@ class SyncStatusBadge extends StatelessWidget {
   }
 
   Widget _buildBadge(
-      BuildContext context, SyncStatus status, DateTime? lastSync) {
-    Color color;
+      BuildContext context, SyncStatus status, DateTime? lastSync,
+      {String? overrideLabel, Color? overrideColor}) {
+    Color color = overrideColor ?? Colors.grey;
     IconData icon;
-    String label;
+    String label = overrideLabel ?? '';
 
-    switch (status) {
-      case SyncStatus.syncing:
-        color = Colors.blue;
-        icon = Icons.sync;
-        label = 'Đang đồng bộ...';
-        break;
-      case SyncStatus.error:
-        color = Colors.red;
-        icon = Icons.sync_problem;
-        label = 'Lỗi đồng bộ';
-        break;
-      case SyncStatus.success:
-        color = Colors.green;
-        icon = Icons.cloud_done;
-        label = 'Đã đồng bộ';
-        break;
-      case SyncStatus.idle:
-      default:
-        color = Colors.grey;
-        icon = Icons.cloud_queue;
-        label =
-            lastSync != null ? 'Đã lưu ${_formatTime(lastSync)}' : 'Sẵn sàng';
+    if (overrideLabel != null) {
+      icon = Icons.cloud_off;
+    } else {
+      switch (status) {
+        case SyncStatus.syncing:
+          color = Colors.blue;
+          icon = Icons.sync;
+          label = 'Đang đồng bộ...';
+          break;
+        case SyncStatus.error:
+          color = Colors.red;
+          icon = Icons.sync_problem;
+          label = 'Lỗi đồng bộ';
+          break;
+        case SyncStatus.success:
+          color = Colors.green;
+          icon = Icons.cloud_done;
+          label = 'Đã đồng bộ';
+          break;
+        case SyncStatus.idle:
+        default:
+          color = Colors.grey;
+          icon = Icons.cloud_queue;
+          label =
+              lastSync != null ? 'Đã lưu ${_formatTime(lastSync)}' : 'Sẵn sàng';
+      }
     }
 
     return Container(

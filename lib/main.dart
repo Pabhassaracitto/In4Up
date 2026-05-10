@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
@@ -95,13 +95,15 @@ void _bootstrapSttInBackground() {
     acceptedModelNames: _acceptedModelNames,
   )
       .catchError((e) {
-    debugPrint('⚠️ STT background init error: $e');
+    debugPrint('⚠️ STT Facade init error: $e');
   });
 
-  // Initialize Native FFI Whisper if on Windows
-  WhisperService().initNativeContext().catchError((e) {
-    debugPrint('⚠️ STT background init error: $e');
-  });
+  // CHỈ khởi tạo Native FFI Whisper trên Windows để tránh crash Android/iOS
+  if (Platform.isWindows) {
+    WhisperService().initNativeContext().catchError((e) {
+      debugPrint('⚠️ Whisper Native init error: $e');
+    });
+  }
 }
 
 Future<FirebaseApp?> _initializeFirebaseSafely() async {
@@ -185,11 +187,6 @@ class _MyAppState extends State<MyApp> {
     await storage.initialize();
 
     final prefs = await SharedPreferences.getInstance();
-
-    // ★ Chỉ mở box này vì StorageService chưa mở
-    if (!Hive.isBoxOpen('vocab_sync_pending')) {
-      await Hive.openBox<String>('vocab_sync_pending');
-    }
 
     // Đảm bảo luôn có UID (anonymous hoặc tài khoản thật) để dùng cloud per-user.
     if (isFirebaseAvailable) {

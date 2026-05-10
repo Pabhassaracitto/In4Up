@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
@@ -28,8 +29,8 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
-import 'services/auth_service.dart';
 import 'services/whisper_service.dart';
+import 'dart:async';
 
 bool isFirebaseAvailable = false;
 
@@ -95,15 +96,13 @@ void _bootstrapSttInBackground() {
     acceptedModelNames: _acceptedModelNames,
   )
       .catchError((e) {
-    debugPrint('⚠️ STT Facade init error: $e');
+    debugPrint('⚠️ STT background init error: $e');
   });
 
-  // CHỈ khởi tạo Native FFI Whisper trên Windows để tránh crash Android/iOS
-  if (Platform.isWindows) {
-    WhisperService().initNativeContext().catchError((e) {
-      debugPrint('⚠️ Whisper Native init error: $e');
-    });
-  }
+  // Initialize Native FFI Whisper if on Windows
+  WhisperService().initNativeContext().catchError((e) {
+    debugPrint('⚠️ STT background init error: $e');
+  });
 }
 
 Future<FirebaseApp?> _initializeFirebaseSafely() async {
@@ -188,9 +187,9 @@ class _MyAppState extends State<MyApp> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // Đảm bảo luôn có UID (anonymous hoặc tài khoản thật) để dùng cloud per-user.
-    if (isFirebaseAvailable) {
-      await AuthService().signInAnonymously();
+    // ★ Chỉ mở box này vì StorageService chưa mở
+    if (!Hive.isBoxOpen('vocab_sync_pending')) {
+      await Hive.openBox<String>('vocab_sync_pending');
     }
 
     return _AppLocalServices(prefs: prefs);
@@ -208,15 +207,27 @@ class _MyAppState extends State<MyApp> {
             ..setUnderstandProvider(understand)
             ..setTextProvider(text),
         ),
-        ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(
           create: (_) {
-            final provider = VocabularyProvider();
-            provider.loadData();
-            provider.bindAuthState();
-            return provider;
+            final prov = VocabularyProvider();
+            prov.loadData();
+
+            // Tự động kích hoạt sync khi có User
+            FirebaseAuth.instance.authStateChanges().listen((user) {
+              if (user != null) {
+                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                unawaited(prov.enableSync(user.uid));
+              } else {
+                prov.disableSync();
+              }
+            });
+
+            return prov;
           },
         ),
+        // Đảm bảo WaveformProvider nằm TRƯỚC các Widget sử dụng nó (Tab Hiểu)
+        ChangeNotifierProvider(create: (_) => WaveformProvider()),
+        ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
 

@@ -235,10 +235,25 @@ class VocabularyProvider extends ChangeNotifier {
     _isEnablingSync = true;
     try {
       await _sync.initialize(uid);
-      final pulled = await _sync.pullFromFirestore();
+
+      // ★ CHIẾN LƯỢC: Pull before Push
+      final isLocalEmpty = _box.isEmpty;
+      final pulledCount = await _sync.pullFromFirestore();
+
+      if (isLocalEmpty && pulledCount > 0) {
+        debugPrint('🔄 Local rỗng, đã kéo $pulledCount từ vựng từ Firebase.');
+      }
+
       _isSyncEnabled = true;
       _syncUid = uid;
-      if (pulled > 0) await _reloadFromHive();
+
+      // Reload lại list để hiển thị dữ liệu mới kéo về
+      if (pulledCount > 0) {
+        await _reloadFromHive();
+      }
+
+      // Sau khi đã Pull an toàn, mới xử lý các thay đổi đang chờ (nếu có)
+      await _sync.flushPending();
     } catch (e, stack) {
       _isSyncEnabled = false;
       _syncUid = null;
@@ -336,7 +351,12 @@ class VocabularyProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════
 
   void addWord(WordEntry w) {
-    if (_words.any((e) => e.word.toLowerCase() == w.word.toLowerCase())) return;
+    // Kiểm tra trùng lặp dựa trên ID hoặc từ (normalize)
+    if (_words.any(
+        (e) => e.id == w.id || e.word.toLowerCase() == w.word.toLowerCase())) {
+      debugPrint('Word already exists: ${w.word}');
+      return;
+    }
     _words.add(w);
     _saveWord(w);
     notifyListeners();

@@ -10,11 +10,12 @@ set(CMAKE_C_STANDARD 11)
 set(LLAMA_DIR "${CMAKE_SOURCE_DIR}/../../native/llama_cpp/vendor/llama.cpp")
 
 # Build flags cho Android ARM
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -DNDEBUG")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -ffast-math -DNDEBUG")
 
 # Enable NEON trên ARM64
 if(ANDROID_ABI STREQUAL "arm64-v8a")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+dotprod+fp16")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+dotprod+fp16 -mcpu=generic")
 endif()
 
 # ── llama.cpp core sources ────────────────────────────────
@@ -24,6 +25,7 @@ file(GLOB GGML_SOURCES
     "${LLAMA_DIR}/ggml-alloc.c"
     "${LLAMA_DIR}/ggml-backend.c"
     "${LLAMA_DIR}/ggml-quants.c"
+    "${LLAMA_DIR}/ggml-threading.c"
 )
 
 file(GLOB LLAMA_SOURCES
@@ -42,6 +44,8 @@ add_library(
     ${LLAMA_SOURCES}
     ${GGML_SOURCES}
 )
+
+target_compile_definitions(llama PRIVATE GGML_USE_CPU)
 
 target_include_directories(llama PRIVATE
     ${LLAMA_DIR}

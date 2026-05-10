@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -21,6 +23,9 @@ class VocabularyProvider extends ChangeNotifier {
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
+  StreamSubscription<User?>? _authSub;
+  bool _isEnablingSync = false;
+  String? _syncUid;
 
   // ─── Getters ─────────────────────────────────────────────
   List<WordEntry> get allWords => _words;
@@ -37,8 +42,24 @@ class VocabularyProvider extends ChangeNotifier {
   ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
 
   Future<void> syncNow() async {
-    await _sync.pullFromFirestore();
-    _sync.flushPending();
+    if (!_isSyncEnabled) return;
+    try {
+      await _sync.pullFromFirestore();
+      await _sync.flushPending();
+    } catch (e, stack) {
+      debugPrint('❌ syncNow error: $e\n$stack');
+    }
+  }
+
+  void bindAuthState() {
+    _authSub?.cancel();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user == null) {
+        disableSync();
+        return;
+      }
+      await enableSync(user.uid);
+    });
   }
 
   List<WordEntry> get displayedWords {
@@ -208,15 +229,30 @@ class VocabularyProvider extends ChangeNotifier {
   Box<String> get _box => Hive.box<String>(_boxName);
 
   Future<void> enableSync(String uid) async {
-    _isSyncEnabled = true;
-    await _sync.initialize(uid);
-    final pulled = await _sync.pullFromFirestore();
-    if (pulled > 0) await _reloadFromHive();
-    notifyListeners();
+    if (_isEnablingSync) return;
+    if (_isSyncEnabled && _syncUid == uid) return;
+
+    _isEnablingSync = true;
+    try {
+      await _sync.initialize(uid);
+      final pulled = await _sync.pullFromFirestore();
+      _isSyncEnabled = true;
+      _syncUid = uid;
+      if (pulled > 0) await _reloadFromHive();
+    } catch (e, stack) {
+      _isSyncEnabled = false;
+      _syncUid = null;
+      debugPrint('❌ enableSync error: $e\n$stack');
+    } finally {
+      _isEnablingSync = false;
+      notifyListeners();
+    }
   }
 
   void disableSync() {
     _isSyncEnabled = false;
+    _syncUid = null;
+    _isEnablingSync = false;
     _sync.dispose();
     notifyListeners();
   }
@@ -607,6 +643,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _sync.dispose();
     super.dispose();
   }

@@ -28,6 +28,7 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/auth_service.dart';
 import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
@@ -190,6 +191,11 @@ class _MyAppState extends State<MyApp> {
       await Hive.openBox<String>('vocab_sync_pending');
     }
 
+    // Đảm bảo luôn có UID (anonymous hoặc tài khoản thật) để dùng cloud per-user.
+    if (isFirebaseAvailable) {
+      await AuthService().signInAnonymously();
+    }
+
     return _AppLocalServices(prefs: prefs);
   }
 
@@ -206,7 +212,14 @@ class _MyAppState extends State<MyApp> {
             ..setTextProvider(text),
         ),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
-        ChangeNotifierProvider(create: (_) => VocabularyProvider()..loadData()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = VocabularyProvider();
+            provider.loadData();
+            provider.bindAuthState();
+            return provider;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
 

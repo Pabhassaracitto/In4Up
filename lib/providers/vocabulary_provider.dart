@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -21,6 +23,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
+  StreamSubscription<User?>? _authSub;
   bool _isEnablingSync = false;
   String? _syncUid;
 
@@ -43,16 +46,25 @@ class VocabularyProvider extends ChangeNotifier {
       debugPrint('⚠️ Đồng bộ thất bại: Bạn cần đăng nhập trước.');
       return;
     }
-
     try {
       debugPrint('🔄 Bắt đầu đồng bộ thủ công...');
-      // Vừa lấy dữ liệu mới về, vừa đẩy dữ liệu cũ lên
       await _sync.pullFromFirestore();
-      await _sync.pushAll(); // Đảm bảo mọi từ local đều được đẩy lên
+      await _sync.flushPending();
       debugPrint('✅ Đồng bộ hoàn tất.');
     } catch (e, stack) {
       debugPrint('❌ syncNow error: $e\n$stack');
     }
+  }
+
+  void bindAuthState() {
+    _authSub?.cancel();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user == null) {
+        disableSync();
+        return;
+      }
+      await enableSync(user.uid);
+    });
   }
 
   List<WordEntry> get displayedWords {
@@ -228,10 +240,25 @@ class VocabularyProvider extends ChangeNotifier {
     _isEnablingSync = true;
     try {
       await _sync.initialize(uid);
-      final pulled = await _sync.pullFromFirestore();
+
+      // ★ CHIẾN LƯỢC: Pull before Push
+      final isLocalEmpty = _box.isEmpty;
+      final pulledCount = await _sync.pullFromFirestore();
+
+      if (isLocalEmpty && pulledCount > 0) {
+        debugPrint('🔄 Local rỗng, đã kéo $pulledCount từ vựng từ Firebase.');
+      }
+
       _isSyncEnabled = true;
       _syncUid = uid;
-      if (pulled > 0) await _reloadFromHive();
+
+      // Reload lại list để hiển thị dữ liệu mới kéo về
+      if (pulledCount > 0) {
+        await _reloadFromHive();
+      }
+
+      // Sau khi đã Pull an toàn, mới xử lý các thay đổi đang chờ (nếu có)
+      await _sync.flushPending();
     } catch (e, stack) {
       _isSyncEnabled = false;
       _syncUid = null;
@@ -244,8 +271,8 @@ class VocabularyProvider extends ChangeNotifier {
 
   void disableSync() {
     _isSyncEnabled = false;
-    _isEnablingSync = false;
     _syncUid = null;
+    _isEnablingSync = false;
     _sync.dispose();
     notifyListeners();
   }
@@ -329,7 +356,12 @@ class VocabularyProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════
 
   void addWord(WordEntry w) {
-    if (_words.any((e) => e.word.toLowerCase() == w.word.toLowerCase())) return;
+    // Kiểm tra trùng lặp dựa trên ID hoặc từ (normalize)
+    if (_words.any(
+        (e) => e.id == w.id || e.word.toLowerCase() == w.word.toLowerCase())) {
+      debugPrint('Word already exists: ${w.word}');
+      return;
+    }
     _words.add(w);
     _saveWord(w);
     notifyListeners();
@@ -636,6 +668,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _sync.dispose();
     super.dispose();
   }

@@ -365,8 +365,7 @@ class _CloudTabState extends State<_CloudTab> {
 
   // ── Mở dialog thêm mới ────────────────────────────────────
   Future<void> _openAddDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null &&
-        !(FirebaseAuth.instance.currentUser!.isAnonymous);
+    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
 
     if (!isLoggedIn) {
       _showLoginRequired(context);
@@ -429,7 +428,7 @@ class _CloudTabState extends State<_CloudTab> {
             Icon(Icons.cloud_off, color: Colors.white, size: 18),
             SizedBox(width: 8),
             Expanded(
-              child: Text('Đăng nhập Google để lưu văn bản lên cloud'),
+              child: Text('Không có phiên đăng nhập hợp lệ để lưu cloud'),
             ),
           ],
         ),

@@ -140,7 +140,9 @@ class VocabSyncService {
           }
         }
         await batch.commit();
-        for (final id in chunk) await pendingBox.delete(id);
+        for (final id in chunk) {
+          await pendingBox.delete(id);
+        }
       }
 
       final now = DateTime.now();
@@ -174,7 +176,9 @@ class VocabSyncService {
       if (!conn.any((r) =>
           r == ConnectivityResult.wifi ||
           r == ConnectivityResult.mobile ||
-          r == ConnectivityResult.ethernet)) return 0;
+          r == ConnectivityResult.ethernet)) {
+        return 0;
+      }
 
       final vocabBox = Hive.isBoxOpen(_vocabBoxName)
           ? Hive.box<String>(_vocabBoxName)

@@ -28,7 +28,7 @@ class RollingWaveformView extends StatefulWidget {
 }
 
 class _RollingWaveformViewState extends State<RollingWaveformView> {
-  bool _isVisible = true;
+  final bool _isVisible = true;
   Duration? _dragStartPosition;
   double? _dragStartX;
   bool _isDragging = false;

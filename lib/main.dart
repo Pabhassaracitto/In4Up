@@ -30,7 +30,6 @@ import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/whisper_service.dart';
-import 'dart:async';
 
 bool isFirebaseAvailable = false;
 

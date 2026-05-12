@@ -10,6 +10,7 @@
 /// - Color-coded urgency (Salience Network)
 /// - Flashcard with flip animation (Active Recall)
 /// - Garden visualization (Gamification)
+library;
 
 export 'memory_mode_screen.dart';
 export 'controllers/memory_controller.dart';

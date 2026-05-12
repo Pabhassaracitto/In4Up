@@ -711,8 +711,9 @@ class _WordListScreenState extends State<WordListScreen> {
   // PLAY BAR
   // ═══════════════════════════════════════════════════════
   Widget _buildPlayBar(List<WordEntry> items) {
-    if (!_isPlaying && !(_isSelecting && _selectedIds.isNotEmpty))
+    if (!_isPlaying && !(_isSelecting && _selectedIds.isNotEmpty)) {
       return const SizedBox.shrink();
+    }
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
@@ -852,11 +853,12 @@ class _WordListScreenState extends State<WordListScreen> {
 
       if (_stopRequested || !mounted) break;
       if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-      if (!_stopRequested && mounted)
+      if (!_stopRequested && mounted) {
         await Future.delayed(const Duration(milliseconds: 1200));
+      }
     }
 
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isPlaying = false;
         _playingIndex = -1;
@@ -864,18 +866,20 @@ class _WordListScreenState extends State<WordListScreen> {
         _listRepeatCurrent = 0;
         _stopRequested = false;
       });
+    }
   }
 
   void _stopPlayback() {
     _stopRequested = true;
     _tts.stop();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isPlaying = false;
         _playingIndex = -1;
         _playingRepeatCurrent = 0;
         _listRepeatCurrent = 0;
       });
+    }
   }
 
   // ═══════════════════════════════════════════════════════
@@ -988,14 +992,15 @@ class _WordListScreenState extends State<WordListScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          final text = textCtrl.text.trim(),
-                              meaning = meaningCtrl.text.trim();
+                          final text = textCtrl.text.trim();
+                          final meaning = meaningCtrl.text.trim();
                           if (text.isEmpty || meaning.isEmpty) return;
                           final entry = p.addWithAutoClassify(
                               text: text, meaning: meaning);
                           Navigator.pop(sheetCtx);
-                          if (entry.vocabType != VocabularyType.word)
+                          if (entry.vocabType != VocabularyType.word) {
                             _showDecomposeDialog(entry, p);
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF42A5F5),
@@ -1194,8 +1199,9 @@ class _WordListScreenState extends State<WordListScreen> {
                   onPressed: () {
                     p.updateWord(entry.id,
                         word: wordC.text.trim(), meaning: meanC.text.trim());
-                    if (noteC.text.trim().isNotEmpty)
+                    if (noteC.text.trim().isNotEmpty) {
                       p.updateNotes(entry.id, noteC.text.trim());
+                    }
                     Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(

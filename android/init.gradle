@@ -1,0 +1,10 @@
+// Đặt Gradle user home theo OS (cache, wrapper dists, daemon…).
+// Được nạp tự động qua gradlew / gradlew.bat trong thư mục android/.
+// Hoặc copy/symlink file này tới ~/.gradle/init.gradle để áp dụng mọi Gradle trên máy.
+
+def osName = System.getProperty("os.name", "").toLowerCase()
+def gradleUserHome = osName.contains("windows")
+        ? new File("E:/LIBRARY/.gradle")
+        : new File("/media/pabahassara/MEDIA/LINUX/LIBRARY/.gradle")
+
+gradle.startParameter.gradleUserHomeDir = gradleUserHome

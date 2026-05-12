@@ -9,8 +9,7 @@ plugins {
 
 android {
     namespace = "com.vipsound"
-    compileSdk = 36
-    ndkVersion = "28.2.13676358"
+    compileSdk = flutter.compileSdkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

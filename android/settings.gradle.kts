@@ -47,10 +47,11 @@ mergeLocalPropertiesFromEnvironment()
 
 pluginManagement {
     val flutterSdkPath = run {
-        val properties = Properties()
+        // Imports ở đầu file không áp dụng trong pluginManagement (Gradle tách scope biên dịch).
+        val properties = java.util.Properties()
         val f = file("local.properties")
         if (f.exists()) {
-            f.reader(StandardCharsets.UTF_8).use { reader -> properties.load(reader) }
+            f.reader(java.nio.charset.StandardCharsets.UTF_8).use { reader -> properties.load(reader) }
         }
         val path = properties.getProperty("flutter.sdk")
             ?: System.getenv("FLUTTER_ROOT")?.takeIf { it.isNotBlank() }

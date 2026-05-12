@@ -7,11 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:vipsound_stt/models/stt_model_info.dart';
 
 import '../../providers/player_provider.dart';
-import '../../providers/focus_provider.dart';
-import '../../providers/vocabulary_provider.dart';
 import '../../screens/settings/stt_model_settings_screen.dart';
 import '../../widgets/sync_status_badge.dart';
-import '../../screens/memory_mode/controllers/memory_controller.dart';
 import '../../services/auth_service.dart';
 
 import 'widgets/focus_streak_card.dart';
@@ -279,7 +276,8 @@ class _AiSettingsButton extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.redAccent,
                     borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: const Color(0xFF080B1A), width: 1),
+                    border:
+                        Border.all(color: const Color(0xFF080B1A), width: 1),
                   ),
                 ),
               ),

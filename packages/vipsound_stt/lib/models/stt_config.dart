@@ -1,5 +1,4 @@
 import 'stt_model_info.dart';
-import 'stt_result.dart';
 
 /// Cấu hình cho SttServiceFacade
 class SttConfig {

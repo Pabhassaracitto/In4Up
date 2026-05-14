@@ -28,6 +28,7 @@ set(V1_SOURCES
     "${NATIVE_DIR}/src/V1/Engine.cpp"
     "${NATIVE_DIR}/src/V1/FFTProcessor.cpp"
     "${NATIVE_DIR}/src/V1/PhaseVocoder.cpp"
+    "${NATIVE_DIR}/src/V2/PhaseVocoder_Enhanced.cpp"
     "${NATIVE_DIR}/src/V1/WSOLAProcessor.cpp"
     "${NATIVE_DIR}/src/V1/HybridStretcher.cpp"
     "${NATIVE_DIR}/src/V1/TransientDetector.cpp"

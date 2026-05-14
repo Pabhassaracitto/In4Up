@@ -19,12 +19,17 @@ fun Settings.mergeLocalPropertiesFromEnvironment() {
     var changed = false
 
     fun applyEnv(envNames: List<String>, propKey: String) {
-        val raw = envNames.firstNotNullOfOrNull { name ->
+        val envValue = envNames.firstNotNullOfOrNull { name ->
             System.getenv(name)?.takeIf { it.isNotBlank() }
-        } ?: return
-        val normalized = raw.replace('\\', '/')
-        if (props.getProperty(propKey) != normalized) {
-            props.setProperty(propKey, normalized)
+        }
+        if (envValue != null) {
+            val normalized = envValue.replace('\\', '/')
+            if (props.getProperty(propKey) != normalized) {
+                props.setProperty(propKey, normalized)
+                changed = true
+            }
+        } else if (props.containsKey(propKey)) { // Nếu không tìm thấy biến môi trường, và local.properties có giá trị, hãy xóa nó.
+            props.remove(propKey)
             changed = true
         }
     }

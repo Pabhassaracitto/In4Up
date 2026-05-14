@@ -226,7 +226,6 @@ class _MyAppState extends State<MyApp> {
         ),
         // Đảm bảo WaveformProvider nằm TRƯỚC các Widget sử dụng nó (Tab Hiểu)
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
-        ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
 

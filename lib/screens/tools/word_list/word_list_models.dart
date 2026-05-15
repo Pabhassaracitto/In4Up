@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+
+part 'word_list_models.g.dart'; // Phải khớp với tên file word_list_models.dart
 
 // ─── Sort Mode ─────────────────────────────────────────────
 
+@HiveType(typeId: 1)
 enum WordListSortMode {
+  @HiveField(0)
   addTime('Thời gian thêm', Icons.access_time),
+  @HiveField(1)
   alphabetical('A → Z', Icons.sort_by_alpha),
+  @HiveField(2)
   alphabeticalDesc('Z → A', Icons.sort_by_alpha),
+  @HiveField(3)
   rankDescending('Độ thuần thục ↓', Icons.trending_down),
+  @HiveField(4)
   familiarity('Quen thuộc', Icons.favorite_outline),
+  @HiveField(5)
   random('Ngẫu nhiên', Icons.shuffle),
+  @HiveField(6)
   sm2Due('SM-2: Cần ôn hôm nay', Icons.alarm),
+  @HiveField(7)
   hardFirst('Khó → Dễ', Icons.keyboard_double_arrow_up),
+  @HiveField(8)
   easyFirst('Dễ → Khó', Icons.keyboard_double_arrow_down);
 
   final String label;
@@ -20,6 +33,7 @@ enum WordListSortMode {
 
 // ─── Settings ──────────────────────────────────────────────
 
+@HiveType(typeId: 2) // Đặt typeId khác với WordEntry và WordListSortMode
 class WordListSettings {
   final bool showWord;
   final bool showPhonetic;
@@ -29,14 +43,15 @@ class WordListSettings {
   final bool showExample;
   final bool definitionsExpanded;
 
+  @HiveField(0)
   const WordListSettings({
-    this.showWord = true,
-    this.showPhonetic = true,
-    this.showNumber = true,
-    this.showShortDefinition = true,
-    this.showFullDefinition = false,
-    this.showExample = false,
-    this.definitionsExpanded = false,
+    @HiveField(1) this.showWord = true,
+    @HiveField(2) this.showPhonetic = true,
+    @HiveField(3) this.showNumber = true,
+    @HiveField(4) this.showShortDefinition = true,
+    @HiveField(5) this.showFullDefinition = false,
+    @HiveField(6) this.showExample = false,
+    @HiveField(7) this.definitionsExpanded = false,
   });
 
   WordListSettings copyWith({
@@ -62,9 +77,13 @@ class WordListSettings {
 
 // ─── Folders ───────────────────────────────────────────────
 
+@HiveType(typeId: 3) // Đặt typeId khác với các class khác
 class WordFolder {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String name;
+  @HiveField(2)
   final IconData icon;
 
   const WordFolder({
@@ -88,13 +107,21 @@ class WordFolder {
 
 // ─── Folder Tree (★ MỚI) ───────────────────────────────────
 
+@HiveType(typeId: 4) // Đặt typeId khác với các class khác
 class FolderNode {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   String name;
+  @HiveField(2)
   Color color;
+  @HiveField(3)
   IconData icon;
+  @HiveField(4)
   String? parentId;
+  @HiveField(5)
   final List<FolderNode> children;
+  @HiveField(6)
   bool isExpanded;
 
   FolderNode({
@@ -185,18 +212,31 @@ class FolderTreeManager {
 
 // ─── Entry ─────────────────────────────────────────────────
 
+@HiveType(typeId: 0)
 class WordEntry {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String word;
+  @HiveField(2)
   final String? meaning;
+  @HiveField(3)
   final String? shortDefinition;
+  @HiveField(4)
   final String? fullDefinition;
+  @HiveField(5)
   final String? phonetic;
+  @HiveField(6)
   final String? example;
+  @HiveField(7)
   final String? wordType;
+  @HiveField(8)
   final String folderId;
+  @HiveField(9)
   final DateTime addedAt;
+  @HiveField(10)
   final double strength;
+  @HiveField(11)
   final DateTime? nextReview;
 
   const WordEntry({

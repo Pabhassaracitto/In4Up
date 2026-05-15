@@ -411,6 +411,7 @@ class WhisperFfiWindows {
     final modelPathNative = modelPath.toNativeUtf8();
     Pointer<Void> ctx = nullptr;
     Pointer<Uint8> paramsRaw = nullptr;
+    Pointer<Utf8> langPtr = nullptr;
     Pointer<Float> samplesPtr = nullptr;
 
     try {
@@ -425,11 +426,32 @@ class WhisperFfiWindows {
       paramsRaw = calloc<Uint8>(1024);
       _defaultParamsByRef(paramsRaw.cast<WhisperFullParams>(), 0); // 0 = GREEDY
 
+      final params = paramsRaw.cast<WhisperFullParams>().ref;
+
+      // Gán ngôn ngữ để engine nhận diện chính xác
+      langPtr = language.toNativeUtf8();
+      params.language = langPtr;
+      params.n_threads = 4; // Tăng tốc độ xử lý trên Windows
+
       // ✅ Force disable VAD by zeroing memory vùng cuối (đảm bảo không crash do ABI mismatch)
-      for (int i = 128; i < 256; i++) {
-        paramsRaw[i] = 0;
+      // Giảm bớt việc zeroing tùy tiện để tránh làm hỏng pointer language
+      params.vad = 0;
+
+      // Kiểm tra biên độ âm thanh đầu vào
+      if (pcmSamples.isNotEmpty) {
+        double maxAmp = 0;
+        for (var s in pcmSamples) {
+          if (s.abs() > maxAmp) maxAmp = s.abs();
+        }
+        debugPrint(
+            '📊 Audio Stats: Length=${pcmSamples.length}, Max Amplitude=${maxAmp.toStringAsFixed(4)}');
+        if (maxAmp < 0.001) {
+          debugPrint(
+              '⚠️ Cảnh báo: Âm thanh quá nhỏ hoặc im lặng, Whisper có thể không nhận diện được.');
+        }
       }
-      debugPrint('✅ Default whisper params loaded');
+
+      debugPrint('✅ Default whisper params loaded (Language: $language)');
 
       // 3. Alloc samples
       samplesPtr = malloc.allocate<Float>(pcmSamples.length * sizeOf<Float>());
@@ -457,16 +479,21 @@ class WhisperFfiWindows {
         final textPtr = _getSegmentText(ctx, i);
         if (textPtr.address == 0) continue;
 
-        final text = textPtr.toDartString().trim();
+        final rawText = textPtr.toDartString().trim();
         final t0 = _getSegmentT0(ctx, i); // centiseconds
         final t1 = _getSegmentT1(ctx, i);
 
-        if (text.isNotEmpty && !_isNoise(text)) {
+        debugPrint(
+            '  [Segment $i] Raw: "$rawText" (${t0 * 10}ms - ${t1 * 10}ms)');
+
+        if (rawText.isNotEmpty && !_isNoise(rawText)) {
           segments.add(WhisperFfiSegment(
-            text: text,
+            text: rawText,
             startMs: t0 * 10, // centiseconds → ms
             endMs: t1 * 10,
           ));
+        } else if (rawText.isNotEmpty) {
+          debugPrint('  [Segment $i] Ignored: Noise or filtered tag');
         }
       }
 
@@ -482,6 +509,7 @@ class WhisperFfiWindows {
       if (samplesPtr != nullptr) malloc.free(samplesPtr);
       if (paramsRaw != nullptr) calloc.free(paramsRaw);
       if (ctx != nullptr && ctx.address != 0) _free(ctx);
+      if (langPtr != nullptr) malloc.free(langPtr);
       malloc.free(modelPathNative);
     }
   }

@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.vipsound"
-   ndkVersion = project.findProperty("ndk.version") as String? ?: "27.0.12077973" 
+    ndkVersion = "28.2.13676358"
     // ^ Chọn một bản bạn ĐANG CÓ TRÊN CẢ 2 MÁY hoặc dùng bản mới nhất hiện có.
     compileSdk = flutter.compileSdkVersion
 

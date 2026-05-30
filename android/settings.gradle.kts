@@ -37,24 +37,11 @@ fun Settings.mergeLocalPropertiesFromEnvironment() {
     }
 
     applyEnv(listOf("ANDROID_SDK_ROOT", "ANDROID_HOME"), "sdk.dir")
-    applyEnv(listOf("ANDROID_NDK_HOME", "NDK_HOME"), "ndk.dir")
     applyEnv(listOf("FLUTTER_ROOT", "FLUTTER_SDK"), "flutter.sdk")
 
-    // Cố gắng tự tìm NDK Version từ đường dẫn nếu có ANDROID_NDK_HOME
-    val ndkHome = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("NDK_HOME")
-    if (ndkHome != null) {
-        val version = java.io.File(ndkHome).name
-        if (version.matches(Regex("""\d+\.\d+\.\d+"""))) {
-            if (props.getProperty("ndk.version") != version) {
-                props.setProperty("ndk.version", version)
-                changed = true
-                println("[VipSound Config] Auto-detected ndk.version: $version")
-            }
-        }
-    } else if (props.containsKey("ndk.version")) {
-        // Nếu không có NDK_HOME trong biến môi trường, hãy xóa ndk.version cũ 
-        // để tránh xung đột phiên bản giữa các hệ điều hành khác nhau.
-        props.remove("ndk.version")
+    // Xóa triệt để ndk.dir để tránh cảnh báo CXX5106 và xung đột phiên bản
+    if (props.containsKey("ndk.dir")) {
+        props.remove("ndk.dir")
         changed = true
     }
 

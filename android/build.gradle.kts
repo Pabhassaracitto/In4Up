@@ -9,8 +9,15 @@ rootProject.layout.buildDirectory.set(file("../build"))
 
 subprojects {
     project.layout.buildDirectory.set(file("${rootProject.layout.buildDirectory.get()}/${project.name}"))
-    project.evaluationDependsOn(":app")
-    // Không ép ndkVersion toàn cục: để AGP + NDK tại sdk.dir/ndk.dir (từ env) quyết định, tránh tải side-by-side khác bản đã cài.
+
+    val forceNdkVersion = "28.2.13676358"
+    val configureNdk = Action<Project> {
+        extensions.findByName("android")?.let {
+            (it as com.android.build.gradle.BaseExtension).ndkVersion = forceNdkVersion
+        }
+    }
+
+    if (project.state.executed) configureNdk.execute(project) else project.afterEvaluate(configureNdk)
 }
 
 tasks.register<Delete>("clean") {

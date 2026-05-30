@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
-part 'word_list_models.g.dart'; // Phải khớp với tên file word_list_models.dart
+// part 'word_list_models.g.dart'; // Phải khớp với tên file word_list_models.dart
 
 // ─── Sort Mode ─────────────────────────────────────────────
 

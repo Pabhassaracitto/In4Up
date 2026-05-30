@@ -17,6 +17,7 @@ import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
+import '../../memory_mode/controllers/memory_controller.dart';
 import 'knowledge_graph_screen.dart';
 import 'loop_count_picker.dart';
 import 'single_word_review_screen.dart';
@@ -104,6 +105,12 @@ class _WordListScreenState extends State<WordListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch MemoryController một lần tại đây để tránh lỗi assertion do quá nhiều dependents trong ListView
+    final memoryController = context.watch<MemoryController>();
+    final sownWords = memoryController.allItems
+        .map((e) => e.word.trim().toLowerCase())
+        .toSet();
+
     return Consumer<VocabularyProvider>(
       builder: (_, provider, __) {
         final items = _getDisplayList(provider);
@@ -115,7 +122,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 _buildAppBar(provider),
                 _buildTypeFilterBar(provider),
                 _buildSubBar(provider, items),
-                Expanded(child: _buildCompactList(provider, items)),
+                Expanded(child: _buildCompactList(provider, items, sownWords)),
                 _buildPlayBar(items),
               ],
             ),
@@ -390,7 +397,8 @@ class _WordListScreenState extends State<WordListScreen> {
   // ═══════════════════════════════════════════════════════
   // COMPACT LIST
   // ═══════════════════════════════════════════════════════
-  Widget _buildCompactList(VocabularyProvider p, List<WordEntry> items) {
+  Widget _buildCompactList(
+      VocabularyProvider p, List<WordEntry> items, Set<String> sownWords) {
     if (items.isEmpty) return _buildEmptyState(p);
 
     return Column(
@@ -419,6 +427,8 @@ class _WordListScreenState extends State<WordListScreen> {
                 isSelected: isSelected,
                 isSelecting: _isSelecting,
                 settings: _settings,
+                isAlreadySown:
+                    sownWords.contains(entry.word.trim().toLowerCase()),
                 provider: p,
                 tts: _tts,
                 repeatCount: _getRepeatCount(entry.id),
@@ -1237,6 +1247,7 @@ class _CompactListItem extends StatelessWidget {
   final WordEntry entry;
   final int index;
   final bool isExpanded, isPlaying, isSelected, isSelecting;
+  final bool isAlreadySown;
   final WordListSettings settings;
   final VocabularyProvider provider;
   final TtsService tts;
@@ -1250,6 +1261,7 @@ class _CompactListItem extends StatelessWidget {
     required this.isExpanded,
     required this.isPlaying,
     required this.isSelected,
+    required this.isAlreadySown,
     required this.isSelecting,
     required this.settings,
     required this.provider,
@@ -1420,6 +1432,69 @@ class _CompactListItem extends StatelessWidget {
                   isPlaying: isPlaying,
                   currentRepeat: playingRepeat,
                   onChanged: onRepeatChanged),
+              const SizedBox(width: 2),
+
+              // Seed Button (Gieo mầm vườn nhớ) - Sau icon lặp từ và trước YouGlish
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  final memoryController = context.read<MemoryController>();
+                  if (isAlreadySown) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            '🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!'),
+                        backgroundColor: const Color(0xFF4CAF50),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  } else {
+                    final success = memoryController.addWord(
+                      word: entry.word,
+                      meaning: entry.meaning.isNotEmpty
+                          ? entry.meaning
+                          : 'Chưa có nghĩa',
+                      phonetic: entry.phonetic,
+                      example: entry.example,
+                    );
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!'),
+                          backgroundColor: const Color(0xFF4CAF50),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isAlreadySown
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: isAlreadySown
+                          ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Icon(
+                    isAlreadySown ? Icons.spa : Icons.spa_outlined,
+                    size: 13,
+                    color: isAlreadySown
+                        ? const Color(0xFF4CAF50)
+                        : Colors.grey[500],
+                  ),
+                ),
+              ),
               const SizedBox(width: 2),
 
               // YouGlish

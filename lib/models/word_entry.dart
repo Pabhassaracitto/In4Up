@@ -223,6 +223,10 @@ class WordEntry {
   String? personalNotes;
   bool isUnborn;
 
+  // ── ★ MỚI: Ma trận Ngôn ngữ và Chủ đề ──
+  String language;
+  String? topic;
+
   WordEntry({
     required this.id,
     required this.word,
@@ -246,6 +250,8 @@ class WordEntry {
     List<String>? childIds,
     this.personalNotes,
     this.isUnborn = false,
+    this.language = 'en',
+    this.topic,
   })  : tags = tags ?? [],
         understandData = understandData ?? SkillReviewData(score: understand),
         listenData = listenData ?? SkillReviewData(score: listen),
@@ -567,6 +573,8 @@ class WordEntry {
         'childIds': childIds,
         'personalNotes': personalNotes,
         'isUnborn': isUnborn,
+        'language': language,
+        'topic': topic,
       };
 
   factory WordEntry.fromJson(Map<String, dynamic> json) {
@@ -615,6 +623,8 @@ class WordEntry {
         childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
         personalNotes: json['personalNotes'] as String?,
         isUnborn: json['isUnborn'] as bool? ?? false,
+        language: json['language'] as String? ?? 'en',
+        topic: json['topic'] as String?,
       );
     }
 
@@ -647,6 +657,8 @@ class WordEntry {
       childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
       personalNotes: json['personalNotes'] as String?,
       isUnborn: json['isUnborn'] as bool? ?? false,
+      language: json['language'] as String? ?? 'en',
+      topic: json['topic'] as String?,
     );
   }
 
@@ -658,6 +670,8 @@ class WordEntry {
     VocabularyType? vocabType,
     String? personalNotes,
     bool? isUnborn,
+    String? language,
+    String? topic,
   }) =>
       WordEntry(
         id: id,
@@ -678,5 +692,7 @@ class WordEntry {
         childIds: childIds,
         personalNotes: personalNotes ?? this.personalNotes,
         isUnborn: isUnborn ?? this.isUnborn,
+        language: language ?? this.language,
+        topic: topic ?? this.topic,
       );
 }

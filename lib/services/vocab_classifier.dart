@@ -5,6 +5,12 @@ class VocabClassifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return VocabularyType.word;
 
+    // Detect paragraph: multiple sentences or very long text
+    final sentenceCount = RegExp(r'[.!?]($|\s+)').allMatches(trimmed).length;
+    if (sentenceCount >= 2 || trimmed.length > 200) {
+      return VocabularyType.paragraph;
+    }
+
     if (RegExp(r'[.!?]\s*$').hasMatch(trimmed)) {
       return VocabularyType.sentence;
     }

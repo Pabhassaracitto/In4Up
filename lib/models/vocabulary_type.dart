@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 enum VocabularyType {
   word,
   phrase,
-  sentence;
+  sentence,
+  paragraph;
 
   String get label {
     switch (this) {
@@ -15,6 +16,8 @@ enum VocabularyType {
         return 'Cụm từ';
       case VocabularyType.sentence:
         return 'Câu';
+      case VocabularyType.paragraph:
+        return 'Đoạn';
     }
   }
 
@@ -26,6 +29,8 @@ enum VocabularyType {
         return 'Phrase';
       case VocabularyType.sentence:
         return 'Sentence';
+      case VocabularyType.paragraph:
+        return 'Paragraph';
     }
   }
 
@@ -37,17 +42,21 @@ enum VocabularyType {
         return const Color(0xFF2196F3);
       case VocabularyType.sentence:
         return const Color(0xFFFF9800);
+      case VocabularyType.paragraph:
+        return const Color(0xFF9C27B0);
     }
   }
 
   Color get bgColor {
     switch (this) {
       case VocabularyType.word:
-        return Color(0xFF4CAF50).withValues(alpha: 0.12);
+        return const Color(0xFF4CAF50).withValues(alpha: 0.12);
       case VocabularyType.phrase:
-        return Color(0xFF2196F3).withValues(alpha: 0.12);
+        return const Color(0xFF2196F3).withValues(alpha: 0.12);
       case VocabularyType.sentence:
-        return Color(0xFFFF9800).withValues(alpha: 0.12);
+        return const Color(0xFFFF9800).withValues(alpha: 0.12);
+      case VocabularyType.paragraph:
+        return const Color(0xFF9C27B0).withValues(alpha: 0.12);
     }
   }
 
@@ -59,6 +68,8 @@ enum VocabularyType {
         return Icons.short_text;
       case VocabularyType.sentence:
         return Icons.notes;
+      case VocabularyType.paragraph:
+        return Icons.view_headline;
     }
   }
 
@@ -70,6 +81,8 @@ enum VocabularyType {
         return 'P';
       case VocabularyType.sentence:
         return 'S';
+      case VocabularyType.paragraph:
+        return 'D';
     }
   }
 }

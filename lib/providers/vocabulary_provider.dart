@@ -21,6 +21,10 @@ class VocabularyProvider extends ChangeNotifier {
   String _searchQuery = '';
   bool _isLoading = false;
 
+  String? _filterLanguage;
+  String? _filterTopic;
+  String? _filterLearningStatus;
+
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
   StreamSubscription<User?>? _authSub;
@@ -32,11 +36,24 @@ class VocabularyProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSyncEnabled => _isSyncEnabled;
   VocabularyType? get filterType => _filterType;
+  String? get filterLanguage => _filterLanguage;
+  String? get filterTopic => _filterTopic;
+  String? get filterLearningStatus => _filterLearningStatus;
   String? get filterSource => _filterSource;
   String get searchQuery => _searchQuery;
 
   SyncStatus get syncStatus => _sync.status.value;
   DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;
+
+  Set<String> get allLanguages {
+    final Set<String> langs = _words.map((w) => w.language).where((l) => l.isNotEmpty).toSet();
+    if (langs.isEmpty) return {'en'};
+    return langs;
+  }
+
+  Set<String> get allTopics {
+    return _words.map((w) => w.topic).whereType<String>().where((t) => t.isNotEmpty).toSet();
+  }
 
   ValueNotifier<SyncStatus> get syncStatusNotifier => _sync.status;
   ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
@@ -78,6 +95,28 @@ class VocabularyProvider extends ChangeNotifier {
       list = list
           .where((w) => w.contexts.any((c) => c.sourceName == _filterSource))
           .toList();
+    }
+    if (_filterLanguage != null) {
+      list = list.where((w) => w.language == _filterLanguage).toList();
+    }
+    if (_filterTopic != null) {
+      list = list.where((w) => w.topic == _filterTopic).toList();
+    }
+    if (_filterLearningStatus != null) {
+      switch (_filterLearningStatus) {
+        case 'due':
+          list = list.where((w) => w.understandData.isDue || w.listenData.isDue || w.readData.isDue).toList();
+          break;
+        case 'learning':
+          list = list.where((w) => w.mastery > 0.0 && w.mastery < 0.9).toList();
+          break;
+        case 'mastered':
+          list = list.where((w) => w.mastery >= 0.9).toList();
+          break;
+        case 'blindSpot':
+          list = list.where((w) => w.zone == MasteryZone.blindSpot).toList();
+          break;
+      }
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -345,7 +384,25 @@ class VocabularyProvider extends ChangeNotifier {
     _filterZone = null;
     _filterType = null;
     _filterSource = null;
+    _filterLanguage = null;
+    _filterTopic = null;
+    _filterLearningStatus = null;
     _searchQuery = '';
+    notifyListeners();
+  }
+
+  void setFilterLanguage(String? lang) {
+    _filterLanguage = _filterLanguage == lang ? null : lang;
+    notifyListeners();
+  }
+
+  void setFilterTopic(String? topic) {
+    _filterTopic = _filterTopic == topic ? null : topic;
+    notifyListeners();
+  }
+
+  void setFilterLearningStatus(String? status) {
+    _filterLearningStatus = _filterLearningStatus == status ? null : status;
     notifyListeners();
   }
 
@@ -384,6 +441,8 @@ class VocabularyProvider extends ChangeNotifier {
     String? phonetic,
     VocabContext? context,
     VocabularyType? forceType,
+    String language = 'en',
+    String? topic,
   }) {
     final normalized = text.trim();
 
@@ -407,6 +466,8 @@ class VocabularyProvider extends ChangeNotifier {
       vocabType: type,
       contexts: context != null ? [context] : [],
       isUnborn: meaning.trim().isEmpty,
+      language: language,
+      topic: topic,
     );
 
     _words.add(entry);
@@ -502,7 +563,7 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void updateWord(String id,
-      {String? word, String? meaning, String? phonetic, String? example}) {
+      {String? word, String? meaning, String? phonetic, String? example, String? language, String? topic, VocabularyType? vocabType}) {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       if (word != null) w.word = word;
@@ -517,6 +578,11 @@ class VocabularyProvider extends ChangeNotifier {
       if (example != null) {
         w.example = example;
         if (example.trim().isNotEmpty) w.isUnborn = false;
+      }
+      if (language != null) w.language = language;
+      if (topic != null) w.topic = topic.trim().isEmpty ? null : topic;
+      if (vocabType != null) {
+        w.vocabType = vocabType;
       }
       w.updatedAt = DateTime.now();
       _saveWord(w);

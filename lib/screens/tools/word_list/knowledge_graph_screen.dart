@@ -521,6 +521,7 @@ class _GraphNode extends StatelessWidget {
   // Node size phụ thuộc vào type + encounter count
   double _nodeSize(WordEntry w) {
     final base = switch (w.vocabType) {
+      VocabularyType.paragraph => 105.0,
       VocabularyType.sentence => 90.0,
       VocabularyType.phrase => 75.0,
       VocabularyType.word => 60.0,
@@ -531,6 +532,7 @@ class _GraphNode extends StatelessWidget {
 
   double _fontSize(WordEntry w) {
     return switch (w.vocabType) {
+      VocabularyType.paragraph => 8.0,
       VocabularyType.sentence => 9.0,
       VocabularyType.phrase => 10.0,
       VocabularyType.word => 11.0,

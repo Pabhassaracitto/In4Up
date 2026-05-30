@@ -41,10 +41,13 @@ class VocabularyProvider extends ChangeNotifier {
   ValueNotifier<SyncStatus> get syncStatusNotifier => _sync.status;
   ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
 
-  Future<void> syncNow() async {
+  Future<void> syncNow({bool forceAll = false}) async {
     if (!_isSyncEnabled) return;
     try {
-      await _sync.pullFromFirestore();
+      final pulledCount = await _sync.pullFromFirestore(forceAll: forceAll);
+      if (pulledCount > 0) {
+        await _reloadFromHive();
+      }
       await _sync.flushPending();
     } catch (e, stack) {
       debugPrint('❌ syncNow error: $e\n$stack');
@@ -238,7 +241,7 @@ class VocabularyProvider extends ChangeNotifier {
 
       // ★ CHIẾN LƯỢC: Pull before Push
       final isLocalEmpty = _box.isEmpty;
-      final pulledCount = await _sync.pullFromFirestore();
+      final pulledCount = await _sync.pullFromFirestore(forceAll: isLocalEmpty);
 
       if (isLocalEmpty && pulledCount > 0) {
         debugPrint('🔄 Local rỗng, đã kéo $pulledCount từ vựng từ Firebase.');

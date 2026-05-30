@@ -1934,7 +1934,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  context.read<VocabularyProvider>().syncNow();
+                  context.read<VocabularyProvider>().syncNow(forceAll: true);
                 },
                 icon: const Icon(Icons.sync, size: 18),
                 label: const Text('Đồng bộ ngay bây giờ',

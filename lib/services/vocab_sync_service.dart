@@ -167,7 +167,7 @@ class VocabSyncService {
     }
   }
 
-  Future<int> pullFromFirestore() async {
+  Future<int> pullFromFirestore({bool forceAll = false}) async {
     if (_currentUid == null || _isSyncing) return 0;
     try {
       final conn = await Connectivity().checkConnectivity();
@@ -194,8 +194,8 @@ class VocabSyncService {
           _db.collection('users').doc(_currentUid).collection('vocabulary');
 
       final lastSync = meta.data()?['lastSyncedAt'] as Timestamp?;
-      if (lastSync != null) {
-        // Chỉ lấy những bản ghi có _syncedAt mới hơn checkpoint
+      if (lastSync != null && !forceAll && vocabBox.isNotEmpty) {
+        // Chỉ lấy những bản ghi có _syncedAt mới hơn checkpoint nếu không forceAll và local có dữ liệu
         query = query.where('_syncedAt', isGreaterThan: lastSync);
       }
 

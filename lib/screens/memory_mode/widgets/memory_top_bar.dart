@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../widgets/sync_status_badge.dart';
+import '../../tools/word_list/word_list_screen.dart';
 import '../controllers/memory_controller.dart';
 
 class MemoryTopBar extends StatelessWidget {
@@ -57,6 +58,29 @@ class MemoryTopBar extends StatelessWidget {
           _ViewToggle(
             current: controller.viewMode,
             onChanged: controller.setViewMode,
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const WordListScreen(),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF42A5F5).withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Icon(Icons.format_list_bulleted, size: 18, color: Color(0xFF42A5F5)),
+            ),
           ),
           const SizedBox(width: 8),
           GestureDetector(

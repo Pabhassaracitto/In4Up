@@ -138,34 +138,34 @@ class MemoryModeScreen extends StatelessWidget {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (hasWordsInWorklist) ...[
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          HapticFeedback.mediumImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const WordListScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.format_list_bulleted, size: 18, color: Colors.white),
-                        label: const Text('Chuyển tới worklist để thêm',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4CAF50),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 14,
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const WordListScreen(),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.format_list_bulleted, size: 18, color: Colors.white),
+                      label: Text(
+                        hasWordsInWorklist ? 'Mở Wordlist để gieo mầm' : 'Mở Wordlist để thêm từ mới',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4CAF50),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
+                    ),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () {
                         controller.addTestWords();
@@ -174,9 +174,9 @@ class MemoryModeScreen extends StatelessWidget {
                       icon: const Icon(Icons.science, size: 18),
                       label: const Text('Thêm từ mẫu để thử'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: hasWordsInWorklist ? Colors.grey[400] : const Color(0xFF4CAF50),
+                        foregroundColor: Colors.grey[400],
                         side: BorderSide(
-                          color: (hasWordsInWorklist ? Colors.grey[700] : const Color(0xFF4CAF50))!.withValues(alpha: 0.3),
+                          color: Colors.grey[700]!.withValues(alpha: 0.3),
                         ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,

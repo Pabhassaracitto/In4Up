@@ -41,6 +41,7 @@ class _WordListScreenState extends State<WordListScreen> {
   // ── UI state ──
   final _searchCtrl = TextEditingController();
   bool _showSearch = false;
+  bool _filterExpanded = false;
   String? _expandedId;
   VocabularyType? _typeFilter;
   WordListSortMode _sortMode = WordListSortMode.addTime;
@@ -297,197 +298,317 @@ class _WordListScreenState extends State<WordListScreen> {
   // TYPE FILTER BAR
   // ═══════════════════════════════════════════════════════
   Widget _buildTypeFilterBar(VocabularyProvider p) {
-    final topics = p.allTopics.toList()..sort();
-    final languages = p.allLanguages.toList()..sort();
+    final hasActiveFilter = p.filterType != null ||
+        p.filterLearningStatus != null ||
+        p.filterLanguage != null ||
+        p.filterTopic != null;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0F1A),
-        border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A0F1A),
+          border: Border(
+            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: Entities (Thực thể)
-          _buildFilterRow(
-            label: 'Thực thể',
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterSegmentChip(
-                    label: 'Tất cả',
-                    isSelected: p.filterType == null,
-                    onTap: () => p.setFilterType(null),
-                  ),
-                  const SizedBox(width: 6),
-                  ...VocabularyType.values.map(
-                    (type) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _FilterSegmentChip(
-                        label: type.label,
-                        color: type.color,
-                        isSelected: p.filterType == type,
-                        onTap: () => p.setFilterType(type),
-                      ),
+        child: Column(
+          children: [
+            // ── COLLAPSED SUMMARY ROW ──
+            GestureDetector(
+              onTap: () => setState(() => _filterExpanded = !_filterExpanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.filter_list,
+                      size: 14,
+                      color: hasActiveFilter
+                          ? const Color(0xFF6C63FF)
+                          : Colors.grey[600],
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Row 2: Learning Status (Trạng thái học)
-          _buildFilterRow(
-            label: 'Trạng thái',
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterSegmentChip(
-                    label: 'Tất cả',
-                    isSelected: p.filterLearningStatus == null,
-                    onTap: () => p.setFilterLearningStatus(null),
-                  ),
-                  const SizedBox(width: 6),
-                  _FilterSegmentChip(
-                    label: 'Cần ôn',
-                    color: const Color(0xFFFF5722),
-                    isSelected: p.filterLearningStatus == 'due',
-                    onTap: () => p.setFilterLearningStatus('due'),
-                  ),
-                  const SizedBox(width: 6),
-                  _FilterSegmentChip(
-                    label: 'Đang học',
-                    color: const Color(0xFF2196F3),
-                    isSelected: p.filterLearningStatus == 'learning',
-                    onTap: () => p.setFilterLearningStatus('learning'),
-                  ),
-                  const SizedBox(width: 6),
-                  _FilterSegmentChip(
-                    label: 'Thành thạo',
-                    color: const Color(0xFFFFD54F),
-                    isSelected: p.filterLearningStatus == 'mastered',
-                    onTap: () => p.setFilterLearningStatus('mastered'),
-                  ),
-                  const SizedBox(width: 6),
-                  _FilterSegmentChip(
-                    label: 'Điểm mù',
-                    color: const Color(0xFF616161),
-                    isSelected: p.filterLearningStatus == 'blindSpot',
-                    onTap: () => p.setFilterLearningStatus('blindSpot'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Row 3: Multilingual Matrix (Ngôn ngữ)
-          _buildFilterRow(
-            label: 'Ngôn ngữ',
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterSegmentChip(
-                    label: 'Tất cả',
-                    isSelected: p.filterLanguage == null,
-                    onTap: () => p.setFilterLanguage(null),
-                  ),
-                  const SizedBox(width: 6),
-                  for (final lang in ['en', 'vi', 'pali', 'my'])
-                    if (!languages.contains(lang))
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: _FilterSegmentChip(
-                          label: lang == 'en' ? 'Anh' : lang == 'vi' ? 'Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
-                          isSelected: p.filterLanguage == lang,
-                          onTap: () => p.setFilterLanguage(lang),
+                    const SizedBox(width: 8),
+                    // Active filter summary chips
+                    Expanded(
+                      child: hasActiveFilter
+                          ? SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  if (p.filterType != null)
+                                    _ActiveFilterBadge(
+                                      label: p.filterType!.label,
+                                      color: p.filterType!.color,
+                                      onRemove: () => p.setFilterType(null),
+                                    ),
+                                  if (p.filterLearningStatus != null)
+                                    _ActiveFilterBadge(
+                                      label: _statusLabel(p.filterLearningStatus!),
+                                      color: _statusColor(p.filterLearningStatus!),
+                                      onRemove: () =>
+                                          p.setFilterLearningStatus(null),
+                                    ),
+                                  if (p.filterLanguage != null)
+                                    _ActiveFilterBadge(
+                                      label: _langLabel(p.filterLanguage!),
+                                      color: const Color(0xFF42A5F5),
+                                      onRemove: () => p.setFilterLanguage(null),
+                                    ),
+                                  if (p.filterTopic != null)
+                                    _ActiveFilterBadge(
+                                      label: p.filterTopic!,
+                                      color: const Color(0xFF9C27B0),
+                                      onRemove: () => p.setFilterTopic(null),
+                                    ),
+                                ],
+                              ),
+                            )
+                          : Text(
+                              'Lọc theo thực thể, trạng thái, ngôn ngữ...',
+                              style: TextStyle(
+                                  color: Colors.grey[700], fontSize: 11),
+                            ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Clear all button
+                    if (hasActiveFilter)
+                      GestureDetector(
+                        onTap: () {
+                          p.setFilterType(null);
+                          p.setFilterLearningStatus(null);
+                          p.setFilterLanguage(null);
+                          p.setFilterTopic(null);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Icon(Icons.close,
+                              size: 12, color: Colors.grey[500]),
                         ),
                       ),
-                  for (final lang in languages)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _FilterSegmentChip(
-                        label: lang == 'en' ? 'Anh' : lang == 'vi' ? 'Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang,
-                        isSelected: p.filterLanguage == lang,
-                        onTap: () => p.setFilterLanguage(lang),
-                      ),
+                    const SizedBox(width: 4),
+                    // Expand toggle
+                    AnimatedRotation(
+                      turns: _filterExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(Icons.keyboard_arrow_down,
+                          size: 16, color: Colors.grey[600]),
                     ),
-                  GestureDetector(
-                    onTap: () => _promptAddLanguage(p),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, size: 12, color: Colors.grey),
-                          SizedBox(width: 2),
-                          Text('Thêm', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Row 4: Topics/Folders (Chủ đề)
-          _buildFilterRow(
-            label: 'Chủ đề',
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterSegmentChip(
-                    label: 'Tất cả',
-                    isSelected: p.filterTopic == null,
-                    onTap: () => p.setFilterTopic(null),
-                  ),
-                  const SizedBox(width: 6),
-                  for (final topic in topics)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _FilterSegmentChip(
-                        label: topic,
-                        isSelected: p.filterTopic == topic,
-                        onTap: () => p.setFilterTopic(topic),
-                      ),
+            // ── EXPANDED FILTER ROWS ──
+            if (_filterExpanded) ...[
+              Divider(
+                color: Colors.white.withValues(alpha: 0.04),
+                height: 1,
+              ),
+              _buildFilterRow(
+                label: 'Thực thể',
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    _FilterSegmentChip(
+                      label: 'Tất cả',
+                      isSelected: p.filterType == null,
+                      onTap: () {
+                        p.setFilterType(null);
+                        setState(() => _filterExpanded = false);
+                      },
                     ),
-                  GestureDetector(
-                    onTap: () => _promptAddTopic(p),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, size: 12, color: Colors.grey),
-                          SizedBox(width: 2),
-                          Text('Thêm', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                        ],
-                      ),
+                    const SizedBox(width: 6),
+                    ...VocabularyType.values.map((type) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: _FilterSegmentChip(
+                            label: type.label,
+                            color: type.color,
+                            isSelected: p.filterType == type,
+                            onTap: () {
+                              p.setFilterType(type);
+                              setState(() => _filterExpanded = false);
+                            },
+                          ),
+                        )),
+                  ]),
+                ),
+              ),
+              _buildFilterRow(
+                label: 'Trạng thái',
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    _FilterSegmentChip(
+                      label: 'Tất cả',
+                      isSelected: p.filterLearningStatus == null,
+                      onTap: () {
+                        p.setFilterLearningStatus(null);
+                        setState(() => _filterExpanded = false);
+                      },
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    _FilterSegmentChip(
+                      label: 'Cần ôn',
+                      color: const Color(0xFFFF5722),
+                      isSelected: p.filterLearningStatus == 'due',
+                      onTap: () {
+                        p.setFilterLearningStatus('due');
+                        setState(() => _filterExpanded = false);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _FilterSegmentChip(
+                      label: 'Đang học',
+                      color: const Color(0xFF2196F3),
+                      isSelected: p.filterLearningStatus == 'learning',
+                      onTap: () {
+                        p.setFilterLearningStatus('learning');
+                        setState(() => _filterExpanded = false);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _FilterSegmentChip(
+                      label: 'Thành thạo',
+                      color: const Color(0xFFFFD54F),
+                      isSelected: p.filterLearningStatus == 'mastered',
+                      onTap: () {
+                        p.setFilterLearningStatus('mastered');
+                        setState(() => _filterExpanded = false);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _FilterSegmentChip(
+                      label: 'Điểm mù',
+                      color: const Color(0xFF616161),
+                      isSelected: p.filterLearningStatus == 'blindSpot',
+                      onTap: () {
+                        p.setFilterLearningStatus('blindSpot');
+                        setState(() => _filterExpanded = false);
+                      },
+                    ),
+                  ]),
+                ),
+              ),
+              _buildFilterRow(
+                label: 'Ngôn ngữ',
+                child: _buildLanguageRow(p),
+              ),
+              _buildFilterRow(
+                label: 'Chủ đề',
+                child: _buildTopicRow(p),
+              ),
+              const SizedBox(height: 6),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Helper label/color converters ──
+  String _statusLabel(String s) => switch (s) {
+        'due' => 'Cần ôn',
+        'learning' => 'Đang học',
+        'mastered' => 'Thành thạo',
+        'blindSpot' => 'Điểm mù',
+        _ => s,
+      };
+
+  Color _statusColor(String s) => switch (s) {
+        'due' => const Color(0xFFFF5722),
+        'learning' => const Color(0xFF2196F3),
+        'mastered' => const Color(0xFFFFD54F),
+        'blindSpot' => const Color(0xFF616161),
+        _ => Colors.grey,
+      };
+
+  String _langLabel(String lang) => switch (lang) {
+        'en' => 'Anh',
+        'vi' => 'Việt',
+        'pali' => 'Pali',
+        'my' => 'Burmese',
+        _ => lang,
+      };
+
+  // ── Extract language & topic rows ──
+  Widget _buildLanguageRow(VocabularyProvider p) {
+    final languages = p.allLanguages.toList()..sort();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        _FilterSegmentChip(
+          label: 'Tất cả',
+          isSelected: p.filterLanguage == null,
+          onTap: () {
+            p.setFilterLanguage(null);
+            setState(() => _filterExpanded = false);
+          },
+        ),
+        const SizedBox(width: 6),
+        for (final lang in ['en', 'vi', 'pali', 'my'])
+          if (!languages.contains(lang))
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _FilterSegmentChip(
+                label: _langLabel(lang),
+                isSelected: p.filterLanguage == lang,
+                onTap: () {
+                  p.setFilterLanguage(lang);
+                  setState(() => _filterExpanded = false);
+                },
               ),
             ),
+        for (final lang in languages)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: _FilterSegmentChip(
+              label: _langLabel(lang),
+              isSelected: p.filterLanguage == lang,
+              onTap: () {
+                p.setFilterLanguage(lang);
+                setState(() => _filterExpanded = false);
+              },
+            ),
           ),
-          const SizedBox(height: 6),
-        ],
-      ),
+        _AddChip(onTap: () => _promptAddLanguage(p)),
+      ]),
+    );
+  }
+
+  Widget _buildTopicRow(VocabularyProvider p) {
+    final topics = p.allTopics.toList()..sort();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        _FilterSegmentChip(
+          label: 'Tất cả',
+          isSelected: p.filterTopic == null,
+          onTap: () {
+            p.setFilterTopic(null);
+            setState(() => _filterExpanded = false);
+          },
+        ),
+        const SizedBox(width: 6),
+        for (final topic in topics)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: _FilterSegmentChip(
+              label: topic,
+              isSelected: p.filterTopic == topic,
+              onTap: () {
+                p.setFilterTopic(topic);
+                setState(() => _filterExpanded = false);
+              },
+            ),
+          ),
+        _AddChip(onTap: () => _promptAddTopic(p)),
+      ]),
     );
   }
 
@@ -2094,6 +2215,76 @@ class _CompactListItem extends StatelessWidget {
   }
 }
 
+class _ActiveFilterBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onRemove;
+
+  const _ActiveFilterBadge({
+    required this.label,
+    required this.color,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.fromLTRB(8, 3, 4, 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(Icons.close, size: 10, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddChip extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddChip({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add, size: 12, color: Colors.grey),
+              SizedBox(width: 2),
+              Text('Thêm',
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+            ],
+          ),
+        ),
+      );
+}
+
 // ══════════════════════════════════════════════════════════
 // SMART GROUPS SHEET
 // ══════════════════════════════════════════════════════════
@@ -2852,4 +3043,3 @@ class _FilterSegmentChip extends StatelessWidget {
     );
   }
 }
-

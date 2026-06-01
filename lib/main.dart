@@ -1,6 +1,8 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'services/whisper_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +28,7 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -75,6 +78,15 @@ Future<void> main() async {
 
   // ★ Chỉ Firebase là bắt buộc trước runApp
   await _initializeFirebaseSafely();
+
+  // Khởi tạo StorageService quản lý Hive
+  final storage = StorageService();
+  await storage.initialize();
+
+  // Mở box chứa hàng đợi các tác vụ đồng bộ dở dang khi mất mạng
+  if (!Hive.isBoxOpen('vocab_sync_pending')) {
+    await Hive.openBox<String>('vocab_sync_pending');
+  }
 
   // ★ runApp ngay - không block
   runApp(const MyApp());
@@ -173,17 +185,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<_AppLocalServices> _initializeLocalServices() async {
-    // ★ THAY TOÀN BỘ: Dùng StorageService.initialize() thay vì tự mở Hive
-    // StorageService đã mở đủ tất cả các box cần thiết
-    final storage = StorageService();
-    await storage.initialize();
-
     final prefs = await SharedPreferences.getInstance();
-
-    // ★ Chỉ mở box này vì StorageService chưa mở
-    if (!Hive.isBoxOpen('vocab_sync_pending')) {
-      await Hive.openBox<String>('vocab_sync_pending');
-    }
 
     return _AppLocalServices(prefs: prefs);
   }
@@ -195,7 +197,24 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
-        ChangeNotifierProvider(create: (_) => VocabularyProvider()..loadData()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final prov = VocabularyProvider();
+            prov.loadData(); // Nạp danh sách từ cục bộ từ Hive
+
+            // Tự động kích hoạt sync khi có User đăng nhập
+            FirebaseAuth.instance.authStateChanges().listen((user) {
+              if (user != null) {
+                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                unawaited(prov.enableSync(user.uid));
+              } else {
+                prov.disableSync();
+              }
+            });
+
+            return prov;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
 

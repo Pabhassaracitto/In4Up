@@ -6,19 +6,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/tts/tts_service.dart';
+import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
+import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
+import '../../../widgets/sync_status_badge.dart';
+import '../../memory_mode/controllers/memory_controller.dart';
 import 'knowledge_graph_screen.dart';
 import 'loop_count_picker.dart';
 import 'single_word_review_screen.dart';
+import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'youglish_mini_sheet.dart';
-import '../review_tab.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -100,6 +105,12 @@ class _WordListScreenState extends State<WordListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch MemoryController một lần tại đây để tránh lỗi assertion do quá nhiều dependents trong ListView
+    final memoryController = context.watch<MemoryController>();
+    final sownWords = memoryController.allItems
+        .map((e) => e.word.trim().toLowerCase())
+        .toSet();
+
     return Consumer<VocabularyProvider>(
       builder: (_, provider, __) {
         final items = _getDisplayList(provider);
@@ -111,14 +122,14 @@ class _WordListScreenState extends State<WordListScreen> {
                 _buildAppBar(provider),
                 _buildTypeFilterBar(provider),
                 _buildSubBar(provider, items),
-                Expanded(child: _buildCompactList(provider, items)),
+                Expanded(child: _buildCompactList(provider, items, sownWords)),
                 _buildPlayBar(items),
               ],
             ),
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: const Color(0xFF6C63FF),
-            onPressed: () => _showAddSheet(provider),
+            onPressed: () => _showAddMenu(provider),
             child: const Icon(Icons.add, color: Colors.white),
           ),
         );
@@ -169,6 +180,8 @@ class _WordListScreenState extends State<WordListScreen> {
                           setState(() => _sortMode = WordListSortMode.sm2Due),
                     ),
                   ],
+                  const SizedBox(width: 8),
+                  const SyncStatusBadge(),
                 ],
               ),
             ),
@@ -284,42 +297,296 @@ class _WordListScreenState extends State<WordListScreen> {
   // TYPE FILTER BAR
   // ═══════════════════════════════════════════════════════
   Widget _buildTypeFilterBar(VocabularyProvider p) {
+    final topics = p.allTopics.toList()..sort();
+    final languages = p.allLanguages.toList()..sort();
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0F1A),
         border: Border(
-            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _TypeChip(
-                label: 'Tất cả',
-                count: p.total,
-                color: const Color(0xFF9E9E9E),
-                isSelected: _typeFilter == null,
-                onTap: () => setState(() {
-                      _typeFilter = null;
-                      p.setFilterType(null);
-                    })),
-            const SizedBox(width: 6),
-            ...VocabularyType.values.map((type) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: _TypeChip(
-                    label: type.label,
-                    count: p.wordsByType[type]?.length ?? 0,
-                    color: type.color,
-                    isSelected: _typeFilter == type,
-                    onTap: () => setState(() {
-                      _typeFilter = _typeFilter == type ? null : type;
-                      p.setFilterType(_typeFilter);
-                    }),
-                  ),
-                )),
-          ],
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Entities (Thực thể)
+          _buildFilterRow(
+            label: 'Thực thể',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterSegmentChip(
+                    label: 'Tất cả',
+                    isSelected: p.filterType == null,
+                    onTap: () => p.setFilterType(null),
+                  ),
+                  const SizedBox(width: 6),
+                  ...VocabularyType.values.map(
+                    (type) => Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _FilterSegmentChip(
+                        label: type.label,
+                        color: type.color,
+                        isSelected: p.filterType == type,
+                        onTap: () => p.setFilterType(type),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Row 2: Learning Status (Trạng thái học)
+          _buildFilterRow(
+            label: 'Trạng thái',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterSegmentChip(
+                    label: 'Tất cả',
+                    isSelected: p.filterLearningStatus == null,
+                    onTap: () => p.setFilterLearningStatus(null),
+                  ),
+                  const SizedBox(width: 6),
+                  _FilterSegmentChip(
+                    label: 'Cần ôn',
+                    color: const Color(0xFFFF5722),
+                    isSelected: p.filterLearningStatus == 'due',
+                    onTap: () => p.setFilterLearningStatus('due'),
+                  ),
+                  const SizedBox(width: 6),
+                  _FilterSegmentChip(
+                    label: 'Đang học',
+                    color: const Color(0xFF2196F3),
+                    isSelected: p.filterLearningStatus == 'learning',
+                    onTap: () => p.setFilterLearningStatus('learning'),
+                  ),
+                  const SizedBox(width: 6),
+                  _FilterSegmentChip(
+                    label: 'Thành thạo',
+                    color: const Color(0xFFFFD54F),
+                    isSelected: p.filterLearningStatus == 'mastered',
+                    onTap: () => p.setFilterLearningStatus('mastered'),
+                  ),
+                  const SizedBox(width: 6),
+                  _FilterSegmentChip(
+                    label: 'Điểm mù',
+                    color: const Color(0xFF616161),
+                    isSelected: p.filterLearningStatus == 'blindSpot',
+                    onTap: () => p.setFilterLearningStatus('blindSpot'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Row 3: Multilingual Matrix (Ngôn ngữ)
+          _buildFilterRow(
+            label: 'Ngôn ngữ',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterSegmentChip(
+                    label: 'Tất cả',
+                    isSelected: p.filterLanguage == null,
+                    onTap: () => p.setFilterLanguage(null),
+                  ),
+                  const SizedBox(width: 6),
+                  for (final lang in ['en', 'vi', 'pali', 'my'])
+                    if (!languages.contains(lang))
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _FilterSegmentChip(
+                          label: lang == 'en' ? 'Anh' : lang == 'vi' ? 'Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
+                          isSelected: p.filterLanguage == lang,
+                          onTap: () => p.setFilterLanguage(lang),
+                        ),
+                      ),
+                  for (final lang in languages)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _FilterSegmentChip(
+                        label: lang == 'en' ? 'Anh' : lang == 'vi' ? 'Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang,
+                        isSelected: p.filterLanguage == lang,
+                        onTap: () => p.setFilterLanguage(lang),
+                      ),
+                    ),
+                  GestureDetector(
+                    onTap: () => _promptAddLanguage(p),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add, size: 12, color: Colors.grey),
+                          SizedBox(width: 2),
+                          Text('Thêm', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Row 4: Topics/Folders (Chủ đề)
+          _buildFilterRow(
+            label: 'Chủ đề',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterSegmentChip(
+                    label: 'Tất cả',
+                    isSelected: p.filterTopic == null,
+                    onTap: () => p.setFilterTopic(null),
+                  ),
+                  const SizedBox(width: 6),
+                  for (final topic in topics)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _FilterSegmentChip(
+                        label: topic,
+                        isSelected: p.filterTopic == topic,
+                        onTap: () => p.setFilterTopic(topic),
+                      ),
+                    ),
+                  GestureDetector(
+                    onTap: () => _promptAddTopic(p),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add, size: 12, color: Colors.grey),
+                          SizedBox(width: 2),
+                          Text('Thêm', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterRow({required String label, required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+
+  void _promptAddLanguage(VocabularyProvider p) {
+    final textC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF131D2A),
+        title: const Text('Thêm ngôn ngữ mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: textC,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)',
+            hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
+            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = textC.text.trim();
+              if (val.isNotEmpty) {
+                p.setFilterLanguage(val);
+              }
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
+            child: const Text('Lọc'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptAddTopic(VocabularyProvider p) {
+    final textC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF131D2A),
+        title: const Text('Thêm chủ đề mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: textC,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)',
+            hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
+            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = textC.text.trim();
+              if (val.isNotEmpty) {
+                p.setFilterTopic(val);
+              }
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
+            child: const Text('Lọc'),
+          ),
+        ],
       ),
     );
   }
@@ -384,7 +651,8 @@ class _WordListScreenState extends State<WordListScreen> {
   // ═══════════════════════════════════════════════════════
   // COMPACT LIST
   // ═══════════════════════════════════════════════════════
-  Widget _buildCompactList(VocabularyProvider p, List<WordEntry> items) {
+  Widget _buildCompactList(
+      VocabularyProvider p, List<WordEntry> items, Set<String> sownWords) {
     if (items.isEmpty) return _buildEmptyState(p);
 
     return Column(
@@ -413,6 +681,8 @@ class _WordListScreenState extends State<WordListScreen> {
                 isSelected: isSelected,
                 isSelecting: _isSelecting,
                 settings: _settings,
+                isAlreadySown:
+                    sownWords.contains(entry.word.trim().toLowerCase()),
                 provider: p,
                 tts: _tts,
                 repeatCount: _getRepeatCount(entry.id),
@@ -505,21 +775,198 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   Widget _buildEmptyState(VocabularyProvider p) {
+    final isSearching = p.searchQuery.isNotEmpty;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.library_books_outlined, size: 52, color: Colors.grey[800]),
+          Icon(isSearching ? Icons.search_off : Icons.library_books_outlined,
+              size: 52, color: Colors.grey[800]),
           const SizedBox(height: 16),
-          Text('Chưa có từ vựng',
+          Text(
+              isSearching
+                  ? 'Không tìm thấy "${p.searchQuery}"'
+                  : 'Chưa có từ vựng',
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 15,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Text('Bôi đen từ khi đọc hoặc thêm thủ công',
+          Text(
+              isSearching
+                  ? 'Bạn có muốn lưu từ này vào danh sách?'
+                  : 'Bôi đen từ khi đọc hoặc thêm thủ công',
               style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+          if (isSearching) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _addAndSaveNow(p, p.searchQuery),
+              icon: const Icon(Icons.add),
+              label: const Text('Lưu ngay từ này'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C63FF),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _addAndSaveNow(VocabularyProvider p, String text) {
+    VocabContext? context;
+    try {
+      final textProvider = this.context.read<TextProvider>();
+      if (textProvider.currentDocument != null &&
+          textProvider.currentLineIndex >= 0) {
+        final line = textProvider.lines[textProvider.currentLineIndex].content;
+        context = VocabContext.fromStory(
+          storyTitle: textProvider.currentDocument!.title,
+          lineIndex: textProvider.currentLineIndex,
+          surroundingText: line,
+        );
+      }
+    } catch (_) {}
+
+    final entry = p.addWithAutoClassify(
+      text: text,
+      context: context,
+    );
+
+    HapticFeedback.mediumImpact();
+    // Clear search after saving
+    setState(() {
+      _showSearch = false;
+      _searchCtrl.clear();
+      p.clearSearch();
+    });
+
+    final typeLabel = entry.vocabType == VocabularyType.word
+        ? 'Từ'
+        : entry.vocabType == VocabularyType.phrase
+            ? 'Cụm từ'
+            : 'Câu';
+
+    ScaffoldMessenger.of(this.context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Đã lưu $typeLabel: $text',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'SỬA',
+          textColor: Colors.white,
+          onPressed: () => _showEditSheet(entry, p),
+        ),
+      ),
+    );
+  }
+
+  void _showAddMenu(VocabularyProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0D1520),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            _addMenuItem(
+              icon: Icons.add_circle_outline,
+              title: 'Thêm thủ công',
+              subtitle: 'Nhập từ vựng, nghĩa và ví dụ bằng tay',
+              color: const Color(0xFF6C63FF),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showAddSheet(provider);
+              },
+            ),
+            const SizedBox(height: 12),
+            _addMenuItem(
+              icon: Icons.download_outlined,
+              title: 'Nhập hàng loạt',
+              subtitle: 'Import từ Clipboard, Text Provider hoặc File',
+              color: const Color(0xFF4CAF50),
+              onTap: () {
+                Navigator.pop(ctx);
+                WordImportSheet.show(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _addMenuItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[700]),
+          ],
+        ),
       ),
     );
   }
@@ -743,7 +1190,9 @@ class _WordListScreenState extends State<WordListScreen> {
   void _showAddSheet(VocabularyProvider p) {
     final textCtrl = TextEditingController();
     final meaningCtrl = TextEditingController();
+    final topicCtrl = TextEditingController();
     VocabularyType? detectedType;
+    String selectedLang = 'en';
 
     showModalBottomSheet(
       context: context,
@@ -756,73 +1205,112 @@ class _WordListScreenState extends State<WordListScreen> {
           final pad = MediaQuery.of(sheetCtx).viewInsets.bottom;
           return Padding(
             padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + pad),
-            child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.add_circle,
-                        color: Color(0xFF42A5F5), size: 20),
-                    const SizedBox(width: 10),
-                    const Text('Thêm từ vựng',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    if (detectedType != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                            color: detectedType!.bgColor,
-                            borderRadius: BorderRadius.circular(6)),
-                        child: Text(detectedType!.label,
-                            style: TextStyle(
-                                color: detectedType!.color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                  ]),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: textCtrl,
-                    maxLines: 2,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: _inputDeco('Từ / Cụm từ / Câu *',
-                        'VD: breakthrough', const Color(0xFF42A5F5)),
-                    onChanged: (t) => setS(() => detectedType =
-                        t.trim().isEmpty ? null : VocabClassifier.classify(t)),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                      controller: meaningCtrl,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.add_circle,
+                          color: Color(0xFF42A5F5), size: 20),
+                      const SizedBox(width: 10),
+                      const Text('Thêm từ vựng',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      if (detectedType != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: detectedType!.bgColor,
+                              borderRadius: BorderRadius.circular(6)),
+                          child: Text(detectedType!.label,
+                              style: TextStyle(
+                                  color: detectedType!.color,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                    ]),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: textCtrl,
+                      maxLines: 2,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _inputDeco('Nghĩa *', 'VD: bước đột phá',
-                          const Color(0xFFFFB300))),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final text = textCtrl.text.trim(),
-                              meaning = meaningCtrl.text.trim();
-                          if (text.isEmpty || meaning.isEmpty) return;
-                          final entry = p.addWithAutoClassify(
-                              text: text, meaning: meaning);
-                          Navigator.pop(sheetCtx);
-                          if (entry.vocabType != VocabularyType.word)
-                            _showDecomposeDialog(entry, p);
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF42A5F5),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12))),
-                        child: const Text('Lưu',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      )),
-                ]),
+                      decoration: _inputDeco('Từ / Cụm từ / Câu / Đoạn *',
+                          'VD: breakthrough or Pali text', const Color(0xFF42A5F5)),
+                      onChanged: (t) => setS(() => detectedType =
+                          t.trim().isEmpty ? null : VocabClassifier.classify(t)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                        controller: meaningCtrl,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: _inputDeco('Nghĩa *', 'VD: bước đột phá',
+                            const Color(0xFFFFB300))),
+                    const SizedBox(height: 10),
+                    TextField(
+                        controller: topicCtrl,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: _inputDeco('Chủ đề / Thư mục', 'VD: Phật Pháp hoặc Phật Pháp/Đời Sống',
+                            const Color(0xFF9C27B0))),
+                    const SizedBox(height: 12),
+                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const SizedBox(height: 4),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final lang in ['en', 'vi', 'pali', 'my'])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(
+                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
+                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
+                                ),
+                                selected: selectedLang == lang,
+                                selectedColor: const Color(0xFF42A5F5),
+                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                onSelected: (val) {
+                                  if (val) setS(() => selectedLang = lang);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final text = textCtrl.text.trim(),
+                                meaning = meaningCtrl.text.trim();
+                            if (text.isEmpty || meaning.isEmpty) return;
+                            final entry = p.addWithAutoClassify(
+                              text: text,
+                              meaning: meaning,
+                              language: selectedLang,
+                              topic: topicCtrl.text.trim().isEmpty ? null : topicCtrl.text.trim(),
+                            );
+                            Navigator.pop(sheetCtx);
+                            if (entry.vocabType != VocabularyType.word) {
+                              _showDecomposeDialog(entry, p);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF42A5F5),
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12))),
+                          child: const Text('Lưu',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        )),
+                  ]),
+            ),
           );
         },
       ),
@@ -970,6 +1458,10 @@ class _WordListScreenState extends State<WordListScreen> {
     final wordC = TextEditingController(text: entry.word);
     final meanC = TextEditingController(text: entry.meaning);
     final noteC = TextEditingController(text: entry.personalNotes ?? '');
+    final topicC = TextEditingController(text: entry.topic ?? '');
+    String selectedLang = entry.language;
+    VocabularyType selectedType = entry.vocabType;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -977,53 +1469,127 @@ class _WordListScreenState extends State<WordListScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
-        final pad = MediaQuery.of(ctx).viewInsets.bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + pad),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(children: [
-              const Icon(Icons.edit, color: Color(0xFF42A5F5), size: 20),
-              const SizedBox(width: 10),
-              const Text('Sửa chi tiết',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-              const Spacer(),
-              IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      color: Color(0xFFEF5350), size: 20),
-                  onPressed: () {
-                    p.removeWord(entry.id);
-                    Navigator.pop(ctx);
-                  }),
-            ]),
-            const SizedBox(height: 16),
-            _editField(wordC, 'Từ', Icons.text_fields),
-            const SizedBox(height: 10),
-            _editField(meanC, 'Nghĩa', Icons.translate),
-            const SizedBox(height: 10),
-            _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 3),
-            const SizedBox(height: 16),
-            SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    p.updateWord(entry.id,
-                        word: wordC.text.trim(), meaning: meanC.text.trim());
-                    if (noteC.text.trim().isNotEmpty)
-                      p.updateNotes(entry.id, noteC.text.trim());
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF42A5F5),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Lưu',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                )),
-          ]),
+        return StatefulBuilder(
+          builder: (context, setS) {
+            final pad = MediaQuery.of(ctx).viewInsets.bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + pad),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.edit, color: Color(0xFF42A5F5), size: 20),
+                      const SizedBox(width: 10),
+                      const Text('Sửa chi tiết',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Color(0xFFEF5350), size: 20),
+                          onPressed: () {
+                            p.removeWord(entry.id);
+                            Navigator.pop(ctx);
+                          }),
+                    ]),
+                    const SizedBox(height: 16),
+                    _editField(wordC, 'Từ / Cụm từ / Câu / Đoạn', Icons.text_fields),
+                    const SizedBox(height: 10),
+                    _editField(meanC, 'Nghĩa', Icons.translate),
+                    const SizedBox(height: 10),
+                    _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
+                    const SizedBox(height: 10),
+                    _editField(topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
+                    
+                    const SizedBox(height: 12),
+                    const Text('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const SizedBox(height: 4),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final type in VocabularyType.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(
+                                  type.label,
+                                  style: TextStyle(color: selectedType == type ? Colors.white : Colors.grey, fontSize: 11),
+                                ),
+                                selected: selectedType == type,
+                                selectedColor: type.color,
+                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                onSelected: (val) {
+                                  if (val) setS(() => selectedType = type);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const SizedBox(height: 4),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final lang in ['en', 'vi', 'pali', 'my'])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(
+                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
+                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
+                                ),
+                                selected: selectedLang == lang,
+                                selectedColor: const Color(0xFF42A5F5),
+                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                onSelected: (val) {
+                                  if (val) setS(() => selectedLang = lang);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+                    SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            p.updateWord(
+                              entry.id,
+                              word: wordC.text.trim(),
+                              meaning: meanC.text.trim(),
+                              language: selectedLang,
+                              topic: topicC.text.trim(),
+                              vocabType: selectedType,
+                            );
+                            if (noteC.text.trim().isNotEmpty) {
+                              p.updateNotes(entry.id, noteC.text.trim());
+                            }
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF42A5F5),
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12))),
+                          child: const Text('Lưu',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        )),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1054,6 +1620,7 @@ class _CompactListItem extends StatelessWidget {
   final WordEntry entry;
   final int index;
   final bool isExpanded, isPlaying, isSelected, isSelecting;
+  final bool isAlreadySown;
   final WordListSettings settings;
   final VocabularyProvider provider;
   final TtsService tts;
@@ -1067,6 +1634,7 @@ class _CompactListItem extends StatelessWidget {
     required this.isExpanded,
     required this.isPlaying,
     required this.isSelected,
+    required this.isAlreadySown,
     required this.isSelecting,
     required this.settings,
     required this.provider,
@@ -1141,19 +1709,23 @@ class _CompactListItem extends StatelessWidget {
                                 color: Colors.white, size: 13)
                             : null))
               else ...[
-                Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                        color: typeColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6)),
-                    alignment: Alignment.center,
-                    child: Text(entry.vocabType.badge,
-                        style: TextStyle(
-                            color: typeColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800))),
-                const SizedBox(width: 10),
+                if (entry.isUnborn)
+                  _buildUnbornIndicator()
+                else ...[
+                  Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                          color: typeColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6)),
+                      alignment: Alignment.center,
+                      child: Text(entry.vocabType.badge,
+                          style: TextStyle(
+                              color: typeColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 10),
+                ],
               ],
 
               // Word + meaning
@@ -1235,6 +1807,69 @@ class _CompactListItem extends StatelessWidget {
                   onChanged: onRepeatChanged),
               const SizedBox(width: 2),
 
+              // Seed Button (Gieo mầm vườn nhớ) - Sau icon lặp từ và trước YouGlish
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  final memoryController = context.read<MemoryController>();
+                  if (isAlreadySown) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            '🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!'),
+                        backgroundColor: const Color(0xFF4CAF50),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  } else {
+                    final success = memoryController.addWord(
+                      word: entry.word,
+                      meaning: entry.meaning.isNotEmpty
+                          ? entry.meaning
+                          : 'Chưa có nghĩa',
+                      phonetic: entry.phonetic,
+                      example: entry.example,
+                    );
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!'),
+                          backgroundColor: const Color(0xFF4CAF50),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isAlreadySown
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: isAlreadySown
+                          ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Icon(
+                    isAlreadySown ? Icons.spa : Icons.spa_outlined,
+                    size: 13,
+                    color: isAlreadySown
+                        ? const Color(0xFF4CAF50)
+                        : Colors.grey[500],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+
               // YouGlish
               GestureDetector(
                 onTap: () => YouGlishMiniSheet.show(context, entry.word),
@@ -1278,6 +1913,32 @@ class _CompactListItem extends StatelessWidget {
         ]),
       ),
     );
+  }
+
+  Widget _buildUnbornIndicator() {
+    return Container(
+      width: 24,
+      height: 24,
+      margin: const EdgeInsets.only(right: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFB300).withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.star, color: Color(0xFFFFB300), size: 14),
+    )
+        .animate(onPlay: (controller) => controller.repeat())
+        .scale(
+            duration: 1000.ms,
+            begin: const Offset(0.8, 0.8),
+            end: const Offset(1.1, 1.1),
+            curve: Curves.easeInOut)
+        .then()
+        .scale(
+            duration: 1000.ms,
+            begin: const Offset(1.1, 1.1),
+            end: const Offset(0.8, 0.8),
+            curve: Curves.easeInOut);
   }
 
   Widget _buildExpanded(BuildContext ctx) {
@@ -1708,6 +2369,33 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 (v) => _update(_s.copyWith(showFullDefinition: v))),
             _toggle('Ví dụ', Icons.format_quote_outlined, _s.showExample,
                 (v) => _update(_s.copyWith(showExample: v))),
+            const Divider(color: Color(0xFF1E2A3A), height: 32),
+            const Text('Đồng bộ dữ liệu',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const SyncStatusBadge(),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  context.read<VocabularyProvider>().syncNow(forceAll: true);
+                },
+                icon: const Icon(Icons.sync, size: 18),
+                label: const Text('Đồng bộ ngay bây giờ',
+                    style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF6C63FF),
+                  side: const BorderSide(color: Color(0xFF6C63FF), width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
           ]),
     );
   }
@@ -2122,3 +2810,46 @@ class _DecomposeChip extends StatelessWidget {
             ])),
       );
 }
+
+class _FilterSegmentChip extends StatelessWidget {
+  final String label;
+  final Color? color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _FilterSegmentChip({
+    required this.label,
+    this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chipColor = color ?? const Color(0xFF42A5F5);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? chipColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? chipColor.withValues(alpha: 0.5) : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? chipColor : Colors.grey[400],
+            fontSize: 10.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

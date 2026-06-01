@@ -18,6 +18,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+enum SyncStatus { idle, syncing, success, error }
+
 class VocabSyncService {
   static final VocabSyncService _instance = VocabSyncService._();
   factory VocabSyncService() => _instance;
@@ -28,8 +30,12 @@ class VocabSyncService {
   static const _vocabBoxName = 'vocabulary_v2';
 
   bool _isSyncing = false;
+  Timer? _debounceTimer;
   StreamSubscription? _connectivitySub;
   String? _currentUid;
+
+  final ValueNotifier<SyncStatus> status = ValueNotifier(SyncStatus.idle);
+  final ValueNotifier<DateTime?> lastSyncedAt = ValueNotifier(null);
 
   Future<void> initialize(String uid) async {
     _currentUid = uid;
@@ -44,15 +50,42 @@ class VocabSyncService {
           r == ConnectivityResult.ethernet);
       if (hasNetwork) flushPending();
     });
+
+    // Load last sync checkpoint
+    await _loadCheckpoint();
     await pullFromFirestore();
   }
 
-  void dispose() => _connectivitySub?.cancel();
+  Future<void> _loadCheckpoint() async {
+    if (_currentUid == null) return;
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(_currentUid)
+          .collection('vocab_meta')
+          .doc('checkpoint')
+          .get();
+      if (doc.exists) {
+        final ts = doc.data()?['lastSyncedAt'] as Timestamp?;
+        lastSyncedAt.value = ts?.toDate();
+      }
+    } catch (_) {}
+  }
+
+  void dispose() {
+    _connectivitySub?.cancel();
+    _debounceTimer?.cancel();
+  }
 
   void markDirty(String wordId) {
     if (!Hive.isBoxOpen(_pendingBoxName)) return;
     Hive.box<String>(_pendingBoxName).put(wordId, wordId);
-    flushPending();
+
+    // Debounce: Đợi 5 giây sau lần thay đổi cuối cùng mới flush
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(seconds: 5), () {
+      flushPending();
+    });
   }
 
   void markDeleted(String wordId) => markDirty('__del__$wordId');
@@ -62,7 +95,10 @@ class VocabSyncService {
     if (!Hive.isBoxOpen(_pendingBoxName)) return;
 
     final pendingBox = Hive.box<String>(_pendingBoxName);
-    if (pendingBox.isEmpty) return;
+    if (pendingBox.isEmpty) {
+      status.value = SyncStatus.idle;
+      return;
+    }
 
     final conn = await Connectivity().checkConnectivity();
     final hasNetwork = conn.any((r) =>
@@ -72,6 +108,7 @@ class VocabSyncService {
     if (!hasNetwork) return;
 
     _isSyncing = true;
+    status.value = SyncStatus.syncing;
     try {
       final vocabBox = Hive.isBoxOpen(_vocabBoxName)
           ? Hive.box<String>(_vocabBoxName)
@@ -91,7 +128,10 @@ class VocabSyncService {
             batch.delete(col.doc(sid.substring(7)));
           } else {
             final json = vocabBox.get(sid);
-            if (json == null) continue;
+            if (json == null) {
+              await pendingBox.delete(id);
+              continue;
+            }
             try {
               final map = jsonDecode(json) as Map<String, dynamic>;
               map['_syncedAt'] = FieldValue.serverTimestamp();
@@ -103,6 +143,7 @@ class VocabSyncService {
         for (final id in chunk) await pendingBox.delete(id);
       }
 
+      final now = DateTime.now();
       await _db
           .collection('users')
           .doc(_currentUid)
@@ -110,16 +151,24 @@ class VocabSyncService {
           .doc('checkpoint')
           .set({'lastSyncedAt': FieldValue.serverTimestamp()});
 
+      lastSyncedAt.value = now;
+      status.value = SyncStatus.success;
       debugPrint('✅ VocabSync: flushed ${ids.length} items');
+
+      // Delay reset status to idle
+      Future.delayed(const Duration(seconds: 3), () {
+        if (status.value == SyncStatus.success) status.value = SyncStatus.idle;
+      });
     } catch (e) {
+      status.value = SyncStatus.error;
       debugPrint('⚠️ VocabSync flush error: $e');
     } finally {
       _isSyncing = false;
     }
   }
 
-  Future<int> pullFromFirestore() async {
-    if (_currentUid == null) return 0;
+  Future<int> pullFromFirestore({bool forceAll = false}) async {
+    if (_currentUid == null || _isSyncing) return 0;
     try {
       final conn = await Connectivity().checkConnectivity();
       if (!conn.any((r) =>
@@ -132,6 +181,8 @@ class VocabSyncService {
           : null;
       if (vocabBox == null) return 0;
 
+      status.value = SyncStatus.syncing;
+
       final meta = await _db
           .collection('users')
           .doc(_currentUid)
@@ -143,35 +194,62 @@ class VocabSyncService {
           _db.collection('users').doc(_currentUid).collection('vocabulary');
 
       final lastSync = meta.data()?['lastSyncedAt'] as Timestamp?;
-      if (lastSync != null) {
+      if (lastSync != null && !forceAll && vocabBox.isNotEmpty) {
+        // Chỉ lấy những bản ghi có _syncedAt mới hơn checkpoint nếu không forceAll và local có dữ liệu
         query = query.where('_syncedAt', isGreaterThan: lastSync);
       }
 
       final snapshot = await query.get();
-      if (snapshot.docs.isEmpty) return 0;
+      if (snapshot.docs.isEmpty) {
+        status.value = SyncStatus.idle;
+        return 0;
+      }
 
       int updated = 0;
       for (final doc in snapshot.docs) {
-        final data = Map<String, dynamic>.from(doc.data());
-        data.remove('_syncedAt');
+        final remoteData = Map<String, dynamic>.from(doc.data());
+        remoteData.remove('_syncedAt');
+
         final localJson = vocabBox.get(doc.id);
         if (localJson != null) {
           try {
             final local = jsonDecode(localJson) as Map<String, dynamic>;
-            final localTs = DateTime.tryParse(local['lastReviewed'] ?? '');
-            final remoteTs = DateTime.tryParse(data['lastReviewed'] ?? '');
+            final localUpdateStr = local['updatedAt'] ?? local['lastReviewed'];
+            final remoteUpdateStr =
+                remoteData['updatedAt'] ?? remoteData['lastReviewed'];
+
+            final localTs = DateTime.tryParse(localUpdateStr ?? '');
+            final remoteTs = DateTime.tryParse(remoteUpdateStr ?? '');
+
+            // QUY TẮC: Bản ghi nào có updatedAt mới hơn sẽ thắng
             if (localTs != null &&
                 remoteTs != null &&
-                localTs.isAfter(remoteTs)) continue;
+                localTs.isAfter(remoteTs)) {
+              // Local mới hơn -> Đánh dấu để đẩy lên Cloud thay vì tải về
+              markDirty(doc.id);
+              continue;
+            }
           } catch (_) {}
         }
-        await vocabBox.put(doc.id, jsonEncode(data));
+
+        await vocabBox.put(doc.id, jsonEncode(remoteData));
         updated++;
       }
 
+      if (updated > 0) {
+        lastSyncedAt.value = DateTime.now();
+      }
+
+      status.value = SyncStatus.success;
       debugPrint('✅ VocabSync: pulled $updated words');
+
+      Future.delayed(const Duration(seconds: 3), () {
+        if (status.value == SyncStatus.success) status.value = SyncStatus.idle;
+      });
+
       return updated;
     } catch (e) {
+      status.value = SyncStatus.error;
       debugPrint('⚠️ VocabSync pull error: $e');
       return 0;
     }

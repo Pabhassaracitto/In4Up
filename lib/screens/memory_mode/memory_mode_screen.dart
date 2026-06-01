@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../providers/vocabulary_provider.dart';
+import '../tools/word_list/word_list_screen.dart';
 import 'controllers/memory_controller.dart';
 import 'memory_provider.dart';
 import 'widgets/memory_garden_view.dart';
@@ -129,24 +131,65 @@ class MemoryModeScreen extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // Nút test nhanh
-            OutlinedButton.icon(
-              onPressed: () {
-                controller.addTestWords();
-                HapticFeedback.mediumImpact();
+            // Nút chuyển tới worklist để thêm nếu có từ ở worklist, ngược lại hiện nút thêm từ mẫu
+            Consumer<VocabularyProvider>(
+              builder: (context, vocabProvider, _) {
+                final hasWordsInWorklist = vocabProvider.allWords.isNotEmpty;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const WordListScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.format_list_bulleted, size: 18, color: Colors.white),
+                      label: Text(
+                        hasWordsInWorklist ? 'Mở Wordlist để gieo mầm' : 'Mở Wordlist để thêm từ mới',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4CAF50),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        controller.addTestWords();
+                        HapticFeedback.mediumImpact();
+                      },
+                      icon: const Icon(Icons.science, size: 18),
+                      label: const Text('Thêm từ mẫu để thử'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey[400],
+                        side: BorderSide(
+                          color: Colors.grey[700]!.withValues(alpha: 0.3),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
               },
-              icon: const Icon(Icons.science, size: 18),
-              label: const Text('Thêm từ mẫu để thử'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF4CAF50),
-                side: BorderSide(
-                  color: Color(0xFF4CAF50).withValues(alpha: 0.3),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
             ),
 
             const SizedBox(height: 32),

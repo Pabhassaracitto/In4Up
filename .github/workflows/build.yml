@@ -5,12 +5,33 @@ on:
     tags:
       - 'v*'
 
+# Kích hoạt tính năng chọn lựa thủ công
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: 'Build Android APK?'
+        required: true
+        type: boolean
+        default: true
+      build_windows:
+        description: 'Build Windows App?'
+        required: true
+        type: boolean
+        default: true
+      build_ios:
+        description: 'Build iOS IPA?'
+        required: true
+        type: boolean
+        default: true
+
 permissions:
   contents: write
 
 jobs:
   build-android:
     name: Build Android APK
+    # Chạy nếu kích hoạt bằng Tag HOẶC nếu bấm thủ công và chọn build_android = true
+    if: ${{ github.event_name == 'push' || inputs.build_android == true }}
     runs-on: ubuntu-latest
 
     steps:
@@ -73,6 +94,7 @@ jobs:
 
   build-windows:
     name: Build Windows App
+    if: ${{ github.event_name == 'push' || inputs.build_windows == true }}
     runs-on: windows-latest
 
     steps:
@@ -130,6 +152,7 @@ jobs:
 
   build-ios:
     name: Build iOS IPA (sideload)
+    if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
     runs-on: macos-latest
 
     steps:
@@ -173,6 +196,8 @@ jobs:
 
   create-release:
     name: Create Release with all files
+    # CHỈ chạy job này khi có sự kiện Push Tag thực sự
+    if: ${{ github.event_name == 'push' }}
     needs: [build-android, build-windows, build-ios]
     runs-on: ubuntu-latest
 

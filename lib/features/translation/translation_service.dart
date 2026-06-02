@@ -54,7 +54,75 @@ class TranslationService {
     'DE': 'Deutsch 🇩🇪',
     'ES': 'Español 🇪🇸',
     'RU': 'Русский 🇷🇺',
+    'SI': 'Sinhala 🇱🇰',
+    'TH': 'Thái Lan 🇹🇭',
+    'MY': 'Burmese 🇲🇲',
+    'HI': 'Indian 🇮🇳',
   };
+
+  static String getFlagForLang(String code) {
+    code = code.toUpperCase();
+    switch (code) {
+      case 'VI': return '🇻🇳';
+      case 'EN': return '🇺🇸';
+      case 'JA': return '🇯🇵';
+      case 'KO': return '🇰🇷';
+      case 'ZH': return '🇨🇳';
+      case 'FR': return '🇫🇷';
+      case 'DE': return '🇩🇪';
+      case 'ES': return '🇪🇸';
+      case 'RU': return '🇷🇺';
+      case 'SI': return '🇱🇰';
+      case 'TH': return '🇹🇭';
+      case 'MY': return '🇲🇲';
+      case 'HI': return '🇮🇳';
+      default: return '🌐';
+    }
+  }
+
+  static String getNameForLang(String code) {
+    code = code.toUpperCase();
+    switch (code) {
+      case 'VI': return 'Việt';
+      case 'EN': return 'Anh';
+      case 'JA': return 'Nhật';
+      case 'KO': return 'Hàn';
+      case 'ZH': return 'Trung';
+      case 'FR': return 'Pháp';
+      case 'DE': return 'Đức';
+      case 'ES': return 'Tây Ban Nha';
+      case 'RU': return 'Nga';
+      case 'SI': return 'Sinhala';
+      case 'TH': return 'Thái';
+      case 'MY': return 'Burmese';
+      case 'HI': return 'Indian';
+      default: return 'Global';
+    }
+  }
+
+  static String getTtsLanguageCode(String code) {
+    code = code.toUpperCase();
+    switch (code) {
+      case 'VI': return 'vi-VN';
+      case 'EN': return 'en-US';
+      case 'JA': return 'ja-JP';
+      case 'KO': return 'ko-KR';
+      case 'ZH': return 'zh-CN';
+      case 'FR': return 'fr-FR';
+      case 'DE': return 'de-DE';
+      case 'ES': return 'es-ES';
+      case 'RU': return 'ru-RU';
+      case 'SI': return 'si-LK';
+      case 'TH': return 'th-TH';
+      case 'MY': return 'my-MM';
+      case 'HI': return 'hi-IN';
+      default: return 'vi-VN';
+    }
+  }
+
+  String get targetLangFlag => getFlagForLang(_targetLang);
+  String get targetLangLabel => _targetLang.toUpperCase();
+  String get targetLangName => getNameForLang(_targetLang);
 
   /// Engine đang được dùng (để hiển thị UI)
   String _lastUsedEngine = '';

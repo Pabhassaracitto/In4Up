@@ -1,3 +1,5 @@
+import '../../../features/translation/translation_service.dart';
+
 class PlaybackSnapshot {
   final int line;
   final int totalLines;
@@ -22,7 +24,9 @@ class PlaybackSnapshot {
   });
 
   String get statusText {
-    final lang    = isEN ? '🇬🇧 EN' : '🇻🇳 VI';
+    final flag = TranslationService().targetLangFlag;
+    final label = TranslationService().targetLangLabel;
+    final lang    = isEN ? '🇬🇧 EN' : '$flag $label';
     final rep     = isEN ? enRepeats : viRepeats;
     final lineStr = '${line + 1}/$totalLines';
     final passStr = totalPasses == 0

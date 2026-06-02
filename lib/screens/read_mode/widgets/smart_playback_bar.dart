@@ -1,10 +1,9 @@
-// lib/screens/read_mode/widgets/smart_playback_bar.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
+import '../../../features/translation/translation_service.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
 import '../services/playback_controller.dart';
@@ -179,8 +178,8 @@ class _MainRow extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             _ModeBtn(
-              label: '🇻🇳',
-              tooltip: 'Chỉ tiếng Việt',
+              label: TranslationService().targetLangFlag,
+              tooltip: 'Chỉ tiếng ${TranslationService().targetLangName}',
               active: recipe.mode == PlaybackMode.viOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -397,7 +396,7 @@ class _PatternBuilder extends StatelessWidget {
                       style: TextStyle(color: Colors.grey, fontSize: 13)),
                   const SizedBox(width: 6),
                   // VI stepper
-                  _Label('🇻🇳 VI'),
+                  _Label('${TranslationService().targetLangFlag} ${TranslationService().targetLangLabel}'),
                   _Stepper(
                     value: recipe.viRepeats.clamp(0, 3),
                     min: 0,
@@ -485,18 +484,21 @@ class _PatternVisual extends StatelessWidget {
 
     // Label
     String label;
+    final targetFlag = TranslationService().targetLangFlag;
+    final targetLabel = TranslationService().targetLangLabel;
+    final targetName = TranslationService().targetLangName;
     switch (recipe.mode) {
       case PlaybackMode.enOnly:
         label = 'Chỉ tiếng Anh';
         break;
       case PlaybackMode.viOnly:
-        label = 'Chỉ tiếng Việt';
+        label = 'Chỉ tiếng $targetName';
         break;
       case PlaybackMode.interleaved:
-        label = 'Song ngữ EN → VI';
+        label = 'Song ngữ EN → $targetLabel';
         break;
       case PlaybackMode.custom:
-        label = 'EN×${recipe.enRepeats} → VI×${recipe.viRepeats}';
+        label = 'EN×${recipe.enRepeats} → $targetLabel×${recipe.viRepeats}';
         break;
     }
 
@@ -578,7 +580,7 @@ class _LiveStatusBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    snapshot.isEN ? '🇬🇧 EN' : '🇻🇳 VI',
+                    snapshot.isEN ? '🇬🇧 EN' : '${TranslationService().targetLangFlag} ${TranslationService().targetLangLabel}',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -653,44 +655,49 @@ class _PresetSheet extends StatelessWidget {
 
   const _PresetSheet({required this.currentRecipe});
 
-  static const _presets = [
-    (
-      icon: '🇬🇧',
-      label: 'Chỉ EN',
-      sub: 'Luyện nghe thuần tiếng Anh',
-      recipe: PlaybackRecipe.enOnly
-    ),
-    (
-      icon: '🔄',
-      label: 'Song ngữ',
-      sub: 'EN → nghĩ → VI (1:1)',
-      recipe: PlaybackRecipe.bilingual
-    ),
-    (
-      icon: '⚡',
-      label: 'EN×2 → VI×1',
-      sub: 'Nghe kỹ EN rồi xác nhận VI',
-      recipe: PlaybackRecipe.intensive
-    ),
-    (
-      icon: '🎯',
-      label: 'Tự kiểm tra',
-      sub: 'EN → 3 giây → VI',
-      recipe: PlaybackRecipe.quiz
-    ),
-    (
-      icon: '🔊',
-      label: 'Shadowing',
-      sub: 'EN×3 chậm 0.75x để bắt chước',
-      recipe: PlaybackRecipe.shadowing
-    ),
-    (
-      icon: '🇻🇳',
-      label: 'Chỉ VI',
-      sub: 'Nghe nghĩa tiếng Việt',
-      recipe: PlaybackRecipe.viOnly
-    ),
-  ];
+  List<({String icon, String label, String sub, PlaybackRecipe recipe})> _getPresets() {
+    final flag = TranslationService().targetLangFlag;
+    final label = TranslationService().targetLangLabel;
+    final name = TranslationService().targetLangName;
+    return [
+      (
+        icon: '🇬🇧',
+        label: 'Chỉ EN',
+        sub: 'Luyện nghe thuần tiếng Anh',
+        recipe: PlaybackRecipe.enOnly
+      ),
+      (
+        icon: '🔄',
+        label: 'Song ngữ',
+        sub: 'EN → nghĩ → $label (1:1)',
+        recipe: PlaybackRecipe.bilingual
+      ),
+      (
+        icon: '⚡',
+        label: 'EN×2 → $label×1',
+        sub: 'Nghe kỹ EN rồi xác nhận $label',
+        recipe: PlaybackRecipe.intensive
+      ),
+      (
+        icon: '🎯',
+        label: 'Tự kiểm tra',
+        sub: 'EN → 3 giây → $label',
+        recipe: PlaybackRecipe.quiz
+      ),
+      (
+        icon: '🔊',
+        label: 'Shadowing',
+        sub: 'EN×3 chậm 0.75x để bắt chước',
+        recipe: PlaybackRecipe.shadowing
+      ),
+      (
+        icon: flag,
+        label: 'Chỉ $label',
+        sub: 'Nghe nghĩa tiếng $name',
+        recipe: PlaybackRecipe.viOnly
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -728,7 +735,7 @@ class _PresetSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          ..._presets.map((p) {
+          ..._getPresets().map((p) {
             final isActive = controller.recipe == p.recipe;
             return GestureDetector(
               onTap: () {

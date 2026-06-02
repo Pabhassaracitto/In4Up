@@ -1,8 +1,9 @@
-// lib/features/translation/translation_toolbar.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/text_provider.dart';
+import '../../providers/vocabulary_provider.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -57,6 +58,11 @@ class TranslationToolbar extends StatelessWidget {
                         _showTranslationOptions(context, textProvider),
                   ),
                   const SizedBox(width: 8),
+                  _LanguagePill(
+                    targetLang: TranslationService().targetLang,
+                    primaryColor: primaryColor,
+                    onTap: () => _showLanguageSelector(context, textProvider),
+                  ),
                   if (hasTranslations) ...[
                     const Spacer(),
                     _LayoutSelector(
@@ -160,9 +166,6 @@ class TranslationToolbar extends StatelessWidget {
     final urlController = TextEditingController(
       text: service.deeplxUrl ?? '', // ★ SỬA 2: .deeplxUrl (instance)
     );
-    final targetController = TextEditingController(
-      text: service.targetLang, // ★ SỬA 2: .targetLang (instance)
-    );
 
     showModalBottomSheet(
       context: context,
@@ -182,7 +185,7 @@ class TranslationToolbar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              '⚙️ Cài đặt Dịch thuật',
+              '⚙️ Cài đặt Engine Dịch',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.white,
@@ -200,29 +203,218 @@ class TranslationToolbar extends StatelessWidget {
                 hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: targetController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Target Lang (e.g. VI)',
-                labelStyle: TextStyle(color: Colors.grey),
-              ),
-            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // ★ SỬA 3: service.configure (instance) + đúng tên parameter
                 service.configure(
-                  deeplxUrl: urlController.text.trim(), // ★ url → deeplxUrl
-                  targetLang: targetController.text
-                      .trim()
-                      .toUpperCase(), // ★ target → targetLang
+                  deeplxUrl: urlController.text.trim(),
                 );
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
               child: const Text('Lưu'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLanguageSelector(BuildContext context, TextProvider textProvider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent, // Background mờ
+      isScrollControlled: true,
+      builder: (ctx) {
+        final service = TranslationService();
+        final current = service.targetLang;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF161625).withValues(alpha: 0.98),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 30,
+                spreadRadius: 10,
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Ngôn ngữ đích',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Nội dung sẽ được tự động dịch sang ngôn ngữ này',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Flexible(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 2.4,
+                  ),
+                  itemCount: TranslationService.supportedTargetLanguages.length,
+                  itemBuilder: (context, index) {
+                    final entry = TranslationService
+                        .supportedTargetLanguages.entries
+                        .elementAt(index);
+                    final isSelected = current == entry.key;
+
+                    return InkWell(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        service.configure(targetLang: entry.key);
+                        textProvider.notifyListeners();
+                        Navigator.pop(ctx);
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? primaryColor.withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.03),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? primaryColor.withValues(alpha: 0.6)
+                                : Colors.white.withValues(alpha: 0.08),
+                            width: isSelected ? 2 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: primaryColor.withValues(alpha: 0.15),
+                                    blurRadius: 15,
+                                    spreadRadius: 2,
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Text(
+                              entry.value,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.grey[400],
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (isSelected)
+                              Positioned(
+                                top: 8,
+                                right: 12,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: primaryColor
+                                            .withValues(alpha: 0.6),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LanguagePill extends StatelessWidget {
+  final String targetLang;
+  final Color primaryColor;
+  final VoidCallback onTap;
+
+  const _LanguagePill({
+    required this.targetLang,
+    required this.primaryColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Auto',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_forward, size: 10, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              targetLang,
+              style: TextStyle(
+                fontSize: 12,
+                color: primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -430,12 +622,17 @@ class TranslationLineDisplay extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: originalWidget),
-          Container(
-              width: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              color: Colors.white10),
           Expanded(
+            flex: 65,
+            child: originalWidget,
+          ),
+          Container(
+            width: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+          Expanded(
+            flex: 35,
             child: hasTranslation
                 ? _TranslationText(
                     text: translatedText!,
@@ -456,21 +653,69 @@ class _TranslationText extends StatelessWidget {
   final TextAlign? textAlign;
 
   const _TranslationText({required this.text, this.style, this.textAlign});
+
   @override
   Widget build(BuildContext context) {
+    final vocab = context.watch<VocabularyProvider>();
+    final baseStyle = style ??
+        TextStyle(
+            fontSize: 13,
+            color: Colors.grey[400],
+            fontStyle: FontStyle.italic,
+            height: 1.5);
+
+    // Knowledge Glow: Highlight words in translation that exist in VocabularyProvider
+    // Using a more robust splitting that keeps delimiters
+    final tokens = text.split(RegExp(r'(\s+|[.,!?;:()\[\]])'));
+    final spans = <TextSpan>[];
+
+    for (final token in tokens) {
+      if (token.isEmpty) continue;
+      
+      if (RegExp(r'(\s+|[.,!?;:()\[\]])').hasMatch(token)) {
+        spans.add(TextSpan(text: token));
+        continue;
+      }
+
+      final cleanToken = token.toLowerCase().replaceAll(RegExp(r'[^\w\sàáãạảăắằẳẵặâấầẩẫậèéẹẻẽêềếểễệđìíĩỉịòóõọỏôốồổỗộơớờởỡợùúũụủưứừửữựỳỵỷỹý]'), '');
+      final isKnown = cleanToken.isNotEmpty && vocab.hasWord(cleanToken);
+      
+      if (isKnown) {
+        spans.add(TextSpan(
+          text: token,
+          style: baseStyle.copyWith(
+            color: const Color(0xFF818CF8), // Slightly lighter indigo
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationStyle: TextDecorationStyle.solid,
+            decorationColor: const Color(0xFF818CF8).withValues(alpha: 0.4),
+            shadows: [
+              Shadow(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(text: token));
+      }
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(6)),
-      child: Text(text,
-          textAlign: textAlign,
-          style: style ??
-              TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[400],
-                  fontStyle: FontStyle.italic,
-                  height: 1.5)),
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
+      ),
+      child: RichText(
+        textAlign: textAlign ?? TextAlign.start,
+        text: TextSpan(
+          style: baseStyle,
+          children: spans,
+        ),
+      ),
     );
   }
 }

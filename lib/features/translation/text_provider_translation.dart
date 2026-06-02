@@ -1,4 +1,3 @@
-// lib/features/translation/text_provider_translation.dart
 // ★ FIX: translateAll - throttle notifyListeners để tránh quá nhiều rebuild đồng thời
 
 import 'dart:async';

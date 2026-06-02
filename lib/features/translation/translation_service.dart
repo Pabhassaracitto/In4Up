@@ -1,9 +1,8 @@
-// lib/features/translation/translation_service.dart
-
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:vipsound/features/tts/language_detector.dart';
 
 import 'cache/translation_cache.dart';
 import 'engines/deeplx_engine.dart';
@@ -43,6 +42,19 @@ class TranslationService {
   String _sourceLang = 'auto';
   String _targetLang = 'VI';
   String? _deeplxUrl;
+
+  /// Danh sách các ngôn ngữ đích phổ biến
+  static const Map<String, String> supportedTargetLanguages = {
+    'VI': 'Tiếng Việt 🇻🇳',
+    'EN': 'English 🇺🇸',
+    'JA': '日本語 🇯🇵',
+    'KO': '한국어 🇰🇷',
+    'ZH': '中文 🇨🇳',
+    'FR': 'Français 🇫🇷',
+    'DE': 'Deutsch 🇩🇪',
+    'ES': 'Español 🇪🇸',
+    'RU': 'Русский 🇷🇺',
+  };
 
   /// Engine đang được dùng (để hiển thị UI)
   String _lastUsedEngine = '';
@@ -108,6 +120,22 @@ class TranslationService {
   String get sourceLang => _sourceLang;
   String get targetLang => _targetLang;
   String? get deeplxUrl => _deeplxUrl;
+
+  /// Kiểm tra xem text đã ở trong ngôn ngữ đích chưa
+  bool isAlreadyInTargetLanguage(String text) {
+    if (text.trim().isEmpty) return false;
+    final detected = LanguageDetector.detect(text).split('-').first.toUpperCase();
+    final target = _targetLang.toUpperCase();
+
+    // Map một số mã tương đương nếu cần
+    if (target == 'VI' && detected == 'VI') return true;
+    if (target == 'ZH' && detected == 'ZH') return true;
+    if (target == 'EN' && detected == 'EN') return true;
+    if (target == 'JA' && detected == 'JA') return true;
+    if (target == 'KO' && detected == 'KO') return true;
+
+    return detected == target;
+  }
 
   /// Danh sách engine đang active
   List<String> get activeEngines =>

@@ -330,3 +330,4 @@ firebase_options.dart
 auth_service.dart
 google_sign_in_config.dart
 assets/whisper_models/
+backups/

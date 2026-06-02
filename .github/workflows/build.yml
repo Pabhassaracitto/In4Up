@@ -4,10 +4,13 @@ on:
   push:
     tags:
       - 'v*'
-
-# Kích hoạt tính năng chọn lựa thủ công
   workflow_dispatch:
     inputs:
+      version_name:
+        description: 'Nhập số Version (Ví dụ: 1.4.0)'
+        required: true
+        type: string
+        default: '1.4.0'
       build_android:
         description: 'Build Android APK?'
         required: true
@@ -30,7 +33,6 @@ permissions:
 jobs:
   build-android:
     name: Build Android APK
-    # Chạy nếu kích hoạt bằng Tag HOẶC nếu bấm thủ công và chọn build_android = true
     if: ${{ github.event_name == 'push' || inputs.build_android == true }}
     runs-on: ubuntu-latest
 
@@ -80,17 +82,26 @@ jobs:
       - name: Rename APK
         run: |
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-armv7-${{ github.ref_name }}.apk
+             build/app/outputs/flutter-apk/VipSound-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-arm64-${{ github.ref_name }}.apk
+             build/app/outputs/flutter-apk/VipSound-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-x64-${{ github.ref_name }}.apk
+             build/app/outputs/flutter-apk/VipSound-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
+
+      - name: Đẩy APK lên GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/VipSound-Android-*.apk"
+          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
+          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
     name: Build Windows App
@@ -142,13 +153,22 @@ jobs:
         shell: powershell
         run: |
           $absolutePath = "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release*"
-          Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.ref_name }}.zip
+          Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.zip
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
           path: VipSound-Windows-*.zip
+
+      - name: Đẩy ZIP Windows lên GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "VipSound-Windows-*.zip"
+          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
+          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   build-ios:
     name: Build iOS IPA (sideload)
@@ -185,7 +205,7 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r VipSound-iOS-${{ github.ref_name }}.ipa Payload
+          zip -r VipSound-iOS-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.ipa Payload
           rm -rf Payload
 
       - name: Upload IPA artifact
@@ -194,35 +214,11 @@ jobs:
           name: ios-ipa
           path: VipSound-iOS-*.ipa
 
-  create-release:
-    name: Create Release with all files
-    # CHỈ chạy job này khi có sự kiện Push Tag thực sự
-    if: ${{ github.event_name == 'push' }}
-    needs: [build-android, build-windows, build-ios]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Đẩy IPA lên GitHub Release
+        uses: ncipollo/release-action@v1
         with:
-          path: artifacts
-
-      - name: List downloaded files
-        run: |
-          echo "=== DANH SÁCH FILE ĐÃ TẢI VỀ ==="
-          ls -R artifacts
-          echo "================================"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: Release ${{ github.ref_name }}
-          files: |
-            artifacts/android-apk/*.apk
-            artifacts/windows-zip/*.zip
-            artifacts/ios-ipa/*.ipa
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "VipSound-iOS-*.ipa"
+          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
+          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}

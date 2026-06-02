@@ -17,7 +17,7 @@ import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart' hide ColorMode, SyntacticRole;
 
 enum ReadSubMode { reading, listening, translation, driving }
 

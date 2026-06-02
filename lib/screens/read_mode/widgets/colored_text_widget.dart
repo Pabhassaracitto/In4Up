@@ -1,9 +1,7 @@
-// lib/screens/read_mode/widgets/colored_text_widget.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart' hide ColorMode, SyntacticRole;
 
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
@@ -100,6 +98,32 @@ class _ColoredWord extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (colorMode == ColorMode.wordType && word.wordType != WordType.punctuation && word.wordType != WordType.unknown && word.wordType != WordType.number)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 1),
+                child: Text(
+                  word.wordType.abbreviation.toUpperCase(),
+                  style: TextStyle(
+                    color: textColor.withValues(alpha: 0.8),
+                    fontSize: fontSize * 0.45,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            if (colorMode == ColorMode.svo && word.role != SyntacticRole.none)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 1),
+                child: Text(
+                  word.role.abbreviation,
+                  style: TextStyle(
+                    color: textColor.withValues(alpha: 0.8),
+                    fontSize: fontSize * 0.45,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
             Text(
               word.word,
               style: TextStyle(

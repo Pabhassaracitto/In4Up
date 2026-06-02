@@ -1,6 +1,5 @@
-// lib/models/word_analysis.dart
 import 'package:flutter/material.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart' hide ColorMode, SyntacticRole;
 
 import 'color_mode.dart';
 
@@ -17,6 +16,7 @@ enum WordType {
   interjection,
   number,
   punctuation,
+  particle,
   unknown;
 
   String get labelVi {
@@ -43,6 +43,8 @@ enum WordType {
         return 'Số';
       case WordType.punctuation:
         return 'Dấu câu';
+      case WordType.particle:
+        return 'Tiểu từ';
       case WordType.unknown:
         return 'Khác';
     }
@@ -72,8 +74,10 @@ enum WordType {
         return const Color(0xFF8D6E63);
       case WordType.punctuation:
         return const Color(0xFF546E7A);
-      case WordType.unknown:
+      case WordType.particle:
         return const Color(0xFF9E9E9E);
+      case WordType.unknown:
+        return const Color(0xFFBDBDBD);
     }
   }
 }
@@ -172,6 +176,8 @@ extension WordTypeExtra on WordType {
         return '#';
       case WordType.punctuation:
         return 'Punc';
+      case WordType.particle:
+        return 'Part';
       case WordType.unknown:
         return '?';
     }
@@ -210,6 +216,8 @@ extension AnalyzedWordColoring on AnalyzedWord {
         return cefrLevel.color;
       case ColorMode.difficulty:
         return userDifficulty?.color ?? Colors.white;
+      case ColorMode.svo:
+        return role.color;
     }
   }
 
@@ -224,6 +232,44 @@ extension AnalyzedWordColoring on AnalyzedWord {
       case ColorMode.difficulty:
         return (userDifficulty?.color ?? Colors.transparent)
             .withValues(alpha: 0.15);
+      case ColorMode.svo:
+        return role == SyntacticRole.none
+            ? Colors.transparent
+            : role.color.withValues(alpha: 0.12);
+    }
+  }
+}
+
+// ===== SYNTACTIC ROLE ENUM =====
+enum SyntacticRole {
+  subject,
+  verb,
+  object,
+  none;
+
+  Color get color {
+    switch (this) {
+      case SyntacticRole.subject:
+        return const Color(0xFF42A5F5); // Blue
+      case SyntacticRole.verb:
+        return const Color(0xFFEF5350); // Red
+      case SyntacticRole.object:
+        return const Color(0xFF66BB6A); // Green
+      case SyntacticRole.none:
+        return Colors.white;
+    }
+  }
+
+  String get abbreviation {
+    switch (this) {
+      case SyntacticRole.subject:
+        return 'S';
+      case SyntacticRole.verb:
+        return 'V';
+      case SyntacticRole.object:
+        return 'O';
+      case SyntacticRole.none:
+        return '';
     }
   }
 }
@@ -234,6 +280,7 @@ class AnalyzedWord {
   final String originalWord;
   final WordType wordType;
   final CEFRLevel cefrLevel;
+  final SyntacticRole role;
   final DifficultyLevel? userDifficulty;
   final String? meaning;
   final String? phonetic;
@@ -246,6 +293,7 @@ class AnalyzedWord {
     String? originalWord,
     this.wordType = WordType.unknown,
     this.cefrLevel = CEFRLevel.unknown,
+    this.role = SyntacticRole.none,
     this.userDifficulty,
     this.meaning,
     this.phonetic,
@@ -259,6 +307,7 @@ class AnalyzedWord {
     String? originalWord,
     WordType? wordType,
     CEFRLevel? cefrLevel,
+    SyntacticRole? role,
     DifficultyLevel? userDifficulty,
     String? meaning,
     String? phonetic,
@@ -271,6 +320,7 @@ class AnalyzedWord {
       originalWord: originalWord ?? this.originalWord,
       wordType: wordType ?? this.wordType,
       cefrLevel: cefrLevel ?? this.cefrLevel,
+      role: role ?? this.role,
       userDifficulty: userDifficulty ?? this.userDifficulty,
       meaning: meaning ?? this.meaning,
       phonetic: phonetic ?? this.phonetic,

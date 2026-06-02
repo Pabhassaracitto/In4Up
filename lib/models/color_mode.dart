@@ -6,7 +6,8 @@ enum ColorMode {
   none,
   wordType,
   cefrLevel,
-  difficulty;
+  difficulty,
+  svo;
 
   String get label {
     switch (this) {
@@ -18,6 +19,8 @@ enum ColorMode {
         return 'CEFR';
       case ColorMode.difficulty:
         return 'Độ khó';
+      case ColorMode.svo:
+        return 'SVO';
     }
   }
 
@@ -31,6 +34,8 @@ enum ColorMode {
         return Icons.school;
       case ColorMode.difficulty:
         return Icons.trending_up;
+      case ColorMode.svo:
+        return Icons.center_focus_strong;
     }
   }
 

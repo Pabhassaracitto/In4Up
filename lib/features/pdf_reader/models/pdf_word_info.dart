@@ -29,6 +29,9 @@ class PdfWordInfo {
       case ColorMode.difficulty:
         return (analyzed!.userDifficulty?.color ?? Colors.transparent)
             .withAlpha((255 * 0.28).round());
+      case ColorMode.svo:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 }

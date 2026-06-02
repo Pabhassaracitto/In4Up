@@ -26,6 +26,12 @@ mixin TranslationMixin on ChangeNotifier {
   String _currentEngine = '';
   String get currentEngine => _currentEngine;
 
+  double _columnRatio = 0.65; // Mặc định 65/35
+  double get columnRatio => _columnRatio;
+
+  bool _showWordSpaces = true; // Mặc định có dấu cách
+  bool get showWordSpaces => _showWordSpaces;
+
   int get translatedLineCount => lines
       .where((l) => l.translation != null && l.translation!.isNotEmpty)
       .length;
@@ -33,6 +39,20 @@ mixin TranslationMixin on ChangeNotifier {
   List<TextItem> get lines;
 
   // ── METHODS ──
+
+  void setColumnRatio(double ratio) {
+    if (_columnRatio != ratio) {
+      _columnRatio = ratio;
+      notifyListeners();
+    }
+  }
+
+  void toggleShowWordSpaces(bool value) {
+    if (_showWordSpaces != value) {
+      _showWordSpaces = value;
+      notifyListeners();
+    }
+  }
 
   void cycleTranslationMode() {
     switch (_translationDisplayMode) {

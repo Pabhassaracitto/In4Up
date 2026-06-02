@@ -1,11 +1,10 @@
-// lib/screens/read_mode/widgets/library_screen.dart
-
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound/providers/player_provider.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
@@ -124,6 +123,16 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     // Lưu refs TRƯỚC khi await
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
+
+    // Stop active TTS and playback to avoid conflicts/crashes
+    try {
+      await tp.stopSpeaking();
+    } catch (_) {}
+    try {
+      if (mounted) {
+        await context.read<PlayerProvider>().stop();
+      }
+    } catch (_) {}
 
     switch (file.type) {
       // ── Local text (.txt / .lrc / .srt) ───────────────────

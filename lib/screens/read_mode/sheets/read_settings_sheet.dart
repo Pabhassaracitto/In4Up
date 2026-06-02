@@ -1,7 +1,8 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:vipsound_core/vocab_level_difficulty.dart' hide ColorMode, SyntacticRole;
 
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
@@ -546,6 +547,8 @@ class _LegendPanel extends StatelessWidget {
         return 'Cấp độ CEFR:';
       case ColorMode.difficulty:
         return 'Độ khó (bạn đánh dấu):';
+      case ColorMode.svo:
+        return 'Thành phần câu (SVO):';
     }
   }
 
@@ -567,6 +570,12 @@ class _LegendPanel extends StatelessWidget {
         return DifficultyLevel.values
             .map((level) => _Chip(color: level.color, label: level.label))
             .toList();
+      case ColorMode.svo:
+        return [
+          _Chip(color: SyntacticRole.subject.color, label: 'Subject (Chủ ngữ)'),
+          _Chip(color: SyntacticRole.verb.color, label: 'Verb (Động từ)'),
+          _Chip(color: SyntacticRole.object.color, label: 'Object (Tân ngữ)'),
+        ];
     }
   }
 }
@@ -650,7 +659,76 @@ class _DisplayOptions extends StatelessWidget {
             activeThumbColor: const Color(0xFF9C27B0),
             onChanged: (v) => tp.toggleAutoSplit(v),
           ),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+          SwitchListTile(
+            title: const Text('Khoảng cách từ (Space)',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text('Thêm dấu cách dãn từ cho tiếng Thái, Hoa, Nhật...',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            value: tp.showWordSpaces,
+            activeThumbColor: const Color(0xFF2196F3),
+            onChanged: (v) => tp.toggleShowWordSpaces(v),
+          ),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Tỷ lệ chia cột',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                const SizedBox(height: 4),
+                Text('Tỷ lệ hiển thị màn hình song ngữ (Cột)',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _buildRatioBtn(context, 0.65, '65/35'),
+                    const SizedBox(width: 8),
+                    _buildRatioBtn(context, 0.50, '50/50'),
+                    const SizedBox(width: 8),
+                    _buildRatioBtn(context, 0.35, '35/65'),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRatioBtn(BuildContext context, double value, String label) {
+    final isSelected = tp.columnRatio == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          tp.setColumnRatio(value);
+          HapticFeedback.selectionClick();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF2196F3)
+                : Colors.white.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF2196F3)
+                  : Colors.white.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: isSelected ? Colors.white : Colors.grey[400],
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
       ),
     );
   }

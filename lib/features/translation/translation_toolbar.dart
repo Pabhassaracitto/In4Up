@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound/providers/vocabulary_provider.dart';
 
 import '../../providers/text_provider.dart';
-import '../../providers/vocabulary_provider.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -278,93 +279,100 @@ class TranslationToolbar extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               Flexible(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 2.4,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.45,
                   ),
-                  itemCount: TranslationService.supportedTargetLanguages.length,
-                  itemBuilder: (context, index) {
-                    final entry = TranslationService
-                        .supportedTargetLanguages.entries
-                        .elementAt(index);
-                    final isSelected = current == entry.key;
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 2.4,
+                    ),
+                    itemCount: TranslationService.supportedTargetLanguages.length,
+                    itemBuilder: (context, index) {
+                      final entry = TranslationService
+                          .supportedTargetLanguages.entries
+                          .elementAt(index);
+                      final isSelected = current == entry.key;
 
-                    return InkWell(
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        service.configure(targetLang: entry.key);
-                        textProvider.notifyListeners();
-                        Navigator.pop(ctx);
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? primaryColor.withValues(alpha: 0.15)
-                              : Colors.white.withValues(alpha: 0.03),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
+                      return InkWell(
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          if (current != entry.key) {
+                            service.configure(targetLang: entry.key);
+                            textProvider.clearAllTranslations();
+                          }
+                          Navigator.pop(ctx);
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          decoration: BoxDecoration(
                             color: isSelected
-                                ? primaryColor.withValues(alpha: 0.6)
-                                : Colors.white.withValues(alpha: 0.08),
-                            width: isSelected ? 2 : 1,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: primaryColor.withValues(alpha: 0.15),
-                                    blurRadius: 15,
-                                    spreadRadius: 2,
-                                  )
-                                ]
-                              : null,
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Text(
-                              entry.value,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey[400],
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
-                                fontSize: 15,
-                              ),
+                                ? primaryColor.withValues(alpha: 0.15)
+                                : Colors.white.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? primaryColor.withValues(alpha: 0.6)
+                                  : Colors.white.withValues(alpha: 0.08),
+                              width: isSelected ? 2 : 1,
                             ),
-                            if (isSelected)
-                              Positioned(
-                                top: 8,
-                                right: 12,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: primaryColor,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: primaryColor
-                                            .withValues(alpha: 0.6),
-                                        blurRadius: 4,
-                                        spreadRadius: 1,
-                                      )
-                                    ],
-                                  ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: primaryColor.withValues(alpha: 0.15),
+                                      blurRadius: 15,
+                                      spreadRadius: 2,
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Text(
+                                entry.value,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.grey[400],
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 15,
                                 ),
                               ),
-                          ],
+                              if (isSelected)
+                                Positioned(
+                                  top: 8,
+                                  right: 12,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: primaryColor,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: primaryColor
+                                              .withValues(alpha: 0.6),
+                                          blurRadius: 4,
+                                          spreadRadius: 1,
+                                        )
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -528,7 +536,23 @@ class _LayoutSelector extends StatelessWidget {
             label: 'Cột',
             isSelected: displayMode == TranslationDisplayMode.sideBySide,
             color: primaryColor,
-            onTap: () => onChanged(TranslationDisplayMode.sideBySide)),
+            onTap: () => onChanged(TranslationDisplayMode.sideBySide),
+            onDoubleTap: () {
+              // Ensure we are in sideBySide mode first
+              if (displayMode != TranslationDisplayMode.sideBySide) {
+                onChanged(TranslationDisplayMode.sideBySide);
+              }
+              final tp = context.read<TextProvider>();
+              // Cycle ratio: 65/35 -> 50/55 -> 35/65
+              if (tp.columnRatio == 0.65) {
+                tp.setColumnRatio(0.50);
+              } else if (tp.columnRatio == 0.50) {
+                tp.setColumnRatio(0.35);
+              } else {
+                tp.setColumnRatio(0.65);
+              }
+              HapticFeedback.mediumImpact();
+            }),
       ],
     );
   }
@@ -540,18 +564,21 @@ class _ModeChip extends StatelessWidget {
   final bool isSelected;
   final Color color;
   final VoidCallback onTap;
+  final VoidCallback? onDoubleTap;
 
   const _ModeChip(
       {required this.icon,
       required this.label,
       required this.isSelected,
       required this.color,
-      required this.onTap});
+      required this.onTap,
+      this.onDoubleTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onDoubleTap: onDoubleTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -617,13 +644,18 @@ class TranslationLineDisplay extends StatelessWidget {
       );
     }
 
+    final tp = context.watch<TextProvider>();
+    final ratio = tp.columnRatio;
+    final leftFlex = (ratio * 100).round();
+    final rightFlex = ((1.0 - ratio) * 100).round();
+
     // Side by side
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 65,
+            flex: leftFlex,
             child: originalWidget,
           ),
           Container(
@@ -632,7 +664,7 @@ class TranslationLineDisplay extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.1),
           ),
           Expanded(
-            flex: 35,
+            flex: rightFlex,
             child: hasTranslation
                 ? _TranslationText(
                     text: translatedText!,
@@ -657,6 +689,7 @@ class _TranslationText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vocab = context.watch<VocabularyProvider>();
+    final tp = context.watch<TextProvider>();
     final baseStyle = style ??
         TextStyle(
             fontSize: 13,
@@ -664,9 +697,24 @@ class _TranslationText extends StatelessWidget {
             fontStyle: FontStyle.italic,
             height: 1.5);
 
+    // Apply showWordSpaces formatting
+    var processedText = text;
+    final showWordSpaces = tp.showWordSpaces;
+    final targetLang = TranslationService().targetLang.toUpperCase();
+    if (showWordSpaces &&
+        (targetLang == 'TH' ||
+            targetLang == 'MY' ||
+            targetLang == 'ZH' ||
+            targetLang == 'JA' ||
+            targetLang == 'SI')) {
+      if (!processedText.contains(' ')) {
+        processedText = processedText.split('').join(' ');
+      }
+    }
+
     // Knowledge Glow: Highlight words in translation that exist in VocabularyProvider
     // Using a more robust splitting that keeps delimiters
-    final tokens = text.split(RegExp(r'(\s+|[.,!?;:()\[\]])'));
+    final tokens = processedText.split(RegExp(r'(\s+|[.,!?;:()\[\]])'));
     final spans = <TextSpan>[];
 
     for (final token in tokens) {

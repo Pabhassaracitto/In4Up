@@ -1,4 +1,3 @@
-//
 // Mở rộng từ file cũ — thêm 2 tab:
 //   📁 Máy     — file local (.txt/.lrc/.srt) như trước
 //   ☁️ Thư viện — văn bản người dùng tự tạo, lưu Firebase
@@ -10,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound/providers/player_provider.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/youtube/youtube_sheet.dart';
@@ -271,6 +271,11 @@ class _LocalTab extends StatelessWidget {
     final path = result.files.single.path!;
     if (!context.mounted) return;
 
+    // Stop active audio playback
+    try {
+      context.read<PlayerProvider>().stop();
+    } catch (_) {}
+
     // ★ THÊM: Lưu vào recent trước khi navigate
     final file = RecentFile.fromLocalPdf(path);
     await RecentFilesService().addOrUpdate(file);
@@ -295,6 +300,11 @@ class _LocalTab extends StatelessWidget {
 
     final path = result.files.single.path!;
     if (!context.mounted) return;
+
+    // Stop active audio playback
+    try {
+      context.read<PlayerProvider>().stop();
+    } catch (_) {}
 
     // Load vào TextProvider
     final tp = context.read<TextProvider>();
@@ -344,6 +354,11 @@ class _CloudTabState extends State<_CloudTab> {
   void _loadEntry(BuildContext context, TextLibraryEntry entry) {
     HapticFeedback.mediumImpact();
 
+    // Stop active audio playback
+    try {
+      context.read<PlayerProvider>().stop();
+    } catch (_) {}
+
     // Load text vào TextProvider
     context.read<TextProvider>().loadFromString(
           entry.content,
@@ -365,7 +380,8 @@ class _CloudTabState extends State<_CloudTab> {
 
   // ── Mở dialog thêm mới ────────────────────────────────────
   Future<void> _openAddDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final isLoggedIn = FirebaseAuth.instance.currentUser != null &&
+        !(FirebaseAuth.instance.currentUser!.isAnonymous);
 
     if (!isLoggedIn) {
       _showLoginRequired(context);
@@ -428,7 +444,7 @@ class _CloudTabState extends State<_CloudTab> {
             Icon(Icons.cloud_off, color: Colors.white, size: 18),
             SizedBox(width: 8),
             Expanded(
-              child: Text('Không có phiên đăng nhập hợp lệ để lưu cloud'),
+              child: Text('Đăng nhập Google để lưu văn bản lên cloud'),
             ),
           ],
         ),

@@ -255,71 +255,35 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # SỬA LỖI IOS PODFILE: Sửa dòng platform đầu file và chèn lệnh ép target thông minh mà không làm hỏng cú pháp Podfile
-      - name: Pre-configure iOS Podfile Deployment Target
+      # Ép thẳng dòng platform đầu Podfile lên 15.0 để tránh xung đột lệnh nạp thư viện ban đầu
+      - name: Pre-configure iOS Podfile Platform
         run: |
           if [ -f ios/Podfile ]; then
-            # Ép platform gốc lên 15.0
             sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
             sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
-            
-            # Khởi tạo một tệp Podfile tạm thời nhằm chèn đoạn script cấu hình target sạch vào cấu trúc hiện có
-            cat << 'EOF' > patch_podfile.py
-          import os
-
-          podfile_path = "ios/Podfile"
-          if os.path.exists(podfile_path):
-              with open(podfile_path, "r") as f:
-                  content = f.read()
-              
-              # Định vị vị trí kết thúc vòng lặp cấu hình của flutter và chèn quy tắc ép target cho các gói phụ
-              target_patch = """    target.build_configurations.each do |config|
-                    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-                  end"""
-              
-              if "target.build_configurations.each do |config|" in content:
-                  # Nếu đã có vòng lặp cấu hình, ta chèn thêm dòng cấu hình iOS vào trong
-                  print("Patching existing configuration loop...")
-              else:
-                  # Nếu chưa có, chèn một đoạn logic xử lý độc lập ngay trước dòng cuối cùng của khối post_install
-                  hook_str = "post_install do |installer|"
-                  if hook_str in content:
-                      patch_code = """post_install do |installer|
-            installer.generated_projects.each do |project|
-              project.targets.each do |target|
-                target.build_configurations.each do |config|
-                  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-                end
-              end
-            end"""
-                      content = content.replace(hook_str, patch_code)
-              
-              with open(podfile_path, "w") as f:
-                  f.write(content)
-          EOF
-            python3 patch_podfile.py
-            rm patch_podfile.py
           fi
 
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Force Upgrade iOS Deployment Target (Xcode Project Settings)
-        run: |
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
 
       - name: Decode GoogleService-Info.plist
         env:
           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
         run: echo $GOOGLE_SERVICE_INFO | base64 --decode > ios/Runner/GoogleService-Info.plist
 
+      # GIẢI PHÁP QUYẾT ĐỊNH: Ghi đè biến build xcode_build_args để ép SPM build chuẩn iOS 15.0
       - name: Build iOS (no codesign)
         run: |
           flutter build ios --release --no-codesign \
+            --build-name=1.4.0 \
+            --build-number=1 \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
-            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            --device-id=iphoneos \
+            --OBJC_FLAGS="-libs" \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0
 
       - name: Create IPA
         run: |

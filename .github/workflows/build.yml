@@ -259,12 +259,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Ép dòng platform đầu Podfile lên 15.0 ngay từ đầu để tránh CocoaPods chặn đứng tiến trình tải
+      # BƯỚC 1: Ép cấu hình nền tảng trong file Podfile lên 15.0 cho các thư viện CocoaPods cũ
       - name: Pre-configure iOS Podfile Platform
         run: |
           if [ -f ios/Podfile ]; then
             sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
             sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+          fi
+
+      # BƯỚC 2 (QUAN TRỌNG NHẤT): Sửa file cấu hình Xcode của Runner, giải quyết triệt để lỗi Target 13.0 của SPM
+      - name: Force Upgrade Xcode Project Deployment Target to 15.0
+        run: |
+          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+            sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
+            echo "Xcode project deployment target forced to 15.0 successfully."
           fi
 
       - name: Get dependencies
@@ -275,8 +283,7 @@ jobs:
           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
         run: echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
 
-      # Ép IPHONEOS_DEPLOYMENT_TARGET tại đây để vô hiệu hóa lỗi "isUltraConstrained" của Swift Package Manager (SPM)
-      # SỬA LẠI TẠI ĐÂY: Đưa biến môi trường lên đầu lệnh bằng cú pháp Bash chuẩn
+      # BƯỚC 3: Thực hiện build bình thường, giữ lệnh export môi trường để đồng bộ hệ thống ổn định nhất
       - name: Build iOS (no codesign)
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0
@@ -288,9 +295,7 @@ jobs:
 
       - name: Create IPA
         run: |
-          # Xác định tên phiên bản chạy thủ công để đặt tên file cho đồng bộ
           VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r "VipSound-iOS-${VERSION_NAME}.ipa" Payload
@@ -302,7 +307,6 @@ jobs:
           name: ios-ipa
           path: VipSound-iOS-*.ipa
 
-      # Đẩy file .ipa lên cùng một mục Release đã có sẵn của Android và Windows
       - name: Đẩy IPA lên GitHub Release chung
         uses: ncipollo/release-action@v1
         with:

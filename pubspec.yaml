@@ -3,7 +3,7 @@ description: Read + Remember + Learn + Music Player with UltraTimeStretch Engine
 
 publish_to: 'none'
 
-version: 1.0.0+2
+version: 1.4.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

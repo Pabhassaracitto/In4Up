@@ -71,7 +71,8 @@ jobs:
             exit 1
           fi
 
-      - name: Build APK
+      # BƯỚC 1: Build 3 bản phân tách như cũ
+      - name: Build Split APKs
         run: |
           flutter build apk --release --split-per-abi \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
@@ -79,14 +80,28 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      - name: Rename APK
+      # BƯỚC 2: Build thêm 1 bản GỘP TẤT CẢ (Universal APK)
+      - name: Build Universal APK
         run: |
+          flutter build apk --release \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+
+      # BƯỚC 3: Đổi tên cho cả bản tách và bản gộp
+      - name: Rename All APKs
+        run: |
+          # Đổi tên 3 bản tách
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
              build/app/outputs/flutter-apk/VipSound-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
              build/app/outputs/flutter-apk/VipSound-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
              build/app/outputs/flutter-apk/VipSound-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+          # Đổi tên bản gộp (Universal)
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/VipSound-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -94,7 +109,7 @@ jobs:
           name: android-apk
           path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
 
-      - name: Đẩy APK lên GitHub Release
+      - name: Đẩy TẤT CẢ APK lên GitHub Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: "build/app/outputs/flutter-apk/VipSound-Android-*.apk"

@@ -158,10 +158,7 @@ jobs:
           rm -rf lib/features/DeepLX || true
           rm -rf lib/features/deeplx || true
 
-      - name: Get dependencies
-        run: flutter pub get
-
-      # SỬA LỖI WINDOWS: Sử dụng PowerShell nguyên sinh để chắc chắn file được ghi xuống đĩa cứng vật lý
+      # ĐƯA LÊN TRƯỚC PUB GET: Tạo file cấu hình ngay lập tức để flutter_assemble không bị thiếu file
       - name: Create Real Firebase & Auth Files for Windows Build (PowerShell)
         shell: pwsh
         run: |
@@ -200,6 +197,9 @@ jobs:
           }
           '@
           $firebaseOptions | Out-File -FilePath "lib/firebase_options.dart" -Encoding utf8
+
+      - name: Get dependencies
+        run: flutter pub get
 
       - name: Build Windows
         shell: bash
@@ -250,20 +250,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # SỬA LỖI IOS 1: Ép cấu hình Podfile lên 15.0 TRƯỚC KHI thực hiện 'flutter pub get' để thỏa mãn FFmpeg
-      - name: Pre-configure iOS Podfile Deployment Target
+      # ĐƯA LÊN TRƯỚC PUB GET: Ghi đè dòng đầu tiên của Podfile một cách tuyệt đối để ép CocoaPods chạy nền tảng iOS 15.0
+      - name: Force iOS 15.0 Platform in Podfile Entry
         run: |
           if [ -f ios/Podfile ]; then
-            # Bỏ dấu comment (#) và ép dòng platform về bản 15.0 nếu tồn tại, hoặc thêm mới vào đầu file
-            sed -i '' "s/# platform :ios, '9.0'/platform :ios, '15.0'/g" ios/Podfile
-            sed -i '' "s/platform :ios, '13.0'/platform :ios, '15.0'/g" ios/Podfile
-            sed -i '' "s/platform :ios, '12.0'/platform :ios, '15.0'/g" ios/Podfile
+            # Tạo một bản backup Podfile tạm thời, chèn nền tảng chuẩn lên đầu, loại bỏ các dòng cấu hình cũ bị lệch
+            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+            # Dự phòng trường hợp dòng đó đang bị comment dấu #
+            sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
           fi
 
       - name: Get dependencies
         run: flutter pub get
 
-      # SỬA LỖI IOS 2: Ghi đè toàn bộ Xcode Project Settings và vòng lặp bổ sung của Pods sang bản 15.0 công hiệu rộng
+      # Đồng bộ hóa mức Deployment Target cho các gói SPM / Pods sinh ra sau pub get
       - name: Force Upgrade iOS Deployment Target (Xcode Project Settings)
         run: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj

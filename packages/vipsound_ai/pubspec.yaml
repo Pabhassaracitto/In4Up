@@ -28,7 +28,7 @@ dependencies:
   http: ^1.2.2
 
   # Network check
-  connectivity_plus: ^7.1.0
+  connectivity_plus: ^6.1.4 #7.1.0
 
   # Hash verify
   crypto: ^3.0.6

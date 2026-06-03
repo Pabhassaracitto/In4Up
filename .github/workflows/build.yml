@@ -53,6 +53,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.1'
           channel: 'stable'
           cache: true
 
@@ -147,6 +148,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.1'
           channel: 'stable'
           cache: false
 
@@ -245,17 +247,30 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build-ios:
-    name: Build iOS IPA (sideload)
-    if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
-    runs-on: macos-latest
+  name: Build iOS IPA (sideload)
+  if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
+  runs-on: macos-15
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 'latest-stable'
+
+    - name: Show tool versions
+      run: |
+        sw_vers
+        xcodebuild -version
+        swift --version
+        flutter --version || true
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.1'
           channel: 'stable'
           cache: true
 

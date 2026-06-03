@@ -61,7 +61,7 @@ dependencies:
   url_launcher: ^6.2.5               # cho word_actions_sheet tra từ online
 
   http: ^1.2.2
-  connectivity_plus: ^7.1.0    # Check network
+  connectivity_plus: ^6.1.4 #7.1.0    # Check network
   crypto: ^3.0.6                 # MD5 hash cho cache key
 # Firebase core (bắt buộc)
   firebase_core: ^4.7.0 #change from 4.0.0

@@ -161,32 +161,30 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # FIX WINDOWS CHỮA CHÁY: Tạo mọi thư mục rỗng liên quan đến assets & android config đề phòng script hậu biên dịch quét qua
-      - name: Create Missing Windows & Android Directories
-        shell: bash
+      # SỬA LỖI WINDOWS: Sử dụng PowerShell nguyên sinh để chắc chắn file được ghi xuống đĩa cứng vật lý
+      - name: Create Real Firebase & Auth Files for Windows Build (PowerShell)
+        shell: pwsh
         run: |
-          mkdir -p assets/whisper_models
-          mkdir -p android/app
-
-      # Tạo file JSON giả cho Windows đề phòng Firebase Plugins chạy tập lệnh Post-build kiểm tra
-      - name: Mock google-services.json for Windows
-        shell: bash
-        run: echo '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' > android/app/google-services.json
-
-      - name: Create Real Firebase & Auth Files for Windows Build
-        shell: bash
-        run: |
-          mkdir -p lib/services
-          cat << 'EOF' > lib/services/auth_service.dart
+          New-Item -ItemType Directory -Force -Path "lib/services"
+          New-Item -ItemType Directory -Force -Path "assets/whisper_models"
+          New-Item -ItemType Directory -Force -Path "android/app"
+          
+          # Sinh file mock json phòng hờ cấu hình plugin rà soát
+          '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' | Out-File -FilePath "android/app/google-services.json" -Encoding utf8
+          
+          # Sinh file auth_service.dart
+          $authService = @'
           import 'package:flutter/foundation.dart';
           class AuthService {
             static const String googleClientId = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
             Future<void> signOut() async { debugPrint('Sign out triggered on CI'); }
             Future<dynamic> signInWithGoogle() async { debugPrint('Sign in triggered on CI'); return null; }
           }
-          EOF
-          
-          cat << 'EOF' > lib/firebase_options.dart
+          '@
+          $authService | Out-File -FilePath "lib/services/auth_service.dart" -Encoding utf8
+
+          # Sinh file firebase_options.dart
+          $firebaseOptions = @'
           import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
           class DefaultFirebaseOptions {
             static FirebaseOptions get currentPlatform {
@@ -200,7 +198,8 @@ jobs:
               );
             }
           }
-          EOF
+          '@
+          $firebaseOptions | Out-File -FilePath "lib/firebase_options.dart" -Encoding utf8
 
       - name: Build Windows
         shell: bash
@@ -251,11 +250,21 @@ jobs:
           channel: 'stable'
           cache: true
 
+      # SỬA LỖI IOS 1: Ép cấu hình Podfile lên 15.0 TRƯỚC KHI thực hiện 'flutter pub get' để thỏa mãn FFmpeg
+      - name: Pre-configure iOS Podfile Deployment Target
+        run: |
+          if [ -f ios/Podfile ]; then
+            # Bỏ dấu comment (#) và ép dòng platform về bản 15.0 nếu tồn tại, hoặc thêm mới vào đầu file
+            sed -i '' "s/# platform :ios, '9.0'/platform :ios, '15.0'/g" ios/Podfile
+            sed -i '' "s/platform :ios, '13.0'/platform :ios, '15.0'/g" ios/Podfile
+            sed -i '' "s/platform :ios, '12.0'/platform :ios, '15.0'/g" ios/Podfile
+          fi
+
       - name: Get dependencies
         run: flutter pub get
 
-      # FIX IOS (ĐÃ NÂNG CẤP): Ép cả project gốc VÀ chèn đoạn ép tất cả các Target phụ (SPM/Pods) phải tuân theo bản iOS 15.0
-      - name: Force Upgrade iOS Deployment Target (Project & Pods)
+      # SỬA LỖI IOS 2: Ghi đè toàn bộ Xcode Project Settings và vòng lặp bổ sung của Pods sang bản 15.0 công hiệu rộng
+      - name: Force Upgrade iOS Deployment Target (Xcode Project Settings)
         run: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
           if [ -f ios/Podfile ]; then

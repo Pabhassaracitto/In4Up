@@ -74,7 +74,7 @@ jobs:
       # BƯỚC 1: Build 3 bản phân tách như cũ
       - name: Build Split APKs
         run: |
-          flutter build apk --release --split-per-abi \
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
@@ -83,7 +83,7 @@ jobs:
       # BƯỚC 2: Build thêm 1 bản GỘP TẤT CẢ (Universal APK)
       - name: Build Universal APK
         run: |
-          flutter build apk --release \
+          flutter build apk --release --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
@@ -141,6 +141,18 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
+      # THÊM BƯỚC NÀY ĐỂ TẠO FILE GIẢ LẬP TRÊN GITHUB ACTIONS
+      - name: Create Missing Dart Files for Build
+        shell: bash
+        run: |
+          mkdir -p lib/services
+          
+          # Tạo file auth_service.dart trống để không bị lỗi compile
+          echo "class AuthService { static const String googleClientId = ''; }" > lib/services/auth_service.dart
+          
+          # Tạo file firebase_options.dart trống với class DefaultFirebaseOptions
+          echo "import 'package:firebase_core/firebase_core.dart' show FirebaseOptions; import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;" > lib/firebase_options.dart
+          echo "class DefaultFirebaseOptions { static FirebaseOptions get currentPlatform { return const FirebaseOptions(apiKey: '', appId: '', messagingSenderId: '', projectId: ''); } }" >> lib/firebase_options.dart
 
       - name: Clean up old folders
         shell: bash

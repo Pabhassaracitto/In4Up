@@ -246,26 +246,25 @@ jobs:
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  build-ios:
-  name: Build iOS IPA (sideload)
-  if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
-  runs-on: macos-15
+    build-ios:
+    name: Build iOS IPA (sideload)
+    if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
+    runs-on: macos-15
 
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: 'latest-stable'
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
 
-    - name: Show tool versions
-      run: |
-        sw_vers
-        xcodebuild -version
-        swift --version
-        flutter --version || true
+      - name: Show tool versions
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -282,7 +281,7 @@ jobs:
             sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
           fi
 
-      # BƯỚC 2 (QUAN TRỌNG NHẤT): Sửa file cấu hình Xcode của Runner, giải quyết triệt để lỗi Target 13.0 của SPM
+      # BƯỚC 2: Sửa file cấu hình Xcode của Runner, giải quyết lỗi Target 13.0 của SPM
       - name: Force Upgrade Xcode Project Deployment Target to 15.0
         run: |
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
@@ -298,7 +297,6 @@ jobs:
           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
         run: echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
 
-      # BƯỚC 3: Thực hiện build bình thường, giữ lệnh export môi trường để đồng bộ hệ thống ổn định nhất
       - name: Build iOS (no codesign)
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0

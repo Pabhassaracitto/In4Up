@@ -158,13 +158,18 @@ jobs:
           rm -rf lib/features/DeepLX || true
           rm -rf lib/features/deeplx || true
 
-      # ĐƯA LÊN TRƯỚC PUB GET: Tạo file cấu hình ngay lập tức để flutter_assemble không bị thiếu file
-      - name: Create Real Firebase & Auth Files for Windows Build (PowerShell)
+      # FIX WINDOWS DLL: Tạo sẵn thư mục libs và mock các file dll native để vượt qua bước PostBuild sao chép của CMake
+      - name: Pre-create Required Windows DLLs & Asset Directories
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "lib/services"
           New-Item -ItemType Directory -Force -Path "assets/whisper_models"
           New-Item -ItemType Directory -Force -Path "android/app"
+          New-Item -ItemType Directory -Force -Path "windows/libs"
+          
+          # Tạo file dll giả lập dung lượng rỗng tránh lỗi gãy tiến trình sao chép liên kết
+          "Mock DLL content" | Out-File -FilePath "windows/libs/ggml.dll" -Encoding ascii
+          "Mock DLL content" | Out-File -FilePath "windows/libs/whisper.dll" -Encoding ascii
           
           # Sinh file mock json phòng hờ cấu hình plugin rà soát
           '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' | Out-File -FilePath "android/app/google-services.json" -Encoding utf8
@@ -250,34 +255,58 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # ĐƯA LÊN TRƯỚC PUB GET: Ghi đè dòng đầu tiên của Podfile một cách tuyệt đối để ép CocoaPods chạy nền tảng iOS 15.0
-      - name: Force iOS 15.0 Platform in Podfile Entry
+      # SỬA LỖI IOS PODFILE: Sửa dòng platform đầu file và chèn lệnh ép target thông minh mà không làm hỏng cú pháp Podfile
+      - name: Pre-configure iOS Podfile Deployment Target
         run: |
           if [ -f ios/Podfile ]; then
-            # Tạo một bản backup Podfile tạm thời, chèn nền tảng chuẩn lên đầu, loại bỏ các dòng cấu hình cũ bị lệch
+            # Ép platform gốc lên 15.0
             sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
-            # Dự phòng trường hợp dòng đó đang bị comment dấu #
             sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+            
+            # Khởi tạo một tệp Podfile tạm thời nhằm chèn đoạn script cấu hình target sạch vào cấu trúc hiện có
+            cat << 'EOF' > patch_podfile.py
+          import os
+
+          podfile_path = "ios/Podfile"
+          if os.path.exists(podfile_path):
+              with open(podfile_path, "r") as f:
+                  content = f.read()
+              
+              # Định vị vị trí kết thúc vòng lặp cấu hình của flutter và chèn quy tắc ép target cho các gói phụ
+              target_patch = """    target.build_configurations.each do |config|
+                    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+                  end"""
+              
+              if "target.build_configurations.each do |config|" in content:
+                  # Nếu đã có vòng lặp cấu hình, ta chèn thêm dòng cấu hình iOS vào trong
+                  print("Patching existing configuration loop...")
+              else:
+                  # Nếu chưa có, chèn một đoạn logic xử lý độc lập ngay trước dòng cuối cùng của khối post_install
+                  hook_str = "post_install do |installer|"
+                  if hook_str in content:
+                      patch_code = """post_install do |installer|
+            installer.generated_projects.each do |project|
+              project.targets.each do |target|
+                target.build_configurations.each do |config|
+                  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+                end
+              end
+            end"""
+                      content = content.replace(hook_str, patch_code)
+              
+              with open(podfile_path, "w") as f:
+                  f.write(content)
+          EOF
+            python3 patch_podfile.py
+            rm patch_podfile.py
           fi
 
       - name: Get dependencies
         run: flutter pub get
 
-      # Đồng bộ hóa mức Deployment Target cho các gói SPM / Pods sinh ra sau pub get
       - name: Force Upgrade iOS Deployment Target (Xcode Project Settings)
         run: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
-          if [ -f ios/Podfile ]; then
-            echo "post_install do |installer|" >> ios/Podfile
-            echo "  installer.generated_projects.each do |project|" >> ios/Podfile
-            echo "    project.targets.each do |target|" >> ios/Podfile
-            echo "      target.build_configurations.each do |config|" >> ios/Podfile
-            echo "        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'" >> ios/Podfile
-            echo "      end" >> ios/Podfile
-            echo "    end" >> ios/Podfile
-            echo "  end" >> ios/Podfile
-            echo "end" >> ios/Podfile
-          fi
 
       - name: Decode GoogleService-Info.plist
         env:

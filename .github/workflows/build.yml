@@ -276,15 +276,15 @@ jobs:
         run: echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
 
       # Ép IPHONEOS_DEPLOYMENT_TARGET tại đây để vô hiệu hóa lỗi "isUltraConstrained" của Swift Package Manager (SPM)
-      # SỬA LẠI TẠI ĐÂY: Loại bỏ các cờ không hợp lệ, giữ lại biến ép target chuẩn cho SPM
+      # SỬA LẠI TẠI ĐÂY: Đưa biến môi trường lên đầu lệnh bằng cú pháp Bash chuẩn
       - name: Build iOS (no codesign)
         run: |
+          export IPHONEOS_DEPLOYMENT_TARGET=15.0
           flutter build ios --release --no-codesign \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
-            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Create IPA
         run: |

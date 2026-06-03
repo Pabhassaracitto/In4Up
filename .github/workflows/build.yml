@@ -1,5 +1,6 @@
 name: Flutter Full Build - Android, iOS, Windows
-
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 on:
   push:
     tags:
@@ -215,15 +216,18 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      - name: List files in Release folder
-        shell: powershell
-        run: Get-ChildItem -Path "build\windows\x64\runner\Release*"
-
+      # SỬA LỖI TẠI ĐÂY: Chuyển sang dùng Bash để nén, đảm bảo gom sạch toàn bộ thư mục Release (bao gồm cả các file .dll mock và WebView2)
       - name: Zip Windows build
-        shell: powershell
+        shell: bash
         run: |
-          $absolutePath = "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release*"
-          Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.zip
+          # Thiết lập tên file zip động dựa trên Tag hoặc Version đầu vào
+          VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          
+          # Di chuyển vào đúng thư mục đầu ra của Flutter Windows
+          cd build/windows/x64/runner/Release
+          
+          # Nén toàn bộ file trong thư mục này thành file zip đặt ngoài thư mục gốc của dự án
+          zip -r "../../../../../VipSound-Windows-${VERSION_NAME}.zip" *
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -255,7 +259,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Ép thẳng dòng platform đầu Podfile lên 15.0 để tránh xung đột lệnh nạp thư viện ban đầu
+      # Ép dòng platform đầu Podfile lên 15.0 ngay từ đầu để tránh CocoaPods chặn đứng tiến trình tải
       - name: Pre-configure iOS Podfile Platform
         run: |
           if [ -f ios/Podfile ]; then
@@ -269,36 +273,37 @@ jobs:
       - name: Decode GoogleService-Info.plist
         env:
           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
-        run: echo $GOOGLE_SERVICE_INFO | base64 --decode > ios/Runner/GoogleService-Info.plist
+        run: echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
 
-      # GIẢI PHÁP QUYẾT ĐỊNH: Ghi đè biến build xcode_build_args để ép SPM build chuẩn iOS 15.0
+      # Ép IPHONEOS_DEPLOYMENT_TARGET tại đây để vô hiệu hóa lỗi "isUltraConstrained" của Swift Package Manager (SPM)
+      # SỬA LẠI TẠI ĐÂY: Loại bỏ các cờ không hợp lệ, giữ lại biến ép target chuẩn cho SPM
       - name: Build iOS (no codesign)
         run: |
           flutter build ios --release --no-codesign \
-            --build-name=1.4.0 \
-            --build-number=1 \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
-            --device-id=iphoneos \
-            --OBJC_FLAGS="-libs" \
             IPHONEOS_DEPLOYMENT_TARGET=15.0
 
       - name: Create IPA
         run: |
+          # Xác định tên phiên bản chạy thủ công để đặt tên file cho đồng bộ
+          VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r VipSound-iOS-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.ipa Payload
+          zip -r "VipSound-iOS-${VERSION_NAME}.ipa" Payload
           rm -rf Payload
 
-      - name: Upload IPA artifact
+      - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
           path: VipSound-iOS-*.ipa
 
-      - name: Đẩy IPA lên GitHub Release
+      # Đẩy file .ipa lên cùng một mục Release đã có sẵn của Android và Windows
+      - name: Đẩy IPA lên GitHub Release chung
         uses: ncipollo/release-action@v1
         with:
           artifacts: "VipSound-iOS-*.ipa"

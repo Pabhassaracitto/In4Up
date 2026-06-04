@@ -296,7 +296,19 @@ jobs:
         env:
           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
         run: echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
-
+      - name: Inject dummy Development Team for unsigned build
+        run: |
+          PROJ="ios/Runner.xcodeproj/project.pbxproj"
+          if [ -f "$PROJ" ]; then
+            # Inject DEVELOPMENT_TEAM giả vào tất cả build configurations
+            sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = /DEVELOPMENT_TEAM = ABCDE12345;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = /g' "$PROJ"
+            
+            # Tắt code signing
+            sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PROJ"
+            sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "";/g' "$PROJ"
+            
+            echo "Đã inject DEVELOPMENT_TEAM giả và tắt codesign."
+          fi
       - name: Build iOS (no codesign)
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0

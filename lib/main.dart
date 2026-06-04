@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -119,9 +121,17 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       return Firebase.app();
     }
 
-    final app = await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    final FirebaseApp app;
+    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+      // iOS/macOS: dùng GoogleService-Info.plist (native)
+      // KHÔNG truyền options để Firebase tự đọc plist được nhúng trong bundle.
+      app = await Firebase.initializeApp();
+    } else {
+      // Android / Windows / Web / Linux: dùng DefaultFirebaseOptions
+      app = await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
 
     isFirebaseAvailable = true;
     return app;

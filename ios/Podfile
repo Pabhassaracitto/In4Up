@@ -24,7 +24,7 @@ load File.join(find_flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper
 platform :ios, '14.0'
 
 install! 'cocoapods', :deterministic_uuids => false
-
+$FirebaseSDKVersion = '11.18.0'
 target 'Runner' do
   # Đảm bảo các thuộc tính này được bật để tương thích với các plugin Swift
   use_frameworks!

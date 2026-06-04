@@ -313,7 +313,7 @@ fdroid/
 thongtinduan.txt
 backups.env
 *.env
-packages/vipsound_core
+packages\vipsound_core\.dart_tool
 .ai_handoff/
 *.bat
 *.iml
@@ -321,7 +321,6 @@ packages/vipsound_core
 *.iml
 *.msi
 .flutter-plugins*
-third_party/
 build_log.txt
 lib/firebase_options.dart
 .firebase/
@@ -329,5 +328,4 @@ lib/firebase_options.dart
 firebase_options.dart
 auth_service.dart
 google_sign_in_config.dart
-assets/whisper_models/
-backups/
+*.bin

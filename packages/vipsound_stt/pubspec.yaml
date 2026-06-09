@@ -22,7 +22,7 @@ dependencies:
   # Storage & networking
   path_provider: ^2.1.4
   dio: ^5.4.0
-  firebase_storage: 13.3.0 #change from ^13.0.0
+  firebase_storage: any #13.3.0 #change from ^13.0.0
   path: ^1.9.0
   # Utilities
   rxdart: ^0.28.0

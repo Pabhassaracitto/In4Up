@@ -32,7 +32,30 @@ android {
         //     abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         //    }
         }
+        // 1. Phải định nghĩa kích thước (Dimension) trước trong .kts
+    flavorDimensions.add("default")
 
+    // 2. Tạo các khuôn đúc (Flavors)
+    productFlavors {
+        create("stable") {
+            dimension = "default"
+            applicationIdSuffix = "" // Giữ nguyên ID gốc: com.vipsound
+            resValue("string", "app_name", "VipSound")
+        }
+        
+        create("dev") {
+            dimension = "default"
+            applicationIdSuffix = ".dev" // ID sẽ thành: com.vipsound.dev
+            resValue("string", "app_name", "VipSound Dev")
+        }
+
+        create("beta") {
+            dimension = "default"
+            applicationIdSuffix = ".beta" // ID sẽ thành: com.vipsound.beta
+            resValue("string", "app_name", "VipSound Beta")
+        }
+    }
+}
     buildTypes {
     release {
         isMinifyEnabled = false // thử tắt

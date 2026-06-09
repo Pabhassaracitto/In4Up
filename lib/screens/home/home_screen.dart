@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 
+import '../settings/stt_model_settings_screen.dart';
 import 'widgets/focus_streak_card.dart';
 import 'widgets/memory_garden_card.dart';
 import 'widgets/hebbian_input_card.dart';
@@ -157,6 +158,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.smart_toy_outlined, color: Colors.blueAccent, size: 26),
+            tooltip: 'Quản lý Model AI',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           _FirebaseAuthButton(),
         ],
       ),

@@ -11,6 +11,7 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
@@ -438,13 +439,26 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          // ── Trái: Text Library button ──────────────────────────
-          _LibraryButton(
-            icon: Icons.menu_book_rounded,
-            color: const Color(0xFF2196F3),
-            tooltip: 'Thư viện văn bản',
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
+          // ── Trái: Text Library / Model AI button ──────────────────────────
+          if (_isHome)
+            _LibraryButton(
+              icon: Icons.smart_toy_outlined,
+              color: const Color(0xFFFF9800),
+              tooltip: 'Quản lý Model AI',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                );
+              },
+            )
+          else
+            _LibraryButton(
+              icon: Icons.menu_book_rounded,
+              color: const Color(0xFF2196F3),
+              tooltip: 'Thư viện văn bản',
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
 
           // ── Giữa: Tab title ────────────────────────────────────
           Expanded(

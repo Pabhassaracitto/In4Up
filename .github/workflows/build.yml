@@ -257,7 +257,8 @@ jobs:
 
       - name: Build iOS (no codesign)
         run: |
-          flutter build ios --release --no-codesign \
+          export IPHONEOS_DEPLOYMENT_TARGET=15.0
+          flutter build ios --release --no-codesign --no-tree-shake-icons \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \

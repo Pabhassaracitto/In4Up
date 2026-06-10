@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:ui' show PlatformDispatcher;
 import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
 import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 import 'package:vipsound/services/storage_service.dart';
@@ -74,7 +75,19 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
 };
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // Global error handlers
+FlutterError.onError = (FlutterErrorDetails details) {
+  debugPrint('🔴 FLUTTER ERROR: ${details.exception}');
+  debugPrint('🔴 STACK: ${details.stack}');
+  FlutterError.presentError(details);
+};
+PlatformDispatcher.instance.onError = (error, stack) {
+  debugPrint('🔴 PLATFORM ERROR: $error');
+  debugPrint('🔴 STACK: $stack');
+  return true;
+};
+
+WidgetsFlutterBinding.ensureInitialized();
 
   // ★ Chỉ Firebase là bắt buộc trước runApp
   await _initializeFirebaseSafely();

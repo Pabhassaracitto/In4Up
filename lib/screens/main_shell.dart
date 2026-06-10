@@ -24,11 +24,66 @@ import 'tools/stats_tab.dart';
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
-import 'tools/word_list/stats_dashboard.dart';
-import 'tools/word_list/timeline_view.dart';
+
 import 'tools/word_list/word_list_screen.dart';
+import 'tools/word_list/timeline_view.dart';
+import 'tools/word_list/stats_dashboard.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
+
+// -------------------------------------------------------------------
+// SafeTab widget – catches build errors in tabs and shows them on screen
+// -------------------------------------------------------------------
+class SafeTab extends StatelessWidget {
+  final Widget child;
+  final String tabName;
+
+  const SafeTab({Key? key, required this.child, required this.tabName}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Builder(
+      builder: (ctx) {
+        try {
+          return child;
+        } catch (e, stack) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF1A1A2E),
+            appBar: AppBar(
+              title: Text('Lỗi: $tabName'),
+              backgroundColor: Colors.red,
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 12),
+                  const Text('Tab này gặp lỗi:', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                    child: SelectableText('$e', style: const TextStyle(color: Colors.orange, fontSize: 13)),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Stack trace:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                    child: SelectableText('$stack', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+}
 
 const int _kHome = -1;
 
@@ -314,26 +369,32 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case _kHome:
-        return HomeScreen(
-          onNavigateToListen: () => _navigateTo(1),
-          onNavigateToRead: () => _navigateTo(0),
-          onNavigateToUnderstand: () => _navigateTo(2),
-          onNavigateToMemory: () => _navigateTo(3),
+        return SafeTab(
+          tabName: 'Home',
+          child: HomeScreen(
+            onNavigateToListen: () => _navigateTo(1),
+            onNavigateToRead: () => _navigateTo(0),
+            onNavigateToUnderstand: () => _navigateTo(2),
+            onNavigateToMemory: () => _navigateTo(3),
+          ),
         );
       case 0:
-        return const ReadModeScreen();
+        return SafeTab(tabName: 'Read', child: const ReadModeScreen());
       case 1:
-        return const ListenModeScreen();
+        return SafeTab(tabName: 'Listen', child: const ListenModeScreen());
       case 2:
-        return const UnderstandTabConnector();
+        return SafeTab(tabName: 'Understand', child: const UnderstandTabConnector());
       case 3:
-        return const MemoryTabConnector();
+        return SafeTab(tabName: 'Memory', child: const MemoryTabConnector());
       default:
-        return HomeScreen(
-          onNavigateToListen: () => _navigateTo(1),
-          onNavigateToRead: () => _navigateTo(0),
-          onNavigateToUnderstand: () => _navigateTo(2),
-          onNavigateToMemory: () => _navigateTo(3),
+        return SafeTab(
+          tabName: 'Home',
+          child: HomeScreen(
+            onNavigateToListen: () => _navigateTo(1),
+            onNavigateToRead: () => _navigateTo(0),
+            onNavigateToUnderstand: () => _navigateTo(2),
+            onNavigateToMemory: () => _navigateTo(3),
+          ),
         );
     }
   }

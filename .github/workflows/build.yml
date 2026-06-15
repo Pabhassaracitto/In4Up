@@ -137,9 +137,6 @@ jobs:
     name: Build Windows App
     if: ${{ github.event_name == 'push' || inputs.build_windows == true }}
     runs-on: windows-latest
-    env:
-      CL: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
-      _CL_: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -213,11 +210,10 @@ jobs:
 
       - name: Build Windows
         shell: bash
-        env:
-          CL: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
-          _CL_: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
         run: |
           flutter build windows --release --verbose \
+            --cmake-backend-argument="/p:CL_MPCount=4" \
+            --cmake-backend-argument="/p:CustomBeforeMicrosoftCommonTargets=$(pwd)/windows/force_flags.props" \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \

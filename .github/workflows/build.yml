@@ -212,8 +212,6 @@ jobs:
         shell: bash
         run: |
           flutter build windows --release --verbose \
-            --cmake-backend-argument="/p:CL_MPCount=4" \
-            --cmake-backend-argument="/p:CustomBeforeMicrosoftCommonTargets=$(pwd)/windows/force_flags.props" \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \

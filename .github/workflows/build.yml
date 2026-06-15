@@ -217,18 +217,15 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      # SỬA LỖI TẠI ĐÂY: Chuyển sang dùng Bash để nén, đảm bảo gom sạch toàn bộ thư mục Release (bao gồm cả các file .dll mock và WebView2)
+      # Nén toàn bộ thư mục Release thành file ZIP (bao gồm cả các file .dll và WebView2)
       - name: Zip Windows build
-        shell: bash
+        shell: pwsh
         run: |
           # Thiết lập tên file zip động dựa trên Tag hoặc Version đầu vào
-          VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          $VERSION_NAME = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           
-          # Di chuyển vào đúng thư mục đầu ra của Flutter Windows
-          cd build/windows/x64/runner/Release
-          
-          # Nén toàn bộ file trong thư mục này thành file zip đặt ngoài thư mục gốc của dự án
-          zip -r "../../../../../VipSound-Windows-${VERSION_NAME}.zip" *
+          # Nén toàn bộ thư mục Release
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "VipSound-Windows-$VERSION_NAME.zip" -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

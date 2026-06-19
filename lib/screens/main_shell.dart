@@ -11,12 +11,12 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
@@ -24,10 +24,9 @@ import 'tools/stats_tab.dart';
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
-
-import 'tools/word_list/word_list_screen.dart';
-import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/stats_dashboard.dart';
+import 'tools/word_list/timeline_view.dart';
+import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
 
@@ -38,7 +37,8 @@ class SafeTab extends StatelessWidget {
   final Widget child;
   final String tabName;
 
-  const SafeTab({Key? key, required this.child, required this.tabName}) : super(key: key);
+  const SafeTab({Key? key, required this.child, required this.tabName})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -60,20 +60,30 @@ class SafeTab extends StatelessWidget {
                 children: [
                   const Icon(Icons.error_outline, color: Colors.red, size: 48),
                   const SizedBox(height: 12),
-                  const Text('Tab này gặp lỗi:', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  const Text('Tab này gặp lỗi:',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-                    child: SelectableText('$e', style: const TextStyle(color: Colors.orange, fontSize: 13)),
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: SelectableText('$e',
+                        style: const TextStyle(
+                            color: Colors.orange, fontSize: 13)),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Stack trace:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const Text('Stack trace:',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                    child: SelectableText('$stack', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(6)),
+                    child: SelectableText('$stack',
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 10)),
                   ),
                 ],
               ),
@@ -383,7 +393,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       case 1:
         return SafeTab(tabName: 'Listen', child: const ListenModeScreen());
       case 2:
-        return SafeTab(tabName: 'Understand', child: const UnderstandTabConnector());
+        return SafeTab(
+            tabName: 'Understand', child: const UnderstandTabConnector());
       case 3:
         return SafeTab(tabName: 'Memory', child: const MemoryTabConnector());
       default:
@@ -409,18 +420,16 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       endDrawer: const AudioLibraryDrawer(),
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: _buildCurrentScreen(),
-              ),
+      body: Column(
+        children: [
+          _buildAppBar(),
+          Expanded(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCurrentScreen(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -480,6 +489,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       3: const Color(0xFF4CAF50),
     };
 
+    final topPad = MediaQuery.paddingOf(context).top;
+
     final String titleText =
         _isHome ? 'VipSound' : (titles[_currentIndex] ?? 'VipSound');
 
@@ -487,7 +498,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         _isHome ? Colors.white : (tabColors[_currentIndex] ?? Colors.white);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: EdgeInsets.fromLTRB(8, topPad + 8, 8, 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
@@ -509,7 +520,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const SttModelSettingsScreen()),
                 );
               },
             )

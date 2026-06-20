@@ -1,0 +1,122 @@
+name: Build Android APK
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Nhập số Version (Ví dụ: 1.4.0)'
+        required: true
+        type: string
+        default: '1.4.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK & Accept Licenses
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Create Firebase & Auth Files for Android
+        shell: bash
+        run: |
+          mkdir -p lib/services
+          cat << 'EOF' > lib/services/auth_service.dart
+          import 'package:flutter/foundation.dart';
+          class AuthService {
+            static const String googleClientId =
+                String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+            Future<void> signOut() async {}
+            Future<dynamic> signInWithGoogle() async { return null; }
+          }
+          EOF
+
+          cat << 'EOF' > lib/firebase_options.dart
+          import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+          class DefaultFirebaseOptions {
+            static FirebaseOptions get currentPlatform {
+              return const FirebaseOptions(
+                apiKey: '',
+                appId: '',
+                messagingSenderId: '',
+                projectId: '',
+              );
+            }
+          }
+          EOF
+
+      - name: Decode google-services.json
+        uses: timheuer/base64-to-file@v1
+        with:
+          encodedString: ${{ secrets.ANDROID_GOOGLE_SERVICES }}
+          fileName: 'google-services.json'
+          fileDir: './android/app/'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Split APKs
+        run: |
+          flutter build apk --release \
+            --split-per-abi \
+            --android-skip-build-dependency-validation \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+
+      - name: Build Universal APK
+        run: |
+          flutter build apk --release \
+            --android-skip-build-dependency-validation \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+
+      - name: Rename All APKs
+        run: |
+          VERSION="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          cd build/app/outputs/flutter-apk
+          mv app-armeabi-v7a-release.apk  VipSound-Android-armv7-${VERSION}.apk
+          mv app-arm64-v8a-release.apk    VipSound-Android-arm64-${VERSION}.apk
+          mv app-x86_64-release.apk       VipSound-Android-x64-${VERSION}.apk
+          mv app-release.apk              VipSound-Android-Universal-${VERSION}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
+
+      - name: Push APK to GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/VipSound-Android-*.apk"
+          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
+          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}

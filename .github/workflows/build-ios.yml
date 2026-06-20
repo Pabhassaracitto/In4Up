@@ -1,0 +1,163 @@
+name: Build iOS IPA
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Nhập số Version (Ví dụ: 1.4.0)'
+        required: true
+        type: string
+        default: '1.4.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    name: Build iOS IPA (sideload)
+    # ✅ QUAN TRỌNG: Dùng macos-15 như bản main đã chạy được
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ✅ QUAN TRỌNG: Setup Xcode cụ thể - đây là điểm bản hotfix thiếu
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
+      - name: Show tool versions
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+
+      # ✅ QUAN TRỌNG: Patch Podfile - bản hotfix thiếu bước này
+      - name: Pre-configure iOS Podfile Platform
+        run: |
+          if [ -f ios/Podfile ]; then
+            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+            sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+            echo "✅ Podfile patched to iOS 15.0"
+            head -5 ios/Podfile
+          else
+            echo "⚠️ Podfile not found"
+          fi
+
+      # ✅ QUAN TRỌNG: Force deployment target trong Xcode project
+      - name: Force Xcode Deployment Target to 15.0
+        run: |
+          PROJ="ios/Runner.xcodeproj/project.pbxproj"
+          if [ -f "$PROJ" ]; then
+            sed -i '' \
+              's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' \
+              "$PROJ"
+            echo "✅ Deployment target forced to 15.0"
+          fi
+
+      # ✅ QUAN TRỌNG: Tạo Firebase & Auth files - bản hotfix thiếu bước này
+      - name: Create Firebase & Auth Files for iOS
+        shell: bash
+        run: |
+          mkdir -p lib/services
+          cat << 'EOF' > lib/services/auth_service.dart
+          import 'package:flutter/foundation.dart';
+          class AuthService {
+            static const String googleClientId =
+                String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+            Future<void> signOut() async {}
+            Future<dynamic> signInWithGoogle() async { return null; }
+          }
+          EOF
+
+          cat << 'EOF' > lib/firebase_options.dart
+          import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+          class DefaultFirebaseOptions {
+            static FirebaseOptions get currentPlatform {
+              return const FirebaseOptions(
+                apiKey: 'mock',
+                appId: 'mock',
+                messagingSenderId: 'mock',
+                projectId: 'mock',
+                iosBundleId: 'com.vipsound',
+              );
+            }
+          }
+          EOF
+          echo "✅ Firebase & Auth files created for iOS"
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Decode GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
+        run: |
+          echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          echo "✅ GoogleService-Info.plist decoded"
+
+      # ✅ QUAN TRỌNG: Inject DEVELOPMENT_TEAM giả - bản hotfix thiếu bước này
+      - name: Inject dummy Development Team & Disable Codesign
+        run: |
+          PROJ="ios/Runner.xcodeproj/project.pbxproj"
+          if [ -f "$PROJ" ]; then
+            sed -i '' \
+              's/PRODUCT_BUNDLE_IDENTIFIER = /DEVELOPMENT_TEAM = ABCDE12345;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = /g' \
+              "$PROJ"
+            sed -i '' \
+              's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' \
+              "$PROJ"
+            sed -i '' \
+              's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "";/g' \
+              "$PROJ"
+            echo "✅ DEVELOPMENT_TEAM injected, codesign disabled"
+          fi
+
+      - name: Build iOS (no codesign)
+        run: |
+          export IPHONEOS_DEPLOYMENT_TARGET=15.0
+          flutter build ios --release \
+            --no-codesign \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+
+      - name: Create IPA
+        run: |
+          VERSION="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r "VipSound-iOS-${VERSION}.ipa" Payload
+          rm -rf Payload
+          echo "✅ IPA created: VipSound-iOS-${VERSION}.ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: VipSound-iOS-*.ipa
+
+      - name: Push IPA to GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "VipSound-iOS-*.ipa"
+          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
+          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}

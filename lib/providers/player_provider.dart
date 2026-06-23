@@ -115,6 +115,7 @@ class PlayerProvider extends ChangeNotifier {
   double _gapDuration = 0.0;
   bool _isWaitingGap = false;
   Timer? _gapTimer;
+Duration _silenceDuration = Duration.zero;
 
   // === SLEEP TIMER ===
   Timer? _sleepTimer;
@@ -161,6 +162,7 @@ class PlayerProvider extends ChangeNotifier {
   double get gapDuration => _gapDuration;
   bool get isWaitingGap => _isWaitingGap;
   bool get hasLoop => _loopStart != null && _loopEnd != null;
+  Duration get silenceDuration => _silenceDuration;
 
   Duration? get loopDuration {
     if (_loopStart == null || _loopEnd == null) return null;
@@ -781,6 +783,12 @@ class PlayerProvider extends ChangeNotifier {
   void setGapDuration(double seconds) {
     _gapDuration = (seconds.isNaN ? 0.0 : seconds).clamp(0.0, 30.0);
     _storage.saveGapDuration(_gapDuration);
+    notifyListeners();
+  }
+  /// Khoảng lặng giữa các lần lặp AB (0 = tắt)
+  void setSilenceDuration(Duration duration) {
+    if (_silenceDuration == duration) return;
+    _silenceDuration = duration;
     notifyListeners();
   }
 

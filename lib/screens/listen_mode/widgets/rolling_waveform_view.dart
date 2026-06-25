@@ -9,6 +9,7 @@ class RollingWaveformView extends StatefulWidget {
   final RollingWaveformController controller;
   final double height;
   final Function(Duration)? onSeek;
+  final Function(Duration)? onSeekUpdate;
   final VoidCallback? onTap;
   final VoidCallback? onDoubleTap;
   final Function(Duration)? onLongPressPosition;
@@ -19,6 +20,7 @@ class RollingWaveformView extends StatefulWidget {
     required this.controller,
     this.height = 200,
     this.onSeek,
+    this.onSeekUpdate,
     this.onTap,
     this.onDoubleTap,
     this.onLongPressPosition,
@@ -77,7 +79,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
       },
 
       onHorizontalDragUpdate: (details) {
-        if (widget.onSeek == null) return;
+        if (widget.onSeek == null && widget.onSeekUpdate == null) return;
         if (_dragStartPosition == null || _dragStartX == null) return;
 
         final renderBox = context.findRenderObject() as RenderBox?;
@@ -96,16 +98,26 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
             .round()
             .clamp(0, widget.controller.duration.inMilliseconds);
 
-        widget.onSeek?.call(Duration(milliseconds: targetMs));
+        final newPosition = Duration(milliseconds: targetMs);
+
+        // Cập nhật giao diện mượt mà không bị lag do gọi method seek của audio player quá nhiều
+        widget.controller.updatePosition(newPosition);
+        widget.onSeekUpdate?.call(newPosition);
       },
 
       onHorizontalDragEnd: (_) {
+        if (_isDragging) {
+          widget.onSeek?.call(widget.controller.position);
+        }
         _isDragging = false;
         _dragStartPosition = null;
         _dragStartX = null;
       },
 
       onHorizontalDragCancel: () {
+        if (_isDragging) {
+          widget.onSeek?.call(widget.controller.position);
+        }
         _isDragging = false;
         _dragStartPosition = null;
         _dragStartX = null;

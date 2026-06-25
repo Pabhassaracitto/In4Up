@@ -729,9 +729,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   onPointerCancel: (_) => _isUserSeeking = false,
                   child: RollingWaveformView(
                     controller: _waveformController,
-                    onSeek: (pos) {
+                    onSeekUpdate: (pos) {
                       _isUserSeeking = true;
+                    },
+                    onSeek: (pos) {
                       player.seek(pos);
+                      _isUserSeeking = false;
                     },
                     onTap: () {
                       HapticFeedback.lightImpact();
@@ -1372,8 +1375,18 @@ class _AIPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ConstrainedBox(
       constraints:
-          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
-      child: const SingleChildScrollView(child: GenerateLrcButton()),
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+      child: const SingleChildScrollView(
+        child: Column(
+          children: [
+            GenerateLrcButton(),
+            SizedBox(height: 12),
+            LrcEditorPanel(
+              initiallyExpanded: true,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

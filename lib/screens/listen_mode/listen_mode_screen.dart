@@ -1398,6 +1398,43 @@ class _SmartActionBar extends StatefulWidget {
 class _SmartActionBarState extends State<_SmartActionBar> {
   _InlinePanel? _openPanel;
 
+  @override
+  void initState() {
+    super.initState();
+    widget.player.addListener(_onPlayerStateChange);
+  }
+
+  @override
+  void dispose() {
+    widget.player.removeListener(_onPlayerStateChange);
+    super.dispose();
+  }
+
+  void _onPlayerStateChange() {
+    if (!mounted) return;
+
+    bool needsUpdate = false;
+    if (widget.player.shouldOpenAiPanel) {
+      widget.player.consumeShouldOpenAiPanel();
+      if (_openPanel != _InlinePanel.ai) {
+        _openPanel = _InlinePanel.ai;
+        needsUpdate = true;
+      }
+    }
+
+    if (widget.player.lrcJustGenerated) {
+      widget.player.consumeLrcJustGenerated();
+      if (_openPanel != _InlinePanel.ai) {
+        _openPanel = _InlinePanel.ai;
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      setState(() {});
+    }
+  }
+
   void _togglePanel(_InlinePanel panel) {
     HapticFeedback.selectionClick();
     setState(() => _openPanel = _openPanel == panel ? null : panel);
@@ -1426,7 +1463,8 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     icon: Icons.repeat,
                     label: _repeatLabel(player),
                     color: const Color(0xFF4CAF50),
-                    isActive: player.maxLoopCount != 0,
+                    isActive: player.maxLoopCount != 0 ||
+                        _openPanel == _InlinePanel.repeat,
                     onTap: () => _cycleRepeat(player),
                     onLongPress: () => _togglePanel(_InlinePanel.repeat),
                   ),
@@ -1435,8 +1473,9 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     icon: Icons.straighten,
                     label: _abLabel(player),
                     color: const Color(0xFF6C63FF),
-                    isActive:
-                        player.pendingLoopA != null || player.hasCompletedLoop,
+                    isActive: player.pendingLoopA != null ||
+                        player.hasCompletedLoop ||
+                        _openPanel == _InlinePanel.ab,
                     onTap: () => _handleAbTap(player),
                     onLongPress: () => _togglePanel(_InlinePanel.ab),
                     badge:
@@ -1451,7 +1490,8 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                         ? '1×'
                         : '${player.state.speed}×',
                     color: Colors.orange,
-                    isActive: player.state.speed != 1.0,
+                    isActive: player.state.speed != 1.0 ||
+                        _openPanel == _InlinePanel.speed,
                     onTap: () => _togglePanel(_InlinePanel.speed),
                   ),
                   const SizedBox(width: 6),
@@ -1473,7 +1513,8 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                         : Icons.bedtime_outlined,
                     label: player.hasSleepTimer ? 'Huỷ' : '💤',
                     color: const Color(0xFF9C27B0),
-                    isActive: player.hasSleepTimer,
+                    isActive: player.hasSleepTimer ||
+                        _openPanel == _InlinePanel.sleep,
                     onTap: () => _togglePanel(_InlinePanel.sleep),
                   ),
                   const SizedBox(width: 6),
@@ -1481,7 +1522,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     icon: Icons.auto_awesome,
                     label: 'AI',
                     color: Colors.blue,
-                    isActive: false,
+                    isActive: _openPanel == _InlinePanel.ai,
                     onTap: () => _togglePanel(_InlinePanel.ai),
                   ),
                   const SizedBox(width: 6),

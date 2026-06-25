@@ -68,7 +68,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         understandProvider.updatePosition(_playerProvider!.state.position);
 
         final idx = understandProvider.currentLineIndex;
-        if (idx >= 0 && _autoScroll) _scrollToLine(idx);
+        // ★ FIX: Gọi _scrollToLine với đúng index
+        if (idx >= 0 && _autoScroll) {
+          _scrollToLine(idx);
+        }
       };
       _playerProvider?.addListener(_playerListener);
     });
@@ -303,7 +306,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: LrcEditorPanel(
                     initiallyExpanded: true,
-                    title: 'LRC Editor',
+                    title: 'Sửa Lời Thoại (LRC)',
                   ),
                 ),
               ],

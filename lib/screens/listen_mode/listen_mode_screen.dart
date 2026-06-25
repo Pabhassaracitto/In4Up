@@ -13,6 +13,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 import 'package:vipsound/widgets/lrc_editor_panel.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
 
@@ -50,8 +51,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   bool _isCurrentRoute = true;
 
   // ★ LRC state
-  bool _showLrcOnMain = false;
   List<String> _lrcLines = [];
+  bool _showLrcOnMain = false;
+  bool _lrcAutoScroll = true;
+
+  // LRC ScrollController for sophisticated LRC display
+  late ScrollController _lrcScrollController;
+  bool _autoScroll = true;
 
   bool _sheetOpen = false;
   bool _listenersSetup = false;
@@ -61,6 +67,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _waveformController = RollingWaveformController();
+    _lrcScrollController =
+        ScrollController(); // Initialize LRC scroll controller
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _setupListeners();
@@ -90,18 +98,23 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     final player = context.read<PlayerProvider>();
     final waveform = context.read<WaveformProvider>();
+    final understand = context.read<UnderstandProvider>();
 
     _playerProvider = player;
     _waveformProvider = waveform;
 
     player.addListener(_onPlayerChange);
     waveform.addListener(_onWaveformChange);
+    understand.addListener(_onUnderstandChange);
 
     _listenersSetup = true;
 
     // Load LRC nếu đã có
     if (player.lastGeneratedLrcPath != null) {
-      _loadLrcFile(player.lastGeneratedLrcPath!);
+      final understandProvider = context.read<UnderstandProvider>();
+      if (understandProvider.lrcLines.isNotEmpty) {
+        _showLrcOnMain = true;
+      }
     }
 
     _forceReloadWaveformIfNeeded();
@@ -167,11 +180,33 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _playerProvider?.removeListener(_onPlayerChange);
     _waveformProvider?.removeListener(_onWaveformChange);
+    try {
+      context.read<UnderstandProvider>().removeListener(_onUnderstandChange);
+    } catch (_) {}
     _waveformController.setWaveformData(null);
     _waveformController.dispose();
+    _lrcScrollController.dispose(); // Cleanup LRC scroll controller
     _sheetController.dispose();
     _listenersSetup = false;
     super.dispose();
+  }
+
+  // Auto-scroll to active LRC line (from UnderstandModeScreen)
+  void _scrollToLine(int index) {
+    if (!_lrcScrollController.hasClients || index < 0) return;
+
+    const double estimatedLineHeight = 52.0; // Average height of a line item
+
+    final targetOffset = index * estimatedLineHeight;
+    final viewportHeight = _lrcScrollController.position.viewportDimension;
+    final centerOffset =
+        targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
+
+    _lrcScrollController.animateTo(
+      centerOffset.clamp(0.0, _lrcScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   String _normalizePath(String path) {
@@ -212,9 +247,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     }
     _syncLoopRegions(player);
 
-    // Auto-load LRC
-    if (player.lastGeneratedLrcPath != null && !_showLrcOnMain) {
-      setState(() => _showLrcOnMain = true);
+    // ★ Update UnderstandProvider position cho synced lyrics
+    if (_showLrcOnMain) {
+      try {
+        final understandProvider = context.read<UnderstandProvider>();
+        understandProvider.updatePosition(player.state.position);
+      } catch (_) {}
     }
   }
 
@@ -252,6 +290,26 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     }
   }
 
+  void _onUnderstandChange() {
+    if (!mounted) return;
+
+    final understand = context.read<UnderstandProvider>();
+    final hasLrcLines = understand.lrcLines.isNotEmpty;
+
+    // Tự động hiển thị LRC panel khi có lyrics mới
+    if (hasLrcLines && !_showLrcOnMain) {
+      setState(() {
+        _showLrcOnMain = true;
+      });
+    }
+
+    // Auto-scroll to current line (from UnderstandModeScreen logic)
+    final idx = understand.currentLineIndex;
+    if (idx >= 0 && _autoScroll && hasLrcLines) {
+      _scrollToLine(idx);
+    }
+  }
+
   // ★ Load LRC file và parse thành danh sách dòng text
   Future<void> _loadLrcFile(String lrcPath) async {
     try {
@@ -266,8 +324,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         if (trimmed.isEmpty) continue;
 
         // Parse LRC format: [mm:ss.xx] text
-        final match = RegExp(r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$')
-            .firstMatch(trimmed);
+        final match =
+            RegExp(r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$').firstMatch(trimmed);
         if (match != null) {
           final text = match.group(4)?.trim() ?? '';
           if (text.isNotEmpty) {
@@ -295,8 +353,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_sheetController.isAttached) {
         _sheetController.animateTo(0.55,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut);
+            duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
       }
     });
   }
@@ -304,8 +361,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   void _closeSheet() {
     if (_sheetController.isAttached) {
       _sheetController.animateTo(0.0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeIn);
+          duration: const Duration(milliseconds: 250), curve: Curves.easeIn);
     }
     Future.delayed(const Duration(milliseconds: 280), () {
       if (mounted) setState(() => _sheetOpen = false);
@@ -327,7 +383,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           Padding(
             padding: const EdgeInsets.only(top: 10, bottom: 4),
             child: Container(
-              width: 36, height: 3,
+              width: 36,
+              height: 3,
               decoration: BoxDecoration(
                   color: Colors.white24,
                   borderRadius: BorderRadius.circular(2)),
@@ -368,8 +425,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             subtitle: hasA
                 ? null
                 : Text('Cần đặt điểm A trước',
-                    style:
-                        TextStyle(fontSize: 11, color: Colors.grey[700])),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[700])),
             enabled: hasA,
             onTap: hasA
                 ? () {
@@ -382,8 +438,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           ),
           ListTile(
             dense: true,
-            leading: Icon(Icons.my_location,
-                color: Colors.blue.shade300, size: 20),
+            leading:
+                Icon(Icons.my_location, color: Colors.blue.shade300, size: 20),
             title: const Text('Nhảy đến đây',
                 style: TextStyle(color: Colors.white, fontSize: 14)),
             onTap: () {
@@ -447,56 +503,119 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     child: _buildWaveform(player),
                   ),
 
-                  // ★ FIX 3: LRC Editor ngay dưới waveform — dùng đúng LrcEditorPanel
+                  // ★ FIX 3: Hiển thị Lyrics từ UnderstandProvider ngay khi có
                   if (_showLrcOnMain)
-                    Flexible(
-                      flex: 3,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Column(
-                          children: [
-                            // Header với nút đóng
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.lyrics,
-                                      size: 14, color: Colors.blue[300]),
-                                  const SizedBox(width: 6),
-                                  Text('Lời thoại',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[400],
-                                          fontWeight: FontWeight.w500)),
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: () => setState(
-                                        () => _showLrcOnMain = false),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Icon(Icons.close,
-                                          size: 16, color: Colors.grey[500]),
-                                    ),
-                                  ),
-                                ],
+                    Consumer<UnderstandProvider>(
+                      builder: (context, understand, _) {
+                        if (understand.lrcLines.isEmpty) {
+                          return Flexible(
+                            flex: 3,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[900],
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                            // ★ Dùng LrcEditorPanel — có đầy đủ edit, save, use
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: LrcEditorPanel(
-                                  initiallyExpanded: true,
-                                  title: 'Chỉnh sửa lời',
-                                  onLrcApplied: () {
-                                    _showSnack(
-                                        '✅ Đã tích hợp vào Tab Đọc và Tab Hiểu');
-                                  },
+                              child: const Center(
+                                child: Text(
+                                  "Chưa có nội dung\nHãy tạo LRC từ STT",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          );
+                        }
+
+                        return Flexible(
+                          flex: 3,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[900],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                // Header với nút đóng
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        "LRC Lyrics",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close,
+                                            color: Colors.grey),
+                                        onPressed: () => setState(
+                                            () => _showLrcOnMain = false),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Sophisticated LRC ListView (from UnderstandModeScreen)
+                                Expanded(
+                                  child: ListView.builder(
+                                    controller: _lrcScrollController,
+                                    itemCount: understand.lrcLines.length,
+                                    itemBuilder: (context, index) {
+                                      final line = understand.lrcLines[index];
+                                      final isActive =
+                                          index == understand.currentLineIndex;
+
+                                      return GestureDetector(
+                                        onTap: () {
+                                          context
+                                              .read<PlayerProvider>()
+                                              .seek(line.timestamp);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                            horizontal: 16,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isActive
+                                                ? const Color(0xFF6C63FF)
+                                                    .withOpacity(0.15)
+                                                : Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            line.text,
+                                            style: TextStyle(
+                                              color: isActive
+                                                  ? Colors.white
+                                                  : Colors.grey[500],
+                                              fontSize: isActive ? 16 : 14,
+                                              fontWeight: isActive
+                                                  ? FontWeight.w700
+                                                  : FontWeight.normal,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
 
                   // Controls
@@ -506,8 +625,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                       onOpenSheet: _openSheet,
                     ),
                   ),
-                  SizedBox(
-                      height: MediaQuery.of(context).padding.bottom + 4),
+                  SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
                 ],
               ),
 
@@ -643,23 +761,25 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
             if (isLoading)
               Positioned(
-                top: 8, right: 20,
+                top: 8,
+                right: 20,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8)),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     const SizedBox(
-                      width: 10, height: 10,
+                      width: 10,
+                      height: 10,
                       child: CircularProgressIndicator(
                           color: Color(0xFF6C63FF), strokeWidth: 1.5),
                     ),
                     const SizedBox(width: 6),
                     Text('Đang phân tích...',
-                        style: TextStyle(
-                            color: Colors.grey[400], fontSize: 10)),
+                        style:
+                            TextStyle(color: Colors.grey[400], fontSize: 10)),
                   ]),
                 ),
               ),
@@ -674,77 +794,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 // ★ FIX 2: LRC LYRICS PANEL — hiển thị text đơn giản, không overflow
 // ═══════════════════════════════════════════════════════════════
 
-class _LrcLyricsPanel extends StatelessWidget {
-  final List<String> lines;
-  final PlayerProvider player;
-  final VoidCallback onClose;
-
-  const _LrcLyricsPanel({
-    required this.lines,
-    required this.player,
-    required this.onClose,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 100, // ★ Chiều cao cố định, không overflow
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2235),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 4, 4, 0),
-            child: Row(
-              children: [
-                Icon(Icons.lyrics, size: 13, color: Colors.blue[300]),
-                const SizedBox(width: 6),
-                Text('Lời thoại',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[400],
-                        fontWeight: FontWeight.w500)),
-                const Spacer(),
-                GestureDetector(
-                  onTap: onClose,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.close, size: 14, color: Colors.grey[600]),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // ★ Lyrics content — scrollable, mặc định hiện
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-              itemCount: lines.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 1),
-                  child: Text(
-                    lines[index],
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// _LrcLyricsPanel removed - replaced with sophisticated LRC display from UnderstandModeScreen
 
 // ═══════════════════════════════════════════════════════════════
 // AUTO-HIDE ZOOM CONTROLS
@@ -811,21 +861,23 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
             curve: Curves.easeInOut,
             child: _showSlider
                 ? SizedBox(
-                    width: 80, height: 20,
+                    width: 80,
+                    height: 20,
                     child: SliderTheme(
                       data: SliderThemeData(
                         trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 5),
-                        overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 8),
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 5),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 8),
                         thumbColor: const Color(0xFF6C63FF),
                         activeTrackColor: const Color(0xFF6C63FF),
                         inactiveTrackColor: Colors.white24,
                       ),
                       child: Slider(
                         value: _zoom,
-                        min: _minZoom, max: _maxZoom,
+                        min: _minZoom,
+                        max: _maxZoom,
                         onChanged: (v) => _setZoom(v),
                         onChangeEnd: (_) => _restartHideTimer(),
                       ),
@@ -838,9 +890,7 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
                       child: Text(
                         '${_zoom.toStringAsFixed(1)}×',
                         style: TextStyle(
-                          color: _zoom == 1.0
-                              ? Colors.grey[500]
-                              : Colors.white,
+                          color: _zoom == 1.0 ? Colors.grey[500] : Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
@@ -908,7 +958,8 @@ class _SongInfoBar extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               child: Row(children: [
                 Container(
-                  width: 44, height: 44,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                         colors: [Color(0xFF6C63FF), Color(0xFF5B52CC)]),
@@ -916,7 +967,8 @@ class _SongInfoBar extends StatelessWidget {
                   ),
                   child: Icon(
                     player.isPlaying ? Icons.equalizer : Icons.music_note,
-                    color: Colors.white, size: 22,
+                    color: Colors.white,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -959,8 +1011,7 @@ class _SongInfoBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
               child: Text('${player.state.speed}×',
                   style: const TextStyle(
@@ -1057,8 +1108,7 @@ class _ActionTile extends StatelessWidget {
             if (badge != null) ...[
               const SizedBox(width: 4),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(6),
@@ -1132,8 +1182,8 @@ class _SpeedPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.35),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
       child: const SingleChildScrollView(child: SpeedControlWidget()),
     );
   }
@@ -1153,7 +1203,10 @@ class _SleepPanel extends StatelessWidget {
             style: TextStyle(color: Colors.white70, fontSize: 14)),
         const SizedBox(height: 4),
         Slider(
-          value: minutes.toDouble(), min: 5, max: 120, divisions: 23,
+          value: minutes.toDouble(),
+          min: 5,
+          max: 120,
+          divisions: 23,
           label: '$minutes phút',
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
@@ -1163,11 +1216,10 @@ class _SleepPanel extends StatelessWidget {
             onPressed: () => player.setSleepTimerMinutes(minutes),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6C63FF),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
-            child: Text('Đặt $minutes phút',
-                style: const TextStyle(fontSize: 12)),
+            child:
+                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
@@ -1207,8 +1259,7 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
             setState(() => _showSilenceOptions = !_showSilenceOptions);
           },
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: _showSilenceOptions
                   ? const Color(0xFFFF9800).withValues(alpha: 0.15)
@@ -1216,8 +1267,7 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
               borderRadius: BorderRadius.circular(8),
               border: _showSilenceOptions
                   ? Border.all(
-                      color:
-                          const Color(0xFFFF9800).withValues(alpha: 0.3))
+                      color: const Color(0xFFFF9800).withValues(alpha: 0.3))
                   : null,
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1246,7 +1296,8 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
                 _showSilenceOptions
                     ? Icons.keyboard_arrow_up
                     : Icons.keyboard_arrow_down,
-                size: 14, color: Colors.grey[600],
+                size: 14,
+                color: Colors.grey[600],
               ),
             ]),
           ),
@@ -1275,8 +1326,7 @@ class _SilenceOptionsBox extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(10),
-            border:
-                Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1285,7 +1335,8 @@ class _SilenceOptionsBox extends StatelessWidget {
                   style: TextStyle(color: Colors.grey[400], fontSize: 11)),
               const SizedBox(height: 8),
               Wrap(
-                spacing: 6, runSpacing: 4,
+                spacing: 6,
+                runSpacing: 4,
                 children: [0, 1, 2, 3, 5, 10].map((sec) {
                   final isSelected = silenceSec == sec;
                   return ChoiceChip(
@@ -1298,9 +1349,8 @@ class _SilenceOptionsBox extends StatelessWidget {
                         const Color(0xFFFF9800).withValues(alpha: 0.2),
                     labelStyle: TextStyle(
                       fontSize: 11,
-                      color: isSelected
-                          ? const Color(0xFFFF9800)
-                          : Colors.white70,
+                      color:
+                          isSelected ? const Color(0xFFFF9800) : Colors.white70,
                     ),
                     visualDensity: VisualDensity.compact,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1321,8 +1371,8 @@ class _AIPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.4),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
       child: const SingleChildScrollView(child: GenerateLrcButton()),
     );
   }
@@ -1385,14 +1435,14 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     icon: Icons.straighten,
                     label: _abLabel(player),
                     color: const Color(0xFF6C63FF),
-                    isActive: player.pendingLoopA != null ||
-                        player.hasCompletedLoop,
+                    isActive:
+                        player.pendingLoopA != null || player.hasCompletedLoop,
                     onTap: () => _handleAbTap(player),
                     onLongPress: () => _togglePanel(_InlinePanel.ab),
-                    badge: player.pendingLoopA != null &&
-                            !player.hasCompletedLoop
-                        ? 'A…'
-                        : null,
+                    badge:
+                        player.pendingLoopA != null && !player.hasCompletedLoop
+                            ? 'A…'
+                            : null,
                   ),
                   const SizedBox(width: 6),
                   _ActionTile(
@@ -1481,8 +1531,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
       return;
     }
     const modes = [0, 1, 3, 5, -1];
-    final idx =
-        modes.indexOf(player.maxLoopCount).clamp(0, modes.length - 1);
+    final idx = modes.indexOf(player.maxLoopCount).clamp(0, modes.length - 1);
     player.setLoopCount(modes[(idx + 1) % modes.length]);
   }
 
@@ -1526,8 +1575,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
       behavior: SnackBarBehavior.floating,
       backgroundColor: const Color(0xFF6C63FF),
       duration: const Duration(seconds: 2),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
   }
 
@@ -1553,9 +1601,8 @@ class _SlimProgress extends StatelessWidget {
         final dur = player.state.duration;
         final durMs = dur.inMilliseconds;
         final posMs = pos.inMilliseconds;
-        final pct = (durMs > 0 && posMs >= 0)
-            ? (posMs / durMs).clamp(0.0, 1.0)
-            : 0.0;
+        final pct =
+            (durMs > 0 && posMs >= 0) ? (posMs / durMs).clamp(0.0, 1.0) : 0.0;
         final safePct = pct.isNaN || pct.isInfinite ? 0.0 : pct;
 
         return Row(children: [
@@ -1566,18 +1613,17 @@ class _SlimProgress extends StatelessWidget {
             child: SliderTheme(
               data: SliderThemeData(
                 trackHeight: 2,
-                thumbShape:
-                    const RoundSliderThumbShape(enabledThumbRadius: 4),
-                overlayShape:
-                    const RoundSliderOverlayShape(overlayRadius: 10),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
                 thumbColor: const Color(0xFF6C63FF),
                 activeTrackColor: const Color(0xFF6C63FF),
                 inactiveTrackColor: Colors.white12,
               ),
               child: Slider(
-                value: safePct, min: 0.0, max: 1.0,
-                onChanged:
-                    durMs > 0 ? (v) => player.seekToPercent(v) : null,
+                value: safePct,
+                min: 0.0,
+                max: 1.0,
+                onChanged: durMs > 0 ? (v) => player.seekToPercent(v) : null,
               ),
             ),
           ),
@@ -1651,7 +1697,8 @@ class _PlayButton extends StatelessWidget {
         player.togglePlayPause();
       },
       child: Container(
-        width: 60, height: 60,
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
@@ -1666,7 +1713,8 @@ class _PlayButton extends StatelessWidget {
         ),
         child: Icon(
           player.isPlaying ? Icons.pause : Icons.play_arrow,
-          color: Colors.white, size: 28,
+          color: Colors.white,
+          size: 28,
         ),
       ),
     );
@@ -1776,8 +1824,7 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                 : (_) => setState(() => _selectedLevel = null),
           ),
           ...WhisperModelLevel.values.map((level) {
-            final info =
-                context.read<PlayerProvider>().getSttModelInfo(level);
+            final info = context.read<PlayerProvider>().getSttModelInfo(level);
             final isSelected = _selectedLevel == level;
             return FilterChip(
               label: Text(
@@ -1799,12 +1846,12 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
               : () => widget.onGenerate(_selectedLevel),
           icon: widget.isProcessing
               ? const SizedBox(
-                  width: 16, height: 16,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.subtitles_outlined),
-          label: Text(widget.isProcessing
-              ? 'Đang xử lý...'
-              : 'Tạo lời thoại (LRC)'),
+          label: Text(
+              widget.isProcessing ? 'Đang xử lý...' : 'Tạo lời thoại (LRC)'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue.shade700,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1867,7 +1914,8 @@ class _AdvancedSheet extends StatelessWidget {
                       children: [
                         const SizedBox(width: 40),
                         Container(
-                          width: 36, height: 3,
+                          width: 36,
+                          height: 3,
                           decoration: BoxDecoration(
                             color: Colors.white24,
                             borderRadius: BorderRadius.circular(2),
@@ -1902,11 +1950,10 @@ class _AdvancedSheet extends StatelessWidget {
                     iconColor: Colors.orange,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        maxHeight:
-                            MediaQuery.of(context).size.height * 0.35,
+                        maxHeight: MediaQuery.of(context).size.height * 0.35,
                       ),
-                      child:
-                          const SingleChildScrollView(child: SpeedControlWidget()),
+                      child: const SingleChildScrollView(
+                          child: SpeedControlWidget()),
                     ),
                   ),
                   const _SheetDivider(),
@@ -1978,7 +2025,9 @@ class _SheetDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Divider(
-      height: 1, indent: 16, endIndent: 16,
+      height: 1,
+      indent: 16,
+      endIndent: 16,
       color: Colors.white.withValues(alpha: 0.06),
     );
   }

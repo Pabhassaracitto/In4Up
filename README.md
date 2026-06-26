@@ -112,8 +112,11 @@ flutter run -d windows
 - UI/UX refinements for waveform editor and Memory Garden.
 
 ## License
+This project is released under the **VipSound Source-Available License (Non-Commercial)**.  
+You may use, copy, and modify the source code for personal, educational, and non-commercial research purposes.  
+Commercial use of VipSound, in whole or in part, requires prior written permission from the author.
 
-(Chèn nội dung license của bạn tại đây, ví dụ MIT, GPL hoặc ghi rõ “Private / Educational use only”.)
+See the [LICENSE](./LICENSE) file for the full terms.
 
 ***
 

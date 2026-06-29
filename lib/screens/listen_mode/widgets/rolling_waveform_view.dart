@@ -9,7 +9,9 @@ class RollingWaveformView extends StatefulWidget {
   final RollingWaveformController controller;
   final double height;
   final Function(Duration)? onSeek;
+  final Function(Duration)? onSeekUpdate;
   final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
   final Function(Duration)? onLongPressPosition;
   final bool showControls;
 
@@ -18,7 +20,9 @@ class RollingWaveformView extends StatefulWidget {
     required this.controller,
     this.height = 200,
     this.onSeek,
+    this.onSeekUpdate,
     this.onTap,
+    this.onDoubleTap,
     this.onLongPressPosition,
     this.showControls = true,
   });
@@ -28,7 +32,6 @@ class RollingWaveformView extends StatefulWidget {
 }
 
 class _RollingWaveformViewState extends State<RollingWaveformView> {
-  bool _isVisible = true;
   Duration? _dragStartPosition;
   double? _dragStartX;
   bool _isDragging = false;
@@ -46,10 +49,6 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
 
     final msPerPixel = visibleMs / width;
 
-    // Drag seek dùng: deltaMs = -deltaX * msPerPixel (kéo phải = lùi)
-    // Long-press map trực tiếp x → position theo visual:
-    // bar tại x < playheadX = quá khứ, x > playheadX = tương lai
-    // => dùng dấu THUẬN (không đảo) vì đây là "nhảy đến vị trí này trên màn hình"
     final deltaMs = (x - playheadX) * msPerPixel;
 
     final targetMs = (widget.controller.position.inMilliseconds + deltaMs)
@@ -62,29 +61,25 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      // Tap: play/pause
       onTap: () => widget.onTap?.call(),
 
-      // Double tap: ẩn/hiện waveform
-      onDoubleTap: () => setState(() => _isVisible = !_isVisible),
+      // ★ SỬA 2: Double tap — chỉ gọi callback, KHÔNG toggle visibility
+      onDoubleTap: () => (widget.onDoubleTap ?? widget.onTap)?.call(),
 
-      // Long press: action sheet
       onLongPressStart: (details) {
-        if (_isDragging) return; // Block long-press khi đang drag seek
+        if (_isDragging) return;
         final pos = _xToPosition(details.localPosition.dx);
         widget.onLongPressPosition?.call(pos);
       },
 
-      // Drag start
       onHorizontalDragStart: (details) {
         _isDragging = true;
         _dragStartPosition = widget.controller.position;
         _dragStartX = details.localPosition.dx;
       },
 
-      // Drag update (delta-based, kéo phải = lùi)
       onHorizontalDragUpdate: (details) {
-        if (widget.onSeek == null) return;
+        if (widget.onSeek == null && widget.onSeekUpdate == null) return;
         if (_dragStartPosition == null || _dragStartX == null) return;
 
         final renderBox = context.findRenderObject() as RenderBox?;
@@ -97,72 +92,77 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
         final visibleMs = widget.controller.visibleDuration.inMilliseconds;
         final msPerPixel = visibleMs / screenWidth;
 
-        // Kéo phải = waveform dịch phải = position lùi lại → dấu âm
         final deltaMs = -deltaX * msPerPixel;
 
         final targetMs = (_dragStartPosition!.inMilliseconds + deltaMs)
             .round()
             .clamp(0, widget.controller.duration.inMilliseconds);
 
-        widget.onSeek?.call(Duration(milliseconds: targetMs));
+        final newPosition = Duration(milliseconds: targetMs);
+
+        // Cập nhật giao diện mượt mà không bị lag do gọi method seek của audio player quá nhiều
+        widget.controller.updatePosition(newPosition);
+        widget.onSeekUpdate?.call(newPosition);
       },
 
-      // Drag end
       onHorizontalDragEnd: (_) {
+        if (_isDragging) {
+          widget.onSeek?.call(widget.controller.position);
+        }
         _isDragging = false;
         _dragStartPosition = null;
         _dragStartX = null;
       },
 
       onHorizontalDragCancel: () {
+        if (_isDragging) {
+          widget.onSeek?.call(widget.controller.position);
+        }
         _isDragging = false;
         _dragStartPosition = null;
         _dragStartX = null;
       },
 
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        height: _isVisible ? widget.height : 0,
-        child: _isVisible
-            ? Column(
-                children: [
-                  // Waveform canvas
-                  Expanded(
-                    child: Listener(
-                      onPointerSignal: (event) {
-                        if (event is PointerScrollEvent) {
-                          final newZoom = widget.controller.zoom +
-                              event.scrollDelta.dy * -0.001;
-                          widget.controller.setZoom(newZoom);
-                        }
-                      },
-                      child: AnimatedBuilder(
-                        animation: widget.controller,
-                        builder: (context, child) {
-                          return RepaintBoundary(
-                            child: CustomPaint(
-                              size: Size.infinite,
-                              painter: RollingWaveformPainter(
-                                controller: widget.controller,
-                              ),
-                            ),
-                          );
-                        },
+      // ★ SỬA 3: Luôn hiện — SizedBox thay AnimatedContainer
+      child: SizedBox(
+        height: widget.height,
+        child: Column(
+          children: [
+            // Waveform canvas
+            Expanded(
+              child: Listener(
+                onPointerSignal: (event) {
+                  if (event is PointerScrollEvent) {
+                    final newZoom =
+                        widget.controller.zoom + event.scrollDelta.dy * -0.001;
+                    widget.controller.setZoom(newZoom);
+                  }
+                },
+                child: AnimatedBuilder(
+                  animation: widget.controller,
+                  builder: (context, child) {
+                    return RepaintBoundary(
+                      child: CustomPaint(
+                        size: Size.infinite,
+                        painter: RollingWaveformPainter(
+                          controller: widget.controller,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
+              ),
+            ),
 
-                  // Controls (optional)
-                  if (widget.showControls) _buildControls(),
-                ],
-              )
-            : null,
+            // Controls (giữ nguyên, điều khiển bằng showControls)
+            if (widget.showControls) _buildControls(),
+          ],
+        ),
       ),
     );
   }
 
-  // ── Zoom controls ────────────────────────────────────────────
+  // ★ GIỮ NGUYÊN _buildControls() — không xóa, không sửa
   Widget _buildControls() {
     return Container(
       height: 40,
@@ -175,15 +175,12 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
       ),
       child: Row(
         children: [
-          // Zoom out
           IconButton(
             icon: const Icon(Icons.zoom_out, size: 18),
             onPressed: () =>
                 widget.controller.setZoom(widget.controller.zoom * 0.8),
             color: Colors.white70,
           ),
-
-          // Zoom slider
           Expanded(
             child: Slider(
               value: widget.controller.zoom,
@@ -194,18 +191,13 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
               activeColor: const Color(0xFF6C63FF),
             ),
           ),
-
-          // Zoom in
           IconButton(
             icon: const Icon(Icons.zoom_in, size: 18),
             onPressed: () =>
                 widget.controller.setZoom(widget.controller.zoom * 1.25),
             color: Colors.white70,
           ),
-
           const SizedBox(width: 16),
-
-          // Zoom badge
           AnimatedBuilder(
             animation: widget.controller,
             builder: (context, _) => Container(
@@ -228,4 +220,4 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
       ),
     );
   }
-} // ← class _RollingWaveformViewState đóng đúng chỗ
+}

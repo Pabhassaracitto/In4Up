@@ -1,5 +1,4 @@
 # Podfile for VipSound project
-
 # --- KHÔNG ĐƯỢC THAY ĐỔI ĐOẠN NÀY ---
 # Tự động tìm đường dẫn Flutter SDK từ tệp Generated.xcconfig
 def find_flutter_root
@@ -19,7 +18,7 @@ end
 
 load File.join(find_flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
 # -------------------------------------
-
+$FirebaseSDKVersion = '11.15.0'
 # Đã nâng lên 14.0 để tương thích với ffmpeg_kit_flutter_new
 platform :ios, '14.0'
 

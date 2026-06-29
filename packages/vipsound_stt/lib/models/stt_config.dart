@@ -24,7 +24,8 @@ class SttConfig {
   const SttConfig({
     this.preferredEngine = SttEngineType.native,
     this.language = 'en-US',
-    this.whisperModel = WhisperModelLevel.base,
+    // ★ TASK 1: Đổi default từ base → tiny để khởi động nhanh hơn
+    this.whisperModel = WhisperModelLevel.tiny,
     this.autoFallback = true,
     this.generateLrc = false,
     this.cacheResults = true,

@@ -28,28 +28,52 @@ android {
         versionCode = 2
         versionName = "1.0.0"
 
-        //ndk {
+        // ndk {
         //     abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
-        //    }
+        // }
+    } // Đóng ngoặc defaultConfig ở đây là chuẩn
+
+    // 1. Định nghĩa kích thước (Dimension) nằm trong android { ... }
+    flavorDimensions.add("default")
+
+    // 2. Các khuôn đúc (Flavors) nằm trong android { ... }
+    productFlavors {
+        create("stable") {
+            dimension = "default"
+            applicationIdSuffix = "" // Giữ nguyên ID gốc: com.vipsound
+            resValue("string", "app_name", "VipSound")
+        }
+        
+        create("dev") {
+            dimension = "default"
+            applicationIdSuffix = ".dev" // ID sẽ thành: com.vipsound.dev
+            resValue("string", "app_name", "VipSound Dev")
         }
 
-    buildTypes {
-    release {
-        isMinifyEnabled = false // thử tắt
-        isShrinkResources = false //
-        // XÓA DÒNG signingConfig NÀY ĐI HOẶC ĐỂ MẶC ĐỊNH
-        // signingConfig = signingConfigs.getByName("debug") 
-        proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        create("beta") {
+            dimension = "default"
+            applicationIdSuffix = ".beta" // ID sẽ thành: com.vipsound.beta
+            resValue("string", "app_name", "VipSound Beta")
+        }
     }
-}
+
+    // 3. Khối buildTypes đã được đưa về đúng vị trí bên trong android { ... }
+    buildTypes {
+        getByName("release") { // Đã sửa thành cú pháp chuẩn của Kotlin (.kts)
+            isMinifyEnabled = false 
+            isShrinkResources = false 
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
 
     // externalNativeBuild {
     //     cmake {
     //         path = file("src/main/cpp/CMakeLists.txt")
     //     }
     // }
-}
+} // <--- ĐÂY LÀ DẤU ĐÓNG NGOẶC CHÍNH XÁC CỦA KHỐI ANDROID
 
+// Các cấu hình hệ thống bên dưới nằm HOÀN TOÀN NGOÀI khối android { ... }
 configurations.all {
     resolutionStrategy {
         force("androidx.browser:browser:1.8.0")

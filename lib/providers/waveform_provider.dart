@@ -1,4 +1,5 @@
 // lib/providers/waveform_provider.dart
+// ★ CHỈ SỬA 1 CHỖ: method loadWaveform()
 
 import 'dart:io';
 import 'dart:isolate';
@@ -6,7 +7,6 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// FIX LỖI 1: Import package just_waveform
 import 'package:just_waveform/just_waveform.dart' as jw;
 
 import '../models/audio_marker.dart';
@@ -43,7 +43,6 @@ class WaveformProvider extends ChangeNotifier {
   bool get hasSelection => _selectionStart != null && _selectionEnd != null;
   List<AudioMarker> get markers => List.unmodifiable(_markers);
   AudioMarker? get selectedMarker => _selectedMarker;
-  // FIX LỖI 4: Thêm getter để sử dụng _draggingMarker
   AudioMarker? get draggingMarker => _draggingMarker;
 
   List<double> get displayWaveform =>
@@ -54,14 +53,24 @@ class WaveformProvider extends ChangeNotifier {
 
   // ==================== WAVEFORM LOADING ====================
 
-  /// Load waveform từ file audio
+  /// ★ FIX: Load waveform từ file audio — sửa guard condition
   Future<void> loadWaveform(String filePath, Duration duration) async {
-    // ★ CHUẨN HÓA: Đảm bảo so sánh chính xác trên Windows
     final normalizedPath = filePath.replaceAll('\\', '/');
 
-    if (_currentFilePath == normalizedPath &&
+    // ★ FIX: Guard chặt hơn — chỉ skip khi CÓ data VÀ duration khớp VÀ path khớp
+    final alreadyLoaded = _currentFilePath == normalizedPath &&
         _waveformData.isNotEmpty &&
-        _audioDuration == duration) {
+        _audioDuration == duration &&
+        duration > Duration.zero; // ★ THÊM: duration phải > 0 mới coi là loaded
+
+    if (alreadyLoaded) {
+      debugPrint('⏭️ Waveform already loaded for: $normalizedPath');
+      return;
+    }
+
+    // ★ FIX: Nếu đang loading cùng file thì skip (tránh duplicate request)
+    if (_isLoading && _currentFilePath == normalizedPath) {
+      debugPrint('⏳ Waveform already loading for: $normalizedPath');
       return;
     }
 
@@ -70,29 +79,31 @@ class WaveformProvider extends ChangeNotifier {
     _audioDuration = duration;
     notifyListeners();
 
+    debugPrint('🔄 Loading waveform: $normalizedPath (duration: $duration)');
+
     try {
-      // Chạy file I/O + parsing trên background isolate
       final samples =
           await Isolate.run(() => _extractWaveformSamples(normalizedPath));
+      // Guard: tránh race condition khi user đổi bài nhanh
       if (_currentFilePath == normalizedPath) {
-        // Guard: tránh race condition khi user đổi bài nhanh
         _waveformData = samples;
+        debugPrint('✅ Waveform loaded: ${samples.length} samples');
       }
     } catch (e) {
-      debugPrint('Waveform load error: $e');
-      if (_currentFilePath == filePath) {
+      debugPrint('❌ Waveform load error: $e');
+      if (_currentFilePath == normalizedPath) {
         _waveformData = _generateFakeWaveform(1000);
       }
     }
 
-    if (_currentFilePath == filePath) {
+    if (_currentFilePath == normalizedPath) {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-// ── Top-level function (bắt buộc cho compute()) ──
-// Đặt NGOÀI class WaveformProvider
+  // ═══════════════ PHẦN CÒN LẠI GIỮ NGUYÊN 100% ═══════════════
+
   static Future<List<double>> _extractWaveformSamples(String filePath) async {
     try {
       final file = File(filePath);
@@ -100,7 +111,6 @@ class WaveformProvider extends ChangeNotifier {
         return _generateFakeWaveformStatic(1000);
       }
 
-      // just_waveform extract
       final waveformFile = File('$filePath.waveform');
       jw.Waveform? waveform;
 
@@ -116,7 +126,6 @@ class WaveformProvider extends ChangeNotifier {
         }
       }
 
-      // Cleanup
       try {
         if (await waveformFile.exists()) await waveformFile.delete();
       } catch (_) {}
@@ -125,7 +134,6 @@ class WaveformProvider extends ChangeNotifier {
         return _generateFakeWaveformStatic(1000);
       }
 
-      // Normalize + downsample
       const targetSamples = 2000;
       final data = waveform.data;
       int maxAmp = 1;
@@ -146,7 +154,6 @@ class WaveformProvider extends ChangeNotifier {
         samples.add(peak.clamp(0.02, 1.0));
       }
 
-      // Smooth
       for (int i = 1; i < samples.length - 1; i++) {
         samples[i] = (samples[i - 1] + samples[i] * 2 + samples[i + 1]) / 4;
       }
@@ -157,7 +164,6 @@ class WaveformProvider extends ChangeNotifier {
     }
   }
 
-// Static version của fake waveform (dùng được trong isolate)
   static List<double> _generateFakeWaveformStatic(int count) {
     final random = Random(42);
     final samples = <double>[];
@@ -172,22 +178,17 @@ class WaveformProvider extends ChangeNotifier {
     return samples;
   }
 
-  /// Dùng just_waveform package để đọc waveform
   Future<List<double>?> _loadWithJustWaveform(String filePath) async {
     try {
       const targetSamples = 2000;
-
-      // FIX LỖI 2: Unnecessary braces
       final waveformFile = File('$filePath.waveform');
 
-      // Parse waveform
       final progressStream = jw.JustWaveform.extract(
         audioInFile: File(filePath),
         waveOutFile: waveformFile,
         zoom: const jw.WaveformZoom.pixelsPerSecond(100),
       );
 
-      // FIX LỖI 1 & 2: Sử dụng đúng tên class từ alias jw
       jw.Waveform? waveform;
       await for (final progress in progressStream) {
         if (progress.waveform != null) {
@@ -197,41 +198,34 @@ class WaveformProvider extends ChangeNotifier {
 
       if (waveform == null) return null;
 
-      // Convert to normalized samples (0.0 - 1.0)
       final samples = <double>[];
-      final data = waveform.data; // List<int>
+      final data = waveform.data;
 
       if (data.isEmpty) return null;
 
-      // Tính max amplitude để normalize
       int maxAmp = 1;
       for (int i = 0; i < data.length; i++) {
         final absVal = data[i].abs();
         if (absVal > maxAmp) maxAmp = absVal;
       }
 
-      // Downsample nếu quá nhiều
       final step = max(1, data.length ~/ targetSamples);
 
       for (int i = 0; i < data.length; i += step) {
-        // Lấy max trong chunk
         double maxInChunk = 0.0;
         for (int j = i; j < min(i + step, data.length); j++) {
           final normalized = data[j].abs() / maxAmp;
           if (normalized > maxInChunk) maxInChunk = normalized;
         }
-        // FIX LỖI 3: Explicit double cast để tránh lỗi gán type
         samples.add(maxInChunk.clamp(0.02, 1.0).toDouble());
       }
 
-      // Smoothing
       if (samples.length > 2) {
         for (int i = 1; i < samples.length - 1; i++) {
           samples[i] = (samples[i - 1] + samples[i] * 2 + samples[i + 1]) / 4;
         }
       }
 
-      // Cleanup temp file
       try {
         if (await waveformFile.exists()) {
           await waveformFile.delete();
@@ -245,31 +239,24 @@ class WaveformProvider extends ChangeNotifier {
     }
   }
 
-  /// Cải thiện raw bytes parsing với format detection
   List<double> _generateWaveformFromBytes(Uint8List bytes, String filePath) {
     const targetSamples = 2000;
-
     final lower = filePath.toLowerCase();
 
-    // Chỉ parse raw bytes cho WAV files
     if (!lower.endsWith('.wav')) {
       debugPrint('Non-WAV file, using fake waveform for: $filePath');
       return _generateFakeWaveform(targetSamples);
     }
 
-    // WAV header parsing
-    int dataStart = 44; // Standard WAV header
+    int dataStart = 44;
 
-    // Tìm data chunk thực sự (some WAV files have extended headers)
     if (bytes.length > 44) {
       for (int i = 12; i < min(bytes.length - 8, 200); i++) {
-        // Tìm "data" marker
-        if (bytes[i] == 0x64 && // 'd'
-            bytes[i + 1] == 0x61 && // 'a'
-            bytes[i + 2] == 0x74 && // 't'
+        if (bytes[i] == 0x64 &&
+            bytes[i + 1] == 0x61 &&
+            bytes[i + 2] == 0x74 &&
             bytes[i + 3] == 0x61) {
-          // 'a'
-          dataStart = i + 8; // Skip "data" + size (4 bytes)
+          dataStart = i + 8;
           break;
         }
       }
@@ -279,7 +266,6 @@ class WaveformProvider extends ChangeNotifier {
       return _generateFakeWaveform(targetSamples);
     }
 
-    // Detect bit depth from WAV header
     int bitsPerSample = 16;
     if (bytes.length > 35) {
       bitsPerSample = bytes[34] | (bytes[35] << 8);
@@ -309,14 +295,12 @@ class WaveformProvider extends ChangeNotifier {
         double sampleValue = 0.0;
 
         if (bitsPerSample == 16) {
-          // 16-bit signed PCM
           final lo = bytes[offset];
           final hi = bytes[offset + 1];
           int raw = lo | (hi << 8);
           if (raw >= 0x8000) raw -= 0x10000;
           sampleValue = raw.abs() / 32768.0;
         } else if (bitsPerSample == 24) {
-          // 24-bit signed PCM
           final lo = bytes[offset];
           final mid = bytes[offset + 1];
           final hi = bytes[offset + 2];
@@ -324,7 +308,6 @@ class WaveformProvider extends ChangeNotifier {
           if (raw >= 0x800000) raw -= 0x1000000;
           sampleValue = raw.abs() / 8388608.0;
         } else {
-          // 8-bit unsigned PCM
           sampleValue = (bytes[offset] - 128).abs() / 128.0;
         }
 
@@ -334,7 +317,6 @@ class WaveformProvider extends ChangeNotifier {
       samples.add(maxValue.clamp(0.02, 1.0));
     }
 
-    // Smoothing
     if (samples.length > 2) {
       for (int i = 1; i < samples.length - 1; i++) {
         samples[i] = (samples[i - 1] + samples[i] * 2 + samples[i + 1]) / 4;
@@ -344,7 +326,6 @@ class WaveformProvider extends ChangeNotifier {
     return samples.isEmpty ? _generateFakeWaveform(targetSamples) : samples;
   }
 
-  /// Tạo waveform giả cho demo/fallback
   List<double> _generateFakeWaveform(int count) {
     final random = Random(42);
     List<double> samples = [];

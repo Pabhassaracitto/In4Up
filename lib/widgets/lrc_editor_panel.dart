@@ -10,11 +10,17 @@ import 'package:vipsound_stt/stt_lrc_converter.dart';
 class LrcEditorPanel extends StatefulWidget {
   final bool initiallyExpanded;
   final String title;
+  final VoidCallback? onLrcApplied;
+  final bool compact;
+  final bool showAsLyrics;
 
   const LrcEditorPanel({
     super.key,
     this.initiallyExpanded = true,
     this.title = 'LRC Editor',
+    this.onLrcApplied,
+    this.compact = false,
+    this.showAsLyrics = false,
   });
 
   @override
@@ -199,7 +205,10 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: _useThisLrc,
+                      onPressed: () {
+                        _useThisLrc();
+                        widget.onLrcApplied?.call();
+                      },
                       icon: const Icon(Icons.check_circle_outline, size: 16),
                       label: const Text('Sử dụng LRC này'),
                       style: ElevatedButton.styleFrom(

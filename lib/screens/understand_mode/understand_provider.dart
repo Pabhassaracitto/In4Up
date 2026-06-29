@@ -27,6 +27,19 @@ class UnderstandProvider extends ChangeNotifier {
       ? 0
       : UnderstandService.calculateComprehension(_understandLines);
 
+  // ★ TASK 5: Clear toàn bộ state khi đổi bài — tránh hiển thị lyrics bài cũ
+  void clear() {
+    _lrcLines = [];
+    _currentLineIndex = -1;
+    _understandLines = [];
+    _currentUnderstandLineIndex = -1;
+    _isUnderstanding = false;
+    _comprehensionScore = 0.0;
+    _lastReviewed.clear();
+    _reviewCounts.clear();
+    notifyListeners();
+  }
+
   void setUnderstandLines(List<UnderstandLine> lines) {
     _understandLines = lines;
     notifyListeners();

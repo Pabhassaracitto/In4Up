@@ -2,6 +2,7 @@
 // Chỉ thay đổi 3 chỗ — giữ nguyên toàn bộ code cũ
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
@@ -11,9 +12,9 @@ import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
 import '../screens/listen_mode/models/recent_audio.dart';
-import '../screens/understand_mode/understand_mode.dart';
 // ★ THÊM import
 import '../screens/listen_mode/services/recent_audio_service.dart';
+import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../services/storage_service.dart';
 import 'text_provider.dart'; // Import TextProvider
 
@@ -92,6 +93,18 @@ class PlayerProvider extends ChangeNotifier {
   SttTranscribeOutput? _lastTranscribeOutput;
   SttTranscribeOutput? get lastTranscribeOutput => _lastTranscribeOutput;
 
+  // ★ TASK 4: Flag để UI biết khi nào LRC vừa được tạo xong
+  bool _lrcJustGenerated = false;
+  bool get lrcJustGenerated => _lrcJustGenerated;
+
+  /// UI gọi method này sau khi đã xử lý sự kiện lrcJustGenerated
+  void consumeLrcJustGenerated() {
+    if (_lrcJustGenerated) {
+      _lrcJustGenerated = false;
+      // Không cần notifyListeners() — tránh vòng lặp
+    }
+  }
+
   // === PLAYBACK STATE ===
   PlaybackState _state = const PlaybackState();
   String? _currentSongTitle;
@@ -115,6 +128,7 @@ class PlayerProvider extends ChangeNotifier {
   double _gapDuration = 0.0;
   bool _isWaitingGap = false;
   Timer? _gapTimer;
+  Duration _silenceDuration = Duration.zero;
 
   // === SLEEP TIMER ===
   Timer? _sleepTimer;
@@ -161,6 +175,7 @@ class PlayerProvider extends ChangeNotifier {
   double get gapDuration => _gapDuration;
   bool get isWaitingGap => _isWaitingGap;
   bool get hasLoop => _loopStart != null && _loopEnd != null;
+  Duration get silenceDuration => _silenceDuration;
 
   Duration? get loopDuration {
     if (_loopStart == null || _loopEnd == null) return null;
@@ -228,9 +243,115 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  /// Stream progress STT (dùng cho LinearProgressIndicator trong UI)
   Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
   SttProgress get sttProgress => _sttService.currentProgress;
+
+  /// ★ TASK 2: Tính hash đơn giản từ file path để làm cache key LRC
+  String _computeFileHash(String normalizedPath) {
+    // Dùng hashCode của path làm ID nhẹ (không cần đọc file)
+    // Nếu dự án có crypto package → dùng MD5 của bytes sẽ chính xác hơn
+    return normalizedPath.hashCode.toRadixString(16);
+  }
+
+  /// ★ TASK 2: Tìm file LRC trong cache dựa trên hash của path
+  Future<String?> _findCachedLrcPath(String normalizedPath) async {
+    try {
+      final hash = _computeFileHash(normalizedPath);
+
+      // Thư mục cache STT mặc định (cùng nơi SttServiceFacade lưu LRC)
+      // Thử các vị trí phổ biến theo thứ tự ưu tiên
+      final candidates = <String>[
+        // 1. LRC đặt cùng thư mục với file audio
+        '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
+            '/${hash}.lrc',
+        // 2. Cache app (SttServiceFacade thường lưu theo pattern này)
+        '/data/user/0/com.vipsound.app/cache/lrc/$hash.lrc',
+        // 3. LRC cùng tên với file audio (thay extension)
+        _replaceExtension(normalizedPath, '.lrc'),
+      ];
+
+      for (final candidate in candidates) {
+        final file = File(candidate);
+        if (await file.exists()) {
+          debugPrint('✅ Found cached LRC: $candidate');
+          return candidate;
+        }
+      }
+
+      // 4. Scan thư mục cache thông qua SttServiceFacade nếu có API
+      final outputFromStt = _lastSttOutput;
+      if (outputFromStt?.lrcFilePath != null) {
+        final lrcFile = File(outputFromStt!.lrcFilePath!);
+        if (await lrcFile.exists()) {
+          return outputFromStt.lrcFilePath;
+        }
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ _findCachedLrcPath error: $e');
+      return null;
+    }
+  }
+
+  /// Helper: thay extension của file path
+  String _replaceExtension(String path, String newExt) {
+    final lastDot = path.lastIndexOf('.');
+    final lastSlash = path.lastIndexOf('/');
+    if (lastDot > lastSlash && lastDot >= 0) {
+      return '${path.substring(0, lastDot)}$newExt';
+    }
+    return '$path$newExt';
+  }
+
+  /// ★ TASK 2: Parse file LRC thành danh sách LrcLine
+  Future<List<LrcLine>> _parseLrcFile(String lrcPath) async {
+    try {
+      final file = File(lrcPath);
+      if (!await file.exists()) return [];
+
+      final content = await file.readAsString();
+      final lines = <LrcLine>[];
+
+      for (final rawLine in content.split('\n')) {
+        final trimmed = rawLine.trim();
+        if (trimmed.isEmpty) continue;
+
+        // Parse LRC format: [mm:ss.xx] text hoặc [mm:ss.xxx]
+        final match = RegExp(
+          r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$',
+        ).firstMatch(trimmed);
+
+        if (match != null) {
+          final minutes = int.parse(match.group(1)!);
+          final seconds = int.parse(match.group(2)!);
+          final centisStr = match.group(3)!;
+          // Normalise 2 hoặc 3 chữ số về milliseconds
+          final millis = centisStr.length == 2
+              ? int.parse(centisStr) * 10
+              : int.parse(centisStr);
+
+          final timestamp = Duration(
+            minutes: minutes,
+            seconds: seconds,
+            milliseconds: millis,
+          );
+          final text = match.group(4)?.trim() ?? '';
+
+          if (text.isNotEmpty) {
+            lines.add(
+                LrcLine(timestamp: timestamp, text: text, rawText: trimmed));
+          }
+        }
+      }
+
+      debugPrint('📄 Parsed ${lines.length} LRC lines from $lrcPath');
+      return lines;
+    } catch (e) {
+      debugPrint('⚠️ _parseLrcFile error: $e');
+      return [];
+    }
+  }
 
   /// Tạo LRC từ bài audio hiện tại (Deep Learning mode)
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
@@ -278,6 +399,21 @@ class PlayerProvider extends ChangeNotifier {
       // ★ THÊM: Lưu lrcPath riêng
       if (output.lrcFilePath != null) {
         _lastGeneratedLrcPath = output.lrcFilePath;
+      }
+
+      // ★ TASK 4: Nếu tạo LRC thành công → parse và đẩy vào UnderstandProvider
+      // + bật flag để UI mở _AIPanel và LrcEditorPanel ở chế độ edit
+      if (output.success &&
+          output.lrcFilePath != null &&
+          _understandProvider != null) {
+        final lrcLines = await _parseLrcFile(output.lrcFilePath!);
+        if (lrcLines.isNotEmpty) {
+          _understandProvider!.loadLrcLines(lrcLines);
+          debugPrint(
+              '✅ Auto-loaded ${lrcLines.length} LRC lines after generate');
+        }
+        // Bật flag → UI sẽ bắt và mở panel + editor mode
+        _lrcJustGenerated = true;
       }
 
       return output;
@@ -448,8 +584,15 @@ class PlayerProvider extends ChangeNotifier {
     String? artist,
     bool autoPlay = false,
   }) async {
-    // ★ CHUẨN HÓA: Đưa về dấu / để nhất quán trên Windows/Mobile
     final normalizedPath = path.replaceAll('\\', '/');
+
+    // ★ TASK 5: Dọn dẹp dữ liệu LRC bài cũ ngay khi đổi sang bài mới
+    // Chỉ clear nếu thực sự đổi bài (tránh clear khi load lại cùng bài)
+    if (_currentSongPath != null &&
+        _normalizePath(_currentSongPath!) != _normalizePath(normalizedPath)) {
+      _understandProvider?.clear();
+      debugPrint('🧹 Cleared UnderstandProvider for new song: $normalizedPath');
+    }
 
     _currentSongPath = normalizedPath;
     _currentSongTitle = title ?? normalizedPath.split('/').last;
@@ -497,7 +640,57 @@ class PlayerProvider extends ChangeNotifier {
           totalDuration: duration,
         );
       }
+
+      // ★ TASK 2: Sau khi load file xong, scan cache LRC theo hash
+      // Fire-and-forget để không block playback
+      _autoLoadCachedLrc(normalizedPath);
     }
+  }
+
+  /// ★ TASK 2: Tự động tìm và nạp LRC cache khi load bài mới
+  Future<void> _autoLoadCachedLrc(String normalizedPath) async {
+    try {
+      final cachedLrcPath = await _findCachedLrcPath(normalizedPath);
+
+      if (cachedLrcPath != null) {
+        final lrcLines = await _parseLrcFile(cachedLrcPath);
+        if (lrcLines.isNotEmpty && _understandProvider != null) {
+          _understandProvider!.loadLrcLines(lrcLines);
+          _lastGeneratedLrcPath = cachedLrcPath;
+          debugPrint(
+            '✅ Auto-loaded cached LRC (${lrcLines.length} lines): $cachedLrcPath',
+          );
+          notifyListeners();
+        }
+        // Nếu có LRC → không cần mở _AIPanel (UI sẽ xử lý trong _onUnderstandChange)
+      } else {
+        // Không có LRC cache → UI nên mở _AIPanel mặc định
+        // Bật flag để ListenModeScreen biết cần mở _AIPanel
+        _shouldOpenAiPanel = true;
+        notifyListeners();
+        debugPrint(
+            'ℹ️ No cached LRC found for: $normalizedPath → open AI panel');
+      }
+    } catch (e) {
+      debugPrint('⚠️ _autoLoadCachedLrc error: $e');
+    }
+  }
+
+  /// ★ TASK 2: Flag để UI mở _AIPanel khi không có LRC cache
+  bool _shouldOpenAiPanel = false;
+  bool get shouldOpenAiPanel => _shouldOpenAiPanel;
+
+  /// UI gọi method này sau khi đã xử lý sự kiện shouldOpenAiPanel
+  void consumeShouldOpenAiPanel() {
+    if (_shouldOpenAiPanel) {
+      _shouldOpenAiPanel = false;
+      // Không gọi notifyListeners() — tránh vòng lặp render
+    }
+  }
+
+  /// Helper normalize path (dùng nội bộ trong provider)
+  String _normalizePath(String path) {
+    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
   }
 
   // ★ THÊM: clearCurrentSong() — dùng cho "Xem tất cả" trong QuickAudioSheet
@@ -781,6 +974,13 @@ class PlayerProvider extends ChangeNotifier {
   void setGapDuration(double seconds) {
     _gapDuration = (seconds.isNaN ? 0.0 : seconds).clamp(0.0, 30.0);
     _storage.saveGapDuration(_gapDuration);
+    notifyListeners();
+  }
+
+  /// Khoảng lặng giữa các lần lặp AB (0 = tắt)
+  void setSilenceDuration(Duration duration) {
+    if (_silenceDuration == duration) return;
+    _silenceDuration = duration;
     notifyListeners();
   }
 

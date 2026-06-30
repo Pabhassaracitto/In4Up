@@ -348,59 +348,18 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       endDrawer: const AudioLibraryDrawer(),
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: _buildCurrentScreen(),
-              ),
+      body: Column(
+        children: [
+          _buildAppBar(),
+          Expanded(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCurrentScreen(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
-            if (_currentIndex != 1)
-              RepaintBoundary(
-                child: Consumer<PlayerProvider>(
-                  builder: (context, player, _) {
-                    if (player.currentSongPath == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
-                    return OpenContainer(
-                      transitionType: ContainerTransitionType.fadeThrough,
-                      openColor: const Color(0xFF080B1A),
-                      closedColor: Colors.transparent,
-                      closedElevation: 0,
-                      openElevation: 0,
-                      closedBuilder: (context, action) => MiniPlayer(
-                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                        onTap:
-                            null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
-                      ),
-                      openBuilder: (context, action) {
-                        return const ListenModeScreen();
-                      },
-                      onClosed: (_) {
-                        // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
-                      },
-                    );
-                  },
-                ),
-              ),
-            _buildBottomNav(),
-          ],
-        ),
-      ),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -448,7 +407,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const SttModelSettingsScreen()),
                 );
               },
             )

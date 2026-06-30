@@ -270,6 +270,18 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(),
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          final view = View.of(context);
+          final realSize = Size(
+            view.physicalSize.width / view.devicePixelRatio,
+            view.physicalSize.height / view.devicePixelRatio,
+          );
+          return MediaQuery(
+            data: mq.copyWith(size: realSize),
+            child: child!,
+          );
+        },
         home: const MainShell(),
       ),
     );

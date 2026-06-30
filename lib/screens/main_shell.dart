@@ -1,4 +1,3 @@
-import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,13 +10,10 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
-import 'listen_mode/widgets/audio_library_drawer.dart';
-import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
-import 'text_library_drawer.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
@@ -344,10 +340,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFF080B1A),
-      drawer: const TextLibraryDrawer(),
-      endDrawer: const AudioLibraryDrawer(),
-      drawerEnableOpenDragGesture: !_isHome,
-      endDrawerEnableOpenDragGesture: !_isHome,
+      // drawer: const TextLibraryDrawer(),
+      // endDrawer: const AudioLibraryDrawer(),
+      drawerEnableOpenDragGesture: false,
+      endDrawerEnableOpenDragGesture: false,
       body: Column(
         children: [
           _buildAppBar(),
@@ -417,7 +413,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               icon: Icons.menu_book_rounded,
               color: const Color(0xFF2196F3),
               tooltip: 'Thư viện văn bản',
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+              onTap: () {},
             ),
 
           // ── Giữa: Tab title ────────────────────────────────────

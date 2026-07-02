@@ -75,6 +75,61 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
   ],
 };
 
+class DebugOverlay extends StatelessWidget {
+  final Widget child;
+  const DebugOverlay({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final view = View.of(context);
+
+    return Stack(
+      children: [
+        child,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: Container(
+              color: Colors.red.withOpacity(0.85),
+              padding: const EdgeInsets.fromLTRB(8, 40, 8, 8),
+              child: DefaultTextStyle(
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        'MQ.size: ${mq.size.width.toStringAsFixed(0)} x ${mq.size.height.toStringAsFixed(0)}'),
+                    Text(
+                        'MQ.padding: T${mq.padding.top.toStringAsFixed(0)} B${mq.padding.bottom.toStringAsFixed(0)} L${mq.padding.left.toStringAsFixed(0)} R${mq.padding.right.toStringAsFixed(0)}'),
+                    Text(
+                        'MQ.viewInsets: B${mq.viewInsets.bottom.toStringAsFixed(0)}'),
+                    Text(
+                        'View.physicalSize: ${view.physicalSize.width.toStringAsFixed(0)} x ${view.physicalSize.height.toStringAsFixed(0)}'),
+                    Text(
+                        'View.devicePixelRatio: ${view.devicePixelRatio.toStringAsFixed(2)}'),
+                    Text(
+                        'View.padding: T${view.padding.top.toStringAsFixed(0)} B${view.padding.bottom.toStringAsFixed(0)}'),
+                    Text(
+                        'Calc real: ${(view.physicalSize.width / view.devicePixelRatio).toStringAsFixed(0)} x ${(view.physicalSize.height / view.devicePixelRatio).toStringAsFixed(0)}'),
+                    Text('Orientation: ${mq.orientation}'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -120,7 +175,6 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       isFirebaseAvailable = true;
       return Firebase.app();
     }
-
     final FirebaseApp app;
     if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
       // iOS/macOS: dùng GoogleService-Info.plist (native)
@@ -132,7 +186,6 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
-
     isFirebaseAvailable = true;
     return app;
   } on FirebaseException catch (e) {
@@ -140,7 +193,6 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       isFirebaseAvailable = true;
       return Firebase.app();
     }
-
     isFirebaseAvailable = false;
     debugPrint('⚠️ Firebase init failed: ${e.code} - ${e.message}');
     return null;
@@ -153,7 +205,6 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
 
 class _AppLocalServices {
   final SharedPreferences prefs;
-
   const _AppLocalServices({
     required this.prefs,
   });
@@ -161,14 +212,12 @@ class _AppLocalServices {
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
   late final Future<_AppLocalServices> _localInitFuture;
-
   @override
   void initState() {
     super.initState();
@@ -183,11 +232,9 @@ class _MyAppState extends State<MyApp> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _AppLoadingScreen();
         }
-
         if (snapshot.hasError) {
           return _AppErrorScreen(error: snapshot.error);
         }
-
         final localServices = snapshot.data!;
         return _buildApp(localServices);
       },
@@ -196,7 +243,6 @@ class _MyAppState extends State<MyApp> {
 
   Future<_AppLocalServices> _initializeLocalServices() async {
     final prefs = await SharedPreferences.getInstance();
-
     return _AppLocalServices(prefs: prefs);
   }
 
@@ -221,7 +267,6 @@ class _MyAppState extends State<MyApp> {
                 prov.disableSync();
               }
             });
-
             return prov;
           },
         ),
@@ -232,25 +277,20 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<MemoryController>.value(
           value: MemoryProvider.controller,
         ),
-
         Provider<SharedPreferences>.value(
           value: localServices.prefs,
         ),
-
         Provider<TtsService>(
           create: (_) => FlutterTtsServiceImpl(),
           dispose: (_, service) => service.dispose(),
         ),
-
         Provider<TtsNotificationService>(
           create: (_) => TtsNotificationService(),
         ),
-
         Provider<PlaybackEngine>(
           create: (ctx) => PlaybackEngine(ctx.read<TtsService>()),
           dispose: (_, engine) => engine.stop(),
         ),
-
         ChangeNotifierProvider<PlaybackController>(
           create: (ctx) => PlaybackController(
             ctx.read<PlaybackEngine>(),
@@ -258,7 +298,6 @@ class _MyAppState extends State<MyApp> {
             ctx.read<TtsNotificationService>(),
           ),
         ),
-
         ChangeNotifierProvider<AiServiceFacade>(
           create: (_) {
             final facade = AiServiceFacade();
@@ -277,9 +316,11 @@ class _MyAppState extends State<MyApp> {
             view.physicalSize.width / view.devicePixelRatio,
             view.physicalSize.height / view.devicePixelRatio,
           );
-          return MediaQuery(
-            data: mq.copyWith(size: realSize),
-            child: child!,
+          return DebugOverlay(
+            child: MediaQuery(
+              data: mq.copyWith(size: realSize),
+              child: child!,
+            ),
           );
         },
         home: const MainShell(),
@@ -308,7 +349,6 @@ class _MyAppState extends State<MyApp> {
 
 class _AppLoadingScreen extends StatelessWidget {
   const _AppLoadingScreen();
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -319,7 +359,6 @@ class _AppLoadingScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
               Container(
                 width: 80,
                 height: 80,
@@ -373,9 +412,7 @@ class _AppLoadingScreen extends StatelessWidget {
 
 class _AppErrorScreen extends StatelessWidget {
   final Object? error;
-
   const _AppErrorScreen({this.error});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

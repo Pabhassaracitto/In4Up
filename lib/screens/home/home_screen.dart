@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'package:animations/animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -159,12 +158,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.smart_toy_outlined, color: Colors.blueAccent, size: 26),
+            icon: const Icon(Icons.smart_toy_outlined,
+                color: Colors.blueAccent, size: 26),
             tooltip: 'Quản lý Model AI',
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const SttModelSettingsScreen()),
               );
             },
           ),
@@ -228,19 +229,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildOmniMicrophone() {
-    return OpenContainer(
-      transitionType: ContainerTransitionType.fade,
-      openBuilder: (context, _) => const _SttDialog(),
-      closedElevation: 6.0,
-      closedShape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(56 / 2)),
-      ),
-      closedColor: const Color(0xFF6C63FF),
-      closedBuilder: (context, openContainer) => FloatingActionButton(
-        onPressed: openContainer,
-        backgroundColor: const Color(0xFF6C63FF),
-        child: const Icon(Icons.mic, color: Colors.white, size: 30),
-      ),
+    return FloatingActionButton(
+      onPressed: () {
+        HapticFeedback.mediumImpact();
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const _SttDialog(),
+            fullscreenDialog: true,
+          ),
+        );
+      },
+      backgroundColor: const Color(0xFF6C63FF),
+      child: const Icon(Icons.mic, color: Colors.white, size: 30),
     );
   }
 }

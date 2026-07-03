@@ -11,9 +11,11 @@ import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
+import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'settings/stt_model_settings_screen.dart';
+import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
@@ -340,8 +342,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFF080B1A),
-      // drawer: const TextLibraryDrawer(),
-      // endDrawer: const AudioLibraryDrawer(),
+      drawer: const TextLibraryDrawer(),
+      endDrawer: const AudioLibraryDrawer(),
       drawerEnableOpenDragGesture: false,
       endDrawerEnableOpenDragGesture: false,
       body: Column(
@@ -413,7 +415,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               icon: Icons.menu_book_rounded,
               color: const Color(0xFF2196F3),
               tooltip: 'Thư viện văn bản',
-              onTap: () {},
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
             ),
 
           // ── Giữa: Tab title ────────────────────────────────────

@@ -75,61 +75,6 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
   ],
 };
 
-class DebugOverlay extends StatelessWidget {
-  final Widget child;
-  const DebugOverlay({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final view = View.of(context);
-
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: Container(
-              color: Colors.red.withOpacity(0.85),
-              padding: const EdgeInsets.fromLTRB(8, 40, 8, 8),
-              child: DefaultTextStyle(
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        'MQ.size: ${mq.size.width.toStringAsFixed(0)} x ${mq.size.height.toStringAsFixed(0)}'),
-                    Text(
-                        'MQ.padding: T${mq.padding.top.toStringAsFixed(0)} B${mq.padding.bottom.toStringAsFixed(0)} L${mq.padding.left.toStringAsFixed(0)} R${mq.padding.right.toStringAsFixed(0)}'),
-                    Text(
-                        'MQ.viewInsets: B${mq.viewInsets.bottom.toStringAsFixed(0)}'),
-                    Text(
-                        'View.physicalSize: ${view.physicalSize.width.toStringAsFixed(0)} x ${view.physicalSize.height.toStringAsFixed(0)}'),
-                    Text(
-                        'View.devicePixelRatio: ${view.devicePixelRatio.toStringAsFixed(2)}'),
-                    Text(
-                        'View.padding: T${view.padding.top.toStringAsFixed(0)} B${view.padding.bottom.toStringAsFixed(0)}'),
-                    Text(
-                        'Calc real: ${(view.physicalSize.width / view.devicePixelRatio).toStringAsFixed(0)} x ${(view.physicalSize.height / view.devicePixelRatio).toStringAsFixed(0)}'),
-                    Text('Orientation: ${mq.orientation}'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -316,11 +261,9 @@ class _MyAppState extends State<MyApp> {
             view.physicalSize.width / view.devicePixelRatio,
             view.physicalSize.height / view.devicePixelRatio,
           );
-          return DebugOverlay(
-            child: MediaQuery(
-              data: mq.copyWith(size: realSize),
-              child: child!,
-            ),
+          return MediaQuery(
+            data: mq.copyWith(size: realSize),
+            child: child!,
           );
         },
         home: const MainShell(),

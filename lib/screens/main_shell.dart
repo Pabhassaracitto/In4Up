@@ -1,4 +1,3 @@
-import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -349,6 +348,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildAppBar(),
@@ -358,49 +358,22 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 child: _buildCurrentScreen(),
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
             if (_currentIndex != 1)
-              RepaintBoundary(
-                child: Consumer<PlayerProvider>(
-                  builder: (context, player, _) {
-                    if (player.currentSongPath == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
-                    return OpenContainer(
-                      transitionType: ContainerTransitionType.fadeThrough,
-                      openColor: const Color(0xFF080B1A),
-                      closedColor: Colors.transparent,
-                      closedElevation: 0,
-                      openElevation: 0,
-                      closedBuilder: (context, action) => MiniPlayer(
-                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                        onTap:
-                            null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
-                      ),
-                      openBuilder: (context, action) {
-                        return const ListenModeScreen();
-                      },
-                      onClosed: (_) {
-                        // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
-                      },
-                    );
-                  },
-                ),
+              Consumer<PlayerProvider>(
+                builder: (context, player, _) {
+                  if (player.currentSongPath == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return MiniPlayer(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    onTap: () => _navigateTo(1),
+                  );
+                },
               ),
-            _buildBottomNav(),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -448,7 +421,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const SttModelSettingsScreen()),
                 );
               },
             )
@@ -552,104 +526,104 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomNav() {
-  final selectedIndex = _currentIndex == _kHome ? 0 : _currentIndex + 1;
-  
-  return Container(
-    decoration: BoxDecoration(
-      color: const Color(0xFF111827),
-      border: Border(
-        top: BorderSide(
-          color: _isHome
-              ? Colors.white.withValues(alpha: 0.06)
-              : _currentColor.withValues(alpha: 0.2),
+    final selectedIndex = _currentIndex == _kHome ? 0 : _currentIndex + 1;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        border: Border(
+          top: BorderSide(
+            color: _isHome
+                ? Colors.white.withValues(alpha: 0.06)
+                : _currentColor.withValues(alpha: 0.2),
+          ),
         ),
       ),
-    ),
-    child: BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,  // ⭐ QUAN TRỌNG: cho phép > 3 items
-      currentIndex: selectedIndex,
-      onTap: (idx) {
-        if (idx == 0) {
-          _navigateTo(_kHome);
-        } else if (idx <= 4) {
-          _onTabTapped(idx - 1);
-        } else if (idx == 5) {
-          _openTools();
-        }
-      },
-      backgroundColor: const Color(0xFF111827),
-      selectedItemColor: _currentColor,
-      unselectedItemColor: Colors.grey[600],
-      selectedFontSize: 10,
-      unselectedFontSize: 10,
-      iconSize: 22,
-      showUnselectedLabels: true,
-      elevation: 0,
-      items: [
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.menu_book_outlined),
-          activeIcon: Icon(Icons.menu_book),
-          label: 'Đọc',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.headphones_outlined),
-          activeIcon: Icon(Icons.headphones),
-          label: 'Nghe',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.lightbulb_outline),
-          activeIcon: Icon(Icons.lightbulb),
-          label: 'Hiểu',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.psychology_outlined),
-          activeIcon: Icon(Icons.psychology),
-          label: 'Nhớ',
-        ),
-        BottomNavigationBarItem(
-          icon: Consumer<VocabularyProvider>(
-            builder: (_, vocab, __) {
-              final due = vocab.dueCount;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.extension_outlined),
-                  if (due > 0)
-                    Positioned(
-                      top: -6,
-                      right: -6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          due > 99 ? '99+' : '$due',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
+      child: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed, // ⭐ QUAN TRỌNG: cho phép > 3 items
+        currentIndex: selectedIndex,
+        onTap: (idx) {
+          if (idx == 0) {
+            _navigateTo(_kHome);
+          } else if (idx <= 4) {
+            _onTabTapped(idx - 1);
+          } else if (idx == 5) {
+            _openTools();
+          }
+        },
+        backgroundColor: const Color(0xFF111827),
+        selectedItemColor: _currentColor,
+        unselectedItemColor: Colors.grey[600],
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        iconSize: 22,
+        showUnselectedLabels: true,
+        elevation: 0,
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.menu_book_outlined),
+            activeIcon: Icon(Icons.menu_book),
+            label: 'Đọc',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.headphones_outlined),
+            activeIcon: Icon(Icons.headphones),
+            label: 'Nghe',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.lightbulb_outline),
+            activeIcon: Icon(Icons.lightbulb),
+            label: 'Hiểu',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.psychology_outlined),
+            activeIcon: Icon(Icons.psychology),
+            label: 'Nhớ',
+          ),
+          BottomNavigationBarItem(
+            icon: Consumer<VocabularyProvider>(
+              builder: (_, vocab, __) {
+                final due = vocab.dueCount;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.extension_outlined),
+                    if (due > 0)
+                      Positioned(
+                        top: -6,
+                        right: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            due > 99 ? '99+' : '$due',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
+            label: 'Tools',
           ),
-          label: 'Tools',
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Tool Page Wrapper ───────────────────────────────────

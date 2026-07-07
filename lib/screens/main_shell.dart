@@ -552,96 +552,104 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        border: Border(
-          top: BorderSide(
-            color: _isHome
-                ? Colors.white.withValues(alpha: 0.06)
-                : _currentColor.withValues(alpha: 0.2),
-          ),
+  final selectedIndex = _currentIndex == _kHome ? 0 : _currentIndex + 1;
+  
+  return Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFF111827),
+      border: Border(
+        top: BorderSide(
+          color: _isHome
+              ? Colors.white.withValues(alpha: 0.06)
+              : _currentColor.withValues(alpha: 0.2),
         ),
       ),
-      child: NavigationBar(
-        selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
-        onDestinationSelected: (idx) {
-          if (idx == 0) {
-            _navigateTo(_kHome);
-          } else if (idx <= 4)
-            _onTabTapped(idx - 1);
-          else if (idx == 5) _openTools();
-        },
-        backgroundColor: const Color(0xFF111827),
-        indicatorColor: _currentColor.withValues(alpha: 0.2),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Đọc',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.headphones_outlined),
-            selectedIcon: Icon(Icons.headphones),
-            label: 'Nghe',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.lightbulb_outline),
-            selectedIcon: Icon(Icons.lightbulb),
-            label: 'Hiểu',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.psychology_outlined),
-            selectedIcon: Icon(Icons.psychology),
-            label: 'Nhớ',
-          ),
-          NavigationDestination(
-            icon: Consumer<VocabularyProvider>(
-              builder: (_, vocab, __) {
-                final due = vocab.dueCount;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.extension_outlined), // ★ Icon thường
-                    /*const IgnorePointer(
-                        child: PuzzleNavButton(
-                            onTap: null)),*/ // UI placeholder inside Nav
-                    if (due > 0)
-                      Positioned(
-                        top: -2,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            due > 99 ? '99+' : '$due',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
+    ),
+    child: BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,  // ⭐ QUAN TRỌNG: cho phép > 3 items
+      currentIndex: selectedIndex,
+      onTap: (idx) {
+        if (idx == 0) {
+          _navigateTo(_kHome);
+        } else if (idx <= 4) {
+          _onTabTapped(idx - 1);
+        } else if (idx == 5) {
+          _openTools();
+        }
+      },
+      backgroundColor: const Color(0xFF111827),
+      selectedItemColor: _currentColor,
+      unselectedItemColor: Colors.grey[600],
+      selectedFontSize: 10,
+      unselectedFontSize: 10,
+      iconSize: 22,
+      showUnselectedLabels: true,
+      elevation: 0,
+      items: [
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.menu_book_outlined),
+          activeIcon: Icon(Icons.menu_book),
+          label: 'Đọc',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.headphones_outlined),
+          activeIcon: Icon(Icons.headphones),
+          label: 'Nghe',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.lightbulb_outline),
+          activeIcon: Icon(Icons.lightbulb),
+          label: 'Hiểu',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.psychology_outlined),
+          activeIcon: Icon(Icons.psychology),
+          label: 'Nhớ',
+        ),
+        BottomNavigationBarItem(
+          icon: Consumer<VocabularyProvider>(
+            builder: (_, vocab, __) {
+              final due = vocab.dueCount;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.extension_outlined),
+                  if (due > 0)
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          due > 99 ? '99+' : '$due',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                  ],
-                );
-              },
-            ),
-            label: 'Tools',
+                    ),
+                ],
+              );
+            },
           ),
-        ],
-      ),
-    );
-  }
+          label: 'Tools',
+        ),
+      ],
+    ),
+  );
+}
 }
 
 // ─── Tool Page Wrapper ───────────────────────────────────

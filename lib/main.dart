@@ -255,16 +255,21 @@ class _MyAppState extends State<MyApp> {
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(),
         builder: (context, child) {
-          final mq = MediaQuery.of(context);
-          final view = View.of(context);
-          final realSize = Size(
-            view.physicalSize.width / view.devicePixelRatio,
-            view.physicalSize.height / view.devicePixelRatio,
-          );
-          return MediaQuery(
-            data: mq.copyWith(size: realSize),
-            child: child!,
-          );
+          // ⭐ Chỉ override cho Windows, bỏ qua tất cả platform khác
+          if (!kIsWeb && Platform.isWindows) {
+            final mq = MediaQuery.of(context);
+            final view = View.of(context);
+            final realSize = Size(
+              view.physicalSize.width / view.devicePixelRatio,
+              view.physicalSize.height / view.devicePixelRatio,
+            );
+            return MediaQuery(
+              data: mq.copyWith(size: realSize),
+              child: child!,
+            );
+          }
+          // iOS, Android, Web, macOS, Linux → dùng mặc định
+          return child!;
         },
         home: const MainShell(),
       ),

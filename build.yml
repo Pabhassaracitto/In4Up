@@ -153,6 +153,17 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Clean iOS
+        run: |
+          flutter clean
+          rm -rf ios/Pods ios/Podfile.lock ~/Library/Developer/Xcode/DerivedData
+
+      - name: Install Pods
+        run: |
+          cd ios
+          pod install
+          cd ..
+
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 

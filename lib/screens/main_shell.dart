@@ -38,12 +38,9 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
+class _MainShellState extends State<MainShell> {
   int _currentIndex = _kHome;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  late AnimationController _transitionController;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -54,20 +51,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
     });
-
-    _transitionController = AnimationController(
-      duration: const Duration(milliseconds: 250),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _transitionController, curve: Curves.easeOut),
-    );
-    _transitionController.forward();
   }
 
   @override
   void dispose() {
-    _transitionController.dispose();
     super.dispose();
   }
 
@@ -82,9 +69,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   void _navigateTo(int index) {
     if (_currentIndex == index) return;
-    _transitionController.reset();
     setState(() => _currentIndex = index);
-    _transitionController.forward();
   }
 
   bool get _isHome => _currentIndex == _kHome;
@@ -353,10 +338,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           children: [
             _buildAppBar(),
             Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: _buildCurrentScreen(),
-              ),
+              child: _buildCurrentScreen(),
             ),
             if (_currentIndex != 1)
               Consumer<PlayerProvider>(

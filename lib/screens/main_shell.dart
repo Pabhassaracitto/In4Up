@@ -28,6 +28,9 @@ import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
 
 const int _kHome = -1;
 

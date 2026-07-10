@@ -11,16 +11,17 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
@@ -448,7 +449,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const SttModelSettingsScreen()),
                 );
               },
             )
@@ -563,82 +565,68 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           ),
         ),
       ),
-      child: NavigationBar(
-        selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
-        onDestinationSelected: (idx) {
-          if (idx == 0) {
-            _navigateTo(_kHome);
-          } else if (idx <= 4)
-            _onTabTapped(idx - 1);
-          else if (idx == 5) _openTools();
-        },
-        backgroundColor: const Color(0xFF111827),
-        indicatorColor: _currentColor.withValues(alpha: 0.2),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              _HomeNavButton(
+                isActive: _isHome,
+                onTap: () {
+                  if (!_isHome) {
+                    HapticFeedback.selectionClick();
+                    _navigateTo(_kHome);
+                  }
+                },
+              ),
+              Container(
+                width: 1,
+                height: 32,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+              _NavButton(
+                tabIndex: 0,
+                currentIndex: _currentIndex,
+                icon: Icons.menu_book_outlined,
+                activeIcon: Icons.menu_book,
+                label: 'Đọc',
+                color: const Color(0xFF2196F3),
+                onTap: () => _onTabTapped(0),
+              ),
+              _NavButton(
+                tabIndex: 1,
+                currentIndex: _currentIndex,
+                icon: Icons.headphones_outlined,
+                activeIcon: Icons.headphones,
+                label: 'Nghe',
+                color: const Color(0xFF6C63FF),
+                onTap: () => _onTabTapped(1),
+              ),
+              _NavButton(
+                tabIndex: 2,
+                currentIndex: _currentIndex,
+                icon: Icons.lightbulb_outline,
+                activeIcon: Icons.lightbulb,
+                label: 'Hiểu',
+                color: const Color(0xFFFFB300),
+                onTap: () => _onTabTapped(2),
+              ),
+              _NavButton(
+                tabIndex: 3,
+                currentIndex: _currentIndex,
+                icon: Icons.psychology_outlined,
+                activeIcon: Icons.psychology,
+                label: 'Nhớ',
+                color: const Color(0xFF8B5CF6),
+                onTap: () => _onTabTapped(3),
+              ),
+              PuzzleNavButton(
+                onTap: () => _openTools(),
+              ),
+            ],
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Đọc',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.headphones_outlined),
-            selectedIcon: Icon(Icons.headphones),
-            label: 'Nghe',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.lightbulb_outline),
-            selectedIcon: Icon(Icons.lightbulb),
-            label: 'Hiểu',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.psychology_outlined),
-            selectedIcon: Icon(Icons.psychology),
-            label: 'Nhớ',
-          ),
-          NavigationDestination(
-            icon: Consumer<VocabularyProvider>(
-              builder: (_, vocab, __) {
-                final due = vocab.dueCount;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.extension_outlined), // ★ Icon thường
-                    /*const IgnorePointer(
-                        child: PuzzleNavButton(
-                            onTap: null)),*/ // UI placeholder inside Nav
-                    if (due > 0)
-                      Positioned(
-                        top: -2,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            due > 99 ? '99+' : '$due',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-            label: 'Tools',
-          ),
-        ],
+        ),
       ),
     );
   }

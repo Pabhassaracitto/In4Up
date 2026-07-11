@@ -10,16 +10,17 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
@@ -524,88 +525,68 @@ class _MainShellState extends State<MainShell> {
           ),
         ),
       ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // ⭐ QUAN TRỌNG: cho phép > 3 items
-        currentIndex: selectedIndex,
-        onTap: (idx) {
-          if (idx == 0) {
-            _navigateTo(_kHome);
-          } else if (idx <= 4) {
-            _onTabTapped(idx - 1);
-          } else if (idx == 5) {
-            _openTools();
-          }
-        },
-        backgroundColor: const Color(0xFF111827),
-        selectedItemColor: _currentColor,
-        unselectedItemColor: Colors.grey[600],
-        selectedFontSize: 10,
-        unselectedFontSize: 10,
-        iconSize: 22,
-        showUnselectedLabels: true,
-        elevation: 0,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              _HomeNavButton(
+                isActive: _isHome,
+                onTap: () {
+                  if (!_isHome) {
+                    HapticFeedback.selectionClick();
+                    _navigateTo(_kHome);
+                  }
+                },
+              ),
+              Container(
+                width: 1,
+                height: 32,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+              _NavButton(
+                tabIndex: 0,
+                currentIndex: _currentIndex,
+                icon: Icons.menu_book_outlined,
+                activeIcon: Icons.menu_book,
+                label: 'Đọc',
+                color: const Color(0xFF2196F3),
+                onTap: () => _onTabTapped(0),
+              ),
+              _NavButton(
+                tabIndex: 1,
+                currentIndex: _currentIndex,
+                icon: Icons.headphones_outlined,
+                activeIcon: Icons.headphones,
+                label: 'Nghe',
+                color: const Color(0xFF6C63FF),
+                onTap: () => _onTabTapped(1),
+              ),
+              _NavButton(
+                tabIndex: 2,
+                currentIndex: _currentIndex,
+                icon: Icons.lightbulb_outline,
+                activeIcon: Icons.lightbulb,
+                label: 'Hiểu',
+                color: const Color(0xFFFFB300),
+                onTap: () => _onTabTapped(2),
+              ),
+              _NavButton(
+                tabIndex: 3,
+                currentIndex: _currentIndex,
+                icon: Icons.psychology_outlined,
+                activeIcon: Icons.psychology,
+                label: 'Nhớ',
+                color: const Color(0xFF8B5CF6),
+                onTap: () => _onTabTapped(3),
+              ),
+              PuzzleNavButton(
+                onTap: () => _openTools(),
+              ),
+            ],
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
-            label: 'Đọc',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.headphones_outlined),
-            activeIcon: Icon(Icons.headphones),
-            label: 'Nghe',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.lightbulb_outline),
-            activeIcon: Icon(Icons.lightbulb),
-            label: 'Hiểu',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.psychology_outlined),
-            activeIcon: Icon(Icons.psychology),
-            label: 'Nhớ',
-          ),
-          BottomNavigationBarItem(
-            icon: Consumer<VocabularyProvider>(
-              builder: (_, vocab, __) {
-                final due = vocab.dueCount;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.extension_outlined),
-                    if (due > 0)
-                      Positioned(
-                        top: -6,
-                        right: -6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            due > 99 ? '99+' : '$due',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-            label: 'Tools',
-          ),
-        ],
+        ),
       ),
     );
   }

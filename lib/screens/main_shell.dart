@@ -300,31 +300,43 @@ class _MainShellState extends State<MainShell> {
 
   // ─── Screen router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
-    switch (_currentIndex) {
-      case _kHome:
-        return HomeScreen(
-          onNavigateToListen: () => _navigateTo(1),
-          onNavigateToRead: () => _navigateTo(0),
-          onNavigateToUnderstand: () => _navigateTo(2),
-          onNavigateToMemory: () => _navigateTo(3),
-        );
-      case 0:
-        return const ReadModeScreen();
-      case 1:
-        return const ListenModeScreen();
-      case 2:
-        return const UnderstandTabConnector();
-      case 3:
-        return const MemoryTabConnector();
-      default:
-        return HomeScreen(
-          onNavigateToListen: () => _navigateTo(1),
-          onNavigateToRead: () => _navigateTo(0),
-          onNavigateToUnderstand: () => _navigateTo(2),
-          onNavigateToMemory: () => _navigateTo(3),
-        );
-    }
+  // ⭐ DEBUG: Wrap mỗi screen trong colored border
+  Widget screen;
+  switch (_currentIndex) {
+    case _kHome:
+      screen = HomeScreen(
+        onNavigateToListen: () => _navigateTo(1),
+        onNavigateToRead: () => _navigateTo(0),
+        onNavigateToUnderstand: () => _navigateTo(2),
+        onNavigateToMemory: () => _navigateTo(3),
+      );
+      break;
+    case 0:
+      screen = const ReadModeScreen();
+      break;
+    case 1:
+      screen = const ListenModeScreen();
+      break;
+    case 2:
+      screen = const UnderstandTabConnector();
+      break;
+    case 3:
+      screen = const MemoryTabConnector();
+      break;
+    default:
+      screen = HomeScreen(
+        onNavigateToListen: () => _navigateTo(1),
+        onNavigateToRead: () => _navigateTo(0),
+        onNavigateToUnderstand: () => _navigateTo(2),
+        onNavigateToMemory: () => _navigateTo(3),
+      );
   }
+  
+  // ⭐ Wrap trong ClipRect để ngăn overflow
+  return ClipRect(
+    child: screen,
+  );
+}
 
   // ─── Build ───────────────────────────────────────────────
   @override

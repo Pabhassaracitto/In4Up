@@ -7,11 +7,21 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      version_name:
-        description: 'Nhập số Version (Ví dụ: 1.4.0)'
+      branch:
+        description: 'Branch to build'
         required: true
+        default: 'main'
         type: string
-        default: '1.4.0'
+      version:
+        description: 'Version name'
+        required: true
+        default: 'v1.0.0'
+        type: string
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        default: false
+        type: boolean
       build_android:
         description: 'Build Android APK?'
         required: true
@@ -34,12 +44,12 @@ permissions:
 jobs:
   build-android:
     name: Build Android APK
-    if: ${{ github.event_name == 'push' || inputs.build_android == true }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -60,7 +70,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # TẠO FILE CHO ANDROID TRƯỚC BIÊN DỊCH
       - name: Create Real Firebase & Auth Files for Android Build
         shell: bash
         run: |
@@ -89,13 +98,11 @@ jobs:
           fileName: 'google-services.json'
           fileDir: './android/app/'
 
-      # BƯỚC 1: Build 3 bản phân tách như cũ
       - name: Build Split APKs
         run: |
           flutter build apk --release --split-per-abi --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
 
-      # BƯỚC 2: Build thêm 1 bản GỘP TẤT CẢ (Universal APK)
       - name: Build Universal APK
         run: |
           flutter build apk --release --android-skip-build-dependency-validation \
@@ -104,19 +111,13 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      # BƯỚC 3: Đổi tên cho cả bản tách và bản gộp
       - name: Rename All APKs
         run: |
-          # Đổi tên 3 bản tách
-          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          # Đổi tên bản gộp (Universal)
-          mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+          VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/VipSound-Android-armv7-$VERSION.apk
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/VipSound-Android-arm64-$VERSION.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/VipSound-Android-x64-$VERSION.apk
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VipSound-Android-Universal-All-CPU-$VERSION.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -125,21 +126,25 @@ jobs:
           path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
 
       - name: Đẩy TẤT CẢ APK lên GitHub Release
+        if: >
+          (github.event_name == 'workflow_dispatch' && inputs.create_release == true) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))
         uses: ncipollo/release-action@v1
         with:
           artifacts: "build/app/outputs/flutter-apk/VipSound-Android-*.apk"
-          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
-          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          tag: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          name: "Release ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
     name: Build Windows App
-    if: ${{ github.event_name == 'push' || inputs.build_windows == true }}
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -149,64 +154,20 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
-          cache: false
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Clean up old folders
-        shell: bash
-        run: |
-          rm -rf lib/features/DeepLX || true
-          rm -rf lib/features/deeplx || true
-
-      # FIX WINDOWS DLL: Tạo sẵn thư mục libs và mock các file dll native để vượt qua bước PostBuild sao chép của CMake
       - name: Pre-create Required Windows DLLs & Asset Directories
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "lib/services"
-          New-Item -ItemType Directory -Force -Path "assets/whisper_models"
-          New-Item -ItemType Directory -Force -Path "android/app"
-          New-Item -ItemType Directory -Force -Path "windows/libs"
-          
-          # Tạo file dll giả lập dung lượng rỗng tránh lỗi gãy tiến trình sao chép liên kết
-          "Mock DLL content" | Out-File -FilePath "windows/libs/ggml.dll" -Encoding ascii
-          "Mock DLL content" | Out-File -FilePath "windows/libs/whisper.dll" -Encoding ascii
-          
-          # Sinh file mock json phòng hờ cấu hình plugin rà soát
+          New-Item -ItemType Directory -Force -Path "lib/services", "assets/whisper_models", "android/app", "windows/libs"
+          "Mock DLL content" | Out-File -FilePath "windows/libs/ggml.dll", "windows/libs/whisper.dll" -Encoding ascii
           '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' | Out-File -FilePath "android/app/google-services.json" -Encoding utf8
           
-          # Sinh file auth_service.dart
-          $authService = @'
-          import 'package:flutter/foundation.dart';
-          class AuthService {
-            static const String googleClientId = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
-            Future<void> signOut() async { debugPrint('Sign out triggered on CI'); }
-            Future<dynamic> signInWithGoogle() async { debugPrint('Sign in triggered on CI'); return null; }
-          }
-          '@
+          # Auth Service
+          $authService = "import 'package:flutter/foundation.dart'; class AuthService { static const String googleClientId = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID'); Future<void> signOut() async { debugPrint('Sign out triggered on CI'); } Future<dynamic> signInWithGoogle() async { debugPrint('Sign in triggered on CI'); return null; } }"
           $authService | Out-File -FilePath "lib/services/auth_service.dart" -Encoding utf8
-
-          # Sinh file firebase_options.dart
-          $firebaseOptions = @'
-          import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-          class DefaultFirebaseOptions {
-            static FirebaseOptions get currentPlatform {
-              return const FirebaseOptions(
-                apiKey: '${{ secrets.FIREBASE_API_KEY_WINDOWS }}',
-                appId: '${{ secrets.FIREBASE_APP_ID_WINDOWS }}',
-                messagingSenderId: '${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}',
-                projectId: '${{ secrets.FIREBASE_PROJECT_ID }}',
-                authDomain: '${{ secrets.FIREBASE_AUTH_DOMAIN_WINDOWS }}',
-                storageBucket: '${{ secrets.FIREBASE_STORAGE_BUCKET_WINDOWS }}',
-              );
-            }
-          }
-          '@
-          $firebaseOptions | Out-File -FilePath "lib/firebase_options.dart" -Encoding utf8
-
-      - name: Get dependencies
-        run: flutter pub get
 
       - name: Build Windows
         shell: bash
@@ -217,15 +178,11 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      # Nén toàn bộ thư mục Release thành file ZIP (bao gồm cả các file .dll và WebView2)
       - name: Zip Windows build
         shell: pwsh
         run: |
-          # Thiết lập tên file zip động dựa trên Tag hoặc Version đầu vào
-          $VERSION_NAME = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          
-          # Nén toàn bộ thư mục Release
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "VipSound-Windows-$VERSION_NAME.zip" -Force
+          $VERSION = "${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "VipSound-Windows-$VERSION.zip" -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -234,119 +191,55 @@ jobs:
           path: VipSound-Windows-*.zip
 
       - name: Đẩy ZIP Windows lên GitHub Release
+        if: >
+          (github.event_name == 'workflow_dispatch' && inputs.create_release == true) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))
         uses: ncipollo/release-action@v1
         with:
           artifacts: "VipSound-Windows-*.zip"
-          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
-          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          tag: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          name: "Release ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build-ios:
     name: Build iOS IPA (sideload)
-    if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
     runs-on: macos-15
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: 'latest-stable'
 
-      - name: Show tool versions
-        run: |
-          sw_vers
-          xcodebuild -version
-          swift --version
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
-          cache: true
 
-      # BƯỚC 1: Ép cấu hình nền tảng trong file Podfile lên 15.0 cho các thư viện CocoaPods cũ
-      - name: Pre-configure iOS Podfile Platform
+      - name: Configure iOS
         run: |
-          if [ -f ios/Podfile ]; then
-            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
-            sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
-          fi
+          sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
 
-      # BƯỚC 2: Sửa file cấu hình Xcode của Runner, giải quyết lỗi Target 13.0 của SPM
-      - name: Force Upgrade Xcode Project Deployment Target to 15.0
-        run: |
-          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
-            echo "Xcode project deployment target forced to 15.0 successfully."
-          fi
-      - name: Create Real Firebase & Auth Files for iOS Build
-        shell: bash
-        run: |
-          mkdir -p lib/services
-          cat << 'EOF' > lib/services/auth_service.dart
-          import 'package:flutter/foundation.dart';
-          class AuthService {
-            static const String googleClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
-            Future<void> signOut() async {}
-            Future<dynamic> signInWithGoogle() async { return null; }
-          }
-          EOF
-          cat << 'EOF' > lib/firebase_options.dart
-          import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-          class DefaultFirebaseOptions {
-            static FirebaseOptions get currentPlatform {
-              return const FirebaseOptions(
-                apiKey: 'mock',
-                appId: 'mock',
-                messagingSenderId: 'mock',
-                projectId: 'mock',
-                iosBundleId: 'com.vipsound',
-              );
-            }
-          }
-          EOF
-          echo "Đã tạo firebase_options.dart và auth_service.dart cho iOS."
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Decode GoogleService-Info.plist
-        env:
-          GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
-        run: echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
-      - name: Inject dummy Development Team for unsigned build
-        run: |
-          PROJ="ios/Runner.xcodeproj/project.pbxproj"
-          if [ -f "$PROJ" ]; then
-            # Inject DEVELOPMENT_TEAM giả vào tất cả build configurations
-            sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = /DEVELOPMENT_TEAM = ABCDE12345;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = /g' "$PROJ"
-            
-            # Tắt code signing
-            sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PROJ"
-            sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "";/g' "$PROJ"
-            
-            echo "Đã inject DEVELOPMENT_TEAM giả và tắt codesign."
-          fi
       - name: Build iOS (no codesign)
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0
           flutter build ios --release --no-codesign \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
-            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
-            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Create IPA
         run: |
-          VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r "VipSound-iOS-${VERSION_NAME}.ipa" Payload
+          zip -r "VipSound-iOS-$VERSION.ipa" Payload
           rm -rf Payload
 
       - name: Upload iOS artifact
@@ -356,10 +249,13 @@ jobs:
           path: VipSound-iOS-*.ipa
 
       - name: Đẩy IPA lên GitHub Release chung
+        if: >
+          (github.event_name == 'workflow_dispatch' && inputs.create_release == true) ||
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))
         uses: ncipollo/release-action@v1
         with:
           artifacts: "VipSound-iOS-*.ipa"
-          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
-          name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          tag: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          name: "Release ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}

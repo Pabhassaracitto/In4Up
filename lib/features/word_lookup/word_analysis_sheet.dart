@@ -72,14 +72,6 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                   // ── Tầng 1/2: Luôn hiển thị ngay ──
                   _buildMeaningCard(analysis, isLoading),
 
-                  // ── IPA - xuất hiện sau ~50ms ──
-                  if (analysis?.wordDetail?.phonetic != null)
-                    _buildIpaCard(analysis!.wordDetail!.phonetic!),
-
-                  // ── Badge: đang phân tích sâu ──
-                  if (isLoading && analysis?.isPartial == true)
-                    _buildAnalyzingBadge(),
-
                   // ── Tầng 3: Hiển thị khi Gemma xong ──
                   if (analysis?.isPartial == false) ...[
                     if (analysis?.visualPrompt != null)

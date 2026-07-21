@@ -339,8 +339,7 @@ class PlayerProvider extends ChangeNotifier {
           final text = match.group(4)?.trim() ?? '';
 
           if (text.isNotEmpty) {
-            lines.add(
-                LrcLine(timestamp: timestamp, text: text, rawText: trimmed));
+            lines.add(LrcLine(timestamp: timestamp, text: text));
           }
         }
       }

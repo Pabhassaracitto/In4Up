@@ -1,8 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
-import '../models/ai_analysis.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 
@@ -165,7 +166,7 @@ class AiServiceFacade extends ChangeNotifier {
     if (_engine.state == AiEngineState.ready) {
       await _analyzeWithRetry(
         word: sentence,
-        type: AiAnalysisType.sentenceAnalysis,
+        type: AiAnalysisType.sentenceParse,
       );
     } else {
       _setError('AI engine chưa sẵn sàng. Vui lòng import model.');

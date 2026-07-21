@@ -2,8 +2,9 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:vipsound_stt/stt_model_manager.dart';
 import 'package:vipsound_stt/vipsound_stt.dart';
-import '../../native/whisper_bindings.dart';
+import '../native/whisper_bindings.dart';
 
 /// Service quản lý trực tiếp Native FFI cho Whisper (đặc biệt là Windows)
 /// Kết nối giữa logic Native và SttModelManager hiện tại

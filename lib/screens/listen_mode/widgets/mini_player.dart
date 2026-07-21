@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../providers/player_provider.dart';
+import '../../../providers/player_provider.dart';
 
 // =============================================================================
 // CONSTANTS & THEME DEFINITIONS

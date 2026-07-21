@@ -1,7 +1,7 @@
-// lib/screens/listen_mode/widgets/rolling_waveform_view.dart
+// VipSound v11.0 — View với speakerColorMap parameter
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-
 import '../controllers/rolling_waveform_controller.dart';
 import 'rolling_waveform_painter.dart';
 
@@ -15,6 +15,10 @@ class RollingWaveformView extends StatefulWidget {
   final Function(Duration)? onLongPressPosition;
   final bool showControls;
 
+  /// Speaker map: key = joinKey|uid → speakerId (0–4)
+  /// Default {} = mono-color (backward compatible)
+  final Map<String, int> speakerColorMap;
+
   const RollingWaveformView({
     super.key,
     required this.controller,
@@ -25,136 +29,117 @@ class RollingWaveformView extends StatefulWidget {
     this.onDoubleTap,
     this.onLongPressPosition,
     this.showControls = true,
+    this.speakerColorMap = const {},
   });
 
   @override
-  State<RollingWaveformView> createState() => _RollingWaveformViewState();
+  State<RollingWaveformView> createState() =>
+      _RollingWaveformViewState();
 }
 
 class _RollingWaveformViewState extends State<RollingWaveformView> {
-  Duration? _dragStartPosition;
+  Duration? _dragStart;
   double? _dragStartX;
   bool _isDragging = false;
 
-  // ── Map x → Duration (đúng sign convention với drag seek) ──
-  Duration _xToPosition(double x) {
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return Duration.zero;
-    final width = renderBox.size.width;
-    if (width <= 0) return Duration.zero;
+  Duration _xToPos(double x) {
+    final rb = context.findRenderObject() as RenderBox?;
+    if (rb == null) return Duration.zero;
+    final w = rb.size.width;
+    if (w <= 0) return Duration.zero;
 
-    final playheadX = width / 2;
-    final visibleMs = widget.controller.visibleDuration.inMilliseconds;
-    if (visibleMs == 0) return Duration.zero;
+    final visMs = widget.controller.visibleDuration.inMilliseconds;
+    if (visMs == 0) return Duration.zero;
 
-    final msPerPixel = visibleMs / width;
+    final msPerPx = visMs / w;
+    final delta = (x - w / 2) * msPerPx;
+    final target =
+        (widget.controller.position.inMilliseconds + delta)
+            .round()
+            .clamp(0, widget.controller.duration.inMilliseconds);
 
-    final deltaMs = (x - playheadX) * msPerPixel;
-
-    final targetMs = (widget.controller.position.inMilliseconds + deltaMs)
-        .round()
-        .clamp(0, widget.controller.duration.inMilliseconds);
-
-    return Duration(milliseconds: targetMs);
+    return Duration(milliseconds: target);
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => widget.onTap?.call(),
-
-      // ★ SỬA 2: Double tap — chỉ gọi callback, KHÔNG toggle visibility
       onDoubleTap: () => (widget.onDoubleTap ?? widget.onTap)?.call(),
-
-      onLongPressStart: (details) {
+      onLongPressStart: (d) {
         if (_isDragging) return;
-        final pos = _xToPosition(details.localPosition.dx);
-        widget.onLongPressPosition?.call(pos);
+        widget.onLongPressPosition?.call(_xToPos(d.localPosition.dx));
       },
-
-      onHorizontalDragStart: (details) {
+      onHorizontalDragStart: (d) {
         _isDragging = true;
-        _dragStartPosition = widget.controller.position;
-        _dragStartX = details.localPosition.dx;
+        _dragStart = widget.controller.position;
+        _dragStartX = d.localPosition.dx;
       },
+      onHorizontalDragUpdate: (d) {
+        if (_dragStart == null || _dragStartX == null) return;
+        final rb = context.findRenderObject() as RenderBox?;
+        if (rb == null) return;
+        final w = rb.size.width;
+        if (w <= 0) return;
 
-      onHorizontalDragUpdate: (details) {
-        if (widget.onSeek == null && widget.onSeekUpdate == null) return;
-        if (_dragStartPosition == null || _dragStartX == null) return;
+        final deltaX = d.localPosition.dx - _dragStartX!;
+        final visMs =
+            widget.controller.visibleDuration.inMilliseconds;
+        final deltaMs = -(deltaX * visMs / w);
+        final target =
+            (_dragStart!.inMilliseconds + deltaMs)
+                .round()
+                .clamp(0,
+                    widget.controller.duration.inMilliseconds);
 
-        final renderBox = context.findRenderObject() as RenderBox?;
-        if (renderBox == null) return;
-
-        final screenWidth = renderBox.size.width;
-        if (screenWidth <= 0) return;
-
-        final deltaX = details.localPosition.dx - _dragStartX!;
-        final visibleMs = widget.controller.visibleDuration.inMilliseconds;
-        final msPerPixel = visibleMs / screenWidth;
-
-        final deltaMs = -deltaX * msPerPixel;
-
-        final targetMs = (_dragStartPosition!.inMilliseconds + deltaMs)
-            .round()
-            .clamp(0, widget.controller.duration.inMilliseconds);
-
-        final newPosition = Duration(milliseconds: targetMs);
-
-        // Cập nhật giao diện mượt mà không bị lag do gọi method seek của audio player quá nhiều
-        widget.controller.updatePosition(newPosition);
-        widget.onSeekUpdate?.call(newPosition);
+        final pos = Duration(milliseconds: target);
+        widget.controller.updatePosition(pos);
+        widget.onSeekUpdate?.call(pos);
       },
-
       onHorizontalDragEnd: (_) {
         if (_isDragging) {
           widget.onSeek?.call(widget.controller.position);
         }
         _isDragging = false;
-        _dragStartPosition = null;
+        _dragStart = null;
         _dragStartX = null;
       },
-
       onHorizontalDragCancel: () {
         if (_isDragging) {
           widget.onSeek?.call(widget.controller.position);
         }
         _isDragging = false;
-        _dragStartPosition = null;
+        _dragStart = null;
         _dragStartX = null;
       },
-
-      // ★ SỬA 3: Luôn hiện — SizedBox thay AnimatedContainer
       child: SizedBox(
         height: widget.height,
         child: Column(
           children: [
-            // Waveform canvas
             Expanded(
               child: Listener(
-                onPointerSignal: (event) {
-                  if (event is PointerScrollEvent) {
-                    final newZoom =
-                        widget.controller.zoom + event.scrollDelta.dy * -0.001;
-                    widget.controller.setZoom(newZoom);
+                onPointerSignal: (e) {
+                  if (e is PointerScrollEvent) {
+                    widget.controller.setZoom(
+                      widget.controller.zoom +
+                          e.scrollDelta.dy * -0.001,
+                    );
                   }
                 },
                 child: AnimatedBuilder(
                   animation: widget.controller,
-                  builder: (context, child) {
-                    return RepaintBoundary(
-                      child: CustomPaint(
-                        size: Size.infinite,
-                        painter: RollingWaveformPainter(
-                          controller: widget.controller,
-                        ),
+                  builder: (_, __) => RepaintBoundary(
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: RollingWaveformPainter(
+                        controller: widget.controller,
+                        speakerColorMap: widget.speakerColorMap,
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ),
-
-            // Controls (giữ nguyên, điều khiển bằng showControls)
             if (widget.showControls) _buildControls(),
           ],
         ),
@@ -162,24 +147,22 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
     );
   }
 
-  // ★ GIỮ NGUYÊN _buildControls() — không xóa, không sửa
   Widget _buildControls() {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
-        borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(12),
-        ),
+        color: Colors.black.withOpacity(0.3),
+        borderRadius:
+            const BorderRadius.vertical(bottom: Radius.circular(12)),
       ),
       child: Row(
         children: [
           IconButton(
             icon: const Icon(Icons.zoom_out, size: 18),
-            onPressed: () =>
-                widget.controller.setZoom(widget.controller.zoom * 0.8),
             color: Colors.white70,
+            onPressed: () => widget.controller
+                .setZoom(widget.controller.zoom * 0.8),
           ),
           Expanded(
             child: Slider(
@@ -187,23 +170,23 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
               min: 0.5,
               max: 10.0,
               divisions: 19,
-              onChanged: widget.controller.setZoom,
               activeColor: const Color(0xFF6C63FF),
+              onChanged: widget.controller.setZoom,
             ),
           ),
           IconButton(
             icon: const Icon(Icons.zoom_in, size: 18),
-            onPressed: () =>
-                widget.controller.setZoom(widget.controller.zoom * 1.25),
             color: Colors.white70,
+            onPressed: () => widget.controller
+                .setZoom(widget.controller.zoom * 1.25),
           ),
-          const SizedBox(width: 16),
           AnimatedBuilder(
             animation: widget.controller,
-            builder: (context, _) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            builder: (_, __) => Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                color: const Color(0xFF6C63FF).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(

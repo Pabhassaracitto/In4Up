@@ -368,19 +368,20 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final stt = SttServiceFacade();
+      // Dùng SttServiceFacade class instance đã có ở dòng 90
+      debugPrint('🔍 Bắt đầu tạo LRC cho: $path');
 
       SttTranscribeOutput output;
       if (level == null) {
         // AUTO MODE
-        output = await stt.transcribeAuto(
+        output = await _sttService.transcribeAuto(
           path,
           language: 'en',
           generateLrc: true,
         );
       } else {
         // USER-SELECTED MODEL
-        output = await stt.transcribeFile(
+        output = await _sttService.transcribeFile(
           path,
           config: SttConfig.deepLearning.copyWith(
             preferredEngine: SttEngineType.whisper,
@@ -394,11 +395,11 @@ class PlayerProvider extends ChangeNotifier {
 
       _lastSttOutput = output;
       _lastSttError = output.success ? null : output.errorMessage;
+      debugPrint(
+          '🔍 Kết quả LRC: success=${output.success}, path=${output.lrcFilePath}');
 
-      // ★ THÊM: Lưu lrcPath riêng
-      if (output.lrcFilePath != null) {
-        _lastGeneratedLrcPath = output.lrcFilePath;
-      }
+      // ★ FIX: Đảm bảo cập nhật lrcPath ngay cả khi nó trùng với cũ (để trigger Consumer)
+      _lastGeneratedLrcPath = output.lrcFilePath;
 
       // ★ TASK 4: Nếu tạo LRC thành công → parse và đẩy vào UnderstandProvider
       // + bật flag để UI mở _AIPanel và LrcEditorPanel ở chế độ edit
@@ -418,6 +419,7 @@ class PlayerProvider extends ChangeNotifier {
       return output;
     } catch (e) {
       _lastSttError = e.toString();
+      debugPrint('⚠️ generateLrcForCurrentAudio error: $e');
       return null;
     } finally {
       _isGeneratingLrc = false;

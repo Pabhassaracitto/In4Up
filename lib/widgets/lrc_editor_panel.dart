@@ -258,6 +258,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
       }
 
       debugPrint('✅ LrcEditorPanel loaded: ${_lines!.length} lines');
+      if (mounted) setState(() {}); // Trigger rebuild
     } catch (e) {
       debugPrint('❌ LrcEditorPanel load error: $e');
       _lines = null;

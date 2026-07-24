@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:vipsound_stt/models/stt_result.dart';
 
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
@@ -340,6 +341,38 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       title: title ?? _currentDocument?.title ?? 'Untitled',
       lines: _lines,
       createdAt: _currentDocument?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
+    _selectedTextInfo = null;
+    _selectedText = null;
+    notifyListeners();
+  }
+
+  // ★ THÊM: Phương thức để load kết quả từ STT
+  void loadFromSttResult(SttResult result) {
+    _fullText = result.fullText;
+    _lines = result.segments.map((seg) {
+      return TextItem(
+        id: seg.uid,
+        content: seg.text,
+        startTime: seg.startDuration,
+        endTime: seg.endDuration,
+      );
+    }).toList();
+
+    _analyzedLines = SyntaxHighlighterService.analyzeLines(
+      _lines.map((l) => l.content).toList(),
+    );
+
+    _currentDocument = TextDocument(
+      id: result.audioFingerprint.isNotEmpty
+          ? result.audioFingerprint
+          : DateTime.now().millisecondsSinceEpoch.toString(),
+      title: 'STT Result',
+      lines: _lines,
+      createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 

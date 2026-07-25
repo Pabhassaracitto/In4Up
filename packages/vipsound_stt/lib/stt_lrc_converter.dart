@@ -1,6 +1,7 @@
 // VipSound v11.0 — LrcLine với Content-Anchored UID + joinKey
 
 import 'dart:convert';
+import 'models/content_id.dart';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -27,10 +28,7 @@ class LrcLine {
   static String _textNorm(String text) =>
       text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
-  static String _computeUid(Duration timestamp, String text) {
-    final raw = '${timestamp.inMilliseconds}|${_textNorm(text)}';
-    return md5.convert(utf8.encode(raw)).toString().substring(0, 12);
-  }
+  static String _computeUid(Duration timestamp, String text) => ContentId.joinKey(startMs: timestamp.inMilliseconds, text: text);
 
   /// Join key — đồng bộ với ContentId.joinKey() và SpeakerAnnotation.joinKey
   String get joinKey =>

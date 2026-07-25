@@ -164,7 +164,7 @@ class AiAnalysis {
     return AiAnalysis(
       inputText: inputText,
       type: AiAnalysisType.values.firstWhere(
-        (e) => e.name == (json['type'] as String? ?? ''),
+        (e) => e.name == (json['analysisType'] as String? ?? ''),
         orElse: () => AiAnalysisType.wordLookup,
       ),
       summary: json['summary'] as String? ?? '',

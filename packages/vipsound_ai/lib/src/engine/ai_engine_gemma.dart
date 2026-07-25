@@ -73,7 +73,7 @@ class AiEngineGemma implements AiEngine {
         yield AiAnalysis.fromJson(
           json,
           text,
-        );
+        ); // type is extracted from json['analysisType'] inside fromJson
         responsePort.close();
         break;
       } else if (msg is _IsolateError) {
@@ -151,6 +151,7 @@ class AiEngineGemma implements AiEngine {
 {
   "summary": "Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.",
   "topics": ["Technology", "Language Learning"],
+  "analysisType": "sentenceParse",
   "technical_terms": [
     {
       "text": "Isolate",

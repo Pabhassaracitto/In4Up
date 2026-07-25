@@ -241,7 +241,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
     try {
       _lastLrcPath = lrcPath;
       final lrcContent = await File(lrcPath).readAsString();
-      final parsed = await SttLrcConverter().parseLrcFile(lrcContent);
+      final parsed = await SttLrcConverter().parseLrcContent(lrcContent);
 
       // Filter dòng rỗng
       _lines = parsed.where((l) => l.text.trim().isNotEmpty).toList();

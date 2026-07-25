@@ -1,6 +1,7 @@
 // VipSound v11.0 — Facade hoàn chỉnh với Diarization pipeline
 
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
@@ -78,23 +79,20 @@ class SttTranscribeOutput {
     required this.success,
   });
 
-  factory SttTranscribeOutput.failure(String error) =>
-      SttTranscribeOutput(
+  factory SttTranscribeOutput.failure(String error) => SttTranscribeOutput(
         result: SttResult.empty(SttEngineType.native),
         errorMessage: error,
         success: false,
       );
 
-  bool get hasDiarization =>
-      speakers.any((s) => s.speakerId > 0);
+  bool get hasDiarization => speakers.any((s) => s.speakerId > 0);
 }
 
 // ─── Facade ───────────────────────────────────────────────────────────────────
 
 class SttServiceFacade extends ChangeNotifier {
   static SttServiceFacade? _instance;
-  factory SttServiceFacade() =>
-      _instance ??= SttServiceFacade._internal();
+  factory SttServiceFacade() => _instance ??= SttServiceFacade._internal();
   SttServiceFacade._internal();
 
   // ── Fields ────────────────────────────────────────────────
@@ -137,8 +135,7 @@ class SttServiceFacade extends ChangeNotifier {
     Map<WhisperModelLevel, List<String>>? acceptedModelNames,
   }) async {
     try {
-      _emitProgress(
-          SttFacadeStatus.initializing, 0.0, 'Đang khởi tạo...');
+      _emitProgress(SttFacadeStatus.initializing, 0.0, 'Đang khởi tạo...');
 
       _config = config ?? const SttConfig();
       _nativeEngine = SttEngineNative();
@@ -153,8 +150,7 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
       await _modelManager.initialize();
-      _emitProgress(
-          SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
+      _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
 
       await _nativeEngine.initialize().catchError((e) {
         debugPrint('⚠️ Native STT init failed (non-fatal): $e');
@@ -179,6 +175,7 @@ class SttServiceFacade extends ChangeNotifier {
     bool generateLrc = false,
     String audioFingerprint = '',
   }) async {
+    debugPrint('DEBUG [STT]: transcribeFile called for $audioPath');
     _ensureInitialized();
 
     final cfg = config ?? _config;
@@ -191,8 +188,8 @@ class SttServiceFacade extends ChangeNotifier {
       final cached = _resultCache[cacheKey]!;
 
       if (shouldGenerateLrc && cached.segments.isNotEmpty) {
-        final gen = await _generateLrcAndDiarization(
-            cached, audioPath, lrcOutputPath);
+        final gen =
+            await _generateLrcAndDiarization(cached, audioPath, lrcOutputPath);
         return SttTranscribeOutput(
           result: cached,
           speakers: gen.speakers,
@@ -211,8 +208,10 @@ class SttServiceFacade extends ChangeNotifier {
       SttResult result;
 
       if (cfg.preferredEngine == SttEngineType.whisper) {
+        debugPrint('DEBUG [STT]: Using Whisper engine');
         result = await _runWhisperEngine(audioPath, cfg);
       } else {
+        debugPrint('DEBUG [STT]: Using Native engine');
         result = await _runNativeEngine(audioPath, cfg);
         if (cfg.autoFallback && result.fullText.isEmpty) {
           debugPrint('⚠️ Native empty → fallback Whisper');
@@ -221,8 +220,7 @@ class SttServiceFacade extends ChangeNotifier {
       }
 
       // Gán fingerprint nếu caller cung cấp
-      if (audioFingerprint.isNotEmpty &&
-          result.audioFingerprint.isEmpty) {
+      if (audioFingerprint.isNotEmpty && result.audioFingerprint.isEmpty) {
         result = SttResult(
           fullText: result.fullText,
           segments: result.segments,
@@ -238,8 +236,8 @@ class SttServiceFacade extends ChangeNotifier {
 
       // ── LRC + Diarization ──────────────────────────────
       if (shouldGenerateLrc && result.segments.isNotEmpty) {
-        final gen = await _generateLrcAndDiarization(
-            result, audioPath, lrcOutputPath);
+        final gen =
+            await _generateLrcAndDiarization(result, audioPath, lrcOutputPath);
 
         _emitProgress(SttFacadeStatus.ready, 1.0, 'Hoàn tất!');
         return SttTranscribeOutput(
@@ -310,8 +308,7 @@ class SttServiceFacade extends ChangeNotifier {
     );
 
     if (localLevel == null) {
-      _emitProgress(
-          SttFacadeStatus.ready, 0.0, 'Không có model offline.');
+      _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
       return SttTranscribeOutput.failure('Không có model offline.');
     }
 
@@ -331,25 +328,17 @@ class SttServiceFacade extends ChangeNotifier {
 
   // ── LRC + Diarization pipeline ────────────────────────────
 
-  Future<
-      ({
-        String? lrcPath,
-        String? spkPath,
-        List<SpeakerAnnotation> speakers
-      })> _generateLrcAndDiarization(
+  Future<({String? lrcPath, String? spkPath, List<SpeakerAnnotation> speakers})>
+      _generateLrcAndDiarization(
     SttResult result,
     String audioPath,
     String? outputPath,
   ) async {
-    const empty = (
-      lrcPath: null,
-      spkPath: null,
-      speakers: <SpeakerAnnotation>[]
-    );
+    const empty =
+        (lrcPath: null, spkPath: null, speakers: <SpeakerAnnotation>[]);
 
     try {
-      _emitProgress(
-          SttFacadeStatus.generatingLrc, 0.88, 'Đang tạo LRC...');
+      _emitProgress(SttFacadeStatus.generatingLrc, 0.88, 'Đang tạo LRC...');
 
       final appDir = await getApplicationDocumentsDirectory();
       final lrcDir = outputPath ?? '${appDir.path}/.vipsound_lrc';
@@ -362,12 +351,11 @@ class SttServiceFacade extends ChangeNotifier {
       );
       if (lrcPath == null) return empty;
 
-      _emitProgress(SttFacadeStatus.generatingLrc, 0.92,
-          'Phân tách người nói...');
+      _emitProgress(
+          SttFacadeStatus.generatingLrc, 0.92, 'Phân tách người nói...');
 
       // 2. Diarization overlay
-      final speakers =
-          await _diarizationService.diarize(result);
+      final speakers = await _diarizationService.diarize(result);
 
       // 3. Sidecar JSON (cache render)
       String? spkPath;
@@ -380,8 +368,7 @@ class SttServiceFacade extends ChangeNotifier {
         spkPath = SpeakerSidecar.getSidecarPath(lrcPath);
       }
 
-      _emitProgress(
-          SttFacadeStatus.generatingLrc, 0.98, 'Hoàn tất!');
+      _emitProgress(SttFacadeStatus.generatingLrc, 0.98, 'Hoàn tất!');
       return (lrcPath: lrcPath, spkPath: spkPath, speakers: speakers);
     } catch (e) {
       debugPrint('❌ _generateLrcAndDiarization: $e');
@@ -391,17 +378,15 @@ class SttServiceFacade extends ChangeNotifier {
 
   // ── Engine runners ────────────────────────────────────────
 
-  Future<SttResult> _runNativeEngine(
-      String audioPath, SttConfig config) async {
-    _emitProgress(SttFacadeStatus.processingNative, 0.1,
-        'Đang nhận diện giọng nói...',
+  Future<SttResult> _runNativeEngine(String audioPath, SttConfig config) async {
+    _emitProgress(
+        SttFacadeStatus.processingNative, 0.1, 'Đang nhận diện giọng nói...',
         engine: SttEngineType.native);
     final result = await _nativeEngine.transcribeFile(
       audioPath,
       language: config.language,
     );
-    _emitProgress(SttFacadeStatus.processingNative, 0.9,
-        'Hoàn tất nhận diện');
+    _emitProgress(SttFacadeStatus.processingNative, 0.9, 'Hoàn tất nhận diện');
     return result;
   }
 
@@ -430,8 +415,7 @@ class SttServiceFacade extends ChangeNotifier {
       wordTimestamps: true,
     );
 
-    _emitProgress(
-        SttFacadeStatus.processingWhisper, 0.9, 'Whisper hoàn tất!');
+    _emitProgress(SttFacadeStatus.processingWhisper, 0.9, 'Whisper hoàn tất!');
     return result;
   }
 
@@ -458,11 +442,9 @@ class SttServiceFacade extends ChangeNotifier {
     return _nativeEngine.startListening(language: language);
   }
 
-  Future<void> stopListening() async =>
-      _nativeEngine.stopListening();
+  Future<void> stopListening() async => _nativeEngine.stopListening();
 
-  Stream<SttResult> get liveResultStream =>
-      _nativeEngine.resultStream;
+  Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
 
   // ── Config ────────────────────────────────────────────────
 

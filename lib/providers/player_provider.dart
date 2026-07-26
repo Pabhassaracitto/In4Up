@@ -1,8 +1,6 @@
 // lib/providers/player_provider.dart
-// Chỉ thay đổi 3 chỗ — giữ nguyên toàn bộ code cũ
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:vipsound_core/vocab_level_difficulty.dart';
@@ -12,13 +10,15 @@ import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
 import '../models/segment.dart';
 import '../screens/listen_mode/models/recent_audio.dart';
-// ★ THÊM import
 import '../screens/listen_mode/services/recent_audio_service.dart';
 import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../services/storage_service.dart';
 import 'text_provider.dart'; // Import TextProvider
 
-// ... giữ nguyên enum VipMode, ModeSettings ...
+// Mixins
+import 'player/player_stt_mixin.dart';
+import 'player/player_loop_mixin.dart';
+import 'player/player_stats_mixin.dart';
 
 enum VipMode {
   music,
@@ -77,33 +77,13 @@ class ModeSettings {
   }
 }
 
-class PlayerProvider extends ChangeNotifier {
+class PlayerProvider extends ChangeNotifier
+    with PlayerSttMixin, PlayerLoopMixin, PlayerStatsMixin {
   final AudioPlayerService _audioService = AudioPlayerService();
   final StorageService _storage = StorageService();
-  // ★ THÊM
+
   TextProvider? _textProvider; // Thêm tham chiếu đến TextProvider
-  UnderstandProvider?
-      _understandProvider; // NEW: Reference to UnderstandProvider
-  final RecentAudioService _recentAudio = RecentAudioService();
-
-  // ★ THÊM: STT Facade
-  final SttServiceFacade _sttService = SttServiceFacade();
-
-  // ★ THÊM: Trạng thái STT
-  SttTranscribeOutput? _lastTranscribeOutput;
-  SttTranscribeOutput? get lastTranscribeOutput => _lastTranscribeOutput;
-
-  // ★ TASK 4: Flag để UI biết khi nào LRC vừa được tạo xong
-  bool _lrcJustGenerated = false;
-  bool get lrcJustGenerated => _lrcJustGenerated;
-
-  /// UI gọi method này sau khi đã xử lý sự kiện lrcJustGenerated
-  void consumeLrcJustGenerated() {
-    if (_lrcJustGenerated) {
-      _lrcJustGenerated = false;
-      // Không cần notifyListeners() — tránh vòng lặp
-    }
-  }
+  UnderstandProvider? _understandProvider; // NEW: Reference to UnderstandProvider
 
   // === PLAYBACK STATE ===
   PlaybackState _state = const PlaybackState();
@@ -115,21 +95,6 @@ class PlayerProvider extends ChangeNotifier {
   VipMode _currentMode = VipMode.music;
   ModeSettings _modeSettings = ModeSettings.music;
 
-  // === A-B LOOP ===
-  Duration? _loopStart;
-  Duration? _loopEnd;
-  Duration? _pendingLoopA;
-  bool _isLooping = false;
-  int _loopCount = 0;
-  int _maxLoopCount = 0;
-  bool _repeatTrack = false;
-  bool _hasHandledCompletion = false; // Chống double-trigger khi kết thúc bài
-
-  double _gapDuration = 0.0;
-  bool _isWaitingGap = false;
-  Timer? _gapTimer;
-  Duration _silenceDuration = Duration.zero;
-
   // === SLEEP TIMER ===
   Timer? _sleepTimer;
   Duration? _sleepDuration;
@@ -137,21 +102,30 @@ class PlayerProvider extends ChangeNotifier {
 
   // === SAVED POSITIONS ===
   Timer? _positionSaverTimer;
-  RecentAudio? _pendingRecentUpdate;
 
   // === SEGMENTS ===
   final List<Segment> _segments = [];
   int _currentSegmentIndex = -1;
 
-  // === LEARNING STATS ===
-  int _totalLoopsToday = 0;
-  Duration _totalListeningTime = Duration.zero;
+  // ==================== MIXIN ABSTRACT OVERRIDES ====================
+  @override
+  AudioPlayerService get audioService => _audioService;
+
+  @override
+  StorageService get storage => _storage;
+
+  @override
+  UnderstandProvider? get understandProvider => _understandProvider;
 
   // ==================== GETTERS ====================
+  @override
   PlaybackState get state => _state;
+
+  @override
+  String? get currentSongPath => _currentSongPath;
+
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
-  String? get currentSongPath => _currentSongPath;
   bool get isPlaying => _state.status == PlaybackStatus.playing;
   bool get isPaused => _state.status == PlaybackStatus.paused;
   bool get isStopped => _state.status == PlaybackStatus.stopped;
@@ -159,34 +133,11 @@ class PlayerProvider extends ChangeNotifier {
   bool get isCompleted => _state.status == PlaybackStatus.completed;
 
   VipMode get currentMode => _currentMode;
+  @override
   ModeSettings get modeSettings => _modeSettings;
   bool get isBuddhismMode => _currentMode == VipMode.buddhism;
   bool get isEnglishMode => _currentMode == VipMode.english;
   bool get isMusicMode => _currentMode == VipMode.music;
-
-  Duration? get loopStart => _loopStart;
-  Duration? get loopEnd => _loopEnd;
-  Duration? get pendingLoopA => _pendingLoopA;
-  bool get hasCompletedLoop => _loopStart != null && _loopEnd != null;
-  bool get isLooping => _isLooping;
-  int get loopCount => _loopCount;
-  int get maxLoopCount => _maxLoopCount;
-  bool get repeatTrack => _repeatTrack;
-  double get gapDuration => _gapDuration;
-  bool get isWaitingGap => _isWaitingGap;
-  bool get hasLoop => _loopStart != null && _loopEnd != null;
-  Duration get silenceDuration => _silenceDuration;
-
-  Duration? get loopDuration {
-    if (_loopStart == null || _loopEnd == null) return null;
-    return _loopEnd! - _loopStart!;
-  }
-
-  double get loopProgress {
-    if (_maxLoopCount <= 0) return 0.0;
-    if (_loopCount.isNaN || _maxLoopCount.isNaN) return 0.0;
-    return (_loopCount / _maxLoopCount).clamp(0.0, 1.0);
-  }
 
   Duration? get sleepDuration => _sleepDuration;
   bool get hasSleepTimer => _sleepTimer != null;
@@ -196,15 +147,15 @@ class PlayerProvider extends ChangeNotifier {
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
+  @override
   List<Segment> get segments => List.unmodifiable(_segments);
+
+  @override
   int get currentSegmentIndex => _currentSegmentIndex;
   Segment? get currentSegment =>
       _currentSegmentIndex >= 0 && _currentSegmentIndex < _segments.length
           ? _segments[_currentSegmentIndex]
           : null;
-
-  int get totalLoopsToday => _totalLoopsToday;
-  Duration get totalListeningTime => _totalListeningTime;
 
   List<double> get speedPresets => AudioPlayerService.speedPresets;
 
@@ -214,11 +165,11 @@ class PlayerProvider extends ChangeNotifier {
 
     _positionSaverTimer = Timer.periodic(
       const Duration(seconds: 10),
-      (_) => _saveCurrentPosition(),
+      (_) => saveCurrentPosition(),
     );
 
     _restoreFromStorage();
-    _initializeStt();
+    initializeStt();
   }
 
   // Setter để gán TextProvider
@@ -230,216 +181,6 @@ class PlayerProvider extends ChangeNotifier {
   void setUnderstandProvider(UnderstandProvider understandProvider) {
     _understandProvider = understandProvider;
   }
-
-  // ─── THÊM METHODS STT ───────────────────────────────────────────────────
-
-  /// Khởi tạo STT (gọi trong constructor)
-  Future<void> _initializeStt() async {
-    try {
-      await _sttService.initialize();
-      debugPrint('✅ PlayerProvider: STT initialized');
-    } catch (e) {
-      debugPrint('⚠️ PlayerProvider: STT init failed (non-fatal): $e');
-    }
-  }
-
-  Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
-  SttProgress get sttProgress => _sttService.currentProgress;
-
-  /// ★ TASK 2: Tính hash đơn giản từ file path để làm cache key LRC
-  String _computeFileHash(String normalizedPath) {
-    // Dùng hashCode của path làm ID nhẹ (không cần đọc file)
-    // Nếu dự án có crypto package → dùng MD5 của bytes sẽ chính xác hơn
-    return normalizedPath.hashCode.toRadixString(16);
-  }
-
-  /// ★ TASK 2: Tìm file LRC trong cache dựa trên hash của path
-  Future<String?> _findCachedLrcPath(String normalizedPath) async {
-    try {
-      final hash = _computeFileHash(normalizedPath);
-
-      // Thư mục cache STT mặc định (cùng nơi SttServiceFacade lưu LRC)
-      // Thử các vị trí phổ biến theo thứ tự ưu tiên
-      final candidates = <String>[
-        // 1. LRC đặt cùng thư mục với file audio
-        '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
-            '/${hash}.lrc',
-        // 2. Cache app (SttServiceFacade thường lưu theo pattern này)
-        '/data/user/0/com.vipsound.app/cache/lrc/$hash.lrc',
-        // 3. LRC cùng tên với file audio (thay extension)
-        _replaceExtension(normalizedPath, '.lrc'),
-      ];
-
-      for (final candidate in candidates) {
-        final file = File(candidate);
-        if (await file.exists()) {
-          debugPrint('✅ Found cached LRC: $candidate');
-          return candidate;
-        }
-      }
-
-      // 4. Scan thư mục cache thông qua SttServiceFacade nếu có API
-      final outputFromStt = _lastSttOutput;
-      if (outputFromStt?.lrcFilePath != null) {
-        final lrcFile = File(outputFromStt!.lrcFilePath!);
-        if (await lrcFile.exists()) {
-          return outputFromStt.lrcFilePath;
-        }
-      }
-
-      return null;
-    } catch (e) {
-      debugPrint('⚠️ _findCachedLrcPath error: $e');
-      return null;
-    }
-  }
-
-  /// Helper: thay extension của file path
-  String _replaceExtension(String path, String newExt) {
-    final lastDot = path.lastIndexOf('.');
-    final lastSlash = path.lastIndexOf('/');
-    if (lastDot > lastSlash && lastDot >= 0) {
-      return '${path.substring(0, lastDot)}$newExt';
-    }
-    return '$path$newExt';
-  }
-
-  /// ★ TASK 2: Parse file LRC thành danh sách LrcLine
-  Future<List<LrcLine>> _parseLrcFile(String lrcPath) async {
-    try {
-      final file = File(lrcPath);
-      if (!await file.exists()) return [];
-
-      final content = await file.readAsString();
-      final lines = <LrcLine>[];
-
-      for (final rawLine in content.split('\n')) {
-        final trimmed = rawLine.trim();
-        if (trimmed.isEmpty) continue;
-
-        // Parse LRC format: [mm:ss.xx] text hoặc [mm:ss.xxx]
-        final match = RegExp(
-          r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$',
-        ).firstMatch(trimmed);
-
-        if (match != null) {
-          final minutes = int.parse(match.group(1)!);
-          final seconds = int.parse(match.group(2)!);
-          final centisStr = match.group(3)!;
-          // Normalise 2 hoặc 3 chữ số về milliseconds
-          final millis = centisStr.length == 2
-              ? int.parse(centisStr) * 10
-              : int.parse(centisStr);
-
-          final timestamp = Duration(
-            minutes: minutes,
-            seconds: seconds,
-            milliseconds: millis,
-          );
-          final text = match.group(4)?.trim() ?? '';
-
-          if (text.isNotEmpty) {
-            lines.add(LrcLine(timestamp: timestamp, text: text));
-          }
-        }
-      }
-
-      debugPrint('📄 Parsed ${lines.length} LRC lines from $lrcPath');
-      return lines;
-    } catch (e) {
-      debugPrint('⚠️ _parseLrcFile error: $e');
-      return [];
-    }
-  }
-
-  /// Tạo LRC từ bài audio hiện tại (Deep Learning mode)
-  Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
-    WhisperModelLevel? level,
-  }) async {
-    final path = currentSongPath;
-    if (path == null) {
-      _lastSttError = 'Chưa có file audio đang phát';
-      notifyListeners();
-      return null;
-    }
-
-    _isGeneratingLrc = true;
-    _lastSttError = null;
-    notifyListeners();
-
-    try {
-      // Dùng SttServiceFacade class instance đã có ở dòng 90
-      debugPrint('🔍 Bắt đầu tạo LRC cho: $path');
-
-      SttTranscribeOutput output;
-      if (level == null) {
-        // AUTO MODE
-        output = await _sttService.transcribeAuto(
-          path,
-          language: 'en',
-          generateLrc: true,
-        );
-      } else {
-        // USER-SELECTED MODEL
-        output = await _sttService.transcribeFile(
-          path,
-          config: SttConfig.deepLearning.copyWith(
-            preferredEngine: SttEngineType.whisper,
-            whisperModel: level,
-            language: 'en',
-            generateLrc: true,
-          ),
-          generateLrc: true,
-        );
-      }
-
-      _lastSttOutput = output;
-      _lastSttError = output.success ? null : output.errorMessage;
-      debugPrint(
-          '🔍 Kết quả LRC: success=${output.success}, path=${output.lrcFilePath}');
-
-      // ★ FIX: Đảm bảo cập nhật lrcPath ngay cả khi nó trùng với cũ (để trigger Consumer)
-      _lastGeneratedLrcPath = output.lrcFilePath;
-
-      // ★ TASK 4: Nếu tạo LRC thành công → parse và đẩy vào UnderstandProvider
-      // + bật flag để UI mở _AIPanel và LrcEditorPanel ở chế độ edit
-      if (output.success &&
-          output.lrcFilePath != null &&
-          _understandProvider != null) {
-        final lrcLines = await _parseLrcFile(output.lrcFilePath!);
-        if (lrcLines.isNotEmpty) {
-          _understandProvider!.loadLrcLines(lrcLines);
-          debugPrint(
-              '✅ Auto-loaded ${lrcLines.length} LRC lines after generate');
-        }
-        // Bật flag → UI sẽ bắt và mở panel + editor mode
-        _lrcJustGenerated = true;
-      }
-
-      return output;
-    } catch (e) {
-      _lastSttError = e.toString();
-      debugPrint('⚠️ generateLrcForCurrentAudio error: $e');
-      return null;
-    } finally {
-      _isGeneratingLrc = false;
-      notifyListeners();
-    }
-  }
-
-  /// Transcribe nhanh (Native) - dùng cho Shadowing
-  Future<String> transcribeForShadowing(String audioPath) async {
-    try {
-      final output = await _sttService.transcribeQuick(audioPath);
-      return output.success ? output.result.fullText : '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  // Lấy trạng thái model Whisper
-  SttModelInfo getSttModelInfo(WhisperModelLevel level) =>
-      _sttService.getModelInfo(level);
 
   Future<void> _restoreFromStorage() async {
     if (!_storage.isInitialized) {
@@ -460,46 +201,26 @@ class PlayerProvider extends ChangeNotifier {
           _currentMode = VipMode.music;
       }
       _modeSettings = ModeSettings.forMode(_currentMode);
-      _gapDuration = _storage.getGapDuration();
+      restoreLoopSettings(_storage.getGapDuration());
 
       final savedSegments = _storage.getAllAudioSegments();
       _segments.addAll(savedSegments);
 
       final todayStats = _storage.getDailyStats();
-      _totalLoopsToday = todayStats['loops'] as int;
+      totalLoopsToday = todayStats['loops'] as int;
 
       debugPrint(
-          'PlayerProvider restored: Mode=$_currentMode, Segments=${_segments.length}');
+        'PlayerProvider restored: Mode=$_currentMode, Segments=${_segments.length}',
+      );
       notifyListeners();
     } catch (e) {
       debugPrint('Error restoring PlayerProvider: $e');
     }
   }
 
-  // ★ THÊM: Throttle update recent position (mỗi 30 giây 1 lần)
-  DateTime _lastRecentUpdate = DateTime.now();
-
-  void _maybeUpdateRecentPosition(Duration position) {
-    if (_currentSongPath == null) return;
-    final now = DateTime.now();
-    if (now.difference(_lastRecentUpdate).inSeconds < 30) return;
-    _lastRecentUpdate = now;
-
-    final normalizedPath = _currentSongPath!; // Đã được chuẩn hóa ở loadSong
-    final audioId = 'local_${normalizedPath.toLowerCase().hashCode}';
-    _recentAudio.updatePosition(
-      audioId,
-      position: position,
-      totalDuration: _state.duration,
-    );
-  }
-
   void _onStateChanged(PlaybackState state) {
     final previousStatus = _state.status;
     final previousPosition = _state.position;
-
-    // ── LOG mọi status change ──
-    if (state.status != _state.status) {}
 
     // ── FIX 1: Hạ ngưỡng xuống 16ms (~60fps) để thanh chạy mượt ──
     bool shouldNotify = state.status != _state.status ||
@@ -512,25 +233,25 @@ class PlayerProvider extends ChangeNotifier {
     // ── FIX 2: Xử lý completed KHÔNG dùng return sớm ──
     if (state.status == PlaybackStatus.completed &&
         previousStatus != PlaybackStatus.completed &&
-        !_hasHandledCompletion) {
-      debugPrint('🏁 COMPLETED CAUGHT: repeatTrack=$_repeatTrack');
+        !hasHandledCompletion) {
+      debugPrint('🏁 COMPLETED CAUGHT: repeatTrack=$repeatTrack');
 
-      if (_repeatTrack) {
-        _hasHandledCompletion = true;
-        _handleRepeatTrack(); // fire and forget
+      if (repeatTrack) {
+        hasHandledCompletion = true;
+        handleRepeatTrack(); // fire and forget
       }
     }
 
     // Reset flag khi playing bình thường
     if (state.status == PlaybackStatus.playing) {
-      _hasHandledCompletion = false;
+      hasHandledCompletion = false;
     }
 
     // Pending recent update
-    if (_pendingRecentUpdate != null && state.duration > Duration.zero) {
-      final entry = _pendingRecentUpdate!;
-      _pendingRecentUpdate = null;
-      _recentAudio.updatePosition(
+    if (pendingRecentUpdate != null && state.duration > Duration.zero) {
+      final entry = pendingRecentUpdate!;
+      pendingRecentUpdate = null;
+      recentAudio.updatePosition(
         entry.id,
         position: Duration.zero,
         totalDuration: state.duration,
@@ -538,15 +259,15 @@ class PlayerProvider extends ChangeNotifier {
     }
 
     // AB Loop check
-    if (_isLooping && _loopEnd != null && !_isWaitingGap) {
-      _checkLoopPosition(state.position, previousPosition);
+    if (isLooping && loopEnd != null && !isWaitingGap) {
+      checkLoopPosition(state.position, previousPosition);
       if (state.position < previousPosition) shouldNotify = true;
     }
 
     // Stats
     if (state.status == PlaybackStatus.playing) {
-      _totalListeningTime += const Duration(milliseconds: 100);
-      _maybeUpdateRecentPosition(state.position);
+      totalListeningTime += const Duration(milliseconds: 100);
+      maybeUpdateRecentPosition(state.position);
     }
 
     // Luôn notify khi playing để UI (thanh progress, waveform) cập nhật mượt
@@ -561,13 +282,13 @@ class PlayerProvider extends ChangeNotifier {
     _currentMode = mode;
     _modeSettings = ModeSettings.forMode(mode);
 
-    if (!_isLooping) {
-      _gapDuration = _modeSettings.defaultGapDuration;
-      _maxLoopCount = _modeSettings.defaultLoopCount;
-    }
+    updateLoopSettings(
+      defaultGap: _modeSettings.defaultGapDuration,
+      defaultLoop: _modeSettings.defaultLoopCount,
+    );
 
     _storage.saveLastMode(mode.name);
-    _storage.saveGapDuration(_gapDuration);
+    _storage.saveGapDuration(gapDuration);
 
     notifyListeners();
   }
@@ -578,7 +299,6 @@ class PlayerProvider extends ChangeNotifier {
 
   // ==================== BASIC PLAYBACK ====================
 
-  // ★ THAY THẾ loadSong() — thêm lưu recent
   Future<void> loadSong({
     required String path,
     String? title,
@@ -600,7 +320,7 @@ class PlayerProvider extends ChangeNotifier {
     _currentSongArtist = artist;
 
     clearLoop();
-    _hasHandledCompletion = false; // Reset trạng thái kết thúc khi đổi bài
+    hasHandledCompletion = false; // Reset trạng thái kết thúc khi đổi bài
     _currentSegmentIndex = -1;
     _storage.saveLastAudioPath(normalizedPath);
     notifyListeners();
@@ -610,9 +330,9 @@ class PlayerProvider extends ChangeNotifier {
       path: normalizedPath,
       title: _currentSongTitle!,
     );
-    _pendingRecentUpdate = recentEntry;
+    pendingRecentUpdate = recentEntry;
     // Fire-and-forget — không await để không block playback
-    _recentAudio.addOrUpdate(recentEntry);
+    recentAudio.addOrUpdate(recentEntry);
 
     final success = await _audioService.loadFile(normalizedPath);
     if (success) {
@@ -635,7 +355,7 @@ class PlayerProvider extends ChangeNotifier {
       // ★ THÊM: Cập nhật totalDuration sau khi load xong
       final duration = _state.duration;
       if (duration > Duration.zero) {
-        _recentAudio.updatePosition(
+        recentAudio.updatePosition(
           recentEntry.id,
           position: Duration.zero,
           totalDuration: duration,
@@ -644,48 +364,7 @@ class PlayerProvider extends ChangeNotifier {
 
       // ★ TASK 2: Sau khi load file xong, scan cache LRC theo hash
       // Fire-and-forget để không block playback
-      _autoLoadCachedLrc(normalizedPath);
-    }
-  }
-
-  /// ★ TASK 2: Tự động tìm và nạp LRC cache khi load bài mới
-  Future<void> _autoLoadCachedLrc(String normalizedPath) async {
-    try {
-      final cachedLrcPath = await _findCachedLrcPath(normalizedPath);
-
-      if (cachedLrcPath != null) {
-        final lrcLines = await _parseLrcFile(cachedLrcPath);
-        if (lrcLines.isNotEmpty && _understandProvider != null) {
-          _understandProvider!.loadLrcLines(lrcLines);
-          _lastGeneratedLrcPath = cachedLrcPath;
-          debugPrint(
-            '✅ Auto-loaded cached LRC (${lrcLines.length} lines): $cachedLrcPath',
-          );
-          notifyListeners();
-        }
-        // Nếu có LRC → không cần mở _AIPanel (UI sẽ xử lý trong _onUnderstandChange)
-      } else {
-        // Không có LRC cache → UI nên mở _AIPanel mặc định
-        // Bật flag để ListenModeScreen biết cần mở _AIPanel
-        _shouldOpenAiPanel = true;
-        notifyListeners();
-        debugPrint(
-            'ℹ️ No cached LRC found for: $normalizedPath → open AI panel');
-      }
-    } catch (e) {
-      debugPrint('⚠️ _autoLoadCachedLrc error: $e');
-    }
-  }
-
-  /// ★ TASK 2: Flag để UI mở _AIPanel khi không có LRC cache
-  bool _shouldOpenAiPanel = false;
-  bool get shouldOpenAiPanel => _shouldOpenAiPanel;
-
-  /// UI gọi method này sau khi đã xử lý sự kiện shouldOpenAiPanel
-  void consumeShouldOpenAiPanel() {
-    if (_shouldOpenAiPanel) {
-      _shouldOpenAiPanel = false;
-      // Không gọi notifyListeners() — tránh vòng lặp render
+      autoLoadCachedLrc(normalizedPath);
     }
   }
 
@@ -697,7 +376,7 @@ class PlayerProvider extends ChangeNotifier {
   // ★ THÊM: clearCurrentSong() — dùng cho "Xem tất cả" trong QuickAudioSheet
   Future<void> clearCurrentSong() async {
     // Lưu position trước khi clear
-    _saveCurrentPosition();
+    saveCurrentPosition();
 
     // Dừng audio
     await _audioService.stop();
@@ -718,7 +397,7 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> pause() async {
     await _audioService.pause();
-    _saveCurrentPosition();
+    saveCurrentPosition();
   }
 
   Future<void> togglePlayPause() async {
@@ -750,9 +429,10 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> stop() async {
     await _audioService.stop();
-    _saveCurrentPosition();
+    saveCurrentPosition();
   }
 
+  @override
   Future<void> seek(Duration position) async {
     await _audioService.seek(position);
   }
@@ -821,252 +501,6 @@ class PlayerProvider extends ChangeNotifier {
     await setSpeed(newSpeed);
   }
 
-  // ==================== A-B LOOP ====================
-  void setLoopPointA(Duration position) {
-    _pendingLoopA = position;
-    _loopStart = position;
-    _loopEnd = null;
-    notifyListeners();
-  }
-
-  void setLoopPointB(Duration position) {
-    if (_pendingLoopA == null) {
-      setLoopPointA(position);
-      return;
-    }
-    final a = _pendingLoopA!;
-    if (position <= a) {
-      _loopStart = position;
-      _loopEnd = a;
-    } else {
-      _loopStart = a;
-      _loopEnd = position;
-    }
-    _pendingLoopA = null;
-    _isLooping = true;
-    notifyListeners();
-  }
-
-  void clearLoopPoints() {
-    _pendingLoopA = null;
-    _repeatTrack = false;
-    clearLoop();
-  }
-
-  void setLoopCount(int count) {
-    _maxLoopCount = count;
-
-    // Nếu không có vùng lặp AB -> kích hoạt lặp toàn bài (Repeat Track)
-    if (_loopStart == null) {
-      _repeatTrack = (count != 0);
-    }
-    debugPrint('🔁 setLoopCount: max=$_maxLoopCount '
-        'repeatTrack=$_repeatTrack loopStart=$_loopStart');
-    notifyListeners();
-
-    notifyListeners();
-  }
-
-  void setLoopStart() {
-    _loopStart = _state.position;
-    notifyListeners();
-  }
-
-  void setLoopEnd() {
-    if (_loopStart == null) return;
-    _loopEnd = _state.position;
-
-    if (_loopEnd! <= _loopStart!) {
-      final temp = _loopStart;
-      _loopStart = _loopEnd;
-      _loopEnd = temp;
-    }
-
-    _isLooping = true;
-    _loopCount = 0;
-
-    if (_gapDuration == 0) {
-      _gapDuration = _modeSettings.defaultGapDuration;
-    }
-    if (_maxLoopCount == 0) {
-      _maxLoopCount = _modeSettings.defaultLoopCount;
-    }
-
-    notifyListeners();
-  }
-
-  Future<void> _handleRepeatTrack() async {
-    if (_currentSongPath == null) return;
-
-    _totalLoopsToday++;
-    _storage.incrementLoopCount();
-
-    // 1. Kiểm tra số lần lặp nếu không phải vô tận (-1)
-    if (_maxLoopCount > 0) {
-      _loopCount++;
-      if (_loopCount >= _maxLoopCount) {
-        // Đã đủ số lần lặp -> Dừng lặp
-        _repeatTrack = false;
-        _loopCount = 0;
-        _maxLoopCount = 0;
-        _hasHandledCompletion = false;
-        notifyListeners();
-        return;
-      }
-    }
-
-    // 2. Xử lý khoảng lặng (Gap) nếu có
-    if (_gapDuration > 0 &&
-        !_gapDuration.isNaN && // ← THÊM guard
-        !_gapDuration.isInfinite) {
-      // ← THÊM guard
-      _isWaitingGap = true;
-      notifyListeners();
-
-      await _audioService.pause();
-
-      final gapMs = (_gapDuration * 1000).clamp(0.0, 30000.0).toInt();
-      await Future.delayed(Duration(milliseconds: gapMs));
-
-      if (!_repeatTrack) return; // Guard: người dùng tắt lặp trong khi chờ
-      _isWaitingGap = false;
-    }
-
-    // 3. Thực hiện quay lại đầu bài và phát
-    await _audioService.seek(Duration.zero);
-    // Một delay nhỏ giúp engine ổn định hơn trên một số thiết bị
-    await Future.delayed(const Duration(milliseconds: 150));
-    await _audioService.play();
-
-    _hasHandledCompletion = false;
-    notifyListeners();
-  }
-
-  void setLoop(
-    Duration start,
-    Duration end, {
-    int repeatCount = 0,
-    double? gapSeconds,
-    bool startImmediately = true,
-  }) {
-    if (end <= start) {
-      _loopStart = end;
-      _loopEnd = start;
-    } else {
-      _loopStart = start;
-      _loopEnd = end;
-    }
-
-    _maxLoopCount =
-        repeatCount > 0 ? repeatCount : _modeSettings.defaultLoopCount;
-    _gapDuration = gapSeconds ?? _modeSettings.defaultGapDuration;
-    _isLooping = true;
-    _loopCount = 0;
-
-    if (startImmediately) seek(start);
-    notifyListeners();
-  }
-
-  void setMaxLoopCount(int count) {
-    _maxLoopCount = count;
-    notifyListeners();
-  }
-
-  void setGapDuration(double seconds) {
-    _gapDuration = (seconds.isNaN ? 0.0 : seconds).clamp(0.0, 30.0);
-    _storage.saveGapDuration(_gapDuration);
-    notifyListeners();
-  }
-
-  /// Khoảng lặng giữa các lần lặp AB (0 = tắt)
-  void setSilenceDuration(Duration duration) {
-    if (_silenceDuration == duration) return;
-    _silenceDuration = duration;
-    notifyListeners();
-  }
-
-  void _checkLoopPosition(Duration currentPosition, Duration previousPosition) {
-    if (!_isLooping || _loopEnd == null || _loopStart == null) return;
-
-    if (currentPosition >= _loopEnd!) {
-      _loopCount++;
-      _totalLoopsToday++;
-      _storage.incrementLoopCount();
-
-      if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
-        _onLoopCompleted();
-        return;
-      }
-
-      if (_gapDuration > 0) {
-        _startGapWait();
-      } else {
-        seek(_loopStart!);
-      }
-    }
-  }
-
-  void _startGapWait() {
-    _isWaitingGap = true;
-    _audioService.pause();
-    notifyListeners();
-
-    _gapTimer?.cancel();
-    _gapTimer = Timer(
-      Duration(milliseconds: (_gapDuration * 1000).round()),
-      _onGapEnded,
-    );
-  }
-
-  void _onGapEnded() {
-    if (!_isLooping) return;
-    _isWaitingGap = false;
-    seek(_loopStart!);
-    _audioService.play();
-    notifyListeners();
-  }
-
-  void _onLoopCompleted() {
-    if (_modeSettings.autoAdvanceSegments && _currentSegmentIndex >= 0) {
-      _playNextSegment();
-    } else {
-      clearLoop();
-    }
-  }
-
-  void clearLoop() {
-    _gapTimer?.cancel();
-    _gapTimer = null;
-    _loopStart = null;
-    _loopEnd = null;
-    _isLooping = false;
-    _loopCount = 0;
-    _maxLoopCount = 0;
-    _isWaitingGap = false;
-    _repeatTrack = false;
-    _hasHandledCompletion = false;
-    notifyListeners();
-  }
-
-  void toggleLoopPause() {
-    if (_isWaitingGap) {
-      _gapTimer?.cancel();
-      _onGapEnded();
-    }
-  }
-
-  void skipToNextLoop() {
-    if (!_isLooping || _loopStart == null) return;
-    _gapTimer?.cancel();
-    _isWaitingGap = false;
-    _loopCount++;
-    if (_maxLoopCount > 0 && _loopCount >= _maxLoopCount) {
-      _onLoopCompleted();
-    } else {
-      seek(_loopStart!);
-    }
-  }
-
   // ==================== SEGMENTS MANAGEMENT ====================
   Segment? saveLoopAsSegment({
     required String title,
@@ -1075,7 +509,7 @@ class PlayerProvider extends ChangeNotifier {
     String? note,
     List<String> tags = const [],
   }) {
-    if (_loopStart == null || _loopEnd == null || _currentSongPath == null) {
+    if (loopStart == null || loopEnd == null || _currentSongPath == null) {
       return null;
     }
 
@@ -1104,8 +538,8 @@ class PlayerProvider extends ChangeNotifier {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       audioPath: _currentSongPath!,
       title: title,
-      startTime: _loopStart!,
-      endTime: _loopEnd!,
+      startTime: loopStart!,
+      endTime: loopEnd!,
       type: autoType,
       difficulty: difficulty,
       repeatCount: repeatCount,
@@ -1131,6 +565,7 @@ class PlayerProvider extends ChangeNotifier {
     return _segments.where((s) => s.audioPath == _currentSongPath).toList();
   }
 
+  @override
   List<Segment> getSegmentsByType(SegmentType type) {
     return _segments.where((s) => s.type == type).toList();
   }
@@ -1140,12 +575,16 @@ class PlayerProvider extends ChangeNotifier {
       await loadSong(path: segment.audioPath);
     }
     _currentSegmentIndex = index ?? _segments.indexOf(segment);
-    setLoop(segment.startTime, segment.endTime,
-        repeatCount: segment.repeatCount);
+    setLoop(
+      segment.startTime,
+      segment.endTime,
+      repeatCount: segment.repeatCount,
+    );
     await play();
   }
 
-  void _playNextSegment() {
+  @override
+  void playNextSegment() {
     final currentSongSegments = getSegmentsForCurrentSong();
     if (_currentSegmentIndex < 0 ||
         _currentSegmentIndex >= currentSongSegments.length - 1) {
@@ -1195,42 +634,6 @@ class PlayerProvider extends ChangeNotifier {
 
   static const List<int> sleepTimerPresets = [15, 30, 45, 60, 90, 120];
 
-  // ==================== POSITION SAVER ====================
-  void _saveCurrentPosition() {
-    if (_currentSongPath != null && _state.position.inSeconds > 5) {
-      _storage.savePosition(_currentSongPath!, _state.position.inMilliseconds);
-    }
-  }
-
-  Duration? getSavedPosition(String path) {
-    final savedMs = _storage.getSavedPosition(path);
-    if (savedMs == null) return null;
-    return Duration(milliseconds: savedMs);
-  }
-
-  void clearSavedPosition(String path) {
-    _storage.clearPosition(path);
-  }
-
-  void clearAllSavedPositions() {}
-
-  // ==================== LEARNING STATS ====================
-  void resetDailyStats() {
-    _totalLoopsToday = 0;
-    _totalListeningTime = Duration.zero;
-    notifyListeners();
-  }
-
-  Map<String, dynamic> getStats() {
-    return {
-      'totalLoopsToday': _totalLoopsToday,
-      'totalListeningTimeMinutes': _totalListeningTime.inMinutes,
-      'segmentsCount': _segments.length,
-      'dharmaSegments': getSegmentsByType(SegmentType.dharma).length,
-      'englishSegments': getSegmentsByType(SegmentType.english).length,
-    };
-  }
-
   // ==================== UTILITY ====================
   void setupForBuddhism() {
     setMode(VipMode.buddhism);
@@ -1247,29 +650,15 @@ class PlayerProvider extends ChangeNotifier {
   // ==================== DISPOSE ====================
   @override
   void dispose() {
-    _saveCurrentPosition();
-    if (_totalListeningTime.inSeconds > 0) {
-      _storage.addListeningTime(_totalListeningTime.inSeconds);
+    saveCurrentPosition();
+    if (totalListeningTime.inSeconds > 0) {
+      _storage.addListeningTime(totalListeningTime.inSeconds);
     }
-    _sttService.dispose(); // ★ THÊM
+    disposeStt(); // ★ THÊM
     _sleepTimer?.cancel();
     _positionSaverTimer?.cancel();
-    _gapTimer?.cancel();
+    cancelGapTimer();
     _audioService.dispose();
     super.dispose();
   }
-
-  SttTranscribeOutput? _lastSttOutput;
-  SttTranscribeOutput? get lastSttOutput => _lastSttOutput;
-
-  String? _lastSttError;
-  String? get lastSttError => _lastSttError;
-
-  bool _isGeneratingLrc = false;
-  bool get isGeneratingLrc => _isGeneratingLrc;
-
-  String get lastTranscriptText => _lastSttOutput?.result.fullText ?? '';
-
-  String? _lastGeneratedLrcPath;
-  String? get lastGeneratedLrcPath => _lastGeneratedLrcPath;
 }

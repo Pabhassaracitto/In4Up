@@ -1198,10 +1198,11 @@ class _PulsingDotState extends State<_PulsingDot>
   @override
   void initState() {
     super.initState();
+    // Tạm thời vô hiệu hóa animation pulse để giảm tải GPU
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: Duration.zero,
       vsync: this,
-    )..repeat(reverse: true);
+    );
   }
 
   @override

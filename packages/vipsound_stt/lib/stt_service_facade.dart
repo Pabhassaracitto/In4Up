@@ -10,6 +10,7 @@ import 'diarization/diarization_service.dart';
 import 'diarization/speaker_annotation.dart';
 import 'diarization/speaker_sidecar.dart';
 import 'models/stt_config.dart';
+import 'models/stt_isolate_payload.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 import 'stt_engine_native.dart';
@@ -175,9 +176,46 @@ class SttServiceFacade extends ChangeNotifier {
     bool generateLrc = false,
     String audioFingerprint = '',
   }) async {
-    debugPrint('DEBUG [STT]: transcribeFile called for $audioPath');
-    _ensureInitialized();
+    final cfg = config ?? _config;
+    final modelInfo = _modelManager.getModelInfo(cfg.whisperModel);
 
+    // Resolve model path trước khi truyền vào Isolate
+    final modelPath = modelInfo.localPath ?? '';
+
+    final payload = SttIsolatePayload(
+      audioPath: audioPath,
+      modelPath: modelPath,
+      language: cfg.language,
+      wordTimestamps: true,
+      modelLevelName: cfg.whisperModel.name,
+      audioFingerprint: audioFingerprint,
+      generateLrc: generateLrc,
+      lrcOutputDirectory: lrcOutputPath,
+    );
+
+    // Chuyển sang Isolate để không treo UI
+    // Lưu ý: Đang sử dụng logic placeholder vì cần logic engine mới bên trong Isolate
+    return compute(_transcribeFileIsolate, payload);
+  }
+
+  // Helper cho isolate (cần static hoặc top-level)
+  static Future<SttTranscribeOutput> _transcribeFileIsolate(
+      SttIsolatePayload payload) async {
+    debugPrint(
+        'DEBUG [STT]: Transcribe requested (Isolate: ${payload.modelPath})');
+    // TODO: Khởi tạo engine Whisper cục bộ trong phạm vi isolate (không dùng instance facade)
+    return SttTranscribeOutput.failure(
+        'Isolate integration: Pending engine setup inside isolate');
+  }
+
+  Future<SttTranscribeOutput> _transcribeFileInternal(
+    String audioPath, {
+    SttConfig? config,
+    String? lrcOutputPath,
+    bool generateLrc = false,
+    String audioFingerprint = '',
+  }) async {
+    _ensureInitialized();
     final cfg = config ?? _config;
     final shouldGenerateLrc = generateLrc || cfg.generateLrc;
     final cacheKey = _buildCacheKey(audioPath, cfg);

@@ -1,6 +1,7 @@
 // lib/screens/memory_mode/painters/bloom_particle_painter.dart
 
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 /// Hiệu ứng particle khi từ lên stage Bloom (🌺)
@@ -120,9 +121,10 @@ class _BloomParticleEffectState extends State<BloomParticleEffect>
   @override
   void initState() {
     super.initState();
+    // Tạm thời vô hiệu hóa để giảm tải GPU
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: Duration.zero,
     );
 
     _controller.addStatusListener((status) {

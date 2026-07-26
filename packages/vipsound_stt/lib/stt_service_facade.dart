@@ -133,7 +133,6 @@ class SttServiceFacade extends ChangeNotifier {
 
   // ── Fields ────────────────────────────────────────────────────────────────
   late final SttEngineNative _nativeEngine;
-  late final SttEngineWhisper _whisperEngine;
   late final SttModelManager _modelManager;
   late final SttLrcConverter _lrcConverter;
   late final DiarizationService _diarizationService;
@@ -177,7 +176,6 @@ class SttServiceFacade extends ChangeNotifier {
 
       _config = config ?? const SttConfig();
       _nativeEngine = SttEngineNative();
-      _whisperEngine = SttEngineWhisper();
       _modelManager = SttModelManager();
       _lrcConverter = SttLrcConverter();
       _diarizationService = const HeuristicDiarizationService();
@@ -190,9 +188,14 @@ class SttServiceFacade extends ChangeNotifier {
       await _modelManager.initialize();
       _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
 
-      await _nativeEngine.initialize().catchError((e) {
+      // Native STT init is non-fatal: nếu thất bại, app vẫn chạy và fallback
+      // sang Whisper. Dùng try/catch thay vì .catchError để tránh lỗi type
+      // (onError phải trả về giá trị assignable cho kiểu Future).
+      try {
+        await _nativeEngine.initialize();
+      } catch (e) {
         debugPrint('⚠️ Native STT init failed (non-fatal): $e');
-      });
+      }
 
       _initialized = true;
       _emitProgress(SttFacadeStatus.ready, 1.0, 'Sẵn sàng');

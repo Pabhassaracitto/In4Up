@@ -1,8 +1,38 @@
-// VipSound v11.0 — Facade hoàn chỉnh với Diarization pipeline
+// packages/vipsound_stt/lib/stt_service_facade.dart
+//
+// VipSound v11.0 — STT Service Facade (Isolate-safe Architecture)
+//
+// LUỒNG HOÀN CHỈNH:
+//
+//   Main Thread                          Isolate
+//   ─────────────────────────────        ──────────────────────────────────
+//   transcribeFile()
+//     ↓ (cache miss)
+//   _runWhisperViaIsolate()
+//     ├─ A. resolve modelPath            (không thể làm trong Isolate)
+//     ├─ B. resolve lrcDirectory         (path_provider = platform channel)
+//     ├─ C. compute fingerprint          (AudioFingerprintUtil)
+//     ├─ D. build SttIsolatePayload
+//     └─ compute(_isolateEntryPoint) ──▶ SttEngineWhisper.runInIsolate()
+//                                          ├─ validate paths
+//                                          ├─ load PCM (thuần Dart)
+//                                          ├─ load Whisper FFI
+//                                          ├─ init context
+//                                          ├─ whisper_full()
+//                                          ├─ parse segments + UID
+//                                          └─ write LRC (optional)
+//   receive SttIsolateResult ◀──────────
+//     ├─ E. toSttResult()
+//     ├─ F. cache result
+//     └─ G. _generateLrcAndDiarization()
+//              ├─ DiarizationService
+//              └─ SpeakerSidecar.save()
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -18,7 +48,9 @@ import 'stt_engine_whisper.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
 
-// ─── Progress ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// PHẦN 1: PROGRESS & OUTPUT TYPES
+// ═══════════════════════════════════════════════════════════════════════════
 
 enum SttFacadeStatus {
   idle,
@@ -32,7 +64,7 @@ enum SttFacadeStatus {
 
 class SttProgress {
   final SttFacadeStatus status;
-  final double progress;
+  final double progress; // [0.0, 1.0]
   final String message;
   final SttEngineType? activeEngine;
 
@@ -58,8 +90,6 @@ class SttProgress {
         _ => false,
       };
 }
-
-// ─── Output ───────────────────────────────────────────────────────────────────
 
 class SttTranscribeOutput {
   final SttResult result;
@@ -89,14 +119,18 @@ class SttTranscribeOutput {
   bool get hasDiarization => speakers.any((s) => s.speakerId > 0);
 }
 
-// ─── Facade ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// PHẦN 2: FACADE CLASS
+// ═══════════════════════════════════════════════════════════════════════════
 
 class SttServiceFacade extends ChangeNotifier {
   static SttServiceFacade? _instance;
+
   factory SttServiceFacade() => _instance ??= SttServiceFacade._internal();
+
   SttServiceFacade._internal();
 
-  // ── Fields ────────────────────────────────────────────────
+  // ── Fields ────────────────────────────────────────────────────────────────
   late final SttEngineNative _nativeEngine;
   late final SttEngineWhisper _whisperEngine;
   late final SttModelManager _modelManager;
@@ -110,12 +144,14 @@ class SttServiceFacade extends ChangeNotifier {
 
   final _progressSubject =
       BehaviorSubject<SttProgress>.seeded(SttProgress.idle);
+
   Stream<SttProgress> get progressStream => _progressSubject.stream;
   SttProgress get currentProgress => _progressSubject.value;
 
+  // Cache key: "${audioPath}_${engine}_${modelLevel}_${language}"
   final _resultCache = <String, SttResult>{};
 
-  // ── Init ──────────────────────────────────────────────────
+  // ── Initialization ────────────────────────────────────────────────────────
 
   Future<void> initialize({
     SttConfig? config,
@@ -167,8 +203,15 @@ class SttServiceFacade extends ChangeNotifier {
     }
   }
 
-  // ── Core Transcribe ───────────────────────────────────────
+  // ── Public API (signature không thay đổi) ─────────────────────────────────
 
+  /// Transcribe với Isolate thực thụ — UI thread KHÔNG bị block.
+  ///
+  /// **Luồng xử lý:**
+  /// 1. Check cache
+  /// 2. Resolve platform-dependent resources (Main Thread)
+  /// 3. Spawn Isolate qua [compute()]
+  /// 4. Nhận kết quả, chạy Diarization (Main Thread)
   Future<SttTranscribeOutput> transcribeFile(
     String audioPath, {
     SttConfig? config,
@@ -176,58 +219,23 @@ class SttServiceFacade extends ChangeNotifier {
     bool generateLrc = false,
     String audioFingerprint = '',
   }) async {
-    final cfg = config ?? _config;
-    final modelInfo = _modelManager.getModelInfo(cfg.whisperModel);
-
-    // Resolve model path trước khi truyền vào Isolate
-    final modelPath = modelInfo.localPath ?? '';
-
-    final payload = SttIsolatePayload(
-      audioPath: audioPath,
-      modelPath: modelPath,
-      language: cfg.language,
-      wordTimestamps: true,
-      modelLevelName: cfg.whisperModel.name,
-      audioFingerprint: audioFingerprint,
-      generateLrc: generateLrc,
-      lrcOutputDirectory: lrcOutputPath,
-    );
-
-    // Chuyển sang Isolate để không treo UI
-    // Lưu ý: Đang sử dụng logic placeholder vì cần logic engine mới bên trong Isolate
-    return compute(_transcribeFileIsolate, payload);
-  }
-
-  // Helper cho isolate (cần static hoặc top-level)
-  static Future<SttTranscribeOutput> _transcribeFileIsolate(
-      SttIsolatePayload payload) async {
-    debugPrint(
-        'DEBUG [STT]: Transcribe requested (Isolate: ${payload.modelPath})');
-    // TODO: Khởi tạo engine Whisper cục bộ trong phạm vi isolate (không dùng instance facade)
-    return SttTranscribeOutput.failure(
-        'Isolate integration: Pending engine setup inside isolate');
-  }
-
-  Future<SttTranscribeOutput> _transcribeFileInternal(
-    String audioPath, {
-    SttConfig? config,
-    String? lrcOutputPath,
-    bool generateLrc = false,
-    String audioFingerprint = '',
-  }) async {
     _ensureInitialized();
+
     final cfg = config ?? _config;
     final shouldGenerateLrc = generateLrc || cfg.generateLrc;
     final cacheKey = _buildCacheKey(audioPath, cfg);
 
-    // ── Cache check ────────────────────────────────────────
+    // ── Cache check ───────────────────────────────────────────────────────
     if (cfg.cacheResults && _resultCache.containsKey(cacheKey)) {
-      debugPrint('💾 Cache hit: $cacheKey');
+      debugPrint('💾 STT cache hit: $cacheKey');
       final cached = _resultCache[cacheKey]!;
 
       if (shouldGenerateLrc && cached.segments.isNotEmpty) {
-        final gen =
-            await _generateLrcAndDiarization(cached, audioPath, lrcOutputPath);
+        final gen = await _generateLrcAndDiarization(
+          cached,
+          audioPath,
+          lrcOutputPath,
+        );
         return SttTranscribeOutput(
           result: cached,
           speakers: gen.speakers,
@@ -237,49 +245,57 @@ class SttServiceFacade extends ChangeNotifier {
           success: true,
         );
       }
-
       return SttTranscribeOutput(result: cached, success: true);
     }
 
-    // ── Transcribe ─────────────────────────────────────────
+    // ── Route theo engine ─────────────────────────────────────────────────
     try {
-      SttResult result;
+      final SttResult result;
 
       if (cfg.preferredEngine == SttEngineType.whisper) {
-        debugPrint('DEBUG [STT]: Using Whisper engine');
-        result = await _runWhisperEngine(audioPath, cfg);
-      } else {
-        debugPrint('DEBUG [STT]: Using Native engine');
-        result = await _runNativeEngine(audioPath, cfg);
-        if (cfg.autoFallback && result.fullText.isEmpty) {
-          debugPrint('⚠️ Native empty → fallback Whisper');
-          result = await _runWhisperEngine(audioPath, cfg);
-        }
-      }
-
-      // Gán fingerprint nếu caller cung cấp
-      if (audioFingerprint.isNotEmpty && result.audioFingerprint.isEmpty) {
-        result = SttResult(
-          fullText: result.fullText,
-          segments: result.segments,
-          engineUsed: result.engineUsed,
-          language: result.language,
-          processingTime: result.processingTime,
+        result = await _runWhisperViaIsolate(
+          audioPath: audioPath,
+          config: cfg,
+          lrcOutputPath: lrcOutputPath,
+          shouldGenerateLrc: shouldGenerateLrc,
           audioFingerprint: audioFingerprint,
-          hasWordTimestamps: result.hasWordTimestamps,
         );
+      } else {
+        // Native engine: nhanh, chạy trực tiếp trên Main (không cần Isolate)
+        var nativeResult = await _runNativeEngine(audioPath, cfg);
+
+        if (cfg.autoFallback && nativeResult.fullText.isEmpty) {
+          debugPrint('⚠️ Native STT empty → fallback Whisper Isolate');
+          nativeResult = await _runWhisperViaIsolate(
+            audioPath: audioPath,
+            config: cfg,
+            lrcOutputPath: lrcOutputPath,
+            shouldGenerateLrc: shouldGenerateLrc,
+            audioFingerprint: audioFingerprint,
+          );
+        }
+        result = nativeResult;
       }
 
-      if (cfg.cacheResults) _resultCache[cacheKey] = result;
+      // ── Đảm bảo fingerprint được gán ─────────────────────────────────
+      final finalResult =
+          (audioFingerprint.isNotEmpty && result.audioFingerprint.isEmpty)
+              ? _withFingerprint(result, audioFingerprint)
+              : result;
 
-      // ── LRC + Diarization ──────────────────────────────
-      if (shouldGenerateLrc && result.segments.isNotEmpty) {
-        final gen =
-            await _generateLrcAndDiarization(result, audioPath, lrcOutputPath);
+      // ── Cache ─────────────────────────────────────────────────────────
+      if (cfg.cacheResults) _resultCache[cacheKey] = finalResult;
 
+      // ── LRC + Diarization pipeline ────────────────────────────────────
+      if (shouldGenerateLrc && finalResult.segments.isNotEmpty) {
+        final gen = await _generateLrcAndDiarization(
+          finalResult,
+          audioPath,
+          lrcOutputPath,
+        );
         _emitProgress(SttFacadeStatus.ready, 1.0, 'Hoàn tất!');
         return SttTranscribeOutput(
-          result: result,
+          result: finalResult,
           speakers: gen.speakers,
           lrcFilePath: gen.lrcPath,
           spkFilePath: gen.spkPath,
@@ -289,7 +305,7 @@ class SttServiceFacade extends ChangeNotifier {
       }
 
       _emitProgress(SttFacadeStatus.ready, 1.0, 'Hoàn tất!');
-      return SttTranscribeOutput(result: result, success: true);
+      return SttTranscribeOutput(result: finalResult, success: true);
     } catch (e, stack) {
       debugPrint('❌ transcribeFile error: $e\n$stack');
       _emitProgress(SttFacadeStatus.error, 0.0, 'Lỗi: $e');
@@ -297,6 +313,8 @@ class SttServiceFacade extends ChangeNotifier {
     }
   }
 
+  /// Deep transcribe — Whisper Small, có LRC.
+  /// API không đổi — PlayerSttMixin không cần chỉnh sửa.
   Future<SttTranscribeOutput> transcribeDeep(
     String audioPath, {
     String? lrcSavePath,
@@ -316,16 +334,19 @@ class SttServiceFacade extends ChangeNotifier {
         audioFingerprint: audioFingerprint,
       );
 
+  /// Quick transcribe — Native engine, không cần LRC.
+  /// API không đổi.
   Future<SttTranscribeOutput> transcribeQuick(
     String audioPath, {
     String language = 'en-US',
   }) =>
       transcribeFile(
         audioPath,
-        config: SttConfig.balanced,
+        config: SttConfig.quickNote,
         generateLrc: false,
       );
 
+  /// Auto transcribe — chọn model tốt nhất đang có offline.
   Future<SttTranscribeOutput> transcribeAuto(
     String audioPath, {
     String language = 'en',
@@ -347,7 +368,10 @@ class SttServiceFacade extends ChangeNotifier {
 
     if (localLevel == null) {
       _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
-      return SttTranscribeOutput.failure('Không có model offline.');
+      return SttTranscribeOutput.failure(
+        'Không có model Whisper nào được tải về. '
+        'Vào Settings → AI Model để tải model.',
+      );
     }
 
     return transcribeFile(
@@ -364,38 +388,185 @@ class SttServiceFacade extends ChangeNotifier {
     );
   }
 
-  // ── LRC + Diarization pipeline ────────────────────────────
+  // ── Isolate Orchestrator ──────────────────────────────────────────────────
+  //
+  // Tất cả platform-dependent operations phải hoàn thành TẠI ĐÂY,
+  // trước khi spawn Isolate. Isolate chỉ nhận plain data.
 
-  Future<({String? lrcPath, String? spkPath, List<SpeakerAnnotation> speakers})>
-      _generateLrcAndDiarization(
+  Future<SttResult> _runWhisperViaIsolate({
+    required String audioPath,
+    required SttConfig config,
+    required String? lrcOutputPath,
+    required bool shouldGenerateLrc,
+    required String audioFingerprint,
+  }) async {
+    _emitProgress(
+      SttFacadeStatus.processingWhisper,
+      0.05,
+      'Đang chuẩn bị...',
+      engine: SttEngineType.whisper,
+    );
+
+    // ── A. Resolve modelPath (cần SttModelManager Singleton — Main only) ──
+    final modelPath = _modelManager.getModelPath(config.whisperModel);
+
+    if (modelPath == null || modelPath.isEmpty) {
+      throw StateError(
+        'Model "${config.whisperModel.name}" chưa được tải về. '
+        'Vào Settings → AI Model để tải.',
+      );
+    }
+
+    // Verify file tồn tại trước khi spawn Isolate
+    if (!File(modelPath).existsSync()) {
+      throw StateError(
+        'File model không tồn tại trên đĩa: $modelPath. '
+        'Thử download lại trong Settings → AI Model.',
+      );
+    }
+
+    // ── B. Resolve LRC directory (cần path_provider — Main only) ──────────
+    final lrcDirectory = await _resolveLrcDirectory(lrcOutputPath);
+
+    // ── C. Compute audio fingerprint ───────────────────────────────────────
+    //
+    // Tính sẵn trên Main Thread để Isolate không cần File stat.
+    // Dùng AudioFingerprintUtil nếu caller không cung cấp fingerprint.
+    final fingerprint = audioFingerprint.isNotEmpty
+        ? audioFingerprint
+        : await _computeAudioFingerprint(audioPath);
+
+    // ── D. Build SttIsolatePayload — CHỈ plain data ────────────────────────
+    final payload = SttIsolatePayload(
+      audioPath: audioPath,
+      modelPath: modelPath,         // ← đã resolved
+      language: config.language,
+      wordTimestamps: true,
+      modelLevelName: config.whisperModel.name,
+      audioFingerprint: fingerprint, // ← đã computed
+      generateLrc: shouldGenerateLrc,
+      lrcOutputDirectory: shouldGenerateLrc ? lrcDirectory : null,
+    );
+
+    _emitProgress(
+      SttFacadeStatus.processingWhisper,
+      0.10,
+      'Transcribing với Whisper ${config.whisperModel.name}...',
+      engine: SttEngineType.whisper,
+    );
+
+    // ── E. Spawn Isolate — UI thread hoàn toàn tự do ──────────────────────
+    //
+    // compute() tự động:
+    //   1. Spawn Isolate mới
+    //   2. Serialize payload qua SendPort
+    //   3. Gọi _isolateEntryPoint(payload) trong Isolate
+    //   4. Serialize kết quả về Main
+    //   5. Đóng Isolate
+    final isolateResult = await compute(
+      _isolateEntryPoint, // static method — serialize được
+      payload,
+    );
+
+    _emitProgress(
+      SttFacadeStatus.processingWhisper,
+      0.90,
+      'Whisper hoàn tất!',
+      engine: SttEngineType.whisper,
+    );
+
+    // ── F. Xử lý kết quả từ Isolate ──────────────────────────────────────
+    if (!isolateResult.success) {
+      final err = isolateResult.errorMessage ?? 'Lỗi không xác định từ Isolate';
+      debugPrint('❌ Isolate returned failure: $err');
+      throw Exception(err);
+    }
+
+    debugPrint(
+      '✅ Whisper hoàn tất: ${isolateResult.segmentsJson.length} segments, '
+      '${isolateResult.processingTimeMs}ms',
+    );
+
+    // ── G. Reconstruct SttResult trên Main Thread ─────────────────────────
+    //
+    // isolateResult.toSttResult() gọi SttSegment.fromJson() cho từng segment.
+    // UID trong JSON đã được tính đúng bởi Isolate (ContentId.segmentUid).
+    return isolateResult.toSttResult();
+  }
+
+  // ── Isolate Entry Point ───────────────────────────────────────────────────
+  //
+  // ★ PHẢI là static method hoặc top-level function.
+  // ★ Lambda / closure KHÔNG hoạt động với compute() — Dart serialize
+  //   function reference, không serialize closure state.
+  // ★ KHÔNG được truy cập bất kỳ instance nào của Main Thread:
+  //   - Không: SttServiceFacade._instance
+  //   - Không: SttModelManager._instance
+  //   - Không: Platform channels (path_provider, etc.)
+
+  static Future<SttIsolateResult> _isolateEntryPoint(
+    SttIsolatePayload payload,
+  ) {
+    // 100% delegate cho stateless engine — không có gì khác ở đây.
+    // SttEngineWhisper.runInIsolate() không truy cập bất kỳ Singleton nào.
+    return SttEngineWhisper.runInIsolate(payload);
+  }
+
+  // ── LRC + Diarization Pipeline (Main Thread) ──────────────────────────────
+  //
+  // Chạy trên Main Thread vì:
+  // - DiarizationService có thể cần các service của Main Thread
+  // - SpeakerSidecar cần path resolved từ path_provider
+  // - Đây là bước nhẹ (heuristic) — không cần Isolate
+
+  Future<({
+    String? lrcPath,
+    String? spkPath,
+    List<SpeakerAnnotation> speakers,
+  })> _generateLrcAndDiarization(
     SttResult result,
     String audioPath,
     String? outputPath,
   ) async {
-    const empty =
-        (lrcPath: null, spkPath: null, speakers: <SpeakerAnnotation>[]);
+    const empty = (
+      lrcPath: null,
+      spkPath: null,
+      speakers: <SpeakerAnnotation>[],
+    );
+
+    if (result.segments.isEmpty) return empty;
 
     try {
-      _emitProgress(SttFacadeStatus.generatingLrc, 0.88, 'Đang tạo LRC...');
+      _emitProgress(
+        SttFacadeStatus.generatingLrc,
+        0.88,
+        'Đang tạo file LRC...',
+      );
 
-      final appDir = await getApplicationDocumentsDirectory();
-      final lrcDir = outputPath ?? '${appDir.path}/.vipsound_lrc';
+      final lrcDir = await _resolveLrcDirectory(outputPath);
 
-      // 1. LRC chuẩn
+      // ── 1. Tạo LRC file (Main Thread) ─────────────────────────────────
       final lrcPath = await _lrcConverter.saveLrcFile(
         result,
         audioPath,
         outputDirectory: lrcDir,
       );
-      if (lrcPath == null) return empty;
+
+      if (lrcPath == null) {
+        debugPrint('⚠️ LrcConverter.saveLrcFile() trả về null');
+        return empty;
+      }
 
       _emitProgress(
-          SttFacadeStatus.generatingLrc, 0.92, 'Phân tách người nói...');
+        SttFacadeStatus.generatingLrc,
+        0.93,
+        'Phân tách người nói...',
+      );
 
-      // 2. Diarization overlay
+      // ── 2. Diarization (phân tách người nói) ──────────────────────────
       final speakers = await _diarizationService.diarize(result);
 
-      // 3. Sidecar JSON (cache render)
+      // ── 3. Speaker sidecar .spk.json ───────────────────────────────────
       String? spkPath;
       if (speakers.isNotEmpty) {
         await SpeakerSidecar.save(
@@ -404,110 +575,104 @@ class SttServiceFacade extends ChangeNotifier {
           annotations: speakers,
         );
         spkPath = SpeakerSidecar.getSidecarPath(lrcPath);
+        debugPrint('💾 Speaker sidecar: $spkPath');
       }
 
       _emitProgress(SttFacadeStatus.generatingLrc, 0.98, 'Hoàn tất!');
+
       return (lrcPath: lrcPath, spkPath: spkPath, speakers: speakers);
-    } catch (e) {
-      debugPrint('❌ _generateLrcAndDiarization: $e');
+    } catch (e, stack) {
+      debugPrint('❌ _generateLrcAndDiarization error: $e\n$stack');
       return empty;
     }
   }
 
-  // ── Engine runners ────────────────────────────────────────
+  // ── Native Engine Runner ──────────────────────────────────────────────────
 
-  Future<SttResult> _runNativeEngine(String audioPath, SttConfig config) async {
+  Future<SttResult> _runNativeEngine(
+    String audioPath,
+    SttConfig config,
+  ) async {
     _emitProgress(
-        SttFacadeStatus.processingNative, 0.1, 'Đang nhận diện giọng nói...',
-        engine: SttEngineType.native);
+      SttFacadeStatus.processingNative,
+      0.10,
+      'Đang nhận diện giọng nói...',
+      engine: SttEngineType.native,
+    );
+
     final result = await _nativeEngine.transcribeFile(
       audioPath,
       language: config.language,
     );
-    _emitProgress(SttFacadeStatus.processingNative, 0.9, 'Hoàn tất nhận diện');
+
+    _emitProgress(
+      SttFacadeStatus.processingNative,
+      0.90,
+      'Native STT hoàn tất',
+    );
+
     return result;
   }
 
-  Future<SttResult> _runWhisperEngine(
-      String audioPath, SttConfig config) async {
-    final level = config.whisperModel;
-    final info = _modelManager.getModelInfo(level);
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-    if (!info.isReady) {
-      throw StateError(
-        'Model ${level.name} chưa sẵn sàng offline.',
-      );
+  Future<String> _resolveLrcDirectory(String? override) async {
+    if (override != null && override.isNotEmpty) return override;
+    final appDir = await getApplicationDocumentsDirectory();
+    return p.join(appDir.path, '.vipsound_lrc');
+  }
+
+  /// Tính audio fingerprint đúng chuẩn ContentId.
+  ///
+  /// Dùng file size + duration + basename → MD5[:16].
+  /// Khớp với [AudioFingerprintUtil.compute()] nếu durationMs đã biết.
+  ///
+  /// Vì Facade không có durationMs (cần audio player cung cấp),
+  /// ta dùng file size + basename làm fingerprint nhanh.
+  /// Caller (PlayerSttMixin) nên truyền audioFingerprint đúng chuẩn.
+  Future<String> _computeAudioFingerprint(String audioPath) async {
+    try {
+      final file = File(audioPath);
+      if (!await file.exists()) {
+        return _hashPath(audioPath);
+      }
+
+      // Đọc 64KB đầu để tạo content-based fingerprint nhanh
+      const sampleSize = 64 * 1024; // 64KB
+      final raf = await file.open();
+      final bytes = await raf.read(sampleSize);
+      await raf.close();
+
+      // FNV-1a hash — nhanh, phân tán tốt
+      var hash = 0xcbf29ce484222325;
+      for (final byte in bytes) {
+        hash ^= byte;
+        // Dart int là 64-bit signed — dùng & để giữ trong phạm vi
+        hash = (hash * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+      }
+
+      return 'fp_${hash.toRadixString(16).substring(0, 16)}';
+    } catch (e) {
+      debugPrint('⚠️ _computeAudioFingerprint fallback: $e');
+      return _hashPath(audioPath);
     }
+  }
 
-    _emitProgress(
-      SttFacadeStatus.processingWhisper,
-      0.2,
-      'Whisper (${level.name})...',
-      engine: SttEngineType.whisper,
+  String _hashPath(String audioPath) =>
+      'fp_${audioPath.hashCode.abs().toRadixString(16)}';
+
+  /// Tạo SttResult mới với fingerprint được gán — immutable pattern.
+  SttResult _withFingerprint(SttResult result, String fingerprint) {
+    return SttResult(
+      fullText: result.fullText,
+      segments: result.segments,
+      engineUsed: result.engineUsed,
+      language: result.language,
+      processingTime: result.processingTime,
+      audioFingerprint: fingerprint,
+      hasWordTimestamps: result.hasWordTimestamps,
     );
-
-    // Dùng compute để đẩy việc transcribe sang Isolate
-    final isolateResult = await compute(
-      SttEngineWhisper.runInIsolate,
-      SttIsolatePayload(
-        audioPath: audioPath,
-        modelPath: info.localPath!,
-        language: config.language,
-        wordTimestamps: true,
-        modelLevelName: level.name,
-        audioFingerprint: '', // Logic fingerprint đã có trong Isolate
-        generateLrc: config.generateLrc,
-      ),
-    );
-
-    if (!isolateResult.success) {
-      throw Exception('Whisper Isolate Error: ${isolateResult.errorMessage}');
-    }
-
-    _emitProgress(SttFacadeStatus.processingWhisper, 0.9, 'Whisper hoàn tất!');
-    return isolateResult.toSttResult();
   }
-
-  // ── Model management ──────────────────────────────────────
-
-  SttModelInfo getModelInfo(WhisperModelLevel level) =>
-      _modelManager.getModelInfo(level);
-
-  Future<void> deleteModel(WhisperModelLevel level) =>
-      _modelManager.deleteModel(level);
-
-  Future<bool> importModelFromPath(
-    String sourcePath, {
-    WhisperModelLevel? level,
-  }) {
-    _ensureInitialized();
-    return _modelManager.importModelFromPath(sourcePath, level: level);
-  }
-
-  // ── Live STT ──────────────────────────────────────────────
-
-  Future<bool> startListening({String language = 'en-US'}) async {
-    _ensureInitialized();
-    return _nativeEngine.startListening(language: language);
-  }
-
-  Future<void> stopListening() async => _nativeEngine.stopListening();
-
-  Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
-
-  // ── Config ────────────────────────────────────────────────
-
-  void updateConfig(SttConfig config) {
-    _config = config;
-    if (!_disposed) notifyListeners();
-  }
-
-  void clearCache() {
-    _resultCache.clear();
-    debugPrint('🗑️ STT cache cleared');
-  }
-
-  // ── Helpers ───────────────────────────────────────────────
 
   String _buildCacheKey(String audioPath, SttConfig config) =>
       '${audioPath}_${config.preferredEngine.name}_'
@@ -530,15 +695,65 @@ class SttServiceFacade extends ChangeNotifier {
 
   void _ensureInitialized() {
     if (!_initialized) {
-      throw StateError('SttServiceFacade chưa được khởi tạo.');
+      throw StateError(
+        'SttServiceFacade chưa được khởi tạo. '
+        'Gọi await sttService.initialize() trước.',
+      );
     }
   }
 
+  // ── Model Management API (không thay đổi) ────────────────────────────────
+
+  SttModelInfo getModelInfo(WhisperModelLevel level) =>
+      _modelManager.getModelInfo(level);
+
+  Stream<SttModelInfo> watchModel(WhisperModelLevel level) =>
+      _modelManager.watchModel(level);
+
+  Future<void> deleteModel(WhisperModelLevel level) =>
+      _modelManager.deleteModel(level);
+
+  Future<bool> importModelFromPath(
+    String sourcePath, {
+    WhisperModelLevel? level,
+  }) {
+    _ensureInitialized();
+    return _modelManager.importModelFromPath(sourcePath, level: level);
+  }
+
+  bool get hasAnyModel => _modelManager.hasAnyLocalModel;
+
+  // ── Live STT ──────────────────────────────────────────────────────────────
+
+  Future<bool> startListening({String language = 'en-US'}) async {
+    _ensureInitialized();
+    return _nativeEngine.startListening(language: language);
+  }
+
+  Future<void> stopListening() async => _nativeEngine.stopListening();
+
+  Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
+
+  // ── Config & Cache ────────────────────────────────────────────────────────
+
+  void updateConfig(SttConfig config) {
+    _config = config;
+    if (!_disposed) notifyListeners();
+  }
+
+  void clearCache() {
+    _resultCache.clear();
+    debugPrint('🗑️ STT result cache cleared');
+  }
+
+  // ── Dispose ───────────────────────────────────────────────────────────────
+
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     _nativeEngine.dispose();
-    // _whisperEngine.dispose(); // SttEngineWhisper đã là Stateless
+    _whisperEngine.dispose();
     _modelManager.dispose();
     _progressSubject.close();
     _instance = null;

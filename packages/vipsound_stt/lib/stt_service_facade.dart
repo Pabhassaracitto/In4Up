@@ -446,15 +446,26 @@ class SttServiceFacade extends ChangeNotifier {
       engine: SttEngineType.whisper,
     );
 
-    final result = await _whisperEngine.transcribe(
-      audioPath,
-      level: level,
-      language: config.language,
-      wordTimestamps: true,
+    // Dùng compute để đẩy việc transcribe sang Isolate
+    final isolateResult = await compute(
+      SttEngineWhisper.runInIsolate,
+      SttIsolatePayload(
+        audioPath: audioPath,
+        modelPath: info.localPath!,
+        language: config.language,
+        wordTimestamps: true,
+        modelLevelName: level.name,
+        audioFingerprint: '', // Logic fingerprint đã có trong Isolate
+        generateLrc: config.generateLrc,
+      ),
     );
 
+    if (!isolateResult.success) {
+      throw Exception('Whisper Isolate Error: ${isolateResult.errorMessage}');
+    }
+
     _emitProgress(SttFacadeStatus.processingWhisper, 0.9, 'Whisper hoàn tất!');
-    return result;
+    return isolateResult.toSttResult();
   }
 
   // ── Model management ──────────────────────────────────────
@@ -527,7 +538,7 @@ class SttServiceFacade extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _nativeEngine.dispose();
-    _whisperEngine.dispose();
+    // _whisperEngine.dispose(); // SttEngineWhisper đã là Stateless
     _modelManager.dispose();
     _progressSubject.close();
     _instance = null;

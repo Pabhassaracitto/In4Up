@@ -47,6 +47,7 @@ import 'stt_engine_native.dart';
 import 'stt_engine_whisper.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
+import 'utils/audio_converter.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHẦN 1: PROGRESS & OUTPUT TYPES
@@ -407,7 +408,11 @@ class SttServiceFacade extends ChangeNotifier {
       engine: SttEngineType.whisper,
     );
 
-    // ── A. Resolve modelPath (cần SttModelManager Singleton — Main only) ──
+    // ── A1. Pre-convert audio if needed (Main Thread) ─────────────────────
+    final convertedPath =
+        await AudioConverter.convertToWhisperCompatible(audioPath);
+
+    // ── A2. Resolve modelPath (cần SttModelManager Singleton — Main only) ──
     final modelPath = _modelManager.getModelPath(config.whisperModel);
 
     if (modelPath == null || modelPath.isEmpty) {
@@ -438,8 +443,8 @@ class SttServiceFacade extends ChangeNotifier {
 
     // ── D. Build SttIsolatePayload — CHỈ plain data ────────────────────────
     final payload = SttIsolatePayload(
-      audioPath: audioPath,
-      modelPath: modelPath,         // ← đã resolved
+      audioPath: convertedPath ?? audioPath,
+      modelPath: modelPath, // ← đã resolved
       language: config.language,
       wordTimestamps: true,
       modelLevelName: config.whisperModel.name,
@@ -467,6 +472,11 @@ class SttServiceFacade extends ChangeNotifier {
       _isolateEntryPoint, // static method — serialize được
       payload,
     );
+
+    // ── E2. Cleanup converted file (Main Thread) ─────────────────────────
+    if (convertedPath != null) {
+      await AudioConverter.cleanupConvertedFile(convertedPath);
+    }
 
     _emitProgress(
       SttFacadeStatus.processingWhisper,
@@ -519,11 +529,12 @@ class SttServiceFacade extends ChangeNotifier {
   // - SpeakerSidecar cần path resolved từ path_provider
   // - Đây là bước nhẹ (heuristic) — không cần Isolate
 
-  Future<({
-    String? lrcPath,
-    String? spkPath,
-    List<SpeakerAnnotation> speakers,
-  })> _generateLrcAndDiarization(
+  Future<
+      ({
+        String? lrcPath,
+        String? spkPath,
+        List<SpeakerAnnotation> speakers,
+      })> _generateLrcAndDiarization(
     SttResult result,
     String audioPath,
     String? outputPath,
@@ -753,7 +764,6 @@ class SttServiceFacade extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _nativeEngine.dispose();
-    _whisperEngine.dispose();
     _modelManager.dispose();
     _progressSubject.close();
     _instance = null;

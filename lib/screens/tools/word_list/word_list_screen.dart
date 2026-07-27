@@ -319,7 +319,8 @@ class _WordListScreenState extends State<WordListScreen> {
             GestureDetector(
               onTap: () => setState(() => _filterExpanded = !_filterExpanded),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 child: Row(
                   children: [
                     Icon(
@@ -339,14 +340,16 @@ class _WordListScreenState extends State<WordListScreen> {
                                 children: [
                                   if (p.filterType != null)
                                     _ActiveFilterBadge(
-                                      label: p.filterType!.label,
+                                      label: p.filterType!.label(context),
                                       color: p.filterType!.color,
                                       onRemove: () => p.setFilterType(null),
                                     ),
                                   if (p.filterLearningStatus != null)
                                     _ActiveFilterBadge(
-                                      label: _statusLabel(p.filterLearningStatus!),
-                                      color: _statusColor(p.filterLearningStatus!),
+                                      label:
+                                          _statusLabel(p.filterLearningStatus!),
+                                      color:
+                                          _statusColor(p.filterLearningStatus!),
                                       onRemove: () =>
                                           p.setFilterLearningStatus(null),
                                     ),
@@ -427,7 +430,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ...VocabularyType.values.map((type) => Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: _FilterSegmentChip(
-                            label: type.label,
+                            label: type.labelEn,
                             color: type.color,
                             isSelected: p.filterType == type,
                             onTap: () {
@@ -640,7 +643,11 @@ class _WordListScreenState extends State<WordListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF131D2A),
-        title: const Text('Thêm ngôn ngữ mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text('Thêm ngôn ngữ mới',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold)),
         content: TextField(
           controller: textC,
           autofocus: true,
@@ -648,8 +655,10 @@ class _WordListScreenState extends State<WordListScreen> {
           decoration: InputDecoration(
             hintText: 'Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)',
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey[800]!)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF42A5F5))),
           ),
         ),
         actions: [
@@ -665,7 +674,8 @@ class _WordListScreenState extends State<WordListScreen> {
               }
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF42A5F5)),
             child: const Text('Lọc'),
           ),
         ],
@@ -679,7 +689,11 @@ class _WordListScreenState extends State<WordListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF131D2A),
-        title: const Text('Thêm chủ đề mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text('Thêm chủ đề mới',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold)),
         content: TextField(
           controller: textC,
           autofocus: true,
@@ -687,8 +701,10 @@ class _WordListScreenState extends State<WordListScreen> {
           decoration: InputDecoration(
             hintText: 'Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)',
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey[800]!)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF42A5F5))),
           ),
         ),
         actions: [
@@ -704,7 +720,8 @@ class _WordListScreenState extends State<WordListScreen> {
               }
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF42A5F5)),
             child: const Text('Lọc'),
           ),
         ],
@@ -1348,7 +1365,7 @@ class _WordListScreenState extends State<WordListScreen> {
                           decoration: BoxDecoration(
                               color: detectedType!.bgColor,
                               borderRadius: BorderRadius.circular(6)),
-                          child: Text(detectedType!.label,
+                          child: Text(detectedType!.label(context),
                               style: TextStyle(
                                   color: detectedType!.color,
                                   fontSize: 11,
@@ -1360,25 +1377,34 @@ class _WordListScreenState extends State<WordListScreen> {
                       controller: textCtrl,
                       maxLines: 2,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _inputDeco('Từ / Cụm từ / Câu / Đoạn *',
-                          'VD: breakthrough or Pali text', const Color(0xFF42A5F5)),
+                      decoration: _inputDeco(
+                          'Từ / Cụm từ / Câu / Đoạn *',
+                          'VD: breakthrough or Pali text',
+                          const Color(0xFF42A5F5)),
                       onChanged: (t) => setS(() => detectedType =
-                          t.trim().isEmpty ? null : VocabClassifier.classify(t)),
+                          t.trim().isEmpty
+                              ? null
+                              : VocabClassifier.classify(t)),
                     ),
                     const SizedBox(height: 10),
                     TextField(
                         controller: meaningCtrl,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: _inputDeco('Nghĩa *', 'VD: bước đột phá',
                             const Color(0xFFFFB300))),
                     const SizedBox(height: 10),
                     TextField(
                         controller: topicCtrl,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: _inputDeco('Chủ đề / Thư mục', 'VD: Phật Pháp hoặc Phật Pháp/Đời Sống',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: _inputDeco(
+                            'Chủ đề / Thư mục',
+                            'VD: Phật Pháp hoặc Phật Pháp/Đời Sống',
                             const Color(0xFF9C27B0))),
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Ngôn ngữ',
+                        style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1389,12 +1415,23 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
-                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
+                                  lang == 'en'
+                                      ? 'Tiếng Anh'
+                                      : lang == 'vi'
+                                          ? 'Tiếng Việt'
+                                          : lang == 'pali'
+                                              ? 'Pali'
+                                              : 'Burmese',
+                                  style: TextStyle(
+                                      color: selectedLang == lang
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontSize: 11),
                                 ),
                                 selected: selectedLang == lang,
                                 selectedColor: const Color(0xFF42A5F5),
-                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.05),
                                 onSelected: (val) {
                                   if (val) setS(() => selectedLang = lang);
                                 },
@@ -1415,7 +1452,9 @@ class _WordListScreenState extends State<WordListScreen> {
                               text: text,
                               meaning: meaning,
                               language: selectedLang,
-                              topic: topicCtrl.text.trim().isEmpty ? null : topicCtrl.text.trim(),
+                              topic: topicCtrl.text.trim().isEmpty
+                                  ? null
+                                  : topicCtrl.text.trim(),
                             );
                             Navigator.pop(sheetCtx);
                             if (entry.vocabType != VocabularyType.word) {
@@ -1601,7 +1640,8 @@ class _WordListScreenState extends State<WordListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      const Icon(Icons.edit, color: Color(0xFF42A5F5), size: 20),
+                      const Icon(Icons.edit,
+                          color: Color(0xFF42A5F5), size: 20),
                       const SizedBox(width: 10),
                       const Text('Sửa chi tiết',
                           style: TextStyle(
@@ -1618,16 +1658,19 @@ class _WordListScreenState extends State<WordListScreen> {
                           }),
                     ]),
                     const SizedBox(height: 16),
-                    _editField(wordC, 'Từ / Cụm từ / Câu / Đoạn', Icons.text_fields),
+                    _editField(
+                        wordC, 'Từ / Cụm từ / Câu / Đoạn', Icons.text_fields),
                     const SizedBox(height: 10),
                     _editField(meanC, 'Nghĩa', Icons.translate),
                     const SizedBox(height: 10),
-                    _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
+                    _editField(noteC, 'Ghi chú', Icons.note_alt_outlined,
+                        maxLines: 2),
                     const SizedBox(height: 10),
-                    _editField(topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
-                    
+                    _editField(
+                        topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
                     const SizedBox(height: 12),
-                    const Text('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Phân loại Thực thể',
+                        style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1638,12 +1681,17 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  type.label,
-                                  style: TextStyle(color: selectedType == type ? Colors.white : Colors.grey, fontSize: 11),
+                                  type.labelEn,
+                                  style: TextStyle(
+                                      color: selectedType == type
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontSize: 11),
                                 ),
                                 selected: selectedType == type,
                                 selectedColor: type.color,
-                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.05),
                                 onSelected: (val) {
                                   if (val) setS(() => selectedType = type);
                                 },
@@ -1652,9 +1700,9 @@ class _WordListScreenState extends State<WordListScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Ngôn ngữ',
+                        style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1665,12 +1713,23 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
-                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
+                                  lang == 'en'
+                                      ? 'Tiếng Anh'
+                                      : lang == 'vi'
+                                          ? 'Tiếng Việt'
+                                          : lang == 'pali'
+                                              ? 'Pali'
+                                              : 'Burmese',
+                                  style: TextStyle(
+                                      color: selectedLang == lang
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontSize: 11),
                                 ),
                                 selected: selectedLang == lang,
                                 selectedColor: const Color(0xFF42A5F5),
-                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.05),
                                 onSelected: (val) {
                                   if (val) setS(() => selectedLang = lang);
                                 },
@@ -1679,7 +1738,6 @@ class _WordListScreenState extends State<WordListScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 20),
                     SizedBox(
                         width: double.infinity,
@@ -2277,8 +2335,7 @@ class _AddChip extends StatelessWidget {
             children: [
               Icon(Icons.add, size: 12, color: Colors.grey),
               SizedBox(width: 2),
-              Text('Thêm',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+              Text('Thêm', style: TextStyle(color: Colors.grey, fontSize: 11)),
             ],
           ),
         ),
@@ -2333,7 +2390,7 @@ class _SmartGroupsSheet extends StatelessWidget {
           _gSection(
               '🏷️ Loại',
               VocabularyType.values
-                  .map((t) => _gItem(t.icon, t.label,
+                  .map((t) => _gItem(t.icon, t.labelEn,
                           provider.wordsByType[t]?.length ?? 0, t.color, () {
                         provider.setFilterType(t);
                         Navigator.pop(context);
@@ -3024,10 +3081,14 @@ class _FilterSegmentChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? chipColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.03),
+          color: isSelected
+              ? chipColor.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? chipColor.withValues(alpha: 0.5) : Colors.transparent,
+            color: isSelected
+                ? chipColor.withValues(alpha: 0.5)
+                : Colors.transparent,
             width: 1,
           ),
         ),

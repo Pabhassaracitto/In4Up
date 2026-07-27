@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vipsound/l10n/app_localizations.dart';
+
 import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
 import 'package:vipsound/screens/understand_mode/understand_provider.dart';
 import 'package:vipsound/services/storage_service.dart';
@@ -19,6 +22,7 @@ import 'package:vipsound_stt/stt_service_facade.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
+import 'providers/locale_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
@@ -203,6 +207,7 @@ class _MyAppState extends State<MyApp> {
   Widget _buildApp(_AppLocalServices localServices) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
@@ -267,10 +272,33 @@ class _MyAppState extends State<MyApp> {
           },
         ),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: _buildTheme(),
-        home: const MainShell(),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            locale: localeProvider.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            localeResolutionCallback: (deviceLocale, supportedLocales) {
+              if (deviceLocale != null) {
+                for (var locale in supportedLocales) {
+                  if (locale.languageCode == deviceLocale.languageCode) {
+                    return deviceLocale;
+                  }
+                }
+              }
+              // Fallback to English if device locale is not supported
+              return const Locale('en', '');
+            },
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: _buildTheme(),
+            home: const MainShell(),
+          );
+        },
       ),
     );
   }

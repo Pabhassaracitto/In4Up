@@ -1,8 +1,9 @@
-import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import 'package:vipsound/l10n/app_localizations.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -11,16 +12,17 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
@@ -39,12 +41,9 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
+class _MainShellState extends State<MainShell> {
   int _currentIndex = _kHome;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  late AnimationController _transitionController;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -55,20 +54,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
     });
-
-    _transitionController = AnimationController(
-      duration: const Duration(milliseconds: 250),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _transitionController, curve: Curves.easeOut),
-    );
-    _transitionController.forward();
   }
 
   @override
   void dispose() {
-    _transitionController.dispose();
     super.dispose();
   }
 
@@ -83,9 +72,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   void _navigateTo(int index) {
     if (_currentIndex == index) return;
-    _transitionController.reset();
     setState(() => _currentIndex = index);
-    _transitionController.forward();
   }
 
   bool get _isHome => _currentIndex == _kHome;
@@ -109,10 +96,11 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   Future<void> _openTools() async {
     final nav = Navigator.of(context);
     final vocabProvider = context.read<VocabularyProvider>();
+    final l10n = AppLocalizations.of(context)!;
 
     final toolId = await tools.showToolsOverlayV2(
       context,
-      tools: _buildToolsList(),
+      tools: _buildToolsList(context),
     );
 
     if (toolId == null) return;
@@ -169,142 +157,140 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         break;
 
       case 'stats':
-        pushVocab('Tổng quan', const Color(0xFF42A5F5), const StatsTab());
+        pushVocab(l10n.overview, const Color(0xFF42A5F5), const StatsTab());
         break;
 
       case 'word_map':
-        pushVocab('Bản đồ từ', const Color(0xFF26C6DA), const MapTab());
+        pushVocab(l10n.wordMap, const Color(0xFF26C6DA), const MapTab());
         break;
 
       case 'triangle':
-        pushVocab(
-            'Tam giác kỹ năng', const Color(0xFFFFA726), const TriangleTab());
+        pushVocab(l10n.triangle, const Color(0xFFFFA726), const TriangleTab());
         break;
 
       case 'venn':
-        pushVocab('Biểu đồ Venn', const Color(0xFFAB47BC), const VennTab());
+        pushVocab(l10n.vennDiagram, const Color(0xFFAB47BC), const VennTab());
         break;
 
       case 'review':
-        pushVocab('Ôn tập', const Color(0xFF66BB6A), const ReviewTab());
+        pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
         break;
     }
   }
 
-  List<tools.ToolItem> _buildToolsList() {
+  List<tools.ToolItem> _buildToolsList(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return [
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'word_list',
-        title: 'Word List',
-        subtitle: 'Danh sách từ vựng',
+        title: l10n.wordList,
+        subtitle: l10n.wordListSubtitle,
         icon: Icons.format_list_bulleted,
-        color: Color(0xFF6C63FF),
+        color: const Color(0xFF6C63FF),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'timeline',
-        title: 'Timeline',
-        subtitle: 'Hành trình học từ theo thời gian',
+        title: l10n.timeline,
+        subtitle: l10n.timelineSubtitle,
         icon: Icons.timeline,
-        color: Color(0xFF9C27B0),
+        color: const Color(0xFF9C27B0),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'wordlist_stats',
-        title: 'Wordlist Stats',
-        subtitle: 'Thống kê từ vựng chi tiết',
+        title: l10n.wordListStats,
+        subtitle: l10n.wordListStatsSubtitle,
         icon: Icons.analytics_outlined,
-        color: Color(0xFF42A5F5),
+        color: const Color(0xFF42A5F5),
         isAvailable: true,
       ),
-
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'web_reader',
-        title: 'Web Reader',
-        subtitle: 'Đọc web + highlight CEFR',
+        title: l10n.webReader,
+        subtitle: l10n.webReaderSubtitle,
         icon: Icons.language,
-        color: Color(0xFF26A69A),
+        color: const Color(0xFF26A69A),
         isAvailable: true,
       ),
-      // ★ YouTube Explorer — title thay đổi để rõ hơn
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'youtube_downloader',
-        title: 'YouTube',
-        subtitle: 'Khám phá kênh học tiếng Anh',
+        title: l10n.youtube,
+        subtitle: l10n.youtubeSubtitle,
         icon: Icons.play_circle_filled,
-        color: Color(0xFFFF0000),
+        color: const Color(0xFFFF0000),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'pdf_reader',
-        title: 'PDF Reader',
-        subtitle: 'Mở và đọc file PDF',
+        title: l10n.pdfReader,
+        subtitle: l10n.pdfReaderSubtitle,
         icon: Icons.picture_as_pdf,
-        color: Color(0xFFEF5350),
+        color: const Color(0xFFEF5350),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'youglish',
-        title: 'YouGlish',
-        subtitle: 'Nghe phát âm chuẩn',
+        title: l10n.youglish,
+        subtitle: l10n.youglishSubtitle,
         icon: Icons.record_voice_over,
-        color: Color(0xFF00BCD4),
+        color: const Color(0xFF00BCD4),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'stats',
-        title: 'Tổng Quan',
-        subtitle: 'Tiến trình học tập',
+        title: l10n.overview,
+        subtitle: l10n.overviewSubtitle,
         icon: Icons.bar_chart_rounded,
-        color: Color(0xFF42A5F5),
+        color: const Color(0xFF42A5F5),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'word_map',
-        title: 'Bản Đồ Từ',
-        subtitle: 'Biết → nhỏ · Chưa biết → to',
+        title: l10n.wordMap,
+        subtitle: l10n.wordMapSubtitle,
         icon: Icons.map_outlined,
-        color: Color(0xFF26C6DA),
+        color: const Color(0xFF26C6DA),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'triangle',
-        title: 'Tam Giác',
-        subtitle: 'Bản đồ + Đánh giá nhanh',
+        title: l10n.triangle,
+        subtitle: l10n.triangleSubtitle,
         icon: Icons.change_history_rounded,
-        color: Color(0xFFFFA726),
+        color: const Color(0xFFFFA726),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'venn',
-        title: 'Biểu Đồ Venn',
-        subtitle: 'Phân vùng kỹ năng',
+        title: l10n.vennDiagram,
+        subtitle: l10n.vennDiagramSubtitle,
         icon: Icons.hub_outlined,
-        color: Color(0xFFAB47BC),
+        color: const Color(0xFFAB47BC),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'review',
-        title: 'Ôn Tập',
-        subtitle: 'SM-2 Spaced Repetition',
+        title: l10n.review,
+        subtitle: l10n.reviewSubtitle,
         icon: Icons.school,
-        color: Color(0xFF66BB6A),
+        color: const Color(0xFF66BB6A),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'shadowing',
-        title: 'Shadowing',
-        subtitle: 'Luyện nói theo bóng',
+        title: l10n.shadowing,
+        subtitle: l10n.shadowingSubtitle,
         icon: Icons.record_voice_over_outlined,
-        color: Color(0xFF66BB6A),
+        color: const Color(0xFF66BB6A),
         isAvailable: false,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'dictation',
-        title: 'Chính Tả',
-        subtitle: 'Nghe và gõ lại',
+        title: l10n.dictation,
+        subtitle: l10n.dictationSubtitle,
         icon: Icons.edit_note,
-        color: Color(0xFFFF7043),
+        color: const Color(0xFFFF7043),
         isAvailable: false,
       ),
     ];
@@ -312,30 +298,42 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   // ─── Screen router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
+    // ⭐ DEBUG: Wrap mỗi screen trong colored border
+    Widget screen;
     switch (_currentIndex) {
       case _kHome:
-        return HomeScreen(
+        screen = HomeScreen(
           onNavigateToListen: () => _navigateTo(1),
           onNavigateToRead: () => _navigateTo(0),
           onNavigateToUnderstand: () => _navigateTo(2),
           onNavigateToMemory: () => _navigateTo(3),
         );
+        break;
       case 0:
-        return const ReadModeScreen();
+        screen = const ReadModeScreen();
+        break;
       case 1:
-        return const ListenModeScreen();
+        screen = const ListenModeScreen();
+        break;
       case 2:
-        return const UnderstandTabConnector();
+        screen = const UnderstandTabConnector();
+        break;
       case 3:
-        return const MemoryTabConnector();
+        screen = const MemoryTabConnector();
+        break;
       default:
-        return HomeScreen(
+        screen = HomeScreen(
           onNavigateToListen: () => _navigateTo(1),
           onNavigateToRead: () => _navigateTo(0),
           onNavigateToUnderstand: () => _navigateTo(2),
           onNavigateToMemory: () => _navigateTo(3),
         );
     }
+
+    // ⭐ Wrap trong ClipRect để ngăn overflow
+    return ClipRect(
+      child: screen,
+    );
   }
 
   // ─── Build ───────────────────────────────────────────────
@@ -349,58 +347,29 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildAppBar(),
             Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: _buildCurrentScreen(),
-              ),
+              child: _buildCurrentScreen(),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
             if (_currentIndex != 1)
-              RepaintBoundary(
-                child: Consumer<PlayerProvider>(
-                  builder: (context, player, _) {
-                    if (player.currentSongPath == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
-                    return OpenContainer(
-                      transitionType: ContainerTransitionType.fadeThrough,
-                      openColor: const Color(0xFF080B1A),
-                      closedColor: Colors.transparent,
-                      closedElevation: 0,
-                      openElevation: 0,
-                      closedBuilder: (context, action) => MiniPlayer(
-                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                        onTap:
-                            null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
-                      ),
-                      openBuilder: (context, action) {
-                        return const ListenModeScreen();
-                      },
-                      onClosed: (_) {
-                        // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
-                      },
-                    );
-                  },
-                ),
+              Consumer<PlayerProvider>(
+                builder: (context, player, _) {
+                  if (player.currentSongPath == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return MiniPlayer(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    onTap: () => _navigateTo(1),
+                  );
+                },
               ),
-            _buildBottomNav(),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
@@ -448,7 +417,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const SttModelSettingsScreen()),
                 );
               },
             )
@@ -551,7 +521,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
@@ -575,30 +546,30 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         backgroundColor: const Color(0xFF111827),
         indicatorColor: _currentColor.withValues(alpha: 0.2),
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: l10n.home,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Đọc',
+          NavigationDestination(
+            icon: const Icon(Icons.menu_book_outlined),
+            selectedIcon: const Icon(Icons.menu_book),
+            label: l10n.read,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.headphones_outlined),
-            selectedIcon: Icon(Icons.headphones),
-            label: 'Nghe',
+          NavigationDestination(
+            icon: const Icon(Icons.headphones_outlined),
+            selectedIcon: const Icon(Icons.headphones),
+            label: l10n.listen,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.lightbulb_outline),
-            selectedIcon: Icon(Icons.lightbulb),
-            label: 'Hiểu',
+          NavigationDestination(
+            icon: const Icon(Icons.lightbulb_outline),
+            selectedIcon: const Icon(Icons.lightbulb),
+            label: l10n.understand,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.psychology_outlined),
-            selectedIcon: Icon(Icons.psychology),
-            label: 'Nhớ',
+          NavigationDestination(
+            icon: const Icon(Icons.psychology_outlined),
+            selectedIcon: const Icon(Icons.psychology),
+            label: l10n.remember,
           ),
           NavigationDestination(
             icon: Consumer<VocabularyProvider>(
@@ -636,7 +607,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 );
               },
             ),
-            label: 'Tools',
+            label: l10n.tools,
           ),
         ],
       ),

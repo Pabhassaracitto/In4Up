@@ -1,0 +1,71 @@
+{
+  "@@locale": "zh_TW",
+  "commandCenter": "控制中心",
+  "knowledgeOS": "知識作業系統",
+  "manageAIModels": "管理 AI 模型",
+  "loginFailed": "登入失敗: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "工作室",
+  "listen": "聽",
+  "read": "讀",
+  "understand": "理解",
+  "remember": "記憶",
+  "quickNote": "快速筆記",
+  "listening": "傾聽中...",
+  "done": "完成",
+
+  "wordList": "單字表",
+  "wordListSubtitle": "詞彙列表",
+  "timeline": "時間線",
+  "timelineSubtitle": "學習歷程",
+  "wordListStats": "單字統計",
+  "wordListStatsSubtitle": "詳細統計資訊",
+  "webReader": "網頁閱讀器",
+  "webReaderSubtitle": "閱讀並標記 CEFR",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "探索英語頻道",
+  "pdfReader": "PDF 閱讀器",
+  "pdfReaderSubtitle": "打開並閱讀 PDF",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "標準發音",
+  "overview": "概覽",
+  "overviewSubtitle": "學習進度",
+  "wordMap": "單字地圖",
+  "wordMapSubtitle": "認識 → 小 · 不認識 → 大",
+  "triangle": "技能三角",
+  "triangleSubtitle": "地圖 + 快速評估",
+  "vennDiagram": "維恩圖",
+  "vennDiagramSubtitle": "技能分區",
+  "review": "複習",
+  "reviewSubtitle": "SM-2 間隔重複",
+  "shadowing": "跟讀",
+  "shadowingSubtitle": "影子跟讀練習",
+  "dictation": "聽寫",
+  "dictationSubtitle": "聽力與輸入",
+  "audioLibrary": "音訊庫",
+  "home": "首頁",
+  "tools": "工具",
+  "nowPlaying": "正在播放",
+
+  "typeVocabulary": "詞彙",
+  "typePhrase": "短語",
+  "typeSentence": "句子",
+  "typeParagraph": "段落",
+  "typeDharma": "Dharma",
+  "typeGrammar": "語法",
+
+  "diffEasy": "簡單",
+  "diffMedium": "中等",
+  "diffHard": "困難",
+
+  "vocabWord": "單字",
+  "vocabPhrase": "短語",
+  "vocabSentence": "句子",
+  "vocabParagraph": "段落"
+}

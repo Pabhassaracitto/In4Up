@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vipsound/l10n/app_localizations.dart';
 
 /// Phân loại thực thể từ vựng theo cấp bậc:
 ///   Sentence ⊃ Phrase ⊃ Word
@@ -8,16 +9,17 @@ enum VocabularyType {
   sentence,
   paragraph;
 
-  String get label {
+  String label(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (this) {
       case VocabularyType.word:
-        return 'Từ';
+        return l10n.vocabWord;
       case VocabularyType.phrase:
-        return 'Cụm từ';
+        return l10n.vocabPhrase;
       case VocabularyType.sentence:
-        return 'Câu';
+        return l10n.vocabSentence;
       case VocabularyType.paragraph:
-        return 'Đoạn';
+        return l10n.vocabParagraph;
     }
   }
 

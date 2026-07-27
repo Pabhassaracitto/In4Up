@@ -1,0 +1,71 @@
+{
+  "@@locale": "my",
+  "commandCenter": "အမိန့်ပေးစင်တာ",
+  "knowledgeOS": "အသိပညာ OS",
+  "manageAIModels": "AI မော်ဒယ်များကို စီမံရန်",
+  "loginFailed": "အကောင့်ဝင်ရန် မအောင်မြင်ပါ: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "စတူဒီယိုခန်း",
+  "listen": "နားထောင်ပါ",
+  "read": "ဖတ်ပါ",
+  "understand": "နားလည်ပါ",
+  "remember": "မှတ်သားပါ",
+  "quickNote": "အမြန်မှတ်စု",
+  "listening": "နားထောင်နေသည်...",
+  "done": "ပြီးပါပြီ",
+
+  "wordList": "စကားလုံးစာရင်း",
+  "wordListSubtitle": "ဝေါဟာရစာရင်း",
+  "timeline": "အချိန်မျဉ်း",
+  "timelineSubtitle": "သင်ယူမှုအချိန်မျဉ်း",
+  "wordListStats": "စကားလုံးစာရင်း စာရင်းအင်းများ",
+  "wordListStatsSubtitle": "အသေးစိတ် စာရင်းအင်းများ",
+  "webReader": "ဝဘ်စာဖတ်သူ",
+  "webReaderSubtitle": "ဝဘ်စာဖတ်ခြင်း + CEFR",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "အင်္ဂလိပ်ချန်နယ်များကို ရှာဖွေပါ",
+  "pdfReader": "PDF စာဖတ်သူ",
+  "pdfReaderSubtitle": "PDF ဖိုင်များကို ဖွင့်ပြီး ဖတ်ပါ",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "မူရင်းအသံထွက်",
+  "overview": "ခြုံငုံသုံးသပ်ချက်",
+  "overviewSubtitle": "သင်ယူမှုတိုးတက်မှု",
+  "wordMap": "စကားလုံးမြေပုံ",
+  "wordMapSubtitle": "သိသော → သေး · မသိသော → ကြီး",
+  "triangle": "တြိဂံ",
+  "triangleSubtitle": "မြေပုံ + အမြန်အကဲဖြတ်မှု",
+  "vennDiagram": "ဗင်ပုံ",
+  "vennDiagramSubtitle": "ကျွမ်းကျင်မှုဇုန်",
+  "review": "ပြန်လည်သုံးသပ်",
+  "reviewSubtitle": "SM-2 အကွာအဝေးဖြင့် ထပ်ခါတလဲလဲ",
+  "shadowing": "Shadowing",
+  "shadowingSubtitle": "Shadowing လေ့ကျင့်ခန်း",
+  "dictation": "ခေါ်ပေးရေး",
+  "dictationSubtitle": "နားထောင်ပြီး ရိုက်ထည့်ပါ",
+  "audioLibrary": "အသံစာကြည့်တိုက်",
+  "home": "ပင်မစာမျက်နှာ",
+  "tools": "ကိရိယာများ",
+  "nowPlaying": "ယခုဖွင့်နေသည်",
+
+  "typeVocabulary": "ဝေါဟာရ",
+  "typePhrase": "စကားစု",
+  "typeSentence": "ဝါကျ",
+  "typeParagraph": "စာပိုဒ်",
+  "typeDharma": "Dharma",
+  "typeGrammar": "သဒ္ဒါ",
+
+  "diffEasy": "လွယ်ကူသော",
+  "diffMedium": "အလယ်အလတ်",
+  "diffHard": "ခက်ခဲသော",
+
+  "vocabWord": "စကားလုံး",
+  "vocabPhrase": "စကားစု",
+  "vocabSentence": "ဝါကျ",
+  "vocabParagraph": "စာပိုဒ်"
+}

@@ -46,9 +46,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF080B1A),
-      body: Stack(
+    return Material(
+      color: const Color(0xFF080B1A),
+      child: Stack(
         children: [
           // Static Abstract Background
           const _AnimatedBackground(),
@@ -73,25 +73,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: FocusStreakCard(),
                     ),
                   ),
+                ),
 
-                  // MEMORY GARDEN (LIVESTATUS)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: MemoryGardenCard(
-                        onStartReview: widget.onNavigateToMemory,
-                      ),
+                // MEMORY GARDEN (LIVESTATUS)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 12),
+                  sliver: SliverToBoxAdapter(
+                    child: MemoryGardenCard(
+                      onStartReview: widget.onNavigateToMemory,
                     ),
                   ),
+                ),
 
-                  // QUICK INPUT & HEBBIAN SUGGESTION
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: HebbianInputCard(),
-                    ),
+                // QUICK INPUT & HEBBIAN SUGGESTION
+                const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  sliver: SliverToBoxAdapter(
+                    child: HebbianInputCard(),
                   ),
+                ),
 
                   // MODES SECTION (BENTO GRID)
                   SliverPadding(
@@ -101,19 +102,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _buildBentoModesGrid(context),
                     ),
                   ),
+                ),
 
-                  // KNOWLEDGE GRAPH PREVIEW
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: KnowledgeGraphPreview(),
-                    ),
+                // KNOWLEDGE GRAPH PREVIEW
+                const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  sliver: SliverToBoxAdapter(
+                    child: KnowledgeGraphPreview(),
                   ),
+                ),
 
-                  // BOTTOM SPACING
-                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                ],
-              ),
+                // BOTTOM SPACING
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              ],
             ),
           ),
 
@@ -124,9 +125,15 @@ class _HomeScreenState extends State<HomeScreen> {
             bottom: 0,
             child: _GlobalMiniPlayer(),
           ),
+
+          // FAB thay thế floatingActionButton
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: _buildOmniMicrophone(),
+          ),
         ],
       ),
-      floatingActionButton: _buildOmniMicrophone(),
     );
   }
 
@@ -418,7 +425,6 @@ class _AnimatedBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return const RepaintBoundary(
       child: CustomPaint(
-        size: Size.infinite,
         painter: _BackgroundPainter(
             0.5), // Fixed value instead of animated controller
       ),

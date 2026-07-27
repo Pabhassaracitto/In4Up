@@ -1,4 +1,3 @@
-import 'package:animations/animations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,16 +11,17 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
-import 'settings/stt_model_settings_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/memory_mode.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
@@ -30,6 +30,9 @@ import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
+import 'tools/tools_overlay.dart' show PuzzleNavButton;
 
 const int _kHome = -1;
 
@@ -40,12 +43,9 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
+class _MainShellState extends State<MainShell> {
   int _currentIndex = _kHome;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  late AnimationController _transitionController;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -56,20 +56,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
     });
-
-    _transitionController = AnimationController(
-      duration: const Duration(milliseconds: 250),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _transitionController, curve: Curves.easeOut),
-    );
-    _transitionController.forward();
   }
 
   @override
   void dispose() {
-    _transitionController.dispose();
     super.dispose();
   }
 
@@ -84,9 +74,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   void _navigateTo(int index) {
     if (_currentIndex == index) return;
-    _transitionController.reset();
     setState(() => _currentIndex = index);
-    _transitionController.forward();
   }
 
   bool get _isHome => _currentIndex == _kHome;
@@ -313,31 +301,43 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   // ─── Screen router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
-    switch (_currentIndex) {
-      case _kHome:
-        return HomeScreen(
-          onNavigateToListen: () => _navigateTo(1),
-          onNavigateToRead: () => _navigateTo(0),
-          onNavigateToUnderstand: () => _navigateTo(2),
-          onNavigateToMemory: () => _navigateTo(3),
-        );
-      case 0:
-        return const ReadModeScreen();
-      case 1:
-        return const ListenModeScreen();
-      case 2:
-        return const UnderstandTabConnector();
-      case 3:
-        return const MemoryTabConnector();
-      default:
-        return HomeScreen(
-          onNavigateToListen: () => _navigateTo(1),
-          onNavigateToRead: () => _navigateTo(0),
-          onNavigateToUnderstand: () => _navigateTo(2),
-          onNavigateToMemory: () => _navigateTo(3),
-        );
-    }
+  // ⭐ DEBUG: Wrap mỗi screen trong colored border
+  Widget screen;
+  switch (_currentIndex) {
+    case _kHome:
+      screen = HomeScreen(
+        onNavigateToListen: () => _navigateTo(1),
+        onNavigateToRead: () => _navigateTo(0),
+        onNavigateToUnderstand: () => _navigateTo(2),
+        onNavigateToMemory: () => _navigateTo(3),
+      );
+      break;
+    case 0:
+      screen = const ReadModeScreen();
+      break;
+    case 1:
+      screen = const ListenModeScreen();
+      break;
+    case 2:
+      screen = const UnderstandTabConnector();
+      break;
+    case 3:
+      screen = const MemoryTabConnector();
+      break;
+    default:
+      screen = HomeScreen(
+        onNavigateToListen: () => _navigateTo(1),
+        onNavigateToRead: () => _navigateTo(0),
+        onNavigateToUnderstand: () => _navigateTo(2),
+        onNavigateToMemory: () => _navigateTo(3),
+      );
   }
+  
+  // ⭐ Wrap trong ClipRect để ngăn overflow
+  return ClipRect(
+    child: screen,
+  );
+}
 
   // ─── Build ───────────────────────────────────────────────
   @override
@@ -350,58 +350,30 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildAppBar(),
             Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: _buildCurrentScreen(),
-              ),
+              child: _buildCurrentScreen(),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Chỉ hiện MiniPlayer nếu KHÔNG ở tab Nghe (index 1)
             if (_currentIndex != 1)
-              RepaintBoundary(
-                child: Consumer<PlayerProvider>(
-                  builder: (context, player, _) {
-                    if (player.currentSongPath == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    // Hiệu ứng Glassmorphism đã có bên trong MiniPlayer
-                    return OpenContainer(
-                      transitionType: ContainerTransitionType.fadeThrough,
-                      openColor: const Color(0xFF080B1A),
-                      closedColor: Colors.transparent,
-                      closedElevation: 0,
-                      openElevation: 0,
-                      closedBuilder: (context, action) => MiniPlayer(
-                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                        onTap:
-                            null, // Vô hiệu hóa tap vào nền để tránh nhảy tab nhầm
-                      ),
-                      openBuilder: (context, action) {
-                        return const ListenModeScreen();
-                      },
-                      onClosed: (_) {
-                        // Logic xử lý khi đóng nếu cần, tránh setState trong openBuilder
-                      },
-                    );
-                  },
-                ),
+              Consumer<PlayerProvider>(
+                builder: (context, player, _) {
+                  if (player.currentSongPath == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return MiniPlayer(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    onTap: () => _navigateTo(1),
+                  );
+                },
               ),
             _buildBottomNav(context),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -449,7 +421,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const SttModelSettingsScreen()),
                 );
               },
             )
@@ -640,7 +613,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             ),
             label: l10n.tools,
           ),
-        ],
+        ),
       ),
     );
   }

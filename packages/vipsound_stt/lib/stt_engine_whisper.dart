@@ -25,7 +25,6 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
-import 'models/content_id.dart';
 import 'models/stt_isolate_payload.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
@@ -153,10 +152,10 @@ typedef _WhisperFreeD = void Function(ffi.Pointer<WhisperContext>);
 typedef _WhisperFullDefaultParamsN = WhisperFullParams Function(ffi.Int32);
 typedef _WhisperFullDefaultParamsD = WhisperFullParams Function(int);
 
-typedef _WhisperFullN = ffi.Int32 Function(
-    ffi.Pointer<WhisperContext>, WhisperFullParams, ffi.Pointer<ffi.Float>, ffi.Int32);
-typedef _WhisperFullD = int Function(
-    ffi.Pointer<WhisperContext>, WhisperFullParams, ffi.Pointer<ffi.Float>, int);
+typedef _WhisperFullN = ffi.Int32 Function(ffi.Pointer<WhisperContext>,
+    WhisperFullParams, ffi.Pointer<ffi.Float>, ffi.Int32);
+typedef _WhisperFullD = int Function(ffi.Pointer<WhisperContext>,
+    WhisperFullParams, ffi.Pointer<ffi.Float>, int);
 
 typedef _WhisperFullNSegsN = ffi.Int32 Function(ffi.Pointer<WhisperContext>);
 typedef _WhisperFullNSegsD = int Function(ffi.Pointer<WhisperContext>);
@@ -346,8 +345,13 @@ class SttEngineWhisper {
         wordTimestamps: wordTimestamps,
         pcmSamples: Float32List.fromList(pcmSamples),
       );
-      if (returnCode != 0) throw Exception('whisper_full() thất bại: $returnCode');
-      final segments = _parseWhisperSegments(lib: lib, ctx: ctxPtr, fingerprint: audioFingerprint, wordTimestamps: wordTimestamps);
+      if (returnCode != 0)
+        throw Exception('whisper_full() thất bại: $returnCode');
+      final segments = _parseWhisperSegments(
+          lib: lib,
+          ctx: ctxPtr,
+          fingerprint: audioFingerprint,
+          wordTimestamps: wordTimestamps);
       sw.stop();
       return SttResult(
         fullText: segments.map((s) => s.text).join(' ').trim(),
@@ -356,7 +360,8 @@ class SttEngineWhisper {
         language: language,
         processingTime: sw.elapsed,
         audioFingerprint: audioFingerprint,
-        hasWordTimestamps: wordTimestamps && segments.any((s) => s.words.isNotEmpty),
+        hasWordTimestamps:
+            wordTimestamps && segments.any((s) => s.words.isNotEmpty),
       );
     } finally {
       _freeWhisperContext(lib, ctxPtr);
@@ -408,7 +413,7 @@ class SttEngineWhisper {
 
       final langCode = language.split('-').first.toLowerCase();
       paramsPtr.ref.language = langPinner.pin(langCode);
-      
+
       final nSamples = pcmSamples.length;
       final samplesPtr = calloc<ffi.Float>(nSamples);
       try {
@@ -424,11 +429,17 @@ class SttEngineWhisper {
   }
 
   static _WhisperLib _loadWhisperLib() {
-    final dylib = Platform.isWindows ? ffi.DynamicLibrary.open('whisper.dll') : ffi.DynamicLibrary.open('libwhisper.so');
+    if (Platform.isIOS) {
+      return _WhisperLib(ffi.DynamicLibrary.process());
+    }
+    final dylib = Platform.isWindows
+        ? ffi.DynamicLibrary.open('whisper.dll')
+        : ffi.DynamicLibrary.open('libwhisper.so');
     return _WhisperLib(dylib);
   }
 
-  static ffi.Pointer<WhisperContext> _initWhisperContext(_WhisperLib lib, String modelPath) {
+  static ffi.Pointer<WhisperContext> _initWhisperContext(
+      _WhisperLib lib, String modelPath) {
     final modelPathC = modelPath.toNativeUtf8(allocator: calloc);
     try {
       return lib.whisperInitFromFile(modelPathC.cast<ffi.Char>());
@@ -437,7 +448,9 @@ class SttEngineWhisper {
     }
   }
 
-  static void _freeWhisperContext(_WhisperLib lib, ffi.Pointer<WhisperContext> ctx) => lib.whisperFree(ctx);
+  static void _freeWhisperContext(
+          _WhisperLib lib, ffi.Pointer<WhisperContext> ctx) =>
+      lib.whisperFree(ctx);
 
   static List<SttSegment> _parseWhisperSegments({
     required _WhisperLib lib,
@@ -448,10 +461,17 @@ class SttEngineWhisper {
     final nSegments = lib.whisperFullNSegments(ctx);
     final segments = <SttSegment>[];
     for (var i = 0; i < nSegments; i++) {
-        final textPtr = lib.whisperFullGetSegmentText(ctx, i);
-        if (textPtr == ffi.nullptr) continue;
-        final rawText = textPtr.cast<Utf8>().toDartString().trim();
-        segments.add(SttSegment(id: i, uid: '', startSeconds: 0, endSeconds: 0, text: rawText, words: [], avgConfidence: 0.9));
+      final textPtr = lib.whisperFullGetSegmentText(ctx, i);
+      if (textPtr == ffi.nullptr) continue;
+      final rawText = textPtr.cast<Utf8>().toDartString().trim();
+      segments.add(SttSegment(
+          id: i,
+          uid: '',
+          startSeconds: 0,
+          endSeconds: 0,
+          text: rawText,
+          words: [],
+          avgConfidence: 0.9));
     }
     return segments;
   }
@@ -459,7 +479,15 @@ class SttEngineWhisper {
 
 // Dummy/Mock implementations needed to compile for this snippet
 Future<List<double>> _loadAudioAsPcm(String path) async => [];
-List<SttWord> _parseWordTokens({required _WhisperLib lib, required ffi.Pointer<WhisperContext> ctx, required int segmentIndex}) => [];
+List<SttWord> _parseWordTokens(
+        {required _WhisperLib lib,
+        required ffi.Pointer<WhisperContext> ctx,
+        required int segmentIndex}) =>
+    [];
 String _quickFingerprint(String path) => '';
-Future<String> _writeLrcFile({required SttResult result, required String audioPath, required String outputDirectory}) async => '';
+Future<String> _writeLrcFile(
+        {required SttResult result,
+        required String audioPath,
+        required String outputDirectory}) async =>
+    '';
 SttIsolateResult? _validatePaths(SttIsolatePayload p) => null;

@@ -1,0 +1,71 @@
+{
+  "@@locale": "si",
+  "commandCenter": "විධාන මධ්යස්ථානය",
+  "knowledgeOS": "දැනුම මෙහෙයුම් පද්ධතිය",
+  "manageAIModels": "AI මාදිලි කළමනාකරණය",
+  "loginFailed": "පිවිසීම අසාර්ථකයි: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "ස්ටූඩියෝ කාමරය",
+  "listen": "අසන්න",
+  "read": "කියවන්න",
+  "understand": "තේරුම් ගන්න",
+  "remember": "මතක තබාගන්න",
+  "quickNote": "ඉක්මන් සටහන",
+  "listening": "සවන් දෙමින්...",
+  "done": "අවසන්",
+
+  "wordList": "වචන ලැයිස්තුව",
+  "wordListSubtitle": "වචන මාලාව",
+  "timeline": "කාලරේඛාව",
+  "timelineSubtitle": "ඉගෙනුම් කාලරේඛාව",
+  "wordListStats": "වචන ලැයිස්තු සංඛ්‍යාලේඛන",
+  "wordListStatsSubtitle": "සවිස්තරාත්මක සංඛ්‍යාලේඛන",
+  "webReader": "වෙබ් කියවනය",
+  "webReaderSubtitle": "වෙබ් කියවීම + CEFR",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "ඉංග්‍රීසි නාලිකා ගවේෂණය",
+  "pdfReader": "PDF කියවනය",
+  "pdfReaderSubtitle": "PDF ගොනු විවෘත කරන්න",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "ස්වදේශීය උච්චාරණය",
+  "overview": "දළ විශ්ලේෂණය",
+  "overviewSubtitle": "ඉගෙනුම් ප්‍රගතිය",
+  "wordMap": "වචන සිතියම",
+  "wordMapSubtitle": "දන්නා → කුඩා · නොදන්නා → විශාල",
+  "triangle": "ත්‍රිකෝණය",
+  "triangleSubtitle": "සිතියම + ඉක්මන් ඇගයීම",
+  "vennDiagram": "වෙන් රූපය",
+  "vennDiagramSubtitle": "නිපුණතා කලාප",
+  "review": "සමාලෝචනය",
+  "reviewSubtitle": "SM-2 පරතරය සහිත පුනරාවර්තනය",
+  "shadowing": "සෙවනැල්ල",
+  "shadowingSubtitle": "සෙවනැලි අභ්‍යාසය",
+  "dictation": "ශ්‍රැතලේඛනය",
+  "dictationSubtitle": "අසා ටයිප් කරන්න",
+  "audioLibrary": "ශ්‍රව්‍ය පුස්තකාලය",
+  "home": "මුල් පිටුව",
+  "tools": "මෙවලම්",
+  "nowPlaying": "දැන් වාදනය වේ",
+
+  "typeVocabulary": "වචන මාලාව",
+  "typePhrase": "වාක්‍ය ඛණ්ඩය",
+  "typeSentence": "වාක්‍යය",
+  "typeParagraph": "ඡේදය",
+  "typeDharma": "Dharma",
+  "typeGrammar": "ව්‍යාකරණ",
+
+  "diffEasy": "පහසු",
+  "diffMedium": "මධ්‍යම",
+  "diffHard": "අමාරු",
+
+  "vocabWord": "වචනය",
+  "vocabPhrase": "වාක්‍ය ඛණ්ඩය",
+  "vocabSentence": "වාක්‍යය",
+  "vocabParagraph": "ඡේදය"
+}

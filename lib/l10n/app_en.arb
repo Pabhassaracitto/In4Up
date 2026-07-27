@@ -1,0 +1,71 @@
+{
+  "@@locale": "en",
+  "commandCenter": "COMMAND CENTER",
+  "knowledgeOS": "Knowledge OS",
+  "manageAIModels": "Manage AI Models",
+  "loginFailed": "Login failed: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "STUDIO ROOM",
+  "listen": "LISTEN",
+  "read": "READ",
+  "understand": "UNDERSTAND",
+  "remember": "REMEMBER",
+  "quickNote": "Quick Note",
+  "listening": "Listening...",
+  "done": "Done",
+
+  "wordList": "Word List",
+  "wordListSubtitle": "Vocabulary List",
+  "timeline": "Timeline",
+  "timelineSubtitle": "Learning Timeline",
+  "wordListStats": "Wordlist Stats",
+  "wordListStatsSubtitle": "Detailed Statistics",
+  "webReader": "Web Reader",
+  "webReaderSubtitle": "Web Reading + CEFR Highlight",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "Explore English Channels",
+  "pdfReader": "PDF Reader",
+  "pdfReaderSubtitle": "Open & Read PDF Files",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "Native Pronunciation",
+  "overview": "Overview",
+  "overviewSubtitle": "Learning Progress",
+  "wordMap": "Word Map",
+  "wordMapSubtitle": "Known → Small · Unknown → Big",
+  "triangle": "Triangle",
+  "triangleSubtitle": "Map + Quick Assessment",
+  "vennDiagram": "Venn Diagram",
+  "vennDiagramSubtitle": "Skill Zoning",
+  "review": "Review",
+  "reviewSubtitle": "SM-2 Spaced Repetition",
+  "shadowing": "Shadowing",
+  "shadowingSubtitle": "Shadowing Practice",
+  "dictation": "Dictation",
+  "dictationSubtitle": "Listen & Type",
+  "audioLibrary": "Audio Library",
+  "home": "Home",
+  "tools": "Tools",
+  "nowPlaying": "Now Playing",
+
+  "typeVocabulary": "Vocabulary",
+  "typePhrase": "Phrase",
+  "typeSentence": "Sentence",
+  "typeParagraph": "Paragraph",
+  "typeDharma": "Dharma",
+  "typeGrammar": "Grammar",
+  
+  "diffEasy": "Easy",
+  "diffMedium": "Medium",
+  "diffHard": "Hard",
+
+  "vocabWord": "Word",
+  "vocabPhrase": "Phrase",
+  "vocabSentence": "Sentence",
+  "vocabParagraph": "Paragraph"
+}

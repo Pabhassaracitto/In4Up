@@ -597,7 +597,7 @@ class _WordDetailSheet extends StatelessWidget {
                   border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: Text(
-                  word.vocabType.label,
+                  word.vocabType.label(context),
                   style: TextStyle(
                     color: color,
                     fontSize: 11,

@@ -339,7 +339,7 @@ class _WordListScreenState extends State<WordListScreen> {
                                 children: [
                                   if (p.filterType != null)
                                     _ActiveFilterBadge(
-                                      label: p.filterType!.label,
+                                      label: p.filterType!.label(context),
                                       color: p.filterType!.color,
                                       onRemove: () => p.setFilterType(null),
                                     ),
@@ -1348,7 +1348,7 @@ class _WordListScreenState extends State<WordListScreen> {
                           decoration: BoxDecoration(
                               color: detectedType!.bgColor,
                               borderRadius: BorderRadius.circular(6)),
-                          child: Text(detectedType!.label,
+                          child: Text(detectedType!.label(context),
                               style: TextStyle(
                                   color: detectedType!.color,
                                   fontSize: 11,

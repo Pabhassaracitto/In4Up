@@ -1,0 +1,71 @@
+{
+  "@@locale": "vi",
+  "commandCenter": "COMMAND CENTER",
+  "knowledgeOS": "Hệ điều hành Tri thức",
+  "manageAIModels": "Quản lý Model AI",
+  "loginFailed": "Đăng nhập thất bại: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "PHÒNG STUDIO",
+  "listen": "NGHE",
+  "read": "ĐỌC",
+  "understand": "HIỂU",
+  "remember": "NHỚ",
+  "quickNote": "Ghi chú nhanh",
+  "listening": "Đang lắng nghe...",
+  "done": "Hoàn tất",
+  
+  "wordList": "Word List",
+  "wordListSubtitle": "Danh sách từ vựng",
+  "timeline": "Timeline",
+  "timelineSubtitle": "Hành trình học từ theo thời gian",
+  "wordListStats": "Wordlist Stats",
+  "wordListStatsSubtitle": "Thống kê từ vựng chi tiết",
+  "webReader": "Web Reader",
+  "webReaderSubtitle": "Đọc web + highlight CEFR",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "Khám phá kênh học tiếng Anh",
+  "pdfReader": "PDF Reader",
+  "pdfReaderSubtitle": "Mở và đọc file PDF",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "Nghe phát âm chuẩn",
+  "overview": "Tổng Quan",
+  "overviewSubtitle": "Tiến trình học tập",
+  "wordMap": "Bản Đồ Từ",
+  "wordMapSubtitle": "Biết → nhỏ · Chưa biết → to",
+  "triangle": "Tam Giác",
+  "triangleSubtitle": "Bản đồ + Đánh giá nhanh",
+  "vennDiagram": "Biểu Đồ Venn",
+  "vennDiagramSubtitle": "Phân vùng kỹ năng",
+  "review": "Ôn Tập",
+  "reviewSubtitle": "SM-2 Spaced Repetition",
+  "shadowing": "Shadowing",
+  "shadowingSubtitle": "Luyện nói theo bóng",
+  "dictation": "Chính Tả",
+  "dictationSubtitle": "Nghe và gõ lại",
+  "audioLibrary": "Thư viện âm thanh",
+  "home": "Home",
+  "tools": "Tools",
+  "nowPlaying": "Đang phát",
+
+  "typeVocabulary": "Từ vựng",
+  "typePhrase": "Cụm từ",
+  "typeSentence": "Câu",
+  "typeParagraph": "Đoạn",
+  "typeDharma": "Phật Pháp",
+  "typeGrammar": "Ngữ pháp",
+  
+  "diffEasy": "Dễ",
+  "diffMedium": "Vừa",
+  "diffHard": "Khó",
+
+  "vocabWord": "Từ",
+  "vocabPhrase": "Cụm từ",
+  "vocabSentence": "Câu",
+  "vocabParagraph": "Đoạn"
+}

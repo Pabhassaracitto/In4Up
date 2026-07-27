@@ -1,3 +1,6 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
 import 'dart:async';
 import 'dart:io' show Platform;
 
@@ -19,6 +22,7 @@ import 'package:vipsound_stt/stt_service_facade.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
+import 'providers/locale_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
@@ -203,6 +207,7 @@ class _MyAppState extends State<MyApp> {
   Widget _buildApp(_AppLocalServices localServices) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
@@ -267,10 +272,33 @@ class _MyAppState extends State<MyApp> {
           },
         ),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: _buildTheme(),
-        home: const MainShell(),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            locale: localeProvider.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            localeResolutionCallback: (deviceLocale, supportedLocales) {
+              if (deviceLocale != null) {
+                for (var locale in supportedLocales) {
+                  if (locale.languageCode == deviceLocale.languageCode) {
+                    return deviceLocale;
+                  }
+                }
+              }
+              // Fallback to English if device locale is not supported
+              return const Locale('en', '');
+            },
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: _buildTheme(),
+            home: const MainShell(),
+          );
+        },
       ),
     );
   }

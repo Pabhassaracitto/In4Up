@@ -1,0 +1,71 @@
+{
+  "@@locale": "hi",
+  "commandCenter": "कमांड सेंटर",
+  "knowledgeOS": "नॉलेज ओएस",
+  "manageAIModels": "एआई मॉडल प्रबंधित करें",
+  "loginFailed": "लॉगिन विफल: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "स्टूडियो कक्ष",
+  "listen": "सुनें",
+  "read": "पढ़ें",
+  "understand": "समझें",
+  "remember": "याद रखें",
+  "quickNote": "त्वरित नोट",
+  "listening": "सुन रहे हैं...",
+  "done": "हो गया",
+
+  "wordList": "शब्द सूची",
+  "wordListSubtitle": "शब्दावली सूची",
+  "timeline": "टाइमलाइन",
+  "timelineSubtitle": "सीखने की टाइमलाइन",
+  "wordListStats": "शब्द सूची आँकड़े",
+  "wordListStatsSubtitle": "विस्तृत आँकड़े",
+  "webReader": "वेब रीडर",
+  "webReaderSubtitle": "वेब रीडिंग + CEFR हाइलाइट",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "अंग्रेजी चैनल एक्सप्लोर करें",
+  "pdfReader": "पीडीएफ रीडर",
+  "pdfReaderSubtitle": "पीडीएफ फाइलें खोलें और पढ़ें",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "मूल उच्चारण",
+  "overview": "अवलोकन",
+  "overviewSubtitle": "सीखने की प्रगति",
+  "wordMap": "शब्द मानचित्र",
+  "wordMapSubtitle": "ज्ञात → छोटा · अज्ञात → बड़ा",
+  "triangle": "त्रिकोण",
+  "triangleSubtitle": "मानचित्र + त्वरित मूल्यांकन",
+  "vennDiagram": "वेन आरेख",
+  "vennDiagramSubtitle": "कौशल क्षेत्र",
+  "review": "समीक्षा",
+  "reviewSubtitle": "SM-2 अंतराल पुनरावृत्ति",
+  "shadowing": "शैडोइंग",
+  "shadowingSubtitle": "शैडोइंग अभ्यास",
+  "dictation": "श्रुतलेख",
+  "dictationSubtitle": "सुनें और टाइप करें",
+  "audioLibrary": "ऑडियो लाइब्रेरी",
+  "home": "होम",
+  "tools": "उपकरण",
+  "nowPlaying": "अब बज रहा है",
+
+  "typeVocabulary": "शब्दावली",
+  "typePhrase": "वाक्यांश",
+  "typeSentence": "वाक्य",
+  "typeParagraph": "अनुच्छेद",
+  "typeDharma": "Dharma",
+  "typeGrammar": "व्याकरण",
+
+  "diffEasy": "सरल",
+  "diffMedium": "मध्यम",
+  "diffHard": "कठिन",
+
+  "vocabWord": "शब्द",
+  "vocabPhrase": "वाक्यांश",
+  "vocabSentence": "वाक्य",
+  "vocabParagraph": "अनुच्छेद"
+}

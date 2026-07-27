@@ -1,5 +1,6 @@
 // lib/models/text_segment.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 /// Độ khó của đoạn text
 enum TextSegmentDifficulty {
@@ -144,32 +145,34 @@ class TextSegment {
   }
 
   /// Label tiếng Việt cho type
-  String get typeLabel {
+  String typeLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (type) {
       case TextSegmentType.vocabulary:
-        return 'Từ vựng';
+        return l10n.typeVocabulary;
       case TextSegmentType.phrase:
-        return 'Cụm từ';
+        return l10n.typePhrase;
       case TextSegmentType.sentence:
-        return 'Câu';
+        return l10n.typeSentence;
       case TextSegmentType.paragraph:
-        return 'Đoạn';
+        return l10n.typeParagraph;
       case TextSegmentType.dharma:
-        return 'Phật Pháp';
+        return l10n.typeDharma;
       case TextSegmentType.grammar:
-        return 'Ngữ pháp';
+        return l10n.typeGrammar;
     }
   }
 
   /// Label tiếng Việt cho difficulty
-  String get difficultyLabel {
+  String difficultyLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (difficulty) {
       case TextSegmentDifficulty.easy:
-        return 'Dễ';
+        return l10n.diffEasy;
       case TextSegmentDifficulty.medium:
-        return 'Vừa';
+        return l10n.diffMedium;
       case TextSegmentDifficulty.hard:
-        return 'Khó';
+        return l10n.diffHard;
     }
   }
 

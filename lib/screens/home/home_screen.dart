@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 
@@ -63,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
-                  SliverToBoxAdapter(child: _buildGlassHeader()),
+                  SliverToBoxAdapter(child: _buildGlassHeader(context)),
 
                   // FOCUS & MOMENTUM SECTION
                   const SliverPadding(
@@ -97,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 12),
                     sliver: SliverToBoxAdapter(
-                      child: _buildBentoModesGrid(),
+                      child: _buildBentoModesGrid(context),
                     ),
                   ),
 
@@ -129,7 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGlassHeader() {
+  Widget _buildGlassHeader(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       child: Row(
@@ -138,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'COMMAND CENTER',
+                l10n.commandCenter,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
@@ -146,9 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   letterSpacing: 2,
                 ),
               ),
-              const Text(
-                'Hệ điều hành Tri thức',
-                style: TextStyle(
+              Text(
+                l10n.knowledgeOS,
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -160,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.smart_toy_outlined, color: Colors.blueAccent, size: 26),
-            tooltip: 'Quản lý Model AI',
+            tooltip: l10n.manageAIModels,
             onPressed: () {
               Navigator.push(
                 context,
@@ -175,13 +177,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBentoModesGrid() {
+  Widget _buildBentoModesGrid(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'PHÒNG STUDIO',
-          style: TextStyle(
+        Text(
+          l10n.studioRoom,
+          style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
             color: Colors.grey,
@@ -199,25 +202,25 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _BentoCard(
               icon: Icons.headphones,
-              title: 'NGHE',
+              title: l10n.listen,
               color: const Color(0xFF6C63FF),
               onTap: widget.onNavigateToListen,
             ),
             _BentoCard(
               icon: Icons.menu_book,
-              title: 'ĐỌC',
+              title: l10n.read,
               color: const Color(0xFF2196F3),
               onTap: widget.onNavigateToRead,
             ),
             _BentoCard(
               icon: Icons.lightbulb,
-              title: 'HIỂU',
+              title: l10n.understand,
               color: const Color(0xFFFFB300),
               onTap: widget.onNavigateToUnderstand,
             ),
             _BentoCard(
               icon: Icons.psychology,
-              title: 'NHỚ',
+              title: l10n.remember,
               color: const Color(0xFF4CAF50),
               onTap: widget.onNavigateToMemory,
             ),
@@ -355,9 +358,9 @@ class _GlobalMiniPlayer extends StatelessWidget {
                           fontSize: 13,
                           fontWeight: FontWeight.bold),
                     ),
-                    const Text(
-                      'Đang phát',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
+                    Text(
+                      AppLocalizations.of(context)!.nowPlaying,
+                      style: const TextStyle(color: Colors.grey, fontSize: 10),
                     ),
                   ],
                 ),
@@ -379,10 +382,11 @@ class _SttDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(
-        title: const Text('Ghi chú nhanh'),
+        title: Text(l10n.quickNote),
         backgroundColor: Colors.transparent,
       ),
       body: Center(
@@ -391,14 +395,14 @@ class _SttDialog extends StatelessWidget {
           children: [
             const Icon(Icons.mic, size: 80, color: Color(0xFF6C63FF)),
             const SizedBox(height: 24),
-            const Text(
-              'Đang lắng nghe...',
-              style: TextStyle(color: Colors.white, fontSize: 18),
+            Text(
+              l10n.listening,
+              style: const TextStyle(color: Colors.white, fontSize: 18),
             ),
             const SizedBox(height: 48),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hoàn tất'),
+              child: Text(l10n.done),
             ),
           ],
         ),
@@ -504,8 +508,9 @@ class _FirebaseAuthButton extends StatelessWidget {
       await AuthService().signInWithGoogle();
     } catch (e) {
       if (context.mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Đăng nhập thất bại: $e')));
+            .showSnackBar(SnackBar(content: Text(l10n.loginFailed(e.toString()))));
       }
     }
   }

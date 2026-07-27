@@ -1,36 +1,39 @@
-import 'dart:async';
+// packages/vipsound_stt/lib/stt_engine_native.dart
+// Patch v11.0 — thêm audioFingerprint vào SttResult,
+//               thêm uid vào SttSegment (Content-Anchored)
 
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import 'models/content_id.dart';
 import 'models/stt_result.dart';
 
-/// Engine Native - dùng speech_to_text
-/// Ưu tiên cho "ghi chú nhanh" - không cần internet, phản hồi tức thì
 class SttEngineNative {
   final SpeechToText _stt = SpeechToText();
 
   bool _isInitialized = false;
   bool _isListening = false;
 
-  /// Stream kết quả real-time (dùng cho live transcription)
-  final _resultController =
-      StreamController<SttResult>.broadcast();
+  final _resultController = StreamController<SttResult>.broadcast();
   Stream<SttResult> get resultStream => _resultController.stream;
 
   bool get isInitialized => _isInitialized;
   bool get isListening => _isListening;
 
-  // ─── Initialization ───────────────────────────────────────────────────────
+  // ── Initialization ────────────────────────────────────────
 
   Future<bool> initialize() async {
     if (_isInitialized) return true;
 
     try {
       _isInitialized = await _stt.initialize(
-        onError: (error) => debugPrint('❌ Native STT error: ${error.errorMsg}'),
-        onStatus: (status) => debugPrint('📢 Native STT status: $status'),
+        onError: (e) => debugPrint('❌ Native STT error: ${e.errorMsg}'),
+        onStatus: (s) => debugPrint('📢 Native STT status: $s'),
         debugLogging: kDebugMode,
       );
 
@@ -38,9 +41,11 @@ class SttEngineNative {
         debugPrint('✅ Native STT initialized');
         final locales = await _stt.locales();
         debugPrint(
-            '   Available locales: ${locales.map((l) => l.localeId).take(5).join(', ')}...');
+          '   Locales: '
+          '${locales.map((l) => l.localeId).take(5).join(', ')}...',
+        );
       } else {
-        debugPrint('❌ Native STT initialization failed '
+        debugPrint('❌ Native STT init failed '
             '(microphone permission may be missing)');
       }
     } catch (e) {
@@ -51,10 +56,8 @@ class SttEngineNative {
     return _isInitialized;
   }
 
-  // ─── Live Listening ───────────────────────────────────────────────────────
+  // ── Live Listening ────────────────────────────────────────
 
-  /// Bắt đầu lắng nghe microphone real-time
-  /// Dùng cho tính năng "Shadowing" và "Quick Note"
   Future<bool> startListening({
     String language = 'en-US',
     Duration? listenTimeout,
@@ -64,7 +67,6 @@ class SttEngineNative {
       final ok = await initialize();
       if (!ok) return false;
     }
-
     if (_isListening) return true;
 
     try {
@@ -73,16 +75,12 @@ class SttEngineNative {
         listenFor: listenTimeout ?? const Duration(minutes: 2),
         pauseFor: pauseTimeout,
         partialResults: true,
-        onSoundLevelChange: (level) {
-          // Có thể emit sound level cho waveform visualization
-        },
-        onResult: (result) => _onNativeResult(result, language),
+        onResult: (r) => _onNativeResult(r, language),
         cancelOnError: false,
         listenMode: ListenMode.confirmation,
       );
-
       _isListening = started;
-      debugPrint('🎤 Native STT listening started: $started');
+      debugPrint('🎤 Native STT listening: $started');
       return started;
     } catch (e) {
       debugPrint('❌ Native STT startListening error: $e');
@@ -90,7 +88,6 @@ class SttEngineNative {
     }
   }
 
-  /// Dừng lắng nghe
   Future<void> stopListening() async {
     if (!_isListening) return;
     await _stt.stop();
@@ -98,39 +95,42 @@ class SttEngineNative {
     debugPrint('🛑 Native STT stopped');
   }
 
-  /// Huỷ lắng nghe
   Future<void> cancelListening() async {
     await _stt.cancel();
     _isListening = false;
   }
 
-  // ─── File Transcription ───────────────────────────────────────────────────
+  // ── File Transcription ────────────────────────────────────
 
-  /// Transcribe từ file audio (simulate - Native STT không hỗ trợ trực tiếp)
-  /// Đây là wrapper để SttServiceFacade có API nhất quán
-  /// 
-  /// NOTE: speech_to_text không hỗ trợ transcribe file trực tiếp.
-  /// Dùng cho compatibility. Với file, ưu tiên dùng Whisper.
+  /// Native STT không hỗ trợ transcribe file.
+  /// Trả về SttResult rỗng để Facade fallback sang Whisper.
+  ///
+  /// ★ PATCH v11: thêm audioFingerprint (hash từ path)
+  ///              SttSegment không tạo vì rỗng → không cần uid
   Future<SttResult> transcribeFile(
     String audioPath, {
     String language = 'en-US',
   }) async {
     debugPrint(
-        '⚠️ Native STT không hỗ trợ transcribe file trực tiếp. '
-        'Sử dụng Whisper để xử lý file: $audioPath');
+      '⚠️ Native STT không hỗ trợ file. '
+      'Fallback Whisper: $audioPath',
+    );
 
-    // Trả về kết quả rỗng để Facade có thể fallback sang Whisper
+    // Tạo fingerprint nhẹ từ path (không đọc file — non-blocking)
+    final fp = _quickFingerprint(audioPath);
+
     return SttResult(
       fullText: '',
       segments: const [],
       engineUsed: SttEngineType.native,
       language: language,
       processingTime: Duration.zero,
+      audioFingerprint: fp, // ★ v11: bắt buộc
       hasWordTimestamps: false,
     );
   }
 
-  // ─── Callbacks ───────────────────────────────────────────────────────────
+  // ── Callbacks ─────────────────────────────────────────────
 
   void _onNativeResult(
     SpeechRecognitionResult result,
@@ -138,21 +138,34 @@ class SttEngineNative {
   ) {
     if (_resultController.isClosed) return;
 
-    // Chuyển đổi SpeechRecognitionResult → SttResult
-    final words = result.recognizedWords
+    final recognizedText = result.recognizedWords;
+    if (recognizedText.isEmpty) return;
+
+    // Fingerprint cho live result: dùng timestamp hiện tại
+    final fp =
+        _quickFingerprint('live_${DateTime.now().millisecondsSinceEpoch}');
+
+    final startMs = 0;
+    final uid = ContentId.segmentUid(
+      audioFingerprint: fp,
+      startMs: startMs,
+      text: recognizedText,
+    );
+
+    final words = recognizedText
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .toList();
 
-    // Native STT không có word timestamps → tạo segment đơn giản
     final sttResult = SttResult(
-      fullText: result.recognizedWords,
+      fullText: recognizedText,
       segments: [
         SttSegment(
           id: 0,
+          uid: uid, // ★ v11: Content-Anchored UID
           startSeconds: 0,
           endSeconds: 0,
-          text: result.recognizedWords,
+          text: recognizedText,
           words: words
               .map((w) => SttWord(
                     word: w,
@@ -167,15 +180,15 @@ class SttEngineNative {
       engineUsed: SttEngineType.native,
       language: language,
       processingTime: Duration.zero,
+      audioFingerprint: fp, // ★ v11
       hasWordTimestamps: false,
     );
 
     _resultController.add(sttResult);
   }
 
-  // ─── Utility ─────────────────────────────────────────────────────────────
+  // ── Utility ───────────────────────────────────────────────
 
-  /// Lấy danh sách ngôn ngữ hỗ trợ
   Future<List<String>> getSupportedLocales() async {
     if (!_isInitialized) await initialize();
     if (!_isInitialized) return [];
@@ -183,13 +196,18 @@ class SttEngineNative {
     return locales.map((l) => l.localeId).toList();
   }
 
-  /// Kiểm tra thiết bị có hỗ trợ không
-  Future<bool> checkAvailability() async {
-    return _stt.hasPermission;
-  }
+  Future<bool> checkAvailability() async => _stt.hasPermission;
 
   void dispose() {
     _stt.cancel();
     _resultController.close();
+  }
+
+  // ── Private helpers ───────────────────────────────────────
+
+  /// Fingerprint nhanh không cần đọc file (dùng cho Native/Live)
+  static String _quickFingerprint(String seed) {
+    final raw = utf8.encode(seed);
+    return md5.convert(raw).toString().substring(0, 16);
   }
 }

@@ -414,11 +414,14 @@ class SttModelManager {
     _ensureInitialized();
 
     final files = await _listLocalBinFiles();
+    debugPrint(
+        'DEBUG [STT]: Scanning models in $_modelDirectory. Found ${files.length} candidates.');
 
     for (final level in WhisperModelLevel.values) {
       File? found;
 
       for (final file in files) {
+        debugPrint('DEBUG [STT]: Checking file $file for level ${level.name}');
         if (await _belongsToLevel(file, level) &&
             await _verifyFile(file.path, level)) {
           found = file;
@@ -427,6 +430,8 @@ class SttModelManager {
       }
 
       if (found != null) {
+        debugPrint(
+            'DEBUG [STT]: Model ${level.name} resolved to ${found.path}');
         _emitState(
           level,
           ModelStatus.downloaded,
@@ -539,7 +544,9 @@ class SttModelManager {
 
         final valid = await _verifyFile(savePath, level);
         if (!valid) {
-          try { await File(savePath).delete(); } catch (_) {}
+          try {
+            await File(savePath).delete();
+          } catch (_) {}
           continue;
         }
 
@@ -655,6 +662,7 @@ class SttModelManager {
   }
 
   Future<bool> _verifyFile(String path, WhisperModelLevel level) async {
+    debugPrint('DEBUG [STT]: Verifying file $path for level ${level.name}');
     try {
       final file = File(path);
       if (!await file.exists()) return false;

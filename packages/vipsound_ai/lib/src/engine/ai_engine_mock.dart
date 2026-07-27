@@ -1,15 +1,21 @@
+// v11.0-final — fix AiAnalysis() constructor (required fields)
+
 import 'dart:async';
-import '../models/ai_analysis.dart';
+
+import 'package:flutter/foundation.dart';
+
 import 'ai_engine.dart';
 
-/// Mock engine cho testing và khi không có model file
-/// Trả về data mẫu ngay lập tức, không cần llama.cpp
+/// Mock engine dùng cho test / offline fallback khi chưa có model thật
 class AiEngineMock implements AiEngine {
   @override
   AiEngineState get state => AiEngineState.ready;
 
   @override
-  Future<bool> initialize({required String modelPath}) async => true;
+  Future<bool> initialize({required String modelPath}) async {
+    debugPrint('[AiEngineMock] initialized (mock)');
+    return true;
+  }
 
   @override
   Stream<AiAnalysis> analyze({
@@ -18,39 +24,101 @@ class AiEngineMock implements AiEngine {
     String? context,
     double temperature = 0.1,
   }) async* {
-    // Simulate delay của real AI
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 300));
 
+    // ★ FIX: AiAnalysis() constructor bây giờ required
+    //   summary, topics, terms, success
     yield AiAnalysis(
       inputText: text,
       type: type,
-      wordDetail: WordAnalysis(
-        word: text,
-        meaning: '[Mock] nghĩa của "$text"',
-        phonetic: '/mɒk/',
-        cefrLevel: 'B2',
-        wordTypeLabel: 'noun',
-        memoryHook: 'Hình dung một cảnh sinh động về "$text"',
-      ),
-      visualPrompt: 'Một cảnh sinh động thể hiện "$text"',
-      paoSuggestions: [
-        'Einstein (P) khám phá (A) "$text" (O)',
-        'Bạn (P) nhớ mãi (A) "$text" (O)',
-        'Sherlock (P) suy luận (A) "$text" (O)',
-      ],
-      contextExamples: [
-        'This sentence uses $text correctly.',
-        'Another example with $text in context.',
-      ],
-      generatedAt: DateTime.now(),
-      source: AiAnalysisSource.gemma,
+      summary: _mockSummary(type, text),
+      topics: _mockTopics(type),
+      terms: _mockTerms(type, text),
+      success: true,
+      wordDetail: type == AiAnalysisType.wordLookup
+          ? WordAnalysis(
+              word: text,
+              meaning: 'nghĩa mock của "$text"',
+              cefrLevel: 'B2',
+              wordTypeLabel: 'noun',
+              memoryHook: 'Hình dung $text trong cuộc sống hàng ngày',
+            )
+          : null,
+      paoSuggestions: type == AiAnalysisType.paoGeneration
+          ? [
+              'Einstein (P) khám phá (A) $text (O)',
+              'Hermione (P) đọc (A) cuốn sách về $text (O)',
+              'Bạn (P) nhớ mãi (A) ý nghĩa của $text (O)',
+            ]
+          : const [],
       isPartial: false,
+      generatedAt: DateTime.now(),
     );
   }
 
   @override
-  Future<void> warmUp() async {}
+  Future<void> warmUp() async {
+    debugPrint('[AiEngineMock] warm-up (no-op)');
+  }
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    debugPrint('[AiEngineMock] disposed');
+  }
+
+  // ── Mock helpers ──────────────────────────────────────────
+
+  String _mockSummary(AiAnalysisType type, String text) {
+    switch (type) {
+      case AiAnalysisType.wordLookup:
+        return 'Tra cứu từ: "$text"';
+      case AiAnalysisType.sentenceParse:
+        return 'Phân tích câu: "$text"';
+      case AiAnalysisType.summarize:
+        return 'Tóm tắt nội dung transcript.';
+      case AiAnalysisType.termExtract:
+        return 'Trích xuất thuật ngữ từ transcript.';
+      case AiAnalysisType.conversation:
+        return 'Phân tích hội thoại.';
+      case AiAnalysisType.paoGeneration:
+        return 'Tạo PAO memory story cho "$text".';
+      case AiAnalysisType.error:
+        return 'Có lỗi xảy ra.';
+    }
+  }
+
+  List<String> _mockTopics(AiAnalysisType type) {
+    switch (type) {
+      case AiAnalysisType.wordLookup:
+        return ['Vocabulary'];
+      case AiAnalysisType.sentenceParse:
+        return ['Grammar'];
+      case AiAnalysisType.summarize:
+        return ['Summary'];
+      case AiAnalysisType.termExtract:
+        return ['Terminology'];
+      case AiAnalysisType.conversation:
+        return ['Conversation'];
+      case AiAnalysisType.paoGeneration:
+        return ['Memory', 'Vocabulary'];
+      case AiAnalysisType.error:
+        return ['Error'];
+    }
+  }
+
+  List<AiTerm> _mockTerms(AiAnalysisType type, String text) {
+    if (type == AiAnalysisType.termExtract ||
+        type == AiAnalysisType.conversation) {
+      return [
+        AiTerm(
+          text: text.split(' ').first,
+          definition: 'Thuật ngữ mock',
+          importance: 0.8,
+          sourceJoinKey: '0|${text.split(' ').first.toLowerCase()}',
+          speakerId: 0,
+        ),
+      ];
+    }
+    return const [];
+  }
 }

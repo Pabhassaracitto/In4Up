@@ -333,3 +333,5 @@ google_sign_in_config.dart
 .ai/
 .roo/
 project/
+.aider*
+android/local.properties

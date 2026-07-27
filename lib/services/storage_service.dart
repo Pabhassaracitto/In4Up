@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../features/shadowing/models/shadowing_result.dart';
+import '../features/shadowing/models/shadowing_result.dart';
 import '../models/segment.dart';
 import '../models/text_segment.dart';
 

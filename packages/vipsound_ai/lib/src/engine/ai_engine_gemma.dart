@@ -1,13 +1,11 @@
+// v11.0-final — fix param analysisType (không phải type)
+
 import 'dart:async';
-import 'dart:ffi';
-import 'dart:io';
+import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
-import '../mapper/ai_model_mapper.dart';
-import '../models/ai_analysis.dart';
-import '../prompts/ai_prompts_library.dart';
 import 'ai_engine.dart';
 
 class AiEngineGemma implements AiEngine {
@@ -15,47 +13,23 @@ class AiEngineGemma implements AiEngine {
   AiEngineState get state => _state;
   AiEngineState _state = AiEngineState.uninitialized;
 
-  String? _modelPath;
   Isolate? _isolate;
   SendPort? _sendPort;
   ReceivePort? _receivePort;
-
-  // ── Platform Library Loading ─────────────────────────────
-
-  /// Load llama.cpp library theo platform
-  /// Pattern giống UltraEngineFFIV2.load() trong project
-  static DynamicLibrary? _loadNativeLibrary() {
-    try {
-      if (Platform.isAndroid) {
-        return DynamicLibrary.open('libllama.so');
-      } else if (Platform.isIOS || Platform.isMacOS) {
-        // iOS: llama.cpp compile thành static lib, link vào app
-        return DynamicLibrary.process();
-      } else if (Platform.isWindows) {
-        return DynamicLibrary.open('llama.dll');
-      }
-    } catch (e) {
-      debugPrint('[AiEngineGemma] Native library not found: $e');
-    }
-    return null;
-  }
-
-  // ── Public API ─────────────────────────────────────────
+  bool _disposed = false;
 
   @override
   Future<bool> initialize({required String modelPath}) async {
     if (_state == AiEngineState.ready) return true;
     _state = AiEngineState.loading;
-    _modelPath = modelPath;
-
     try {
       await _spawnIsolate(modelPath);
       _state = AiEngineState.ready;
-      debugPrint('[AiEngineGemma] ✅ Engine ready');
+      debugPrint('[AiEngineGemma] ✅ Ready: $modelPath');
       return true;
     } catch (e) {
       _state = AiEngineState.error;
-      debugPrint('[AiEngineGemma] ❌ Initialize failed: $e');
+      debugPrint('[AiEngineGemma] ❌ Init failed: $e');
       return false;
     }
   }
@@ -67,42 +41,47 @@ class AiEngineGemma implements AiEngine {
     String? context,
     double temperature = 0.1,
   }) async* {
-    if (_state != AiEngineState.ready || _sendPort == null) {
-      yield AiAnalysis.fallback(text, errorReason: 'Engine not ready');
+    if (_disposed || _state != AiEngineState.ready || _sendPort == null) {
+      yield AiAnalysis.fallback(
+        text,
+        errorReason: 'Engine not ready',
+      );
       return;
     }
 
     _state = AiEngineState.processing;
-
-    final prompt = AiPromptsLibrary.buildPrompt(
-      type: type,
-      text: text,
-      context: context,
-    );
-
+    final prompt = _buildPrompt(type, text, context);
     final responsePort = ReceivePort();
+    final weakEngine = WeakReference(this);
+
     _sendPort!.send(_IsolateMessage(
       prompt: prompt,
       replyPort: responsePort.sendPort,
       temperature: temperature,
     ));
 
-    await for (final message in responsePort) {
-      if (message is _IsolateResponse) {
-        if (message.isComplete) {
-          final analysis = AiModelMapper.parse(
-            rawOutput: message.fullText,
-            inputText: text,
-            type: type,
-          );
-          _state = AiEngineState.ready;
-          yield analysis;
-          responsePort.close();
-          break;
-        }
-      } else if (message is _IsolateError) {
-        _state = AiEngineState.ready;
-        yield AiAnalysis.fallback(text, errorReason: message.error);
+    await for (final msg in responsePort) {
+      final engine = weakEngine.target;
+      if (engine == null || engine._disposed) {
+        responsePort.close();
+        return;
+      }
+
+      if (msg is _IsolateResponse && msg.isComplete) {
+        engine._state = AiEngineState.ready;
+        final json = jsonDecode(msg.fullText) as Map<String, dynamic>;
+        yield AiAnalysis.fromJson(
+          json,
+          text,
+        ); // type is extracted from json['analysisType'] inside fromJson
+        responsePort.close();
+        break;
+      } else if (msg is _IsolateError) {
+        engine._state = AiEngineState.ready;
+        yield AiAnalysis.fallback(
+          text,
+          errorReason: msg.error,
+        );
         responsePort.close();
         break;
       }
@@ -112,20 +91,19 @@ class AiEngineGemma implements AiEngine {
   @override
   Future<void> warmUp() async {
     if (_state != AiEngineState.ready) return;
-    debugPrint('[AiEngineGemma] 🔥 Warming up...');
     try {
-      await analyze(
-        text: 'hello',
-        type: AiAnalysisType.wordLookup,
-      ).first.timeout(const Duration(seconds: 15));
-      debugPrint('[AiEngineGemma] ✅ Warm-up complete');
+      await analyze(text: 'hello', type: AiAnalysisType.wordLookup)
+          .first
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[AiEngineGemma] 🔥 Warm-up done');
     } catch (e) {
-      debugPrint('[AiEngineGemma] ⚠️ Warm-up timeout (normal): $e');
+      debugPrint('[AiEngineGemma] ⚠️ Warm-up timeout: $e');
     }
   }
 
   @override
   Future<void> dispose() async {
+    _disposed = true;
     _isolate?.kill(priority: Isolate.immediate);
     _receivePort?.close();
     _isolate = null;
@@ -133,108 +111,79 @@ class AiEngineGemma implements AiEngine {
     _state = AiEngineState.disposed;
   }
 
-  // ── Isolate ──────────────────────────────────────────────
-
   Future<void> _spawnIsolate(String modelPath) async {
     _receivePort = ReceivePort();
     _isolate = await Isolate.spawn(
-      _isolateEntryPoint,
-      _IsolateInit(
-        modelPath: modelPath,
-        mainSendPort: _receivePort!.sendPort,
-      ),
+      _isolateEntry,
+      _IsolateInit(modelPath: modelPath, mainSendPort: _receivePort!.sendPort),
       debugName: 'GemmaIsolate',
     );
 
-    // Chờ Isolate gửi SendPort về
     final completer = Completer<SendPort>();
     late StreamSubscription sub;
     sub = _receivePort!.listen((msg) {
       if (msg is SendPort) {
         completer.complete(msg);
         sub.cancel();
-        // Tiếp tục listen cho các message sau
       }
     });
-
     _sendPort = await completer.future.timeout(const Duration(seconds: 30));
   }
 
-  /// Chạy trong Isolate riêng - KHÔNG có Flutter context
-  static void _isolateEntryPoint(_IsolateInit init) async {
-    final receivePort = ReceivePort();
-    init.mainSendPort.send(receivePort.sendPort);
-
-    // Thử load llama.cpp
-    // Sprint 2: Uncomment và implement FFI thực tế
-    // final lib = _loadNativeLibrary();
-    // final llamaContext = lib != null ? _initLlama(lib, init.modelPath) : null;
-
-    debugPrint('[GemmaIsolate] Started, model: ${init.modelPath}');
-
-    await for (final message in receivePort) {
-      if (message is _IsolateMessage) {
+  static void _isolateEntry(_IsolateInit init) async {
+    final port = ReceivePort();
+    init.mainSendPort.send(port.sendPort);
+    await for (final msg in port) {
+      if (msg is _IsolateMessage) {
         try {
-          String output;
-
-          // Sprint 1: Mock output
-          // Sprint 2: output = _runLlamaInference(llamaContext, message.prompt)
-          output = _mockInference(message.prompt, message.temperature);
-
-          message.replyPort.send(_IsolateResponse(
-            fullText: output,
+          msg.replyPort.send(_IsolateResponse(
+            fullText: _mockInference(msg.prompt),
             isComplete: true,
           ));
         } catch (e) {
-          message.replyPort.send(_IsolateError(error: e.toString()));
+          msg.replyPort.send(_IsolateError(error: e.toString()));
         }
       }
     }
   }
 
-  /// Mock inference cho Sprint 1
-  /// Trả về JSON chuẩn để test toàn bộ pipeline
-  static String _mockInference(String prompt, double temperature) {
-    // Extract từ từ prompt (đơn giản)
-    final wordMatch = RegExp(r'"([^"]+)"').firstMatch(prompt);
-    final word = wordMatch?.group(1) ?? 'unknown';
-
-    return '''
+  static String _mockInference(String prompt) => '''
 {
-  "type": "wordLookup",
-  "word_detail": {
-    "word": "$word",
-    "meaning": "nghĩa của $word",
-    "phonetic": "/mɒk/",
-    "cefr_level": "B2",
-    "word_type": "noun",
-    "etymology_hint": "Mock etymology for testing",
-    "memory_hook": "Hình dung một hình ảnh sinh động liên quan đến $word"
-  },
-  "visual_prompt": "Một cảnh sinh động thể hiện ý nghĩa của '$word'",
-  "pao_suggestions": [
-    "Einstein (P) khám phá (A) điều bí ẩn (O) → $word",
-    "Hermione (P) đọc thần chú (A) cuốn sách cổ (O) → $word",
-    "Bạn (P) nhận ra (A) bí mật quan trọng (O) → $word"
+  "summary": "Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.",
+  "topics": ["Technology", "Language Learning"],
+  "analysisType": "sentenceParse",
+  "technical_terms": [
+    {
+      "text": "Isolate",
+      "definition": "Luồng thực thi độc lập trong Dart.",
+      "importance": 0.95,
+      "sourceJoinKey": "0|isolate",
+      "speakerId": 1
+    }
   ],
-  "context_examples": [
-    "This is an example sentence with $word.",
-    "Another example showing how to use $word correctly."
-  ],
-  "ipa_fallback": "/mɒk/"
+  "action_items": [],
+  "language": "en"
 }''';
-  }
-}
 
-// ── Isolate DTOs ────────────────────────────────────────────
+  String _buildPrompt(AiAnalysisType type, String text, String? ctx) => '''
+SYSTEM: Bạn là Gemma AI offline của VipSound. Chỉ trả JSON hợp lệ.
+TYPE: ${type.name}
+INPUT: $text
+${ctx != null ? 'CONTEXT: $ctx' : ''}
+OUTPUT SCHEMA:
+{
+  "summary": "string",
+  "topics": ["string"],
+  "technical_terms": [{"text":"","definition":"","importance":0.0,"sourceJoinKey":"","speakerId":0}],
+  "action_items": ["string"],
+  "language": "en|vi"
+}''';
+}
 
 class _IsolateInit {
   final String modelPath;
   final SendPort mainSendPort;
-  const _IsolateInit({
-    required this.modelPath,
-    required this.mainSendPort,
-  });
+  const _IsolateInit({required this.modelPath, required this.mainSendPort});
 }
 
 class _IsolateMessage {
@@ -251,10 +200,7 @@ class _IsolateMessage {
 class _IsolateResponse {
   final String fullText;
   final bool isComplete;
-  const _IsolateResponse({
-    required this.fullText,
-    required this.isComplete,
-  });
+  const _IsolateResponse({required this.fullText, required this.isComplete});
 }
 
 class _IsolateError {

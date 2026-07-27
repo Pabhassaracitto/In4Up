@@ -235,13 +235,13 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
     );
   }
 
-  void _ensureLoaded(String lrcPath) {
+  Future<void> _ensureLoaded(String lrcPath) async {
     if (lrcPath == _lastLrcPath && _lines != null) return;
 
     try {
       _lastLrcPath = lrcPath;
-      final lrcContent = File(lrcPath).readAsStringSync();
-      final parsed = SttLrcConverter().parseLrcFile(lrcContent);
+      final lrcContent = await File(lrcPath).readAsString();
+      final parsed = await SttLrcConverter().parseLrcContent(lrcContent);
 
       // Filter dòng rỗng
       _lines = parsed.where((l) => l.text.trim().isNotEmpty).toList();
@@ -258,6 +258,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
       }
 
       debugPrint('✅ LrcEditorPanel loaded: ${_lines!.length} lines');
+      if (mounted) setState(() {}); // Trigger rebuild
     } catch (e) {
       debugPrint('❌ LrcEditorPanel load error: $e');
       _lines = null;
@@ -326,7 +327,6 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
       return LrcLine(
         timestamp: _lines![i].timestamp,
         text: text,
-        rawText: text,
       );
     });
   }

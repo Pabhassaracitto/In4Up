@@ -3,6 +3,7 @@
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
+import 'package:vipsound_stt/stt_model_manager.dart';
 import 'package:vipsound_stt/stt_service_facade.dart' as modelManager;
 import 'package:vipsound_stt/vipsound_stt.dart';
 

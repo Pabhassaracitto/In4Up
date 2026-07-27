@@ -1,0 +1,8 @@
+# Tự động chuẩn hóa tất cả file text về LF khi checkout/commit
+* text=auto eol=lf
+
+# Giữ nguyên binary cho hình ảnh, font chữ...
+*.png binary
+*.jpg binary
+*.png binary
+*.ttf binary

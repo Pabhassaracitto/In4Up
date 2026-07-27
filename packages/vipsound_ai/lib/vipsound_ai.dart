@@ -18,3 +18,6 @@ export 'src/error/ai_error_handler.dart' show ErrorLogEntry;
 
 // Mock engine - cho testing
 export 'src/engine/ai_engine_mock.dart';
+
+// VipSound v11.0 — Barrel export
+export 'src/engine/ai_engine_gemma.dart';

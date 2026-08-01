@@ -77,10 +77,10 @@ Ví dụ:
 
 ### Phase 4 — Tool redistribution
 
-- [ ] Ưu tiên audio/pronunciation tool về `Nghe` / `Nói`.
-- [ ] Ưu tiên text/import tool về `Đọc` / `Viết`.
-- [ ] Giữ sync/comprehension ở `Hiểu`.
-- [ ] Dồn review/word analytics về `Nhớ`.
+- [x] Ưu tiên audio/pronunciation tool về `Nghe` / `Nói`.
+- [x] Ưu tiên text/import tool về `Đọc` / `Viết`.
+- [x] Giữ sync/comprehension ở `Hiểu`.
+- [x] Dồn review/word analytics về `Nhớ`.
 
 ### Phase 5 — Advanced UX settings (sau mặc định ổn định)
 
@@ -107,12 +107,13 @@ Ví dụ:
 - [x] Sửa Home để ổn định và đúng vai trò command center
 
 ### Next
-- [ ] Gắn sâu hơn các tool vào từng tab
-- [ ] Tinh chỉnh text/audio drawers theo ngữ cảnh
-- [ ] Tối ưu mini player khi đổi mode
-- [ ] Rà lại overflow risk ở app bar + mode switch + mini player
+- [x] Gắn sâu hơn các tool vào từng tab
+- [x] Tinh chỉnh text/audio drawers theo ngữ cảnh
+- [x] Tối ưu mini player khi đổi mode
+- [x] Rà lại overflow risk ở app bar + mode switch + mini player
 - [ ] Nối các chức năng viết thật sự (dictation / cloze / AI scoring) vào `WriteStudioScreen`
 - [ ] Tách sâu thêm speaking workflows (history, scoring, presets) vào `SpeakModeScreen`
+- [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 
 ### Backlog
 - [ ] Compact mode cho power users

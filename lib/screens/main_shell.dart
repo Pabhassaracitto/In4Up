@@ -15,7 +15,7 @@ import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/speak_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
-import 'memory_mode/memory_tab_connector.dart';
+import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'read_mode/write_studio_screen.dart';
 import 'settings/stt_model_settings_screen.dart';
@@ -30,7 +30,7 @@ import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
-import 'understand_mode/understand_tab_connector.dart';
+import 'understand_mode/understand_workspace_screen.dart';
 
 enum _PrimaryTab { home, listen, read, understand, remember }
 
@@ -102,6 +102,24 @@ class _MainShellState extends State<MainShell> {
       return false;
     }
     return true;
+  }
+
+  IconData get _leadingIcon {
+    if (_currentTab == _PrimaryTab.home) return Icons.smart_toy_outlined;
+    if (_currentTab == _PrimaryTab.remember) return Icons.format_list_bulleted;
+    return Icons.menu_book_rounded;
+  }
+
+  Color get _leadingColor {
+    if (_currentTab == _PrimaryTab.home) return const Color(0xFFFF9800);
+    if (_currentTab == _PrimaryTab.remember) return const Color(0xFF66BB6A);
+    return const Color(0xFF2196F3);
+  }
+
+  String get _leadingTooltip {
+    if (_currentTab == _PrimaryTab.home) return 'Quản lý Model AI';
+    if (_currentTab == _PrimaryTab.remember) return 'Danh sách từ';
+    return 'Thư viện văn bản';
   }
 
   void _setPrimaryTab(_PrimaryTab tab) {
@@ -420,9 +438,35 @@ class _MainShellState extends State<MainShell> {
           ],
         );
       case _PrimaryTab.understand:
-        return const UnderstandTabConnector();
+        return UnderstandWorkspaceScreen(
+          onOpenSpeakMode: () => _setListenMode(1),
+          onOpenYouGlish: () {
+            _handleTool('youglish');
+          },
+          onOpenReview: () {
+            _handleTool('review');
+          },
+          onOpenQuickActions: _openQuickActions,
+        );
       case _PrimaryTab.remember:
-        return const MemoryTabConnector();
+        return RememberWorkspaceScreen(
+          onOpenReview: () {
+            _handleTool('review');
+          },
+          onOpenWordList: () {
+            _handleTool('word_list');
+          },
+          onOpenTimeline: () {
+            _handleTool('timeline');
+          },
+          onOpenStats: () {
+            _handleTool('stats');
+          },
+          onOpenMap: () {
+            _handleTool('word_map');
+          },
+          onOpenQuickActions: _openQuickActions,
+        );
     }
   }
 
@@ -481,17 +525,19 @@ class _MainShellState extends State<MainShell> {
       child: Row(
         children: [
           _ShellActionButton(
-            icon: _isHome ? Icons.smart_toy_outlined : Icons.menu_book_rounded,
-            color: _isHome ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
-            tooltip: _isHome ? 'Quản lý Model AI' : 'Thư viện văn bản',
+            icon: _leadingIcon,
+            color: _leadingColor,
+            tooltip: _leadingTooltip,
             onTap: () {
-              if (_isHome) {
+              if (_currentTab == _PrimaryTab.home) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => const SttModelSettingsScreen(),
                   ),
                 );
+              } else if (_currentTab == _PrimaryTab.remember) {
+                _handleTool('word_list');
               } else {
                 _scaffoldKey.currentState?.openDrawer();
               }

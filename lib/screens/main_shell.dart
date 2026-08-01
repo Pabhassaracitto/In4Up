@@ -12,16 +12,17 @@ import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
+import 'listen_mode/speak_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
-import 'memory_mode/memory_mode.dart';
+import 'memory_mode/memory_tab_connector.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/write_studio_screen.dart';
 import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
 import 'tools/review_tab.dart';
 import 'tools/stats_tab.dart';
-import 'tools/tools_overlay.dart' show PuzzleNavButton;
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
@@ -30,11 +31,8 @@ import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_tab_connector.dart';
-import 'tools/tools_overlay.dart' show PuzzleNavButton;
-import 'tools/tools_overlay.dart' show PuzzleNavButton;
-import 'tools/tools_overlay.dart' show PuzzleNavButton;
 
-const int _kHome = -1;
+enum _PrimaryTab { home, listen, read, understand, remember }
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -44,169 +42,107 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = _kHome;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  _PrimaryTab _currentTab = _PrimaryTab.home;
+  int _listenModeIndex = 0;
+  int _readModeIndex = 0;
 
   @override
   void initState() {
     super.initState();
-
-    // ✅ Init VocabularyBridge với provider từ context
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
     });
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  bool get _isHome => _currentTab == _PrimaryTab.home;
+  bool get _showListenModes => _currentTab == _PrimaryTab.listen;
+  bool get _showReadModes => _currentTab == _PrimaryTab.read;
+  bool get _showModeSwitch => _showListenModes || _showReadModes;
 
-  void _onTabTapped(int idx) {
-    HapticFeedback.selectionClick();
-    if (_currentIndex == idx) {
-      _navigateTo(_kHome);
-    } else {
-      _navigateTo(idx);
-    }
-  }
-
-  void _navigateTo(int index) {
-    if (_currentIndex == index) return;
-    setState(() => _currentIndex = index);
-  }
-
-  bool get _isHome => _currentIndex == _kHome;
-
-  Color get _currentColor {
-    switch (_currentIndex) {
-      case 0:
-        return const Color(0xFF2196F3);
-      case 1:
-        return const Color(0xFF6C63FF);
-      case 2:
-        return const Color(0xFFFFB300);
-      case 3:
-        return const Color(0xFF4CAF50);
-      default:
+  Color get _currentAccent {
+    switch (_currentTab) {
+      case _PrimaryTab.home:
         return Colors.white;
+      case _PrimaryTab.listen:
+        return _listenModeIndex == 0
+            ? const Color(0xFF6C63FF)
+            : const Color(0xFFB388FF);
+      case _PrimaryTab.read:
+        return _readModeIndex == 0
+            ? const Color(0xFF2196F3)
+            : const Color(0xFF26C6DA);
+      case _PrimaryTab.understand:
+        return const Color(0xFFFFB300);
+      case _PrimaryTab.remember:
+        return const Color(0xFF4CAF50);
     }
   }
 
-  // ─── Tools ───────────────────────────────────────────────
-  Future<void> _openTools() async {
-    final nav = Navigator.of(context);
-    final vocabProvider = context.read<VocabularyProvider>();
-    final l10n = AppLocalizations.of(context)!;
+  String get _titleText {
+    switch (_currentTab) {
+      case _PrimaryTab.home:
+        return 'VipSound';
+      case _PrimaryTab.listen:
+        return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
+      case _PrimaryTab.read:
+        return _readModeIndex == 0 ? '📖 Đọc' : '✍️ Viết';
+      case _PrimaryTab.understand:
+        return '💡 Hiểu';
+      case _PrimaryTab.remember:
+        return '🧠 Nhớ';
+    }
+  }
 
+  bool get _shouldShowShellMiniPlayer {
+    if (_currentTab == _PrimaryTab.home) return false;
+    if (_currentTab == _PrimaryTab.listen && _listenModeIndex == 0) {
+      return false;
+    }
+    return true;
+  }
+
+  void _setPrimaryTab(_PrimaryTab tab) {
+    if (_currentTab == tab) return;
+    setState(() => _currentTab = tab);
+  }
+
+  void _setListenMode(int index) {
+    setState(() {
+      _currentTab = _PrimaryTab.listen;
+      _listenModeIndex = index;
+    });
+  }
+
+  void _setReadMode(int index) {
+    setState(() {
+      _currentTab = _PrimaryTab.read;
+      _readModeIndex = index;
+    });
+  }
+
+  Future<void> _openQuickActions() async {
     final toolId = await tools.showToolsOverlayV2(
       context,
-      tools: _buildToolsList(context),
+      tools: _buildQuickActions(context),
     );
 
-    if (toolId == null) return;
-
-    void pushVocab(String title, Color color, Widget child) {
-      nav.push(MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider<VocabularyProvider>.value(
-          value: vocabProvider,
-          child: _ToolPage(title: title, color: color, child: child),
-        ),
-      ));
-    }
-
-    switch (toolId) {
-      case 'word_list':
-        nav.push(MaterialPageRoute(builder: (_) => const WordListScreen()));
-        break;
-
-      case 'timeline':
-        nav.push(MaterialPageRoute(builder: (_) => const TimelineView()));
-        break;
-
-      case 'wordlist_stats':
-        nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
-        break;
-
-      case 'web_reader':
-        nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
-        break;
-
-      // ★ FIX: YouTube Explorer thay vì sheet
-      case 'youtube_downloader':
-        nav.push(MaterialPageRoute(
-          builder: (_) => const YoutubeExplorerScreen(
-            apiKey: 'AIzaSy...YOUR_KEY_HERE', // ← dán key vào đây
-          ),
-        ));
-        break;
-
-      case 'pdf_reader':
-        final result = await FilePicker.pickFiles(
-          type: FileType.custom,
-          allowedExtensions: ['pdf'],
-        );
-        if (result != null && result.files.single.path != null) {
-          nav.push(MaterialPageRoute(
-            builder: (_) => PdfReaderScreen(pdfPath: result.files.single.path!),
-          ));
-        }
-        break;
-
-      case 'youglish':
-        nav.push(MaterialPageRoute(builder: (_) => const YouGlishScreen()));
-        break;
-
-      case 'stats':
-        pushVocab(l10n.overview, const Color(0xFF42A5F5), const StatsTab());
-        break;
-
-      case 'word_map':
-        pushVocab(l10n.wordMap, const Color(0xFF26C6DA), const MapTab());
-        break;
-
-      case 'triangle':
-        pushVocab(
-            l10n.triangle, const Color(0xFFFFA726), const TriangleTab());
-        break;
-
-      case 'venn':
-        pushVocab(l10n.vennDiagram, const Color(0xFFAB47BC), const VennTab());
-        break;
-
-      case 'review':
-        pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
-        break;
-    }
+    if (!mounted || toolId == null) return;
+    await _handleTool(toolId);
   }
 
-  List<tools.ToolItem> _buildToolsList(BuildContext context) {
+  List<tools.ToolItem> _buildQuickActions(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return [
+
+    final contentTools = <tools.ToolItem>[
       tools.ToolItem(
-        id: 'word_list',
-        title: l10n.wordList,
-        subtitle: l10n.wordListSubtitle,
-        icon: Icons.format_list_bulleted,
-        color: const Color(0xFF6C63FF),
-        isAvailable: true,
-      ),
-      tools.ToolItem(
-        id: 'timeline',
-        title: l10n.timeline,
-        subtitle: l10n.timelineSubtitle,
-        icon: Icons.timeline,
-        color: const Color(0xFF9C27B0),
-        isAvailable: true,
-      ),
-      tools.ToolItem(
-        id: 'wordlist_stats',
-        title: l10n.wordListStats,
-        subtitle: l10n.wordListStatsSubtitle,
-        icon: Icons.analytics_outlined,
-        color: const Color(0xFF42A5F5),
-        isAvailable: true,
+        id: 'youtube_downloader',
+        title: l10n.youtube,
+        subtitle: l10n.youtubeSubtitle,
+        icon: Icons.play_circle_filled,
+        color: const Color(0xFFFF0000),
       ),
       tools.ToolItem(
         id: 'web_reader',
@@ -214,15 +150,6 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.webReaderSubtitle,
         icon: Icons.language,
         color: const Color(0xFF26A69A),
-        isAvailable: true,
-      ),
-      tools.ToolItem(
-        id: 'youtube_downloader',
-        title: l10n.youtube,
-        subtitle: l10n.youtubeSubtitle,
-        icon: Icons.play_circle_filled,
-        color: const Color(0xFFFF0000),
-        isAvailable: true,
       ),
       tools.ToolItem(
         id: 'pdf_reader',
@@ -230,7 +157,6 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.pdfReaderSubtitle,
         icon: Icons.picture_as_pdf,
         color: const Color(0xFFEF5350),
-        isAvailable: true,
       ),
       tools.ToolItem(
         id: 'youglish',
@@ -238,7 +164,37 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.youglishSubtitle,
         icon: Icons.record_voice_over,
         color: const Color(0xFF00BCD4),
-        isAvailable: true,
+      ),
+    ];
+
+    final rememberTools = <tools.ToolItem>[
+      tools.ToolItem(
+        id: 'review',
+        title: l10n.review,
+        subtitle: l10n.reviewSubtitle,
+        icon: Icons.school,
+        color: const Color(0xFF66BB6A),
+      ),
+      tools.ToolItem(
+        id: 'word_list',
+        title: l10n.wordList,
+        subtitle: l10n.wordListSubtitle,
+        icon: Icons.format_list_bulleted,
+        color: const Color(0xFF6C63FF),
+      ),
+      tools.ToolItem(
+        id: 'timeline',
+        title: l10n.timeline,
+        subtitle: l10n.timelineSubtitle,
+        icon: Icons.timeline,
+        color: const Color(0xFF9C27B0),
+      ),
+      tools.ToolItem(
+        id: 'wordlist_stats',
+        title: l10n.wordListStats,
+        subtitle: l10n.wordListStatsSubtitle,
+        icon: Icons.analytics_outlined,
+        color: const Color(0xFF42A5F5),
       ),
       tools.ToolItem(
         id: 'stats',
@@ -246,7 +202,6 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.overviewSubtitle,
         icon: Icons.bar_chart_rounded,
         color: const Color(0xFF42A5F5),
-        isAvailable: true,
       ),
       tools.ToolItem(
         id: 'word_map',
@@ -254,7 +209,6 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.wordMapSubtitle,
         icon: Icons.map_outlined,
         color: const Color(0xFF26C6DA),
-        isAvailable: true,
       ),
       tools.ToolItem(
         id: 'triangle',
@@ -262,7 +216,6 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.triangleSubtitle,
         icon: Icons.change_history_rounded,
         color: const Color(0xFFFFA726),
-        isAvailable: true,
       ),
       tools.ToolItem(
         id: 'venn',
@@ -270,76 +223,209 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.vennDiagramSubtitle,
         icon: Icons.hub_outlined,
         color: const Color(0xFFAB47BC),
-        isAvailable: true,
-      ),
-      tools.ToolItem(
-        id: 'review',
-        title: l10n.review,
-        subtitle: l10n.reviewSubtitle,
-        icon: Icons.school,
-        color: const Color(0xFF66BB6A),
-        isAvailable: true,
-      ),
-      tools.ToolItem(
-        id: 'shadowing',
-        title: l10n.shadowing,
-        subtitle: l10n.shadowingSubtitle,
-        icon: Icons.record_voice_over_outlined,
-        color: const Color(0xFF66BB6A),
-        isAvailable: false,
-      ),
-      tools.ToolItem(
-        id: 'dictation',
-        title: l10n.dictation,
-        subtitle: l10n.dictationSubtitle,
-        icon: Icons.edit_note,
-        color: const Color(0xFFFF7043),
-        isAvailable: false,
       ),
     ];
+
+    switch (_currentTab) {
+      case _PrimaryTab.home:
+        return [
+          tools.ToolItem(
+            id: 'speak_mode',
+            title: 'Nói',
+            subtitle: 'Luyện shadowing và phát âm',
+            icon: Icons.mic_rounded,
+            color: const Color(0xFFB388FF),
+          ),
+          tools.ToolItem(
+            id: 'write_mode',
+            title: 'Viết',
+            subtitle: 'Bài tập chép và recall theo nội dung',
+            icon: Icons.edit_square,
+            color: const Color(0xFF26C6DA),
+          ),
+          ...contentTools,
+          ...rememberTools,
+        ];
+      case _PrimaryTab.listen:
+        return [
+          tools.ToolItem(
+            id: 'speak_mode',
+            title: 'Nói',
+            subtitle: 'Nhảy nhanh sang speaking studio',
+            icon: Icons.mic_rounded,
+            color: const Color(0xFFB388FF),
+          ),
+          tools.ToolItem(
+            id: 'understand_tab',
+            title: 'Hiểu',
+            subtitle: 'Qua không gian đồng bộ audio-text',
+            icon: Icons.lightbulb,
+            color: const Color(0xFFFFB300),
+          ),
+          contentTools[0],
+          contentTools[3],
+        ];
+      case _PrimaryTab.read:
+        return [
+          tools.ToolItem(
+            id: 'write_mode',
+            title: 'Viết',
+            subtitle: 'Nhảy nhanh sang writing studio',
+            icon: Icons.edit_square,
+            color: const Color(0xFF26C6DA),
+          ),
+          contentTools[1],
+          contentTools[2],
+          rememberTools[1],
+        ];
+      case _PrimaryTab.understand:
+        return [
+          tools.ToolItem(
+            id: 'speak_mode',
+            title: 'Nói',
+            subtitle: 'Qua speaking studio để luyện shadowing',
+            icon: Icons.mic_rounded,
+            color: const Color(0xFFB388FF),
+          ),
+          contentTools[3],
+          rememberTools[0],
+          rememberTools[1],
+        ];
+      case _PrimaryTab.remember:
+        return rememberTools;
+    }
   }
 
-  // ─── Screen router ───────────────────────────────────────
+  Future<void> _handleTool(String toolId) async {
+    final nav = Navigator.of(context);
+    final vocabProvider = context.read<VocabularyProvider>();
+    final l10n = AppLocalizations.of(context)!;
+
+    void pushVocab(String title, Color color, Widget child) {
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider<VocabularyProvider>.value(
+            value: vocabProvider,
+            child: _ToolPage(title: title, color: color, child: child),
+          ),
+        ),
+      );
+    }
+
+    switch (toolId) {
+      case 'speak_mode':
+        _setListenMode(1);
+        return;
+      case 'write_mode':
+        _setReadMode(1);
+        return;
+      case 'understand_tab':
+        _setPrimaryTab(_PrimaryTab.understand);
+        return;
+      case 'word_list':
+        nav.push(MaterialPageRoute(builder: (_) => const WordListScreen()));
+        return;
+      case 'timeline':
+        nav.push(MaterialPageRoute(builder: (_) => const TimelineView()));
+        return;
+      case 'wordlist_stats':
+        nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
+        return;
+      case 'web_reader':
+        nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
+        return;
+      case 'youtube_downloader':
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => const YoutubeExplorerScreen(
+              apiKey: 'AIzaSy...YOUR_KEY_HERE',
+            ),
+          ),
+        );
+        return;
+      case 'pdf_reader':
+        final result = await FilePicker.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+        );
+        if (!mounted) return;
+        if (result != null && result.files.single.path != null) {
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => PdfReaderScreen(pdfPath: result.files.single.path!),
+            ),
+          );
+        }
+        return;
+      case 'youglish':
+        nav.push(MaterialPageRoute(builder: (_) => const YouGlishScreen()));
+        return;
+      case 'stats':
+        pushVocab(l10n.overview, const Color(0xFF42A5F5), const StatsTab());
+        return;
+      case 'word_map':
+        pushVocab(l10n.wordMap, const Color(0xFF26C6DA), const MapTab());
+        return;
+      case 'triangle':
+        pushVocab(
+          l10n.triangle,
+          const Color(0xFFFFA726),
+          const TriangleTab(),
+        );
+        return;
+      case 'venn':
+        pushVocab(
+          l10n.vennDiagram,
+          const Color(0xFFAB47BC),
+          const VennTab(),
+        );
+        return;
+      case 'review':
+        pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
+        return;
+    }
+  }
+
   Widget _buildCurrentScreen() {
-  // ⭐ DEBUG: Wrap mỗi screen trong colored border
-  Widget screen;
-  switch (_currentIndex) {
-    case _kHome:
-      screen = HomeScreen(
-        onNavigateToListen: () => _navigateTo(1),
-        onNavigateToRead: () => _navigateTo(0),
-        onNavigateToUnderstand: () => _navigateTo(2),
-        onNavigateToMemory: () => _navigateTo(3),
-      );
-      break;
-    case 0:
-      screen = const ReadModeScreen();
-      break;
-    case 1:
-      screen = const ListenModeScreen();
-      break;
-    case 2:
-      screen = const UnderstandTabConnector();
-      break;
-    case 3:
-      screen = const MemoryTabConnector();
-      break;
-    default:
-      screen = HomeScreen(
-        onNavigateToListen: () => _navigateTo(1),
-        onNavigateToRead: () => _navigateTo(0),
-        onNavigateToUnderstand: () => _navigateTo(2),
-        onNavigateToMemory: () => _navigateTo(3),
-      );
+    switch (_currentTab) {
+      case _PrimaryTab.home:
+        return HomeScreen(
+          onNavigateToListen: () => _setListenMode(0),
+          onNavigateToRead: () => _setReadMode(0),
+          onNavigateToUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
+          onNavigateToMemory: () => _setPrimaryTab(_PrimaryTab.remember),
+        );
+      case _PrimaryTab.listen:
+        return IndexedStack(
+          index: _listenModeIndex,
+          children: [
+            const ListenModeScreen(),
+            SpeakModeScreen(
+              onOpenYouGlish: () => _handleTool('youglish'),
+              onOpenQuickActions: _openQuickActions,
+              onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
+            ),
+          ],
+        );
+      case _PrimaryTab.read:
+        return IndexedStack(
+          index: _readModeIndex,
+          children: [
+            const ReadModeScreen(),
+            WriteStudioScreen(
+              onOpenWebReader: () => _handleTool('web_reader'),
+              onOpenPdfReader: () => _handleTool('pdf_reader'),
+              onOpenQuickActions: _openQuickActions,
+            ),
+          ],
+        );
+      case _PrimaryTab.understand:
+        return const UnderstandTabConnector();
+      case _PrimaryTab.remember:
+        return const MemoryTabConnector();
+    }
   }
-  
-  // ⭐ Wrap trong ClipRect để ngăn overflow
-  return ClipRect(
-    child: screen,
-  );
-}
 
-  // ─── Build ───────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,11 +439,14 @@ class _MainShellState extends State<MainShell> {
         bottom: false,
         child: Column(
           children: [
-            _buildAppBar(),
+            _buildAppBar(context),
+            if (_showModeSwitch) _buildModeSwitch(context),
             Expanded(
-              child: _buildCurrentScreen(),
+              child: ClipRect(
+                child: _buildCurrentScreen(),
+              ),
             ),
-            if (_currentIndex != 1)
+            if (_shouldShowShellMiniPlayer)
               Consumer<PlayerProvider>(
                 builder: (context, player, _) {
                   if (player.currentSongPath == null) {
@@ -365,140 +454,60 @@ class _MainShellState extends State<MainShell> {
                   }
                   return MiniPlayer(
                     margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    onTap: () => _navigateTo(1),
+                    onTap: () => _setListenMode(0),
                   );
                 },
               ),
-            _buildBottomNav(context),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
-  Widget _buildAppBar() {
-    final titles = {
-      0: 'Chế độ Đọc',
-      1: 'Chế độ Nghe',
-      2: 'Chế độ Hiểu',
-      3: 'Vườn Trí Nhớ',
-    };
-
-    final tabColors = {
-      0: const Color(0xFF2196F3),
-      1: const Color(0xFF6C63FF),
-      2: const Color(0xFFFFB300),
-      3: const Color(0xFF4CAF50),
-    };
-
-    final String titleText =
-        _isHome ? 'VipSound' : (titles[_currentIndex] ?? 'VipSound');
-
-    final Color titleColor =
-        _isHome ? Colors.white : (tabColors[_currentIndex] ?? Colors.white);
-
+  Widget _buildAppBar(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
           bottom: BorderSide(
             color: _isHome
                 ? Colors.white.withValues(alpha: 0.06)
-                : titleColor.withValues(alpha: 0.2),
+                : _currentAccent.withValues(alpha: 0.2),
           ),
         ),
       ),
       child: Row(
         children: [
-          // ── Trái: Text Library / Model AI button ──────────────────────────
-          if (_isHome)
-            _LibraryButton(
-              icon: Icons.smart_toy_outlined,
-              color: const Color(0xFFFF9800),
-              tooltip: 'Quản lý Model AI',
-              onTap: () {
+          _ShellActionButton(
+            icon: _isHome ? Icons.smart_toy_outlined : Icons.menu_book_rounded,
+            color: _isHome ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
+            tooltip: _isHome ? 'Quản lý Model AI' : 'Thư viện văn bản',
+            onTap: () {
+              if (_isHome) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const SttModelSettingsScreen()),
+                    builder: (_) => const SttModelSettingsScreen(),
+                  ),
                 );
-              },
-            )
-          else
-            _LibraryButton(
-              icon: Icons.menu_book_rounded,
-              color: const Color(0xFF2196F3),
-              tooltip: 'Thư viện văn bản',
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-
-          // ── Giữa: Tab title ────────────────────────────────────
-          Expanded(
-            child: GestureDetector(
-              // Tap vào title khi ở Home → không làm gì
-              // Tap khi ở tab → cũng không làm gì (title thuần display)
-              onTap: () {},
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icon + tên tab
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Text(
-                      _isHome ? '🎵 VipSound' : _tabEmoji + titleText,
-                      key: ValueKey(_currentIndex),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: _isHome ? 18 : 15,
-                        fontWeight: FontWeight.bold,
-                        color: titleColor,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ),
-                  // Song đang phát (nhỏ bên dưới)
-                  Consumer<PlayerProvider>(
-                    builder: (_, player, __) {
-                      if (player.currentSongTitle == null) {
-                        return const SizedBox.shrink();
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 1),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.music_note,
-                              size: 9,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 3),
-                            Flexible(
-                              child: Text(
-                                player.currentSongTitle!,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+              } else {
+                _scaffoldKey.currentState?.openDrawer();
+              }
+            },
           ),
-
-          // ── Phải: Audio Library button ─────────────────────────
-          _LibraryButton(
+          const SizedBox(width: 8),
+          Expanded(child: _buildTitleSection()),
+          const SizedBox(width: 8),
+          _ShellActionButton(
+            icon: Icons.bolt_rounded,
+            color: const Color(0xFFB388FF),
+            tooltip: 'Công cụ nhanh',
+            onTap: _openQuickActions,
+          ),
+          const SizedBox(width: 8),
+          _ShellActionButton(
             icon: Icons.library_music_rounded,
             color: const Color(0xFF6C63FF),
             tooltip: 'Thư viện âm thanh',
@@ -509,24 +518,107 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-// ★ THÊM: Helper lấy emoji theo tab
-  String get _tabEmoji {
-    switch (_currentIndex) {
-      case 0:
-        return '📖 ';
-      case 1:
-        return '🎧 ';
-      case 2:
-        return '💡 ';
-      case 3:
-        return '🧠 ';
-      default:
-        return '';
-    }
+  Widget _buildTitleSection() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _titleText,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: _isHome ? 18 : 15,
+            fontWeight: FontWeight.bold,
+            color: _isHome ? Colors.white : _currentAccent,
+            letterSpacing: -0.3,
+          ),
+        ),
+        Consumer<PlayerProvider>(
+          builder: (_, player, __) {
+            if (player.currentSongTitle == null) {
+              return const SizedBox(height: 2);
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                player.currentSongTitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[500],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModeSwitch(BuildContext context) {
+    final isListen = _showListenModes;
+    final labels = isListen
+        ? const ['Nghe', 'Nói']
+        : const ['Đọc', 'Viết'];
+    final selectedIndex = isListen ? _listenModeIndex : _readModeIndex;
+    final accent = _currentAccent;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      color: const Color(0xFF111827),
+      child: Row(
+        children: List.generate(labels.length, (index) {
+          final selected = index == selectedIndex;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  if (isListen) {
+                    _setListenMode(index);
+                  } else {
+                    _setReadMode(index);
+                  }
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? accent.withValues(alpha: 0.18)
+                        : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: selected
+                          ? accent.withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Text(
+                    labels[index],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected ? accent : Colors.grey[400],
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
   }
 
   Widget _buildBottomNav(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
@@ -534,21 +626,18 @@ class _MainShellState extends State<MainShell> {
           top: BorderSide(
             color: _isHome
                 ? Colors.white.withValues(alpha: 0.06)
-                : _currentColor.withValues(alpha: 0.2),
+                : _currentAccent.withValues(alpha: 0.2),
           ),
         ),
       ),
       child: NavigationBar(
-        selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
-        onDestinationSelected: (idx) {
-          if (idx == 0) {
-            _navigateTo(_kHome);
-          } else if (idx <= 4)
-            _onTabTapped(idx - 1);
-          else if (idx == 5) _openTools();
-        },
+        selectedIndex: _currentTab.index,
         backgroundColor: const Color(0xFF111827),
-        indicatorColor: _currentColor.withValues(alpha: 0.2),
+        indicatorColor: _currentAccent.withValues(alpha: 0.2),
+        onDestinationSelected: (index) {
+          HapticFeedback.selectionClick();
+          _setPrimaryTab(_PrimaryTab.values[index]);
+        },
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.home_outlined),
@@ -556,14 +645,14 @@ class _MainShellState extends State<MainShell> {
             label: l10n.home,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.menu_book_outlined),
-            selectedIcon: const Icon(Icons.menu_book),
-            label: l10n.read,
-          ),
-          NavigationDestination(
             icon: const Icon(Icons.headphones_outlined),
             selectedIcon: const Icon(Icons.headphones),
             label: l10n.listen,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.menu_book_outlined),
+            selectedIcon: const Icon(Icons.menu_book),
+            label: l10n.read,
           ),
           NavigationDestination(
             icon: const Icon(Icons.lightbulb_outline),
@@ -571,62 +660,36 @@ class _MainShellState extends State<MainShell> {
             label: l10n.understand,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.psychology_outlined),
-            selectedIcon: const Icon(Icons.psychology),
+            icon: Consumer<VocabularyProvider>(
+              builder: (_, vocab, __) => _RememberNavIcon(
+                dueCount: vocab.dueCount,
+                filled: false,
+              ),
+            ),
+            selectedIcon: Consumer<VocabularyProvider>(
+              builder: (_, vocab, __) => _RememberNavIcon(
+                dueCount: vocab.dueCount,
+                filled: true,
+              ),
+            ),
             label: l10n.remember,
           ),
-          NavigationDestination(
-            icon: Consumer<VocabularyProvider>(
-              builder: (_, vocab, __) {
-                final due = vocab.dueCount;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.extension_outlined), // ★ Icon thường
-                    /*const IgnorePointer(
-                        child: PuzzleNavButton(
-                            onTap: null)),*/ // UI placeholder inside Nav
-                    if (due > 0)
-                      Positioned(
-                        top: -2,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            due > 99 ? '99+' : '$due',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-            label: l10n.tools,
-          ),
-        ),
+        ],
       ),
     );
   }
 }
 
-// ─── Tool Page Wrapper ───────────────────────────────────
 class _ToolPage extends StatelessWidget {
   final String title;
   final Widget child;
   final Color color;
 
-  const _ToolPage(
-      {required this.title, required this.child, required this.color});
+  const _ToolPage({
+    required this.title,
+    required this.child,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -634,13 +697,14 @@ class _ToolPage extends StatelessWidget {
       data: Theme.of(context).copyWith(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF080B1A),
-        appBarTheme:
-            const AppBarTheme(backgroundColor: Color(0xFF1A1A2E), elevation: 0),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1A1A2E),
+          elevation: 0,
+        ),
       ),
       child: Scaffold(
         appBar: AppBar(
-          title:
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: color),
             onPressed: () => Navigator.pop(context),
@@ -652,142 +716,13 @@ class _ToolPage extends StatelessWidget {
   }
 }
 
-// ─── Nav Widgets ─────────────────────────────────────────
-class _HomeNavButton extends StatelessWidget {
-  final bool isActive;
-  final VoidCallback onTap;
-  const _HomeNavButton({required this.isActive, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 56,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.transparent,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isActive ? Icons.home : Icons.home_outlined,
-                key: ValueKey(isActive),
-                color: isActive ? Colors.white : Colors.grey[600],
-                size: 22,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text('Home',
-                style: TextStyle(
-                    color: isActive ? Colors.white : Colors.grey[600],
-                    fontSize: 10,
-                    fontWeight:
-                        isActive ? FontWeight.w700 : FontWeight.normal)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  final int tabIndex, currentIndex;
-  final IconData icon, activeIcon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _NavButton({
-    required this.tabIndex,
-    required this.currentIndex,
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  bool get isSelected => currentIndex == tabIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          decoration: BoxDecoration(
-            color:
-                isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  isSelected ? activeIcon : icon,
-                  key: ValueKey(isSelected),
-                  color: isSelected ? color : Colors.grey[600],
-                  size: 22,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(label,
-                  style: TextStyle(
-                      color: isSelected ? color : Colors.grey[600],
-                      fontSize: 10,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.normal)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AppBarIconButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  const _AppBarIconButton(
-      {required this.icon, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-    );
-  }
-}
-
-// ── Library Button — dùng cho cả Text và Audio library ───────
-class _LibraryButton extends StatelessWidget {
+class _ShellActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String tooltip;
   final VoidCallback onTap;
 
-  const _LibraryButton({
+  const _ShellActionButton({
     required this.icon,
     required this.color,
     required this.tooltip,
@@ -798,41 +733,60 @@ class _LibraryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: GestureDetector(
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 8,
-          ),
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: color.withValues(alpha: 0.25),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ≡ menu lines
-              Icon(
-                Icons.menu_rounded,
-                size: 13,
-                color: color.withValues(alpha: 0.7),
-              ),
-              const SizedBox(width: 4),
-              // Main icon
-              Icon(
-                icon,
-                size: 18,
-                color: color,
-              ),
-            ],
-          ),
+          child: Icon(icon, color: color, size: 20),
         ),
       ),
+    );
+  }
+}
+
+class _RememberNavIcon extends StatelessWidget {
+  final int dueCount;
+  final bool filled;
+
+  const _RememberNavIcon({
+    required this.dueCount,
+    required this.filled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(filled ? Icons.psychology : Icons.psychology_outlined),
+        if (dueCount > 0)
+          Positioned(
+            top: -4,
+            right: -10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                dueCount > 99 ? '99+' : '$dueCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

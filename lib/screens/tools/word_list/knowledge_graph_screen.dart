@@ -221,7 +221,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
             ...VocabularyType.values.map((type) => Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: _FilterChip(
-                    label: type.label,
+                    label: type.labelEn,
                     color: type.color,
                     isSelected: _filterType == type,
                     onTap: () {
@@ -277,7 +277,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      t.label,
+                      t.labelEn,
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 10,
@@ -597,7 +597,7 @@ class _WordDetailSheet extends StatelessWidget {
                   border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: Text(
-                  word.vocabType.label,
+                  word.vocabType.label(context),
                   style: TextStyle(
                     color: color,
                     fontSize: 11,

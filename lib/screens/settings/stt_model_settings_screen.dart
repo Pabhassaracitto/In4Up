@@ -3,6 +3,9 @@
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:vipsound/providers/locale_provider.dart';
+import 'package:vipsound_stt/stt_model_manager.dart';
 import 'package:vipsound_stt/stt_service_facade.dart' as modelManager;
 import 'package:vipsound_stt/vipsound_stt.dart';
 
@@ -37,6 +40,8 @@ class SttModelSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _LanguageSettingCard(),
+          const SizedBox(height: 16),
           _SourceInfoCard(),
           const SizedBox(height: 16),
           ...WhisperModelLevel.values.map(
@@ -391,6 +396,82 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(color: color, fontSize: 11),
+      ),
+    );
+  }
+}
+
+class _LanguageSettingCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
+    final currentLocale = localeProvider.locale;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.language, color: Colors.teal),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Ngôn ngữ ứng dụng',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            DropdownButton<String>(
+              value: currentLocale == null
+                  ? 'system'
+                  : '${currentLocale.languageCode}${currentLocale.countryCode == null ? '' : '_${currentLocale.countryCode}'}',
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'system', child: Text('Hệ thống')),
+                DropdownMenuItem(value: 'ar', child: Text('العربية (Arabic)')),
+                DropdownMenuItem(value: 'bn', child: Text('বাংলা (Bengali)')),
+                DropdownMenuItem(value: 'bo', child: Text('བོད་ཡིག (Tibetan)')),
+                DropdownMenuItem(value: 'de', child: Text('Deutsch (German)')),
+                DropdownMenuItem(value: 'en', child: Text('English')),
+                DropdownMenuItem(value: 'es', child: Text('Español (Spanish)')),
+                DropdownMenuItem(value: 'fr', child: Text('Français (French)')),
+                DropdownMenuItem(value: 'hi', child: Text('हिन्दी (Hindi)')),
+                DropdownMenuItem(value: 'id', child: Text('Bahasa Indonesia')),
+                DropdownMenuItem(
+                    value: 'it', child: Text('Italiano (Italian)')),
+                DropdownMenuItem(value: 'ja', child: Text('日本語 (Japanese)')),
+                DropdownMenuItem(value: 'km', child: Text('ភាសាខ្មែរ (Khmer)')),
+                DropdownMenuItem(value: 'ko', child: Text('한국어 (Korean)')),
+                DropdownMenuItem(value: 'lo', child: Text('ລາວ (Lao)')),
+                DropdownMenuItem(
+                    value: 'mn', child: Text('Монгол (Mongolian)')),
+                DropdownMenuItem(value: 'mr', child: Text('मराठी (Marathi)')),
+                DropdownMenuItem(value: 'my', child: Text('မြန်မာ (Burmese)')),
+                DropdownMenuItem(
+                    value: 'pt', child: Text('Português (Portuguese)')),
+                DropdownMenuItem(value: 'ru', child: Text('Русский (Russian)')),
+                DropdownMenuItem(value: 'si', child: Text('සිංහල (Sinhala)')),
+                DropdownMenuItem(value: 'ta', child: Text('தமிழ் (Tamil)')),
+                DropdownMenuItem(value: 'te', child: Text('తెలుగు (Telugu)')),
+                DropdownMenuItem(value: 'th', child: Text('ไทย (Thai)')),
+                DropdownMenuItem(value: 'vi', child: Text('Tiếng Việt')),
+                DropdownMenuItem(value: 'zh', child: Text('中文 (Giản thể)')),
+                DropdownMenuItem(value: 'zh_TW', child: Text('中文 (Phồn thể)')),
+              ],
+              onChanged: (value) {
+                if (value == null || value == 'system') {
+                  localeProvider.setLocale(null);
+                } else {
+                  final parts = value.split('_');
+                  if (parts.length == 2) {
+                    localeProvider.setLocale(Locale(parts[0], parts[1]));
+                  } else {
+                    localeProvider.setLocale(Locale(parts[0]));
+                  }
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

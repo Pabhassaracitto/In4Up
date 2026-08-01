@@ -52,7 +52,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    word.vocabType.label, // ← works với import
+                    word.vocabType.label(context), // ← works với import
                     style: TextStyle(
                       color: word.vocabType.color, // ← works với import
                       fontSize: 11,

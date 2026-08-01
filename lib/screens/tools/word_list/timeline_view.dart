@@ -268,7 +268,7 @@ class _TimelineEntry extends StatelessWidget {
                             fontWeight: FontWeight.w600)),
                     if (entry.vocabType != VocabularyType.word) ...[
                       const SizedBox(width: 4),
-                      Text('(${entry.vocabType.label})',
+                      Text('(${entry.vocabType.label(context)})',
                           style: TextStyle(
                               color: typeColor.withValues(alpha: 0.6),
                               fontSize: 9)),

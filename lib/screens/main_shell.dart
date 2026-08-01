@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:vipsound/l10n/app_localizations.dart';
+
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
@@ -97,10 +99,11 @@ class _MainShellState extends State<MainShell> {
   Future<void> _openTools() async {
     final nav = Navigator.of(context);
     final vocabProvider = context.read<VocabularyProvider>();
+    final l10n = AppLocalizations.of(context)!;
 
     final toolId = await tools.showToolsOverlayV2(
       context,
-      tools: _buildToolsList(),
+      tools: _buildToolsList(context),
     );
 
     if (toolId == null) return;
@@ -157,142 +160,140 @@ class _MainShellState extends State<MainShell> {
         break;
 
       case 'stats':
-        pushVocab('Tổng quan', const Color(0xFF42A5F5), const StatsTab());
+        pushVocab(l10n.overview, const Color(0xFF42A5F5), const StatsTab());
         break;
 
       case 'word_map':
-        pushVocab('Bản đồ từ', const Color(0xFF26C6DA), const MapTab());
+        pushVocab(l10n.wordMap, const Color(0xFF26C6DA), const MapTab());
         break;
 
       case 'triangle':
-        pushVocab(
-            'Tam giác kỹ năng', const Color(0xFFFFA726), const TriangleTab());
+        pushVocab(l10n.triangle, const Color(0xFFFFA726), const TriangleTab());
         break;
 
       case 'venn':
-        pushVocab('Biểu đồ Venn', const Color(0xFFAB47BC), const VennTab());
+        pushVocab(l10n.vennDiagram, const Color(0xFFAB47BC), const VennTab());
         break;
 
       case 'review':
-        pushVocab('Ôn tập', const Color(0xFF66BB6A), const ReviewTab());
+        pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
         break;
     }
   }
 
-  List<tools.ToolItem> _buildToolsList() {
+  List<tools.ToolItem> _buildToolsList(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return [
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'word_list',
-        title: 'Word List',
-        subtitle: 'Danh sách từ vựng',
+        title: l10n.wordList,
+        subtitle: l10n.wordListSubtitle,
         icon: Icons.format_list_bulleted,
-        color: Color(0xFF6C63FF),
+        color: const Color(0xFF6C63FF),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'timeline',
-        title: 'Timeline',
-        subtitle: 'Hành trình học từ theo thời gian',
+        title: l10n.timeline,
+        subtitle: l10n.timelineSubtitle,
         icon: Icons.timeline,
-        color: Color(0xFF9C27B0),
+        color: const Color(0xFF9C27B0),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'wordlist_stats',
-        title: 'Wordlist Stats',
-        subtitle: 'Thống kê từ vựng chi tiết',
+        title: l10n.wordListStats,
+        subtitle: l10n.wordListStatsSubtitle,
         icon: Icons.analytics_outlined,
-        color: Color(0xFF42A5F5),
+        color: const Color(0xFF42A5F5),
         isAvailable: true,
       ),
-
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'web_reader',
-        title: 'Web Reader',
-        subtitle: 'Đọc web + highlight CEFR',
+        title: l10n.webReader,
+        subtitle: l10n.webReaderSubtitle,
         icon: Icons.language,
-        color: Color(0xFF26A69A),
+        color: const Color(0xFF26A69A),
         isAvailable: true,
       ),
-      // ★ YouTube Explorer — title thay đổi để rõ hơn
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'youtube_downloader',
-        title: 'YouTube',
-        subtitle: 'Khám phá kênh học tiếng Anh',
+        title: l10n.youtube,
+        subtitle: l10n.youtubeSubtitle,
         icon: Icons.play_circle_filled,
-        color: Color(0xFFFF0000),
+        color: const Color(0xFFFF0000),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'pdf_reader',
-        title: 'PDF Reader',
-        subtitle: 'Mở và đọc file PDF',
+        title: l10n.pdfReader,
+        subtitle: l10n.pdfReaderSubtitle,
         icon: Icons.picture_as_pdf,
-        color: Color(0xFFEF5350),
+        color: const Color(0xFFEF5350),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'youglish',
-        title: 'YouGlish',
-        subtitle: 'Nghe phát âm chuẩn',
+        title: l10n.youglish,
+        subtitle: l10n.youglishSubtitle,
         icon: Icons.record_voice_over,
-        color: Color(0xFF00BCD4),
+        color: const Color(0xFF00BCD4),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'stats',
-        title: 'Tổng Quan',
-        subtitle: 'Tiến trình học tập',
+        title: l10n.overview,
+        subtitle: l10n.overviewSubtitle,
         icon: Icons.bar_chart_rounded,
-        color: Color(0xFF42A5F5),
+        color: const Color(0xFF42A5F5),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'word_map',
-        title: 'Bản Đồ Từ',
-        subtitle: 'Biết → nhỏ · Chưa biết → to',
+        title: l10n.wordMap,
+        subtitle: l10n.wordMapSubtitle,
         icon: Icons.map_outlined,
-        color: Color(0xFF26C6DA),
+        color: const Color(0xFF26C6DA),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'triangle',
-        title: 'Tam Giác',
-        subtitle: 'Bản đồ + Đánh giá nhanh',
+        title: l10n.triangle,
+        subtitle: l10n.triangleSubtitle,
         icon: Icons.change_history_rounded,
-        color: Color(0xFFFFA726),
+        color: const Color(0xFFFFA726),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'venn',
-        title: 'Biểu Đồ Venn',
-        subtitle: 'Phân vùng kỹ năng',
+        title: l10n.vennDiagram,
+        subtitle: l10n.vennDiagramSubtitle,
         icon: Icons.hub_outlined,
-        color: Color(0xFFAB47BC),
+        color: const Color(0xFFAB47BC),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'review',
-        title: 'Ôn Tập',
-        subtitle: 'SM-2 Spaced Repetition',
+        title: l10n.review,
+        subtitle: l10n.reviewSubtitle,
         icon: Icons.school,
-        color: Color(0xFF66BB6A),
+        color: const Color(0xFF66BB6A),
         isAvailable: true,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'shadowing',
-        title: 'Shadowing',
-        subtitle: 'Luyện nói theo bóng',
+        title: l10n.shadowing,
+        subtitle: l10n.shadowingSubtitle,
         icon: Icons.record_voice_over_outlined,
-        color: Color(0xFF66BB6A),
+        color: const Color(0xFF66BB6A),
         isAvailable: false,
       ),
-      const tools.ToolItem(
+      tools.ToolItem(
         id: 'dictation',
-        title: 'Chính Tả',
-        subtitle: 'Nghe và gõ lại',
+        title: l10n.dictation,
+        subtitle: l10n.dictationSubtitle,
         icon: Icons.edit_note,
-        color: Color(0xFFFF7043),
+        color: const Color(0xFFFF7043),
         isAvailable: false,
       ),
     ];
@@ -300,43 +301,43 @@ class _MainShellState extends State<MainShell> {
 
   // ─── Screen router ───────────────────────────────────────
   Widget _buildCurrentScreen() {
-  // ⭐ DEBUG: Wrap mỗi screen trong colored border
-  Widget screen;
-  switch (_currentIndex) {
-    case _kHome:
-      screen = HomeScreen(
-        onNavigateToListen: () => _navigateTo(1),
-        onNavigateToRead: () => _navigateTo(0),
-        onNavigateToUnderstand: () => _navigateTo(2),
-        onNavigateToMemory: () => _navigateTo(3),
-      );
-      break;
-    case 0:
-      screen = const ReadModeScreen();
-      break;
-    case 1:
-      screen = const ListenModeScreen();
-      break;
-    case 2:
-      screen = const UnderstandTabConnector();
-      break;
-    case 3:
-      screen = const MemoryTabConnector();
-      break;
-    default:
-      screen = HomeScreen(
-        onNavigateToListen: () => _navigateTo(1),
-        onNavigateToRead: () => _navigateTo(0),
-        onNavigateToUnderstand: () => _navigateTo(2),
-        onNavigateToMemory: () => _navigateTo(3),
-      );
+    // ⭐ DEBUG: Wrap mỗi screen trong colored border
+    Widget screen;
+    switch (_currentIndex) {
+      case _kHome:
+        screen = HomeScreen(
+          onNavigateToListen: () => _navigateTo(1),
+          onNavigateToRead: () => _navigateTo(0),
+          onNavigateToUnderstand: () => _navigateTo(2),
+          onNavigateToMemory: () => _navigateTo(3),
+        );
+        break;
+      case 0:
+        screen = const ReadModeScreen();
+        break;
+      case 1:
+        screen = const ListenModeScreen();
+        break;
+      case 2:
+        screen = const UnderstandTabConnector();
+        break;
+      case 3:
+        screen = const MemoryTabConnector();
+        break;
+      default:
+        screen = HomeScreen(
+          onNavigateToListen: () => _navigateTo(1),
+          onNavigateToRead: () => _navigateTo(0),
+          onNavigateToUnderstand: () => _navigateTo(2),
+          onNavigateToMemory: () => _navigateTo(3),
+        );
+    }
+
+    // ⭐ Wrap trong ClipRect để ngăn overflow
+    return ClipRect(
+      child: screen,
+    );
   }
-  
-  // ⭐ Wrap trong ClipRect để ngăn overflow
-  return ClipRect(
-    child: screen,
-  );
-}
 
   // ─── Build ───────────────────────────────────────────────
   @override
@@ -371,7 +372,7 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
@@ -523,9 +524,8 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  Widget _buildBottomNav() {
-    final selectedIndex = _currentIndex == _kHome ? 0 : _currentIndex + 1;
-
+  Widget _buildBottomNav(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
@@ -537,68 +537,82 @@ class _MainShellState extends State<MainShell> {
           ),
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              _HomeNavButton(
-                isActive: _isHome,
-                onTap: () {
-                  if (!_isHome) {
-                    HapticFeedback.selectionClick();
-                    _navigateTo(_kHome);
-                  }
-                },
-              ),
-              Container(
-                width: 1,
-                height: 32,
-                color: Colors.white.withValues(alpha: 0.06),
-              ),
-              _NavButton(
-                tabIndex: 0,
-                currentIndex: _currentIndex,
-                icon: Icons.menu_book_outlined,
-                activeIcon: Icons.menu_book,
-                label: 'Đọc',
-                color: const Color(0xFF2196F3),
-                onTap: () => _onTabTapped(0),
-              ),
-              _NavButton(
-                tabIndex: 1,
-                currentIndex: _currentIndex,
-                icon: Icons.headphones_outlined,
-                activeIcon: Icons.headphones,
-                label: 'Nghe',
-                color: const Color(0xFF6C63FF),
-                onTap: () => _onTabTapped(1),
-              ),
-              _NavButton(
-                tabIndex: 2,
-                currentIndex: _currentIndex,
-                icon: Icons.lightbulb_outline,
-                activeIcon: Icons.lightbulb,
-                label: 'Hiểu',
-                color: const Color(0xFFFFB300),
-                onTap: () => _onTabTapped(2),
-              ),
-              _NavButton(
-                tabIndex: 3,
-                currentIndex: _currentIndex,
-                icon: Icons.psychology_outlined,
-                activeIcon: Icons.psychology,
-                label: 'Nhớ',
-                color: const Color(0xFF8B5CF6),
-                onTap: () => _onTabTapped(3),
-              ),
-              PuzzleNavButton(
-                onTap: () => _openTools(),
-              ),
-            ],
+      child: NavigationBar(
+        selectedIndex: _currentIndex == _kHome ? 0 : _currentIndex + 1,
+        onDestinationSelected: (idx) {
+          if (idx == 0) {
+            _navigateTo(_kHome);
+          } else if (idx <= 4)
+            _onTabTapped(idx - 1);
+          else if (idx == 5) _openTools();
+        },
+        backgroundColor: const Color(0xFF111827),
+        indicatorColor: _currentColor.withValues(alpha: 0.2),
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: l10n.home,
           ),
-        ),
+          NavigationDestination(
+            icon: const Icon(Icons.menu_book_outlined),
+            selectedIcon: const Icon(Icons.menu_book),
+            label: l10n.read,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.headphones_outlined),
+            selectedIcon: const Icon(Icons.headphones),
+            label: l10n.listen,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.lightbulb_outline),
+            selectedIcon: const Icon(Icons.lightbulb),
+            label: l10n.understand,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.psychology_outlined),
+            selectedIcon: const Icon(Icons.psychology),
+            label: l10n.remember,
+          ),
+          NavigationDestination(
+            icon: Consumer<VocabularyProvider>(
+              builder: (_, vocab, __) {
+                final due = vocab.dueCount;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.extension_outlined), // ★ Icon thường
+                    /*const IgnorePointer(
+                        child: PuzzleNavButton(
+                            onTap: null)),*/ // UI placeholder inside Nav
+                    if (due > 0)
+                      Positioned(
+                        top: -2,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            due > 99 ? '99+' : '$due',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+            label: l10n.tools,
+          ),
+        ],
       ),
     );
   }

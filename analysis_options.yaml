@@ -26,3 +26,7 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+analyzer:
+  exclude:
+    - "backups/**"       # Bỏ qua toàn bộ file trong thư mục backups ở thư mục gốc
+    - "**/backups/**"     # Bỏ qua mọi thư mục tên backups ở bất kỳ đâu trong dự án

@@ -1,0 +1,71 @@
+{
+  "@@locale": "zh",
+  "commandCenter": "控制中心",
+  "knowledgeOS": "知识操作系统",
+  "manageAIModels": "管理 AI 模型",
+  "loginFailed": "登录失败: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "studioRoom": "工作室",
+  "listen": "听",
+  "read": "读",
+  "understand": "理解",
+  "remember": "记忆",
+  "quickNote": "快速笔记",
+  "listening": "倾听中...",
+  "done": "完成",
+
+  "wordList": "单词表",
+  "wordListSubtitle": "词汇列表",
+  "timeline": "时间线",
+  "timelineSubtitle": "学习历程",
+  "wordListStats": "单词统计",
+  "wordListStatsSubtitle": "详细统计信息",
+  "webReader": "网页阅读器",
+  "webReaderSubtitle": "阅读并高亮 CEFR",
+  "youtube": "YouTube",
+  "youtubeSubtitle": "探索英语频道",
+  "pdfReader": "PDF 阅读器",
+  "pdfReaderSubtitle": "打开并阅读 PDF",
+  "youglish": "YouGlish",
+  "youglishSubtitle": "标准发音",
+  "overview": "概览",
+  "overviewSubtitle": "学习进度",
+  "wordMap": "单词地图",
+  "wordMapSubtitle": "认识 → 小 · 不认识 → 大",
+  "triangle": "技能三角",
+  "triangleSubtitle": "地图 + 快速评估",
+  "vennDiagram": "维恩图",
+  "vennDiagramSubtitle": "技能分区",
+  "review": "复习",
+  "reviewSubtitle": "SM-2 间隔重复",
+  "shadowing": "跟读",
+  "shadowingSubtitle": "影子跟读练习",
+  "dictation": "听写",
+  "dictationSubtitle": "听力与输入",
+  "audioLibrary": "音频库",
+  "home": "首页",
+  "tools": "工具",
+  "nowPlaying": "正在播放",
+
+  "typeVocabulary": "词汇",
+  "typePhrase": "短语",
+  "typeSentence": "句子",
+  "typeParagraph": "段落",
+  "typeDharma": "Dharma",
+  "typeGrammar": "语法",
+
+  "diffEasy": "简单",
+  "diffMedium": "中等",
+  "diffHard": "困难",
+
+  "vocabWord": "单词",
+  "vocabPhrase": "短语",
+  "vocabSentence": "句子",
+  "vocabParagraph": "段落"
+}

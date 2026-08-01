@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/shadowing_widget.dart';
 import '../../providers/player_provider.dart';
 
@@ -20,8 +21,8 @@ class SpeakModeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xFF080B1A),
-      child: Consumer<PlayerProvider>(
-        builder: (context, player, _) {
+      child: Consumer2<PlayerProvider, ShadowingProvider>(
+        builder: (context, player, shadowing, _) {
           final hasAudio = player.currentSongPath != null;
 
           return SingleChildScrollView(
@@ -55,6 +56,10 @@ class SpeakModeScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                _SpeakingStatsRow(shadowing: shadowing),
+                const SizedBox(height: 16),
+                _SpeakingPresetCard(shadowing: shadowing),
                 const SizedBox(height: 20),
                 if (!hasAudio) ...[
                   _EmptyAudioCard(onOpenQuickActions: onOpenQuickActions),
@@ -76,8 +81,8 @@ class SpeakModeScreen extends StatelessWidget {
                   title: 'Thiết kế hiện tại',
                   bullets: [
                     'Nói là không gian thực hành phát âm và lặp lại có chủ đích.',
+                    'Preset nhanh giúp đổi nhịp luyện tập mà không cần chui sâu vào cài đặt.',
                     'Các chức năng sâu hơn như AI chấm phát âm sẽ tiếp tục gom về đây.',
-                    'Mục tiêu là giảm việc người dùng phải đi vòng qua tab công cụ riêng.',
                   ],
                 ),
               ],
@@ -273,6 +278,196 @@ class _QuickActionChip extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeakingStatsRow extends StatelessWidget {
+  final ShadowingProvider shadowing;
+
+  const _SpeakingStatsRow({required this.shadowing});
+
+  @override
+  Widget build(BuildContext context) {
+    final lastScore = shadowing.currentResult?.overallScorePercent;
+    return Row(
+      children: [
+        Expanded(
+          child: _MiniStatCard(
+            label: 'Lượt luyện',
+            value: '${shadowing.sessionResults.length}',
+            color: const Color(0xFFB388FF),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniStatCard(
+            label: 'Preset',
+            value: '${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+            color: const Color(0xFF42A5F5),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniStatCard(
+            label: 'Điểm gần nhất',
+            value: lastScore == null ? '--' : '$lastScore%',
+            color: const Color(0xFF66BB6A),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SpeakingPresetCard extends StatelessWidget {
+  final ShadowingProvider shadowing;
+
+  const _SpeakingPresetCard({required this.shadowing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Preset luyện nói nhanh',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Đổi số lần lặp và tốc độ trước khi vào bài shadowing.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _PresetChip(
+                label: 'Nhẹ · 2x / 1.0x',
+                color: const Color(0xFF42A5F5),
+                onTap: () {
+                  shadowing.setRepeatCount(2);
+                  shadowing.setPlaybackSpeed(1.0);
+                },
+              ),
+              _PresetChip(
+                label: 'Chuẩn · 3x / 0.9x',
+                color: const Color(0xFFB388FF),
+                onTap: () {
+                  shadowing.setRepeatCount(3);
+                  shadowing.setPlaybackSpeed(0.9);
+                },
+              ),
+              _PresetChip(
+                label: 'Kỹ · 5x / 0.8x',
+                color: const Color(0xFFFFB300),
+                onTap: () {
+                  shadowing.setRepeatCount(5);
+                  shadowing.setPlaybackSpeed(0.8);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _MiniStatCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color.withValues(alpha: 0.85),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PresetChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _PresetChip({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

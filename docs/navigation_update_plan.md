@@ -111,8 +111,10 @@ Ví dụ:
 - [x] Tinh chỉnh text/audio drawers theo ngữ cảnh
 - [x] Tối ưu mini player khi đổi mode
 - [x] Rà lại overflow risk ở app bar + mode switch + mini player
-- [ ] Nối các chức năng viết thật sự (dictation / cloze / AI scoring) vào `WriteStudioScreen`
-- [ ] Tách sâu thêm speaking workflows (history, scoring, presets) vào `SpeakModeScreen`
+- [x] Nối dictation / cloze cơ bản vào `WriteStudioScreen`
+- [x] Tách speaking presets và stats cơ bản vào `SpeakModeScreen`
+- [ ] Nối AI scoring thật sự vào `WriteStudioScreen`
+- [ ] Bổ sung speaking history / presets nâng cao / export feedback vào `SpeakModeScreen`
 - [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 
 ### Backlog

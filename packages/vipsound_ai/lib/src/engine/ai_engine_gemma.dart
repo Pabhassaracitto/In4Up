@@ -151,6 +151,9 @@ class AiEngineGemma implements AiEngine {
     if (prompt.contains('VIPSOUND_WRITE_REVIEW')) {
       return _mockWriteReview(prompt);
     }
+    if (prompt.contains('VIPSOUND_REWRITE_REVIEW')) {
+      return _mockRewriteReview(prompt);
+    }
 
     return jsonEncode({
       'summary': 'Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.',
@@ -171,28 +174,13 @@ class AiEngineGemma implements AiEngine {
   }
 
   static String _mockWriteReview(String prompt) {
-    String extract(String key) {
-      final prefix = '$key:';
-      for (final line in prompt.split('\n')) {
-        if (line.startsWith(prefix)) {
-          return line.substring(prefix.length).trim();
-        }
-      }
-      return '';
-    }
-
-    int extractInt(String key) {
-      final raw = extract(key);
-      return int.tryParse(raw) ?? 0;
-    }
-
-    final expected = extract('EXPECTED');
-    final actual = extract('ACTUAL');
-    final totalScore = extractInt('TOTAL_SCORE');
-    final orderScore = extractInt('ORDER_SCORE');
-    final spellingScore = extractInt('SPELLING_SCORE');
-    final missing = extract('MISSING');
-    final extra = extract('EXTRA');
+    final expected = _extractLineValue(prompt, 'EXPECTED');
+    final actual = _extractLineValue(prompt, 'ACTUAL');
+    final totalScore = _extractIntValue(prompt, 'TOTAL_SCORE');
+    final orderScore = _extractIntValue(prompt, 'ORDER_SCORE');
+    final spellingScore = _extractIntValue(prompt, 'SPELLING_SCORE');
+    final missing = _extractLineValue(prompt, 'MISSING');
+    final extra = _extractLineValue(prompt, 'EXTRA');
 
     final topics = <String>['Writing', 'Recall'];
     final actions = <String>[];
@@ -244,6 +232,79 @@ class AiEngineGemma implements AiEngine {
       'grammar': grammar,
       'language': 'vi',
     });
+  }
+
+  static String _mockRewriteReview(String prompt) {
+    final expected = _extractLineValue(prompt, 'EXPECTED');
+    final actual = _extractLineValue(prompt, 'ACTUAL');
+    final totalScore = _extractIntValue(prompt, 'TOTAL_SCORE');
+    final contentScore = _extractIntValue(prompt, 'CONTENT_SCORE');
+    final grammarScore = _extractIntValue(prompt, 'GRAMMAR_SCORE');
+    final paraphraseScore = _extractIntValue(prompt, 'PARAPHRASE_SCORE');
+    final missing = _extractLineValue(prompt, 'MISSING');
+    final kept = _extractLineValue(prompt, 'KEPT');
+
+    final topics = <String>['Rewrite', 'Output'];
+    final actions = <String>[];
+
+    String summary;
+    if (totalScore >= 85) {
+      summary = 'Bài viết lại giữ ý khá tốt và đã có dấu hiệu diễn đạt theo cách riêng.';
+      actions.add('Thử rút ngắn thêm một chút để câu gọn hơn mà vẫn đủ ý.');
+      topics.add('Strong Reformulation');
+    } else if (contentScore < 45) {
+      summary = 'Bài viết lại đang thiếu khá nhiều ý chính so với câu gốc.';
+      actions.add('Giữ lại 3 từ khóa cốt lõi rồi viết lại chỉ quanh các từ khóa đó.');
+      topics.add('Missing Core Idea');
+    } else if (paraphraseScore < 40) {
+      summary = 'Bạn đang bám quá sát câu gốc, chưa thật sự viết lại bằng câu khác.';
+      actions.add('Đổi phần mở đầu hoặc trật tự cụm từ trước khi nộp lại.');
+      topics.add('Too Close');
+    } else if (grammarScore < 45) {
+      summary = 'Ý có mặt nhưng câu viết lại chưa đủ trọn vẹn và tự nhiên.';
+      actions.add('Viết thành câu dài hơn 4 từ, có một động từ chính rõ ràng.');
+      topics.add('Sentence Shape');
+    } else {
+      summary = 'Bài viết lại ở mức khá, có thể tiếp tục tinh chỉnh độ tự nhiên và độ gọn.';
+      actions.add('Làm lại thêm 1 vòng, ưu tiên thay từ/cụm thay vì chép khung cũ.');
+      topics.add('Emerging Paraphrase');
+    }
+
+    if (missing.isNotEmpty && missing != 'none') {
+      actions.add('Bổ sung lại các ý/từ khóa còn thiếu: $missing.');
+      topics.add('Missing Keywords');
+    }
+    if (kept.isNotEmpty && kept != 'none') {
+      actions.add('Bạn đã giữ được các từ khóa: $kept. Hãy giữ chúng nhưng đổi khung câu hơn nữa.');
+      topics.add('Keyword Retention');
+    }
+
+    final grammar = _mockGrammarFromSentence(actual.isNotEmpty ? actual : expected);
+
+    return jsonEncode({
+      'summary': summary,
+      'topics': topics.take(4).toList(),
+      'analysisType': 'sentenceParse',
+      'technical_terms': <Map<String, dynamic>>[],
+      'action_items': actions.take(4).toList(),
+      'grammar': grammar,
+      'language': 'vi',
+    });
+  }
+
+  static String _extractLineValue(String prompt, String key) {
+    final prefix = '$key:';
+    for (final line in prompt.split('\n')) {
+      if (line.startsWith(prefix)) {
+        return line.substring(prefix.length).trim();
+      }
+    }
+    return '';
+  }
+
+  static int _extractIntValue(String prompt, String key) {
+    final raw = _extractLineValue(prompt, key);
+    return int.tryParse(raw) ?? 0;
   }
 
   static Map<String, dynamic> _mockGrammarFromSentence(String sentence) {

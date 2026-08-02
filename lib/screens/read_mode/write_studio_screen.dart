@@ -12,6 +12,7 @@ enum _WriteExerciseType {
   clozeInput,
   clozeChoice,
   rewrite,
+  summary,
 }
 
 class WriteStudioScreen extends StatefulWidget {
@@ -34,6 +35,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   final math.Random _random = math.Random();
   final TextEditingController _dictationController = TextEditingController();
   final TextEditingController _rewriteController = TextEditingController();
+  final TextEditingController _summaryController = TextEditingController();
 
   _WriteExerciseType _exerciseType = _WriteExerciseType.dictation;
   String _sourceKey = '';
@@ -44,6 +46,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   _DictationResult? _dictationResult;
   _ClozeResult? _clozeResult;
   _RewriteResult? _rewriteResult;
+  _SummaryResult? _summaryResult;
 
   List<TextEditingController> _blankControllers = [];
   List<_BlankPrompt> _blankPrompts = [];
@@ -54,6 +57,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   void dispose() {
     _dictationController.dispose();
     _rewriteController.dispose();
+    _summaryController.dispose();
     _disposeBlankControllers();
     super.dispose();
   }
@@ -95,9 +99,11 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }) {
     _dictationController.clear();
     _rewriteController.clear();
+    _summaryController.clear();
     _dictationResult = null;
     _clozeResult = null;
     _rewriteResult = null;
+    _summaryResult = null;
     _showAnswer = false;
     _lastAiPromptKey = '';
     _selectedChoices = [];
@@ -537,6 +543,64 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     });
   }
 
+  void _scoreSummary(TextProvider textProvider) {
+    if (textProvider.lines.isEmpty) return;
+
+    final expected = textProvider.lines[_lineIndex].content;
+    final actual = _summaryController.text.trim();
+    final actualTokens = _tokenizeNormalized(actual);
+    if (actualTokens.isEmpty) return;
+
+    final expectedTokens = _tokenizeNormalized(expected);
+    final keywords = _extractRewriteKeywords(textProvider);
+    final keptKeywords = actualTokens.where(keywords.contains).toSet().toList()..sort();
+    final missedKeywords = keywords.where((word) => !keptKeywords.contains(word)).toList()..sort();
+
+    final contentRetention = keywords.isEmpty
+        ? _stringSimilarity(expectedTokens.join(' '), actualTokens.join(' '))
+        : (keptKeywords.length / keywords.length).clamp(0.0, 1.0).toDouble();
+
+    final compressionRatio = expectedTokens.isEmpty
+        ? 1.0
+        : (actualTokens.length / expectedTokens.length).clamp(0.0, 2.0).toDouble();
+
+    double brevityScore;
+    if (compressionRatio <= 0.45) {
+      brevityScore = contentRetention >= 0.45 ? 0.92 : 0.5;
+    } else if (compressionRatio <= 0.7) {
+      brevityScore = 0.82;
+    } else if (compressionRatio <= 1.0) {
+      brevityScore = 0.64;
+    } else {
+      brevityScore = 0.32;
+    }
+
+    final grammarScore = _grammarProxyScore(
+      actual,
+      actualTokens,
+      _extractExpectedVerbs(textProvider),
+    );
+
+    final overall = ((contentRetention * 0.5) +
+            (brevityScore * 0.25) +
+            (grammarScore * 0.25))
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    setState(() {
+      _summaryResult = _SummaryResult(
+        overallScore: overall,
+        contentRetentionScore: contentRetention,
+        brevityScore: brevityScore,
+        grammarScore: grammarScore,
+        compressionRatio: compressionRatio,
+        keptKeywords: keptKeywords,
+        missedKeywords: missedKeywords,
+      );
+      _showAnswer = true;
+    });
+  }
+
   String _buildAiPrompt({
     required String expected,
     required String actual,
@@ -561,6 +625,31 @@ Hãy trả về JSON hợp lệ với:
 ''';
   }
 
+  String _buildRewriteAiPrompt({
+    required String expected,
+    required String actual,
+    required _RewriteResult result,
+  }) {
+    return '''
+VIPSOUND_REWRITE_REVIEW
+EXPECTED: $expected
+ACTUAL: $actual
+TOTAL_SCORE: ${(result.overallScore * 100).round()}
+CONTENT_SCORE: ${(result.completenessScore * 100).round()}
+GRAMMAR_SCORE: ${(result.grammarScore * 100).round()}
+PARAPHRASE_SCORE: ${(result.paraphraseScore * 100).round()}
+MISSING: ${result.missingKeywords.isEmpty ? 'none' : result.missingKeywords.join(', ')}
+KEPT: ${result.usedKeywords.isEmpty ? 'none' : result.usedKeywords.join(', ')}
+
+Bạn là bộ phản hồi viết lại ý offline của VipSound.
+Hãy trả về JSON hợp lệ với:
+- summary: nhận xét ngắn bằng tiếng Việt
+- topics: 2-4 nhãn ngắn
+- action_items: 2-4 gợi ý luyện tiếp cụ thể
+- grammar: mô tả nhanh hình dáng câu và phần cần sửa
+''';
+  }
+
   Future<void> _runAiReview({
     required TextItem currentLine,
     required _DictationResult result,
@@ -570,6 +659,29 @@ Hãy trả về JSON hợp lệ với:
 
     final facade = context.read<AiServiceFacade>();
     final prompt = _buildAiPrompt(
+      expected: currentLine.content,
+      actual: actual,
+      result: result,
+    );
+
+    facade.clearAnalysis();
+    setState(() {
+      _lastAiPromptKey = prompt;
+    });
+
+    await facade.analyzeSentence(sentence: prompt);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _runRewriteAiReview({
+    required TextItem currentLine,
+    required _RewriteResult result,
+  }) async {
+    final actual = _rewriteController.text.trim();
+    if (actual.isEmpty) return;
+
+    final facade = context.read<AiServiceFacade>();
+    final prompt = _buildRewriteAiPrompt(
       expected: currentLine.content,
       actual: actual,
       result: result,
@@ -710,6 +822,8 @@ Hãy trả về JSON hợp lệ với:
                     _buildDictationCard(textProvider, currentLine!)
                   else if (_exerciseType == _WriteExerciseType.rewrite)
                     _buildRewriteCard(textProvider, currentLine!)
+                  else if (_exerciseType == _WriteExerciseType.summary)
+                    _buildSummaryCard(textProvider, currentLine!)
                   else
                     _buildClozeCard(currentLine!),
                   const SizedBox(height: 20),
@@ -824,6 +938,11 @@ Hãy trả về JSON hợp lệ với:
         label: 'Viết lại ý',
         type: _WriteExerciseType.rewrite,
         color: const Color(0xFF4CAF50),
+      ),
+      (
+        label: 'Tóm tắt ngắn',
+        type: _WriteExerciseType.summary,
+        color: const Color(0xFF81C784),
       ),
     ];
 
@@ -1280,9 +1399,10 @@ Hãy trả về JSON hợp lệ với:
           TextField(
             controller: _rewriteController,
             onChanged: (_) {
-              if (_rewriteResult != null) {
+              if (_rewriteResult != null || _lastAiPromptKey.isNotEmpty) {
                 setState(() {
                   _rewriteResult = null;
+                  _lastAiPromptKey = '';
                 });
               }
             },
@@ -1321,6 +1441,7 @@ Hãy trả về JSON hợp lệ với:
                     setState(() {
                       _rewriteController.clear();
                       _rewriteResult = null;
+                      _lastAiPromptKey = '';
                     });
                   },
                   icon: const Icon(Icons.refresh),
@@ -1369,6 +1490,258 @@ Hãy trả về JSON hợp lệ với:
                     ),
                   )
                   .toList(),
+            ),
+            const SizedBox(height: 16),
+            _buildRewriteAiReviewCard(currentLine: currentLine, result: result),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRewriteAiReviewCard({
+    required TextItem currentLine,
+    required _RewriteResult result,
+  }) {
+    final facade = context.watch<AiServiceFacade>();
+    final hasTextInput = _rewriteController.text.trim().isNotEmpty;
+    final hasMatchingAnalysis = _hasMatchingAiAnalysis(facade);
+    final analysis = hasMatchingAnalysis ? facade.currentAnalysis : null;
+    final isLoadingCurrent = facade.isLoading && _lastAiPromptKey.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_fix_high_outlined, color: Color(0xFF81C784)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Tầng 2 · AI cho viết lại ý',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: facade.hasModel
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
+                      : Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  facade.hasModel ? 'AI local sẵn sàng' : 'Chưa có model',
+                  style: TextStyle(
+                    color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Dùng AI local để xem bài viết lại đã đủ giữ ý, đủ khác câu gốc và đủ tự nhiên hay chưa.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: !facade.hasModel || !hasTextInput || isLoadingCurrent
+                      ? null
+                      : () => _runRewriteAiReview(currentLine: currentLine, result: result),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Phân tích rewrite'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAiModelSetupDialog(facade),
+                  icon: const Icon(Icons.download_outlined),
+                  label: Text(facade.hasModel ? 'Đổi model' : 'Cài AI local'),
+                ),
+              ),
+            ],
+          ),
+          if (isLoadingCurrent) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(),
+            const SizedBox(height: 8),
+            const Text(
+              'AI local đang phân tích mức độ viết lại và độ tự nhiên của câu...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+          if (analysis != null) ...[
+            const SizedBox(height: 16),
+            _FeedbackCard(
+              title: 'AI rewrite · ${facade.modelSourceLabel}',
+              color: const Color(0xFF81C784),
+              children: [
+                _MetricRow(
+                  label: 'Tóm tắt',
+                  value: analysis.summary.isNotEmpty
+                      ? analysis.summary
+                      : 'AI chưa trả về nhận xét đủ rõ.',
+                ),
+                _MetricRow(
+                  label: 'Chủ điểm',
+                  value: analysis.topics.isEmpty ? 'Chưa có' : analysis.topics.join(', '),
+                ),
+                _MetricRow(
+                  label: 'Gợi ý',
+                  value: analysis.actionItems.isEmpty
+                      ? 'Chưa có gợi ý cụ thể từ AI.'
+                      : analysis.actionItems.join(' • '),
+                ),
+                if (analysis.grammar != null) ...[
+                  _MetricRow(label: 'Chủ ngữ', value: analysis.grammar!.subject),
+                  _MetricRow(label: 'Động từ', value: analysis.grammar!.verb),
+                  _MetricRow(label: 'Mẫu câu', value: analysis.grammar!.pattern),
+                ],
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(TextProvider textProvider, TextItem currentLine) {
+    final result = _summaryResult;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.short_text_rounded, color: Color(0xFF81C784)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Tóm tắt ý bằng câu ngắn',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (result != null)
+                _ScorePill(score: result.overallScore, accent: const Color(0xFF81C784)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Hãy rút gọn nội dung câu gốc thành một câu ngắn hơn nhưng vẫn giữ ý chính.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              currentLine.content,
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _summaryController,
+            onChanged: (_) {
+              if (_summaryResult != null) {
+                setState(() {
+                  _summaryResult = null;
+                });
+              }
+            },
+            minLines: 3,
+            maxLines: 5,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...',
+              hintStyle: TextStyle(color: Colors.grey[500]),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.04),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _scoreSummary(textProvider),
+                  icon: const Icon(Icons.compress_outlined),
+                  label: const Text('Chấm tóm tắt'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _summaryController.clear();
+                      _summaryResult = null;
+                    });
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Làm lại'),
+                ),
+              ),
+            ],
+          ),
+          if (result != null) ...[
+            const SizedBox(height: 16),
+            _FeedbackCard(
+              title: result.feedbackLabel,
+              color: result.feedbackColor,
+              children: [
+                _MetricRow(label: 'Giữ ý', value: '${(result.contentRetentionScore * 100).round()}%'),
+                _MetricRow(label: 'Độ cô đọng', value: '${(result.brevityScore * 100).round()}%'),
+                _MetricRow(label: 'Hình dáng câu', value: '${(result.grammarScore * 100).round()}%'),
+                _MetricRow(label: 'Tỉ lệ độ dài', value: result.compressionLabel),
+                _MetricRow(label: 'Từ khóa đã giữ', value: result.keptKeywords.isEmpty ? 'Chưa rõ' : result.keptKeywords.join(', ')),
+                _MetricRow(label: 'Từ khóa còn thiếu', value: result.missedKeywords.isEmpty ? 'Không có' : result.missedKeywords.join(', ')),
+                _MetricRow(label: 'Nhận xét', value: result.summary),
+                _MetricRow(label: 'Bước tiếp theo', value: result.nextStep),
+              ],
             ),
           ],
         ],
@@ -2301,6 +2674,70 @@ class _RewriteResult {
     if (grammarScore < 0.45) tags.add('Câu chưa trọn');
     if (similarityToOriginal > 0.9) tags.add('Cần đổi cấu trúc');
     return tags;
+  }
+}
+
+class _SummaryResult {
+  final double overallScore;
+  final double contentRetentionScore;
+  final double brevityScore;
+  final double grammarScore;
+  final double compressionRatio;
+  final List<String> keptKeywords;
+  final List<String> missedKeywords;
+
+  const _SummaryResult({
+    required this.overallScore,
+    required this.contentRetentionScore,
+    required this.brevityScore,
+    required this.grammarScore,
+    required this.compressionRatio,
+    required this.keptKeywords,
+    required this.missedKeywords,
+  });
+
+  String get feedbackLabel {
+    if (overallScore >= 0.85) return 'Tóm tắt tốt · ngắn mà vẫn giữ được ý';
+    if (overallScore >= 0.68) return 'Khá ổn · đã cô đọng nhưng còn có thể gọn hơn';
+    if (overallScore >= 0.48) return 'Tạm được · giữ ý một phần nhưng chưa thật sự gói gọn';
+    return 'Cần làm lại · đang thiếu ý hoặc chưa đủ cô đọng';
+  }
+
+  Color get feedbackColor {
+    if (overallScore >= 0.85) return const Color(0xFF4CAF50);
+    if (overallScore >= 0.68) return const Color(0xFF81C784);
+    if (overallScore >= 0.48) return const Color(0xFFFFB300);
+    return const Color(0xFFFF7043);
+  }
+
+  String get compressionLabel {
+    return '${(compressionRatio * 100).round()}% độ dài câu gốc';
+  }
+
+  String get summary {
+    if (contentRetentionScore < 0.45) {
+      return 'Bản tóm tắt đang rơi mất khá nhiều ý chính.';
+    }
+    if (brevityScore < 0.45) {
+      return 'Bạn giữ ý được nhưng chưa rút gọn đủ so với câu gốc.';
+    }
+    if (grammarScore < 0.45) {
+      return 'Bản tóm tắt còn thiếu hình dáng một câu ngắn, gọn và tự nhiên.';
+    }
+    return 'Bản tóm tắt khá cân bằng giữa ngắn gọn, giữ ý và dễ đọc.';
+  }
+
+  String get nextStep {
+    if (contentRetentionScore < 0.45) {
+      return 'Giữ lại 2–3 từ khóa trọng tâm nhất rồi viết lại đúng 1 câu ngắn xoay quanh các từ đó.';
+    }
+    if (brevityScore < 0.45) {
+      return 'Lược bớt cụm phụ, trạng từ hoặc giải thích phụ để câu ngắn và bén hơn.';
+    }
+    if (grammarScore < 0.45) {
+      return 'Đảm bảo câu có ít nhất một động từ chính và kết thúc rõ ràng bằng dấu câu.';
+    }
+    return 'Thử tóm tắt lại ngắn hơn nữa nhưng vẫn giữ nguyên 2 từ khóa cốt lõi.';
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,7 @@ import '../features/youtube/youtube_explorer_screen.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
+import '../services/storage_service.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/speak_mode_screen.dart';
@@ -18,6 +21,7 @@ import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
 import 'read_mode/write_studio_screen.dart';
+import 'settings/shell_ui_settings_screen.dart';
 import 'settings/stt_model_settings_screen.dart';
 import 'text_library_drawer.dart';
 import 'tools/map_tab.dart';
@@ -43,24 +47,142 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final StorageService _storage = StorageService();
 
   _PrimaryTab _currentTab = _PrimaryTab.home;
   int _listenModeIndex = 0;
   int _readModeIndex = 0;
 
+  bool _compactModeSwitch = false;
+  bool _autoHideModeSwitch = false;
+  bool _enableLongPressModeSwitch = false;
+  bool _rememberLastSubMode = true;
+  bool _modeSwitchExpanded = false;
+  Timer? _modeSwitchHideTimer;
+
   @override
   void initState() {
     super.initState();
+    _loadShellUiSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
     });
   }
 
+  @override
+  void dispose() {
+    _modeSwitchHideTimer?.cancel();
+    super.dispose();
+  }
+
   bool get _isHome => _currentTab == _PrimaryTab.home;
   bool get _showListenModes => _currentTab == _PrimaryTab.listen;
   bool get _showReadModes => _currentTab == _PrimaryTab.read;
-  bool get _showModeSwitch => _showListenModes || _showReadModes;
+  bool get _hasSecondaryModes => _showListenModes || _showReadModes;
+  bool get _showModeChip =>
+      _hasSecondaryModes && (_compactModeSwitch || _autoHideModeSwitch);
+  bool get _showModeSwitch {
+    if (!_hasSecondaryModes) return false;
+    if (!_compactModeSwitch && !_autoHideModeSwitch) return true;
+    return _modeSwitchExpanded;
+  }
+
+  String get _currentModeLabel {
+    if (_showListenModes) {
+      return _listenModeIndex == 0 ? 'Nghe' : 'Nói';
+    }
+    if (_showReadModes) {
+      return _readModeIndex == 0 ? 'Đọc' : 'Viết';
+    }
+    return '';
+  }
+
+  String get _alternateModeLabel {
+    if (_showListenModes) {
+      return _listenModeIndex == 0 ? 'Nói' : 'Nghe';
+    }
+    if (_showReadModes) {
+      return _readModeIndex == 0 ? 'Viết' : 'Đọc';
+    }
+    return '';
+  }
+
+  void _loadShellUiSettings() {
+    _compactModeSwitch = _storage.getShellCompactMode();
+    _autoHideModeSwitch = _storage.getShellAutoHideModeSwitch();
+    _enableLongPressModeSwitch = _storage.getShellLongPressModeSwitch();
+    _rememberLastSubMode = _storage.getShellRememberLastSubMode();
+    _listenModeIndex =
+        ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0).clamp(0, 1))
+            .toInt();
+    _readModeIndex =
+        ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0).clamp(0, 1))
+            .toInt();
+    _syncModeSwitchVisibility();
+  }
+
+  void _syncModeSwitchVisibility() {
+    _modeSwitchHideTimer?.cancel();
+    if (!_hasSecondaryModes) {
+      _modeSwitchExpanded = false;
+      return;
+    }
+
+    if (_compactModeSwitch) {
+      _modeSwitchExpanded = false;
+      return;
+    }
+
+    if (_autoHideModeSwitch) {
+      _modeSwitchExpanded = true;
+      _scheduleModeSwitchAutoHide();
+      return;
+    }
+
+    _modeSwitchExpanded = true;
+  }
+
+  void _scheduleModeSwitchAutoHide() {
+    _modeSwitchHideTimer?.cancel();
+    if (!_autoHideModeSwitch) return;
+    _modeSwitchHideTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted || !_hasSecondaryModes) return;
+      setState(() => _modeSwitchExpanded = false);
+    });
+  }
+
+  void _toggleCurrentSecondaryMode() {
+    HapticFeedback.selectionClick();
+    if (_showListenModes) {
+      _setListenMode(_listenModeIndex == 0 ? 1 : 0);
+    } else if (_showReadModes) {
+      _setReadMode(_readModeIndex == 0 ? 1 : 0);
+    }
+  }
+
+  void _handleModeChipTap() {
+    if (!_hasSecondaryModes) return;
+    if (!_compactModeSwitch && !_autoHideModeSwitch) return;
+    setState(() {
+      _modeSwitchExpanded = !_modeSwitchExpanded;
+    });
+    if (_modeSwitchExpanded) {
+      _scheduleModeSwitchAutoHide();
+    } else {
+      _modeSwitchHideTimer?.cancel();
+    }
+  }
+
+  Future<void> _openShellUiSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ShellUiSettingsScreen()),
+    );
+    if (!mounted) return;
+    setState(() {
+      _loadShellUiSettings();
+    });
+  }
 
   Color get _currentAccent {
     switch (_currentTab) {
@@ -123,14 +245,35 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _setPrimaryTab(_PrimaryTab tab) {
-    if (_currentTab == tab) return;
-    setState(() => _currentTab = tab);
+    if (_currentTab == tab) {
+      if ((tab == _PrimaryTab.listen || tab == _PrimaryTab.read) &&
+          (_compactModeSwitch || _autoHideModeSwitch)) {
+        _handleModeChipTap();
+      }
+      return;
+    }
+
+    setState(() {
+      _currentTab = tab;
+      if (!_rememberLastSubMode) {
+        if (tab == _PrimaryTab.listen) {
+          _listenModeIndex = 0;
+          _storage.saveShellListenSubMode(0);
+        } else if (tab == _PrimaryTab.read) {
+          _readModeIndex = 0;
+          _storage.saveShellReadSubMode(0);
+        }
+      }
+      _syncModeSwitchVisibility();
+    });
   }
 
   void _setListenMode(int index) {
     setState(() {
       _currentTab = _PrimaryTab.listen;
       _listenModeIndex = index;
+      _storage.saveShellListenSubMode(index);
+      _syncModeSwitchVisibility();
     });
   }
 
@@ -138,6 +281,8 @@ class _MainShellState extends State<MainShell> {
     setState(() {
       _currentTab = _PrimaryTab.read;
       _readModeIndex = index;
+      _storage.saveShellReadSubMode(index);
+      _syncModeSwitchVisibility();
     });
   }
 
@@ -184,6 +329,14 @@ class _MainShellState extends State<MainShell> {
         color: const Color(0xFF00BCD4),
       ),
     ];
+
+    final shellSettingsTool = tools.ToolItem(
+      id: 'shell_ui_settings',
+      title: 'Giao diện shell',
+      subtitle: 'Compact mode, auto-hide, long-press đổi mode',
+      icon: Icons.tune_rounded,
+      color: const Color(0xFF90CAF9),
+    );
 
     final rememberTools = <tools.ToolItem>[
       tools.ToolItem(
@@ -261,6 +414,7 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.edit_square,
             color: const Color(0xFF26C6DA),
           ),
+          shellSettingsTool,
           ...contentTools,
           ...rememberTools,
         ];
@@ -280,6 +434,7 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.lightbulb,
             color: const Color(0xFFFFB300),
           ),
+          shellSettingsTool,
           contentTools[0],
           contentTools[3],
         ];
@@ -292,6 +447,7 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.edit_square,
             color: const Color(0xFF26C6DA),
           ),
+          shellSettingsTool,
           contentTools[1],
           contentTools[2],
           rememberTools[1],
@@ -305,12 +461,13 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.mic_rounded,
             color: const Color(0xFFB388FF),
           ),
+          shellSettingsTool,
           contentTools[3],
           rememberTools[0],
           rememberTools[1],
         ];
       case _PrimaryTab.remember:
-        return rememberTools;
+        return [shellSettingsTool, ...rememberTools];
     }
   }
 
@@ -400,6 +557,9 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'review':
         pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
+        return;
+      case 'shell_ui_settings':
+        await _openShellUiSettings();
         return;
     }
   }
@@ -565,41 +725,58 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildTitleSection() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          _titleText,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: _isHome ? 18 : 15,
-            fontWeight: FontWeight.bold,
-            color: _isHome ? Colors.white : _currentAccent,
-            letterSpacing: -0.3,
+    return GestureDetector(
+      onTap: _showModeChip ? _handleModeChipTap : null,
+      onLongPress:
+          _hasSecondaryModes && _enableLongPressModeSwitch ? _toggleCurrentSecondaryMode : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _titleText,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: _isHome ? 18 : 15,
+              fontWeight: FontWeight.bold,
+              color: _isHome ? Colors.white : _currentAccent,
+              letterSpacing: -0.3,
+            ),
           ),
-        ),
-        Consumer<PlayerProvider>(
-          builder: (_, player, __) {
-            if (player.currentSongTitle == null) {
-              return const SizedBox(height: 2);
-            }
-            return Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                player.currentSongTitle!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey[500],
+          Consumer<PlayerProvider>(
+            builder: (_, player, __) {
+              if (player.currentSongTitle == null) {
+                return const SizedBox(height: 2);
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  player.currentSongTitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                  ),
                 ),
+              );
+            },
+          ),
+          if (_hasSecondaryModes && (_showModeChip || _enableLongPressModeSwitch))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: _ModeHintChip(
+                label: _currentModeLabel,
+                altLabel: _alternateModeLabel,
+                color: _currentAccent,
+                compactEnabled: _compactModeSwitch || _autoHideModeSwitch,
+                longPressEnabled: _enableLongPressModeSwitch,
+                expanded: _showModeSwitch,
               ),
-            );
-          },
-        ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 
@@ -791,6 +968,50 @@ class _ShellActionButton extends StatelessWidget {
             border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
           child: Icon(icon, color: color, size: 20),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeHintChip extends StatelessWidget {
+  final String label;
+  final String altLabel;
+  final Color color;
+  final bool compactEnabled;
+  final bool longPressEnabled;
+  final bool expanded;
+
+  const _ModeHintChip({
+    required this.label,
+    required this.altLabel,
+    required this.color,
+    required this.compactEnabled,
+    required this.longPressEnabled,
+    required this.expanded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final suffix = compactEnabled
+        ? (expanded ? 'Chạm để ẩn' : 'Chạm để hiện')
+        : longPressEnabled
+            ? 'Giữ để đổi'
+            : altLabel;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        '$label · $suffix',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

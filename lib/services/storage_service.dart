@@ -189,6 +189,57 @@ class StorageService {
     return const [];
   }
 
+  Future<void> saveShellCompactMode(bool value) async {
+    await saveSetting('shell_compact_mode', value);
+  }
+
+  bool getShellCompactMode() {
+    return getSetting<bool>('shell_compact_mode', defaultValue: false) ?? false;
+  }
+
+  Future<void> saveShellAutoHideModeSwitch(bool value) async {
+    await saveSetting('shell_auto_hide_mode_switch', value);
+  }
+
+  bool getShellAutoHideModeSwitch() {
+    return getSetting<bool>('shell_auto_hide_mode_switch', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> saveShellLongPressModeSwitch(bool value) async {
+    await saveSetting('shell_long_press_mode_switch', value);
+  }
+
+  bool getShellLongPressModeSwitch() {
+    return getSetting<bool>('shell_long_press_mode_switch', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> saveShellRememberLastSubMode(bool value) async {
+    await saveSetting('shell_remember_last_sub_mode', value);
+  }
+
+  bool getShellRememberLastSubMode() {
+    return getSetting<bool>('shell_remember_last_sub_mode', defaultValue: true) ??
+        true;
+  }
+
+  Future<void> saveShellListenSubMode(int index) async {
+    await saveSetting('shell_listen_sub_mode', index);
+  }
+
+  int getShellListenSubMode() {
+    return getSetting<int>('shell_listen_sub_mode', defaultValue: 0) ?? 0;
+  }
+
+  Future<void> saveShellReadSubMode(int index) async {
+    await saveSetting('shell_read_sub_mode', index);
+  }
+
+  int getShellReadSubMode() {
+    return getSetting<int>('shell_read_sub_mode', defaultValue: 0) ?? 0;
+  }
+
   // ==================== AUDIO SEGMENTS ====================
 
   Box<String> get _audioSegments => Hive.box<String>(_audioSegmentsBox);

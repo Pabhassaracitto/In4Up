@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/shadowing_widget.dart';
 import '../../providers/player_provider.dart';
@@ -60,6 +61,8 @@ class SpeakModeScreen extends StatelessWidget {
                 _SpeakingStatsRow(shadowing: shadowing),
                 const SizedBox(height: 16),
                 _SpeakingPresetCard(shadowing: shadowing),
+                const SizedBox(height: 16),
+                _SpeakingHistoryCard(shadowing: shadowing),
                 const SizedBox(height: 20),
                 if (!hasAudio) ...[
                   _EmptyAudioCard(onOpenQuickActions: onOpenQuickActions),
@@ -291,22 +294,15 @@ class _SpeakingStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastScore = shadowing.currentResult?.overallScorePercent;
+    final lastScore = shadowing.lastScorePercent;
+    final bestScore = shadowing.bestScorePercent;
     return Row(
       children: [
         Expanded(
           child: _MiniStatCard(
             label: 'Lượt luyện',
-            value: '${shadowing.sessionResults.length}',
+            value: '${shadowing.totalPracticeCount}',
             color: const Color(0xFFB388FF),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MiniStatCard(
-            label: 'Preset',
-            value: '${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
-            color: const Color(0xFF42A5F5),
           ),
         ),
         const SizedBox(width: 10),
@@ -314,6 +310,14 @@ class _SpeakingStatsRow extends StatelessWidget {
           child: _MiniStatCard(
             label: 'Điểm gần nhất',
             value: lastScore == null ? '--' : '$lastScore%',
+            color: const Color(0xFF42A5F5),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniStatCard(
+            label: 'Điểm tốt nhất',
+            value: bestScore == null ? '--' : '$bestScore%',
             color: const Color(0xFF66BB6A),
           ),
         ),
@@ -387,6 +391,222 @@ class _SpeakingPresetCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SpeakingHistoryCard extends StatelessWidget {
+  final ShadowingProvider shadowing;
+
+  const _SpeakingHistoryCard({required this.shadowing});
+
+  @override
+  Widget build(BuildContext context) {
+    final history = shadowing.savedHistory.take(5).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Lịch sử luyện nói',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              if (shadowing.savedHistory.isNotEmpty)
+                TextButton.icon(
+                  onPressed: () => _confirmClear(context),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Xóa'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            shadowing.savedHistory.isEmpty
+                ? 'Chưa có phiên shadowing nào được lưu. Sau khi luyện xong, kết quả sẽ xuất hiện ở đây.'
+                : 'Xem nhanh các phiên gần đây để theo dõi tiến bộ phát âm và độ bám câu.',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          if (shadowing.savedHistory.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _HistoryOverviewRow(shadowing: shadowing),
+            const SizedBox(height: 14),
+            ...history.map((entry) => _HistoryTile(entry: entry)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmClear(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa lịch sử luyện nói'),
+        content: const Text('Bạn có chắc muốn xóa toàn bộ lịch sử shadowing đã lưu không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      await context.read<ShadowingProvider>().clearSavedHistory();
+    }
+  }
+}
+
+class _HistoryOverviewRow extends StatelessWidget {
+  final ShadowingProvider shadowing;
+
+  const _HistoryOverviewRow({required this.shadowing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _MiniStatCard(
+            label: 'TB gần đây',
+            value: '${shadowing.averageScorePercent.toStringAsFixed(0)}%',
+            color: const Color(0xFF7C4DFF),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniStatCard(
+            label: 'Preset hiện tại',
+            value: '${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+            color: const Color(0xFFFFB300),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HistoryTile extends StatelessWidget {
+  final ShadowingHistoryEntry entry;
+
+  const _HistoryTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: entry.scoreColor.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: entry.scoreColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${entry.overallScorePercent}% · ${entry.overallGrade}',
+                  style: TextStyle(
+                    color: entry.scoreColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _formatTimestamp(entry.timestamp),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            entry.originalText,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Bạn nói: ${entry.recognizedText}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _metaChip('${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+              _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _metaChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  static String _formatTimestamp(DateTime timestamp) {
+    final d = timestamp;
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 }
 

@@ -120,7 +120,8 @@ Ví dụ:
 - [x] Thêm mode `Tóm tắt ngắn` với chấm local theo giữ ý / độ cô đọng / hình dáng câu
 - [x] Thêm AI local beta cho mode `Tóm tắt ngắn`
 - [ ] Nối AI scoring sâu hơn vào `WriteStudioScreen` khi engine local hoàn thiện
-- [ ] Bổ sung speaking history / presets nâng cao / export feedback vào `SpeakModeScreen`
+- [x] Bổ sung speaking history cơ bản vào `SpeakModeScreen`
+- [ ] Bổ sung presets nâng cao / export feedback vào `SpeakModeScreen`
 - [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 
 ### Backlog

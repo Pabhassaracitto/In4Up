@@ -121,6 +121,63 @@ class ShadowingResult {
       };
 }
 
+class ShadowingHistoryEntry {
+  final String id;
+  final String originalText;
+  final String? recognizedText;
+  final int overallScorePercent;
+  final int correctWordCount;
+  final int totalWordCount;
+  final double tempoRatio;
+  final DateTime timestamp;
+
+  const ShadowingHistoryEntry({
+    required this.id,
+    required this.originalText,
+    required this.recognizedText,
+    required this.overallScorePercent,
+    required this.correctWordCount,
+    required this.totalWordCount,
+    required this.tempoRatio,
+    required this.timestamp,
+  });
+
+  factory ShadowingHistoryEntry.fromJson(Map<String, dynamic> json) {
+    return ShadowingHistoryEntry(
+      id: json['id']?.toString() ?? '',
+      originalText: json['originalText']?.toString() ?? '',
+      recognizedText: json['recognizedText']?.toString(),
+      overallScorePercent: (json['overallScorePercent'] as num?)?.toInt() ??
+          (((json['overallScore'] as num?)?.toDouble() ?? 0.0) * 100).round(),
+      correctWordCount: (json['correctWordCount'] as num?)?.toInt() ?? 0,
+      totalWordCount: (json['totalWordCount'] as num?)?.toInt() ?? 0,
+      tempoRatio: (json['tempoRatio'] as num?)?.toDouble() ?? 1.0,
+      timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  String get overallGrade {
+    final score = overallScorePercent;
+    if (score >= 95) return 'A+';
+    if (score >= 90) return 'A';
+    if (score >= 85) return 'B+';
+    if (score >= 80) return 'B';
+    if (score >= 75) return 'C+';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
+  }
+
+  Color get scoreColor {
+    final score = overallScorePercent;
+    if (score >= 85) return const Color(0xFF4CAF50);
+    if (score >= 70) return const Color(0xFFFFB300);
+    if (score >= 50) return const Color(0xFFFF9800);
+    return const Color(0xFFF44336);
+  }
+}
+
 /// Trạng thái của Shadowing Session
 enum ShadowingState {
   idle, // Chờ bắt đầu

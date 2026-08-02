@@ -14,6 +14,7 @@ import '../models/shadowing_result.dart';
 import '../services/offline_stt_service.dart';
 import '../services/phoneme_analyzer.dart';
 import '../services/pronunciation_service.dart';
+import '../../../services/storage_service.dart';
 
 class ShadowingSettings {
   final int repeatCount;
@@ -76,6 +77,8 @@ class ShadowingProvider extends ChangeNotifier {
 
   final List<ShadowingResult> _history = [];
   List<ShadowingResult> get history => _history;
+  final List<ShadowingHistoryEntry> _savedHistory = [];
+  List<ShadowingHistoryEntry> get savedHistory => List.unmodifiable(_savedHistory);
 
   // Scores
   double _similarityScore = 0.0;
@@ -84,6 +87,7 @@ class ShadowingProvider extends ChangeNotifier {
   // Audio services
   final AudioPlayer _player = AudioPlayer();
   final AudioRecorder _recorder = AudioRecorder();
+  final StorageService _storage = StorageService();
   Timer? _recordingTimer;
   Timer? _autoStopTimer; // Thêm biến quản lý auto-stop
   Timer? _countdownTimer;
@@ -95,6 +99,20 @@ class ShadowingProvider extends ChangeNotifier {
   ShadowingSettings get settings => const ShadowingSettings();
   Duration get recordedDuration => _recordingDuration;
   List<ShadowingResult> get sessionResults => _history;
+  int get totalPracticeCount => _savedHistory.length;
+  int? get lastScorePercent =>
+      _savedHistory.isEmpty ? null : _savedHistory.first.overallScorePercent;
+  int? get bestScorePercent => _savedHistory.isEmpty
+      ? null
+      : _savedHistory
+          .map((e) => e.overallScorePercent)
+          .reduce(math.max);
+  double get averageScorePercent => _savedHistory.isEmpty
+      ? 0.0
+      : _savedHistory
+              .map((e) => e.overallScorePercent)
+              .reduce((a, b) => a + b) /
+          _savedHistory.length;
   bool get isRecording => _state == ShadowingState.recording;
   bool get isPlaying => _state == ShadowingState.playingOriginal;
   bool get hasResult => _currentResult != null;
@@ -120,7 +138,23 @@ class ShadowingProvider extends ChangeNotifier {
   Future<void> _initServices() async {
     await PhonemeAnalyzer.initialize();
     await OfflineSTTService.initialize();
+    _loadSavedHistory();
     debugPrint('✅ Shadowing services initialized');
+  }
+
+  void _loadSavedHistory() {
+    if (!_storage.isInitialized) return;
+    try {
+      final raw = _storage.getAllShadowingResults();
+      final parsed = raw.map(ShadowingHistoryEntry.fromJson).toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      _savedHistory
+        ..clear()
+        ..addAll(parsed);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error loading shadowing history: $e');
+    }
   }
 
   @override
@@ -443,6 +477,10 @@ class ShadowingProvider extends ChangeNotifier {
 
       _similarityScore = _currentResult!.overallScore;
       _history.add(_currentResult!);
+      await _storage.saveShadowingResult(_currentResult!);
+      final savedEntry = ShadowingHistoryEntry.fromJson(_currentResult!.toJson());
+      _savedHistory.removeWhere((e) => e.id == savedEntry.id);
+      _savedHistory.insert(0, savedEntry);
 
       debugPrint('📊 === RESULTS ===');
       debugPrint(
@@ -552,6 +590,12 @@ class ShadowingProvider extends ChangeNotifier {
   /// Retry (alias for reset)
   void retry() {
     reset();
+  }
+
+  Future<void> clearSavedHistory() async {
+    _savedHistory.clear();
+    await _storage.clearShadowingHistory();
+    notifyListeners();
   }
 
   void stopPlayback() {

@@ -853,51 +853,107 @@ class _MainShellState extends State<MainShell> {
           ),
         ),
       ),
-      child: NavigationBar(
-        selectedIndex: _currentTab.index,
-        backgroundColor: const Color(0xFF111827),
-        indicatorColor: _currentAccent.withValues(alpha: 0.2),
-        onDestinationSelected: (index) {
-          HapticFeedback.selectionClick();
-          _setPrimaryTab(_PrimaryTab.values[index]);
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: l10n.home,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.headphones_outlined),
-            selectedIcon: const Icon(Icons.headphones),
-            label: l10n.listen,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.menu_book_outlined),
-            selectedIcon: const Icon(Icons.menu_book),
-            label: l10n.read,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.lightbulb_outline),
-            selectedIcon: const Icon(Icons.lightbulb),
-            label: l10n.understand,
-          ),
-          NavigationDestination(
-            icon: Consumer<VocabularyProvider>(
-              builder: (_, vocab, __) => _RememberNavIcon(
-                dueCount: vocab.dueCount,
-                filled: false,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: _BottomNavItem(
+                  label: l10n.home,
+                  selected: _currentTab == _PrimaryTab.home,
+                  color: Colors.white,
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _setPrimaryTab(_PrimaryTab.home);
+                  },
+                ),
               ),
-            ),
-            selectedIcon: Consumer<VocabularyProvider>(
-              builder: (_, vocab, __) => _RememberNavIcon(
-                dueCount: vocab.dueCount,
-                filled: true,
+              Expanded(
+                child: _BottomNavItem(
+                  label: l10n.listen,
+                  selected: _currentTab == _PrimaryTab.listen,
+                  color: _currentTab == _PrimaryTab.listen
+                      ? _currentAccent
+                      : const Color(0xFF6C63FF),
+                  icon: Icons.headphones_outlined,
+                  selectedIcon: Icons.headphones,
+                  showLongPressHint: _enableLongPressModeSwitch,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _setPrimaryTab(_PrimaryTab.listen);
+                  },
+                  onLongPress: _enableLongPressModeSwitch
+                      ? () {
+                          HapticFeedback.mediumImpact();
+                          _setListenMode(1);
+                        }
+                      : null,
+                ),
               ),
-            ),
-            label: l10n.remember,
+              Expanded(
+                child: _BottomNavItem(
+                  label: l10n.read,
+                  selected: _currentTab == _PrimaryTab.read,
+                  color: _currentTab == _PrimaryTab.read
+                      ? _currentAccent
+                      : const Color(0xFF2196F3),
+                  icon: Icons.menu_book_outlined,
+                  selectedIcon: Icons.menu_book,
+                  showLongPressHint: _enableLongPressModeSwitch,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _setPrimaryTab(_PrimaryTab.read);
+                  },
+                  onLongPress: _enableLongPressModeSwitch
+                      ? () {
+                          HapticFeedback.mediumImpact();
+                          _setReadMode(1);
+                        }
+                      : null,
+                ),
+              ),
+              Expanded(
+                child: _BottomNavItem(
+                  label: l10n.understand,
+                  selected: _currentTab == _PrimaryTab.understand,
+                  color: _currentTab == _PrimaryTab.understand
+                      ? _currentAccent
+                      : const Color(0xFFFFB300),
+                  icon: Icons.lightbulb_outline,
+                  selectedIcon: Icons.lightbulb,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _setPrimaryTab(_PrimaryTab.understand);
+                  },
+                ),
+              ),
+              Expanded(
+                child: Consumer<VocabularyProvider>(
+                  builder: (_, vocab, __) => _BottomNavItem(
+                    label: l10n.remember,
+                    selected: _currentTab == _PrimaryTab.remember,
+                    color: _currentTab == _PrimaryTab.remember
+                        ? _currentAccent
+                        : const Color(0xFF4CAF50),
+                    icon: Icons.psychology_outlined,
+                    selectedIcon: Icons.psychology,
+                    badgeText: vocab.dueCount > 0
+                        ? (vocab.dueCount > 99 ? '99+' : '${vocab.dueCount}')
+                        : null,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      _setPrimaryTab(_PrimaryTab.remember);
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1018,42 +1074,105 @@ class _ModeHintChip extends StatelessWidget {
   }
 }
 
-class _RememberNavIcon extends StatelessWidget {
-  final int dueCount;
-  final bool filled;
+class _BottomNavItem extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color color;
+  final IconData icon;
+  final IconData selectedIcon;
+  final String? badgeText;
+  final bool showLongPressHint;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const _RememberNavIcon({
-    required this.dueCount,
-    required this.filled,
+  const _BottomNavItem({
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.icon,
+    required this.selectedIcon,
+    required this.onTap,
+    this.onLongPress,
+    this.badgeText,
+    this.showLongPressHint = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(filled ? Icons.psychology : Icons.psychology_outlined),
-        if (dueCount > 0)
-          Positioned(
-            top: -4,
-            right: -10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                dueCount > 99 ? '99+' : '$dueCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+    final activeColor = selected ? color : Colors.grey[500]!;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? color.withValues(alpha: 0.24)
+                  : Colors.transparent,
             ),
           ),
-      ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(selected ? selectedIcon : icon, color: activeColor, size: 22),
+                  if (badgeText != null)
+                    Positioned(
+                      top: -6,
+                      right: -14,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          badgeText!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (showLongPressHint)
+                    Positioned(
+                      bottom: -2,
+                      right: -8,
+                      child: Icon(
+                        Icons.subdirectory_arrow_left,
+                        size: 10,
+                        color: activeColor.withValues(alpha: 0.8),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: activeColor,
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

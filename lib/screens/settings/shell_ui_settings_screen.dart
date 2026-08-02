@@ -82,7 +82,7 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           _ToggleCard(
             title: 'Compact mode cho switch mode',
             subtitle:
-                'Ẩn thanh Nghe | Nói hoặc Đọc | Viết thành dạng gọn. Chạm vào chip mode ở app bar để hiện lại.',
+                'Ẩn thanh Nghe | Nói hoặc Đọc | Viết thành dạng gọn. Chạm vào chip mode ở app bar để hiện lại khi cần.',
             value: _compactMode,
             onChanged: _updateCompactMode,
             icon: Icons.compress,
@@ -100,9 +100,9 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           ),
           const SizedBox(height: 12),
           _ToggleCard(
-            title: 'Long-press chip mode để đổi nhanh',
+            title: 'Long-press tab chính để vào mode phụ',
             subtitle:
-                'Long-press chip mode trên app bar để đổi giữa Nghe ↔ Nói hoặc Đọc ↔ Viết mà không cần mở thanh switch.',
+                'Giữ tab Nghe để vào Nói, giữ tab Đọc để vào Viết. Chip mode trên app bar vẫn hỗ trợ đổi nhanh khi cần.',
             value: _longPressModeSwitch,
             onChanged: _updateLongPressModeSwitch,
             icon: Icons.touch_app_outlined,

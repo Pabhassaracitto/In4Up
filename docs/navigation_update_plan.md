@@ -84,10 +84,10 @@ Ví dụ:
 
 ### Phase 5 — Advanced UX settings (sau mặc định ổn định)
 
-- [ ] Tùy chọn ẩn/thu gọn mode switch.
-- [ ] Tùy chọn auto-hide mode switch khi cuộn.
-- [ ] Long-press tab chính để jump nhanh sang tab phụ.
-- [ ] Nhớ mode gần nhất của từng tab.
+- [x] Tùy chọn ẩn/thu gọn mode switch.
+- [x] Tùy chọn auto-hide mode switch khi cuộn.
+- [x] Long-press tab chính để jump nhanh sang tab phụ.
+- [x] Nhớ mode gần nhất của từng tab.
 
 ---
 
@@ -123,12 +123,11 @@ Ví dụ:
 - [x] Bổ sung speaking history cơ bản vào `SpeakModeScreen`
 - [x] Bổ sung review chi tiết + copy export feedback cho speaking history
 - [x] Bổ sung presets nâng cao vào `SpeakModeScreen` (preset hệ thống + preset cá nhân)
-- [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
+- [x] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 
 ### Backlog
-- [ ] Compact mode cho power users
-- [ ] Long-press jump sang tab phụ
-- [ ] Auto-hide secondary modes
+- [ ] Animation tinh hơn cho compact/auto-hide secondary modes
+- [ ] Tooltip/hướng dẫn onboarding cho long-press trên tab chính
 - [ ] Phân quyền hiển thị quick actions theo mức độ sử dụng gần đây
 
 ---

@@ -19,6 +19,7 @@ import 'package:vipsound_stt/models/stt_config.dart';
 import 'package:vipsound_stt/models/stt_model_info.dart';
 import 'package:vipsound_stt/stt_service_facade.dart';
 
+import 'core/responsive/app_responsive.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
@@ -296,6 +297,18 @@ class _MyAppState extends State<MyApp> {
             },
             supportedLocales: AppLocalizations.supportedLocales,
             theme: _buildTheme(),
+            builder: (context, child) {
+              final mediaQuery = MediaQuery.maybeOf(context);
+              if (mediaQuery == null) return child ?? const SizedBox.shrink();
+
+              return MediaQuery(
+                data: mediaQuery.copyWith(
+                  textScaleFactor:
+                      AppResponsive.clampTextScale(mediaQuery.textScaleFactor),
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             home: const MainShell(),
           );
         },

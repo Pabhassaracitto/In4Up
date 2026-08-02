@@ -1300,14 +1300,17 @@ class _BottomNavItem extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: activeColor,
-                  fontSize: 10,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: activeColor,
+                    fontSize: 10,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
               ),
             ],

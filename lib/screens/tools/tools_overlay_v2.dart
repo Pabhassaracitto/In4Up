@@ -10,6 +10,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/responsive/app_responsive.dart';
+
 class ToolItem {
   final String id;
   final String title;
@@ -259,14 +261,28 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
   }
 
   Widget _buildToolsGrid() {
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = AppResponsive.adaptiveGridColumns(
+      width,
+      compact: width < 380 ? 1 : 2,
+      medium: 2,
+      expanded: 3,
+      large: 4,
+    );
+    final childAspectRatio = width < 380
+        ? 3.4
+        : width < 600
+            ? 2.2
+            : width < 1024
+                ? 2.0
+                : 2.15;
+
     return GridView.builder(
-      // ★ FIX: shrinkWrap + NeverScrollable bên trong SingleChildScrollView
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        // ★ FIX BOX HEIGHT: 2.2 thay vì 1.55 → box thấp hơn ~30%
-        childAspectRatio: 2.2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: childAspectRatio,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
       ),

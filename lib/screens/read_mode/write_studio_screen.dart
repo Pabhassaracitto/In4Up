@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vipsound_ai/vipsound_ai.dart';
 
+import '../../core/responsive/app_responsive.dart';
 import '../../models/text_item.dart';
 import '../../providers/text_provider.dart';
 
@@ -812,80 +813,82 @@ Hãy trả về JSON hợp lệ với:
           final activeLineIndex = textProvider.currentLineIndex;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HeroCard(
-                  hasText: hasText,
-                  source: source,
-                  lineCount: textProvider.lines.length,
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _QuickActionChip(
-                      icon: Icons.language,
-                      label: 'Web Reader',
-                      color: const Color(0xFF26A69A),
-                      onTap: widget.onOpenWebReader,
-                    ),
-                    _QuickActionChip(
-                      icon: Icons.picture_as_pdf,
-                      label: 'PDF Reader',
-                      color: const Color(0xFFEF5350),
-                      onTap: widget.onOpenPdfReader,
-                    ),
-                    _QuickActionChip(
-                      icon: Icons.auto_awesome,
-                      label: 'Công cụ nhanh',
-                      color: const Color(0xFF26C6DA),
-                      onTap: widget.onOpenQuickActions,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                if (!hasText)
-                  _EmptyTextCard(
-                    onOpenWebReader: widget.onOpenWebReader,
-                    onOpenPdfReader: widget.onOpenPdfReader,
-                  )
-                else ...[
-                  _buildContextCard(
-                    title: currentTitle,
-                    currentLine: currentLine!,
-                    totalLines: textProvider.lines.length,
-                    activeLineIndex: activeLineIndex,
-                    onJumpToActive: activeLineIndex >= 0
-                        ? () => _jumpToCurrentLine(textProvider)
-                        : null,
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
+            child: ResponsiveContentFrame(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HeroCard(
+                    hasText: hasText,
+                    source: source,
+                    lineCount: textProvider.lines.length,
                   ),
                   const SizedBox(height: 16),
-                  _buildExerciseSelector(textProvider),
-                  const SizedBox(height: 16),
-                  _buildLineNavigator(textProvider),
-                  const SizedBox(height: 16),
-                  if (_exerciseType == _WriteExerciseType.dictation)
-                    _buildDictationCard(textProvider, currentLine!)
-                  else if (_exerciseType == _WriteExerciseType.rewrite)
-                    _buildRewriteCard(textProvider, currentLine!)
-                  else if (_exerciseType == _WriteExerciseType.summary)
-                    _buildSummaryCard(textProvider, currentLine!)
-                  else
-                    _buildClozeCard(currentLine!),
-                  const SizedBox(height: 20),
-                  const _TipCard(
-                    title: 'Vai trò của tab Viết',
-                    bullets: [
-                      'Viết là nhánh output gắn trực tiếp với nguồn text hoặc lyric hiện tại.',
-                      'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ, chọn đáp án, viết lại ý và tóm tắt ngắn.',
-                      'Tab này đang đi theo 2 lớp: phản hồi local luôn chạy, AI local là lớp tăng cường khi model sẵn sàng.',
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _QuickActionChip(
+                        icon: Icons.language,
+                        label: 'Web Reader',
+                        color: const Color(0xFF26A69A),
+                        onTap: widget.onOpenWebReader,
+                      ),
+                      _QuickActionChip(
+                        icon: Icons.picture_as_pdf,
+                        label: 'PDF Reader',
+                        color: const Color(0xFFEF5350),
+                        onTap: widget.onOpenPdfReader,
+                      ),
+                      _QuickActionChip(
+                        icon: Icons.auto_awesome,
+                        label: 'Công cụ nhanh',
+                        color: const Color(0xFF26C6DA),
+                        onTap: widget.onOpenQuickActions,
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+                  if (!hasText)
+                    _EmptyTextCard(
+                      onOpenWebReader: widget.onOpenWebReader,
+                      onOpenPdfReader: widget.onOpenPdfReader,
+                    )
+                  else ...[
+                    _buildContextCard(
+                      title: currentTitle,
+                      currentLine: currentLine!,
+                      totalLines: textProvider.lines.length,
+                      activeLineIndex: activeLineIndex,
+                      onJumpToActive: activeLineIndex >= 0
+                          ? () => _jumpToCurrentLine(textProvider)
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildExerciseSelector(textProvider),
+                    const SizedBox(height: 16),
+                    _buildLineNavigator(textProvider),
+                    const SizedBox(height: 16),
+                    if (_exerciseType == _WriteExerciseType.dictation)
+                      _buildDictationCard(textProvider, currentLine!)
+                    else if (_exerciseType == _WriteExerciseType.rewrite)
+                      _buildRewriteCard(textProvider, currentLine!)
+                    else if (_exerciseType == _WriteExerciseType.summary)
+                      _buildSummaryCard(textProvider, currentLine!)
+                    else
+                      _buildClozeCard(currentLine!),
+                    const SizedBox(height: 20),
+                    const _TipCard(
+                      title: 'Vai trò của tab Viết',
+                      bullets: [
+                        'Viết là nhánh output gắn trực tiếp với nguồn text hoặc lyric hiện tại.',
+                        'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ, chọn đáp án, viết lại ý và tóm tắt ngắn.',
+                        'Tab này đang đi theo 2 lớp: phản hồi local luôn chạy, AI local là lớp tăng cường khi model sẵn sàng.',
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
+import '../../core/responsive/app_responsive.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 import '../settings/stt_model_settings_screen.dart';
@@ -46,44 +47,68 @@ class _HomeScreenState extends State<HomeScreen> {
               onRefresh: () async {},
               backgroundColor: const Color(0xFF1A1A2E),
               color: const Color(0xFF6C63FF),
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(child: _buildGlassHeader(context)),
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(child: FocusStreakCard()),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontalPadding =
+                      AppResponsive.pageHorizontalPadding(constraints.maxWidth);
+
+                  return ResponsiveContentFrame(
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(child: _buildGlassHeader(context)),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: FocusStreakCard(),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: MemoryGardenCard(
+                              onStartReview: widget.onNavigateToMemory,
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: HebbianInputCard(),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildBentoModesGrid(context),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: KnowledgeGraphPreview(),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                      ],
                     ),
-                    sliver: SliverToBoxAdapter(
-                      child: MemoryGardenCard(
-                        onStartReview: widget.onNavigateToMemory,
-                      ),
-                    ),
-                  ),
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(child: HebbianInputCard()),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildBentoModesGrid(context),
-                    ),
-                  ),
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(child: KnowledgeGraphPreview()),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -106,130 +131,190 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGlassHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.commandCenter,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.blue[400],
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.knowledgeOS,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.smart_toy_outlined,
-                  color: Colors.blueAccent,
-                  size: 24,
-                ),
-                tooltip: l10n.manageAIModels,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SttModelSettingsScreen(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = AppResponsive.isCompact(constraints.maxWidth);
+        final horizontal = isCompact ? 16.0 : 24.0;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 8),
+          child: isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeaderTextBlock(context, l10n),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.smart_toy_outlined,
+                            color: Colors.blueAccent,
+                            size: 24,
+                          ),
+                          tooltip: l10n.manageAIModels,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SttModelSettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _FirebaseAuthButton(),
+                      ],
                     ),
-                  );
-                },
-              ),
-              _FirebaseAuthButton(),
-            ],
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildHeaderTextBlock(context, l10n)),
+                    const SizedBox(width: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.smart_toy_outlined,
+                            color: Colors.blueAccent,
+                            size: 24,
+                          ),
+                          tooltip: l10n.manageAIModels,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SttModelSettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _FirebaseAuthButton(),
+                      ],
+                    ),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeaderTextBlock(BuildContext context, AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.commandCenter,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: Colors.blue[400],
+            letterSpacing: 2,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.knowledgeOS,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 12,
+            height: 1.4,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildBentoModesGrid(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.studioRoom,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: Colors.grey,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.35,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = AppResponsive.adaptiveGridColumns(
+          width,
+          compact: width < 380 ? 1 : 2,
+          medium: 2,
+          expanded: 4,
+          large: 4,
+        );
+        final childAspectRatio = width < 380
+            ? 2.2
+            : width < 600
+                ? 1.35
+                : width < 1024
+                    ? 1.55
+                    : 1.85;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _BentoCard(
-              icon: Icons.headphones,
-              title: l10n.listen,
-              subtitle: 'Nghe · Nói',
-              color: const Color(0xFF6C63FF),
-              onTap: widget.onNavigateToListen,
+            Text(
+              l10n.studioRoom,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Colors.grey,
+                letterSpacing: 1.2,
+              ),
             ),
-            _BentoCard(
-              icon: Icons.menu_book,
-              title: l10n.read,
-              subtitle: 'Đọc · Viết',
-              color: const Color(0xFF2196F3),
-              onTap: widget.onNavigateToRead,
-            ),
-            _BentoCard(
-              icon: Icons.lightbulb,
-              title: l10n.understand,
-              subtitle: 'Đồng bộ · Hiểu sâu',
-              color: const Color(0xFFFFB300),
-              onTap: widget.onNavigateToUnderstand,
-            ),
-            _BentoCard(
-              icon: Icons.psychology,
-              title: l10n.remember,
-              subtitle: 'Ôn tập · SRS',
-              color: const Color(0xFF4CAF50),
-              onTap: widget.onNavigateToMemory,
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: childAspectRatio,
+              children: [
+                _BentoCard(
+                  icon: Icons.headphones,
+                  title: l10n.listen,
+                  subtitle: 'Nghe · Nói',
+                  color: const Color(0xFF6C63FF),
+                  onTap: widget.onNavigateToListen,
+                ),
+                _BentoCard(
+                  icon: Icons.menu_book,
+                  title: l10n.read,
+                  subtitle: 'Đọc · Viết',
+                  color: const Color(0xFF2196F3),
+                  onTap: widget.onNavigateToRead,
+                ),
+                _BentoCard(
+                  icon: Icons.lightbulb,
+                  title: l10n.understand,
+                  subtitle: 'Đồng bộ · Hiểu sâu',
+                  color: const Color(0xFFFFB300),
+                  onTap: widget.onNavigateToUnderstand,
+                ),
+                _BentoCard(
+                  icon: Icons.psychology,
+                  title: l10n.remember,
+                  subtitle: 'Ôn tập · SRS',
+                  color: const Color(0xFF4CAF50),
+                  onTap: widget.onNavigateToMemory,
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/responsive/app_responsive.dart';
 import '../../features/shadowing/models/shadowing_preset.dart';
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
@@ -29,68 +30,70 @@ class SpeakModeScreen extends StatelessWidget {
           final hasAudio = player.currentSongPath != null;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HeroCard(hasAudio: hasAudio, title: player.currentSongTitle),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _QuickActionChip(
-                      icon: Icons.record_voice_over,
-                      label: 'YouGlish',
-                      color: const Color(0xFF00BCD4),
-                      onTap: onOpenYouGlish,
-                    ),
-                    _QuickActionChip(
-                      icon: Icons.auto_awesome,
-                      label: 'Công cụ nhanh',
-                      color: const Color(0xFF7C4DFF),
-                      onTap: onOpenQuickActions,
-                    ),
-                    _QuickActionChip(
-                      icon: Icons.lightbulb_outline,
-                      label: 'Qua tab Hiểu',
-                      color: const Color(0xFFFFB300),
-                      onTap: onOpenUnderstand,
-                    ),
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
+            child: ResponsiveContentFrame(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HeroCard(hasAudio: hasAudio, title: player.currentSongTitle),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _QuickActionChip(
+                        icon: Icons.record_voice_over,
+                        label: 'YouGlish',
+                        color: const Color(0xFF00BCD4),
+                        onTap: onOpenYouGlish,
+                      ),
+                      _QuickActionChip(
+                        icon: Icons.auto_awesome,
+                        label: 'Công cụ nhanh',
+                        color: const Color(0xFF7C4DFF),
+                        onTap: onOpenQuickActions,
+                      ),
+                      _QuickActionChip(
+                        icon: Icons.lightbulb_outline,
+                        label: 'Qua tab Hiểu',
+                        color: const Color(0xFFFFB300),
+                        onTap: onOpenUnderstand,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _SpeakingStatsRow(shadowing: shadowing),
+                  const SizedBox(height: 16),
+                  _SpeakingPresetCard(shadowing: shadowing),
+                  const SizedBox(height: 16),
+                  _SpeakingHistoryCard(shadowing: shadowing),
+                  const SizedBox(height: 20),
+                  if (!hasAudio) ...[
+                    _EmptyAudioCard(onOpenQuickActions: onOpenQuickActions),
+                  ] else ...[
+                    const ShadowingWidget(),
                   ],
-                ),
-                const SizedBox(height: 16),
-                _SpeakingStatsRow(shadowing: shadowing),
-                const SizedBox(height: 16),
-                _SpeakingPresetCard(shadowing: shadowing),
-                const SizedBox(height: 16),
-                _SpeakingHistoryCard(shadowing: shadowing),
-                const SizedBox(height: 20),
-                if (!hasAudio) ...[
-                  _EmptyAudioCard(onOpenQuickActions: onOpenQuickActions),
-                ] else ...[
-                  const ShadowingWidget(),
+                  const SizedBox(height: 20),
+                  const _TipCard(
+                    title: 'Luồng luyện nói đề xuất',
+                    bullets: [
+                      '1. Chọn audio ở tab Nghe hoặc mở nhanh từ Công cụ nhanh.',
+                      '2. Tạo A-B loop cho câu muốn luyện.',
+                      '3. Chuyển sang tab Nói để shadowing và nghe lại bản ghi.',
+                      '4. Dùng YouGlish để đối chiếu phát âm tự nhiên.',
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const _TipCard(
+                    title: 'Thiết kế hiện tại',
+                    bullets: [
+                      'Nói là không gian thực hành phát âm và lặp lại có chủ đích.',
+                      'Preset nhanh giúp đổi nhịp luyện tập mà không cần chui sâu vào cài đặt.',
+                      'Các chức năng sâu hơn như AI chấm phát âm sẽ tiếp tục gom về đây.',
+                    ],
+                  ),
                 ],
-                const SizedBox(height: 20),
-                const _TipCard(
-                  title: 'Luồng luyện nói đề xuất',
-                  bullets: [
-                    '1. Chọn audio ở tab Nghe hoặc mở nhanh từ Công cụ nhanh.',
-                    '2. Tạo A-B loop cho câu muốn luyện.',
-                    '3. Chuyển sang tab Nói để shadowing và nghe lại bản ghi.',
-                    '4. Dùng YouGlish để đối chiếu phát âm tự nhiên.',
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const _TipCard(
-                  title: 'Thiết kế hiện tại',
-                  bullets: [
-                    'Nói là không gian thực hành phát âm và lặp lại có chủ đích.',
-                    'Preset nhanh giúp đổi nhịp luyện tập mà không cần chui sâu vào cài đặt.',
-                    'Các chức năng sâu hơn như AI chấm phát âm sẽ tiếp tục gom về đây.',
-                  ],
-                ),
-              ],
+              ),
             ),
           );
         },

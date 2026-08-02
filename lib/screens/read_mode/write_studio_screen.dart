@@ -411,26 +411,21 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     required _DictationResult result,
   }) {
     return '''
+VIPSOUND_WRITE_REVIEW
+EXPECTED: $expected
+ACTUAL: $actual
+TOTAL_SCORE: ${(result.score * 100).round()}
+ORDER_SCORE: ${(result.orderScore * 100).round()}
+SPELLING_SCORE: ${(result.spellingScore * 100).round()}
+MISSING: ${result.missingWords.isEmpty ? 'none' : result.missingWords.join(', ')}
+EXTRA: ${result.extraWords.isEmpty ? 'none' : result.extraWords.join(', ')}
+
 Bạn là bộ phản hồi viết offline của VipSound.
-Hãy phân tích bài làm của người học bằng tiếng Việt, ngắn gọn và hữu ích.
-
-Câu gốc:
-$expected
-
-Câu người học:
-$actual
-
-Điểm heuristic hiện có:
-- Tổng: ${(result.score * 100).round()}%
-- Thứ tự: ${(result.orderScore * 100).round()}%
-- Chính tả: ${(result.spellingScore * 100).round()}%
-- Từ thiếu: ${result.missingWords.join(', ')}
-- Từ dư: ${result.extraWords.join(', ')}
-
-Hãy cho:
-1. Một nhận xét ngắn.
-2. Những lỗi nổi bật nhất.
-3. Gợi ý sửa hoặc cách luyện vòng tiếp theo.
+Hãy trả về JSON hợp lệ với:
+- summary: nhận xét ngắn bằng tiếng Việt
+- topics: 2-4 nhãn ngắn
+- action_items: 2-4 gợi ý luyện tiếp cụ thể
+- grammar: nếu có thể, mô tả ngắn subject/verb/object/pattern/explanation_vi
 ''';
   }
 
@@ -448,6 +443,7 @@ Hãy cho:
       result: result,
     );
 
+    facade.clearAnalysis();
     setState(() {
       _lastAiPromptKey = prompt;
     });
@@ -884,6 +880,7 @@ Hãy cho:
                     setState(() {
                       _dictationController.clear();
                       _dictationResult = null;
+                      _lastAiPromptKey = '';
                     });
                   },
                   icon: const Icon(Icons.refresh),
@@ -921,6 +918,7 @@ Hãy cho:
     final hasMatchingAnalysis = _hasMatchingAiAnalysis(facade);
     final analysis = hasMatchingAnalysis ? facade.currentAnalysis : null;
     final isLoadingCurrent = facade.isLoading && _lastAiPromptKey.isNotEmpty;
+    final coach = _LocalCoachInsight.fromResult(result);
 
     return Container(
       width: double.infinity,
@@ -939,7 +937,7 @@ Hãy cho:
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Phản hồi AI local (beta)',
+                  'Phản hồi sâu 2 tầng',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 15,
@@ -956,7 +954,7 @@ Hãy cho:
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  facade.hasModel ? 'Sẵn sàng' : 'Chưa có model',
+                  facade.hasModel ? 'AI local sẵn sàng' : 'Chỉ tầng cục bộ',
                   style: TextStyle(
                     color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
                     fontSize: 11,
@@ -967,13 +965,46 @@ Hãy cho:
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            facade.hasModel
-                ? 'Dùng model local để đưa phản hồi sâu hơn sau phần chấm nhanh. Hiện được thiết kế theo local-first.'
-                : 'Chấm nhanh vẫn chạy offline bình thường. Để có phản hồi AI sâu hơn, hãy import model .gguf vào thiết bị.',
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          const Text(
+            'Tầng 1 luôn chạy offline bằng phân tích cục bộ. Tầng 2 dùng AI local để cho phản hồi sâu hơn khi model đã sẵn sàng.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          _FeedbackCard(
+            title: 'Tầng 1 · Huấn luyện cục bộ',
+            color: coach.color,
+            children: [
+              _MetricRow(label: 'Kết luận', value: coach.summary),
+              _MetricRow(label: 'Thế mạnh', value: coach.strength),
+              _MetricRow(label: 'Điểm cần sửa', value: coach.primaryIssue),
+              _MetricRow(label: 'Lượt tiếp theo', value: coach.nextStep),
+            ],
           ),
           const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: coach.tags
+                .map(
+                  (tag) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: coach.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      tag,
+                      style: TextStyle(
+                        color: coach.color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -982,7 +1013,7 @@ Hãy cho:
                       ? null
                       : () => _runAiReview(currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
-                  label: const Text('Phân tích sâu'),
+                  label: const Text('Tầng 2 · AI local'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1007,7 +1038,7 @@ Hãy cho:
           if (analysis != null) ...[
             const SizedBox(height: 16),
             _FeedbackCard(
-              title: 'AI beta · ${facade.modelSourceLabel}',
+              title: 'Tầng 2 · ${facade.modelSourceLabel}',
               color: const Color(0xFFB388FF),
               children: [
                 _MetricRow(
@@ -1793,6 +1824,86 @@ class _DictationResult {
     if (score >= 0.75) return const Color(0xFF81C784);
     if (score >= 0.55) return const Color(0xFFFFB300);
     return const Color(0xFFFF7043);
+  }
+}
+
+class _LocalCoachInsight {
+  final String summary;
+  final String strength;
+  final String primaryIssue;
+  final String nextStep;
+  final List<String> tags;
+  final Color color;
+
+  const _LocalCoachInsight({
+    required this.summary,
+    required this.strength,
+    required this.primaryIssue,
+    required this.nextStep,
+    required this.tags,
+    required this.color,
+  });
+
+  factory _LocalCoachInsight.fromResult(_DictationResult result) {
+    final tags = <String>[];
+
+    String strength;
+    if (result.score >= 0.9) {
+      strength = 'Bạn đã giữ được gần như toàn bộ cấu trúc và nội dung câu.';
+      tags.add('Giữ câu tốt');
+    } else if (result.orderScore >= 0.75) {
+      strength = 'Thứ tự ý trong câu khá ổn, nền recall đang tốt.';
+      tags.add('Bám trật tự');
+    } else if (result.spellingScore >= 0.75) {
+      strength = 'Bạn nghe/nhớ được âm tương đối tốt nhưng cần chắc hơn về cấu trúc.';
+      tags.add('Nghe âm ổn');
+    } else {
+      strength = 'Bạn đã bắt đầu bám được một phần câu, cần chia nhỏ bài luyện hơn.';
+      tags.add('Đang xây nền');
+    }
+
+    String issue;
+    String nextStep;
+
+    if (result.missingWords.isNotEmpty && result.orderScore < 0.65) {
+      issue = 'Đang rơi cả từ khóa lẫn thứ tự cụm, nên luyện theo chunk ngắn 3–5 từ.';
+      nextStep = 'Nghe lại 2 vòng, dừng sau từng cụm nhỏ rồi chép từng phần trước khi ghép cả câu.';
+      tags.add('Thiếu từ khóa');
+      tags.add('Vỡ cấu trúc');
+    } else if (result.missingWords.isNotEmpty) {
+      issue = 'Bạn bỏ sót một số từ khóa quan trọng: ${result.missingWords.join(', ')}.';
+      nextStep = 'Giữ nguyên tốc độ nhưng nhìn đáp án 1 lần, sau đó che lại và chép thêm 1 vòng tập trung vào từ khóa thiếu.';
+      tags.add('Thiếu từ');
+    } else if (result.extraWords.isNotEmpty) {
+      issue = 'Bạn thêm từ ngoài câu gốc, dấu hiệu đoán theo ý hơn là bám âm thanh.';
+      nextStep = 'Giảm tốc độ nghe hoặc đọc TTS, tập trung chép đúng những gì thực sự nghe được thay vì suy diễn thêm.';
+      tags.add('Thêm từ');
+    } else if (result.spellingScore < 0.7) {
+      issue = 'Nội dung gần đúng nhưng chính tả/độ sát từng từ còn yếu.';
+      nextStep = 'Mở đáp án, chép lại đúng chính tả 1 vòng rồi làm lại ngay cùng câu để khóa chính xác mặt chữ.';
+      tags.add('Chính tả');
+    } else {
+      issue = 'Sai số còn nhỏ, chủ yếu ở độ mượt và độ ổn định giữa các lần chép.';
+      nextStep = 'Tăng độ khó bằng cách chuyển sang câu kế tiếp hoặc thử chế độ điền từ để ép recall chủ động hơn.';
+      tags.add('Sẵn sàng tăng độ khó');
+    }
+
+    if (result.score >= 0.9) {
+      tags.add('Qua câu mới');
+    } else if (result.score >= 0.7) {
+      tags.add('Lặp thêm 1 vòng');
+    } else {
+      tags.add('Giảm tải');
+    }
+
+    return _LocalCoachInsight(
+      summary: result.feedbackLabel,
+      strength: strength,
+      primaryIssue: issue,
+      nextStep: nextStep,
+      tags: tags,
+      color: result.feedbackColor,
+    );
   }
 }
 

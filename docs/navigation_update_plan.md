@@ -114,6 +114,7 @@ Ví dụ:
 - [x] Nối dictation / cloze cơ bản vào `WriteStudioScreen`
 - [x] Tách speaking presets và stats cơ bản vào `SpeakModeScreen`
 - [x] Nối local-first AI beta gate vào `WriteStudioScreen` (heuristic luôn chạy, AI local là optional)
+- [x] Bổ sung phản hồi sâu 2 tầng cho `WriteStudioScreen` (coach cục bộ + AI local beta)
 - [ ] Nối AI scoring sâu hơn vào `WriteStudioScreen` khi engine local hoàn thiện
 - [ ] Bổ sung speaking history / presets nâng cao / export feedback vào `SpeakModeScreen`
 - [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode

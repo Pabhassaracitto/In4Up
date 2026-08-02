@@ -147,23 +147,126 @@ class AiEngineGemma implements AiEngine {
     }
   }
 
-  static String _mockInference(String prompt) => '''
-{
-  "summary": "Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.",
-  "topics": ["Technology", "Language Learning"],
-  "analysisType": "sentenceParse",
-  "technical_terms": [
-    {
-      "text": "Isolate",
-      "definition": "Luồng thực thi độc lập trong Dart.",
-      "importance": 0.95,
-      "sourceJoinKey": "0|isolate",
-      "speakerId": 1
+  static String _mockInference(String prompt) {
+    if (prompt.contains('VIPSOUND_WRITE_REVIEW')) {
+      return _mockWriteReview(prompt);
     }
-  ],
-  "action_items": [],
-  "language": "en"
-}''';
+
+    return jsonEncode({
+      'summary': 'Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.',
+      'topics': ['Technology', 'Language Learning'],
+      'analysisType': 'sentenceParse',
+      'technical_terms': [
+        {
+          'text': 'Isolate',
+          'definition': 'Luồng thực thi độc lập trong Dart.',
+          'importance': 0.95,
+          'sourceJoinKey': '0|isolate',
+          'speakerId': 1,
+        }
+      ],
+      'action_items': ['Đọc lại ý chính và rút ngắn phản hồi vào 1-2 ý rõ ràng.'],
+      'language': 'vi',
+    });
+  }
+
+  static String _mockWriteReview(String prompt) {
+    String extract(String key) {
+      final prefix = '$key:';
+      for (final line in prompt.split('\n')) {
+        if (line.startsWith(prefix)) {
+          return line.substring(prefix.length).trim();
+        }
+      }
+      return '';
+    }
+
+    int extractInt(String key) {
+      final raw = extract(key);
+      return int.tryParse(raw) ?? 0;
+    }
+
+    final expected = extract('EXPECTED');
+    final actual = extract('ACTUAL');
+    final totalScore = extractInt('TOTAL_SCORE');
+    final orderScore = extractInt('ORDER_SCORE');
+    final spellingScore = extractInt('SPELLING_SCORE');
+    final missing = extract('MISSING');
+    final extra = extract('EXTRA');
+
+    final topics = <String>['Writing', 'Recall'];
+    final actions = <String>[];
+
+    String summary;
+    if (totalScore >= 90) {
+      summary = 'Bài làm rất sát câu gốc, bạn đang giữ được cả ý và trật tự câu khá tốt.';
+      actions.add('Có thể chuyển sang câu mới hoặc tăng tốc độ luyện một chút.');
+      topics.add('High Accuracy');
+    } else if (totalScore >= 75) {
+      summary = 'Bài làm khá ổn, bạn đã nắm phần lớn nội dung nhưng vẫn còn vài điểm lệch nhỏ.';
+      actions.add('Làm lại thêm 1 vòng ngay cùng câu để khóa phản xạ đúng.');
+      topics.add('Stable Recall');
+    } else if (totalScore >= 55) {
+      summary = 'Bạn đã bắt được khung câu, nhưng độ chính xác chưa ổn định ở mọi phần.';
+      actions.add('Chia câu thành các cụm ngắn rồi chép lại từng cụm trước khi ghép cả câu.');
+      topics.add('Needs Reinforcement');
+    } else {
+      summary = 'Bài làm còn lệch khá nhiều so với câu gốc, nên giảm tải và luyện lại theo cụm nhỏ.';
+      actions.add('Nghe chậm hơn hoặc dùng TTS để bám âm tốt hơn trước khi chép lại.');
+      topics.add('Rebuild Foundation');
+    }
+
+    if (missing.isNotEmpty && missing != 'none') {
+      actions.add('Tập trung nhớ lại các từ khóa còn thiếu: $missing.');
+      topics.add('Missing Keywords');
+    }
+    if (extra.isNotEmpty && extra != 'none') {
+      actions.add('Tránh thêm ý đoán; chỉ chép những gì thật sự nghe/nhớ được.');
+      topics.add('Extra Words');
+    }
+    if (orderScore < 65) {
+      actions.add('Luyện lại thứ tự cụm từ bằng cách đọc nhẩm trước khi gõ.');
+      topics.add('Word Order');
+    }
+    if (spellingScore < 70) {
+      actions.add('Mở đáp án và chép đúng mặt chữ 1 vòng để giảm lỗi chính tả.');
+      topics.add('Spelling');
+    }
+
+    final grammar = _mockGrammarFromSentence(expected.isNotEmpty ? expected : actual);
+
+    return jsonEncode({
+      'summary': summary,
+      'topics': topics.take(4).toList(),
+      'analysisType': 'sentenceParse',
+      'technical_terms': <Map<String, dynamic>>[],
+      'action_items': actions.take(4).toList(),
+      'grammar': grammar,
+      'language': 'vi',
+    });
+  }
+
+  static Map<String, dynamic> _mockGrammarFromSentence(String sentence) {
+    final words = sentence
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+
+    final subject = words.isNotEmpty ? words.first : '—';
+    final verb = words.length > 1 ? words[1] : '—';
+    final object = words.length > 2 ? words.skip(2).take(2).join(' ') : '—';
+
+    return {
+      'subject': subject,
+      'verb': verb,
+      'object': object,
+      'complement': '',
+      'adverbial': '',
+      'pattern': words.length >= 3 ? 'S + V + ...' : 'Chunk Recall',
+      'explanation_vi': 'Đây là phân tích ngắn theo kiểu beta để hỗ trợ người học nhìn lại cấu trúc câu khi luyện viết.',
+    };
+  }
 
   String _buildPrompt(AiAnalysisType type, String text, String? ctx) => '''
 SYSTEM: Bạn là Gemma AI offline của VipSound. Chỉ trả JSON hợp lệ.

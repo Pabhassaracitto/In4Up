@@ -154,6 +154,9 @@ class AiEngineGemma implements AiEngine {
     if (prompt.contains('VIPSOUND_REWRITE_REVIEW')) {
       return _mockRewriteReview(prompt);
     }
+    if (prompt.contains('VIPSOUND_SUMMARY_REVIEW')) {
+      return _mockSummaryReview(prompt);
+    }
 
     return jsonEncode({
       'summary': 'Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.',
@@ -277,6 +280,68 @@ class AiEngineGemma implements AiEngine {
     if (kept.isNotEmpty && kept != 'none') {
       actions.add('Bạn đã giữ được các từ khóa: $kept. Hãy giữ chúng nhưng đổi khung câu hơn nữa.');
       topics.add('Keyword Retention');
+    }
+
+    final grammar = _mockGrammarFromSentence(actual.isNotEmpty ? actual : expected);
+
+    return jsonEncode({
+      'summary': summary,
+      'topics': topics.take(4).toList(),
+      'analysisType': 'sentenceParse',
+      'technical_terms': <Map<String, dynamic>>[],
+      'action_items': actions.take(4).toList(),
+      'grammar': grammar,
+      'language': 'vi',
+    });
+  }
+
+  static String _mockSummaryReview(String prompt) {
+    final expected = _extractLineValue(prompt, 'EXPECTED');
+    final actual = _extractLineValue(prompt, 'ACTUAL');
+    final totalScore = _extractIntValue(prompt, 'TOTAL_SCORE');
+    final contentScore = _extractIntValue(prompt, 'CONTENT_SCORE');
+    final brevityScore = _extractIntValue(prompt, 'BREVITY_SCORE');
+    final grammarScore = _extractIntValue(prompt, 'GRAMMAR_SCORE');
+    final missed = _extractLineValue(prompt, 'MISSED');
+    final kept = _extractLineValue(prompt, 'KEPT');
+    final compression = _extractLineValue(prompt, 'COMPRESSION');
+
+    final topics = <String>['Summary', 'Compression'];
+    final actions = <String>[];
+
+    String summary;
+    if (totalScore >= 85) {
+      summary = 'Bản tóm tắt khá gọn và vẫn giữ được ý chính của câu gốc.';
+      actions.add('Thử rút xuống còn gọn hơn một chút nhưng vẫn giữ 2 từ khóa quan trọng nhất.');
+      topics.add('Concise & Accurate');
+    } else if (contentScore < 45) {
+      summary = 'Bản tóm tắt đang mất nhiều ý cốt lõi.';
+      actions.add('Giữ lại 2–3 từ khóa trọng tâm rồi viết lại một câu ngắn quanh các từ đó.');
+      topics.add('Lost Core Meaning');
+    } else if (brevityScore < 45) {
+      summary = 'Bạn giữ ý khá tốt nhưng chưa tóm gọn đủ, vẫn còn quá dài.';
+      actions.add('Lược bỏ cụm phụ, trạng từ hoặc giải thích phụ để câu sắc hơn.');
+      topics.add('Too Long');
+    } else if (grammarScore < 45) {
+      summary = 'Bản tóm tắt khá ngắn nhưng hình dáng câu chưa đủ rõ và tự nhiên.';
+      actions.add('Viết thành một câu hoàn chỉnh có động từ chính và kết thúc bằng dấu câu.');
+      topics.add('Sentence Shape');
+    } else {
+      summary = 'Bản tóm tắt ở mức ổn, cần tinh chỉnh thêm để vừa ngắn vừa bén ý hơn.';
+      actions.add('Soát lại xem có thể bỏ thêm từ nào mà không làm mất ý chính không.');
+      topics.add('Refine Compression');
+    }
+
+    if (missed.isNotEmpty && missed != 'none') {
+      actions.add('Bổ sung hoặc giữ lại các ý/từ khóa còn thiếu: $missed.');
+      topics.add('Missing Keywords');
+    }
+    if (kept.isNotEmpty && kept != 'none') {
+      actions.add('Bạn đã giữ được các từ khóa: $kept. Hãy dùng chúng làm trục khi rút gọn.');
+      topics.add('Keyword Retention');
+    }
+    if (compression.isNotEmpty) {
+      actions.add('Tỉ lệ hiện tại: $compression. Cân bằng giữa độ ngắn và độ đủ ý.');
     }
 
     final grammar = _mockGrammarFromSentence(actual.isNotEmpty ? actual : expected);

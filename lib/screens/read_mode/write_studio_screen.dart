@@ -650,6 +650,32 @@ Hãy trả về JSON hợp lệ với:
 ''';
   }
 
+  String _buildSummaryAiPrompt({
+    required String expected,
+    required String actual,
+    required _SummaryResult result,
+  }) {
+    return '''
+VIPSOUND_SUMMARY_REVIEW
+EXPECTED: $expected
+ACTUAL: $actual
+TOTAL_SCORE: ${(result.overallScore * 100).round()}
+CONTENT_SCORE: ${(result.contentRetentionScore * 100).round()}
+BREVITY_SCORE: ${(result.brevityScore * 100).round()}
+GRAMMAR_SCORE: ${(result.grammarScore * 100).round()}
+COMPRESSION: ${result.compressionLabel}
+MISSED: ${result.missedKeywords.isEmpty ? 'none' : result.missedKeywords.join(', ')}
+KEPT: ${result.keptKeywords.isEmpty ? 'none' : result.keptKeywords.join(', ')}
+
+Bạn là bộ phản hồi tóm tắt offline của VipSound.
+Hãy trả về JSON hợp lệ với:
+- summary: nhận xét ngắn bằng tiếng Việt
+- topics: 2-4 nhãn ngắn
+- action_items: 2-4 gợi ý luyện tiếp cụ thể
+- grammar: mô tả nhanh độ gọn, độ rõ và hình dáng câu
+''';
+  }
+
   Future<void> _runAiReview({
     required TextItem currentLine,
     required _DictationResult result,
@@ -682,6 +708,29 @@ Hãy trả về JSON hợp lệ với:
 
     final facade = context.read<AiServiceFacade>();
     final prompt = _buildRewriteAiPrompt(
+      expected: currentLine.content,
+      actual: actual,
+      result: result,
+    );
+
+    facade.clearAnalysis();
+    setState(() {
+      _lastAiPromptKey = prompt;
+    });
+
+    await facade.analyzeSentence(sentence: prompt);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _runSummaryAiReview({
+    required TextItem currentLine,
+    required _SummaryResult result,
+  }) async {
+    final actual = _summaryController.text.trim();
+    if (actual.isEmpty) return;
+
+    final facade = context.read<AiServiceFacade>();
+    final prompt = _buildSummaryAiPrompt(
       expected: currentLine.content,
       actual: actual,
       result: result,
@@ -831,7 +880,7 @@ Hãy trả về JSON hợp lệ với:
                     title: 'Vai trò của tab Viết',
                     bullets: [
                       'Viết là nhánh output gắn trực tiếp với nguồn text hoặc lyric hiện tại.',
-                      'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ, chọn đáp án và viết lại ý.',
+                      'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ, chọn đáp án, viết lại ý và tóm tắt ngắn.',
                       'Tab này đang đi theo 2 lớp: phản hồi local luôn chạy, AI local là lớp tăng cường khi model sẵn sàng.',
                     ],
                   ),
@@ -1678,9 +1727,10 @@ Hãy trả về JSON hợp lệ với:
           TextField(
             controller: _summaryController,
             onChanged: (_) {
-              if (_summaryResult != null) {
+              if (_summaryResult != null || _lastAiPromptKey.isNotEmpty) {
                 setState(() {
                   _summaryResult = null;
+                  _lastAiPromptKey = '';
                 });
               }
             },
@@ -1719,6 +1769,7 @@ Hãy trả về JSON hợp lệ với:
                     setState(() {
                       _summaryController.clear();
                       _summaryResult = null;
+                      _lastAiPromptKey = '';
                     });
                   },
                   icon: const Icon(Icons.refresh),
@@ -1741,6 +1792,133 @@ Hãy trả về JSON hợp lệ với:
                 _MetricRow(label: 'Từ khóa còn thiếu', value: result.missedKeywords.isEmpty ? 'Không có' : result.missedKeywords.join(', ')),
                 _MetricRow(label: 'Nhận xét', value: result.summary),
                 _MetricRow(label: 'Bước tiếp theo', value: result.nextStep),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildSummaryAiReviewCard(currentLine: currentLine, result: result),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryAiReviewCard({
+    required TextItem currentLine,
+    required _SummaryResult result,
+  }) {
+    final facade = context.watch<AiServiceFacade>();
+    final hasTextInput = _summaryController.text.trim().isNotEmpty;
+    final hasMatchingAnalysis = _hasMatchingAiAnalysis(facade);
+    final analysis = hasMatchingAnalysis ? facade.currentAnalysis : null;
+    final isLoadingCurrent = facade.isLoading && _lastAiPromptKey.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_graph_outlined, color: Color(0xFFA5D6A7)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Tầng 2 · AI cho tóm tắt',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: facade.hasModel
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
+                      : Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  facade.hasModel ? 'AI local sẵn sàng' : 'Chưa có model',
+                  style: TextStyle(
+                    color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Dùng AI local để xem bản tóm tắt có đủ ý chính, đủ ngắn gọn và đủ rõ ràng hay chưa.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: !facade.hasModel || !hasTextInput || isLoadingCurrent
+                      ? null
+                      : () => _runSummaryAiReview(currentLine: currentLine, result: result),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Phân tích tóm tắt'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAiModelSetupDialog(facade),
+                  icon: const Icon(Icons.download_outlined),
+                  label: Text(facade.hasModel ? 'Đổi model' : 'Cài AI local'),
+                ),
+              ),
+            ],
+          ),
+          if (isLoadingCurrent) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(),
+            const SizedBox(height: 8),
+            const Text(
+              'AI local đang kiểm tra độ cô đọng và mức giữ ý của bản tóm tắt...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+          if (analysis != null) ...[
+            const SizedBox(height: 16),
+            _FeedbackCard(
+              title: 'AI summary · ${facade.modelSourceLabel}',
+              color: const Color(0xFFA5D6A7),
+              children: [
+                _MetricRow(
+                  label: 'Tóm tắt',
+                  value: analysis.summary.isNotEmpty
+                      ? analysis.summary
+                      : 'AI chưa trả về nhận xét đủ rõ.',
+                ),
+                _MetricRow(
+                  label: 'Chủ điểm',
+                  value: analysis.topics.isEmpty ? 'Chưa có' : analysis.topics.join(', '),
+                ),
+                _MetricRow(
+                  label: 'Gợi ý',
+                  value: analysis.actionItems.isEmpty
+                      ? 'Chưa có gợi ý cụ thể từ AI.'
+                      : analysis.actionItems.join(' • '),
+                ),
+                if (analysis.grammar != null) ...[
+                  _MetricRow(label: 'Chủ ngữ', value: analysis.grammar!.subject),
+                  _MetricRow(label: 'Động từ', value: analysis.grammar!.verb),
+                  _MetricRow(label: 'Mẫu câu', value: analysis.grammar!.pattern),
+                ],
               ],
             ),
           ],

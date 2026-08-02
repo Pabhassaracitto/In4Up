@@ -114,10 +114,35 @@ class ShadowingResult {
         'recognizedText': recognizedText,
         'overallScore': overallScore,
         'overallScorePercent': overallScorePercent,
+        'overallGrade': overallGrade,
+        'feedbackMessage': feedbackMessage,
         'correctWordCount': correctWordCount,
         'totalWordCount': totalWordCount,
         'tempoRatio': tempoRatio,
         'timestamp': timestamp.toIso8601String(),
+        'acoustic': acousticAnalysis == null
+            ? null
+            : {
+                'pitchScore': acousticAnalysis!.pitchScore,
+                'energyScore': acousticAnalysis!.energyScore,
+                'rhythmScore': acousticAnalysis!.rhythmScore,
+                'spectralScore': acousticAnalysis!.spectralScore,
+              },
+        'wordBreakdown': wordResults
+            .map(
+              (w) => {
+                'expectedWord': w.expectedWord,
+                'recognizedWord': w.recognizedWord,
+                'status': w.status.name,
+                'scorePercent': w.scorePercent,
+                'phonemeIssues': w.phonemeScores
+                    .where((p) => p.score < 0.7)
+                    .take(3)
+                    .map((p) => '${p.phoneme}:${p.scorePercent}%')
+                    .toList(),
+              },
+            )
+            .toList(),
       };
 }
 
@@ -126,34 +151,55 @@ class ShadowingHistoryEntry {
   final String originalText;
   final String? recognizedText;
   final int overallScorePercent;
+  final String? overallGradeLabel;
+  final String? feedbackMessage;
   final int correctWordCount;
   final int totalWordCount;
   final double tempoRatio;
   final DateTime timestamp;
+  final ShadowingAcousticSnapshot? acoustic;
+  final List<ShadowingWordBreakdown> wordBreakdown;
 
   const ShadowingHistoryEntry({
     required this.id,
     required this.originalText,
     required this.recognizedText,
     required this.overallScorePercent,
+    this.overallGradeLabel,
+    this.feedbackMessage,
     required this.correctWordCount,
     required this.totalWordCount,
     required this.tempoRatio,
     required this.timestamp,
+    this.acoustic,
+    this.wordBreakdown = const [],
   });
 
   factory ShadowingHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final acousticMap = json['acoustic'] as Map<String, dynamic>?;
+    final rawBreakdown = (json['wordBreakdown'] as List?) ?? const [];
+
     return ShadowingHistoryEntry(
       id: json['id']?.toString() ?? '',
       originalText: json['originalText']?.toString() ?? '',
       recognizedText: json['recognizedText']?.toString(),
       overallScorePercent: (json['overallScorePercent'] as num?)?.toInt() ??
           (((json['overallScore'] as num?)?.toDouble() ?? 0.0) * 100).round(),
+      overallGradeLabel: json['overallGrade']?.toString(),
+      feedbackMessage: json['feedbackMessage']?.toString(),
       correctWordCount: (json['correctWordCount'] as num?)?.toInt() ?? 0,
       totalWordCount: (json['totalWordCount'] as num?)?.toInt() ?? 0,
       tempoRatio: (json['tempoRatio'] as num?)?.toDouble() ?? 1.0,
       timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      acoustic: acousticMap == null
+          ? null
+          : ShadowingAcousticSnapshot.fromJson(acousticMap),
+      wordBreakdown: rawBreakdown
+          .whereType<Map>()
+          .map((e) => ShadowingWordBreakdown.fromJson(
+              Map<String, dynamic>.from(e as Map)))
+          .toList(),
     );
   }
 
@@ -169,12 +215,78 @@ class ShadowingHistoryEntry {
     return 'F';
   }
 
+  String get gradeLabel => overallGradeLabel ?? overallGrade;
+
   Color get scoreColor {
     final score = overallScorePercent;
     if (score >= 85) return const Color(0xFF4CAF50);
     if (score >= 70) return const Color(0xFFFFB300);
     if (score >= 50) return const Color(0xFFFF9800);
     return const Color(0xFFF44336);
+  }
+}
+
+class ShadowingAcousticSnapshot {
+  final double pitchScore;
+  final double energyScore;
+  final double rhythmScore;
+  final double spectralScore;
+
+  const ShadowingAcousticSnapshot({
+    required this.pitchScore,
+    required this.energyScore,
+    required this.rhythmScore,
+    required this.spectralScore,
+  });
+
+  factory ShadowingAcousticSnapshot.fromJson(Map<String, dynamic> json) {
+    return ShadowingAcousticSnapshot(
+      pitchScore: (json['pitchScore'] as num?)?.toDouble() ?? 0.0,
+      energyScore: (json['energyScore'] as num?)?.toDouble() ?? 0.0,
+      rhythmScore: (json['rhythmScore'] as num?)?.toDouble() ?? 0.0,
+      spectralScore: (json['spectralScore'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class ShadowingWordBreakdown {
+  final String expectedWord;
+  final String? recognizedWord;
+  final String status;
+  final int scorePercent;
+  final List<String> phonemeIssues;
+
+  const ShadowingWordBreakdown({
+    required this.expectedWord,
+    required this.recognizedWord,
+    required this.status,
+    required this.scorePercent,
+    this.phonemeIssues = const [],
+  });
+
+  factory ShadowingWordBreakdown.fromJson(Map<String, dynamic> json) {
+    return ShadowingWordBreakdown(
+      expectedWord: json['expectedWord']?.toString() ?? '',
+      recognizedWord: json['recognizedWord']?.toString(),
+      status: json['status']?.toString() ?? 'unknown',
+      scorePercent: (json['scorePercent'] as num?)?.toInt() ?? 0,
+      phonemeIssues: ((json['phonemeIssues'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+
+  String get shortStatus {
+    switch (status) {
+      case 'correct':
+        return 'Đúng';
+      case 'substituted':
+        return 'Lệch';
+      case 'missed':
+        return 'Bỏ lỡ';
+      default:
+        return status;
+    }
   }
 }
 

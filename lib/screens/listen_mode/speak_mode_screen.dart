@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
@@ -513,75 +514,80 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: entry.scoreColor.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: entry.scoreColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${entry.overallScorePercent}% · ${entry.overallGrade}',
-                  style: TextStyle(
-                    color: entry.scoreColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+    return InkWell(
+      onTap: () => _showHistoryDetail(context, entry),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: entry.scoreColor.withValues(alpha: 0.18)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: entry.scoreColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${entry.overallScorePercent}% · ${entry.gradeLabel}',
+                    style: TextStyle(
+                      color: entry.scoreColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _formatTimestamp(entry.timestamp),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _formatTimestamp(entry.timestamp),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            entry.originalText,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              height: 1.35,
+              ],
             ),
-          ),
-          if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Text(
-              'Bạn nói: ${entry.recognizedText}',
+              entry.originalText,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+            if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Bạn nói: ${entry.recognizedText}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _metaChip('${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
+                _metaChip('Xem chi tiết'),
+              ],
             ),
           ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _metaChip('${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
-              _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -602,6 +608,248 @@ class _HistoryTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static Future<void> _showHistoryDetail(
+      BuildContext context, ShadowingHistoryEntry entry) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF121827),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final exportText = _buildExportText(entry);
+        return SafeArea(
+          child: DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.75,
+            maxChildSize: 0.94,
+            builder: (context, controller) {
+              return ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Review phiên luyện nói',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _metaChip('${entry.overallScorePercent}% · ${entry.gradeLabel}'),
+                      _metaChip('${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                      _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
+                      _metaChip(_formatTimestamp(entry.timestamp)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _detailSection('Câu gốc', entry.originalText),
+                  if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty)
+                    _detailSection('Câu nhận diện', entry.recognizedText!),
+                  if ((entry.feedbackMessage ?? '').trim().isNotEmpty)
+                    _detailSection('Nhận xét tổng quát', entry.feedbackMessage!),
+                  if (entry.acoustic != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      'Acoustic snapshot',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: _miniMetric('Pitch', '${(entry.acoustic!.pitchScore * 100).round()}%')),
+                        const SizedBox(width: 8),
+                        Expanded(child: _miniMetric('Energy', '${(entry.acoustic!.energyScore * 100).round()}%')),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: _miniMetric('Rhythm', '${(entry.acoustic!.rhythmScore * 100).round()}%')),
+                        const SizedBox(width: 8),
+                        Expanded(child: _miniMetric('Spectral', '${(entry.acoustic!.spectralScore * 100).round()}%')),
+                      ],
+                    ),
+                  ],
+                  if (entry.wordBreakdown.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Từng từ / điểm rơi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...entry.wordBreakdown.map(
+                      (word) => Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${word.expectedWord} → ${word.recognizedWord ?? '∅'}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${word.scorePercent}% · ${word.shortStatus}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            if (word.phonemeIssues.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Âm cần chú ý: ${word.phonemeIssues.join(', ')}',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: exportText));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Đã copy phản hồi vào clipboard')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.copy_all_outlined),
+                          label: const Text('Copy phản hồi'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  static Widget _detailSection(String title, String body) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _miniMetric(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _buildExportText(ShadowingHistoryEntry entry) {
+    final buffer = StringBuffer();
+    buffer.writeln('VipSound · Shadowing Review');
+    buffer.writeln('Thời gian: ${_formatTimestamp(entry.timestamp)}');
+    buffer.writeln('Điểm: ${entry.overallScorePercent}% · ${entry.gradeLabel}');
+    buffer.writeln('Từ đúng: ${entry.correctWordCount}/${entry.totalWordCount}');
+    buffer.writeln('Tempo: ${(entry.tempoRatio * 100).round()}%');
+    buffer.writeln();
+    buffer.writeln('Câu gốc: ${entry.originalText}');
+    if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty) {
+      buffer.writeln('Câu nhận diện: ${entry.recognizedText}');
+    }
+    if ((entry.feedbackMessage ?? '').trim().isNotEmpty) {
+      buffer.writeln('Nhận xét: ${entry.feedbackMessage}');
+    }
+    if (entry.wordBreakdown.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('Chi tiết từ:');
+      for (final word in entry.wordBreakdown) {
+        buffer.writeln('- ${word.expectedWord} → ${word.recognizedWord ?? '∅'} | ${word.scorePercent}% | ${word.shortStatus}');
+        if (word.phonemeIssues.isNotEmpty) {
+          buffer.writeln('  Âm cần chú ý: ${word.phonemeIssues.join(', ')}');
+        }
+      }
+    }
+    return buffer.toString();
   }
 
   static String _formatTimestamp(DateTime timestamp) {

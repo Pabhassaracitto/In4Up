@@ -113,7 +113,8 @@ Ví dụ:
 - [x] Rà lại overflow risk ở app bar + mode switch + mini player
 - [x] Nối dictation / cloze cơ bản vào `WriteStudioScreen`
 - [x] Tách speaking presets và stats cơ bản vào `SpeakModeScreen`
-- [ ] Nối AI scoring thật sự vào `WriteStudioScreen`
+- [x] Nối local-first AI beta gate vào `WriteStudioScreen` (heuristic luôn chạy, AI local là optional)
+- [ ] Nối AI scoring sâu hơn vào `WriteStudioScreen` khi engine local hoàn thiện
 - [ ] Bổ sung speaking history / presets nâng cao / export feedback vào `SpeakModeScreen`
 - [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 

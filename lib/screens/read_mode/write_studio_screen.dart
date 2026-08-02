@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vipsound_ai/vipsound_ai.dart';
 
 import '../../models/text_item.dart';
 import '../../providers/text_provider.dart';
@@ -34,6 +35,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
   _WriteExerciseType _exerciseType = _WriteExerciseType.dictation;
   String _sourceKey = '';
+  String _lastAiPromptKey = '';
   int _lineIndex = 0;
   bool _showAnswer = false;
 
@@ -91,6 +93,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     _dictationResult = null;
     _clozeResult = null;
     _showAnswer = false;
+    _lastAiPromptKey = '';
     _selectedChoices = [];
     _disposeBlankControllers();
 
@@ -402,6 +405,107 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     return result;
   }
 
+  String _buildAiPrompt({
+    required String expected,
+    required String actual,
+    required _DictationResult result,
+  }) {
+    return '''
+Bạn là bộ phản hồi viết offline của VipSound.
+Hãy phân tích bài làm của người học bằng tiếng Việt, ngắn gọn và hữu ích.
+
+Câu gốc:
+$expected
+
+Câu người học:
+$actual
+
+Điểm heuristic hiện có:
+- Tổng: ${(result.score * 100).round()}%
+- Thứ tự: ${(result.orderScore * 100).round()}%
+- Chính tả: ${(result.spellingScore * 100).round()}%
+- Từ thiếu: ${result.missingWords.join(', ')}
+- Từ dư: ${result.extraWords.join(', ')}
+
+Hãy cho:
+1. Một nhận xét ngắn.
+2. Những lỗi nổi bật nhất.
+3. Gợi ý sửa hoặc cách luyện vòng tiếp theo.
+''';
+  }
+
+  Future<void> _runAiReview({
+    required TextItem currentLine,
+    required _DictationResult result,
+  }) async {
+    final actual = _dictationController.text.trim();
+    if (actual.isEmpty) return;
+
+    final facade = context.read<AiServiceFacade>();
+    final prompt = _buildAiPrompt(
+      expected: currentLine.content,
+      actual: actual,
+      result: result,
+    );
+
+    setState(() {
+      _lastAiPromptKey = prompt;
+    });
+
+    await facade.analyzeSentence(sentence: prompt);
+    if (mounted) setState(() {});
+  }
+
+  bool _hasMatchingAiAnalysis(AiServiceFacade facade) {
+    final analysis = facade.currentAnalysis;
+    if (analysis == null) return false;
+    return analysis.inputText == _lastAiPromptKey;
+  }
+
+  Future<void> _showAiModelSetupDialog(AiServiceFacade facade) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cài đặt AI local'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Để dùng phản hồi AI cục bộ, hãy import model .gguf vào thiết bị.'),
+            SizedBox(height: 8),
+            Text('Khuyến nghị: gemma-2b-it-q4_k_m.gguf (~1.5GB)'),
+            SizedBox(height: 8),
+            Text('Khi chưa có model, phần Chấm nhanh vẫn hoạt động hoàn toàn offline.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Để sau'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final success = await facade.importModelFromUser();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? '✅ AI local đã sẵn sàng'
+                        : '❌ Import model thất bại',
+                  ),
+                ),
+              );
+              setState(() {});
+            },
+            child: const Text('Chọn file .gguf'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -475,9 +579,9 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
                   _buildLineNavigator(textProvider),
                   const SizedBox(height: 16),
                   if (_exerciseType == _WriteExerciseType.dictation)
-                    _buildDictationCard(textProvider, currentLine)
+                    _buildDictationCard(textProvider, currentLine!)
                   else
-                    _buildClozeCard(currentLine),
+                    _buildClozeCard(currentLine!),
                   const SizedBox(height: 20),
                   const _TipCard(
                     title: 'Vai trò của tab Viết',
@@ -737,6 +841,14 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
           const SizedBox(height: 14),
           TextField(
             controller: _dictationController,
+            onChanged: (_) {
+              if (_dictationResult != null || _lastAiPromptKey.isNotEmpty) {
+                setState(() {
+                  _dictationResult = null;
+                  _lastAiPromptKey = '';
+                });
+              }
+            },
             minLines: 4,
             maxLines: 6,
             style: const TextStyle(color: Colors.white),
@@ -791,6 +903,142 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
                 _MetricRow(label: 'Từ thiếu', value: result.missingWords.isEmpty ? 'Không có' : result.missingWords.join(', ')),
                 _MetricRow(label: 'Từ dư', value: result.extraWords.isEmpty ? 'Không có' : result.extraWords.join(', ')),
               ],
+            ),
+            const SizedBox(height: 16),
+            _buildAiReviewCard(currentLine: currentLine, result: result),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiReviewCard({
+    required TextItem currentLine,
+    required _DictationResult result,
+  }) {
+    final facade = context.watch<AiServiceFacade>();
+    final hasTextInput = _dictationController.text.trim().isNotEmpty;
+    final hasMatchingAnalysis = _hasMatchingAiAnalysis(facade);
+    final analysis = hasMatchingAnalysis ? facade.currentAnalysis : null;
+    final isLoadingCurrent = facade.isLoading && _lastAiPromptKey.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology_alt_outlined, color: Color(0xFFB388FF)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Phản hồi AI local (beta)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: facade.hasModel
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
+                      : Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  facade.hasModel ? 'Sẵn sàng' : 'Chưa có model',
+                  style: TextStyle(
+                    color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            facade.hasModel
+                ? 'Dùng model local để đưa phản hồi sâu hơn sau phần chấm nhanh. Hiện được thiết kế theo local-first.'
+                : 'Chấm nhanh vẫn chạy offline bình thường. Để có phản hồi AI sâu hơn, hãy import model .gguf vào thiết bị.',
+            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: !facade.hasModel || !hasTextInput || isLoadingCurrent
+                      ? null
+                      : () => _runAiReview(currentLine: currentLine, result: result),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Phân tích sâu'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAiModelSetupDialog(facade),
+                  icon: const Icon(Icons.download_outlined),
+                  label: Text(facade.hasModel ? 'Đổi model' : 'Cài AI local'),
+                ),
+              ),
+            ],
+          ),
+          if (isLoadingCurrent) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(),
+            const SizedBox(height: 8),
+            const Text(
+              'Đang phân tích bằng AI local...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+          if (analysis != null) ...[
+            const SizedBox(height: 16),
+            _FeedbackCard(
+              title: 'AI beta · ${facade.modelSourceLabel}',
+              color: const Color(0xFFB388FF),
+              children: [
+                _MetricRow(
+                  label: 'Tóm tắt',
+                  value: analysis.summary.isNotEmpty
+                      ? analysis.summary
+                      : 'AI chưa trả về phần tóm tắt rõ ràng.',
+                ),
+                _MetricRow(
+                  label: 'Chủ điểm',
+                  value: analysis.topics.isEmpty ? 'Chưa có' : analysis.topics.join(', '),
+                ),
+                _MetricRow(
+                  label: 'Hành động',
+                  value: analysis.actionItems.isEmpty
+                      ? 'Chưa có gợi ý hành động cụ thể từ AI.'
+                      : analysis.actionItems.join(' • '),
+                ),
+                if (analysis.grammar != null) ...[
+                  _MetricRow(label: 'Chủ ngữ', value: analysis.grammar!.subject),
+                  _MetricRow(label: 'Động từ', value: analysis.grammar!.verb),
+                  _MetricRow(label: 'Mẫu câu', value: analysis.grammar!.pattern),
+                ],
+              ],
+            ),
+          ],
+          if (facade.lastError != null && !isLoadingCurrent && analysis == null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Lỗi AI: ${facade.lastError}',
+              style: const TextStyle(color: Colors.orange, fontSize: 12),
             ),
           ],
         ],

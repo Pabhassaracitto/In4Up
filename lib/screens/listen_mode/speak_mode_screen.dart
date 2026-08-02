@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/shadowing/models/shadowing_preset.dart';
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/shadowing_widget.dart';
@@ -345,50 +346,273 @@ class _SpeakingPresetCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Preset luyện nói nhanh',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Đổi số lần lặp và tốc độ trước khi vào bài shadowing.',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
-              _PresetChip(
-                label: 'Nhẹ · 2x / 1.0x',
-                color: const Color(0xFF42A5F5),
-                onTap: () {
-                  shadowing.setRepeatCount(2);
-                  shadowing.setPlaybackSpeed(1.0);
-                },
+              const Expanded(
+                child: Text(
+                  'Preset luyện nói nâng cao',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
               ),
-              _PresetChip(
-                label: 'Chuẩn · 3x / 0.9x',
-                color: const Color(0xFFB388FF),
-                onTap: () {
-                  shadowing.setRepeatCount(3);
-                  shadowing.setPlaybackSpeed(0.9);
-                },
-              ),
-              _PresetChip(
-                label: 'Kỹ · 5x / 0.8x',
-                color: const Color(0xFFFFB300),
-                onTap: () {
-                  shadowing.setRepeatCount(5);
-                  shadowing.setPlaybackSpeed(0.8);
-                },
+              TextButton.icon(
+                onPressed: () => _showSavePresetDialog(context, shadowing),
+                icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                label: const Text('Lưu preset'),
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          const Text(
+            'Chọn nhanh preset theo mục tiêu, hoặc lưu cấu hình hiện tại thành preset cá nhân.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Preset đang dùng',
+                  style: TextStyle(color: Colors.white60, fontSize: 11),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${shadowing.activePresetLabel} · ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Preset hệ thống',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...shadowing.builtInPresets.map(
+            (preset) => _PresetTile(
+              preset: preset,
+              onApply: () => shadowing.applyPreset(preset),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Preset cá nhân',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              if (shadowing.customPresets.isNotEmpty)
+                Text(
+                  '${shadowing.customPresets.length} preset',
+                  style: const TextStyle(color: Colors.white60, fontSize: 11),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (shadowing.customPresets.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Text(
+                'Chưa có preset cá nhân. Hãy chỉnh repeat/speed theo ý bạn rồi bấm “Lưu preset”.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            )
+          else
+            ...shadowing.customPresets.map(
+              (preset) => _PresetTile(
+                preset: preset,
+                onApply: () => shadowing.applyPreset(preset),
+                onDelete: () => _confirmDeletePreset(context, shadowing, preset),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showSavePresetDialog(
+    BuildContext context,
+    ShadowingProvider shadowing,
+  ) async {
+    final nameController = TextEditingController();
+    final noteController = TextEditingController(
+      text: 'Preset ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+    );
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Lưu preset cá nhân'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Tên preset',
+                hintText: 'Ví dụ: Fluency sáng',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(
+                labelText: 'Ghi chú ngắn',
+                hintText: 'Mục tiêu của preset này',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await shadowing.saveCurrentAsPreset(
+                name: nameController.text,
+                description: noteController.text,
+              );
+              if (context.mounted) {
+                Navigator.pop(context, true);
+              }
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+
+    nameController.dispose();
+    noteController.dispose();
+
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã lưu preset cá nhân')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeletePreset(
+    BuildContext context,
+    ShadowingProvider shadowing,
+    ShadowingPreset preset,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa preset'),
+        content: Text('Bạn có chắc muốn xóa preset "${preset.name}" không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      await shadowing.deleteCustomPreset(preset.id);
+    }
+  }
+}
+
+class _PresetTile extends StatelessWidget {
+  final ShadowingPreset preset;
+  final VoidCallback onApply;
+  final VoidCallback? onDelete;
+
+  const _PresetTile({
+    required this.preset,
+    required this.onApply,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (preset.isBuiltIn
+                  ? const Color(0xFF7C4DFF)
+                  : const Color(0xFF26C6DA))
+              .withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  preset.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  preset.description.isEmpty
+                      ? preset.compactLabel
+                      : '${preset.description} · ${preset.compactLabel}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          TextButton(
+            onPressed: onApply,
+            child: const Text('Áp dụng'),
+          ),
+          if (onDelete != null)
+            IconButton(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            ),
         ],
       ),
     );
@@ -901,42 +1125,6 @@ class _MiniStatCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PresetChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _PresetChip({
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
       ),
     );
   }

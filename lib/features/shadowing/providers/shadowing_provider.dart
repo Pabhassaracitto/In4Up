@@ -10,6 +10,7 @@ import 'package:just_waveform/just_waveform.dart' as jw;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../models/shadowing_preset.dart';
 import '../models/shadowing_result.dart';
 import '../services/offline_stt_service.dart';
 import '../services/phoneme_analyzer.dart';
@@ -31,6 +32,41 @@ class ShadowingSettings {
 }
 
 class ShadowingProvider extends ChangeNotifier {
+  static const List<ShadowingPreset> _builtInPresets = [
+    ShadowingPreset(
+      id: 'slow_mimic',
+      name: 'Slow Mimic',
+      repeatCount: 5,
+      playbackSpeed: 0.75,
+      description: 'Chậm và nhiều vòng để bắt chước kỹ từng âm.',
+      isBuiltIn: true,
+    ),
+    ShadowingPreset(
+      id: 'pronunciation_focus',
+      name: 'Pronunciation',
+      repeatCount: 4,
+      playbackSpeed: 0.8,
+      description: 'Tập trung vào độ rõ âm và độ chính xác phát âm.',
+      isBuiltIn: true,
+    ),
+    ShadowingPreset(
+      id: 'balanced_flow',
+      name: 'Balanced',
+      repeatCount: 3,
+      playbackSpeed: 0.9,
+      description: 'Cân bằng giữa phát âm, trí nhớ và nhịp phản xạ.',
+      isBuiltIn: true,
+    ),
+    ShadowingPreset(
+      id: 'fluency_boost',
+      name: 'Fluency',
+      repeatCount: 2,
+      playbackSpeed: 1.0,
+      description: 'Ưu tiên nhịp nói tự nhiên và giữ mạch câu.',
+      isBuiltIn: true,
+    ),
+  ];
+
   // ==================== STATE ====================
   ShadowingState _state = ShadowingState.idle;
   ShadowingState get state => _state;
@@ -41,6 +77,13 @@ class ShadowingProvider extends ChangeNotifier {
 
   double _playbackSpeed = 1.0;
   double get playbackSpeed => _playbackSpeed;
+
+  String? _activePresetLabel;
+  String get activePresetLabel => _activePresetLabel ?? 'Tùy chỉnh';
+
+  final List<ShadowingPreset> _customPresets = [];
+  List<ShadowingPreset> get customPresets => List.unmodifiable(_customPresets);
+  List<ShadowingPreset> get builtInPresets => List.unmodifiable(_builtInPresets);
 
   // Progress
   int _completedRepetitions = 0;
@@ -138,8 +181,36 @@ class ShadowingProvider extends ChangeNotifier {
   Future<void> _initServices() async {
     await PhonemeAnalyzer.initialize();
     await OfflineSTTService.initialize();
+    _restorePresetState();
     _loadSavedHistory();
     debugPrint('✅ Shadowing services initialized');
+  }
+
+  void _restorePresetState() {
+    if (!_storage.isInitialized) return;
+    try {
+      _repeatCount = _storage.getShadowingRepeatCount().clamp(1, 10);
+      _playbackSpeed =
+          _storage.getShadowingPlaybackSpeed().clamp(0.5, 2.0).toDouble();
+      _activePresetLabel = _storage.getShadowingPresetLabel();
+      final rawPresets = _storage.getShadowingCustomPresets();
+      _customPresets
+        ..clear()
+        ..addAll(rawPresets.map(ShadowingPreset.fromJson));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error restoring shadowing presets: $e');
+    }
+  }
+
+  Future<void> _persistPresetState() async {
+    if (!_storage.isInitialized) return;
+    await _storage.saveShadowingRepeatCount(_repeatCount);
+    await _storage.saveShadowingPlaybackSpeed(_playbackSpeed);
+    await _storage.saveShadowingPresetLabel(_activePresetLabel);
+    await _storage.saveShadowingCustomPresets(
+      _customPresets.map((e) => e.toJson()).toList(),
+    );
   }
 
   void _loadSavedHistory() {
@@ -169,18 +240,61 @@ class ShadowingProvider extends ChangeNotifier {
   }
 
   // ==================== SETTINGS ====================
-  void setRepeatCount(int count) {
+  void setRepeatCount(int count, {bool markCustom = true}) {
     final newCount = count.clamp(1, 10);
-    if (_repeatCount == newCount) return; // ← THÊM
+    if (_repeatCount == newCount) return;
     _repeatCount = newCount;
+    if (markCustom) _activePresetLabel = null;
     notifyListeners();
+    _persistPresetState();
   }
 
-  void setPlaybackSpeed(double speed) {
+  void setPlaybackSpeed(double speed, {bool markCustom = true}) {
     final newSpeed = speed.clamp(0.5, 2.0);
-    if (_playbackSpeed == newSpeed) return; // ← THÊM
+    if (_playbackSpeed == newSpeed) return;
     _playbackSpeed = newSpeed;
+    if (markCustom) _activePresetLabel = null;
     notifyListeners();
+    _persistPresetState();
+  }
+
+  Future<void> applyPreset(ShadowingPreset preset) async {
+    _repeatCount = preset.repeatCount.clamp(1, 10);
+    _playbackSpeed = preset.playbackSpeed.clamp(0.5, 2.0).toDouble();
+    _activePresetLabel = preset.name;
+    notifyListeners();
+    await _persistPresetState();
+  }
+
+  Future<void> saveCurrentAsPreset({
+    required String name,
+    String description = '',
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final preset = ShadowingPreset(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: trimmed,
+      repeatCount: _repeatCount,
+      playbackSpeed: _playbackSpeed,
+      description: description.trim(),
+    );
+
+    _customPresets.insert(0, preset);
+    _activePresetLabel = preset.name;
+    notifyListeners();
+    await _persistPresetState();
+  }
+
+  Future<void> deleteCustomPreset(String id) async {
+    final removed = _customPresets.where((e) => e.id == id).toList();
+    _customPresets.removeWhere((e) => e.id == id);
+    if (removed.isNotEmpty && _activePresetLabel == removed.first.name) {
+      _activePresetLabel = null;
+    }
+    notifyListeners();
+    await _persistPresetState();
   }
 
   void setLoopRegion(Duration start, Duration end) {

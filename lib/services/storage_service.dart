@@ -144,6 +144,51 @@ class StorageService {
     return getSetting<String>('last_text_path');
   }
 
+  Future<void> saveShadowingRepeatCount(int count) async {
+    await saveSetting('shadowing_repeat_count', count);
+  }
+
+  int getShadowingRepeatCount() {
+    return getSetting<int>('shadowing_repeat_count', defaultValue: 3) ?? 3;
+  }
+
+  Future<void> saveShadowingPlaybackSpeed(double speed) async {
+    await saveSetting('shadowing_playback_speed', speed);
+  }
+
+  double getShadowingPlaybackSpeed() {
+    return getSetting<double>('shadowing_playback_speed', defaultValue: 1.0) ??
+        1.0;
+  }
+
+  Future<void> saveShadowingPresetLabel(String? label) async {
+    if (label == null || label.trim().isEmpty) {
+      await _settings.delete('shadowing_preset_label');
+      return;
+    }
+    await saveSetting('shadowing_preset_label', label.trim());
+  }
+
+  String? getShadowingPresetLabel() {
+    return getSetting<String>('shadowing_preset_label');
+  }
+
+  Future<void> saveShadowingCustomPresets(
+      List<Map<String, dynamic>> presets) async {
+    await saveSetting('shadowing_custom_presets', presets);
+  }
+
+  List<Map<String, dynamic>> getShadowingCustomPresets() {
+    final raw = _settings.get('shadowing_custom_presets');
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
+    return const [];
+  }
+
   // ==================== AUDIO SEGMENTS ====================
 
   Box<String> get _audioSegments => Hive.box<String>(_audioSegmentsBox);

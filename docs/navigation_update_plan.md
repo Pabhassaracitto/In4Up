@@ -122,7 +122,7 @@ Ví dụ:
 - [ ] Nối AI scoring sâu hơn vào `WriteStudioScreen` khi engine local hoàn thiện
 - [x] Bổ sung speaking history cơ bản vào `SpeakModeScreen`
 - [x] Bổ sung review chi tiết + copy export feedback cho speaking history
-- [ ] Bổ sung presets nâng cao vào `SpeakModeScreen`
+- [x] Bổ sung presets nâng cao vào `SpeakModeScreen` (preset hệ thống + preset cá nhân)
 - [ ] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 
 ### Backlog

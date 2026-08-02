@@ -126,9 +126,9 @@ Ví dụ:
 - [x] Thêm settings nâng cao cho compact mode / auto-hide / long-press chuyển mode
 
 ### Backlog
-- [ ] Animation tinh hơn cho compact/auto-hide secondary modes
-- [ ] Tooltip/hướng dẫn onboarding cho long-press trên tab chính
-- [ ] Phân quyền hiển thị quick actions theo mức độ sử dụng gần đây
+- [x] Animation tinh hơn cho compact/auto-hide secondary modes
+- [x] Tooltip/hướng dẫn onboarding cho long-press trên tab chính
+- [x] Phân quyền hiển thị quick actions theo mức độ sử dụng gần đây
 
 ---
 

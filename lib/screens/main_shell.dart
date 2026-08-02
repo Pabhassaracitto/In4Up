@@ -59,6 +59,7 @@ class _MainShellState extends State<MainShell> {
   bool _rememberLastSubMode = true;
   bool _modeSwitchExpanded = false;
   Timer? _modeSwitchHideTimer;
+  Timer? _shellHintTimer;
 
   @override
   void initState() {
@@ -67,12 +68,14 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
+      _scheduleShellHintIfNeeded();
     });
   }
 
   @override
   void dispose() {
     _modeSwitchHideTimer?.cancel();
+    _shellHintTimer?.cancel();
     super.dispose();
   }
 
@@ -152,6 +155,51 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _scheduleShellHintIfNeeded() {
+    _shellHintTimer?.cancel();
+    if (!_hasSecondaryModes || !mounted) return;
+
+    final shouldShowLongPressHint =
+        _enableLongPressModeSwitch && !_storage.getShellLongPressHintSeen();
+    final shouldShowModeChipHint =
+        (_compactModeSwitch || _autoHideModeSwitch) &&
+            !_storage.getShellModeChipHintSeen();
+
+    if (!shouldShowLongPressHint && !shouldShowModeChipHint) return;
+
+    _shellHintTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted || !_hasSecondaryModes) return;
+
+      final parts = <String>[];
+      if (shouldShowLongPressHint) {
+        parts.add(_showListenModes
+            ? 'Giữ tab Nghe để vào Nói.'
+            : 'Giữ tab Đọc để vào Viết.');
+      }
+      if (shouldShowModeChipHint) {
+        parts.add(
+            'Chạm chip mode dưới tiêu đề để hiện hoặc ẩn nhanh thanh mode.');
+      }
+
+      if (parts.isEmpty) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(parts.join(' ')),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      if (shouldShowLongPressHint) {
+        _storage.saveShellLongPressHintSeen(true);
+      }
+      if (shouldShowModeChipHint) {
+        _storage.saveShellModeChipHintSeen(true);
+      }
+    });
+  }
+
   void _toggleCurrentSecondaryMode() {
     HapticFeedback.selectionClick();
     if (_showListenModes) {
@@ -182,6 +230,7 @@ class _MainShellState extends State<MainShell> {
     setState(() {
       _loadShellUiSettings();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   Color get _currentAccent {
@@ -266,6 +315,7 @@ class _MainShellState extends State<MainShell> {
       }
       _syncModeSwitchVisibility();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   void _setListenMode(int index) {
@@ -275,6 +325,7 @@ class _MainShellState extends State<MainShell> {
       _storage.saveShellListenSubMode(index);
       _syncModeSwitchVisibility();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   void _setReadMode(int index) {
@@ -284,6 +335,7 @@ class _MainShellState extends State<MainShell> {
       _storage.saveShellReadSubMode(index);
       _syncModeSwitchVisibility();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   Future<void> _openQuickActions() async {
@@ -293,6 +345,7 @@ class _MainShellState extends State<MainShell> {
     );
 
     if (!mounted || toolId == null) return;
+    await _storage.recordQuickActionUsage(toolId);
     await _handleTool(toolId);
   }
 
@@ -397,9 +450,8 @@ class _MainShellState extends State<MainShell> {
       ),
     ];
 
-    switch (_currentTab) {
-      case _PrimaryTab.home:
-        return [
+    final raw = switch (_currentTab) {
+      _PrimaryTab.home => [
           tools.ToolItem(
             id: 'speak_mode',
             title: 'Nói',
@@ -417,9 +469,8 @@ class _MainShellState extends State<MainShell> {
           shellSettingsTool,
           ...contentTools,
           ...rememberTools,
-        ];
-      case _PrimaryTab.listen:
-        return [
+        ],
+      _PrimaryTab.listen => [
           tools.ToolItem(
             id: 'speak_mode',
             title: 'Nói',
@@ -437,9 +488,8 @@ class _MainShellState extends State<MainShell> {
           shellSettingsTool,
           contentTools[0],
           contentTools[3],
-        ];
-      case _PrimaryTab.read:
-        return [
+        ],
+      _PrimaryTab.read => [
           tools.ToolItem(
             id: 'write_mode',
             title: 'Viết',
@@ -451,9 +501,8 @@ class _MainShellState extends State<MainShell> {
           contentTools[1],
           contentTools[2],
           rememberTools[1],
-        ];
-      case _PrimaryTab.understand:
-        return [
+        ],
+      _PrimaryTab.understand => [
           tools.ToolItem(
             id: 'speak_mode',
             title: 'Nói',
@@ -465,10 +514,83 @@ class _MainShellState extends State<MainShell> {
           contentTools[3],
           rememberTools[0],
           rememberTools[1],
-        ];
-      case _PrimaryTab.remember:
-        return [shellSettingsTool, ...rememberTools];
-    }
+        ],
+      _PrimaryTab.remember => [shellSettingsTool, ...rememberTools],
+    };
+
+    return _rankQuickActions(raw);
+  }
+
+  List<tools.ToolItem> _rankQuickActions(List<tools.ToolItem> items) {
+    final ranked = [...items];
+    ranked.sort((a, b) => _quickActionScore(b).compareTo(_quickActionScore(a)));
+    return ranked;
+  }
+
+  int _quickActionScore(tools.ToolItem item) {
+    final usage = _storage.getQuickActionUsageCount(item.id);
+    final lastUsedMillis = _storage.getQuickActionLastUsedMillis(item.id);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final hoursSinceUse = lastUsedMillis <= 0
+        ? 9999
+        : ((now - lastUsedMillis) / const Duration(milliseconds: 3600000)).floor();
+    final recencyBonus = hoursSinceUse >= 72 ? 0 : (72 - hoursSinceUse);
+
+    return (_basePriorityForTool(item.id) * 1000) + (usage * 24) + recencyBonus;
+  }
+
+  int _basePriorityForTool(String id) {
+    const home = {
+      'speak_mode': 95,
+      'write_mode': 94,
+      'shell_ui_settings': 92,
+      'youtube_downloader': 90,
+      'web_reader': 88,
+      'pdf_reader': 87,
+      'review': 86,
+      'word_list': 85,
+    };
+    const listen = {
+      'speak_mode': 100,
+      'youtube_downloader': 96,
+      'youglish': 95,
+      'understand_tab': 92,
+      'shell_ui_settings': 88,
+    };
+    const read = {
+      'write_mode': 100,
+      'web_reader': 96,
+      'pdf_reader': 95,
+      'word_list': 90,
+      'shell_ui_settings': 88,
+    };
+    const understand = {
+      'speak_mode': 98,
+      'youglish': 96,
+      'review': 94,
+      'word_list': 92,
+      'shell_ui_settings': 88,
+    };
+    const remember = {
+      'review': 100,
+      'word_list': 98,
+      'timeline': 95,
+      'stats': 94,
+      'word_map': 93,
+      'wordlist_stats': 92,
+      'triangle': 90,
+      'venn': 89,
+      'shell_ui_settings': 86,
+    };
+
+    final map = switch (_currentTab) {
+      _PrimaryTab.home => home,
+      _PrimaryTab.listen => listen,
+      _PrimaryTab.read => read,
+      _PrimaryTab.understand => understand,
+      _PrimaryTab.remember => remember,
+    };
+    return map[id] ?? 50;
   }
 
   Future<void> _handleTool(String toolId) async {
@@ -644,7 +766,7 @@ class _MainShellState extends State<MainShell> {
         child: Column(
           children: [
             _buildAppBar(context),
-            if (_showModeSwitch) _buildModeSwitch(context),
+            _buildAnimatedModeSwitch(context),
             Expanded(
               child: ClipRect(
                 child: _buildCurrentScreen(),
@@ -780,6 +902,24 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  Widget _buildAnimatedModeSwitch(BuildContext context) {
+    final show = _showModeSwitch;
+    final child = show
+        ? _buildModeSwitch(context)
+        : const SizedBox(key: ValueKey('mode-switch-hidden'));
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildModeSwitch(BuildContext context) {
     final isListen = _showListenModes;
     final labels = isListen
@@ -789,6 +929,7 @@ class _MainShellState extends State<MainShell> {
     final accent = _currentAccent;
 
     return Container(
+      key: ValueKey('mode-switch-${_currentTab.name}-$selectedIndex'),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       color: const Color(0xFF111827),
       child: Row(

@@ -240,6 +240,40 @@ class StorageService {
     return getSetting<int>('shell_read_sub_mode', defaultValue: 0) ?? 0;
   }
 
+  Future<void> saveShellLongPressHintSeen(bool value) async {
+    await saveSetting('shell_long_press_hint_seen', value);
+  }
+
+  bool getShellLongPressHintSeen() {
+    return getSetting<bool>('shell_long_press_hint_seen', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> saveShellModeChipHintSeen(bool value) async {
+    await saveSetting('shell_mode_chip_hint_seen', value);
+  }
+
+  bool getShellModeChipHintSeen() {
+    return getSetting<bool>('shell_mode_chip_hint_seen', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> recordQuickActionUsage(String id) async {
+    final countKey = 'quick_action_count_$id';
+    final lastKey = 'quick_action_last_$id';
+    final current = (_settings.get(countKey, defaultValue: 0) as int?) ?? 0;
+    await _settings.put(countKey, current + 1);
+    await _settings.put(lastKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  int getQuickActionUsageCount(String id) {
+    return (_settings.get('quick_action_count_$id', defaultValue: 0) as int?) ?? 0;
+  }
+
+  int getQuickActionLastUsedMillis(String id) {
+    return (_settings.get('quick_action_last_$id', defaultValue: 0) as int?) ?? 0;
+  }
+
   // ==================== AUDIO SEGMENTS ====================
 
   Box<String> get _audioSegments => Hive.box<String>(_audioSegmentsBox);

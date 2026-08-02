@@ -11,6 +11,7 @@ enum _WriteExerciseType {
   dictation,
   clozeInput,
   clozeChoice,
+  rewrite,
 }
 
 class WriteStudioScreen extends StatefulWidget {
@@ -32,6 +33,7 @@ class WriteStudioScreen extends StatefulWidget {
 class _WriteStudioScreenState extends State<WriteStudioScreen> {
   final math.Random _random = math.Random();
   final TextEditingController _dictationController = TextEditingController();
+  final TextEditingController _rewriteController = TextEditingController();
 
   _WriteExerciseType _exerciseType = _WriteExerciseType.dictation;
   String _sourceKey = '';
@@ -41,6 +43,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
   _DictationResult? _dictationResult;
   _ClozeResult? _clozeResult;
+  _RewriteResult? _rewriteResult;
 
   List<TextEditingController> _blankControllers = [];
   List<_BlankPrompt> _blankPrompts = [];
@@ -50,6 +53,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   @override
   void dispose() {
     _dictationController.dispose();
+    _rewriteController.dispose();
     _disposeBlankControllers();
     super.dispose();
   }
@@ -90,8 +94,10 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     required bool regenerateCloze,
   }) {
     _dictationController.clear();
+    _rewriteController.clear();
     _dictationResult = null;
     _clozeResult = null;
+    _rewriteResult = null;
     _showAnswer = false;
     _lastAiPromptKey = '';
     _selectedChoices = [];
@@ -405,6 +411,132 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     return result;
   }
 
+  Set<String> _extractRewriteKeywords(TextProvider textProvider) {
+    final analyzedWords = _lineIndex < textProvider.analyzedLines.length
+        ? textProvider.analyzedLines[_lineIndex]
+        : const [];
+
+    final keywords = <String>{};
+    for (final word in analyzedWords) {
+      final normalized = _normalizeWord(word.originalWord);
+      if (normalized.length < 3 || word.isStopWord) continue;
+      switch (word.wordType.name) {
+        case 'noun':
+        case 'verb':
+        case 'adjective':
+        case 'adverb':
+          keywords.add(normalized);
+          break;
+        default:
+          if (normalized.length >= 5) keywords.add(normalized);
+      }
+    }
+
+    if (keywords.isNotEmpty) return keywords.take(6).toSet();
+
+    return _tokenizeNormalized(textProvider.lines[_lineIndex].content)
+        .where((word) => word.length >= 4)
+        .take(6)
+        .toSet();
+  }
+
+  List<String> _extractExpectedVerbs(TextProvider textProvider) {
+    final analyzedWords = _lineIndex < textProvider.analyzedLines.length
+        ? textProvider.analyzedLines[_lineIndex]
+        : const [];
+
+    final verbs = analyzedWords
+        .where((word) => word.wordType.name == 'verb')
+        .map((word) => _normalizeWord(word.originalWord))
+        .where((word) => word.isNotEmpty)
+        .toSet()
+        .toList();
+
+    return verbs;
+  }
+
+  double _grammarProxyScore(String rawText, List<String> tokens, List<String> expectedVerbs) {
+    if (tokens.isEmpty) return 0.0;
+
+    final trimmed = rawText.trim();
+    final firstChar = trimmed.isNotEmpty ? trimmed[0] : '';
+    final startsUppercase = firstChar.isNotEmpty && firstChar.toUpperCase() == firstChar;
+    final hasSentenceEnding = trimmed.endsWith('.') || trimmed.endsWith('!') || trimmed.endsWith('?');
+    final enoughWords = tokens.length >= 4;
+    const commonVerbs = {
+      'is', 'are', 'was', 'were', 'be', 'am', 'do', 'does', 'did', 'have', 'has', 'had',
+      'go', 'goes', 'went', 'make', 'makes', 'made', 'say', 'says', 'said', 'get', 'gets',
+      'got', 'think', 'thinks', 'thought', 'learn', 'learns', 'learned', 'study', 'studies'
+    };
+    final hasVerbLike = tokens.any((token) => expectedVerbs.contains(token) || commonVerbs.contains(token));
+
+    double score = 0.0;
+    score += enoughWords ? 0.35 : 0.12;
+    score += hasVerbLike ? 0.35 : 0.12;
+    score += startsUppercase ? 0.15 : 0.05;
+    score += hasSentenceEnding ? 0.15 : 0.05;
+    return score.clamp(0.0, 1.0).toDouble();
+  }
+
+  void _scoreRewrite(TextProvider textProvider) {
+    if (textProvider.lines.isEmpty) return;
+
+    final expected = textProvider.lines[_lineIndex].content;
+    final actual = _rewriteController.text.trim();
+    final actualTokens = _tokenizeNormalized(actual);
+    if (actualTokens.isEmpty) return;
+
+    final keywords = _extractRewriteKeywords(textProvider);
+    final usedKeywords = actualTokens.where(keywords.contains).toSet().toList()..sort();
+    final missingKeywords = keywords.where((word) => !usedKeywords.contains(word)).toList()..sort();
+    final completenessScore = keywords.isEmpty
+        ? _stringSimilarity(_tokenizeNormalized(expected).join(' '), actualTokens.join(' '))
+        : (usedKeywords.length / keywords.length).clamp(0.0, 1.0).toDouble();
+
+    final similarityToOriginal = _stringSimilarity(
+      _tokenizeNormalized(expected).join(' '),
+      actualTokens.join(' '),
+    );
+
+    double paraphraseScore;
+    if (similarityToOriginal >= 0.94) {
+      paraphraseScore = 0.18;
+    } else if (similarityToOriginal >= 0.82) {
+      paraphraseScore = 0.38;
+    } else if (similarityToOriginal >= 0.58) {
+      paraphraseScore = 0.82;
+    } else if (similarityToOriginal >= 0.34) {
+      paraphraseScore = completenessScore >= 0.45 ? 0.72 : 0.5;
+    } else {
+      paraphraseScore = completenessScore >= 0.45 ? 0.64 : 0.28;
+    }
+
+    final grammarScore = _grammarProxyScore(
+      actual,
+      actualTokens,
+      _extractExpectedVerbs(textProvider),
+    );
+
+    final overall = ((completenessScore * 0.5) +
+            (grammarScore * 0.22) +
+            (paraphraseScore * 0.28))
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    setState(() {
+      _rewriteResult = _RewriteResult(
+        overallScore: overall,
+        completenessScore: completenessScore,
+        grammarScore: grammarScore,
+        paraphraseScore: paraphraseScore,
+        similarityToOriginal: similarityToOriginal,
+        usedKeywords: usedKeywords,
+        missingKeywords: missingKeywords,
+      );
+      _showAnswer = true;
+    });
+  }
+
   String _buildAiPrompt({
     required String expected,
     required String actual,
@@ -576,6 +708,8 @@ Hãy trả về JSON hợp lệ với:
                   const SizedBox(height: 16),
                   if (_exerciseType == _WriteExerciseType.dictation)
                     _buildDictationCard(textProvider, currentLine!)
+                  else if (_exerciseType == _WriteExerciseType.rewrite)
+                    _buildRewriteCard(textProvider, currentLine!)
                   else
                     _buildClozeCard(currentLine!),
                   const SizedBox(height: 20),
@@ -583,8 +717,8 @@ Hãy trả về JSON hợp lệ với:
                     title: 'Vai trò của tab Viết',
                     bullets: [
                       'Viết là nhánh output gắn trực tiếp với nguồn text hoặc lyric hiện tại.',
-                      'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ và chọn đáp án.',
-                      'Các bài viết nâng cao và AI scoring sâu hơn sẽ tiếp tục nối vào đây trên cùng kiến trúc.',
+                      'Mặc định ưu tiên discoverability: người mới nhìn vào là biết có chép, điền từ, chọn đáp án và viết lại ý.',
+                      'Tab này đang đi theo 2 lớp: phản hồi local luôn chạy, AI local là lớp tăng cường khi model sẵn sàng.',
                     ],
                   ),
                 ],
@@ -670,6 +804,29 @@ Hãy trả về JSON hợp lệ với:
   }
 
   Widget _buildExerciseSelector(TextProvider textProvider) {
+    final items = [
+      (
+        label: 'Chép',
+        type: _WriteExerciseType.dictation,
+        color: const Color(0xFF26C6DA),
+      ),
+      (
+        label: 'Điền từ',
+        type: _WriteExerciseType.clozeInput,
+        color: const Color(0xFFFFB300),
+      ),
+      (
+        label: 'Chọn đáp án',
+        type: _WriteExerciseType.clozeChoice,
+        color: const Color(0xFFAB47BC),
+      ),
+      (
+        label: 'Viết lại ý',
+        type: _WriteExerciseType.rewrite,
+        color: const Color(0xFF4CAF50),
+      ),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -677,35 +834,27 @@ Hãy trả về JSON hợp lệ với:
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ExerciseSelectorChip(
-              label: 'Chép',
-              selected: _exerciseType == _WriteExerciseType.dictation,
-              color: const Color(0xFF26C6DA),
-              onTap: () => _cycleExercise(textProvider, _WriteExerciseType.dictation),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ExerciseSelectorChip(
-              label: 'Điền từ',
-              selected: _exerciseType == _WriteExerciseType.clozeInput,
-              color: const Color(0xFFFFB300),
-              onTap: () => _cycleExercise(textProvider, _WriteExerciseType.clozeInput),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ExerciseSelectorChip(
-              label: 'Chọn đáp án',
-              selected: _exerciseType == _WriteExerciseType.clozeChoice,
-              color: const Color(0xFFAB47BC),
-              onTap: () => _cycleExercise(textProvider, _WriteExerciseType.clozeChoice),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = (constraints.maxWidth - 8) / 2;
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: items
+                .map(
+                  (item) => SizedBox(
+                    width: itemWidth,
+                    child: _ExerciseSelectorChip(
+                      label: item.label,
+                      selected: _exerciseType == item.type,
+                      color: item.color,
+                      onTap: () => _cycleExercise(textProvider, item.type),
+                    ),
+                  ),
+                )
+                .toList(),
+          );
+        },
       ),
     );
   }
@@ -1070,6 +1219,156 @@ Hãy trả về JSON hợp lệ với:
             Text(
               'Lỗi AI: ${facade.lastError}',
               style: const TextStyle(color: Colors.orange, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRewriteCard(TextProvider textProvider, TextItem currentLine) {
+    final result = _rewriteResult;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.edit_outlined, color: Color(0xFF4CAF50)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Viết lại ý bằng câu khác',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (result != null)
+                _ScorePill(score: result.overallScore, accent: const Color(0xFF4CAF50)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Giữ lại ý chính của câu gốc nhưng thử diễn đạt lại theo cách của riêng bạn.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              currentLine.content,
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _rewriteController,
+            onChanged: (_) {
+              if (_rewriteResult != null) {
+                setState(() {
+                  _rewriteResult = null;
+                });
+              }
+            },
+            minLines: 4,
+            maxLines: 6,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Viết lại cùng ý, không cần chép y nguyên câu gốc...',
+              hintStyle: TextStyle(color: Colors.grey[500]),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.04),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _scoreRewrite(textProvider),
+                  icon: const Icon(Icons.analytics_outlined),
+                  label: const Text('Phân tích bài viết'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _rewriteController.clear();
+                      _rewriteResult = null;
+                    });
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Làm lại'),
+                ),
+              ),
+            ],
+          ),
+          if (result != null) ...[
+            const SizedBox(height: 16),
+            _FeedbackCard(
+              title: result.feedbackLabel,
+              color: result.feedbackColor,
+              children: [
+                _MetricRow(label: 'Giữ ý', value: '${(result.completenessScore * 100).round()}%'),
+                _MetricRow(label: 'Hình dáng câu', value: '${(result.grammarScore * 100).round()}%'),
+                _MetricRow(label: 'Độ viết lại', value: '${(result.paraphraseScore * 100).round()}%'),
+                _MetricRow(label: 'Từ khóa đã giữ', value: result.usedKeywords.isEmpty ? 'Chưa rõ' : result.usedKeywords.join(', ')),
+                _MetricRow(label: 'Từ khóa còn thiếu', value: result.missingKeywords.isEmpty ? 'Không có' : result.missingKeywords.join(', ')),
+                _MetricRow(label: 'Nhận xét', value: result.summary),
+                _MetricRow(label: 'Điểm mạnh', value: result.strength),
+                _MetricRow(label: 'Điểm cần sửa', value: result.primaryIssue),
+                _MetricRow(label: 'Bước tiếp theo', value: result.nextStep),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: result.tags
+                  .map(
+                    (tag) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: result.feedbackColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          color: result.feedbackColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ],
         ],
@@ -1904,6 +2203,104 @@ class _LocalCoachInsight {
       tags: tags,
       color: result.feedbackColor,
     );
+  }
+}
+
+class _RewriteResult {
+  final double overallScore;
+  final double completenessScore;
+  final double grammarScore;
+  final double paraphraseScore;
+  final double similarityToOriginal;
+  final List<String> usedKeywords;
+  final List<String> missingKeywords;
+
+  const _RewriteResult({
+    required this.overallScore,
+    required this.completenessScore,
+    required this.grammarScore,
+    required this.paraphraseScore,
+    required this.similarityToOriginal,
+    required this.usedKeywords,
+    required this.missingKeywords,
+  });
+
+  String get feedbackLabel {
+    if (overallScore >= 0.85) return 'Viết lại tốt · giữ ý mà vẫn có dấu ấn riêng';
+    if (overallScore >= 0.68) return 'Khá ổn · bắt đầu có paraphrase và giữ được ý chính';
+    if (overallScore >= 0.48) return 'Đang lên · giữ được một phần ý nhưng cần viết tự nhiên hơn';
+    return 'Cần làm lại · ý hoặc cấu trúc câu chưa đủ rõ';
+  }
+
+  Color get feedbackColor {
+    if (overallScore >= 0.85) return const Color(0xFF4CAF50);
+    if (overallScore >= 0.68) return const Color(0xFF81C784);
+    if (overallScore >= 0.48) return const Color(0xFFFFB300);
+    return const Color(0xFFFF7043);
+  }
+
+  String get summary {
+    if (completenessScore < 0.45) {
+      return 'Bài viết lại đang thiếu nhiều ý chính so với câu gốc.';
+    }
+    if (paraphraseScore < 0.4) {
+      return 'Bạn giữ ý được nhưng đang bám quá sát câu gốc, chưa thật sự viết lại.';
+    }
+    if (grammarScore < 0.45) {
+      return 'Ý có mặt nhưng câu trả lời chưa thành một phát biểu đủ tự nhiên.';
+    }
+    return 'Bài viết lại khá cân bằng giữa giữ ý, đổi cách diễn đạt và độ trọn câu.';
+  }
+
+  String get strength {
+    if (paraphraseScore >= 0.7 && completenessScore >= 0.65) {
+      return 'Bạn đã diễn đạt lại mà vẫn giữ được hầu hết từ khóa trọng tâm.';
+    }
+    if (completenessScore >= 0.75) {
+      return 'Khả năng giữ ý chính tốt, nền hiểu bài tương đối chắc.';
+    }
+    if (grammarScore >= 0.7) {
+      return 'Câu trả lời có hình dáng câu khá ổn và dễ đọc.';
+    }
+    return 'Bạn đã bắt đầu chuyển từ chép sang tự tạo đầu ra, đây là bước rất quan trọng.';
+  }
+
+  String get primaryIssue {
+    if (completenessScore < 0.45) {
+      return 'Thiếu ý chính hoặc bỏ rơi quá nhiều từ khóa trọng tâm.';
+    }
+    if (paraphraseScore < 0.4) {
+      return 'Quá giống câu gốc, nên thay đổi cấu trúc hoặc chọn cách nói khác.';
+    }
+    if (grammarScore < 0.45) {
+      return 'Câu chưa đủ trọn vẹn về hình thức: có thể thiếu động từ, quá ngắn hoặc chưa kết thúc tự nhiên.';
+    }
+    return 'Sai số còn lại chủ yếu là tinh chỉnh để câu tự nhiên và gọn hơn.';
+  }
+
+  String get nextStep {
+    if (completenessScore < 0.45) {
+      return 'Đọc lại câu gốc, gạch 3–5 từ khóa chính rồi viết lại chỉ với các từ khóa đó trong đầu.';
+    }
+    if (paraphraseScore < 0.4) {
+      return 'Thử đổi trật tự cụm từ hoặc thay ít nhất 1 phần mở đầu/kết thúc trước khi nộp lại.';
+    }
+    if (grammarScore < 0.45) {
+      return 'Viết thành câu dài hơn 4 từ, ưu tiên có một động từ rõ và kết thúc bằng dấu câu.';
+    }
+    return 'Tăng độ khó bằng cách viết ngắn gọn hơn hoặc diễn đạt cùng ý theo văn phong khác.';
+  }
+
+  List<String> get tags {
+    final tags = <String>[];
+    if (completenessScore >= 0.7) tags.add('Giữ ý tốt');
+    if (completenessScore < 0.45) tags.add('Thiếu ý');
+    if (paraphraseScore >= 0.7) tags.add('Paraphrase ổn');
+    if (paraphraseScore < 0.4) tags.add('Quá sát câu gốc');
+    if (grammarScore >= 0.7) tags.add('Câu tự nhiên');
+    if (grammarScore < 0.45) tags.add('Câu chưa trọn');
+    if (similarityToOriginal > 0.9) tags.add('Cần đổi cấu trúc');
+    return tags;
   }
 }
 

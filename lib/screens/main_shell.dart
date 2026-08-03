@@ -533,7 +533,7 @@ class _MainShellState extends State<MainShell> {
     final now = DateTime.now().millisecondsSinceEpoch;
     final hoursSinceUse = lastUsedMillis <= 0
         ? 9999
-        : ((now - lastUsedMillis) / const Duration(milliseconds: 3600000)).floor();
+        : ((now - lastUsedMillis) / 3600000).floor();
     final recencyBonus = hoursSinceUse >= 72 ? 0 : (72 - hoursSinceUse);
 
     return (_basePriorityForTool(item.id) * 1000) + (usage * 24) + recencyBonus;

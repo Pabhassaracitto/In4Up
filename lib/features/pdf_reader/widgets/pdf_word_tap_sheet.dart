@@ -401,7 +401,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
                   color: _detectedType.bgColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(_detectedType.label,
+                child: Text(_detectedType.label(context),
                     style: TextStyle(
                         color: _detectedType.color,
                         fontSize: 10,

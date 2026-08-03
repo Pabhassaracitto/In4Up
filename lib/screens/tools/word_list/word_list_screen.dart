@@ -427,7 +427,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ...VocabularyType.values.map((type) => Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: _FilterSegmentChip(
-                            label: type.label,
+                            label: type.label(context),
                             color: type.color,
                             isSelected: p.filterType == type,
                             onTap: () {
@@ -1638,7 +1638,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  type.label,
+                                  type.label(context),
                                   style: TextStyle(color: selectedType == type ? Colors.white : Colors.grey, fontSize: 11),
                                 ),
                                 selected: selectedType == type,
@@ -2333,7 +2333,7 @@ class _SmartGroupsSheet extends StatelessWidget {
           _gSection(
               '🏷️ Loại',
               VocabularyType.values
-                  .map((t) => _gItem(t.icon, t.label,
+                  .map((t) => _gItem(t.icon, t.label(context),
                           provider.wordsByType[t]?.length ?? 0, t.color, () {
                         provider.setFilterType(t);
                         Navigator.pop(context);

@@ -221,7 +221,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
             ...VocabularyType.values.map((type) => Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: _FilterChip(
-                    label: type.label,
+                    label: type.label(context),
                     color: type.color,
                     isSelected: _filterType == type,
                     onTap: () {
@@ -277,7 +277,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      t.label,
+                      t.label(context),
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 10,

@@ -127,32 +127,56 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
 
   // ── Tab Bar ───────────────────────────────────────────────
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TabBar(
-        controller: _tabCtrl,
-        indicator: BoxDecoration(
-          color: Color(0xFF2196F3).withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: Color(0xFF2196F3).withValues(alpha: 0.4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 320;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: TabBar(
+            controller: _tabCtrl,
+            indicator: BoxDecoration(
+              color: const Color(0xFF2196F3).withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: const Color(0xFF2196F3).withValues(alpha: 0.4),
+              ),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: const Color(0xFF2196F3),
+            unselectedLabelColor: Colors.grey,
+            labelStyle:
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelPadding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
+            tabs: [
+              _drawerTab(Icons.folder_outlined, 'Máy', compact),
+              _drawerTab(Icons.cloud_outlined, 'Thư viện', compact),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Tab _drawerTab(IconData icon, String label, bool compact) {
+    return Tab(
+      height: compact ? 34 : 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: compact ? 14 : 16),
+            SizedBox(width: compact ? 4 : 6),
+            Text(label, overflow: TextOverflow.ellipsis),
+          ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: const Color(0xFF2196F3),
-        unselectedLabelColor: Colors.grey,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        tabs: const [
-          Tab(icon: Icon(Icons.folder_outlined, size: 16), text: 'Máy'),
-          Tab(icon: Icon(Icons.cloud_outlined, size: 16), text: 'Thư viện'),
-        ],
       ),
     );
   }

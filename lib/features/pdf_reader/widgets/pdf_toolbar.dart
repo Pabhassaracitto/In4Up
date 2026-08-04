@@ -8,12 +8,14 @@ class PdfToolbar extends StatelessWidget {
   final PdfReaderController controller;
   final String title;
   final VoidCallback? onUserInteraction;
+  final VoidCallback? onShowAnnotations;
 
   const PdfToolbar({
     super.key,
     required this.controller,
     required this.title,
     this.onUserInteraction,
+    this.onShowAnnotations,
   });
 
   @override
@@ -96,6 +98,7 @@ class PdfToolbar extends StatelessWidget {
           _MoreButton(
             controller: controller,
             onUserInteraction: onUserInteraction,
+            onShowAnnotations: onShowAnnotations,
           ),
         ],
       ),
@@ -204,10 +207,12 @@ class _ViewModeButton extends StatelessWidget {
 class _MoreButton extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback? onUserInteraction;
+  final VoidCallback? onShowAnnotations;
 
   const _MoreButton({
     required this.controller,
     this.onUserInteraction,
+    this.onShowAnnotations,
   });
 
   @override
@@ -235,14 +240,22 @@ class _MoreButton extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _PdfOptionsSheet(controller: controller),
+      builder: (_) => _PdfOptionsSheet(
+        controller: controller,
+        onShowAnnotations: onShowAnnotations,
+      ),
     );
   }
 }
 
 class _PdfOptionsSheet extends StatelessWidget {
   final PdfReaderController controller;
-  const _PdfOptionsSheet({required this.controller});
+  final VoidCallback? onShowAnnotations;
+
+  const _PdfOptionsSheet({
+    required this.controller,
+    this.onShowAnnotations,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -296,15 +309,25 @@ class _PdfOptionsSheet extends StatelessWidget {
               '${controller.annotations.length} ghi chú',
               style: const TextStyle(color: Colors.white),
             ),
+            subtitle: const Text(
+              'Mở danh sách để xem, sửa hoặc xoá ghi chú đã lưu',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
             trailing: controller.annotations.isEmpty
                 ? null
                 : IconButton(
                     icon: const Icon(Icons.list, color: Colors.grey),
                     onPressed: () {
                       Navigator.pop(context);
-                      // TODO: show annotation list
+                      onShowAnnotations?.call();
                     },
                   ),
+            onTap: controller.annotations.isEmpty
+                ? null
+                : () {
+                    Navigator.pop(context);
+                    onShowAnnotations?.call();
+                  },
           ),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),

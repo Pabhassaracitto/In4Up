@@ -696,70 +696,81 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TabBar(
-        controller: _tabCtrl,
-        indicator: BoxDecoration(
-          color: const Color(0xFF1565C0),
-          borderRadius: BorderRadius.circular(10),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 380;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: TabBar(
+            controller: _tabCtrl,
+            isScrollable: compact,
+            tabAlignment: compact ? TabAlignment.start : TabAlignment.fill,
+            indicator: BoxDecoration(
+              color: const Color(0xFF1565C0),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey,
+            labelStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelPadding: EdgeInsets.symmetric(horizontal: compact ? 8 : 0),
+            tabs: [
+              _libraryTab(
+                icon: Icons.history_rounded,
+                label: 'Gần đây',
+                compact: compact,
+                trailing: _files.isNotEmpty ? _TabBadge(count: _files.length) : null,
+              ),
+              _libraryTab(
+                icon: Icons.cloud_rounded,
+                label: 'Cloud',
+                compact: compact,
+              ),
+              _libraryTab(
+                icon: Icons.folder_rounded,
+                label: 'Thiết bị',
+                compact: compact,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Tab _libraryTab({
+    required IconData icon,
+    required String label,
+    required bool compact,
+    Widget? trailing,
+  }) {
+    return Tab(
+      height: compact ? 34 : 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: compact ? 13 : 14),
+            SizedBox(width: compact ? 4 : 5),
+            Text(label, overflow: TextOverflow.ellipsis),
+            if (trailing != null) ...[
+              const SizedBox(width: 4),
+              trailing,
+            ],
+          ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.grey,
-        labelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        tabs: [
-          // Tab 0: Gần đây
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.history_rounded, size: 14),
-                const SizedBox(width: 4),
-                const Text('Gần đây'),
-                if (_files.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  _TabBadge(count: _files.length),
-                ],
-              ],
-            ),
-          ),
-          // Tab 1: Cloud
-          const Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.cloud_rounded, size: 14),
-                SizedBox(width: 4),
-                Text('Cloud'),
-              ],
-            ),
-          ),
-          // Tab 2: Thiết bị
-          const Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.folder_rounded, size: 14),
-                SizedBox(width: 4),
-                Text('Thiết bị'),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

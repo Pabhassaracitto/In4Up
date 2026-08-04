@@ -16,9 +16,8 @@ import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
 import '../../models/color_mode.dart';
-import '../../models/vocab_context.dart';
 import '../../providers/text_provider.dart';
-import '../../providers/vocabulary_provider.dart';
+import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
 import 'pdf_reader_controller.dart';
 import 'widgets/pdf_annotation_layer.dart';
@@ -167,6 +166,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     controller: _controller,
                     title: _title,
                     onUserInteraction: () => _showChrome(),
+                    onShowAnnotations: _showAnnotationManager,
                   ),
                 ),
               ),
@@ -198,7 +198,11 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               bottom: _selectionBottomOffset,
               left: 20,
               right: 20,
-              child: _SelectionBar(controller: _controller),
+              child: _SelectionBar(
+                controller: _controller,
+                onSaveNote: _saveSelectionAsAnnotation,
+                onOpenTextStudio: _openSelectedInTextStudio,
+              ),
             ),
         ],
       ),
@@ -449,6 +453,111 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
+  Future<void> _saveSelectionAsAnnotation() async {
+    final selectedText = _controller.selectedText?.trim() ?? '';
+    if (selectedText.isEmpty) return;
+
+    final noteCtrl = TextEditingController();
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Ghi chú cho đoạn chọn'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '"$selectedText"',
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontStyle: FontStyle.italic,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteCtrl,
+                  maxLines: 4,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Nhập ghi chú / bản dịch / insight...',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Lưu ghi chú'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave != true || !mounted) return;
+    await _controller.addAnnotationFromSelection(note: noteCtrl.text);
+    if (!mounted) return;
+    _showChrome(autoHide: false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📝 Đã lưu ghi chú cho đoạn chọn'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openSelectedInTextStudio() {
+    final selectedText = _controller.selectedText?.trim() ?? '';
+    if (selectedText.isEmpty) return;
+    context.read<TextProvider>().loadFromString(
+          selectedText,
+          title: 'PDF đoạn chọn · ${_title.replaceAll('.pdf', '')}',
+        );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Đã mở đoạn chọn trong Text Studio'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showAnnotationManager() {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF111827),
+      builder: (context) => _PdfAnnotationManager(
+        controller: _controller,
+        title: _title,
+      ),
+    );
+  }
+
   /// Load toàn bộ text vào TextProvider → navigate to Read Mode
   void _loadIntoReadMode() {
     if (_controller.extractedFullText.isEmpty) return;
@@ -600,7 +709,14 @@ class _WordTapDetector extends StatelessWidget {
 
 class _SelectionBar extends StatelessWidget {
   final PdfReaderController controller;
-  const _SelectionBar({required this.controller});
+  final VoidCallback onSaveNote;
+  final VoidCallback onOpenTextStudio;
+
+  const _SelectionBar({
+    required this.controller,
+    required this.onSaveNote,
+    required this.onOpenTextStudio,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -618,61 +734,48 @@ class _SelectionBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-
-          // ★ MỚI: Save to Wordlist (Cấp 1)
-          IconButton(
-            icon: const Icon(Icons.bookmark_add,
-                color: Color(0xFF4CAF50), size: 20),
-            onPressed: () {
-              final provider = context.read<VocabularyProvider>();
-              final text = controller.selectedText ?? '';
-              if (text.trim().isEmpty) return;
-
-              final pdfName = controller.pdfPath
-                  .split(Platform.isWindows ? '\\' : '/')
-                  .last;
-              final ctx = VocabContext.fromPdf(
-                fileName: pdfName,
-                page: controller.currentPage + 1,
-                surroundingText: text,
-              );
-
-              // Tự động phân loại dựa trên nội dung text được chọn
-              provider.addWithAutoClassify(
-                text: text.trim(),
-                meaning: '',
-                context: ctx,
-              );
-
+          _SelectionIconButton(
+            icon: Icons.note_add_outlined,
+            color: Colors.amber,
+            tooltip: 'Ghi chú đoạn chọn',
+            onTap: onSaveNote,
+          ),
+          _SelectionIconButton(
+            icon: Icons.text_snippet_outlined,
+            color: Colors.cyan,
+            tooltip: 'Mở trong Text Studio',
+            onTap: onOpenTextStudio,
+          ),
+          _SelectionIconButton(
+            icon: Icons.bookmark_add,
+            color: const Color(0xFF4CAF50),
+            tooltip: 'Lưu vào WordList',
+            onTap: () {
+              final added = controller.saveSelectedTextToWordList();
               controller.clearSelection();
-
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('✅ Đã lưu vào Wordlist'),
+                SnackBar(
+                  content: Text(added
+                      ? '✅ Đã lưu vào WordList'
+                      : '✅ Đã bổ sung ngữ cảnh vào WordList'),
                   behavior: SnackBarBehavior.floating,
-                  backgroundColor: Color(0xFF4CAF50),
-                  duration: Duration(seconds: 2),
+                  backgroundColor: const Color(0xFF4CAF50),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },
-            tooltip: 'Lưu vào Wordlist',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: EdgeInsets.zero,
           ),
-
-          // Speak (giữ nguyên)
-          IconButton(
-            icon: const Icon(Icons.volume_up, color: Colors.blue, size: 20),
-            onPressed: controller.speakSelectedText,
+          _SelectionIconButton(
+            icon: Icons.volume_up,
+            color: Colors.blue,
             tooltip: 'Đọc',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: EdgeInsets.zero,
+            onTap: controller.speakSelectedText,
           ),
-
-          // Save to Memory (giữ nguyên)
-          IconButton(
-            icon: const Icon(Icons.psychology, color: Colors.purple, size: 20),
-            onPressed: () {
+          _SelectionIconButton(
+            icon: Icons.psychology,
+            color: Colors.purple,
+            tooltip: 'Lưu vào Vườn Nhớ',
+            onTap: () {
               controller.saveSelectedTextToMemory();
               controller.clearSelection();
               ScaffoldMessenger.of(context).showSnackBar(
@@ -683,19 +786,202 @@ class _SelectionBar extends StatelessWidget {
                 ),
               );
             },
-            tooltip: 'Lưu vào Vườn Nhớ',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: EdgeInsets.zero,
           ),
-
-          // Close (giữ nguyên)
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.grey, size: 18),
-            onPressed: controller.clearSelection,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
+          _SelectionIconButton(
+            icon: Icons.close,
+            color: Colors.grey,
+            tooltip: 'Đóng',
+            onTap: controller.clearSelection,
+            size: 18,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SelectionIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+  final double size;
+
+  const _SelectionIconButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+    this.size = 20,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, color: color, size: size),
+      onPressed: onTap,
+      tooltip: tooltip,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      padding: EdgeInsets.zero,
+    );
+  }
+}
+
+class _PdfAnnotationManager extends StatelessWidget {
+  final PdfReaderController controller;
+  final String title;
+
+  const _PdfAnnotationManager({
+    required this.controller,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final annotations = List<PdfAnnotation>.from(controller.annotations)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return FractionallySizedBox(
+      heightFactor: 0.88,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Ghi chú PDF',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.grey[400], height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${annotations.length} ghi chú đã lưu',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: annotations.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.note_alt_outlined,
+                              size: 42, color: Colors.grey[700]),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Chưa có ghi chú nào',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Long-press một từ trên PDF hoặc ghi chú từ đoạn chọn ở Text Mode.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: annotations.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
+                      itemBuilder: (context, index) {
+                        final ann = annotations[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 6,
+                          ),
+                          leading: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: ann.color,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          title: Text(
+                            'Trang ${ann.pageIndex + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text(
+                                ann.selectedText,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey[300],
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.4,
+                                ),
+                              ),
+                              if ((ann.note ?? '').trim().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  ann.note!.trim(),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.amber[100],
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.chevron_right,
+                                color: Colors.white54),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              PdfAnnotationSheet.show(context, ann, controller);
+                            },
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            PdfAnnotationSheet.show(context, ann, controller);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

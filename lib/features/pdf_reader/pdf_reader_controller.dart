@@ -5,6 +5,8 @@ import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
+import '../../models/vocab_context.dart';
+import '../../models/vocabulary_type.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import 'models/pdf_annotation.dart';
@@ -369,12 +371,53 @@ class PdfReaderController extends ChangeNotifier {
     );
   }
 
+  bool saveSelectedTextToWordList() {
+    final text = _selectedText?.trim() ?? '';
+    if (text.isEmpty) return false;
+
+    final context = VocabContext.fromPdf(
+      fileName: pdfPath.split('/').last,
+      page: _currentPage + 1,
+      surroundingText: text,
+    );
+
+    final existed = VocabularyBridge.hasWord(text);
+    VocabularyBridge.addContextual(
+      text: text,
+      meaning: '',
+      example: text,
+      context: context,
+      forceType: text.contains(' ')
+          ? VocabularyType.phrase
+          : VocabularyType.word,
+    );
+    return !existed;
+  }
+
   void saveSelectedTextToMemory() {
     if (_selectedText == null || _selectedText!.isEmpty) return;
     MemoryProvider.addWord(
       word: _selectedText!.trim(),
       sourceFile: pdfPath.split('/').last,
       sourceLine: _currentPage,
+      context: _selectedText!.trim(),
+      example: _selectedText!.trim(),
+      tags: const ['pdf_reader'],
+    );
+  }
+
+  Future<PdfAnnotation?> addAnnotationFromSelection({
+    required String note,
+    Color color = const Color(0xFFFFD54F),
+  }) async {
+    final text = _selectedText?.trim() ?? '';
+    if (text.isEmpty) return null;
+    return addAnnotation(
+      pageIndex: _currentPage,
+      bounds: _selectionRect ?? Rect.zero,
+      text: text,
+      color: color,
+      note: note.trim().isEmpty ? null : note.trim(),
     );
   }
 

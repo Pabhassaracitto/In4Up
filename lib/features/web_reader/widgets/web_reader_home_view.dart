@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/web_collection.dart';
 import '../web_reader_controller.dart';
 
-class WebReaderHomeView extends StatelessWidget {
+class WebReaderHomeView extends StatefulWidget {
   final WebReaderController controller;
-  final Function(String url) onNavigate;
+  final ValueChanged<String> onNavigate;
 
   const WebReaderHomeView({
     super.key,
@@ -14,190 +15,1256 @@ class WebReaderHomeView extends StatelessWidget {
   });
 
   @override
+  State<WebReaderHomeView> createState() => _WebReaderHomeViewState();
+}
+
+class _WebReaderHomeViewState extends State<WebReaderHomeView> {
+  @override
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFF0D1117),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeroSection(),
-            const SizedBox(height: 32),
-            _buildSectionTitle('Gợi ý phổ biến', Icons.explore_outlined),
-            _buildPresetsGrid(),
-            const SizedBox(height: 32),
-            _buildSectionTitle('Gần đây & Yêu thích', Icons.history),
-            _buildRecentList(),
-          ],
-        ),
+      child: AnimatedBuilder(
+        animation: widget.controller,
+        builder: (context, _) {
+          final presets = widget.controller.presetCollections;
+          final userCollections = widget.controller.userCollections;
+          final history = widget.controller.history.take(12).toList();
+          final bookmarks = widget.controller.bookmarks.take(8).toList();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeroSection(context),
+                const SizedBox(height: 24),
+                _SectionHeader(
+                  icon: Icons.dashboard_customize_outlined,
+                  title: 'Bộ sưu tập có sẵn',
+                  subtitle: 'Preset của app, luôn giữ lại khi bạn thêm nhóm riêng.',
+                ),
+                const SizedBox(height: 14),
+                _buildCollectionGrid(presets, allowManage: false),
+                const SizedBox(height: 28),
+                _SectionHeader(
+                  icon: Icons.folder_copy_outlined,
+                  title: 'Nhóm của tôi',
+                  subtitle: 'Tự tạo nhóm link để gom nguồn học cá nhân.',
+                  action: TextButton.icon(
+                    onPressed: () => _showCollectionEditor(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Tạo nhóm'),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                if (userCollections.isEmpty)
+                  _buildEmptyState(
+                    icon: Icons.folder_open,
+                    title: 'Chưa có nhóm riêng',
+                    description:
+                        'Hãy tạo nhóm đầu tiên như “IELTS Reading”, “Pháp thoại buổi sáng”, hoặc “Nguồn nghiên cứu”.',
+                    action: FilledButton.icon(
+                      onPressed: () => _showCollectionEditor(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Tạo nhóm đầu tiên'),
+                    ),
+                  )
+                else
+                  _buildCollectionGrid(userCollections, allowManage: true),
+                const SizedBox(height: 28),
+                _SectionHeader(
+                  icon: Icons.bookmark_rounded,
+                  title: 'Đã lưu nhanh',
+                  subtitle: 'Bookmark từ khi bạn đang đọc trong Web Reader.',
+                ),
+                const SizedBox(height: 14),
+                _buildHistoryBlock(
+                  items: bookmarks,
+                  emptyIcon: Icons.bookmark_border,
+                  emptyTitle: 'Chưa có bookmark',
+                  emptyDescription:
+                      'Khi đang mở một trang, bấm biểu tượng bookmark trên toolbar để lưu lại.',
+                ),
+                const SizedBox(height: 28),
+                _SectionHeader(
+                  icon: Icons.history_rounded,
+                  title: 'Lịch sử duyệt gần đây',
+                  subtitle: 'Giữ mạch học cũ để quay lại đúng bài đang đọc.',
+                  action: history.isEmpty
+                      ? null
+                      : TextButton.icon(
+                          onPressed: _confirmClearHistory,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Xoá lịch sử'),
+                        ),
+                ),
+                const SizedBox(height: 14),
+                _buildHistoryBlock(
+                  items: history,
+                  emptyIcon: Icons.history_toggle_off,
+                  emptyTitle: 'Chưa có lịch sử đọc',
+                  emptyDescription:
+                      'Sau khi bạn mở một trang web, lịch sử sẽ hiện ở đây để quay lại nhanh.',
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHeroSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Web Reader',
-          style: TextStyle(
-            color: Colors.blue[400],
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-          ),
+  Widget _buildHeroSection(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF121A2B), Color(0xFF18253D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Khám phá kiến thức',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Nhập URL hoặc chọn một trang web bên dưới để bắt đầu trích xuất văn bản.',
-          style: TextStyle(color: Colors.grey[500], fontSize: 14, height: 1.5),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(999),
             ),
+            child: const Text(
+              'WEB READER · PHASE 1',
+              style: TextStyle(
+                color: Color(0xFF64B5F6),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Đọc theo bộ sưu tập, không còn mở web rời rạc',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Phase 1 dựng nền: preset của app, nhóm do bạn tự tạo, bookmark và lịch sử quay lại. Các preset cũ vẫn được giữ, đồng thời bạn có thể bổ sung nguồn riêng mà không bị ghi đè.',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 13,
+              height: 1.55,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _showCollectionEditor(),
+                icon: const Icon(Icons.create_new_folder_outlined),
+                label: const Text('Tạo nhóm của tôi'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showLinkEditorForQuickCollection(),
+                icon: const Icon(Icons.add_link_outlined),
+                label: const Text('Thêm link vào nhóm'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPresetsGrid() {
-    final presets = [
-      {'name': 'BBC News', 'url': 'https://www.bbc.com/news', 'icon': '🌍'},
-      {'name': 'Wikipedia', 'url': 'https://en.wikipedia.org', 'icon': '📚'},
-      {'name': 'CNN', 'url': 'https://edition.cnn.com', 'icon': '📺'},
-      {'name': 'Medium', 'url': 'https://medium.com', 'icon': '✍️'},
-      {
-        'name': 'The Guardian',
-        'url': 'https://www.theguardian.com',
-        'icon': '📰'
-      },
-      {'name': 'Reuters', 'url': 'https://www.reuters.com', 'icon': '📉'},
-    ];
+  Widget _buildCollectionGrid(
+    List<WebCollection> collections, {
+    required bool allowManage,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        int columns = 1;
+        if (width >= 1100) {
+          columns = 3;
+        } else if (width >= 720) {
+          columns = 2;
+        }
+        final spacing = 14.0;
+        final itemWidth = columns == 1
+            ? width
+            : (width - (spacing * (columns - 1))) / columns;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1,
-      ),
-      itemCount: presets.length,
-      itemBuilder: (context, index) {
-        final site = presets[index];
-        return InkWell(
-          onTap: () => onNavigate(site['url']!),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(site['icon']!, style: const TextStyle(fontSize: 24)),
-                const SizedBox(height: 8),
-                Text(
-                  site['name']!,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: collections
+              .map(
+                (collection) => SizedBox(
+                  width: itemWidth,
+                  child: _CollectionCard(
+                    collection: collection,
+                    allowManage: allowManage,
+                    onOpen: () => _showCollectionSheet(collection),
+                    onNavigate: widget.onNavigate,
+                    onEdit: allowManage
+                        ? () => _showCollectionEditor(existing: collection)
+                        : null,
+                    onDelete: allowManage
+                        ? () => _confirmDeleteCollection(collection)
+                        : null,
+                    onAddLink: allowManage
+                        ? () => _showLinkEditor(collectionId: collection.id)
+                        : null,
+                  ),
                 ),
-              ],
-            ),
-          ),
+              )
+              .toList(),
         );
       },
     );
   }
 
-  Widget _buildRecentList() {
-    // Trong thực tế, bạn sẽ lấy dữ liệu này từ controller hoặc local database (Hive/Prefs)
-    // Đây là ví dụ hiển thị logic Bookmark hiện có của bạn
-    final bookmarks = controller.bookmarks;
-
-    if (bookmarks.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
-              style: BorderStyle.solid),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.bookmark_border, color: Colors.grey[800], size: 32),
-            const SizedBox(height: 12),
-            Text(
-              'Chưa có trang web nào được lưu',
-              style: TextStyle(color: Colors.grey[700], fontSize: 13),
-            ),
-          ],
-        ),
+  Widget _buildHistoryBlock({
+    required List<WebHistoryEntry> items,
+    required IconData emptyIcon,
+    required String emptyTitle,
+    required String emptyDescription,
+  }) {
+    if (items.isEmpty) {
+      return _buildEmptyState(
+        icon: emptyIcon,
+        title: emptyTitle,
+        description: emptyDescription,
       );
     }
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: bookmarks.length,
-      itemBuilder: (context, index) {
-        final entry = bookmarks[index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          leading: const Icon(Icons.link, color: Colors.blue, size: 20),
-          title: Text(
-            entry.title.isNotEmpty ? entry.title : entry.url,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            _HistoryTile(
+              entry: items[i],
+              onTap: () {
+                HapticFeedback.lightImpact();
+                widget.onNavigate(items[i].url);
+              },
+            ),
+            if (i != items.length - 1)
+              Divider(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String description,
+    Widget? action,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.grey[700], size: 34),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          trailing: IconButton(
-            icon: const Icon(Icons.arrow_forward_ios,
-                size: 12, color: Colors.grey),
-            onPressed: () => onNavigate(entry.url),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 13,
+              height: 1.5,
+            ),
           ),
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onNavigate(entry.url);
+          if (action != null) ...[
+            const SizedBox(height: 14),
+            action,
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showCollectionEditor({WebCollection? existing}) async {
+    final titleCtrl = TextEditingController(text: existing?.title ?? '');
+    final descCtrl = TextEditingController(text: existing?.description ?? '');
+    final emojiCtrl = TextEditingController(text: existing?.emoji ?? '📁');
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: Text(existing == null ? 'Tạo nhóm mới' : 'Sửa nhóm'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _dialogField(
+                  controller: titleCtrl,
+                  label: 'Tên nhóm',
+                  hint: 'Ví dụ: IELTS Reading',
+                ),
+                const SizedBox(height: 12),
+                _dialogField(
+                  controller: descCtrl,
+                  label: 'Mô tả',
+                  hint: 'Mục đích của nhóm này',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                _dialogField(
+                  controller: emojiCtrl,
+                  label: 'Emoji',
+                  hint: '📁 hoặc 🪷 hoặc 🇬🇧',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Tên nhóm không được để trống')),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: Text(existing == null ? 'Tạo' : 'Lưu'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave == true) {
+      await widget.controller.createOrUpdateUserCollection(
+        id: existing?.id,
+        title: titleCtrl.text,
+        description: descCtrl.text,
+        emoji: emojiCtrl.text,
+        links: existing?.links ?? const [],
+      );
+    }
+  }
+
+  Future<void> _showLinkEditorForQuickCollection() async {
+    final collections = widget.controller.userCollections;
+    if (collections.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hãy tạo ít nhất 1 nhóm trước đã')),
+      );
+      return;
+    }
+
+    String selectedId = collections.first.id;
+    final titleCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+    final noteCtrl = TextEditingController();
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF151B26),
+              title: const Text('Thêm link vào nhóm'),
+              titleTextStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+              content: SizedBox(
+                width: 460,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedId,
+                      dropdownColor: const Color(0xFF151B26),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Nhóm đích'),
+                      items: collections
+                          .map(
+                            (c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text('${c.emoji} ${c.title}'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setLocalState(() => selectedId = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _dialogField(
+                      controller: titleCtrl,
+                      label: 'Tên link',
+                      hint: 'Ví dụ: Bài đọc 01',
+                    ),
+                    const SizedBox(height: 12),
+                    _dialogField(
+                      controller: urlCtrl,
+                      label: 'URL',
+                      hint: 'https://...',
+                    ),
+                    const SizedBox(height: 12),
+                    _dialogField(
+                      controller: noteCtrl,
+                      label: 'Ghi chú',
+                      hint: 'Nếu cần',
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Huỷ'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (urlCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Bạn cần nhập URL')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(dialogContext, true);
+                  },
+                  child: const Text('Thêm link'),
+                ),
+              ],
+            );
           },
         );
       },
     );
+
+    if (shouldSave == true) {
+      await widget.controller.addLinkToUserCollection(
+        collectionId: selectedId,
+        title: titleCtrl.text,
+        url: urlCtrl.text,
+        note: noteCtrl.text,
+      );
+    }
+  }
+
+  Future<void> _showLinkEditor({required String collectionId}) async {
+    final titleCtrl = TextEditingController();
+    final urlCtrl = TextEditingController(
+      text: widget.controller.currentUrl,
+    );
+    final noteCtrl = TextEditingController();
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Thêm link vào nhóm'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _dialogField(
+                  controller: titleCtrl,
+                  label: 'Tên link',
+                  hint: 'Ví dụ: Lesson 12',
+                ),
+                const SizedBox(height: 12),
+                _dialogField(
+                  controller: urlCtrl,
+                  label: 'URL',
+                  hint: 'https://...',
+                ),
+                const SizedBox(height: 12),
+                _dialogField(
+                  controller: noteCtrl,
+                  label: 'Ghi chú',
+                  hint: 'Nếu cần',
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (urlCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Bạn cần nhập URL')),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Thêm'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave == true) {
+      await widget.controller.addLinkToUserCollection(
+        collectionId: collectionId,
+        title: titleCtrl.text,
+        url: urlCtrl.text,
+        note: noteCtrl.text,
+      );
+    }
+  }
+
+  Future<void> _showCollectionSheet(WebCollection collection) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: const Color(0xFF111827),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final currentCollection = collection.isPreset
+                ? collection
+                : widget.controller.userCollections.firstWhere(
+                    (c) => c.id == collection.id,
+                    orElse: () => collection,
+                  );
+
+            return FractionallySizedBox(
+              heightFactor: 0.85,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          currentCollection.emoji,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                currentCollection.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                currentCollection.description,
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!currentCollection.isPreset)
+                          Row(
+                            children: [
+                              IconButton(
+                                tooltip: 'Thêm link',
+                                onPressed: () async {
+                                  await _showLinkEditor(
+                                      collectionId: currentCollection.id);
+                                  if (mounted) setModalState(() {});
+                                },
+                                icon: const Icon(Icons.add_link,
+                                    color: Colors.white),
+                              ),
+                              IconButton(
+                                tooltip: 'Sửa nhóm',
+                                onPressed: () async {
+                                  await _showCollectionEditor(
+                                      existing: currentCollection);
+                                  if (mounted) setModalState(() {});
+                                },
+                                icon: const Icon(Icons.edit_outlined,
+                                    color: Colors.white),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.07)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.link_rounded,
+                              size: 18, color: Colors.blue[200]),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${currentCollection.linkCount} liên kết',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (!currentCollection.isPreset)
+                            Text(
+                              'Link do bạn thêm sẽ được lưu lại',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: currentCollection.links.isEmpty
+                          ? _buildEmptyState(
+                              icon: Icons.link_off,
+                              title: 'Nhóm này chưa có liên kết',
+                              description:
+                                  'Thêm URL đầu tiên để dùng nhóm này như lối vào nhanh cho Web Reader.',
+                              action: currentCollection.isPreset
+                                  ? null
+                                  : FilledButton.icon(
+                                      onPressed: () async {
+                                        await _showLinkEditor(
+                                            collectionId: currentCollection.id);
+                                        if (mounted) setModalState(() {});
+                                      },
+                                      icon: const Icon(Icons.add_link),
+                                      label: const Text('Thêm liên kết'),
+                                    ),
+                            )
+                          : ListView.separated(
+                              itemCount: currentCollection.links.length,
+                              separatorBuilder: (_, __) => Divider(
+                                height: 1,
+                                color: Colors.white.withValues(alpha: 0.06),
+                              ),
+                              itemBuilder: (context, index) {
+                                final link = currentCollection.links[index];
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 4),
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: Colors.white12,
+                                    child: Text(
+                                      currentCollection.emoji,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    link.title,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        link.domain,
+                                        style: TextStyle(
+                                          color: Colors.blue[200],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      if (link.note.trim().isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          link.note,
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 12,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  trailing: currentCollection.isPreset
+                                      ? const Icon(Icons.open_in_new,
+                                          color: Colors.white54, size: 18)
+                                      : IconButton(
+                                          tooltip: 'Xoá link',
+                                          onPressed: () async {
+                                            await widget.controller
+                                                .removeLinkFromUserCollection(
+                                              collectionId: currentCollection.id,
+                                              linkId: link.id,
+                                            );
+                                            if (mounted) setModalState(() {});
+                                          },
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                  onTap: () {
+                                    Navigator.pop(sheetContext);
+                                    widget.onNavigate(link.url);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteCollection(WebCollection collection) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Xoá nhóm này?'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: Text(
+            'Nhóm "${collection.title}" sẽ bị xoá, nhưng các preset mặc định và lịch sử duyệt sẽ không bị ảnh hưởng.',
+            style: TextStyle(color: Colors.grey[300], height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text('Xoá'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      await widget.controller.deleteUserCollection(collection.id);
+    }
+  }
+
+  Future<void> _confirmClearHistory() async {
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Xoá lịch sử duyệt?'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: Text(
+            'Chỉ xoá lịch sử duyệt Web Reader. Bookmark và các bộ sưu tập của bạn vẫn được giữ nguyên.',
+            style: TextStyle(color: Colors.grey[300], height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text('Xoá lịch sử'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear == true) {
+      await widget.controller.clearHistory();
+    }
+  }
+
+  Widget _dialogField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      style: const TextStyle(color: Colors.white),
+      decoration: _inputDecoration(label, hint: hint),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: TextStyle(color: Colors.grey[300]),
+      hintStyle: TextStyle(color: Colors.grey[600]),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.04),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF64B5F6)),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? action;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 18, color: Colors.blue[200]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (action != null) action!,
+      ],
+    );
+  }
+}
+
+class _CollectionCard extends StatelessWidget {
+  final WebCollection collection;
+  final bool allowManage;
+  final VoidCallback onOpen;
+  final ValueChanged<String> onNavigate;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onAddLink;
+
+  const _CollectionCard({
+    required this.collection,
+    required this.allowManage,
+    required this.onOpen,
+    required this.onNavigate,
+    this.onEdit,
+    this.onDelete,
+    this.onAddLink,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final previewLinks = collection.links.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(collection.emoji, style: const TextStyle(fontSize: 22)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      collection.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      collection.description,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (allowManage)
+                PopupMenuButton<String>(
+                  color: const Color(0xFF151B26),
+                  icon: const Icon(Icons.more_vert, color: Colors.white70),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'add':
+                        onAddLink?.call();
+                        break;
+                      case 'edit':
+                        onEdit?.call();
+                        break;
+                      case 'delete':
+                        onDelete?.call();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'add', child: Text('Thêm link')),
+                    PopupMenuItem(value: 'edit', child: Text('Sửa nhóm')),
+                    PopupMenuItem(value: 'delete', child: Text('Xoá nhóm')),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoChip(
+                icon: Icons.link,
+                label: '${collection.linkCount} link',
+              ),
+              _InfoChip(
+                icon: collection.isPreset ? Icons.lock_outline : Icons.edit,
+                label: collection.isPreset ? 'Preset' : 'Tuỳ biến',
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (previewLinks.isEmpty)
+            Text(
+              'Chưa có link nào trong nhóm này.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12.5),
+            )
+          else
+            ...previewLinks.map(
+              (link) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () => onNavigate(link.url),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Ink(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.05)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.open_in_new,
+                            size: 16, color: Colors.white70),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                link.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                link.domain,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.blue[200],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(Icons.view_list_rounded, size: 18),
+              label: Text(
+                collection.linkCount > previewLinks.length
+                    ? 'Xem tất cả ${collection.linkCount} link'
+                    : 'Mở chi tiết nhóm',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryTile extends StatelessWidget {
+  final WebHistoryEntry entry;
+  final VoidCallback onTap;
+
+  const _HistoryTile({required this.entry, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.language, color: Colors.white70, size: 18),
+      ),
+      title: Text(
+        entry.title.isNotEmpty ? entry.title : entry.url,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _domain(entry.url),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.blue[200], fontSize: 12),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              _formatVisitedAt(entry.visitedAt),
+              style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+            ),
+          ],
+        ),
+      ),
+      trailing:
+          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
+      onTap: onTap,
+    );
+  }
+
+  static String _domain(String url) {
+    try {
+      return Uri.parse(url).host.replaceFirst('www.', '');
+    } catch (_) {
+      return url;
+    }
+  }
+
+  static String _formatVisitedAt(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inMinutes < 1) return 'Vừa xong';
+    if (diff.inHours < 1) return '${diff.inMinutes} phút trước';
+    if (diff.inDays < 1) return '${diff.inHours} giờ trước';
+    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
+    final day = time.day.toString().padLeft(2, '0');
+    final month = time.month.toString().padLeft(2, '0');
+    return '$day/$month/${time.year}';
   }
 }

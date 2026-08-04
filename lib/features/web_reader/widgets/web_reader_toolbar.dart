@@ -8,12 +8,14 @@ class WebReaderToolbar extends StatefulWidget {
   final WebReaderController controller;
   final Function(String url) onNavigate;
   final VoidCallback onExtractText;
+  final bool showingDashboard;
 
   const WebReaderToolbar({
     super.key,
     required this.controller,
     required this.onNavigate,
     required this.onExtractText,
+    required this.showingDashboard,
   });
 
   @override
@@ -38,6 +40,17 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
   }
 
   @override
+  void didUpdateWidget(covariant WebReaderToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.showingDashboard &&
+        widget.showingDashboard &&
+        !_isEditing &&
+        widget.controller.currentUrl.isEmpty) {
+      _urlCtrl.clear();
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.removeListener(_onControllerUpdate);
     _urlCtrl.dispose();
@@ -56,14 +69,11 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.controller;
+    final pageActionsEnabled =
+        !widget.showingDashboard && ctrl.state == WebReaderState.ready;
 
     return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 4,
-        left: 8,
-        right: 8,
-        bottom: 6,
-      ),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1117),
         border: Border(
@@ -73,37 +83,32 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Row 1: Back/Forward + URL bar + actions ──────
           Row(
             children: [
-              // Back
               _ToolbarBtn(
                 icon: Icons.home_outlined,
                 size: 20,
                 enabled: true,
-                onTap: () => widget.onNavigate(''), // Rỗng để về Dashboard
+                isActive: widget.showingDashboard,
+                onTap: () => widget.onNavigate(''),
                 tooltip: 'Trang chủ Dashboard',
               ),
               const SizedBox(width: 2),
-
               _ToolbarBtn(
                 icon: Icons.arrow_back_ios_new,
                 size: 16,
-                enabled: ctrl.canGoBack,
+                enabled: !widget.showingDashboard && ctrl.canGoBack,
                 onTap: () => widget.onNavigate('__back__'),
+                tooltip: 'Trang trước',
               ),
-
-              // Forward
               _ToolbarBtn(
                 icon: Icons.arrow_forward_ios,
                 size: 16,
-                enabled: ctrl.canGoForward,
+                enabled: !widget.showingDashboard && ctrl.canGoForward,
                 onTap: () => widget.onNavigate('__forward__'),
+                tooltip: 'Trang sau',
               ),
-
               const SizedBox(width: 4),
-
-              // ── URL Bar ─────────────────────────────────
               Expanded(
                 child: GestureDetector(
                   onTap: () {
@@ -122,13 +127,12 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: _isEditing
-                            ? Color(0xFF2196F3).withValues(alpha: 0.5)
+                            ? const Color(0xFF2196F3).withValues(alpha: 0.5)
                             : Colors.white.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Row(
                       children: [
-                        // Lock/Globe icon
                         Icon(
                           ctrl.currentUrl.startsWith('https')
                               ? Icons.lock_outline
@@ -145,10 +149,12 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                             focusNode: _focusNode,
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 12),
-                            decoration: const InputDecoration(
-                              hintText: 'URL hoặc tìm kiếm...',
-                              hintStyle:
-                                  TextStyle(color: Colors.grey, fontSize: 12),
+                            decoration: InputDecoration(
+                              hintText: widget.showingDashboard
+                                  ? 'URL hoặc tìm kiếm để mở nhanh...'
+                                  : 'URL hoặc tìm kiếm...',
+                              hintStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 12),
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
@@ -173,38 +179,31 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 4),
-
-              // Color mode cycle
-              _ColorModeButton(controller: ctrl),
-
-              // Extract text → Text Studio
+              _ColorModeButton(controller: ctrl, enabled: pageActionsEnabled),
               _ToolbarBtn(
                 icon: Icons.text_fields,
                 size: 18,
-                enabled: ctrl.state == WebReaderState.ready,
+                enabled: pageActionsEnabled,
                 onTap: widget.onExtractText,
                 tooltip: 'Mở trong Text Studio',
                 activeThumbColor: const Color(0xFF2196F3),
               ),
-
-              // Bookmark
               _ToolbarBtn(
                 icon: ctrl.isBookmarked(ctrl.currentUrl)
                     ? Icons.bookmark
                     : Icons.bookmark_border,
                 size: 18,
-                enabled: ctrl.state == WebReaderState.ready,
+                enabled: pageActionsEnabled,
                 onTap: ctrl.toggleBookmark,
                 activeThumbColor: Colors.amber,
-                isActive: ctrl.isBookmarked(ctrl.currentUrl),
+                isActive:
+                    pageActionsEnabled && ctrl.isBookmarked(ctrl.currentUrl),
+                tooltip: 'Bookmark trang hiện tại',
               ),
             ],
           ),
-
-          // ── Loading bar ───────────────────────────────────
-          if (ctrl.state == WebReaderState.loading)
+          if (ctrl.state == WebReaderState.loading && !widget.showingDashboard)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: LinearProgressIndicator(
@@ -221,31 +220,34 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
   }
 }
 
-// ── Color Mode Button ────────────────────────────────────
-
 class _ColorModeButton extends StatelessWidget {
   final WebReaderController controller;
-  const _ColorModeButton({required this.controller});
+  final bool enabled;
+
+  const _ColorModeButton({required this.controller, required this.enabled});
 
   @override
   Widget build(BuildContext context) {
-    final isActive = controller.colorMode != ColorMode.none;
+    final isActive = enabled && controller.colorMode != ColorMode.none;
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        controller.cycleColorMode();
-      },
+      onTap: enabled
+          ? () {
+              HapticFeedback.selectionClick();
+              controller.cycleColorMode();
+            }
+          : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(horizontal: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? Color(0xFF2196F3).withValues(alpha: 0.2)
+              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(8),
           border: isActive
-              ? Border.all(color: Color(0xFF2196F3).withValues(alpha: 0.4))
+              ? Border.all(
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.4))
               : null,
         ),
         child: Row(
@@ -254,16 +256,19 @@ class _ColorModeButton extends StatelessWidget {
             Icon(
               controller.colorMode.icon,
               size: 13,
-              color: isActive ? const Color(0xFF2196F3) : Colors.grey,
+              color: enabled
+                  ? (isActive ? const Color(0xFF2196F3) : Colors.grey)
+                  : Colors.grey[700],
             ),
             if (isActive) ...[
               const SizedBox(width: 3),
               Text(
                 controller.colorMode.label,
                 style: const TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600),
+                  color: Color(0xFF2196F3),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ],
@@ -272,8 +277,6 @@ class _ColorModeButton extends StatelessWidget {
     );
   }
 }
-
-// ── Toolbar Button ───────────────────────────────────────
 
 class _ToolbarBtn extends StatelessWidget {
   final IconData icon;
@@ -296,12 +299,12 @@ class _ToolbarBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveactiveThumbColor =
+    final effectiveActiveColor =
         activeThumbColor ?? const Color(0xFF2196F3);
     final color = !enabled
         ? Colors.grey[700]!
         : isActive
-            ? effectiveactiveThumbColor
+            ? effectiveActiveColor
             : Colors.white70;
 
     return Tooltip(
@@ -314,7 +317,7 @@ class _ToolbarBtn extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             color: isActive
-                ? effectiveactiveThumbColor.withValues(alpha: 0.15)
+                ? effectiveActiveColor.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),

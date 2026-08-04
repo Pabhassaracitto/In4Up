@@ -15,6 +15,7 @@ import '../../models/color_mode.dart';
 import '../../providers/text_provider.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
+import 'widgets/web_reader_home_view.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
 
@@ -30,17 +31,18 @@ class WebReaderScreen extends StatefulWidget {
 class _WebReaderScreenState extends State<WebReaderScreen> {
   late final WebReaderController _controller;
 
-  // ── Platform-specific WebView controllers ─────────────────
   WebViewController? _mobileCtrl;
   WinWebViewController? _winCtrl;
 
   bool _showSelectionBar = false;
   String _selectionText = '';
   DateTime? _lastSnackbar;
+  bool _showDashboard = false;
 
   @override
   void initState() {
     super.initState();
+    _showDashboard = widget.initialUrl == null || widget.initialUrl!.trim().isEmpty;
     _controller = WebReaderController();
     _controller.addListener(_onStateChanged);
 
@@ -58,11 +60,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       return;
     }
 
-    // ★ MỚI: Nếu không phải màn hình hiện tại, đừng xử lý logic highlight/rebuild
     final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
     if (!isCurrentRoute) return;
 
-    // Nếu color mode thay đổi (từ toolbar) → apply/remove highlight
     if (_controller.colorMode != _lastColorMode) {
       _lastColorMode = _controller.colorMode;
       if (_controller.colorMode == ColorMode.none) {
@@ -72,9 +72,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       }
       _updateFab();
     }
-    // ★ TỐI ƯU: Chỉ gọi setState nếu thực sự cần update UI của Screen
-    // Các thành phần như Toolbar đã lắng nghe controller riêng, không nên rebuild cả Screen.
-    // setState(() {});
   }
 
   void _initMobile() {
@@ -90,6 +87,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _controller.onPageStarted(url);
           if (mounted) {
             setState(() {
+              _showDashboard = false;
               _showSelectionBar = false;
               _selectionText = '';
             });
@@ -107,12 +105,14 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             : NavigationDecision.prevent,
       ));
 
-    final url = widget.initialUrl ??
-        WebReaderController.normalizeUrl('https://www.bbc.com/news');
-    _mobileCtrl!.loadRequest(Uri.parse(url));
+    final url = widget.initialUrl == null
+        ? ''
+        : WebReaderController.normalizeUrl(widget.initialUrl!);
+    if (url.isNotEmpty) {
+      _mobileCtrl!.loadRequest(Uri.parse(url));
+    }
   }
 
-  // ── Init Windows ─────────────────────────────────────────
   void _initWindows() {
     _winCtrl = WinWebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -126,6 +126,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _controller.onPageStarted(url);
           if (mounted) {
             setState(() {
+              _showDashboard = false;
               _showSelectionBar = false;
               _selectionText = '';
             });
@@ -141,27 +142,52 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             : NavigationDecision.prevent,
       ));
 
-    final url = widget.initialUrl ??
-        WebReaderController.normalizeUrl('https://www.bbc.com/news');
-    _winCtrl!.loadRequest(Uri.parse(url));
-  }
-
-  // ── Điều hướng ───────────────────────────────────────────
-  Future<void> _navigate(String urlOrCommand) async {
-    if (urlOrCommand == '__back__') {
-      await _mobileCtrl?.goBack();
-      await _winCtrl?.goBack();
-    } else if (urlOrCommand == '__forward__') {
-      await _mobileCtrl?.goForward();
-      await _winCtrl?.goForward();
-    } else {
-      final uri = Uri.parse(urlOrCommand);
-      await _mobileCtrl?.loadRequest(uri);
-      await _winCtrl?.loadRequest(uri);
+    final url = widget.initialUrl == null
+        ? ''
+        : WebReaderController.normalizeUrl(widget.initialUrl!);
+    if (url.isNotEmpty) {
+      _winCtrl!.loadRequest(Uri.parse(url));
     }
   }
 
-  // ── JS helper ────────────────────────────────────────────
+  Future<void> _navigate(String urlOrCommand) async {
+    if (urlOrCommand.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _showDashboard = true;
+          _showSelectionBar = false;
+          _selectionText = '';
+        });
+      }
+      return;
+    }
+
+    if (urlOrCommand == '__back__') {
+      await _mobileCtrl?.goBack();
+      await _winCtrl?.goBack();
+      return;
+    }
+
+    if (urlOrCommand == '__forward__') {
+      await _mobileCtrl?.goForward();
+      await _winCtrl?.goForward();
+      return;
+    }
+
+    final normalized = WebReaderController.normalizeUrl(urlOrCommand);
+    if (normalized.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _showDashboard = false;
+      });
+    }
+
+    final uri = Uri.parse(normalized);
+    await _mobileCtrl?.loadRequest(uri);
+    await _winCtrl?.loadRequest(uri);
+  }
+
   Future<void> _runJS(String script) async {
     try {
       await _mobileCtrl?.runJavaScript(script);
@@ -184,7 +210,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     return null;
   }
 
-  // ── onPageFinished mobile ────────────────────────────────
   Future<void> _onPageFinished(String url) async {
     final title = await _mobileCtrl
         ?.runJavaScriptReturningResult(WebReaderJS.getTitleScript)
@@ -206,7 +231,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     await _updateFab();
   }
 
-  // ── onPageFinished Windows ───────────────────────────────
   Future<void> _onPageFinishedWin(String url) async {
     final title = await _winCtrl
         ?.runJavaScriptReturningResult(WebReaderJS.getTitleScript)
@@ -228,7 +252,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     await _updateFab();
   }
 
-  // ── JS Message Handler ────────────────────────────────────
   void _onJsMessage(JavaScriptMessage message) {
     try {
       final data = jsonDecode(message.message) as Map<String, dynamic>;
@@ -272,9 +295,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
   }
 
-  // ── Highlight ────────────────────────────────────────────
   Future<void> _applyHighlight() async {
-    if (_controller.state != WebReaderState.ready) return;
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
     try {
       final config = _controller.buildHighlightConfig();
       final script = WebReaderJS.buildHighlightScript(config);
@@ -291,15 +313,15 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   }
 
   Future<void> _updateFab() async {
+    if (_showDashboard) return;
     try {
       final config = _controller.buildHighlightConfig();
       await _runJS(WebReaderJS.buildFabScript(config));
     } catch (_) {}
   }
 
-  // ── Extract Text → Text Studio ────────────────────────────
   Future<void> _extractTextToStudio() async {
-    if (_controller.state != WebReaderState.ready) return;
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
 
     _showSnack('⏳ Đang trích xuất văn bản...', duration: 1);
 
@@ -332,7 +354,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               title: _controller.pageTitle,
             );
         _showSnack(
-            '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng');
+          '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng',
+        );
       }
     } catch (e) {
       debugPrint('WebReaderScreen: extract error: $e');
@@ -349,13 +372,15 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: const Color(0xFF1A237E),
-      behavior: SnackBarBehavior.floating,
-      duration: Duration(seconds: duration),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: const Color(0xFF1A237E),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: duration),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
@@ -379,7 +404,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           tooltip: 'Quay lại',
         ),
         titleSpacing: 0,
-        title: _controller.state == WebReaderState.loading
+        title: !_showDashboard && _controller.state == WebReaderState.loading
             ? LinearProgressIndicator(
                 value: _controller.loadingProgress < 1.0
                     ? _controller.loadingProgress
@@ -390,66 +415,64 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               )
             : null,
         actions: [
-          // Refresh
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
-            onPressed: () {
-              final url = _controller.currentUrl;
-              if (url.isNotEmpty) _navigate(url);
-            },
+            onPressed: _showDashboard || _controller.currentUrl.isEmpty
+                ? null
+                : () {
+                    final url = _controller.currentUrl;
+                    if (url.isNotEmpty) {
+                      _navigate(url);
+                    }
+                  },
           ),
         ],
       ),
       body: Column(
         children: [
-          // ── Top Toolbar ─────────────────────────────────
           WebReaderToolbar(
             controller: _controller,
             onNavigate: _navigate,
             onExtractText: _extractTextToStudio,
+            showingDashboard: _showDashboard,
           ),
-
-          // ── WebView ─────────────────────────────────────
           Expanded(
-            child: Stack(
-              children: [
-                // ★ TỐI ƯU: Cô lập WebView trong một widget không đổi để tránh Buffer starvation
-                Positioned.fill(
-                  child: Platform.isWindows
-                      ? (_winCtrl != null
-                          ? WinWebViewWidget(controller: _winCtrl!)
-                          : const SizedBox())
-                      : (_mobileCtrl != null
-                          ? WebViewWidget(controller: _mobileCtrl!)
-                          : const SizedBox()),
-                ),
-
-                if (_controller.state == WebReaderState.loading)
-                  const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(Color(0xFF6C63FF)),
-                    ),
+            child: _showDashboard
+                ? WebReaderHomeView(
+                    controller: _controller,
+                    onNavigate: _navigate,
+                  )
+                : Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Platform.isWindows
+                            ? (_winCtrl != null
+                                ? WinWebViewWidget(controller: _winCtrl!)
+                                : const SizedBox())
+                            : (_mobileCtrl != null
+                                ? WebViewWidget(controller: _mobileCtrl!)
+                                : const SizedBox()),
+                      ),
+                      if (_controller.state == WebReaderState.loading)
+                        const Center(
+                          child: CircularProgressIndicator(
+                            valueColor:
+                                AlwaysStoppedAnimation(Color(0xFF6C63FF)),
+                          ),
+                        ),
+                      if (_controller.state == WebReaderState.error)
+                        _buildErrorOverlay(),
+                      if (_controller.isHighlightActive) _buildColorLegend(),
+                    ],
                   ),
-
-                // Error overlay
-                if (_controller.state == WebReaderState.error)
-                  _buildErrorOverlay(),
-
-                // Highlight legend
-                if (_controller.isHighlightActive) _buildColorLegend(),
-              ],
-            ),
           ),
-
-          // ── Selection action bar ─────────────────────────
-          if (_showSelectionBar && _selectionText.isNotEmpty)
+          if (_showSelectionBar && _selectionText.isNotEmpty && !_showDashboard)
             _buildSelectionBar(),
         ],
       ),
     );
   }
 
-  // ── Error Overlay ────────────────────────────────────────
   Widget _buildErrorOverlay() {
     return Container(
       color: const Color(0xFF0D1117),
@@ -481,7 +504,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
-  // ── Color Legend ─────────────────────────────────────────
   Widget _buildColorLegend() {
     return Positioned(
       bottom: 16,
@@ -502,7 +524,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
-  // ── Selection Bar ────────────────────────────────────────
   Widget _buildSelectionBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

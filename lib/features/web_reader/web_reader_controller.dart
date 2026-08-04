@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import '../../models/word_analysis.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import '../../services/syntax_highlighter_service.dart';
+import 'models/web_collection.dart';
 
 enum WebReaderState { idle, loading, ready, error }
 
@@ -39,6 +39,11 @@ class WebHistoryEntry {
 }
 
 class WebReaderController extends ChangeNotifier {
+  static const _storageBoxName = 'web_reader_history';
+  static const _historyKey = 'history';
+  static const _bookmarksKey = 'bookmarks';
+  static const _userCollectionsKey = 'user_collections_v1';
+
   // ─── State ────────────────────────────────────────────────
   WebReaderState _state = WebReaderState.idle;
   WebReaderState get state => _state;
@@ -80,19 +85,31 @@ class WebReaderController extends ChangeNotifier {
   double _ttsSpeed = 0.9;
   double get ttsSpeed => _ttsSpeed;
 
-  // ─── History ─────────────────────────────────────────────
-  static const _historyBoxName = 'web_reader_history';
+  // ─── History / Bookmarks ─────────────────────────────────
   final List<WebHistoryEntry> _history = [];
   List<WebHistoryEntry> get history =>
       List.unmodifiable(_history.reversed.toList());
 
-  // ─── Bookmarks ───────────────────────────────────────────
   final List<WebHistoryEntry> _bookmarks = [];
-  List<WebHistoryEntry> get bookmarks => List.unmodifiable(_bookmarks);
+  List<WebHistoryEntry> get bookmarks =>
+      List.unmodifiable(_bookmarks.reversed.toList());
+
+  // ─── Collections ─────────────────────────────────────────
+  late final List<WebCollection> _presetCollections = _buildPresetCollections();
+  final List<WebCollection> _userCollections = [];
+
+  List<WebCollection> get presetCollections =>
+      List.unmodifiable(_presetCollections);
+  List<WebCollection> get userCollections =>
+      List.unmodifiable(List<WebCollection>.from(_userCollections)
+        ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase())));
+  List<WebCollection> get allCollections =>
+      List.unmodifiable([...presetCollections, ...userCollections]);
 
   WebReaderController() {
     _loadHistory();
     _loadBookmarks();
+    _loadUserCollections();
   }
 
   // ─── URL Navigation ──────────────────────────────────────
@@ -129,12 +146,11 @@ class WebReaderController extends ChangeNotifier {
 
   void onPageFinished(String url, String title) {
     _currentUrl = url;
-    _pageTitle = title.isNotEmpty ? title : Uri.parse(url).host;
+    _pageTitle = title.isNotEmpty ? title : _safeHost(url);
     _state = WebReaderState.ready;
     _loadingProgress = 1.0;
     notifyListeners();
 
-    // Lưu lịch sử
     _addToHistory(url, _pageTitle);
   }
 
@@ -196,17 +212,15 @@ class WebReaderController extends ChangeNotifier {
   /// Build JSON dùng để inject vào JavaScript
   /// Chứa CEFR dictionary + color map theo ColorMode hiện tại
   String buildHighlightConfig() {
-    // Serialize CEFR dictionary nhỏ
     final cefrMap = <String, String>{};
     for (final entry in SyntaxHighlighterService.cefrDictionary.entries) {
-      cefrMap[entry.key] = entry.value.name; // 'a1', 'a2', ...
+      cefrMap[entry.key] = entry.value.name;
     }
 
     final config = {
-      'mode': _colorMode.name, // 'none', 'wordType', 'cefrLevel'
+      'mode': _colorMode.name,
       'cefrDictionary': cefrMap,
       'colors': {
-        // CEFR colors
         'cefr': {
           'a1': '#78909C',
           'a2': '#42A5F5',
@@ -216,7 +230,6 @@ class WebReaderController extends ChangeNotifier {
           'c2': '#EF5350',
           'unknown': 'transparent',
         },
-        // Word type colors
         'wordType': {
           'noun': '#42A5F5',
           'verb': '#EF5350',
@@ -229,7 +242,6 @@ class WebReaderController extends ChangeNotifier {
           'unknown': 'transparent',
         },
       },
-      // Heuristic rules (suffix-based) cho từ không có trong dict
       'suffixes': {
         'verb': ['ing', 'ed', 'ify', 'ate', 'ize', 'ise'],
         'adverb': ['ly'],
@@ -279,14 +291,13 @@ class WebReaderController extends ChangeNotifier {
     final clean = word.trim().toLowerCase();
     if (clean.isEmpty) return;
 
-    // ★ Bridge → VocabularyProvider (hệ thống chung)
     VocabularyBridge.addFromAnalyzed(
       word: clean,
       meaning: analyzed?.meaning,
       phonetic: analyzed?.phonetic,
       wordTypeName: analyzed?.wordType.name,
       cefrLevelName: analyzed?.cefrLevel.name,
-      sourceFile: Uri.parse(_currentUrl).host,
+      sourceFile: _safeHost(_currentUrl),
     );
 
     MemoryProvider.addWord(
@@ -294,21 +305,121 @@ class WebReaderController extends ChangeNotifier {
       wordType: analyzed?.wordType.name,
       cefrLevel: analyzed?.cefrLevel.name,
       meaning: analyzed?.meaning,
-      sourceFile: Uri.parse(_currentUrl).host,
+      sourceFile: _safeHost(_currentUrl),
+    );
+  }
+
+  // ─── Collections ─────────────────────────────────────────
+
+  Future<void> createOrUpdateUserCollection({
+    String? id,
+    required String title,
+    String description = '',
+    String emoji = '📁',
+    List<WebCollectionLink> links = const [],
+  }) async {
+    final normalizedTitle = title.trim();
+    if (normalizedTitle.isEmpty) return;
+
+    final normalizedDescription = description.trim();
+    final normalizedEmoji = emoji.trim().isEmpty ? '📁' : emoji.trim();
+    final normalizedLinks = _normalizeLinks(links);
+    final existingIndex =
+        id == null ? -1 : _userCollections.indexWhere((c) => c.id == id);
+
+    final collection = WebCollection(
+      id: existingIndex >= 0 ? _userCollections[existingIndex].id : _newId('col'),
+      title: normalizedTitle,
+      description: normalizedDescription,
+      emoji: normalizedEmoji,
+      isPreset: false,
+      links: normalizedLinks,
+    );
+
+    if (existingIndex >= 0) {
+      _userCollections[existingIndex] = collection;
+    } else {
+      _userCollections.add(collection);
+    }
+
+    await _saveUserCollections();
+    notifyListeners();
+  }
+
+  Future<void> deleteUserCollection(String collectionId) async {
+    _userCollections.removeWhere((c) => c.id == collectionId);
+    await _saveUserCollections();
+    notifyListeners();
+  }
+
+  Future<void> addLinkToUserCollection({
+    required String collectionId,
+    required String title,
+    required String url,
+    String note = '',
+  }) async {
+    final index = _userCollections.indexWhere((c) => c.id == collectionId);
+    if (index < 0) return;
+
+    final normalizedUrl = normalizeUrl(url);
+    if (normalizedUrl.isEmpty) return;
+
+    final links = List<WebCollectionLink>.from(_userCollections[index].links)
+      ..add(WebCollectionLink(
+        id: _newId('link'),
+        title: title.trim().isEmpty ? _safeHost(normalizedUrl) : title.trim(),
+        url: normalizedUrl,
+        note: note.trim(),
+      ));
+
+    _userCollections[index] = _userCollections[index].copyWith(links: links);
+    await _saveUserCollections();
+    notifyListeners();
+  }
+
+  Future<void> removeLinkFromUserCollection({
+    required String collectionId,
+    required String linkId,
+  }) async {
+    final index = _userCollections.indexWhere((c) => c.id == collectionId);
+    if (index < 0) return;
+
+    final links = List<WebCollectionLink>.from(_userCollections[index].links)
+      ..removeWhere((link) => link.id == linkId);
+
+    _userCollections[index] = _userCollections[index].copyWith(links: links);
+    await _saveUserCollections();
+    notifyListeners();
+  }
+
+  Future<void> addCurrentPageToUserCollection(String collectionId) async {
+    if (_currentUrl.isEmpty) return;
+    await addLinkToUserCollection(
+      collectionId: collectionId,
+      title: _pageTitle.isEmpty ? _safeHost(_currentUrl) : _pageTitle,
+      url: _currentUrl,
     );
   }
 
   // ─── History ─────────────────────────────────────────────
 
+  Future<void> clearHistory() async {
+    _history.clear();
+    final box = await _getStorageBox();
+    await box?.put(_historyKey, jsonEncode(const []));
+    notifyListeners();
+  }
+
   Future<void> _loadHistory() async {
     try {
-      if (!Hive.isBoxOpen(_historyBoxName)) return;
-      final box = Hive.box<String>(_historyBoxName);
-      final raw = box.get('history');
+      final box = await _getStorageBox();
+      final raw = box?.get(_historyKey);
       if (raw == null) return;
       final list = jsonDecode(raw) as List;
-      _history.addAll(
-          list.map((e) => WebHistoryEntry.fromJson(e as Map<String, dynamic>)));
+      _history
+        ..clear()
+        ..addAll(list.map((e) =>
+            WebHistoryEntry.fromJson(Map<String, dynamic>.from(e as Map))));
       notifyListeners();
     } catch (e) {
       debugPrint('WebReaderController: _loadHistory error: $e');
@@ -316,7 +427,6 @@ class WebReaderController extends ChangeNotifier {
   }
 
   Future<void> _addToHistory(String url, String title) async {
-    // Skip google search results, about:blank, etc.
     if (url.startsWith('about:') ||
         url.contains('google.com/search') ||
         url.isEmpty) {
@@ -325,18 +435,19 @@ class WebReaderController extends ChangeNotifier {
 
     _history.removeWhere((h) => h.url == url);
     _history.add(
-        WebHistoryEntry(url: url, title: title, visitedAt: DateTime.now()));
+      WebHistoryEntry(url: url, title: title, visitedAt: DateTime.now()),
+    );
 
-    // Keep max 100
     if (_history.length > 100) {
       _history.removeRange(0, _history.length - 100);
     }
 
     try {
-      if (!Hive.isBoxOpen(_historyBoxName)) return;
-      final box = Hive.box<String>(_historyBoxName);
-      await box.put(
-          'history', jsonEncode(_history.map((h) => h.toJson()).toList()));
+      final box = await _getStorageBox();
+      await box?.put(
+        _historyKey,
+        jsonEncode(_history.map((h) => h.toJson()).toList()),
+      );
     } catch (_) {}
 
     notifyListeners();
@@ -346,13 +457,14 @@ class WebReaderController extends ChangeNotifier {
 
   Future<void> _loadBookmarks() async {
     try {
-      if (!Hive.isBoxOpen(_historyBoxName)) return;
-      final box = Hive.box<String>(_historyBoxName);
-      final raw = box.get('bookmarks');
+      final box = await _getStorageBox();
+      final raw = box?.get(_bookmarksKey);
       if (raw == null) return;
       final list = jsonDecode(raw) as List;
-      _bookmarks.addAll(
-          list.map((e) => WebHistoryEntry.fromJson(e as Map<String, dynamic>)));
+      _bookmarks
+        ..clear()
+        ..addAll(list.map((e) =>
+            WebHistoryEntry.fromJson(Map<String, dynamic>.from(e as Map))));
       notifyListeners();
     } catch (_) {}
   }
@@ -364,16 +476,207 @@ class WebReaderController extends ChangeNotifier {
     if (isBookmarked(_currentUrl)) {
       _bookmarks.removeWhere((b) => b.url == _currentUrl);
     } else {
-      _bookmarks.add(WebHistoryEntry(
-          url: _currentUrl, title: _pageTitle, visitedAt: DateTime.now()));
+      _bookmarks.add(
+        WebHistoryEntry(
+          url: _currentUrl,
+          title: _pageTitle,
+          visitedAt: DateTime.now(),
+        ),
+      );
     }
     try {
-      if (!Hive.isBoxOpen(_historyBoxName)) return;
-      final box = Hive.box<String>(_historyBoxName);
-      await box.put(
-          'bookmarks', jsonEncode(_bookmarks.map((b) => b.toJson()).toList()));
+      final box = await _getStorageBox();
+      await box?.put(
+        _bookmarksKey,
+        jsonEncode(_bookmarks.map((b) => b.toJson()).toList()),
+      );
     } catch (_) {}
     notifyListeners();
+  }
+
+  // ─── Persistence helpers ─────────────────────────────────
+
+  Future<void> _loadUserCollections() async {
+    try {
+      final box = await _getStorageBox();
+      final raw = box?.get(_userCollectionsKey);
+      if (raw == null) return;
+      final list = jsonDecode(raw) as List;
+      _userCollections
+        ..clear()
+        ..addAll(list.map((e) =>
+            WebCollection.fromJson(Map<String, dynamic>.from(e as Map))));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadUserCollections error: $e');
+    }
+  }
+
+  Future<void> _saveUserCollections() async {
+    try {
+      final box = await _getStorageBox();
+      await box?.put(
+        _userCollectionsKey,
+        jsonEncode(_userCollections.map((e) => e.toJson()).toList()),
+      );
+    } catch (e) {
+      debugPrint('WebReaderController: _saveUserCollections error: $e');
+    }
+  }
+
+  Future<Box<String>?> _getStorageBox() async {
+    try {
+      if (Hive.isBoxOpen(_storageBoxName)) {
+        return Hive.box<String>(_storageBoxName);
+      }
+      return await Hive.openBox<String>(_storageBoxName);
+    } catch (e) {
+      debugPrint('WebReaderController: open box error: $e');
+      return null;
+    }
+  }
+
+  List<WebCollection> _buildPresetCollections() {
+    return const [
+      WebCollection(
+        id: 'preset-dharma',
+        title: 'Pháp thoại & Dharma',
+        description:
+            'Nguồn đọc cố định cho Phật học, thiền và pháp thoại tiếng Anh.',
+        emoji: '🪷',
+        isPreset: true,
+        links: [
+          WebCollectionLink(
+            id: 'dharma-1',
+            title: 'SuttaCentral',
+            url: 'https://suttacentral.net/',
+            note: 'Kinh tạng và bản dịch đa ngôn ngữ.',
+          ),
+          WebCollectionLink(
+            id: 'dharma-2',
+            title: 'Dhammatalks',
+            url: 'https://www.dhammatalks.org/',
+            note: 'Bài đọc và pháp thoại của Thanissaro Bhikkhu.',
+          ),
+          WebCollectionLink(
+            id: 'dharma-3',
+            title: 'Access to Insight',
+            url: 'https://www.accesstoinsight.org/',
+            note: 'Kho bài đọc Phật pháp tiếng Anh lâu năm.',
+          ),
+          WebCollectionLink(
+            id: 'dharma-4',
+            title: 'Tricycle',
+            url: 'https://tricycle.org/',
+            note: 'Tạp chí Phật học và thực hành hiện đại.',
+          ),
+        ],
+      ),
+      WebCollection(
+        id: 'preset-english',
+        title: 'English Learning',
+        description:
+            'Nguồn đọc chậm, rõ, phù hợp để luyện từ vựng và đọc hiểu.',
+        emoji: '🇬🇧',
+        isPreset: true,
+        links: [
+          WebCollectionLink(
+            id: 'english-1',
+            title: 'BBC Learning English',
+            url: 'https://www.bbc.co.uk/learningenglish/',
+            note: 'Bài học và tin tức dành cho người học tiếng Anh.',
+          ),
+          WebCollectionLink(
+            id: 'english-2',
+            title: 'VOA Learning English',
+            url: 'https://learningenglish.voanews.com/',
+            note: 'Tin tức tốc độ chậm, dễ học.',
+          ),
+          WebCollectionLink(
+            id: 'english-3',
+            title: 'British Council',
+            url: 'https://learnenglish.britishcouncil.org/',
+            note: 'Bài đọc và hoạt động ngôn ngữ theo cấp độ.',
+          ),
+          WebCollectionLink(
+            id: 'english-4',
+            title: 'Simple English Wikipedia',
+            url: 'https://simple.wikipedia.org/',
+            note: 'Kiến thức phổ thông với từ vựng đơn giản hơn.',
+          ),
+        ],
+      ),
+      WebCollection(
+        id: 'preset-news-knowledge',
+        title: 'Tin tức & Kiến thức',
+        description:
+            'Giữ lại các nguồn preset cũ và mở rộng thêm nơi đọc chung.',
+        emoji: '📰',
+        isPreset: true,
+        links: [
+          WebCollectionLink(
+            id: 'news-1',
+            title: 'BBC News',
+            url: 'https://www.bbc.com/news',
+          ),
+          WebCollectionLink(
+            id: 'news-2',
+            title: 'Wikipedia',
+            url: 'https://en.wikipedia.org',
+          ),
+          WebCollectionLink(
+            id: 'news-3',
+            title: 'CNN',
+            url: 'https://edition.cnn.com',
+          ),
+          WebCollectionLink(
+            id: 'news-4',
+            title: 'Medium',
+            url: 'https://medium.com',
+          ),
+          WebCollectionLink(
+            id: 'news-5',
+            title: 'The Guardian',
+            url: 'https://www.theguardian.com',
+          ),
+          WebCollectionLink(
+            id: 'news-6',
+            title: 'Reuters',
+            url: 'https://www.reuters.com',
+          ),
+        ],
+      ),
+    ];
+  }
+
+  List<WebCollectionLink> _normalizeLinks(List<WebCollectionLink> links) {
+    final result = <WebCollectionLink>[];
+    final seenUrls = <String>{};
+    for (final link in links) {
+      final url = normalizeUrl(link.url);
+      if (url.isEmpty || !seenUrls.add(url)) continue;
+      result.add(
+        link.copyWith(
+          id: link.id.trim().isEmpty ? _newId('link') : link.id,
+          title: link.title.trim().isEmpty ? _safeHost(url) : link.title.trim(),
+          url: url,
+          note: link.note.trim(),
+        ),
+      );
+    }
+    return result;
+  }
+
+  String _newId(String prefix) =>
+      '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+
+  String _safeHost(String url) {
+    try {
+      final host = Uri.parse(url).host.trim();
+      return host.isEmpty ? url : host;
+    } catch (_) {
+      return url;
+    }
   }
 
   @override

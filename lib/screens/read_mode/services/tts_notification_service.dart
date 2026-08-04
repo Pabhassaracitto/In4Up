@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class TtsNotificationService {
-  static const _channel = MethodChannel('vipsound/tts_notification');
+  static const _channel = MethodChannel('in2up/tts_notification');
 
   Future<void> activate({
     required String title,

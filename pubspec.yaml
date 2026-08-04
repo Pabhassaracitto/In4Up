@@ -1,4 +1,4 @@
-name: vipsound
+name: in2up
 description: Read + Remember + Learn + Music Player with UltraTimeStretch Engine - Speed 0.05x to 10.0x
 
 publish_to: 'none'
@@ -11,12 +11,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  vipsound_stt:
-    path: ./packages/vipsound_stt
-  vipsound_core:
-    path: ./packages/vipsound_core
-  vipsound_ai:
-    path: ./packages/vipsound_ai
+  in2up_stt:
+    path: ./packages/in2up_stt
+  in2up_core:
+    path: ./packages/in2up_core
+  in2up_ai:
+    path: ./packages/in2up_ai
   # UI
   flutter_localizations:
     sdk: flutter

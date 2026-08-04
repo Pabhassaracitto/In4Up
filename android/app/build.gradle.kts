@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.vipsound"
+    namespace = "com.in2up"
     compileSdk = 36 // Đưa lên 36 để đáp ứng các plugin như file_picker, sqflite...
 
     // Dùng chung NDK 28.2 trên cả Windows và Linux
@@ -22,7 +22,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.vipsound"
+        applicationId = "com.in2up"
         minSdk = 24
         targetSdk = 35
         versionCode = 2
@@ -35,17 +35,17 @@ android {
         create("stable") {
             dimension = "default"
             applicationIdSuffix = ""
-            resValue("string", "app_name", "VipSound")
+            resValue("string", "app_name", "in2up")
         }
         create("dev") {
             dimension = "default"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "VipSound Dev")
+            resValue("string", "app_name", "in2up Dev")
         }
         create("beta") {
             dimension = "default"
             applicationIdSuffix = ".beta"
-            resValue("string", "app_name", "VipSound Beta")
+            resValue("string", "app_name", "in2up Beta")
         }
     }
 

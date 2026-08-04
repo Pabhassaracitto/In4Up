@@ -82,7 +82,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0D1117))
       ..addJavaScriptChannel(
-        'VipSoundChannel',
+        'in2upChannel',
         onMessageReceived: _onJsMessage,
       )
       ..setNavigationDelegate(NavigationDelegate(
@@ -118,7 +118,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0D1117))
       ..addJavaScriptChannel(
-        'VipSoundChannel',
+        'in2upChannel',
         onMessageReceived: _onJsMessage,
       )
       ..setNavigationDelegate(WinNavigationDelegate(

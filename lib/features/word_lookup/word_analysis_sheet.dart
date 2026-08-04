@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_ai/vipsound_ai.dart';
+import 'package:in2up_ai/in2up_ai.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
 
@@ -294,7 +294,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             onPressed: () {
               // Lấy error log từ facade
               facade.reportError(reason: 'User reported incorrect');
-              // TODO: Lưu log vào vipsound_storage
+              // TODO: Lưu log vào in2up_storage
               // context.read<StorageService>().saveErrorLog(log);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

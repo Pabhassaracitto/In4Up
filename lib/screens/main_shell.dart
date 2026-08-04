@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/l10n/app_localizations.dart';
+import 'package:in2up/l10n/app_localizations.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -117,10 +117,12 @@ class _MainShellState extends State<MainShell> {
     _enableLongPressModeSwitch = _storage.getShellLongPressModeSwitch();
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
     _listenModeIndex =
-        ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0).clamp(0, 1))
+        ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0)
+                .clamp(0, 1))
             .toInt();
     _readModeIndex =
-        ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0).clamp(0, 1))
+        ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0)
+                .clamp(0, 1))
             .toInt();
     _syncModeSwitchVisibility();
   }
@@ -230,7 +232,8 @@ class _MainShellState extends State<MainShell> {
     setState(() {
       _loadShellUiSettings();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   Color get _currentAccent {
@@ -255,7 +258,7 @@ class _MainShellState extends State<MainShell> {
   String get _titleText {
     switch (_currentTab) {
       case _PrimaryTab.home:
-        return 'VipSound';
+        return 'in2up';
       case _PrimaryTab.listen:
         return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
       case _PrimaryTab.read:
@@ -315,7 +318,8 @@ class _MainShellState extends State<MainShell> {
       }
       _syncModeSwitchVisibility();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   void _setListenMode(int index) {
@@ -325,7 +329,8 @@ class _MainShellState extends State<MainShell> {
       _storage.saveShellListenSubMode(index);
       _syncModeSwitchVisibility();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   void _setReadMode(int index) {
@@ -335,7 +340,8 @@ class _MainShellState extends State<MainShell> {
       _storage.saveShellReadSubMode(index);
       _syncModeSwitchVisibility();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
   Future<void> _openQuickActions() async {
@@ -531,9 +537,8 @@ class _MainShellState extends State<MainShell> {
     final usage = _storage.getQuickActionUsageCount(item.id);
     final lastUsedMillis = _storage.getQuickActionLastUsedMillis(item.id);
     final now = DateTime.now().millisecondsSinceEpoch;
-    final hoursSinceUse = lastUsedMillis <= 0
-        ? 9999
-        : ((now - lastUsedMillis) / 3600000).floor();
+    final hoursSinceUse =
+        lastUsedMillis <= 0 ? 9999 : ((now - lastUsedMillis) / 3600000).floor();
     final recencyBonus = hoursSinceUse >= 72 ? 0 : (72 - hoursSinceUse);
 
     return (_basePriorityForTool(item.id) * 1000) + (usage * 24) + recencyBonus;
@@ -649,7 +654,8 @@ class _MainShellState extends State<MainShell> {
         if (result != null && result.files.single.path != null) {
           nav.push(
             MaterialPageRoute(
-              builder: (_) => PdfReaderScreen(pdfPath: result.files.single.path!),
+              builder: (_) =>
+                  PdfReaderScreen(pdfPath: result.files.single.path!),
             ),
           );
         }
@@ -849,8 +855,9 @@ class _MainShellState extends State<MainShell> {
   Widget _buildTitleSection() {
     return GestureDetector(
       onTap: _showModeChip ? _handleModeChipTap : null,
-      onLongPress:
-          _hasSecondaryModes && _enableLongPressModeSwitch ? _toggleCurrentSecondaryMode : null,
+      onLongPress: _hasSecondaryModes && _enableLongPressModeSwitch
+          ? _toggleCurrentSecondaryMode
+          : null,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -885,7 +892,8 @@ class _MainShellState extends State<MainShell> {
               );
             },
           ),
-          if (_hasSecondaryModes && (_showModeChip || _enableLongPressModeSwitch))
+          if (_hasSecondaryModes &&
+              (_showModeChip || _enableLongPressModeSwitch))
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: _ModeHintChip(
@@ -922,9 +930,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildModeSwitch(BuildContext context) {
     final isListen = _showListenModes;
-    final labels = isListen
-        ? const ['Nghe', 'Nói']
-        : const ['Đọc', 'Viết'];
+    final labels = isListen ? const ['Nghe', 'Nói'] : const ['Đọc', 'Viết'];
     final selectedIndex = isListen ? _listenModeIndex : _readModeIndex;
     final accent = _currentAccent;
 
@@ -1124,7 +1130,8 @@ class _ToolPage extends StatelessWidget {
       ),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: color),
             onPressed: () => Navigator.pop(context),
@@ -1252,12 +1259,12 @@ class _BottomNavItem extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
           decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+            color:
+                selected ? color.withValues(alpha: 0.14) : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected
-                  ? color.withValues(alpha: 0.24)
-                  : Colors.transparent,
+              color:
+                  selected ? color.withValues(alpha: 0.24) : Colors.transparent,
             ),
           ),
           child: Column(
@@ -1266,13 +1273,15 @@ class _BottomNavItem extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(selected ? selectedIcon : icon, color: activeColor, size: 22),
+                  Icon(selected ? selectedIcon : icon,
+                      color: activeColor, size: 22),
                   if (badgeText != null)
                     Positioned(
                       top: -6,
                       right: -14,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(999),

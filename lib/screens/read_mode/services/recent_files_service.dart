@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/recent_file.dart';
 
 class RecentFilesService {
-  static const String _key = 'vipsound_read_recent_v1';
+  static const String _key = 'in2up_read_recent_v1';
   static const int _maxItems = 30;
 
   // Singleton

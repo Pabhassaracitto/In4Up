@@ -1,5 +1,5 @@
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:vipsound/l10n/app_localizations.dart';
+import 'package:in2up/l10n/app_localizations.dart';
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -11,13 +11,13 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vipsound/screens/memory_mode/controllers/memory_controller.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
-import 'package:vipsound/services/storage_service.dart';
-import 'package:vipsound_ai/vipsound_ai.dart';
-import 'package:vipsound_stt/models/stt_config.dart';
-import 'package:vipsound_stt/models/stt_model_info.dart';
-import 'package:vipsound_stt/stt_service_facade.dart';
+import 'package:in2up/screens/memory_mode/controllers/memory_controller.dart';
+import 'package:in2up/screens/understand_mode/understand_provider.dart';
+import 'package:in2up/services/storage_service.dart';
+import 'package:in2up_ai/in2up_ai.dart';
+import 'package:in2up_stt/models/stt_config.dart';
+import 'package:in2up_stt/models/stt_model_info.dart';
+import 'package:in2up_stt/stt_service_facade.dart';
 
 import 'core/responsive/app_responsive.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
@@ -208,7 +208,8 @@ class _MyAppState extends State<MyApp> {
   Widget _buildApp(_AppLocalServices localServices) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => LocaleProvider(localServices.prefs)),
+        ChangeNotifierProvider(
+            create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
@@ -366,7 +367,7 @@ class _AppLoadingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const Text(
-                'VipSound',
+                'in2up',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,

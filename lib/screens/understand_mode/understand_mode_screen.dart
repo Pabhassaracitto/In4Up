@@ -1,11 +1,11 @@
 // lib/screens/understand_mode/understand_mode_screen.dart
-// VipSound - Chế độ HIỂU (Fixed version)
+// in2up - Chế độ HIỂU (Fixed version)
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
+import 'package:in2up/screens/understand_mode/understand_provider.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
@@ -402,7 +402,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             children: [
               Consumer<UnderstandProvider>(
                 builder: (context, provider, _) {
-                  if (provider.lrcLines.isEmpty) {
+                  if (provider!.lrcLines.isEmpty) {
                     return const Center(
                       child: Text(
                         "Chưa có nội dung\nHãy tạo LRC từ Tab Nghe",
@@ -414,9 +414,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
                   return ListView.builder(
                     controller: _lrcScrollController,
-                    itemCount: provider.lrcLines.length,
+                    itemCount: provider!.lrcLines.length,
                     itemBuilder: (context, index) {
-                      final line = provider.lrcLines[index];
+                      final line = provider!.lrcLines[index];
                       final isActive = index == provider.currentLineIndex;
 
                       return GestureDetector(
@@ -431,7 +431,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                           ),
                           decoration: BoxDecoration(
                             color: isActive
-                                ? const Color(0xFF6C63FF).withOpacity(0.15)
+                                ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),

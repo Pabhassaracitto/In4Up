@@ -1,4 +1,4 @@
-// VipSound v11.0 — View với speakerColorMap parameter
+// in2up1.0 — View với speakerColorMap parameter
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -33,8 +33,7 @@ class RollingWaveformView extends StatefulWidget {
   });
 
   @override
-  State<RollingWaveformView> createState() =>
-      _RollingWaveformViewState();
+  State<RollingWaveformView> createState() => _RollingWaveformViewState();
 }
 
 class _RollingWaveformViewState extends State<RollingWaveformView> {
@@ -53,10 +52,9 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
 
     final msPerPx = visMs / w;
     final delta = (x - w / 2) * msPerPx;
-    final target =
-        (widget.controller.position.inMilliseconds + delta)
-            .round()
-            .clamp(0, widget.controller.duration.inMilliseconds);
+    final target = (widget.controller.position.inMilliseconds + delta)
+        .round()
+        .clamp(0, widget.controller.duration.inMilliseconds);
 
     return Duration(milliseconds: target);
   }
@@ -83,14 +81,11 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
         if (w <= 0) return;
 
         final deltaX = d.localPosition.dx - _dragStartX!;
-        final visMs =
-            widget.controller.visibleDuration.inMilliseconds;
+        final visMs = widget.controller.visibleDuration.inMilliseconds;
         final deltaMs = -(deltaX * visMs / w);
-        final target =
-            (_dragStart!.inMilliseconds + deltaMs)
-                .round()
-                .clamp(0,
-                    widget.controller.duration.inMilliseconds);
+        final target = (_dragStart!.inMilliseconds + deltaMs)
+            .round()
+            .clamp(0, widget.controller.duration.inMilliseconds);
 
         final pos = Duration(milliseconds: target);
         widget.controller.updatePosition(pos);
@@ -121,8 +116,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
                 onPointerSignal: (e) {
                   if (e is PointerScrollEvent) {
                     widget.controller.setZoom(
-                      widget.controller.zoom +
-                          e.scrollDelta.dy * -0.001,
+                      widget.controller.zoom + e.scrollDelta.dy * -0.001,
                     );
                   }
                 },
@@ -153,16 +147,15 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
-        borderRadius:
-            const BorderRadius.vertical(bottom: Radius.circular(12)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
       ),
       child: Row(
         children: [
           IconButton(
             icon: const Icon(Icons.zoom_out, size: 18),
             color: Colors.white70,
-            onPressed: () => widget.controller
-                .setZoom(widget.controller.zoom * 0.8),
+            onPressed: () =>
+                widget.controller.setZoom(widget.controller.zoom * 0.8),
           ),
           Expanded(
             child: Slider(
@@ -177,14 +170,13 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
           IconButton(
             icon: const Icon(Icons.zoom_in, size: 18),
             color: Colors.white70,
-            onPressed: () => widget.controller
-                .setZoom(widget.controller.zoom * 1.25),
+            onPressed: () =>
+                widget.controller.setZoom(widget.controller.zoom * 1.25),
           ),
           AnimatedBuilder(
             animation: widget.controller,
             builder: (_, __) => Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFF6C63FF).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/models/word_entry.dart';
+import 'package:in2up/models/word_entry.dart';
 
 import '../../features/translation/translation_toolbar.dart';
 import '../../providers/player_provider.dart';

@@ -1,6 +1,6 @@
 // lib/models/word_analysis.dart
 import 'package:flutter/material.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import 'color_mode.dart';
 

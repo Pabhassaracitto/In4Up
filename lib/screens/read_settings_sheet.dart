@@ -1,7 +1,7 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';

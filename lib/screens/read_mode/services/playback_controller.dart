@@ -79,7 +79,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _activeToken = token;
 
     unawaited(_notification.activate(
-      title: 'VipSound đang phát',
+      title: 'in2up đang phát',
       subtitle: anchor != null
           ? 'Tiếp tục từ câu ${anchor.lineIndex + 1}'
           : 'Bắt đầu từ đầu',

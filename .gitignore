@@ -313,7 +313,7 @@ fdroid/
 thongtinduan.txt
 backups.env
 *.env
-packages\vipsound_core\.dart_tool
+packages\in2up_core\.dart_tool
 .ai_handoff/
 *.bat
 *.iml

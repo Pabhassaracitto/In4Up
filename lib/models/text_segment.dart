@@ -1,6 +1,6 @@
 // lib/models/text_segment.dart
 import 'package:flutter/material.dart';
-import 'package:vipsound/l10n/app_localizations.dart';
+import 'package:in2up/l10n/app_localizations.dart';
 
 /// Độ khó của đoạn text
 enum TextSegmentDifficulty {

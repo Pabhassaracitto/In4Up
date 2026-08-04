@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'memory_mode_screen.dart';
 
-/// Connector để tích hợp Memory Mode vào tab system của VipSound
+/// Connector để tích hợp Memory Mode vào tab system của in2up
 ///
 /// Sử dụng trong MainScreen:
 /// ```dart

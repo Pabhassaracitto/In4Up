@@ -1,5 +1,5 @@
 // lib/models/text_item.dart
-// VipSound - Text Item Model
+// in2up - Text Item Model
 // Không chứa WordType (được chuyển sang word_analysis.dart)
 
 class TextItem {
@@ -56,9 +56,9 @@ class WordItem {
 
 enum DifficultyMark {
   none,
-  easy,    // Dễ - 1x
-  medium,  // Vừa - 3x
-  hard,    // Khó - 5x
+  easy, // Dễ - 1x
+  medium, // Vừa - 3x
+  hard, // Khó - 5x
 }
 
 class TextDocument {

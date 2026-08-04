@@ -1,7 +1,7 @@
-// VipSound v11.0 — MemoryBridge: UI không ghi DB trực tiếp
+// in2up v11.0 — MemoryBridge: UI không ghi DB trực tiếp
 
 import 'package:flutter/foundation.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in2up_stt/in2up_stt.dart';
 
 abstract class MemoryBridge {
   Future<void> ingestTranscript({
@@ -45,8 +45,7 @@ class LiveMemoryBridge implements MemoryBridge {
     required String audioPath,
     required String summaryJson,
   }) async {
-    debugPrint(
-        '[MemoryBridge] ingestSummary → $audioPath');
+    debugPrint('[MemoryBridge] ingestSummary → $audioPath');
     // TODO Sprint 1.5: Hive.box('summaries').put(fp, summaryJson)
   }
 

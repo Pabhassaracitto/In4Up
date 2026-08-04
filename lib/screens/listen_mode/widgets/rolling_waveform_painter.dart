@@ -1,4 +1,4 @@
-// VipSound v11.0 — Painter đa màu speaker
+// in2up v11.0 — Painter đa màu speaker
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -32,11 +32,11 @@ class RollingWaveformPainter extends CustomPainter {
     ..style = PaintingStyle.stroke;
 
   final _loopFillPaint = Paint()
-    ..color = const Color(0xFF6C63FF).withOpacity(0.15)
+    ..color = const Color(0xFF6C63FF).withValues(alpha: 0.15)
     ..style = PaintingStyle.fill;
 
   final _loopBorderPaint = Paint()
-    ..color = const Color(0xFF6C63FF).withOpacity(0.6)
+    ..color = const Color(0xFF6C63FF).withValues(alpha: 0.6)
     ..strokeWidth = 1.0
     ..style = PaintingStyle.stroke;
 
@@ -72,13 +72,12 @@ class RollingWaveformPainter extends CustomPainter {
 
     // 2. Loop regions
     for (final r in controller.loopRegions) {
-      _paintLoopRegion(
-          canvas, size, r, totalMs, currentMs, msPerPx, playheadX);
+      _paintLoopRegion(canvas, size, r, totalMs, currentMs, msPerPx, playheadX);
     }
 
     // 3. Waveform bars
-    _paintBars(canvas, size, data.samples, totalMs, currentMs,
-        msPerPx, playheadX);
+    _paintBars(
+        canvas, size, data.samples, totalMs, currentMs, msPerPx, playheadX);
 
     // 4. Playhead
     _paintPlayhead(canvas, size, playheadX);
@@ -98,15 +97,13 @@ class RollingWaveformPainter extends CustomPainter {
     double playheadX,
   ) {
     for (final seg in segments) {
-      final speakerId = speakerColorMap[seg.joinKey]
-          ?? speakerColorMap[seg.uid]
-          ?? 0;
+      final speakerId =
+          speakerColorMap[seg.joinKey] ?? speakerColorMap[seg.uid] ?? 0;
 
       final color = kSpeakerColors[speakerId] ?? kSpeakerColors[0]!;
       final endMs = (seg.endSeconds * 1000).round();
 
-      final startX =
-          playheadX + (seg.startMs - currentMs) / msPerPx;
+      final startX = playheadX + (seg.startMs - currentMs) / msPerPx;
       final endX = playheadX + (endMs - currentMs) / msPerPx;
 
       if (endX < 0 || startX > size.width) continue;
@@ -119,8 +116,7 @@ class RollingWaveformPainter extends CustomPainter {
       canvas.drawRect(
         Rect.fromLTWH(left, 0, right - left, size.height),
         Paint()
-          ..color =
-              color.withOpacity(speakerId == 0 ? 0.04 : 0.10)
+          ..color = color.withOpacity(speakerId == 0 ? 0.04 : 0.10)
           ..style = PaintingStyle.fill,
       );
 
@@ -130,7 +126,7 @@ class RollingWaveformPainter extends CustomPainter {
           Offset(left, 0),
           Offset(left, size.height * 0.15),
           Paint()
-            ..color = color.withOpacity(0.4)
+            ..color = color.withValues(alpha: 0.4)
             ..strokeWidth = 1.0,
         );
       }
@@ -157,8 +153,7 @@ class RollingWaveformPainter extends CustomPainter {
     for (var i = 0; i < barCount; i++) {
       final barX = i * step;
       final barCenterX = barX + barW / 2;
-      final barMs =
-          currentMs + ((barCenterX - playheadX) * msPerPx).round();
+      final barMs = currentMs + ((barCenterX - playheadX) * msPerPx).round();
 
       if (barMs < 0 || barMs > totalMs) continue;
 
@@ -175,8 +170,7 @@ class RollingWaveformPainter extends CustomPainter {
         barColor = (kSpeakerColors[sid] ?? kSpeakerColors[1]!)
             .withOpacity(isPlayed ? 0.85 : 0.28);
       } else {
-        barColor = const Color(0xFF6C63FF)
-            .withOpacity(isPlayed ? 0.85 : 0.25);
+        barColor = const Color(0xFF6C63FF).withOpacity(isPlayed ? 0.85 : 0.25);
       }
 
       canvas.drawRRect(
@@ -199,9 +193,7 @@ class RollingWaveformPainter extends CustomPainter {
     for (final seg in segs) {
       final endMs = (seg.endSeconds * 1000).round();
       if (barMs >= seg.startMs && barMs <= endMs) {
-        return speakerColorMap[seg.joinKey]
-            ?? speakerColorMap[seg.uid]
-            ?? 0;
+        return speakerColorMap[seg.joinKey] ?? speakerColorMap[seg.uid] ?? 0;
       }
     }
     return 0;
@@ -218,17 +210,15 @@ class RollingWaveformPainter extends CustomPainter {
     double msPerPx,
     double playheadX,
   ) {
-    final startX = playheadX +
-        (region.start.inMilliseconds - currentMs) / msPerPx;
-    final endX = playheadX +
-        (region.end.inMilliseconds - currentMs) / msPerPx;
+    final startX =
+        playheadX + (region.start.inMilliseconds - currentMs) / msPerPx;
+    final endX = playheadX + (region.end.inMilliseconds - currentMs) / msPerPx;
 
     if (endX < 0 || startX > size.width) return;
 
     final left = startX.clamp(0.0, size.width);
     final right = endX.clamp(0.0, size.width);
-    final rect =
-        Rect.fromLTWH(left, 0, right - left, size.height);
+    final rect = Rect.fromLTWH(left, 0, right - left, size.height);
 
     canvas.drawRect(rect, _loopFillPaint);
     canvas.drawRect(rect, _loopBorderPaint);
@@ -262,16 +252,13 @@ class RollingWaveformPainter extends CustomPainter {
   void _paintTimeLabel(
       Canvas canvas, Size size, Duration pos, double playheadX) {
     final mm = pos.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final ss =
-        pos.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final ss = pos.inSeconds.remainder(60).toString().padLeft(2, '0');
 
     final tp = TextPainter(
       text: TextSpan(
         text: '$mm:$ss',
         style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 10,
-            fontFamily: 'monospace'),
+            color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -301,6 +288,5 @@ class RollingWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(RollingWaveformPainter old) =>
-      old.controller != controller ||
-      old.speakerColorMap != speakerColorMap;
+      old.controller != controller || old.speakerColorMap != speakerColorMap;
 }

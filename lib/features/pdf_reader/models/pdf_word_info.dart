@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/word_analysis.dart';
 import '../../../models/color_mode.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 /// Thông tin một từ trên PDF page, bao gồm vị trí pixel và phân tích ngôn ngữ
 class PdfWordInfo {
   final String text;

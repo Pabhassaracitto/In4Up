@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.vipsound" "\0"
-            VALUE "FileDescription", "vipsound" "\0"
+            VALUE "CompanyName", "com.in2up" "\0"
+            VALUE "FileDescription", "in2up" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "vipsound" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.vipsound. All rights reserved." "\0"
-            VALUE "OriginalFilename", "vipsound.exe" "\0"
-            VALUE "ProductName", "vipsound" "\0"
+            VALUE "InternalName", "in2up" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.in2up. All rights reserved." "\0"
+            VALUE "OriginalFilename", "in2up.exe" "\0"
+            VALUE "ProductName", "in2up" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

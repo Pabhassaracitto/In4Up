@@ -1,5 +1,5 @@
 //
-// Google Drive integration cho VipSound
+// Google Drive integration cho in2up
 // Cho phép duyệt và stream/tải file âm thanh từ Google Drive
 //
 // SETUP:

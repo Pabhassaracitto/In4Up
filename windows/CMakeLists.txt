@@ -5,11 +5,11 @@ cmake_minimum_required(VERSION 3.14)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
-project(vipsound LANGUAGES CXX)
+project(in2up LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "vipsound")
+set(BINARY_NAME "in2up")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -125,16 +125,16 @@ set(FIREBASE_SDK_DIR "$ENV{FIREBASE_CPP_SDK_DIR}")
 file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
 
 if(FIREBASE_SDK_DIR)
-  message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
+  message(STATUS "[in2up] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
 else()
-  message(STATUS "[VipSound] FIREBASE_CPP_SDK_DIR is NOT set.")
+  message(STATUS "[in2up] FIREBASE_CPP_SDK_DIR is NOT set.")
 endif()
 
 # === Quản lý Firebase SDK (Manual) ===
 if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
     file(GLOB_RECURSE FIREBASE_LIBS "${FIREBASE_SDK_DIR}/*.lib")
     if(FIREBASE_LIBS)
-        message(STATUS "[VipSound] Firebase Static Libs validated.")
+        message(STATUS "[in2up] Firebase Static Libs validated.")
         file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
         if(FIREBASE_DLLS)
             install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
@@ -146,6 +146,6 @@ endif()
 # === Manual External DLLs Management (Whisper, FFmpeg, etc.) ===
 file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
 if(EXTRA_DLLS)
-    message(STATUS "[VipSound] Found extra DLLs in libs/: ${EXTRA_DLLS}")
+    message(STATUS "[in2up] Found extra DLLs in libs/: ${EXTRA_DLLS}")
     install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()

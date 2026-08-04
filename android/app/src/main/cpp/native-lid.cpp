@@ -13,7 +13,7 @@ extern "C"
 {
 
     JNIEXPORT jlong JNICALL
-    Java_com_yourcompany_vipsound_AudioProcessorFFI_nativeCreate(
+    Java_com_yourcompany_in2up_AudioProcessorFFI_nativeCreate(
         JNIEnv *env, jobject, jint sampleRate, jint channels)
     {
 
@@ -33,7 +33,7 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
-    Java_com_yourcompany_vipsound_AudioProcessorFFI_nativeDestroy(
+    Java_com_yourcompany_in2up_AudioProcessorFFI_nativeDestroy(
         JNIEnv *, jobject, jlong enginePtr)
     {
 
@@ -47,7 +47,7 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
-    Java_com_yourcompany_vipsound_AudioProcessorFFI_nativeSetSpeed(
+    Java_com_yourcompany_in2up_AudioProcessorFFI_nativeSetSpeed(
         JNIEnv *, jobject, jlong enginePtr, jfloat speed)
     {
 
@@ -59,7 +59,7 @@ extern "C"
     }
 
     JNIEXPORT jint JNICALL
-    Java_com_yourcompany_vipsound_AudioProcessorFFI_nativeProcess(
+    Java_com_yourcompany_in2up_AudioProcessorFFI_nativeProcess(
         JNIEnv *env, jobject, jlong enginePtr,
         jfloatArray inputArray, jint inputFrames,
         jfloatArray outputArray, jint maxOutputFrames)

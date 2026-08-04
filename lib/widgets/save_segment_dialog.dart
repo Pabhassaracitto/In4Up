@@ -1,7 +1,7 @@
 // lib/widgets/save_segment_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../models/segment.dart';
 import '../providers/player_provider.dart';

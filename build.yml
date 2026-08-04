@@ -71,13 +71,13 @@ jobs:
 
       - name: Rename APK
         run: |
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/VipSound-Android-${{ github.ref_name }}.apk
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
+          path: build/app/outputs/flutter-apk/in2up-Android-*.apk
 
   # JOB 2: BUILD WINDOWS
   build-windows:
@@ -127,13 +127,13 @@ jobs:
         shell: powershell
         run: |
           $absolutePath = "${GITHUB_WORKSPACE}\build\windows\runner\Release\*"
-          Compress-Archive -Path $absolutePath -DestinationPath VipSound-Windows-${{ github.ref_name }}.zip
+          Compress-Archive -Path $absolutePath -DestinationPath in2up-Windows-${{ github.ref_name }}.zip
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: VipSound-Windows-*.zip
+          path: in2up-Windows-*.zip
 
   # JOB 3: BUILD iOS IPA (cho sideload)
   build-ios:
@@ -160,14 +160,14 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r VipSound-iOS-${{ github.ref_name }}.ipa Payload
+          zip -r in2up-iOS-${{ github.ref_name }}.ipa Payload
           rm -rf Payload
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: VipSound-iOS-*.ipa
+          path: in2up-iOS-*.ipa
 
   # JOB 4: TẠO RELEASE VỚI TẤT CẢ FILE
   create-release:

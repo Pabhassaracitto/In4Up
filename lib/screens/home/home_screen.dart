@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/l10n/app_localizations.dart';
+import 'package:in2up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
 import '../../providers/player_provider.dart';

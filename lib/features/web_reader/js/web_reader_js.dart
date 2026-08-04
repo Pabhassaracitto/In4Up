@@ -19,7 +19,7 @@ class WebReaderJS {
 
   // ── Cleanup script (xóa highlight cũ) ─────────────────
   function removeHighlights() {
-    const spans = document.querySelectorAll('.vipsound-word');
+    const spans = document.querySelectorAll('.in2up-word');
     spans.forEach(span => {
       const text = document.createTextNode(span.textContent);
       span.parentNode.replaceChild(text, span);
@@ -122,8 +122,8 @@ class WebReaderJS {
     const tag = parent.tagName ? parent.tagName.toLowerCase() : '';
     if (['script','style','noscript','code','pre','textarea',
          'input','button','select','option'].includes(tag)) return;
-    // Skip nếu đã là vipsound span
-    if (parent.classList && parent.classList.contains('vipsound-word')) return;
+    // Skip nếu đã là in2up span
+    if (parent.classList && parent.classList.contains('in2up-word')) return;
 
     // Tokenize: chia thành words + non-words
     const tokenRegex = /[\\w']+|[^\\w\\s]+|\\s+/g;
@@ -145,7 +145,7 @@ class WebReaderJS {
 
       if (color && color !== 'transparent') {
         const span = document.createElement('span');
-        span.className = 'vipsound-word';
+        span.className = 'in2up-word';
         span.setAttribute('data-word', token.toLowerCase());
         span.setAttribute('data-type',
           classification.mode === 'cefr'
@@ -173,7 +173,7 @@ class WebReaderJS {
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          window.VipSoundChannel.postMessage(JSON.stringify({
+          window.in2upChannel.postMessage(JSON.stringify({
             type: 'wordTap',
             word: token,
             wordType: classification.mode === 'cefr'
@@ -190,14 +190,14 @@ class WebReaderJS {
       } else {
         // Non-highlighted word: vẫn gắn click để tra từ
         const span = document.createElement('span');
-        span.className = 'vipsound-word vipsound-plain';
+        span.className = 'in2up-word in2up-plain';
         span.setAttribute('data-word', token.toLowerCase());
         span.textContent = token;
         span.style.cssText = 'cursor: pointer;';
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          window.VipSoundChannel.postMessage(JSON.stringify({
+          window.in2upChannel.postMessage(JSON.stringify({
             type: 'wordTap',
             word: token,
             wordType: null,
@@ -248,7 +248,7 @@ class WebReaderJS {
     walkDOM(mainContent);
   }
 
-  console.log('[VipSound] Highlight applied: mode=' + MODE);
+  console.log('[in2up] Highlight applied: mode=' + MODE);
 })();
 ''';
   }
@@ -256,13 +256,13 @@ class WebReaderJS {
   /// Script để remove highlight
   static const String removeHighlightScript = '''
 (function() {
-  const spans = document.querySelectorAll('.vipsound-word');
+  const spans = document.querySelectorAll('.in2up-word');
   spans.forEach(span => {
     const text = document.createTextNode(span.textContent);
     if (span.parentNode) span.parentNode.replaceChild(text, span);
   });
   document.body.normalize();
-  console.log('[VipSound] Highlights removed');
+  console.log('[in2up] Highlights removed');
 })();
 ''';
 
@@ -309,7 +309,7 @@ window.getSelection()?.toString() || '';
   document.addEventListener('mouseup', function() {
     const sel = window.getSelection();
     if (sel && sel.toString().trim().length > 0) {
-      window.VipSoundChannel.postMessage(JSON.stringify({
+      window.in2upnnel.postMessage(JSON.stringify({
         type: 'textSelected',
         text: sel.toString().trim()
       }));
@@ -321,7 +321,7 @@ window.getSelection()?.toString() || '';
     setTimeout(() => {
       const sel = window.getSelection();
       if (sel && sel.toString().trim().length > 0) {
-        window.VipSoundChannel.postMessage(JSON.stringify({
+        window.in2upnnel.postMessage(JSON.stringify({
           type: 'textSelected',
           text: sel.toString().trim()
         }));
@@ -329,7 +329,7 @@ window.getSelection()?.toString() || '';
     }, 100);
   });
 
-  console.log('[VipSound] Selection listener ready');
+  console.log('[in2up] Selection listener ready');
 })();
 ''';
 
@@ -338,14 +338,14 @@ window.getSelection()?.toString() || '';
     return '''
 (function() {
   // Xóa FAB cũ nếu có
-  const old = document.getElementById('vipsound-fab');
+  const old = document.getElementById('in2up-fab');
   if (old) old.remove();
 
   const config = $configJson;
   const mode = config.mode;
 
   const fab = document.createElement('div');
-  fab.id = 'vipsound-fab';
+  fab.id = 'in2up-fab';
   fab.style.cssText = [
     'position: fixed',
     'bottom: 80px',
@@ -372,7 +372,7 @@ window.getSelection()?.toString() || '';
   });
   fab.addEventListener('mouseup', () => {
     fab.style.transform = 'scale(1)';
-    window.VipSoundChannel.postMessage(JSON.stringify({ type: 'fabTap' }));
+    window.in2upChannel.postMessage(JSON.stringify({ type: 'fabTap' }));
   });
 
   document.body.appendChild(fab);

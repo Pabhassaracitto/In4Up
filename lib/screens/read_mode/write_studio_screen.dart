@@ -2,8 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_ai/vipsound_ai.dart';
-
+import 'package:in2up_ai/in2up_ai.dart';
 import '../../core/responsive/app_responsive.dart';
 import '../../models/text_item.dart';
 import '../../providers/text_provider.dart';
@@ -211,7 +210,8 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     final selected = <int>[];
     for (final candidate in candidateIndexes) {
       if (selected.length >= blankCount) break;
-      final tooClose = selected.any((value) => (value - candidate.index).abs() < 2);
+      final tooClose =
+          selected.any((value) => (value - candidate.index).abs() < 2);
       if (tooClose) continue;
       selected.add(candidate.index);
     }
@@ -235,9 +235,11 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
       );
     }
 
-    final pool = _buildChoicePool(textProvider, prompts.map((e) => e.answer).toSet());
+    final pool =
+        _buildChoicePool(textProvider, prompts.map((e) => e.answer).toSet());
     final options = prompts.map((prompt) {
-      final distractors = pool.where((word) => word != prompt.answer).toList()..shuffle(_random);
+      final distractors = pool.where((word) => word != prompt.answer).toList()
+        ..shuffle(_random);
       final set = <String>{prompt.answer};
       for (final word in distractors) {
         if (set.length >= 4) break;
@@ -250,10 +252,12 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     _blankPrompts = prompts;
     _choiceOptions = options;
     _selectedChoices = List<String?>.filled(prompts.length, null);
-    _blankControllers = List.generate(prompts.length, (_) => TextEditingController());
+    _blankControllers =
+        List.generate(prompts.length, (_) => TextEditingController());
   }
 
-  List<String> _buildChoicePool(TextProvider textProvider, Set<String> excluded) {
+  List<String> _buildChoicePool(
+      TextProvider textProvider, Set<String> excluded) {
     final pool = <String>{};
     for (final line in textProvider.lines) {
       final words = line.content.split(RegExp(r'\s+'));
@@ -285,7 +289,8 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     final actualText = actualTokens.join(' ');
 
     final lcs = _longestCommonSubsequence(expectedTokens, actualTokens);
-    final orderScore = expectedTokens.isEmpty ? 0.0 : lcs / expectedTokens.length;
+    final orderScore =
+        expectedTokens.isEmpty ? 0.0 : lcs / expectedTokens.length;
     final charScore = _stringSimilarity(expectedText, actualText);
     final finalScore =
         ((orderScore * 0.7) + (charScore * 0.3)).clamp(0.0, 1.0).toDouble();
@@ -332,10 +337,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   String _normalizeWord(String input) {
-    return input
-        .toLowerCase()
-        .replaceAll(RegExp(r"[^a-z0-9']"), '')
-        .trim();
+    return input.toLowerCase().replaceAll(RegExp(r"[^a-z0-9']"), '').trim();
   }
 
   bool _containsLetters(String input) {
@@ -462,20 +464,53 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     return verbs;
   }
 
-  double _grammarProxyScore(String rawText, List<String> tokens, List<String> expectedVerbs) {
+  double _grammarProxyScore(
+      String rawText, List<String> tokens, List<String> expectedVerbs) {
     if (tokens.isEmpty) return 0.0;
 
     final trimmed = rawText.trim();
     final firstChar = trimmed.isNotEmpty ? trimmed[0] : '';
-    final startsUppercase = firstChar.isNotEmpty && firstChar.toUpperCase() == firstChar;
-    final hasSentenceEnding = trimmed.endsWith('.') || trimmed.endsWith('!') || trimmed.endsWith('?');
+    final startsUppercase =
+        firstChar.isNotEmpty && firstChar.toUpperCase() == firstChar;
+    final hasSentenceEnding =
+        trimmed.endsWith('.') || trimmed.endsWith('!') || trimmed.endsWith('?');
     final enoughWords = tokens.length >= 4;
     const commonVerbs = {
-      'is', 'are', 'was', 'were', 'be', 'am', 'do', 'does', 'did', 'have', 'has', 'had',
-      'go', 'goes', 'went', 'make', 'makes', 'made', 'say', 'says', 'said', 'get', 'gets',
-      'got', 'think', 'thinks', 'thought', 'learn', 'learns', 'learned', 'study', 'studies'
+      'is',
+      'are',
+      'was',
+      'were',
+      'be',
+      'am',
+      'do',
+      'does',
+      'did',
+      'have',
+      'has',
+      'had',
+      'go',
+      'goes',
+      'went',
+      'make',
+      'makes',
+      'made',
+      'say',
+      'says',
+      'said',
+      'get',
+      'gets',
+      'got',
+      'think',
+      'thinks',
+      'thought',
+      'learn',
+      'learns',
+      'learned',
+      'study',
+      'studies'
     };
-    final hasVerbLike = tokens.any((token) => expectedVerbs.contains(token) || commonVerbs.contains(token));
+    final hasVerbLike = tokens.any((token) =>
+        expectedVerbs.contains(token) || commonVerbs.contains(token));
 
     double score = 0.0;
     score += enoughWords ? 0.35 : 0.12;
@@ -494,10 +529,13 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     if (actualTokens.isEmpty) return;
 
     final keywords = _extractRewriteKeywords(textProvider);
-    final usedKeywords = actualTokens.where(keywords.contains).toSet().toList()..sort();
-    final missingKeywords = keywords.where((word) => !usedKeywords.contains(word)).toList()..sort();
+    final usedKeywords = actualTokens.where(keywords.contains).toSet().toList()
+      ..sort();
+    final missingKeywords =
+        keywords.where((word) => !usedKeywords.contains(word)).toList()..sort();
     final completenessScore = keywords.isEmpty
-        ? _stringSimilarity(_tokenizeNormalized(expected).join(' '), actualTokens.join(' '))
+        ? _stringSimilarity(
+            _tokenizeNormalized(expected).join(' '), actualTokens.join(' '))
         : (usedKeywords.length / keywords.length).clamp(0.0, 1.0).toDouble();
 
     final similarityToOriginal = _stringSimilarity(
@@ -554,8 +592,10 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
     final expectedTokens = _tokenizeNormalized(expected);
     final keywords = _extractRewriteKeywords(textProvider);
-    final keptKeywords = actualTokens.where(keywords.contains).toSet().toList()..sort();
-    final missedKeywords = keywords.where((word) => !keptKeywords.contains(word)).toList()..sort();
+    final keptKeywords = actualTokens.where(keywords.contains).toSet().toList()
+      ..sort();
+    final missedKeywords =
+        keywords.where((word) => !keptKeywords.contains(word)).toList()..sort();
 
     final contentRetention = keywords.isEmpty
         ? _stringSimilarity(expectedTokens.join(' '), actualTokens.join(' '))
@@ -563,7 +603,9 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
     final compressionRatio = expectedTokens.isEmpty
         ? 1.0
-        : (actualTokens.length / expectedTokens.length).clamp(0.0, 2.0).toDouble();
+        : (actualTokens.length / expectedTokens.length)
+            .clamp(0.0, 2.0)
+            .toDouble();
 
     double brevityScore;
     if (compressionRatio <= 0.45) {
@@ -608,7 +650,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     required _DictationResult result,
   }) {
     return '''
-VIPSOUND_WRITE_REVIEW
+in2up_WRITE_REVIEW
 EXPECTED: $expected
 ACTUAL: $actual
 TOTAL_SCORE: ${(result.score * 100).round()}
@@ -617,7 +659,7 @@ SPELLING_SCORE: ${(result.spellingScore * 100).round()}
 MISSING: ${result.missingWords.isEmpty ? 'none' : result.missingWords.join(', ')}
 EXTRA: ${result.extraWords.isEmpty ? 'none' : result.extraWords.join(', ')}
 
-Bạn là bộ phản hồi viết offline của VipSound.
+Bạn là bộ phản hồi viết offline của in2up.
 Hãy trả về JSON hợp lệ với:
 - summary: nhận xét ngắn bằng tiếng Việt
 - topics: 2-4 nhãn ngắn
@@ -632,7 +674,7 @@ Hãy trả về JSON hợp lệ với:
     required _RewriteResult result,
   }) {
     return '''
-VIPSOUND_REWRITE_REVIEW
+in2up_REWRITE_REVIEW
 EXPECTED: $expected
 ACTUAL: $actual
 TOTAL_SCORE: ${(result.overallScore * 100).round()}
@@ -642,7 +684,7 @@ PARAPHRASE_SCORE: ${(result.paraphraseScore * 100).round()}
 MISSING: ${result.missingKeywords.isEmpty ? 'none' : result.missingKeywords.join(', ')}
 KEPT: ${result.usedKeywords.isEmpty ? 'none' : result.usedKeywords.join(', ')}
 
-Bạn là bộ phản hồi viết lại ý offline của VipSound.
+Bạn là bộ phản hồi viết lại ý offline của in2up.
 Hãy trả về JSON hợp lệ với:
 - summary: nhận xét ngắn bằng tiếng Việt
 - topics: 2-4 nhãn ngắn
@@ -657,7 +699,7 @@ Hãy trả về JSON hợp lệ với:
     required _SummaryResult result,
   }) {
     return '''
-VIPSOUND_SUMMARY_REVIEW
+in2up_SUMMARY_REVIEW
 EXPECTED: $expected
 ACTUAL: $actual
 TOTAL_SCORE: ${(result.overallScore * 100).round()}
@@ -668,7 +710,7 @@ COMPRESSION: ${result.compressionLabel}
 MISSED: ${result.missedKeywords.isEmpty ? 'none' : result.missedKeywords.join(', ')}
 KEPT: ${result.keptKeywords.isEmpty ? 'none' : result.keptKeywords.join(', ')}
 
-Bạn là bộ phản hồi tóm tắt offline của VipSound.
+Bạn là bộ phản hồi tóm tắt offline của in2up.
 Hãy trả về JSON hợp lệ với:
 - summary: nhận xét ngắn bằng tiếng Việt
 - topics: 2-4 nhãn ngắn
@@ -761,11 +803,13 @@ Hãy trả về JSON hợp lệ với:
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Để dùng phản hồi AI cục bộ, hãy import model .gguf vào thiết bị.'),
+            Text(
+                'Để dùng phản hồi AI cục bộ, hãy import model .gguf vào thiết bị.'),
             SizedBox(height: 8),
             Text('Khuyến nghị: gemma-2b-it-q4_k_m.gguf (~1.5GB)'),
             SizedBox(height: 8),
-            Text('Khi chưa có model, phần Chấm nhanh vẫn hoạt động hoàn toàn offline.'),
+            Text(
+                'Khi chưa có model, phần Chấm nhanh vẫn hoạt động hoàn toàn offline.'),
           ],
         ),
         actions: [
@@ -808,7 +852,8 @@ Hãy trả về JSON hợp lệ với:
           }
 
           final source = textProvider.currentTextPath;
-          final currentTitle = textProvider.currentDocument?.title ?? 'Văn bản hiện tại';
+          final currentTitle =
+              textProvider.currentDocument?.title ?? 'Văn bản hiện tại';
           final currentLine = hasText ? textProvider.lines[_lineIndex] : null;
           final activeLineIndex = textProvider.currentLineIndex;
 
@@ -931,7 +976,8 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF26C6DA).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
@@ -961,7 +1007,8 @@ Hãy trả về JSON hợp lệ với:
             TextButton.icon(
               onPressed: onJumpToActive,
               icon: const Icon(Icons.sync_alt, size: 18),
-              label: Text('Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})'),
+              label: Text(
+                  'Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})'),
             ),
           ],
         ],
@@ -1054,7 +1101,9 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _lineIndex > 0 ? () => _changeLine(textProvider, _lineIndex - 1) : null,
+                  onPressed: _lineIndex > 0
+                      ? () => _changeLine(textProvider, _lineIndex - 1)
+                      : null,
                   icon: const Icon(Icons.chevron_left),
                   label: const Text('Trước'),
                 ),
@@ -1063,7 +1112,8 @@ Hãy trả về JSON hợp lệ với:
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: textProvider.lines.length > 1
-                      ? () => _changeLine(textProvider, _random.nextInt(textProvider.lines.length))
+                      ? () => _changeLine(textProvider,
+                          _random.nextInt(textProvider.lines.length))
                       : null,
                   icon: const Icon(Icons.shuffle),
                   label: const Text('Ngẫu nhiên'),
@@ -1095,7 +1145,8 @@ Hãy trả về JSON hợp lệ với:
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF26C6DA).withValues(alpha: 0.18)),
+        border:
+            Border.all(color: const Color(0xFF26C6DA).withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1115,7 +1166,8 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               if (result != null)
-                _ScorePill(score: result.score, accent: const Color(0xFF26C6DA)),
+                _ScorePill(
+                    score: result.score, accent: const Color(0xFF26C6DA)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1134,7 +1186,8 @@ Hãy trả về JSON hợp lệ với:
               const SizedBox(width: 10),
               TextButton.icon(
                 onPressed: () => setState(() => _showAnswer = !_showAnswer),
-                icon: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
+                icon:
+                    Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
                 label: Text(_showAnswer ? 'Ẩn đáp án' : 'Hiện đáp án'),
               ),
             ],
@@ -1150,7 +1203,8 @@ Hãy trả về JSON hợp lệ với:
               ),
               child: Text(
                 currentLine.content,
-                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 13, height: 1.4),
               ),
             ),
           ],
@@ -1175,11 +1229,13 @@ Hãy trả về JSON hợp lệ với:
               fillColor: Colors.white.withValues(alpha: 0.04),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
             ),
           ),
@@ -1215,10 +1271,22 @@ Hãy trả về JSON hợp lệ với:
               title: result.feedbackLabel,
               color: result.feedbackColor,
               children: [
-                _MetricRow(label: 'Thứ tự câu', value: '${(result.orderScore * 100).round()}%'),
-                _MetricRow(label: 'Độ sát chính tả', value: '${(result.spellingScore * 100).round()}%'),
-                _MetricRow(label: 'Từ thiếu', value: result.missingWords.isEmpty ? 'Không có' : result.missingWords.join(', ')),
-                _MetricRow(label: 'Từ dư', value: result.extraWords.isEmpty ? 'Không có' : result.extraWords.join(', ')),
+                _MetricRow(
+                    label: 'Thứ tự câu',
+                    value: '${(result.orderScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Độ sát chính tả',
+                    value: '${(result.spellingScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Từ thiếu',
+                    value: result.missingWords.isEmpty
+                        ? 'Không có'
+                        : result.missingWords.join(', ')),
+                _MetricRow(
+                    label: 'Từ dư',
+                    value: result.extraWords.isEmpty
+                        ? 'Không có'
+                        : result.extraWords.join(', ')),
               ],
             ),
             const SizedBox(height: 16),
@@ -1246,14 +1314,16 @@ Hãy trả về JSON hợp lệ với:
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.18)),
+        border:
+            Border.all(color: const Color(0xFF7C4DFF).withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology_alt_outlined, color: Color(0xFFB388FF)),
+              const Icon(Icons.psychology_alt_outlined,
+                  color: Color(0xFFB388FF)),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -1266,7 +1336,8 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: facade.hasModel
                       ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
@@ -1276,7 +1347,9 @@ Hãy trả về JSON hợp lệ với:
                 child: Text(
                   facade.hasModel ? 'AI local sẵn sàng' : 'Chỉ tầng cục bộ',
                   style: TextStyle(
-                    color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
+                    color: facade.hasModel
+                        ? const Color(0xFF81C784)
+                        : Colors.orange,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1307,7 +1380,8 @@ Hãy trả về JSON hợp lệ với:
             children: coach.tags
                 .map(
                   (tag) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: coach.color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
@@ -1329,9 +1403,11 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: !facade.hasModel || !hasTextInput || isLoadingCurrent
-                      ? null
-                      : () => _runAiReview(currentLine: currentLine, result: result),
+                  onPressed:
+                      !facade.hasModel || !hasTextInput || isLoadingCurrent
+                          ? null
+                          : () => _runAiReview(
+                              currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Tầng 2 · AI local'),
                 ),
@@ -1369,7 +1445,9 @@ Hãy trả về JSON hợp lệ với:
                 ),
                 _MetricRow(
                   label: 'Chủ điểm',
-                  value: analysis.topics.isEmpty ? 'Chưa có' : analysis.topics.join(', '),
+                  value: analysis.topics.isEmpty
+                      ? 'Chưa có'
+                      : analysis.topics.join(', '),
                 ),
                 _MetricRow(
                   label: 'Hành động',
@@ -1378,14 +1456,18 @@ Hãy trả về JSON hợp lệ với:
                       : analysis.actionItems.join(' • '),
                 ),
                 if (analysis.grammar != null) ...[
-                  _MetricRow(label: 'Chủ ngữ', value: analysis.grammar!.subject),
+                  _MetricRow(
+                      label: 'Chủ ngữ', value: analysis.grammar!.subject),
                   _MetricRow(label: 'Động từ', value: analysis.grammar!.verb),
-                  _MetricRow(label: 'Mẫu câu', value: analysis.grammar!.pattern),
+                  _MetricRow(
+                      label: 'Mẫu câu', value: analysis.grammar!.pattern),
                 ],
               ],
             ),
           ],
-          if (facade.lastError != null && !isLoadingCurrent && analysis == null) ...[
+          if (facade.lastError != null &&
+              !isLoadingCurrent &&
+              analysis == null) ...[
             const SizedBox(height: 12),
             Text(
               'Lỗi AI: ${facade.lastError}',
@@ -1406,7 +1488,8 @@ Hãy trả về JSON hợp lệ với:
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.18)),
+        border:
+            Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1426,7 +1509,9 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               if (result != null)
-                _ScorePill(score: result.overallScore, accent: const Color(0xFF4CAF50)),
+                _ScorePill(
+                    score: result.overallScore,
+                    accent: const Color(0xFF4CAF50)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1444,7 +1529,8 @@ Hãy trả về JSON hợp lệ với:
             ),
             child: Text(
               currentLine.content,
-              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              style: const TextStyle(
+                  color: Colors.white70, fontSize: 13, height: 1.4),
             ),
           ),
           const SizedBox(height: 14),
@@ -1468,11 +1554,13 @@ Hãy trả về JSON hợp lệ với:
               fillColor: Colors.white.withValues(alpha: 0.04),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
             ),
           ),
@@ -1508,11 +1596,25 @@ Hãy trả về JSON hợp lệ với:
               title: result.feedbackLabel,
               color: result.feedbackColor,
               children: [
-                _MetricRow(label: 'Giữ ý', value: '${(result.completenessScore * 100).round()}%'),
-                _MetricRow(label: 'Hình dáng câu', value: '${(result.grammarScore * 100).round()}%'),
-                _MetricRow(label: 'Độ viết lại', value: '${(result.paraphraseScore * 100).round()}%'),
-                _MetricRow(label: 'Từ khóa đã giữ', value: result.usedKeywords.isEmpty ? 'Chưa rõ' : result.usedKeywords.join(', ')),
-                _MetricRow(label: 'Từ khóa còn thiếu', value: result.missingKeywords.isEmpty ? 'Không có' : result.missingKeywords.join(', ')),
+                _MetricRow(
+                    label: 'Giữ ý',
+                    value: '${(result.completenessScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Hình dáng câu',
+                    value: '${(result.grammarScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Độ viết lại',
+                    value: '${(result.paraphraseScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Từ khóa đã giữ',
+                    value: result.usedKeywords.isEmpty
+                        ? 'Chưa rõ'
+                        : result.usedKeywords.join(', ')),
+                _MetricRow(
+                    label: 'Từ khóa còn thiếu',
+                    value: result.missingKeywords.isEmpty
+                        ? 'Không có'
+                        : result.missingKeywords.join(', ')),
                 _MetricRow(label: 'Nhận xét', value: result.summary),
                 _MetricRow(label: 'Điểm mạnh', value: result.strength),
                 _MetricRow(label: 'Điểm cần sửa', value: result.primaryIssue),
@@ -1526,7 +1628,8 @@ Hãy trả về JSON hợp lệ với:
               children: result.tags
                   .map(
                     (tag) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: result.feedbackColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(999),
@@ -1567,14 +1670,16 @@ Hãy trả về JSON hợp lệ với:
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.18)),
+        border:
+            Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_fix_high_outlined, color: Color(0xFF81C784)),
+              const Icon(Icons.auto_fix_high_outlined,
+                  color: Color(0xFF81C784)),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -1587,7 +1692,8 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: facade.hasModel
                       ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
@@ -1597,7 +1703,9 @@ Hãy trả về JSON hợp lệ với:
                 child: Text(
                   facade.hasModel ? 'AI local sẵn sàng' : 'Chưa có model',
                   style: TextStyle(
-                    color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
+                    color: facade.hasModel
+                        ? const Color(0xFF81C784)
+                        : Colors.orange,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1615,9 +1723,11 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: !facade.hasModel || !hasTextInput || isLoadingCurrent
-                      ? null
-                      : () => _runRewriteAiReview(currentLine: currentLine, result: result),
+                  onPressed:
+                      !facade.hasModel || !hasTextInput || isLoadingCurrent
+                          ? null
+                          : () => _runRewriteAiReview(
+                              currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Phân tích rewrite'),
                 ),
@@ -1655,7 +1765,9 @@ Hãy trả về JSON hợp lệ với:
                 ),
                 _MetricRow(
                   label: 'Chủ điểm',
-                  value: analysis.topics.isEmpty ? 'Chưa có' : analysis.topics.join(', '),
+                  value: analysis.topics.isEmpty
+                      ? 'Chưa có'
+                      : analysis.topics.join(', '),
                 ),
                 _MetricRow(
                   label: 'Gợi ý',
@@ -1664,9 +1776,11 @@ Hãy trả về JSON hợp lệ với:
                       : analysis.actionItems.join(' • '),
                 ),
                 if (analysis.grammar != null) ...[
-                  _MetricRow(label: 'Chủ ngữ', value: analysis.grammar!.subject),
+                  _MetricRow(
+                      label: 'Chủ ngữ', value: analysis.grammar!.subject),
                   _MetricRow(label: 'Động từ', value: analysis.grammar!.verb),
-                  _MetricRow(label: 'Mẫu câu', value: analysis.grammar!.pattern),
+                  _MetricRow(
+                      label: 'Mẫu câu', value: analysis.grammar!.pattern),
                 ],
               ],
             ),
@@ -1685,7 +1799,8 @@ Hãy trả về JSON hợp lệ với:
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.18)),
+        border:
+            Border.all(color: const Color(0xFF81C784).withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1705,7 +1820,9 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               if (result != null)
-                _ScorePill(score: result.overallScore, accent: const Color(0xFF81C784)),
+                _ScorePill(
+                    score: result.overallScore,
+                    accent: const Color(0xFF81C784)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1723,7 +1840,8 @@ Hãy trả về JSON hợp lệ với:
             ),
             child: Text(
               currentLine.content,
-              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              style: const TextStyle(
+                  color: Colors.white70, fontSize: 13, height: 1.4),
             ),
           ),
           const SizedBox(height: 14),
@@ -1741,17 +1859,20 @@ Hãy trả về JSON hợp lệ với:
             maxLines: 5,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...',
+              hintText:
+                  'Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...',
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.04),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
             ),
           ),
@@ -1787,12 +1908,27 @@ Hãy trả về JSON hợp lệ với:
               title: result.feedbackLabel,
               color: result.feedbackColor,
               children: [
-                _MetricRow(label: 'Giữ ý', value: '${(result.contentRetentionScore * 100).round()}%'),
-                _MetricRow(label: 'Độ cô đọng', value: '${(result.brevityScore * 100).round()}%'),
-                _MetricRow(label: 'Hình dáng câu', value: '${(result.grammarScore * 100).round()}%'),
-                _MetricRow(label: 'Tỉ lệ độ dài', value: result.compressionLabel),
-                _MetricRow(label: 'Từ khóa đã giữ', value: result.keptKeywords.isEmpty ? 'Chưa rõ' : result.keptKeywords.join(', ')),
-                _MetricRow(label: 'Từ khóa còn thiếu', value: result.missedKeywords.isEmpty ? 'Không có' : result.missedKeywords.join(', ')),
+                _MetricRow(
+                    label: 'Giữ ý',
+                    value: '${(result.contentRetentionScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Độ cô đọng',
+                    value: '${(result.brevityScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Hình dáng câu',
+                    value: '${(result.grammarScore * 100).round()}%'),
+                _MetricRow(
+                    label: 'Tỉ lệ độ dài', value: result.compressionLabel),
+                _MetricRow(
+                    label: 'Từ khóa đã giữ',
+                    value: result.keptKeywords.isEmpty
+                        ? 'Chưa rõ'
+                        : result.keptKeywords.join(', ')),
+                _MetricRow(
+                    label: 'Từ khóa còn thiếu',
+                    value: result.missedKeywords.isEmpty
+                        ? 'Không có'
+                        : result.missedKeywords.join(', ')),
                 _MetricRow(label: 'Nhận xét', value: result.summary),
                 _MetricRow(label: 'Bước tiếp theo', value: result.nextStep),
               ],
@@ -1821,7 +1957,8 @@ Hãy trả về JSON hợp lệ với:
       decoration: BoxDecoration(
         color: const Color(0xFF121827),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.18)),
+        border:
+            Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1841,7 +1978,8 @@ Hãy trả về JSON hợp lệ với:
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: facade.hasModel
                       ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
@@ -1851,7 +1989,9 @@ Hãy trả về JSON hợp lệ với:
                 child: Text(
                   facade.hasModel ? 'AI local sẵn sàng' : 'Chưa có model',
                   style: TextStyle(
-                    color: facade.hasModel ? const Color(0xFF81C784) : Colors.orange,
+                    color: facade.hasModel
+                        ? const Color(0xFF81C784)
+                        : Colors.orange,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1869,9 +2009,11 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: !facade.hasModel || !hasTextInput || isLoadingCurrent
-                      ? null
-                      : () => _runSummaryAiReview(currentLine: currentLine, result: result),
+                  onPressed:
+                      !facade.hasModel || !hasTextInput || isLoadingCurrent
+                          ? null
+                          : () => _runSummaryAiReview(
+                              currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Phân tích tóm tắt'),
                 ),
@@ -1909,7 +2051,9 @@ Hãy trả về JSON hợp lệ với:
                 ),
                 _MetricRow(
                   label: 'Chủ điểm',
-                  value: analysis.topics.isEmpty ? 'Chưa có' : analysis.topics.join(', '),
+                  value: analysis.topics.isEmpty
+                      ? 'Chưa có'
+                      : analysis.topics.join(', '),
                 ),
                 _MetricRow(
                   label: 'Gợi ý',
@@ -1918,9 +2062,11 @@ Hãy trả về JSON hợp lệ với:
                       : analysis.actionItems.join(' • '),
                 ),
                 if (analysis.grammar != null) ...[
-                  _MetricRow(label: 'Chủ ngữ', value: analysis.grammar!.subject),
+                  _MetricRow(
+                      label: 'Chủ ngữ', value: analysis.grammar!.subject),
                   _MetricRow(label: 'Động từ', value: analysis.grammar!.verb),
-                  _MetricRow(label: 'Mẫu câu', value: analysis.grammar!.pattern),
+                  _MetricRow(
+                      label: 'Mẫu câu', value: analysis.grammar!.pattern),
                 ],
               ],
             ),
@@ -1952,7 +2098,9 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Icon(
                 isChoice ? Icons.quiz_outlined : Icons.rule_folder_outlined,
-                color: isChoice ? const Color(0xFFAB47BC) : const Color(0xFFFFB300),
+                color: isChoice
+                    ? const Color(0xFFAB47BC)
+                    : const Color(0xFFFFB300),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1968,7 +2116,9 @@ Hãy trả về JSON hợp lệ với:
               if (result != null)
                 _ScorePill(
                   score: result.score,
-                  accent: isChoice ? const Color(0xFFAB47BC) : const Color(0xFFFFB300),
+                  accent: isChoice
+                      ? const Color(0xFFAB47BC)
+                      : const Color(0xFFFFB300),
                 ),
             ],
           ),
@@ -1982,10 +2132,7 @@ Hãy trả về JSON hợp lệ với:
           const SizedBox(height: 14),
           _buildSentencePreview(currentLine.content),
           const SizedBox(height: 14),
-          if (isChoice)
-            _buildChoiceInputs()
-          else
-            _buildTypingInputs(),
+          if (isChoice) _buildChoiceInputs() else _buildTypingInputs(),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -2091,7 +2238,8 @@ Hãy trả về JSON hợp lệ với:
       children: List.generate(_blankPrompts.length, (index) {
         final prompt = _blankPrompts[index];
         final result = _clozeResult;
-        final isCorrect = result != null && result.userAnswers[index] == prompt.answer;
+        final isCorrect =
+            result != null && result.userAnswers[index] == prompt.answer;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -2113,11 +2261,13 @@ Hãy trả về JSON hợp lệ với:
               fillColor: Colors.white.withValues(alpha: 0.04),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                borderSide:
+                    BorderSide(color: Colors.white.withValues(alpha: 0.08)),
               ),
             ),
           ),
@@ -2131,7 +2281,9 @@ Hãy trả về JSON hợp lệ với:
       crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(_blankPrompts.length, (index) {
         final prompt = _blankPrompts[index];
-        final options = index < _choiceOptions.length ? _choiceOptions[index] : const <String>[];
+        final options = index < _choiceOptions.length
+            ? _choiceOptions[index]
+            : const <String>[];
         final result = _clozeResult;
 
         return Padding(
@@ -2373,10 +2525,14 @@ class _ExerciseSelectorChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.04),
+          color: selected
+              ? color.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? color.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.06),
+            color: selected
+                ? color.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.06),
           ),
         ),
         child: Text(
@@ -2454,10 +2610,14 @@ class _BlankInlineBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: reveal ? const Color(0xFF4CAF50).withValues(alpha: 0.16) : const Color(0xFFFFB300).withValues(alpha: 0.16),
+        color: reveal
+            ? const Color(0xFF4CAF50).withValues(alpha: 0.16)
+            : const Color(0xFFFFB300).withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: reveal ? const Color(0xFF4CAF50).withValues(alpha: 0.3) : const Color(0xFFFFB300).withValues(alpha: 0.3),
+          color: reveal
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.3)
+              : const Color(0xFFFFB300).withValues(alpha: 0.3),
         ),
       ),
       child: Text(
@@ -2616,7 +2776,8 @@ class _TipCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       bullet,
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ),
                 ],
@@ -2708,10 +2869,12 @@ class _LocalCoachInsight {
       strength = 'Thứ tự ý trong câu khá ổn, nền recall đang tốt.';
       tags.add('Bám trật tự');
     } else if (result.spellingScore >= 0.75) {
-      strength = 'Bạn nghe/nhớ được âm tương đối tốt nhưng cần chắc hơn về cấu trúc.';
+      strength =
+          'Bạn nghe/nhớ được âm tương đối tốt nhưng cần chắc hơn về cấu trúc.';
       tags.add('Nghe âm ổn');
     } else {
-      strength = 'Bạn đã bắt đầu bám được một phần câu, cần chia nhỏ bài luyện hơn.';
+      strength =
+          'Bạn đã bắt đầu bám được một phần câu, cần chia nhỏ bài luyện hơn.';
       tags.add('Đang xây nền');
     }
 
@@ -2719,25 +2882,34 @@ class _LocalCoachInsight {
     String nextStep;
 
     if (result.missingWords.isNotEmpty && result.orderScore < 0.65) {
-      issue = 'Đang rơi cả từ khóa lẫn thứ tự cụm, nên luyện theo chunk ngắn 3–5 từ.';
-      nextStep = 'Nghe lại 2 vòng, dừng sau từng cụm nhỏ rồi chép từng phần trước khi ghép cả câu.';
+      issue =
+          'Đang rơi cả từ khóa lẫn thứ tự cụm, nên luyện theo chunk ngắn 3–5 từ.';
+      nextStep =
+          'Nghe lại 2 vòng, dừng sau từng cụm nhỏ rồi chép từng phần trước khi ghép cả câu.';
       tags.add('Thiếu từ khóa');
       tags.add('Vỡ cấu trúc');
     } else if (result.missingWords.isNotEmpty) {
-      issue = 'Bạn bỏ sót một số từ khóa quan trọng: ${result.missingWords.join(', ')}.';
-      nextStep = 'Giữ nguyên tốc độ nhưng nhìn đáp án 1 lần, sau đó che lại và chép thêm 1 vòng tập trung vào từ khóa thiếu.';
+      issue =
+          'Bạn bỏ sót một số từ khóa quan trọng: ${result.missingWords.join(', ')}.';
+      nextStep =
+          'Giữ nguyên tốc độ nhưng nhìn đáp án 1 lần, sau đó che lại và chép thêm 1 vòng tập trung vào từ khóa thiếu.';
       tags.add('Thiếu từ');
     } else if (result.extraWords.isNotEmpty) {
-      issue = 'Bạn thêm từ ngoài câu gốc, dấu hiệu đoán theo ý hơn là bám âm thanh.';
-      nextStep = 'Giảm tốc độ nghe hoặc đọc TTS, tập trung chép đúng những gì thực sự nghe được thay vì suy diễn thêm.';
+      issue =
+          'Bạn thêm từ ngoài câu gốc, dấu hiệu đoán theo ý hơn là bám âm thanh.';
+      nextStep =
+          'Giảm tốc độ nghe hoặc đọc TTS, tập trung chép đúng những gì thực sự nghe được thay vì suy diễn thêm.';
       tags.add('Thêm từ');
     } else if (result.spellingScore < 0.7) {
       issue = 'Nội dung gần đúng nhưng chính tả/độ sát từng từ còn yếu.';
-      nextStep = 'Mở đáp án, chép lại đúng chính tả 1 vòng rồi làm lại ngay cùng câu để khóa chính xác mặt chữ.';
+      nextStep =
+          'Mở đáp án, chép lại đúng chính tả 1 vòng rồi làm lại ngay cùng câu để khóa chính xác mặt chữ.';
       tags.add('Chính tả');
     } else {
-      issue = 'Sai số còn nhỏ, chủ yếu ở độ mượt và độ ổn định giữa các lần chép.';
-      nextStep = 'Tăng độ khó bằng cách chuyển sang câu kế tiếp hoặc thử chế độ điền từ để ép recall chủ động hơn.';
+      issue =
+          'Sai số còn nhỏ, chủ yếu ở độ mượt và độ ổn định giữa các lần chép.';
+      nextStep =
+          'Tăng độ khó bằng cách chuyển sang câu kế tiếp hoặc thử chế độ điền từ để ép recall chủ động hơn.';
       tags.add('Sẵn sàng tăng độ khó');
     }
 
@@ -2780,9 +2952,12 @@ class _RewriteResult {
   });
 
   String get feedbackLabel {
-    if (overallScore >= 0.85) return 'Viết lại tốt · giữ ý mà vẫn có dấu ấn riêng';
-    if (overallScore >= 0.68) return 'Khá ổn · bắt đầu có paraphrase và giữ được ý chính';
-    if (overallScore >= 0.48) return 'Đang lên · giữ được một phần ý nhưng cần viết tự nhiên hơn';
+    if (overallScore >= 0.85)
+      return 'Viết lại tốt · giữ ý mà vẫn có dấu ấn riêng';
+    if (overallScore >= 0.68)
+      return 'Khá ổn · bắt đầu có paraphrase và giữ được ý chính';
+    if (overallScore >= 0.48)
+      return 'Đang lên · giữ được một phần ý nhưng cần viết tự nhiên hơn';
     return 'Cần làm lại · ý hoặc cấu trúc câu chưa đủ rõ';
   }
 
@@ -2879,8 +3054,10 @@ class _SummaryResult {
 
   String get feedbackLabel {
     if (overallScore >= 0.85) return 'Tóm tắt tốt · ngắn mà vẫn giữ được ý';
-    if (overallScore >= 0.68) return 'Khá ổn · đã cô đọng nhưng còn có thể gọn hơn';
-    if (overallScore >= 0.48) return 'Tạm được · giữ ý một phần nhưng chưa thật sự gói gọn';
+    if (overallScore >= 0.68)
+      return 'Khá ổn · đã cô đọng nhưng còn có thể gọn hơn';
+    if (overallScore >= 0.48)
+      return 'Tạm được · giữ ý một phần nhưng chưa thật sự gói gọn';
     return 'Cần làm lại · đang thiếu ý hoặc chưa đủ cô đọng';
   }
 
@@ -2954,7 +3131,8 @@ class _ClozeResult {
     for (int i = 0; i < prompts.length; i++) {
       final expected = prompts[i].answer;
       final actual = i < userAnswers.length ? userAnswers[i] : '';
-      chunks.add('${prompts[i].number}) ${actual.isEmpty ? '∅' : actual} → $expected');
+      chunks.add(
+          '${prompts[i].number}) ${actual.isEmpty ? '∅' : actual} → $expected');
     }
     return chunks.join('   •   ');
   }

@@ -1,7 +1,7 @@
 // lib/screens/understand_mode/sheets/loop_control_sheet.dart
 
 import 'package:flutter/material.dart';
-import 'package:vipsound/providers/player_provider.dart';
+import 'package:in2up/providers/player_provider.dart';
 
 void showLoopControlSheet(BuildContext context, PlayerProvider player) {
   showModalBottomSheet(

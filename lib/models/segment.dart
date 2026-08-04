@@ -1,6 +1,6 @@
 // lib/models/segment.dart
 import 'package:flutter/material.dart'; // ← THÊM (fix Color/Icons undefined)
-import 'package:vipsound_core/vocab_level_difficulty.dart'; // ← THÊM (dùng DifficultyLevel từ core)
+import 'package:in2up_core/vocab_level_difficulty.dart'; // ← THÊM (dùng DifficultyLevel từ core)
 
 class Segment {
   final String id;
@@ -78,8 +78,8 @@ enum SegmentType {
 }
 
 // ← XÓA toàn bộ enum DifficultyLevel + extension DifficultyLevelX
-// Dùng DifficultyLevel từ vipsound_core (có đầy đủ label/color/icon/repeatCount/ttsSpeed)
-// NHƯNG vipsound_core chưa có .icon → thêm extension riêng ở đây:
+// Dùng DifficultyLevel từ in2up_core (có đầy đủ label/color/icon/repeatCount/ttsSpeed)
+// NHƯNG in2up_core chưa có .icon → thêm extension riêng ở đây:
 
 extension SegmentDifficultyIcon on DifficultyLevel {
   IconData get icon {

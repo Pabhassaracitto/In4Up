@@ -455,7 +455,8 @@ class _SpeakingPresetCard extends StatelessWidget {
               (preset) => _PresetTile(
                 preset: preset,
                 onApply: () => shadowing.applyPreset(preset),
-                onDelete: () => _confirmDeletePreset(context, shadowing, preset),
+                onDelete: () =>
+                    _confirmDeletePreset(context, shadowing, preset),
               ),
             ),
         ],
@@ -469,7 +470,8 @@ class _SpeakingPresetCard extends StatelessWidget {
   ) async {
     final nameController = TextEditingController();
     final noteController = TextEditingController(
-      text: 'Preset ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+      text:
+          'Preset ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
     );
 
     final saved = await showDialog<bool>(
@@ -685,7 +687,8 @@ class _SpeakingHistoryCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xóa lịch sử luyện nói'),
-        content: const Text('Bạn có chắc muốn xóa toàn bộ lịch sử shadowing đã lưu không?'),
+        content: const Text(
+            'Bạn có chắc muốn xóa toàn bộ lịch sử shadowing đã lưu không?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -725,7 +728,8 @@ class _HistoryOverviewRow extends StatelessWidget {
         Expanded(
           child: _MiniStatCard(
             label: 'Preset hiện tại',
-            value: '${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+            value:
+                '${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
             color: const Color(0xFFFFB300),
           ),
         ),
@@ -758,7 +762,8 @@ class _HistoryTile extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: entry.scoreColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(999),
@@ -794,7 +799,8 @@ class _HistoryTile extends StatelessWidget {
                 height: 1.35,
               ),
             ),
-            if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty) ...[
+            if (entry.recognizedText != null &&
+                entry.recognizedText!.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 'Bạn nói: ${entry.recognizedText}',
@@ -808,7 +814,8 @@ class _HistoryTile extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _metaChip('${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                _metaChip(
+                    '${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
                 _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
                 _metaChip('Xem chi tiết'),
               ],
@@ -881,18 +888,22 @@ class _HistoryTile extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _metaChip('${entry.overallScorePercent}% · ${entry.gradeLabel}'),
-                      _metaChip('${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                      _metaChip(
+                          '${entry.overallScorePercent}% · ${entry.gradeLabel}'),
+                      _metaChip(
+                          '${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
                       _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
                       _metaChip(_formatTimestamp(entry.timestamp)),
                     ],
                   ),
                   const SizedBox(height: 16),
                   _detailSection('Câu gốc', entry.originalText),
-                  if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty)
+                  if (entry.recognizedText != null &&
+                      entry.recognizedText!.trim().isNotEmpty)
                     _detailSection('Câu nhận diện', entry.recognizedText!),
                   if ((entry.feedbackMessage ?? '').trim().isNotEmpty)
-                    _detailSection('Nhận xét tổng quát', entry.feedbackMessage!),
+                    _detailSection(
+                        'Nhận xét tổng quát', entry.feedbackMessage!),
                   if (entry.acoustic != null) ...[
                     const SizedBox(height: 14),
                     Text(
@@ -906,17 +917,25 @@ class _HistoryTile extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(child: _miniMetric('Pitch', '${(entry.acoustic!.pitchScore * 100).round()}%')),
+                        Expanded(
+                            child: _miniMetric('Pitch',
+                                '${(entry.acoustic!.pitchScore * 100).round()}%')),
                         const SizedBox(width: 8),
-                        Expanded(child: _miniMetric('Energy', '${(entry.acoustic!.energyScore * 100).round()}%')),
+                        Expanded(
+                            child: _miniMetric('Energy',
+                                '${(entry.acoustic!.energyScore * 100).round()}%')),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: _miniMetric('Rhythm', '${(entry.acoustic!.rhythmScore * 100).round()}%')),
+                        Expanded(
+                            child: _miniMetric('Rhythm',
+                                '${(entry.acoustic!.rhythmScore * 100).round()}%')),
                         const SizedBox(width: 8),
-                        Expanded(child: _miniMetric('Spectral', '${(entry.acoustic!.spectralScore * 100).round()}%')),
+                        Expanded(
+                            child: _miniMetric('Spectral',
+                                '${(entry.acoustic!.spectralScore * 100).round()}%')),
                       ],
                     ),
                   ],
@@ -938,7 +957,8 @@ class _HistoryTile extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.16),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.06)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,7 +976,8 @@ class _HistoryTile extends StatelessWidget {
                                 ),
                                 Text(
                                   '${word.scorePercent}% · ${word.shortStatus}',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -964,7 +985,8 @@ class _HistoryTile extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text(
                                 'Âm cần chú ý: ${word.phonemeIssues.join(', ')}',
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 12),
                               ),
                             ],
                           ],
@@ -978,10 +1000,13 @@ class _HistoryTile extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: exportText));
+                            await Clipboard.setData(
+                                ClipboardData(text: exportText));
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Đã copy phản hồi vào clipboard')),
+                                const SnackBar(
+                                    content:
+                                        Text('Đã copy phản hồi vào clipboard')),
                               );
                             }
                           },
@@ -1023,7 +1048,8 @@ class _HistoryTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             body,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+                color: Colors.white70, fontSize: 12, height: 1.4),
           ),
         ],
       ),
@@ -1040,11 +1066,13 @@ class _HistoryTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          Text(label,
+              style: const TextStyle(color: Colors.white60, fontSize: 11)),
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -1053,14 +1081,16 @@ class _HistoryTile extends StatelessWidget {
 
   static String _buildExportText(ShadowingHistoryEntry entry) {
     final buffer = StringBuffer();
-    buffer.writeln('VipSound · Shadowing Review');
+    buffer.writeln('in2up · Shadowing Review');
     buffer.writeln('Thời gian: ${_formatTimestamp(entry.timestamp)}');
     buffer.writeln('Điểm: ${entry.overallScorePercent}% · ${entry.gradeLabel}');
-    buffer.writeln('Từ đúng: ${entry.correctWordCount}/${entry.totalWordCount}');
+    buffer
+        .writeln('Từ đúng: ${entry.correctWordCount}/${entry.totalWordCount}');
     buffer.writeln('Tempo: ${(entry.tempoRatio * 100).round()}%');
     buffer.writeln();
     buffer.writeln('Câu gốc: ${entry.originalText}');
-    if (entry.recognizedText != null && entry.recognizedText!.trim().isNotEmpty) {
+    if (entry.recognizedText != null &&
+        entry.recognizedText!.trim().isNotEmpty) {
       buffer.writeln('Câu nhận diện: ${entry.recognizedText}');
     }
     if ((entry.feedbackMessage ?? '').trim().isNotEmpty) {
@@ -1070,7 +1100,8 @@ class _HistoryTile extends StatelessWidget {
       buffer.writeln();
       buffer.writeln('Chi tiết từ:');
       for (final word in entry.wordBreakdown) {
-        buffer.writeln('- ${word.expectedWord} → ${word.recognizedWord ?? '∅'} | ${word.scorePercent}% | ${word.shortStatus}');
+        buffer.writeln(
+            '- ${word.expectedWord} → ${word.recognizedWord ?? '∅'} | ${word.scorePercent}% | ${word.shortStatus}');
         if (word.phonemeIssues.isNotEmpty) {
           buffer.writeln('  Âm cần chú ý: ${word.phonemeIssues.join(', ')}');
         }

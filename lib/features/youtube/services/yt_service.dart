@@ -430,7 +430,7 @@ class YtService {
     final buf = StringBuffer()
       ..writeln('[ti:${video.title}]')
       ..writeln('[ar:${video.channel}]')
-      ..writeln('[by:VipSound]')
+      ..writeln('[by:in2up]')
       ..writeln();
     for (final c in captions) {
       buf.writeln(c.toLrc());

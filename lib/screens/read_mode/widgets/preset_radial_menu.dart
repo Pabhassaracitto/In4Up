@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:vipsound/screens/read_mode/models/playback_recipe.dart';
-import 'package:vipsound/screens/read_mode/services/playback_controller.dart';
+import 'package:in2up/screens/read_mode/models/playback_recipe.dart';
+import 'package:in2up/screens/read_mode/services/playback_controller.dart';
 
 class PresetRadialMenu extends StatelessWidget {
   final PlaybackController controller;

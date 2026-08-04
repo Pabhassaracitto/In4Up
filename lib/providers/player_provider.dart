@@ -3,8 +3,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in2up_stt/in2up_stt.dart';
 
 import '../audio/audio_player_service.dart';
 import '../models/playback_state.dart';
@@ -83,7 +83,8 @@ class PlayerProvider extends ChangeNotifier
   final StorageService _storage = StorageService();
 
   TextProvider? _textProvider; // Thêm tham chiếu đến TextProvider
-  UnderstandProvider? _understandProvider; // NEW: Reference to UnderstandProvider
+  UnderstandProvider?
+      _understandProvider; // NEW: Reference to UnderstandProvider
 
   // === PLAYBACK STATE ===
   PlaybackState _state = const PlaybackState();

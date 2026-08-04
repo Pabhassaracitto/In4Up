@@ -4,10 +4,10 @@ import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/providers/locale_provider.dart';
-import 'package:vipsound_stt/stt_model_manager.dart';
-import 'package:vipsound_stt/stt_service_facade.dart' as modelManager;
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in2up/providers/locale_provider.dart';
+import 'package:in2up_stt/stt_model_manager.dart';
+import 'package:in2up_stt/stt_service_facade.dart' as modelManager;
+import 'package:in2up_stt/in2up_stt.dart';
 
 class SttModelSettingsScreen extends StatelessWidget {
   const SttModelSettingsScreen({super.key});
@@ -425,7 +425,7 @@ class _LanguageSettingCard extends StatelessWidget {
                   ? 'system'
                   : '${currentLocale.languageCode}${currentLocale.countryCode == null ? '' : '_${currentLocale.countryCode}'}',
               underline: const SizedBox(),
-                            items: const [
+              items: const [
                 DropdownMenuItem(value: 'system', child: Text('Hệ thống')),
                 DropdownMenuItem(value: 'ar', child: Text('العربية (Arabic)')),
                 DropdownMenuItem(value: 'bn', child: Text('বাংলা (Bengali)')),
@@ -436,15 +436,18 @@ class _LanguageSettingCard extends StatelessWidget {
                 DropdownMenuItem(value: 'fr', child: Text('Français (French)')),
                 DropdownMenuItem(value: 'hi', child: Text('हिन्दी (Hindi)')),
                 DropdownMenuItem(value: 'id', child: Text('Bahasa Indonesia')),
-                DropdownMenuItem(value: 'it', child: Text('Italiano (Italian)')),
+                DropdownMenuItem(
+                    value: 'it', child: Text('Italiano (Italian)')),
                 DropdownMenuItem(value: 'ja', child: Text('日本語 (Japanese)')),
                 DropdownMenuItem(value: 'km', child: Text('ភាសាខ្មែរ (Khmer)')),
                 DropdownMenuItem(value: 'ko', child: Text('한국어 (Korean)')),
                 DropdownMenuItem(value: 'lo', child: Text('ລາວ (Lao)')),
-                DropdownMenuItem(value: 'mn', child: Text('Монгол (Mongolian)')),
+                DropdownMenuItem(
+                    value: 'mn', child: Text('Монгол (Mongolian)')),
                 DropdownMenuItem(value: 'mr', child: Text('मराठी (Marathi)')),
                 DropdownMenuItem(value: 'my', child: Text('မြန်မာ (Burmese)')),
-                DropdownMenuItem(value: 'pt', child: Text('Português (Portuguese)')),
+                DropdownMenuItem(
+                    value: 'pt', child: Text('Português (Portuguese)')),
                 DropdownMenuItem(value: 'ru', child: Text('Русский (Russian)')),
                 DropdownMenuItem(value: 'si', child: Text('සිංහල (Sinhala)')),
                 DropdownMenuItem(value: 'ta', child: Text('தமிழ் (Tamil)')),

@@ -1,15 +1,15 @@
 // lib/screens/tools/venn_tab.dart
 // ═══════════════════════════════════════════════════════════════
-//  VIPSOUND INTEGRATION GUIDE
+//  in2up INTEGRATION GUIDE
 //  File: HOW_TO_INTEGRATE.md (dạng Dart comments)
 // ═══════════════════════════════════════════════════════════════
 
 ///
-/// # HƯỚNG DẪN TÍCH HỢP VÀO VIPSOUND
+/// # HƯỚNG DẪN TÍCH HỢP VÀO in2up
 ///
 /// ## 1. CẤU TRÚC FILE CẦN TẠO
 ///
-/// Thêm vào project VipSound (giả sử tên package là `vipsound`):
+/// Thêm vào project in2up (giả sử tên package là `in2up`):
 ///
 /// ```
 /// lib/
@@ -49,21 +49,21 @@
 ///   runApp(
 ///     MultiProvider(
 ///       providers: [
-///         // ... các providers VipSound hiện có ...
+///         // ... các providers in2up hiện có ...
 ///         ChangeNotifierProvider(
 ///           create: (_) => VocabularyProvider()..loadData(),
 ///         ),
 ///       ],
-///       child: const VipSoundApp(),
+///       child: const in2upApp(),
 ///     ),
 ///   );
 /// }
 /// ```
 ///
-/// ## 4. VIPSOUND MAIN SCREEN - Thêm tab Tools
+/// ## 4. in2up MAIN SCREEN - Thêm tab Tools
 ///
 /// ```dart
-/// // Trong màn hình chính của VipSound, thêm tab thứ 4 (hoặc tab mới):
+/// // Trong màn hình chính của in2up, thêm tab thứ 4 (hoặc tab mới):
 ///
 /// // Nếu dùng BottomNavigationBar:
 /// BottomNavigationBar(
@@ -220,7 +220,7 @@
 library;
 
 // ═══════════════════════════════════════════════════════════════
-//  VIPSOUND WORD SAVER WIDGET
+//  in2up WORD SAVER WIDGET
 //  Widget tái sử dụng để lưu từ từ Read tab
 // ═══════════════════════════════════════════════════════════════
 

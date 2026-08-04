@@ -1,5 +1,5 @@
 // lib/screens/listen_mode/listen_mode_screen.dart
-// VipSound – Listen Mode (v11 LRC Fix)
+// in2up – Listen Mode (v11 LRC Fix)
 //
 // CHANGELOG v11:
 //   1. Double-tap: không ẩn waveform (sửa ở rolling_waveform_view.dart)
@@ -12,10 +12,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in2up_stt/models/stt_model_info.dart';
+import 'package:in2up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
-import 'package:vipsound/widgets/lrc_editor_panel.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in2up/screens/understand_mode/understand_provider.dart';
+import 'package:in2up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
@@ -112,7 +113,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     // Load LRC nếu đã có
     if (player.lastGeneratedLrcPath != null) {
       final understandProvider = context.read<UnderstandProvider>();
-      if (understandProvider.lrcLines.isNotEmpty) {
+      if (understandProvider!.lrcLines.isNotEmpty) {
         _showLrcOnMain = true;
       }
     }
@@ -507,7 +508,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   if (_showLrcOnMain)
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
-                        if (understand.lrcLines.isEmpty) {
+                        if (understand!.lrcLines.isEmpty) {
                           return Flexible(
                             flex: 3,
                             child: Container(
@@ -566,7 +567,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                 Expanded(
                                   child: ListView.builder(
                                     controller: _lrcScrollController,
-                                    itemCount: understand.lrcLines.length,
+                                    itemCount: understand!.lrcLines.length,
                                     itemBuilder: (context, index) {
                                       final line = understand.lrcLines[index];
                                       final isActive =
@@ -588,7 +589,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           decoration: BoxDecoration(
                                             color: isActive
                                                 ? const Color(0xFF6C63FF)
-                                                    .withOpacity(0.15)
+                                                    .withValues(alpha: 0.15)
                                                 : Colors.transparent,
                                             borderRadius:
                                                 BorderRadius.circular(8),
@@ -605,9 +606,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                                   : FontWeight.normal,
                                               height: 1.4,
                                             ),
-                                          ),
+                                          )
                                         ),
-                                      );
+                                        );
                                     },
                                   ),
                                 ),

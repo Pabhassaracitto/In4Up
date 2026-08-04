@@ -306,10 +306,13 @@ window.getSelection()?.toString() || '';
   /// Script setup text selection listener
   static const String setupSelectionListenerScript = '''
 (function() {
+  if (window.__in2upSelectionReady) return;
+  window.__in2upSelectionReady = true;
+
   document.addEventListener('mouseup', function() {
     const sel = window.getSelection();
     if (sel && sel.toString().trim().length > 0) {
-      window.in2upnnel.postMessage(JSON.stringify({
+      window.in2upChannel.postMessage(JSON.stringify({
         type: 'textSelected',
         text: sel.toString().trim()
       }));
@@ -321,17 +324,105 @@ window.getSelection()?.toString() || '';
     setTimeout(() => {
       const sel = window.getSelection();
       if (sel && sel.toString().trim().length > 0) {
-        window.in2upnnel.postMessage(JSON.stringify({
+        window.in2upChannel.postMessage(JSON.stringify({
           type: 'textSelected',
           text: sel.toString().trim()
         }));
       }
     }, 100);
-  });
+  }, { passive: true });
 
   console.log('[in2up] Selection listener ready');
 })();
 ''';
+
+  /// Script setup reading progress listener
+  static const String setupReadingProgressListenerScript = '''
+(function() {
+  if (window.__in2upReadingProgressReady) return;
+  window.__in2upReadingProgressReady = true;
+
+  function getMainContent() {
+    return document.querySelector('article') ||
+      document.querySelector('[role="main"]') ||
+      document.querySelector('main') ||
+      document.querySelector('.content') ||
+      document.querySelector('.post-content') ||
+      document.body;
+  }
+
+  function getPreview() {
+    const text = (getMainContent().innerText || getMainContent().textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.slice(0, 220);
+  }
+
+  function getProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(1, scrollHeight - viewportHeight);
+    return Math.max(0, Math.min(1, scrollTop / maxScrollable));
+  }
+
+  let lastSent = -1;
+  let timer = null;
+
+  function sendProgress(force) {
+    const progress = getProgress();
+    if (!force && Math.abs(progress - lastSent) < 0.03) return;
+    lastSent = progress;
+    window.in2upChannel.postMessage(JSON.stringify({
+      type: 'readingProgress',
+      progress: progress,
+      preview: getPreview(),
+    }));
+  }
+
+  function schedule() {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => sendProgress(false), 120);
+  }
+
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('touchend', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+
+  setTimeout(() => sendProgress(true), 250);
+  setTimeout(() => sendProgress(true), 1200);
+
+  console.log('[in2up] Reading progress listener ready');
+})();
+''';
+
+  static String buildRestoreScrollScript(double progress) {
+    final clamped = progress.clamp(0.0, 1.0);
+    return '''
+(function() {
+  const progress = $clamped;
+  if (progress <= 0.01) return;
+
+  function applyRestore() {
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(0, scrollHeight - viewportHeight);
+    const target = Math.max(0, Math.min(maxScrollable, maxScrollable * progress));
+    window.scrollTo({ top: target, behavior: 'auto' });
+  }
+
+  setTimeout(applyRestore, 120);
+  setTimeout(applyRestore, 500);
+  setTimeout(applyRestore, 1200);
+})();
+''';
+  }
 
   /// Script thêm floating action button vào trang web
   static String buildFabScript(String configJson) {

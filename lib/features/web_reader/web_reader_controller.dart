@@ -18,23 +18,58 @@ class WebHistoryEntry {
   final String url;
   final String title;
   final DateTime visitedAt;
+  final DateTime? lastReadAt;
+  final double progress;
+  final String preview;
 
   WebHistoryEntry({
     required this.url,
     required this.title,
     required this.visitedAt,
+    this.lastReadAt,
+    this.progress = 0,
+    this.preview = '',
   });
+
+  DateTime get effectiveReadAt => lastReadAt ?? visitedAt;
+  int get progressPercent => (progress.clamp(0.0, 1.0) * 100).round();
+  bool get hasMeaningfulProgress => progress >= 0.02 && progress < 0.995;
+
+  WebHistoryEntry copyWith({
+    String? url,
+    String? title,
+    DateTime? visitedAt,
+    DateTime? lastReadAt,
+    double? progress,
+    String? preview,
+  }) {
+    return WebHistoryEntry(
+      url: url ?? this.url,
+      title: title ?? this.title,
+      visitedAt: visitedAt ?? this.visitedAt,
+      lastReadAt: lastReadAt ?? this.lastReadAt,
+      progress: progress ?? this.progress,
+      preview: preview ?? this.preview,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'url': url,
         'title': title,
         'visitedAt': visitedAt.toIso8601String(),
+        'lastReadAt': lastReadAt?.toIso8601String(),
+        'progress': progress,
+        'preview': preview,
       };
 
   factory WebHistoryEntry.fromJson(Map<String, dynamic> j) => WebHistoryEntry(
         url: j['url'] ?? '',
         title: j['title'] ?? '',
         visitedAt: DateTime.tryParse(j['visitedAt'] ?? '') ?? DateTime.now(),
+        lastReadAt: DateTime.tryParse((j['lastReadAt'] ?? '').toString()),
+        progress:
+            (((j['progress'] as num?) ?? 0).toDouble()).clamp(0.0, 1.0).toDouble(),
+        preview: (j['preview'] ?? '').toString(),
       );
 }
 
@@ -44,6 +79,7 @@ class WebReaderController extends ChangeNotifier {
   static const _bookmarksKey = 'bookmarks';
   static const _userCollectionsKey = 'user_collections_v1';
   static const _pinnedCollectionIdsKey = 'pinned_collection_ids_v1';
+  static const _lastOpenedUrlKey = 'last_opened_url_v1';
 
   // ─── State ────────────────────────────────────────────────
   WebReaderState _state = WebReaderState.idle;
@@ -95,6 +131,9 @@ class WebReaderController extends ChangeNotifier {
   List<WebHistoryEntry> get bookmarks =>
       List.unmodifiable(_bookmarks.reversed.toList());
 
+  String _lastOpenedUrl = '';
+  String get lastOpenedUrl => _lastOpenedUrl;
+
   // ─── Collections ─────────────────────────────────────────
   late final List<WebCollection> _presetCollections = _buildPresetCollections();
   final List<WebCollection> _userCollections = [];
@@ -113,11 +152,40 @@ class WebReaderController extends ChangeNotifier {
       );
   bool get hasUserCollections => _userCollections.isNotEmpty;
 
+  WebHistoryEntry? get lastOpenedEntry {
+    if (_lastOpenedUrl.trim().isNotEmpty) {
+      for (final entry in history) {
+        if (entry.url == _lastOpenedUrl) return entry;
+      }
+    }
+    return history.isEmpty ? null : history.first;
+  }
+
+  List<WebHistoryEntry> get continueReadingEntries => List.unmodifiable(
+        history.where((entry) => entry.hasMeaningfulProgress).toList(),
+      );
+
+  List<WebHistoryEntry> get resumeEntries {
+    final items = <WebHistoryEntry>[];
+    final seen = <String>{};
+    final last = lastOpenedEntry;
+    if (last != null && seen.add(last.url)) {
+      items.add(last);
+    }
+    for (final entry in continueReadingEntries) {
+      if (seen.add(entry.url)) {
+        items.add(entry);
+      }
+    }
+    return List.unmodifiable(items);
+  }
+
   WebReaderController() {
     _loadHistory();
     _loadBookmarks();
     _loadUserCollections();
     _loadPinnedCollectionIds();
+    _loadLastOpenedUrl();
   }
 
   // ─── URL Navigation ──────────────────────────────────────
@@ -159,6 +227,7 @@ class WebReaderController extends ChangeNotifier {
     _loadingProgress = 1.0;
     notifyListeners();
 
+    _rememberLastOpenedUrl(url);
     _addToHistory(url, _pageTitle);
   }
 
@@ -288,7 +357,7 @@ class WebReaderController extends ChangeNotifier {
   }
 
   void setTtsSpeed(double speed) {
-    _ttsSpeed = speed.clamp(0.25, 2.0);
+    _ttsSpeed = speed.clamp(0.25, 2.0).toDouble();
     _tts.configure(speed: _ttsSpeed);
     notifyListeners();
   }
@@ -420,6 +489,56 @@ class WebReaderController extends ChangeNotifier {
     );
   }
 
+  double progressForUrl(String url) {
+    for (final entry in _history.reversed) {
+      if (entry.url == url) {
+        return entry.progress.clamp(0.0, 1.0).toDouble();
+      }
+    }
+    return 0;
+  }
+
+  Future<void> updateReadingProgress({
+    required String url,
+    required double progress,
+    String? title,
+    String? preview,
+  }) async {
+    final normalizedUrl = url.trim();
+    if (normalizedUrl.isEmpty ||
+        normalizedUrl.startsWith('about:') ||
+        normalizedUrl.contains('google.com/search')) {
+      return;
+    }
+
+    final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+    _upsertHistoryEntry(
+      url: normalizedUrl,
+      title: (title ?? '').trim(),
+      progress: clampedProgress,
+      preview: preview,
+      touchReadTime: true,
+      keepHighestProgress: false,
+    );
+    await _persistHistory();
+
+    final bookmarkIndex = _bookmarks.indexWhere((entry) => entry.url == normalizedUrl);
+    if (bookmarkIndex >= 0) {
+      final existing = _bookmarks.removeAt(bookmarkIndex);
+      _bookmarks.add(
+        existing.copyWith(
+          title: (title ?? '').trim().isEmpty ? existing.title : title!.trim(),
+          lastReadAt: DateTime.now(),
+          progress: clampedProgress,
+          preview: (preview ?? '').trim().isEmpty ? existing.preview : preview!.trim(),
+        ),
+      );
+      await _persistBookmarks();
+    }
+
+    notifyListeners();
+  }
+
   bool isCollectionPinned(String collectionId) =>
       _pinnedCollectionIds.contains(collectionId);
 
@@ -437,8 +556,9 @@ class WebReaderController extends ChangeNotifier {
 
   Future<void> clearHistory() async {
     _history.clear();
-    final box = await _getStorageBox();
-    await box?.put(_historyKey, jsonEncode(const []));
+    _lastOpenedUrl = '';
+    await _persistHistory();
+    await _saveLastOpenedUrl();
     notifyListeners();
   }
 
@@ -465,23 +585,13 @@ class WebReaderController extends ChangeNotifier {
       return;
     }
 
-    _history.removeWhere((h) => h.url == url);
-    _history.add(
-      WebHistoryEntry(url: url, title: title, visitedAt: DateTime.now()),
+    _upsertHistoryEntry(
+      url: url,
+      title: title,
+      touchReadTime: true,
+      keepHighestProgress: true,
     );
-
-    if (_history.length > 100) {
-      _history.removeRange(0, _history.length - 100);
-    }
-
-    try {
-      final box = await _getStorageBox();
-      await box?.put(
-        _historyKey,
-        jsonEncode(_history.map((h) => h.toJson()).toList()),
-      );
-    } catch (_) {}
-
+    await _persistHistory();
     notifyListeners();
   }
 
@@ -508,14 +618,80 @@ class WebReaderController extends ChangeNotifier {
     if (isBookmarked(_currentUrl)) {
       _bookmarks.removeWhere((b) => b.url == _currentUrl);
     } else {
+      final existingHistory = _findHistoryEntry(_currentUrl);
       _bookmarks.add(
         WebHistoryEntry(
           url: _currentUrl,
           title: _pageTitle,
-          visitedAt: DateTime.now(),
+          visitedAt: existingHistory?.visitedAt ?? DateTime.now(),
+          lastReadAt: existingHistory?.effectiveReadAt,
+          progress: existingHistory?.progress ?? 0,
+          preview: existingHistory?.preview ?? '',
         ),
       );
     }
+    await _persistBookmarks();
+    notifyListeners();
+  }
+
+  WebHistoryEntry? _findHistoryEntry(String url) {
+    try {
+      return _history.lastWhere((entry) => entry.url == url);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _upsertHistoryEntry({
+    required String url,
+    required String title,
+    bool touchReadTime = false,
+    bool keepHighestProgress = false,
+    double? progress,
+    String? preview,
+  }) {
+    final index = _history.indexWhere((entry) => entry.url == url);
+    final existing = index >= 0 ? _history.removeAt(index) : null;
+    final resolvedTitle = title.trim().isEmpty
+        ? (existing?.title ?? _safeHost(url))
+        : title.trim();
+    final existingProgress = existing?.progress ?? 0;
+    final nextProgress = progress == null
+        ? existingProgress
+        : keepHighestProgress
+            ? (existingProgress > progress ? existingProgress : progress)
+            : progress;
+    final nextPreview = (preview ?? '').trim().isEmpty
+        ? (existing?.preview ?? '')
+        : preview!.trim();
+
+    _history.add(
+      WebHistoryEntry(
+        url: url,
+        title: resolvedTitle,
+        visitedAt: existing?.visitedAt ?? DateTime.now(),
+        lastReadAt: touchReadTime ? DateTime.now() : existing?.lastReadAt,
+        progress: nextProgress.clamp(0.0, 1.0).toDouble(),
+        preview: nextPreview,
+      ),
+    );
+
+    if (_history.length > 100) {
+      _history.removeRange(0, _history.length - 100);
+    }
+  }
+
+  Future<void> _persistHistory() async {
+    try {
+      final box = await _getStorageBox();
+      await box?.put(
+        _historyKey,
+        jsonEncode(_history.map((h) => h.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _persistBookmarks() async {
     try {
       final box = await _getStorageBox();
       await box?.put(
@@ -523,7 +699,17 @@ class WebReaderController extends ChangeNotifier {
         jsonEncode(_bookmarks.map((b) => b.toJson()).toList()),
       );
     } catch (_) {}
-    notifyListeners();
+  }
+
+  Future<void> _rememberLastOpenedUrl(String url) async {
+    final normalizedUrl = url.trim();
+    if (normalizedUrl.isEmpty ||
+        normalizedUrl.startsWith('about:') ||
+        normalizedUrl.contains('google.com/search')) {
+      return;
+    }
+    _lastOpenedUrl = normalizedUrl;
+    await _saveLastOpenedUrl();
   }
 
   // ─── Persistence helpers ─────────────────────────────────
@@ -552,6 +738,29 @@ class WebReaderController extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('WebReaderController: _savePinnedCollectionIds error: $e');
+    }
+  }
+
+  Future<void> _loadLastOpenedUrl() async {
+    try {
+      final box = await _getStorageBox();
+      _lastOpenedUrl = (box?.get(_lastOpenedUrlKey) ?? '').toString();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadLastOpenedUrl error: $e');
+    }
+  }
+
+  Future<void> _saveLastOpenedUrl() async {
+    try {
+      final box = await _getStorageBox();
+      if (_lastOpenedUrl.trim().isEmpty) {
+        await box?.delete(_lastOpenedUrlKey);
+      } else {
+        await box?.put(_lastOpenedUrlKey, _lastOpenedUrl.trim());
+      }
+    } catch (e) {
+      debugPrint('WebReaderController: _saveLastOpenedUrl error: $e');
     }
   }
 

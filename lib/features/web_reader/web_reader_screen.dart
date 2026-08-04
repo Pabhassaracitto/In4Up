@@ -226,6 +226,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         canGoBack: canBack, canGoForward: canFwd);
 
     await _runJS(WebReaderJS.setupSelectionListenerScript);
+    await _runJS(WebReaderJS.setupReadingProgressListenerScript);
+    await _restoreReadingProgress(url);
 
     if (_controller.colorMode != ColorMode.none) await _applyHighlight();
     await _updateFab();
@@ -247,6 +249,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         canGoBack: canBack, canGoForward: canFwd);
 
     await _runJS(WebReaderJS.setupSelectionListenerScript);
+    await _runJS(WebReaderJS.setupReadingProgressListenerScript);
+    await _restoreReadingProgress(url);
 
     if (_controller.colorMode != ColorMode.none) await _applyHighlight();
     await _updateFab();
@@ -289,9 +293,31 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _applyHighlight();
           _updateFab();
           break;
+
+        case 'readingProgress':
+          final progress = ((data['progress'] as num?) ?? 0).toDouble();
+          final preview = (data['preview'] ?? '').toString();
+          _controller.updateReadingProgress(
+            url: _controller.currentUrl,
+            title: _controller.pageTitle,
+            progress: progress,
+            preview: preview,
+          );
+          break;
       }
     } catch (e) {
       debugPrint('WebReaderScreen: JS message parse error: $e');
+    }
+  }
+
+  Future<void> _restoreReadingProgress(String url) async {
+    if (_showDashboard) return;
+    final progress = _controller.progressForUrl(url);
+    if (progress <= 0.01) return;
+    try {
+      await _runJS(WebReaderJS.buildRestoreScrollScript(progress));
+    } catch (e) {
+      debugPrint('WebReader: _restoreReadingProgress error: $e');
     }
   }
 

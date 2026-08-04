@@ -41,11 +41,14 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               _filterCollections(widget.controller.presetCollections);
           final userCollections =
               _filterCollections(widget.controller.userCollections);
+          final resumeEntries =
+              _filterHistory(widget.controller.resumeEntries).take(6).toList();
           final history = _filterHistory(widget.controller.history).take(12).toList();
           final bookmarks =
               _filterHistory(widget.controller.bookmarks).take(8).toList();
           final hasQuery = _normalizedQuery.isNotEmpty;
-          final hasAnyResults = pinnedCollections.isNotEmpty ||
+          final hasAnyResults = resumeEntries.isNotEmpty ||
+              pinnedCollections.isNotEmpty ||
               presetCollections.isNotEmpty ||
               userCollections.isNotEmpty ||
               history.isNotEmpty ||
@@ -66,6 +69,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   userCount: userCollections.length,
                   bookmarkCount: bookmarks.length,
                   historyCount: history.length,
+                  resumeCount: resumeEntries.length,
                   hasQuery: hasQuery,
                 ),
                 if (hasQuery && !hasAnyResults) ...[
@@ -77,8 +81,26 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                         'Thử từ khoá ngắn hơn, tên miền, hoặc tên bộ sưu tập / link.',
                   ),
                 ] else ...[
+                  const SizedBox(height: 24),
+                  _SectionHeader(
+                    icon: Icons.play_circle_outline,
+                    title: hasQuery
+                        ? 'Tiếp tục đọc · ${resumeEntries.length}'
+                        : 'Tiếp tục đọc',
+                    subtitle:
+                        'Nhớ trang mở gần nhất và những bài bạn đang đọc dở theo tiến độ.',
+                  ),
+                  const SizedBox(height: 14),
+                  if (resumeEntries.isEmpty)
+                    _buildCompactEmpty(
+                      hasQuery
+                          ? 'Không có trang tiếp tục đọc nào khớp với từ khoá này.'
+                          : 'Khi bạn cuộn đọc trong Web Reader, app sẽ nhớ tiến độ để quay lại đúng chỗ gần nhất.',
+                    )
+                  else
+                    _buildResumeGrid(resumeEntries),
                   if (pinnedCollections.isNotEmpty) ...[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                     _SectionHeader(
                       icon: Icons.push_pin_outlined,
                       title: 'Đã ghim',
@@ -217,6 +239,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     final q = _normalizedQuery;
     return entry.title.toLowerCase().contains(q) ||
         entry.url.toLowerCase().contains(q) ||
+        entry.preview.toLowerCase().contains(q) ||
         _domain(entry.url).toLowerCase().contains(q);
   }
 
@@ -243,7 +266,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               borderRadius: BorderRadius.circular(999),
             ),
             child: const Text(
-              'WEB READER · PHASE 2',
+              'WEB READER · PHASE 3',
               style: TextStyle(
                 color: Color(0xFF64B5F6),
                 fontSize: 11,
@@ -254,7 +277,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           ),
           const SizedBox(height: 14),
           const Text(
-            'Đọc theo bộ sưu tập, ghim nhanh, tìm lại đúng nguồn',
+            'Đọc tiếp đúng bài, đúng chỗ, đúng tiến độ',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -264,7 +287,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Phase 2 thêm lớp thao tác thực dụng: tìm kiếm xuyên bộ sưu tập, ghim nhóm quan trọng, và chuẩn bị cho flow lưu trang đang đọc vào nhóm riêng chỉ với ít thao tác hơn.',
+            'Phase 3 đi sâu vào mạch học thật: nhớ bài vừa mở, theo dõi tiến độ cuộn đọc, và tạo lối quay lại nhanh cho những trang bạn đang đọc dở.',
             style: TextStyle(
               color: Colors.grey[300],
               fontSize: 13,
@@ -338,12 +361,14 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     required int userCount,
     required int bookmarkCount,
     required int historyCount,
+    required int resumeCount,
     required bool hasQuery,
   }) {
     final queryLabel = _searchQuery.trim().length > 24
         ? '${_searchQuery.trim().substring(0, 24)}…'
         : _searchQuery.trim();
     final chips = <Widget>[
+      _InfoChip(icon: Icons.play_circle_outline, label: '$resumeCount tiếp tục'),
       _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount ghim'),
       _InfoChip(
           icon: Icons.dashboard_customize_outlined,
@@ -364,6 +389,42 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           ),
         ...chips,
       ],
+    );
+  }
+
+  Widget _buildResumeGrid(List<WebHistoryEntry> entries) {
+    final lastOpenedUrl = widget.controller.lastOpenedEntry?.url;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        int columns = 1;
+        if (width >= 1100) {
+          columns = 3;
+        } else if (width >= 760) {
+          columns = 2;
+        }
+        final spacing = 14.0;
+        final itemWidth = columns == 1
+            ? width
+            : (width - (spacing * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: entries
+              .map(
+                (entry) => SizedBox(
+                  width: itemWidth,
+                  child: _ResumeCard(
+                    entry: entry,
+                    isLastOpened: entry.url == lastOpenedUrl,
+                    onTap: () => widget.onNavigate(entry.url),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 
@@ -1232,6 +1293,127 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _ResumeCard extends StatelessWidget {
+  final WebHistoryEntry entry;
+  final bool isLastOpened;
+  final VoidCallback onTap;
+
+  const _ResumeCard({
+    required this.entry,
+    required this.isLastOpened,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = entry.progress.clamp(0.0, 1.0).toDouble();
+    final showProgress = progress > 0.01;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _InfoChip(
+                  icon: isLastOpened
+                      ? Icons.history_toggle_off
+                      : Icons.menu_book,
+                  label: isLastOpened ? 'Lần mở gần nhất' : 'Đang đọc dở',
+                ),
+                _InfoChip(
+                  icon: Icons.language,
+                  label: _HistoryTile._domain(entry.url),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              entry.title.isNotEmpty ? entry.title : entry.url,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                height: 1.3,
+              ),
+            ),
+            if (entry.preview.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                entry.preview.trim(),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (showProgress) ...[
+              LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(999),
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation(
+                  progress >= 0.98 ? Colors.greenAccent : const Color(0xFF64B5F6),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    'Tiến độ ~ ${entry.progressPercent}%',
+                    style: TextStyle(
+                      color: Colors.blue[200],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _HistoryTile._formatVisitedAt(entry.effectiveReadAt),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Text(
+                'Mới mở · ${_HistoryTile._formatVisitedAt(entry.effectiveReadAt)}',
+                style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onTap,
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: const Text('Tiếp tục đọc'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CollectionCard extends StatelessWidget {
   final WebCollection collection;
   final bool allowManage;
@@ -1481,8 +1663,11 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progress = entry.progress.clamp(0.0, 1.0).toDouble();
+    final showProgress = progress > 0.01;
+
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       leading: Container(
         width: 40,
         height: 40,
@@ -1512,11 +1697,46 @@ class _HistoryTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.blue[200], fontSize: 12),
             ),
-            const SizedBox(height: 3),
-            Text(
-              _formatVisitedAt(entry.visitedAt),
-              style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+            if (entry.preview.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                entry.preview.trim(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey[400], fontSize: 11.8),
+              ),
+            ],
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _formatVisitedAt(entry.effectiveReadAt),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+                  ),
+                ),
+                if (showProgress)
+                  Text(
+                    '${entry.progressPercent}%',
+                    style: TextStyle(
+                      color: Colors.blue[200],
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
             ),
+            if (showProgress) ...[
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(999),
+                backgroundColor: Colors.white10,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(Color(0xFF64B5F6)),
+              ),
+            ],
           ],
         ),
       ),

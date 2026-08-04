@@ -1,3 +1,10 @@
+enum WebExtractionSort {
+  priority,
+  frequency,
+  length,
+  alphabetic,
+}
+
 class WebExtractionCandidate {
   final String text;
   final String normalized;
@@ -5,6 +12,10 @@ class WebExtractionCandidate {
   final int frequency;
   final bool existed;
   final bool isPhrase;
+  final int wordCount;
+  final bool appearsInTitle;
+  final bool isPriority;
+  final double rankScore;
   bool selected;
 
   WebExtractionCandidate({
@@ -13,6 +24,10 @@ class WebExtractionCandidate {
     required this.sampleContext,
     required this.frequency,
     required this.existed,
+    required this.wordCount,
+    required this.appearsInTitle,
+    required this.isPriority,
+    required this.rankScore,
     this.isPhrase = false,
     this.selected = false,
   });

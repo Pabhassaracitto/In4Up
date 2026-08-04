@@ -499,52 +499,112 @@ class WebReaderController extends ChangeNotifier {
     String sourceText, {
     int minLength = 4,
     int maxItems = 120,
+    bool includePhrases = true,
+    bool allowSingleMentionPhrases = false,
   }) {
     final cleanedSource = _normalizeSourceText(sourceText);
     if (cleanedSource.isEmpty) return const [];
 
-    final frequencies = <String, int>{};
+    final titleNormalized = _normalizeStudyText(_pageTitle).toLowerCase();
+    final wordFrequencies = <String, int>{};
+    final phraseFrequencies = <String, int>{};
     final samples = <String, String>{};
-    final displayText = <String, String>{};
+    final phraseWordCounts = <String, int>{};
 
     final sentences = _splitIntoSentences(cleanedSource);
     for (final sentence in sentences) {
       final sample = _normalizeStudyText(sentence);
       if (sample.isEmpty) continue;
-      final words = _wordRegex
+
+      final rawTokens = _wordRegex
           .allMatches(sample)
           .map((m) => _normalizeWordToken(m.group(0) ?? ''))
-          .where((token) => _isUsefulBatchWord(token, minLength: minLength));
+          .where((token) => token.isNotEmpty)
+          .toList();
 
-      for (final token in words) {
-        frequencies[token] = (frequencies[token] ?? 0) + 1;
+      for (final token in rawTokens) {
+        if (!_isUsefulBatchWord(token, minLength: minLength)) continue;
+        wordFrequencies[token] = (wordFrequencies[token] ?? 0) + 1;
         samples[token] ??= sample;
-        displayText[token] ??= token;
+      }
+
+      if (!includePhrases || rawTokens.length < 2) continue;
+
+      for (final phrase in _extractSentencePhrases(
+        rawTokens,
+        minLength: minLength,
+      )) {
+        phraseFrequencies[phrase] = (phraseFrequencies[phrase] ?? 0) + 1;
+        samples[phrase] ??= sample;
+        phraseWordCounts[phrase] = phrase.split(' ').length;
       }
     }
 
-    final candidates = frequencies.entries
-        .map(
-          (entry) => WebExtractionCandidate(
-            text: displayText[entry.key] ?? entry.key,
-            normalized: entry.key,
-            sampleContext: samples[entry.key] ?? entry.key,
+    final candidates = <WebExtractionCandidate>[];
+
+    for (final entry in wordFrequencies.entries) {
+      final appearsInTitle = _containsAsTerm(titleNormalized, entry.key);
+      final existed = VocabularyBridge.hasWord(entry.key);
+      final isPriority = appearsInTitle ||
+          entry.value >= 3 ||
+          (entry.value >= 2 && entry.key.length >= minLength + 2);
+      candidates.add(
+        WebExtractionCandidate(
+          text: entry.key,
+          normalized: entry.key,
+          sampleContext: samples[entry.key] ?? entry.key,
+          frequency: entry.value,
+          existed: existed,
+          wordCount: 1,
+          appearsInTitle: appearsInTitle,
+          isPriority: isPriority,
+          rankScore: _rankCandidate(
+            text: entry.key,
             frequency: entry.value,
-            existed: VocabularyBridge.hasWord(entry.key),
-            selected: !VocabularyBridge.hasWord(entry.key),
+            existed: existed,
+            isPhrase: false,
+            wordCount: 1,
+            appearsInTitle: appearsInTitle,
           ),
-        )
-        .toList()
-      ..sort((a, b) {
-        if (a.existed != b.existed) {
-          return a.existed ? 1 : -1;
-        }
-        final frequencyCompare = b.frequency.compareTo(a.frequency);
-        if (frequencyCompare != 0) return frequencyCompare;
-        final lengthCompare = b.normalized.length.compareTo(a.normalized.length);
-        if (lengthCompare != 0) return lengthCompare;
-        return a.normalized.compareTo(b.normalized);
-      });
+          selected: !existed,
+        ),
+      );
+    }
+
+    for (final entry in phraseFrequencies.entries) {
+      final phrase = entry.key;
+      final wordCount = phraseWordCounts[phrase] ?? phrase.split(' ').length;
+      final appearsInTitle = _containsAsTerm(titleNormalized, phrase);
+      if (!allowSingleMentionPhrases && !appearsInTitle && entry.value < 2) {
+        continue;
+      }
+      final existed = VocabularyBridge.hasWord(phrase);
+      final isPriority = appearsInTitle || entry.value >= 2 || wordCount >= 3;
+      candidates.add(
+        WebExtractionCandidate(
+          text: phrase,
+          normalized: phrase,
+          sampleContext: samples[phrase] ?? phrase,
+          frequency: entry.value,
+          existed: existed,
+          isPhrase: true,
+          wordCount: wordCount,
+          appearsInTitle: appearsInTitle,
+          isPriority: isPriority,
+          rankScore: _rankCandidate(
+            text: phrase,
+            frequency: entry.value,
+            existed: existed,
+            isPhrase: true,
+            wordCount: wordCount,
+            appearsInTitle: appearsInTitle,
+          ),
+          selected: !existed,
+        ),
+      );
+    }
+
+    candidates.sort(_compareCandidatesByPriority);
 
     if (candidates.length > maxItems) {
       return candidates.take(maxItems).toList();
@@ -621,12 +681,84 @@ class WebReaderController extends ChangeNotifier {
         .trim();
   }
 
+  Iterable<String> _extractSentencePhrases(
+    List<String> tokens, {
+    required int minLength,
+  }) sync* {
+    for (int start = 0; start < tokens.length; start++) {
+      for (int size = 3; size >= 2; size--) {
+        if (start + size > tokens.length) continue;
+        final window = tokens.sublist(start, start + size);
+        if (window.any((token) => !_isUsefulPhraseToken(token))) continue;
+        final phrase = window.join(' ');
+        if (!_isUsefulBatchPhrase(phrase, minLength: minLength)) continue;
+        yield phrase;
+      }
+    }
+  }
+
+  bool _isUsefulPhraseToken(String token) {
+    if (token.length < 2) return false;
+    if (_webBatchStopWords.contains(token)) return false;
+    if (!RegExp(r'[a-z]').hasMatch(token)) return false;
+    return true;
+  }
+
+  bool _isUsefulBatchPhrase(String phrase, {required int minLength}) {
+    final words = phrase.split(' ');
+    if (words.length < 2) return false;
+    final phraseLength = phrase.replaceAll(' ', '').length;
+    if (phraseLength < minLength + 2) return false;
+    if (words.every((word) => word.length < minLength)) return false;
+    return true;
+  }
+
   bool _isUsefulBatchWord(String token, {required int minLength}) {
     if (token.length < minLength) return false;
     if (_webBatchStopWords.contains(token)) return false;
     if (!RegExp(r"[a-z]").hasMatch(token)) return false;
     if (token.startsWith("'") || token.endsWith("'")) return false;
     return true;
+  }
+
+  bool _containsAsTerm(String haystack, String needle) {
+    if (haystack.trim().isEmpty || needle.trim().isEmpty) return false;
+    final escaped =
+        RegExp.escape(needle.trim().toLowerCase()).replaceAll(' ', r'\s+');
+    return RegExp('\b$escaped\b').hasMatch(haystack);
+  }
+
+  double _rankCandidate({
+    required String text,
+    required int frequency,
+    required bool existed,
+    required bool isPhrase,
+    required int wordCount,
+    required bool appearsInTitle,
+  }) {
+    final lengthScore = text.replaceAll(' ', '').length.toDouble();
+    final frequencyScore = frequency * (isPhrase ? 11.0 : 9.0);
+    final phraseBonus = isPhrase ? (wordCount * 5.5) : 0.0;
+    final titleBonus = appearsInTitle ? (isPhrase ? 26.0 : 18.0) : 0.0;
+    final noveltyBonus = existed ? -4.0 : 6.0;
+    final repeatBonus = frequency > 1 ? frequency * 2.5 : 0.0;
+    return frequencyScore + phraseBonus + titleBonus + noveltyBonus + repeatBonus + (lengthScore * 0.35);
+  }
+
+  int _compareCandidatesByPriority(
+    WebExtractionCandidate a,
+    WebExtractionCandidate b,
+  ) {
+    final scoreCompare = b.rankScore.compareTo(a.rankScore);
+    if (scoreCompare != 0) return scoreCompare;
+    if (a.isPriority != b.isPriority) return a.isPriority ? -1 : 1;
+    if (a.existed != b.existed) return a.existed ? 1 : -1;
+    if (a.isPhrase != b.isPhrase) return a.isPhrase ? -1 : 1;
+    final frequencyCompare = b.frequency.compareTo(a.frequency);
+    if (frequencyCompare != 0) return frequencyCompare;
+    final lengthCompare = b.normalized.length.compareTo(a.normalized.length);
+    if (lengthCompare != 0) return lengthCompare;
+    return a.normalized.compareTo(b.normalized);
   }
 
   // ─── Collections ─────────────────────────────────────────

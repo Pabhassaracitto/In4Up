@@ -45,17 +45,16 @@ class WebExtractionBatchSheet extends StatefulWidget {
 class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   List<WebExtractionCandidate> _candidates = const [];
   bool _onlyNew = false;
+  bool _onlyPhrases = false;
   int _minLength = 4;
+  WebExtractionSort _sort = WebExtractionSort.priority;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _candidates = widget.controller.extractBatchCandidates(
-      widget.sourceText,
-      minLength: _minLength,
-    );
+    _rebuildCandidates();
   }
 
   @override
@@ -68,6 +67,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     final rebuilt = widget.controller.extractBatchCandidates(
       widget.sourceText,
       minLength: _minLength,
+      includePhrases: true,
+      allowSingleMentionPhrases: widget.fromSelection,
     );
     if (_onlyNew) {
       for (final candidate in rebuilt) {
@@ -77,23 +78,62 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     setState(() => _candidates = rebuilt);
   }
 
-  Iterable<WebExtractionCandidate> get _visibleCandidates sync* {
+  List<WebExtractionCandidate> get _visibleCandidates {
     final q = _searchQuery.trim().toLowerCase();
-    for (final candidate in _candidates) {
-      if (_onlyNew && candidate.existed) continue;
-      if (q.isNotEmpty &&
-          !candidate.normalized.contains(q) &&
-          !candidate.sampleContext.toLowerCase().contains(q)) {
-        continue;
+    final visible = _candidates.where((candidate) {
+      if (_onlyNew && candidate.existed) return false;
+      if (_onlyPhrases && !candidate.isPhrase) return false;
+      if (q.isEmpty) return true;
+      return candidate.normalized.contains(q) ||
+          candidate.sampleContext.toLowerCase().contains(q);
+    }).toList();
+
+    visible.sort((a, b) {
+      switch (_sort) {
+        case WebExtractionSort.frequency:
+          final frequencyCompare = b.frequency.compareTo(a.frequency);
+          if (frequencyCompare != 0) return frequencyCompare;
+          return _compareByPriority(a, b);
+        case WebExtractionSort.length:
+          final lengthCompare =
+              b.normalized.length.compareTo(a.normalized.length);
+          if (lengthCompare != 0) return lengthCompare;
+          return _compareByPriority(a, b);
+        case WebExtractionSort.alphabetic:
+          final textCompare = a.normalized.compareTo(b.normalized);
+          if (textCompare != 0) return textCompare;
+          return _compareByPriority(a, b);
+        case WebExtractionSort.priority:
+          return _compareByPriority(a, b);
       }
-      yield candidate;
-    }
+    });
+
+    return visible;
+  }
+
+  int _compareByPriority(
+    WebExtractionCandidate a,
+    WebExtractionCandidate b,
+  ) {
+    final scoreCompare = b.rankScore.compareTo(a.rankScore);
+    if (scoreCompare != 0) return scoreCompare;
+    if (a.isPriority != b.isPriority) return a.isPriority ? -1 : 1;
+    if (a.isPhrase != b.isPhrase) return a.isPhrase ? -1 : 1;
+    if (a.existed != b.existed) return a.existed ? 1 : -1;
+    final frequencyCompare = b.frequency.compareTo(a.frequency);
+    if (frequencyCompare != 0) return frequencyCompare;
+    return a.normalized.compareTo(b.normalized);
   }
 
   int get _selectedCount =>
       _candidates.where((candidate) => candidate.selected).length;
   int get _newCount => _candidates.where((candidate) => !candidate.existed).length;
-  int get _existingCount => _candidates.where((candidate) => candidate.existed).length;
+  int get _existingCount =>
+      _candidates.where((candidate) => candidate.existed).length;
+  int get _phraseCount =>
+      _candidates.where((candidate) => candidate.isPhrase).length;
+  int get _priorityCount =>
+      _candidates.where((candidate) => candidate.isPriority).length;
 
   void _setAllVisible(bool selected) {
     for (final candidate in _visibleCandidates) {
@@ -121,7 +161,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visibleCandidates.toList();
+    final visible = _visibleCandidates;
 
     return FractionallySizedBox(
       heightFactor: 0.92,
@@ -165,6 +205,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               children: [
                 _MetaChip(label: '${_candidates.length} ứng viên'),
                 _MetaChip(label: 'Mới $_newCount'),
+                _MetaChip(label: 'Phrase $_phraseCount'),
+                _MetaChip(label: 'Ưu tiên $_priorityCount'),
                 _MetaChip(label: 'Đã có $_existingCount'),
                 _MetaChip(label: 'Đã chọn $_selectedCount'),
               ],
@@ -211,12 +253,21 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   selected: _onlyNew,
                   onSelected: (value) => setState(() => _onlyNew = value),
                 ),
+                ChoiceChip(
+                  label: const Text('Chỉ phrase'),
+                  selected: _onlyPhrases,
+                  onSelected: (value) => setState(() => _onlyPhrases = value),
+                ),
                 _LengthChip(
                   value: _minLength,
                   onChanged: (value) {
                     _minLength = value;
                     _rebuildCandidates();
                   },
+                ),
+                _SortChip(
+                  sort: _sort,
+                  onChanged: (value) => setState(() => _sort = value),
                 ),
                 TextButton.icon(
                   onPressed: () => _setAllVisible(true),
@@ -237,7 +288,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                       title: 'Không có ứng viên phù hợp',
                       description: _candidates.isEmpty
                           ? 'Bài/đoạn này chưa đủ dữ liệu để trích từ học tập với bộ lọc hiện tại.'
-                          : 'Thử tắt bộ lọc “Chỉ mục mới”, giảm min length, hoặc xoá từ khoá tìm kiếm.',
+                          : 'Thử tắt bộ lọc “Chỉ phrase / Chỉ mục mới”, giảm min length, hoặc đổi sort.',
                     )
                   : ListView.separated(
                       itemCount: visible.length,
@@ -254,33 +305,67 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                             horizontal: 4,
                             vertical: 4,
                           ),
-                          title: Row(
+                          title: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  candidate.text,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      candidate.text,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    candidate.rankScore.toStringAsFixed(0),
+                                    style: TextStyle(
+                                      color: Colors.blue[200],
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              _MiniBadge(
-                                label: candidate.existed ? 'Đã có' : 'Mới',
-                                color: candidate.existed
-                                    ? Colors.orangeAccent
-                                    : Colors.greenAccent,
-                              ),
-                              const SizedBox(width: 6),
-                              _MiniBadge(
-                                label: 'x${candidate.frequency}',
-                                color: Colors.blueAccent,
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  if (candidate.isPriority)
+                                    const _MiniBadge(
+                                      label: 'Ưu tiên',
+                                      color: Colors.amber,
+                                    ),
+                                  if (candidate.isPhrase)
+                                    _MiniBadge(
+                                      label: 'Phrase ${candidate.wordCount}w',
+                                      color: const Color(0xFF64B5F6),
+                                    ),
+                                  if (candidate.appearsInTitle)
+                                    const _MiniBadge(
+                                      label: 'Trong tiêu đề',
+                                      color: Colors.purpleAccent,
+                                    ),
+                                  _MiniBadge(
+                                    label: candidate.existed ? 'Đã có' : 'Mới',
+                                    color: candidate.existed
+                                        ? Colors.orangeAccent
+                                        : Colors.greenAccent,
+                                  ),
+                                  _MiniBadge(
+                                    label: 'x${candidate.frequency}',
+                                    color: Colors.blueAccent,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                           subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 6),
+                            padding: const EdgeInsets.only(top: 8),
                             child: Text(
                               candidate.sampleContext,
                               maxLines: 2,
@@ -306,7 +391,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text('Đóng'),
@@ -414,6 +501,64 @@ class _LengthChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SortChip extends StatelessWidget {
+  final WebExtractionSort sort;
+  final ValueChanged<WebExtractionSort> onChanged;
+
+  const _SortChip({required this.sort, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<WebExtractionSort>(
+      color: const Color(0xFF151B26),
+      onSelected: onChanged,
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: WebExtractionSort.priority,
+          child: Text('Sort: Quan trọng nhất'),
+        ),
+        PopupMenuItem(
+          value: WebExtractionSort.frequency,
+          child: Text('Sort: Tần suất'),
+        ),
+        PopupMenuItem(
+          value: WebExtractionSort.length,
+          child: Text('Sort: Độ dài'),
+        ),
+        PopupMenuItem(
+          value: WebExtractionSort.alphabetic,
+          child: Text('Sort: Alphabet'),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Text(
+          _label(sort),
+          style: const TextStyle(color: Colors.white70),
+        ),
+      ),
+    );
+  }
+
+  static String _label(WebExtractionSort sort) {
+    switch (sort) {
+      case WebExtractionSort.priority:
+        return 'Quan trọng nhất';
+      case WebExtractionSort.frequency:
+        return 'Theo tần suất';
+      case WebExtractionSort.length:
+        return 'Theo độ dài';
+      case WebExtractionSort.alphabetic:
+        return 'Theo alphabet';
+    }
   }
 }
 

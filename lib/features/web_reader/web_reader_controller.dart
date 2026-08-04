@@ -80,6 +80,7 @@ class WebReaderController extends ChangeNotifier {
   static const _userCollectionsKey = 'user_collections_v1';
   static const _pinnedCollectionIdsKey = 'pinned_collection_ids_v1';
   static const _pinnedArticleUrlsKey = 'pinned_article_urls_v1';
+  static const _articleNotesKey = 'article_notes_v1';
   static const _lastOpenedUrlKey = 'last_opened_url_v1';
 
   // ─── State ────────────────────────────────────────────────
@@ -140,6 +141,7 @@ class WebReaderController extends ChangeNotifier {
   final List<WebCollection> _userCollections = [];
   final Set<String> _pinnedCollectionIds = <String>{};
   final Set<String> _pinnedArticleUrls = <String>{};
+  final Map<String, String> _articleNotes = <String, String>{};
 
   List<WebCollection> get presetCollections =>
       List.unmodifiable(_presetCollections);
@@ -178,9 +180,13 @@ class WebReaderController extends ChangeNotifier {
         }).toList(),
       );
 
-  List<WebHistoryEntry> get pinnedArticleEntries => List.unmodifiable(
-        history.where((entry) => _pinnedArticleUrls.contains(entry.url)).toList(),
-      );
+  List<WebHistoryEntry> get pinnedArticleEntries =>
+      List.unmodifiable(_entriesForUrls(_pinnedArticleUrls));
+
+  List<WebHistoryEntry> get notedEntries =>
+      List.unmodifiable(_entriesForUrls(_articleNotes.keys));
+
+  int get articleNoteCount => _articleNotes.length;
 
   List<WebHistoryEntry> get resumeEntries {
     final items = <WebHistoryEntry>[];
@@ -203,6 +209,7 @@ class WebReaderController extends ChangeNotifier {
     _loadUserCollections();
     _loadPinnedCollectionIds();
     _loadPinnedArticleUrls();
+    _loadArticleNotes();
     _loadLastOpenedUrl();
   }
 
@@ -620,6 +627,68 @@ class WebReaderController extends ChangeNotifier {
     );
   }
 
+  String articleNote(String url) => _articleNotes[url.trim()] ?? '';
+
+  bool hasArticleNote(String url) => articleNote(url).trim().isNotEmpty;
+
+  String articleNotePreview(String url, {int maxLength = 120}) {
+    final text = articleNote(url).replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}…';
+  }
+
+  Future<void> saveArticleNote(
+    String url,
+    String note, {
+    String? title,
+    String? preview,
+  }) async {
+    final normalizedUrl = url.trim();
+    if (normalizedUrl.isEmpty ||
+        normalizedUrl.startsWith('about:') ||
+        normalizedUrl.contains('google.com/search')) {
+      return;
+    }
+
+    final normalizedNote = note.trim();
+    if (normalizedNote.isEmpty) {
+      _articleNotes.remove(normalizedUrl);
+    } else {
+      _articleNotes[normalizedUrl] = normalizedNote;
+      if (_findHistoryEntry(normalizedUrl) == null) {
+        _upsertHistoryEntry(
+          url: normalizedUrl,
+          title: (title ?? '').trim(),
+          preview: preview,
+          touchReadTime: false,
+        );
+        await _persistHistory();
+      }
+    }
+    await _saveArticleNotes();
+    notifyListeners();
+  }
+
+  Future<void> appendSelectionToArticleNote(
+    String url,
+    String selection, {
+    String? title,
+    String? preview,
+  }) async {
+    final snippet = selection.trim();
+    if (snippet.isEmpty) return;
+    final existing = articleNote(url);
+    final next = existing.trim().isEmpty
+        ? snippet
+        : '$existing\n\n— $snippet';
+    await saveArticleNote(
+      url,
+      next,
+      title: title,
+      preview: preview,
+    );
+  }
+
   bool isCollectionPinned(String collectionId) =>
       _pinnedCollectionIds.contains(collectionId);
 
@@ -715,9 +784,47 @@ class WebReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<WebHistoryEntry> _entriesForUrls(Iterable<String> urls) {
+    final results = <WebHistoryEntry>[];
+    final seen = <String>{};
+    for (final rawUrl in urls) {
+      final url = rawUrl.trim();
+      if (url.isEmpty || !seen.add(url)) continue;
+      final historyEntry = _findHistoryEntry(url);
+      if (historyEntry != null) {
+        results.add(historyEntry);
+        continue;
+      }
+      final bookmarkEntry = _findBookmarkEntry(url);
+      if (bookmarkEntry != null) {
+        results.add(bookmarkEntry);
+        continue;
+      }
+      results.add(
+        WebHistoryEntry(
+          url: url,
+          title: _safeHost(url),
+          visitedAt: DateTime.now(),
+          progress: 0,
+          preview: '',
+        ),
+      );
+    }
+    results.sort((a, b) => b.effectiveReadAt.compareTo(a.effectiveReadAt));
+    return results;
+  }
+
   WebHistoryEntry? _findHistoryEntry(String url) {
     try {
       return _history.lastWhere((entry) => entry.url == url);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  WebHistoryEntry? _findBookmarkEntry(String url) {
+    try {
+      return _bookmarks.lastWhere((entry) => entry.url == url);
     } catch (_) {
       return null;
     }
@@ -846,6 +953,30 @@ class WebReaderController extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('WebReaderController: _savePinnedArticleUrls error: $e');
+    }
+  }
+
+  Future<void> _loadArticleNotes() async {
+    try {
+      final box = await _getStorageBox();
+      final raw = box?.get(_articleNotesKey);
+      if (raw == null) return;
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      _articleNotes
+        ..clear()
+        ..addAll(map.map((key, value) => MapEntry(key, value.toString())));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadArticleNotes error: $e');
+    }
+  }
+
+  Future<void> _saveArticleNotes() async {
+    try {
+      final box = await _getStorageBox();
+      await box?.put(_articleNotesKey, jsonEncode(_articleNotes));
+    } catch (e) {
+      debugPrint('WebReaderController: _saveArticleNotes error: $e');
     }
   }
 

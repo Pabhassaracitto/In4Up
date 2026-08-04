@@ -665,6 +665,130 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
   }
 
+  Future<void> _editCurrentArticleNote() async {
+    final url = _controller.currentUrl.trim();
+    if (url.isEmpty || _showDashboard) return;
+
+    final noteCtrl = TextEditingController(text: _controller.articleNote(url));
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Ghi chú bài đọc'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _controller.pageTitle.isEmpty
+                      ? _controller.currentUrl
+                      : _controller.pageTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[300], height: 1.45),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteCtrl,
+                  maxLines: 10,
+                  minLines: 6,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _dialogInputDecoration(
+                    label: 'Ghi chú của bạn',
+                    hint: 'Tóm tắt bài, insight, câu hay, hoặc kế hoạch ôn lại...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (_controller.hasArticleNote(url))
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'delete'),
+                child: const Text('Xoá ghi chú'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'studio'),
+              child: const Text('Mở trong Text Studio'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'save'),
+              child: const Text('Lưu ghi chú'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+
+    if (action == 'delete') {
+      await _controller.saveArticleNote(url, '', title: _controller.pageTitle);
+      _showSnack('Đã xoá ghi chú bài hiện tại');
+      return;
+    }
+
+    if (action == 'studio') {
+      final noteText = noteCtrl.text.trim().isEmpty
+          ? _controller.articleNote(url)
+          : noteCtrl.text.trim();
+      if (noteText.isEmpty) {
+        _showSnack('Bài này chưa có ghi chú để mở');
+        return;
+      }
+      context.read<TextProvider>().loadFromString(
+            noteText,
+            title:
+                'Ghi chú · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+          );
+      _showSnack('Đã mở ghi chú trong Text Studio');
+      return;
+    }
+
+    await _controller.saveArticleNote(
+      url,
+      noteCtrl.text,
+      title: _controller.pageTitle,
+    );
+    _showSnack(
+      noteCtrl.text.trim().isEmpty
+          ? 'Đã xoá ghi chú bài hiện tại'
+          : 'Đã lưu ghi chú cho bài hiện tại',
+    );
+  }
+
+  Future<void> _appendSelectionToNote() async {
+    final url = _controller.currentUrl.trim();
+    final selection = _selectionText.trim();
+    if (url.isEmpty || selection.isEmpty || _showDashboard) return;
+    await _controller.appendSelectionToArticleNote(
+      url,
+      selection,
+      title: _controller.pageTitle,
+      preview: selection,
+    );
+    _showSnack('Đã thêm đoạn chọn vào ghi chú bài đọc');
+  }
+
+  void _openSelectionInTextStudio() {
+    final selection = _selectionText.trim();
+    if (selection.isEmpty) return;
+    context.read<TextProvider>().loadFromString(
+          selection,
+          title:
+              'Trích đoạn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+        );
+    _showSnack('Đã mở đoạn chọn trong Text Studio');
+  }
+
   void _handlePageAction(String value) {
     switch (value) {
       case 'pinArticle':
@@ -672,6 +796,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         break;
       case 'toggleCompleted':
         _toggleCurrentArticleCompleted();
+        break;
+      case 'editNote':
+        _editCurrentArticleNote();
         break;
       case 'saveToCollection':
         _saveCurrentPageToCollection();
@@ -766,6 +893,14 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                       isCompleted
                           ? 'Đánh dấu chưa đọc xong'
                           : 'Đánh dấu đọc xong',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'editNote',
+                    child: Text(
+                      _controller.hasArticleNote(_controller.currentUrl)
+                          ? 'Sửa ghi chú bài này'
+                          : 'Thêm ghi chú bài này',
                     ),
                   ),
                   const PopupMenuItem(
@@ -893,18 +1028,22 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () {
-              _controller.speakText(_selectionText);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.volume_up, color: Colors.white, size: 18),
-            ),
+          _SelectionActionButton(
+            icon: Icons.sticky_note_2_outlined,
+            tooltip: 'Thêm vào ghi chú bài này',
+            onTap: _appendSelectionToNote,
+          ),
+          const SizedBox(width: 6),
+          _SelectionActionButton(
+            icon: Icons.text_snippet_outlined,
+            tooltip: 'Mở đoạn chọn trong Text Studio',
+            onTap: _openSelectionInTextStudio,
+          ),
+          const SizedBox(width: 6),
+          _SelectionActionButton(
+            icon: Icons.volume_up,
+            tooltip: 'Đọc đoạn chọn',
+            onTap: () => _controller.speakText(_selectionText),
           ),
           const SizedBox(width: 6),
           GestureDetector(
@@ -912,6 +1051,36 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             child: const Icon(Icons.close, color: Colors.white, size: 18),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SelectionActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _SelectionActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
       ),
     );
   }

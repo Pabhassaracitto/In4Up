@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../../providers/text_provider.dart';
 import '../models/web_collection.dart';
 import '../web_reader_controller.dart';
 
-enum _ReadingFeedFilter { all, inProgress, completed, recent, pinned }
+enum _ReadingFeedFilter { all, inProgress, completed, recent, pinned, notes }
 
 class WebReaderHomeView extends StatefulWidget {
   final WebReaderController controller;
@@ -48,6 +50,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               _filterHistory(widget.controller.pinnedArticleEntries)
                   .take(6)
                   .toList();
+          final notedArticles =
+              _filterHistory(widget.controller.notedEntries).take(6).toList();
           final resumeEntries =
               _filterHistory(widget.controller.resumeEntries).take(6).toList();
           final statusEntries = _buildStatusEntries();
@@ -55,6 +59,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               _filterHistory(widget.controller.bookmarks).take(8).toList();
           final hasQuery = _normalizedQuery.isNotEmpty;
           final hasAnyResults = pinnedArticles.isNotEmpty ||
+              notedArticles.isNotEmpty ||
               resumeEntries.isNotEmpty ||
               pinnedCollections.isNotEmpty ||
               presetCollections.isNotEmpty ||
@@ -74,6 +79,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                 _buildSearchMeta(
                   pinnedCount: pinnedCollections.length,
                   pinnedArticleCount: pinnedArticles.length,
+                  noteCount: notedArticles.length,
                   presetCount: presetCollections.length,
                   userCount: userCollections.length,
                   bookmarkCount: bookmarks.length,
@@ -120,6 +126,19 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     ),
                     const SizedBox(height: 14),
                     _buildArticleGrid(pinnedArticles),
+                  ],
+                  if (notedArticles.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    _SectionHeader(
+                      icon: Icons.sticky_note_2_outlined,
+                      title: hasQuery
+                          ? 'Bài có ghi chú · ${notedArticles.length}'
+                          : 'Bài có ghi chú',
+                      subtitle:
+                          'Những bài bạn đã đính kèm ghi chú hoặc lưu trích đoạn khi đọc.',
+                    ),
+                    const SizedBox(height: 14),
+                    _buildArticleGrid(notedArticles),
                   ],
                   if (pinnedCollections.isNotEmpty) ...[
                     const SizedBox(height: 28),
@@ -254,15 +273,13 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       case _ReadingFeedFilter.completed:
         return source.where((entry) => entry.progress >= 0.98).take(12).toList();
       case _ReadingFeedFilter.recent:
-        return source
-            .where((entry) =>
-                DateTime.now().difference(entry.effectiveReadAt).inHours < 48)
-            .take(12)
-            .toList();
+        return source.where(_isRecentEntry).take(12).toList();
       case _ReadingFeedFilter.pinned:
         return _filterHistory(widget.controller.pinnedArticleEntries)
             .take(12)
             .toList();
+      case _ReadingFeedFilter.notes:
+        return _filterHistory(widget.controller.notedEntries).take(12).toList();
       case _ReadingFeedFilter.all:
         return source.take(12).toList();
     }
@@ -280,6 +297,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
         return 'Mới mở gần đây';
       case _ReadingFeedFilter.pinned:
         return 'Bài đã ghim';
+      case _ReadingFeedFilter.notes:
+        return 'Bài có ghi chú';
     }
   }
 
@@ -306,6 +325,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     return entry.title.toLowerCase().contains(q) ||
         entry.url.toLowerCase().contains(q) ||
         entry.preview.toLowerCase().contains(q) ||
+        widget.controller.articleNote(entry.url).toLowerCase().contains(q) ||
         _domain(entry.url).toLowerCase().contains(q);
   }
 
@@ -424,6 +444,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
   Widget _buildSearchMeta({
     required int pinnedCount,
     required int pinnedArticleCount,
+    required int noteCount,
     required int presetCount,
     required int userCount,
     required int bookmarkCount,
@@ -437,6 +458,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     final chips = <Widget>[
       _InfoChip(icon: Icons.play_circle_outline, label: '$resumeCount tiếp tục'),
       _InfoChip(icon: Icons.bookmarks_outlined, label: '$pinnedArticleCount bài ghim'),
+      _InfoChip(icon: Icons.sticky_note_2_outlined, label: '$noteCount ghi chú'),
       _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount collection ghim'),
       _InfoChip(
           icon: Icons.dashboard_customize_outlined,
@@ -485,8 +507,10 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   width: itemWidth,
                   child: _ResumeCard(
                     entry: entry,
+                    notePreview: widget.controller.articleNotePreview(entry.url),
                     isLastOpened: entry.url == lastOpenedUrl,
                     isPinned: widget.controller.isArticlePinned(entry.url),
+                    hasNote: widget.controller.hasArticleNote(entry.url),
                     isCompleted: widget.controller.isArticleCompleted(entry.url),
                     onTap: () => widget.onNavigate(entry.url),
                     onTogglePin: () => widget.controller.toggleArticlePin(
@@ -506,6 +530,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                                 title: entry.title,
                                 preview: entry.preview,
                               ),
+                    onEditNote: () => _editArticleNote(entry),
                   ),
                 ),
               )
@@ -554,6 +579,12 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
             label: 'Bài đã ghim',
             selected: _feedFilter == _ReadingFeedFilter.pinned,
             onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.pinned),
+          ),
+          const SizedBox(width: 8),
+          _FeedChip(
+            label: 'Có ghi chú',
+            selected: _feedFilter == _ReadingFeedFilter.notes,
+            onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.notes),
           ),
         ],
       ),
@@ -640,7 +671,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           for (int i = 0; i < items.length; i++) ...[
             _HistoryTile(
               entry: items[i],
+              notePreview: widget.controller.articleNotePreview(items[i].url),
               isPinned: widget.controller.isArticlePinned(items[i].url),
+              hasNote: widget.controller.hasArticleNote(items[i].url),
               isCompleted: widget.controller.isArticleCompleted(items[i].url),
               isRecent: _isRecentEntry(items[i]),
               onTap: () {
@@ -664,6 +697,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                           title: items[i].title,
                           preview: items[i].preview,
                         ),
+              onEditNote: () => _editArticleNote(items[i]),
             ),
             if (i != items.length - 1)
               Divider(
@@ -1345,6 +1379,114 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     }
   }
 
+  Future<void> _editArticleNote(WebHistoryEntry entry) async {
+    final noteCtrl = TextEditingController(
+      text: widget.controller.articleNote(entry.url),
+    );
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Ghi chú bài đọc'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.title.isNotEmpty ? entry.title : entry.url,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[300], height: 1.45),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteCtrl,
+                  maxLines: 10,
+                  minLines: 6,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration(
+                    'Ghi chú của bạn',
+                    hint: 'Lưu tóm tắt, nhận xét, từ khoá, hoặc trích đoạn quan trọng...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (widget.controller.hasArticleNote(entry.url))
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'delete'),
+                child: const Text('Xoá ghi chú'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'studio'),
+              child: const Text('Mở trong Text Studio'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'save'),
+              child: const Text('Lưu ghi chú'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (action == null || !mounted) return;
+
+    if (action == 'delete') {
+      await widget.controller.saveArticleNote(entry.url, '', title: entry.title);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã xoá ghi chú bài đọc')),
+      );
+      return;
+    }
+
+    if (action == 'studio') {
+      final noteText = noteCtrl.text.trim().isEmpty
+          ? widget.controller.articleNote(entry.url)
+          : noteCtrl.text.trim();
+      if (noteText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bài này chưa có ghi chú để mở')),
+        );
+        return;
+      }
+      context.read<TextProvider>().loadFromString(
+            noteText,
+            title: 'Ghi chú · ${entry.title.isEmpty ? entry.url : entry.title}',
+          );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã mở ghi chú trong Text Studio')),
+      );
+      return;
+    }
+
+    await widget.controller.saveArticleNote(
+      entry.url,
+      noteCtrl.text,
+      title: entry.title,
+      preview: entry.preview,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          noteCtrl.text.trim().isEmpty
+              ? 'Đã xoá ghi chú bài đọc'
+              : 'Đã lưu ghi chú cho bài đọc này',
+        ),
+      ),
+    );
+  }
+
   Widget _dialogField({
     required TextEditingController controller,
     required String label,
@@ -1447,21 +1589,27 @@ class _SectionHeader extends StatelessWidget {
 
 class _ResumeCard extends StatelessWidget {
   final WebHistoryEntry entry;
+  final String notePreview;
   final bool isLastOpened;
   final bool isPinned;
+  final bool hasNote;
   final bool isCompleted;
   final VoidCallback onTap;
   final VoidCallback onTogglePin;
   final VoidCallback onToggleCompleted;
+  final VoidCallback onEditNote;
 
   const _ResumeCard({
     required this.entry,
+    required this.notePreview,
     required this.isLastOpened,
     required this.isPinned,
+    required this.hasNote,
     required this.isCompleted,
     required this.onTap,
     required this.onTogglePin,
     required this.onToggleCompleted,
+    required this.onEditNote,
   });
 
   @override
@@ -1503,6 +1651,11 @@ class _ResumeCard extends StatelessWidget {
                     icon: Icons.push_pin,
                     label: 'Đã ghim',
                   ),
+                if (hasNote)
+                  const _InfoChip(
+                    icon: Icons.sticky_note_2_outlined,
+                    label: 'Có ghi chú',
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1527,6 +1680,30 @@ class _ResumeCard extends StatelessWidget {
                   color: Colors.grey[400],
                   fontSize: 12.5,
                   height: 1.45,
+                ),
+              ),
+            ],
+            if (notePreview.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF64B5F6).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF64B5F6).withValues(alpha: 0.16),
+                  ),
+                ),
+                child: Text(
+                  notePreview,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.blue[100],
+                    fontSize: 12.3,
+                    height: 1.45,
+                  ),
                 ),
               ),
             ],
@@ -1600,6 +1777,17 @@ class _ResumeCard extends StatelessWidget {
                     foregroundColor: isCompleted
                         ? (Colors.orange[200] ?? Colors.orangeAccent)
                         : (Colors.green[200] ?? Colors.greenAccent),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onEditNote,
+                  icon: const Icon(Icons.sticky_note_2_outlined, size: 18),
+                  label: Text(hasNote ? 'Sửa ghi chú' : 'Thêm ghi chú'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue[100],
                     side: BorderSide(
                       color: Colors.white.withValues(alpha: 0.12),
                     ),
@@ -1900,21 +2088,27 @@ class _FeedChip extends StatelessWidget {
 
 class _HistoryTile extends StatelessWidget {
   final WebHistoryEntry entry;
+  final String notePreview;
   final bool isPinned;
+  final bool hasNote;
   final bool isCompleted;
   final bool isRecent;
   final VoidCallback onTap;
   final VoidCallback onTogglePin;
   final VoidCallback onToggleCompleted;
+  final VoidCallback onEditNote;
 
   const _HistoryTile({
     required this.entry,
+    required this.notePreview,
     required this.isPinned,
+    required this.hasNote,
     required this.isCompleted,
     required this.isRecent,
     required this.onTap,
     required this.onTogglePin,
     required this.onToggleCompleted,
+    required this.onEditNote,
   });
 
   @override
@@ -1962,6 +2156,15 @@ class _HistoryTile extends StatelessWidget {
                 style: TextStyle(color: Colors.grey[400], fontSize: 11.8),
               ),
             ],
+            if (notePreview.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                '📝 $notePreview',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.blue[100], fontSize: 11.8),
+              ),
+            ],
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
@@ -1969,6 +2172,11 @@ class _HistoryTile extends StatelessWidget {
               children: [
                 if (isPinned)
                   const _InfoChip(icon: Icons.push_pin, label: 'Đã ghim'),
+                if (hasNote)
+                  const _InfoChip(
+                    icon: Icons.sticky_note_2_outlined,
+                    label: 'Có ghi chú',
+                  ),
                 if (isCompleted)
                   const _InfoChip(
                       icon: Icons.check_circle_outline, label: 'Đã xong')
@@ -2027,6 +2235,9 @@ class _HistoryTile extends StatelessWidget {
             case 'complete':
               onToggleCompleted();
               break;
+            case 'note':
+              onEditNote();
+              break;
           }
         },
         itemBuilder: (context) => [
@@ -2039,6 +2250,10 @@ class _HistoryTile extends StatelessWidget {
             child: Text(
               isCompleted ? 'Đánh dấu chưa đọc xong' : 'Đánh dấu đọc xong',
             ),
+          ),
+          PopupMenuItem(
+            value: 'note',
+            child: Text(hasNote ? 'Sửa ghi chú bài này' : 'Thêm ghi chú bài này'),
           ),
         ],
       ),

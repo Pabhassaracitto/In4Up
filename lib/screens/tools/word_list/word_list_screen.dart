@@ -44,7 +44,6 @@ class _WordListScreenState extends State<WordListScreen> {
   bool _showSearch = false;
   bool _filterExpanded = false;
   String? _expandedId;
-  VocabularyType? _typeFilter;
   WordListSortMode _sortMode = WordListSortMode.addTime;
   WordListSettings _settings = const WordListSettings();
 
@@ -850,9 +849,6 @@ class _WordListScreenState extends State<WordListScreen> {
           Text('${_selectedIds.length} đã chọn',
               style: const TextStyle(
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13)),
-          const Sp          color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 13)),
           const Spacer(),
@@ -2646,51 +2642,6 @@ class _CountBadge extends StatelessWidget {
               Text('$count${label != null ? ' $label' : ''}',
                   style: TextStyle(
                       color: color, fontSize: 11, fontWeight: FontWeight.w700)),
-            ])),
-      );
-}
-
-class _TypeChip extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
-  final bool isSelected;
-  final VoidCallback onTap;
-  const _TypeChip(
-      {required this.label,
-      required this.count,
-      required this.color,
-      required this.isSelected,
-      required this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-                color: isSelected
-                    ? color.withValues(alpha: 0.2)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: isSelected
-                        ? color
-                        : Colors.white.withValues(alpha: 0.1))),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(label,
-                  style: TextStyle(
-                      color: isSelected ? color : Colors.grey[500],
-                      fontSize: 11,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500)),
-              const SizedBox(width: 4),
-              Text('$count',
-                  style: TextStyle(
-                      color: isSelected
-                          ? color.withValues(alpha: 0.7)
-                          : Colors.grey[700],
-                      fontSize: 10)),
             ])),
       );
 }

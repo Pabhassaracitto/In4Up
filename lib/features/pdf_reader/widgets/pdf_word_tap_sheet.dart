@@ -6,9 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 
-import '../../../models/segment.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
+import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../models/pdf_word_info.dart';
@@ -42,19 +42,30 @@ class _WordSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final analyzed = wordInfo.analyzed;
-    final word = wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final displayWord = wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final lookupWord = displayWord.toLowerCase();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Consumer<VocabularyProvider>(
+      builder: (context, provider, _) {
+        final existing = provider.findByWord(lookupWord);
+        final meaning = (existing?.meaning.trim().isNotEmpty ?? false)
+            ? existing!.meaning.trim()
+            : analyzed?.meaning;
+        final phonetic = (existing?.phonetic?.trim().isNotEmpty ?? false)
+            ? existing!.phonetic
+            : analyzed?.phonetic;
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Handle
           Center(
             child: Container(
@@ -77,17 +88,17 @@ class _WordSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      word,
+                      displayWord,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (analyzed?.phonetic != null) ...[
+                    if (phonetic != null && phonetic.trim().isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        analyzed!.phonetic!,
+                        phonetic,
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 14,
@@ -121,13 +132,13 @@ class _WordSheet extends StatelessWidget {
               _CircleBtn(
                 icon: Icons.volume_up_rounded,
                 color: const Color(0xFF2196F3),
-                onTap: () => controller.speakText(word),
+                onTap: () => controller.speakText(displayWord),
               ),
             ],
           ),
 
           // Meaning
-          if (analyzed?.meaning != null) ...[
+          if (meaning != null && meaning.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -140,7 +151,7 @@ class _WordSheet extends StatelessWidget {
                   const Text('💡 ', style: TextStyle(fontSize: 16)),
                   Expanded(
                     child: Text(
-                      analyzed!.meaning!,
+                      meaning,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -149,6 +160,39 @@ class _WordSheet extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+
+          if (existing != null) ...[
+            const SizedBox(height: 12),
+            _SavedRecallCard(
+              entry: existing,
+              pdfFileName: controller.pdfPath.split(Platform.pathSeparator).last,
+              pageIndex: wordInfo.pageIndex,
+              onAddContext: () {
+                provider.addContextToWord(
+                  existing.id,
+                  VocabContext.fromPdf(
+                    fileName: controller.pdfPath.split(Platform.pathSeparator).last,
+                    page: wordInfo.pageIndex + 1,
+                    surroundingText:
+                        (analyzed?.example?.trim().isNotEmpty ?? false)
+                            ? analyzed!.example!.trim()
+                            : displayWord,
+                  ),
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã thêm ngữ cảnh PDF mới cho từ này'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              onEditNotes: () => _showEditSavedNotesDialog(
+                context,
+                provider,
+                existing,
               ),
             ),
           ],
@@ -170,7 +214,7 @@ class _WordSheet extends StatelessWidget {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('✅ Đã lưu "$word" vào Vườn Nhớ'),
+                        content: Text('✅ Đã lưu "$displayWord" vào Vườn Nhớ'),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -191,7 +235,7 @@ class _WordSheet extends StatelessWidget {
                 tooltip: 'Tra từ điển',
                 onTap: () {
                   final url =
-                      'https://www.oxfordlearnersdictionaries.com/definition/english/$word';
+                      'https://www.oxfordlearnersdictionaries.com/definition/english/$displayWord';
                   launchUrl(Uri.parse(url),
                       mode: LaunchMode.externalApplication);
                 },
@@ -204,7 +248,7 @@ class _WordSheet extends StatelessWidget {
                 icon: Icons.copy,
                 tooltip: 'Copy',
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: word));
+                  Clipboard.setData(ClipboardData(text: displayWord));
                   Navigator.pop(context);
                 },
               ),
@@ -256,10 +300,233 @@ class _WordSheet extends StatelessWidget {
 
           // ── Lưu vào Wordlist ─────────────────────────────
           PdfWordSaveSection(
-            word: word,
-            surroundingText: '', // AnalyzedWord model lacks surroundingText
+            word: lookupWord,
+            surroundingText: (analyzed?.example?.trim().isNotEmpty ?? false)
+                ? analyzed!.example!.trim()
+                : displayWord,
             pdfFileName: controller.pdfPath.split(Platform.pathSeparator).last,
             pageIndex: wordInfo.pageIndex,
+          ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+Future<void> _showEditSavedNotesDialog(
+  BuildContext context,
+  VocabularyProvider provider,
+  WordEntry entry,
+) async {
+  final noteCtrl = TextEditingController(text: entry.personalNotes ?? '');
+  final shouldSave = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('Ghi chú từ đã lưu'),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        content: SizedBox(
+          width: 420,
+          child: TextField(
+            controller: noteCtrl,
+            maxLines: 6,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Nhập ghi chú cá nhân cho từ này...',
+              hintStyle: TextStyle(color: Colors.grey[500]),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Lưu'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldSave == true) {
+    provider.updateNotes(entry.id, noteCtrl.text.trim());
+  }
+}
+
+class _SavedRecallCard extends StatelessWidget {
+  final WordEntry entry;
+  final String pdfFileName;
+  final int pageIndex;
+  final VoidCallback onAddContext;
+  final VoidCallback onEditNotes;
+
+  const _SavedRecallCard({
+    required this.entry,
+    required this.pdfFileName,
+    required this.pageIndex,
+    required this.onAddContext,
+    required this.onEditNotes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final latestContext = entry.latestContext;
+    final note = (entry.personalNotes ?? '').trim();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Color(0xFF4CAF50), size: 16),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Tri thức đã lưu trước đó',
+                  style: TextStyle(
+                    color: Color(0xFFB9F6CA),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _Tag(label: entry.vocabType.badge, color: entry.vocabType.color),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _RecallChip(
+                icon: Icons.repeat,
+                label: '${entry.encounterCount} lần gặp',
+              ),
+              _RecallChip(
+                icon: Icons.source_outlined,
+                label: '${entry.sourceFiles.length} nguồn',
+              ),
+              _RecallChip(
+                icon: Icons.picture_as_pdf_outlined,
+                label: '$pdfFileName · trang ${pageIndex + 1}',
+              ),
+            ],
+          ),
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              note,
+              style: const TextStyle(
+                color: Colors.white,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (latestContext != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Ngữ cảnh gần nhất: ${latestContext.displaySource}',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              latestContext.surroundingText,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                height: 1.45,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: onAddContext,
+                  icon: const Icon(Icons.add_link, size: 16),
+                  label: const Text('Thêm ngữ cảnh PDF'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFB9F6CA),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: onEditNotes,
+                  icon: const Icon(Icons.edit_note, size: 16),
+                  label: Text(note.isEmpty ? 'Thêm ghi chú' : 'Sửa ghi chú'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecallChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _RecallChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.white70),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

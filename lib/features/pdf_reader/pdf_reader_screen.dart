@@ -16,7 +16,9 @@ import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
 import '../../models/color_mode.dart';
+import '../../models/word_entry.dart';
 import '../../providers/text_provider.dart';
+import '../../providers/vocabulary_provider.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
 import 'pdf_reader_controller.dart';
@@ -720,6 +722,10 @@ class _SelectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final existing = context.watch<VocabularyProvider>().findByWord(
+          controller.selectedText?.trim() ?? '',
+        );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       color: const Color(0xFF1A237E),
@@ -734,6 +740,14 @@ class _SelectionBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          if (existing != null)
+            _SelectionIconButton(
+              icon: Icons.history_edu_outlined,
+              color: const Color(0xFFB9F6CA),
+              tooltip: 'Xem ghi chú đã lưu trước đó',
+              onTap: () => _showSelectionRecallSheet(context, existing),
+            ),
+          if (existing != null) const SizedBox(width: 2),
           _SelectionIconButton(
             icon: Icons.note_add_outlined,
             color: Colors.amber,
@@ -823,6 +837,129 @@ class _SelectionIconButton extends StatelessWidget {
       tooltip: tooltip,
       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       padding: EdgeInsets.zero,
+    );
+  }
+}
+
+void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
+  final latestContext = entry.latestContext;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF1A1A2E),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            entry.word,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MiniRecallBadge(label: '${entry.encounterCount} lần gặp'),
+              _MiniRecallBadge(label: '${entry.sourceFiles.length} nguồn'),
+              _MiniRecallBadge(label: entry.vocabType.label(context)),
+            ],
+          ),
+          if (entry.meaning.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              entry.meaning,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.45,
+              ),
+            ),
+          ],
+          if ((entry.personalNotes ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              entry.personalNotes!.trim(),
+              style: const TextStyle(
+                color: Color(0xFFB9F6CA),
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (latestContext != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Ngữ cảnh gần nhất: ${latestContext.displaySource}',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              latestContext.surroundingText,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontStyle: FontStyle.italic,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+class _MiniRecallBadge extends StatelessWidget {
+  final String label;
+
+  const _MiniRecallBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

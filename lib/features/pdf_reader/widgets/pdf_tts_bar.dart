@@ -5,8 +5,13 @@ import '../pdf_reader_controller.dart';
 
 class PdfTtsBar extends StatelessWidget {
   final PdfReaderController controller;
+  final VoidCallback? onUserInteraction;
 
-  const PdfTtsBar({super.key, required this.controller});
+  const PdfTtsBar({
+    super.key,
+    required this.controller,
+    this.onUserInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +64,7 @@ class PdfTtsBar extends StatelessWidget {
             icon: Icons.skip_previous_rounded,
             onTap: controller.currentPage > 0
                 ? () {
+                    onUserInteraction?.call();
                     HapticFeedback.selectionClick();
                     // Controlled via PdfViewer's controller externally
                     // Signal via a callback if needed
@@ -71,6 +77,7 @@ class PdfTtsBar extends StatelessWidget {
           // Play/Stop main button
           GestureDetector(
             onTap: () {
+              onUserInteraction?.call();
               HapticFeedback.mediumImpact();
               controller.speakCurrentPage();
             },
@@ -116,7 +123,10 @@ class PdfTtsBar extends StatelessWidget {
           _BarBtn(
             icon: Icons.skip_next_rounded,
             onTap: controller.currentPage < controller.totalPages - 1
-                ? () => HapticFeedback.selectionClick()
+                ? () {
+                    onUserInteraction?.call();
+                    HapticFeedback.selectionClick();
+                  }
                 : null,
           ),
 
@@ -124,7 +134,10 @@ class PdfTtsBar extends StatelessWidget {
 
           // Speed indicator
           GestureDetector(
-            onTap: () => _showSpeedPicker(context),
+            onTap: () {
+              onUserInteraction?.call();
+              _showSpeedPicker(context);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(

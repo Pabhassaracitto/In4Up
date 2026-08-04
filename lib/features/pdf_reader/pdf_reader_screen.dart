@@ -7,6 +7,7 @@
 //  - Tap từ → word detail + lưu vào Memory Garden
 //  - Text Mode: extract toàn bộ text → load vào Read Mode cũ
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -38,9 +39,13 @@ class PdfReaderScreen extends StatefulWidget {
 }
 
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
+  static const Duration _kPdfChromeAutoHideDelay = Duration(seconds: 3);
+
   late final PdfReaderController _controller;
   final PdfViewerController _pdfViewerController = PdfViewerController();
   bool _showWordlistPanel = false;
+  bool _chromeVisible = true;
+  Timer? _chromeHideTimer;
 
   @override
   void initState() {
@@ -54,14 +59,72 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         setState(() {});
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduleChromeAutoHide();
+    });
   }
 
+  bool get _isImmersivePdfMode =>
+      _controller.viewMode == PdfViewMode.pdfView && _controller.selectedText == null;
+
+  bool get _showTopChrome =>
+      _controller.viewMode != PdfViewMode.pdfView || _chromeVisible;
+
+  bool get _showBottomChrome =>
+      _controller.viewMode != PdfViewMode.pdfView || _chromeVisible;
+
+  double get _selectionBottomOffset => _showBottomChrome ? 92 : 20;
+
   void _onControllerUpdate() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+
+    if (_controller.selectedText != null ||
+        _controller.viewMode == PdfViewMode.textMode) {
+      _showChrome(autoHide: false);
+      return;
+    }
+
+    setState(() {});
+    _scheduleChromeAutoHide();
+  }
+
+  void _scheduleChromeAutoHide() {
+    _chromeHideTimer?.cancel();
+    if (!_isImmersivePdfMode) return;
+    _chromeHideTimer = Timer(_kPdfChromeAutoHideDelay, () {
+      if (!mounted || !_isImmersivePdfMode) return;
+      setState(() => _chromeVisible = false);
+    });
+  }
+
+  void _showChrome({bool autoHide = true}) {
+    _chromeHideTimer?.cancel();
+    if (!mounted) return;
+    if (!_chromeVisible) {
+      setState(() => _chromeVisible = true);
+    } else {
+      setState(() {});
+    }
+    if (autoHide) {
+      _scheduleChromeAutoHide();
+    }
+  }
+
+  void _toggleChromeVisibility() {
+    if (_controller.viewMode != PdfViewMode.pdfView) return;
+    if (_controller.selectedText != null) return;
+
+    _chromeHideTimer?.cancel();
+    setState(() => _chromeVisible = !_chromeVisible);
+    if (_chromeVisible) {
+      _scheduleChromeAutoHide();
+    }
   }
 
   @override
   void dispose() {
+    _chromeHideTimer?.cancel();
     _controller.removeListener(_onControllerUpdate);
     _controller.dispose();
     super.dispose();
@@ -75,47 +138,91 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final showWordlistFab =
+        _controller.viewMode == PdfViewMode.pdfView && (_chromeVisible || _showWordlistPanel);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
-      body: Column(
+      body: Stack(
         children: [
-          // ── Top Bar ────────────────────────────────────
-          PdfToolbar(controller: _controller, title: _title),
-
-          // ── Main Content ───────────────────────────────
-          Expanded(
+          Positioned.fill(
             child: _controller.viewMode == PdfViewMode.textMode
                 ? _buildTextMode()
-                : Stack(
-                    children: [
-                      _buildSplitOrPdf(),
-                      if (_controller.selectedText != null)
-                        Positioned(
-                            bottom: 20,
-                            left: 20,
-                            right: 20,
-                            child: _SelectionBar(controller: _controller)),
-                    ],
-                  ),
+                : _buildSplitOrPdf(),
           ),
-
-          // ── Bottom TTS Bar ─────────────────────────────
-          PdfTtsBar(controller: _controller),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: !_showTopChrome,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 220),
+                offset: _showTopChrome ? Offset.zero : const Offset(0, -1.05),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: _showTopChrome ? 1 : 0,
+                  child: PdfToolbar(
+                    controller: _controller,
+                    title: _title,
+                    onUserInteraction: () => _showChrome(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              ignoring: !_showBottomChrome,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 220),
+                offset: _showBottomChrome ? Offset.zero : const Offset(0, 1.1),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: _showBottomChrome ? 1 : 0,
+                  child: PdfTtsBar(
+                    controller: _controller,
+                    onUserInteraction: () => _showChrome(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_controller.selectedText != null)
+            Positioned(
+              bottom: _selectionBottomOffset,
+              left: 20,
+              right: 20,
+              child: _SelectionBar(controller: _controller),
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: 'wordlist_panel',
-        backgroundColor: _showWordlistPanel
-            ? const Color(0xFF6C63FF)
-            : const Color(0xFF1A2235),
-        onPressed: () {
-          setState(() => _showWordlistPanel = !_showWordlistPanel);
-          HapticFeedback.lightImpact();
-        },
-        child: Icon(
-          _showWordlistPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
-          color: Colors.white,
-          size: 18,
+      floatingActionButton: AnimatedScale(
+        duration: const Duration(milliseconds: 180),
+        scale: showWordlistFab ? 1 : 0,
+        child: IgnorePointer(
+          ignoring: !showWordlistFab,
+          child: FloatingActionButton.small(
+            heroTag: 'wordlist_panel',
+            backgroundColor: _showWordlistPanel
+                ? const Color(0xFF6C63FF)
+                : const Color(0xFF1A2235),
+            onPressed: () {
+              _showChrome();
+              setState(() => _showWordlistPanel = !_showWordlistPanel);
+              HapticFeedback.lightImpact();
+            },
+            child: Icon(
+              _showWordlistPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
         ),
       ),
     );
@@ -218,6 +325,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 page: page,
                 pageIndex: pageIndex,
                 controller: _controller,
+                onBackgroundTap: _toggleChromeVisibility,
+                onWordInteraction: () => _showChrome(),
               ),
             ),
           ];
@@ -280,62 +389,63 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       );
     }
 
-    return Column(
-      children: [
-        // Banner thông báo Text Mode
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Color(0xFF1A237E).withValues(alpha: 0.5),
-          child: Row(
-            children: [
-              const Icon(Icons.text_fields, color: Colors.blue, size: 16),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Chế độ văn bản — toàn bộ tính năng highlight & TTS',
-                  style: TextStyle(color: Colors.blue, fontSize: 12),
+    return Padding(
+      padding: const EdgeInsets.only(top: 64, bottom: 84),
+      child: Column(
+        children: [
+          // Banner thông báo Text Mode
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: const Color(0xFF1A237E),
+            child: Row(
+              children: [
+                const Icon(Icons.text_fields, color: Colors.blue, size: 16),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Chế độ văn bản — toàn bộ tính năng highlight & TTS',
+                    style: TextStyle(color: Colors.blue, fontSize: 12),
+                  ),
                 ),
-              ),
-              TextButton(
-                onPressed: _loadIntoReadMode,
-                child: const Text('Mở trong Read Mode →',
-                    style: TextStyle(fontSize: 11)),
-              ),
-            ],
-          ),
-        ),
-
-        // Text content
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: SelectableText(
-              _controller.extractedFullText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                height: 1.7,
-                letterSpacing: 0.2,
-              ),
-              onSelectionChanged: (selection, cause) {
-                if (selection.baseOffset != selection.extentOffset) {
-                  final text = _controller.extractedFullText.substring(
-                    selection.baseOffset,
-                    selection.extentOffset,
-                  );
-                  if (text.trim().isNotEmpty) {
-                    _controller.setSelection(text, Rect.zero);
-                  }
-                }
-              },
+                TextButton(
+                  onPressed: _loadIntoReadMode,
+                  child: const Text(
+                    'Mở trong Read Mode →',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
 
-        // Selection toolbar
-        if (_controller.selectedText != null)
-          _SelectionBar(controller: _controller),
-      ],
+          // Text content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: SelectableText(
+                _controller.extractedFullText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  height: 1.7,
+                  letterSpacing: 0.2,
+                ),
+                onSelectionChanged: (selection, cause) {
+                  if (selection.baseOffset != selection.extentOffset) {
+                    final text = _controller.extractedFullText.substring(
+                      selection.baseOffset,
+                      selection.extentOffset,
+                    );
+                    if (text.trim().isNotEmpty) {
+                      _controller.setSelection(text, Rect.zero);
+                    }
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -404,11 +514,15 @@ class _WordTapDetector extends StatelessWidget {
   final PdfPage page;
   final int pageIndex;
   final PdfReaderController controller;
+  final VoidCallback onBackgroundTap;
+  final VoidCallback onWordInteraction;
 
   const _WordTapDetector({
     required this.page,
     required this.pageIndex,
     required this.controller,
+    required this.onBackgroundTap,
+    required this.onWordInteraction,
   });
 
   @override
@@ -447,8 +561,11 @@ class _WordTapDetector extends StatelessWidget {
           }
 
           if (tappedWord != null && tappedWord.text.trim().length > 1) {
+            onWordInteraction();
             HapticFeedback.selectionClick();
             PdfWordTapSheet.show(context, tappedWord, controller);
+          } else {
+            onBackgroundTap();
           }
         },
         onLongPressStart: (details) {
@@ -460,6 +577,7 @@ class _WordTapDetector extends StatelessWidget {
           final words = controller.getWordsForPage(pageIndex);
           for (final word in words) {
             if (word.bounds.contains(Offset(tapX, tapY))) {
+              onWordInteraction();
               HapticFeedback.mediumImpact();
               PdfAnnotationSheet.showAdd(
                 context,

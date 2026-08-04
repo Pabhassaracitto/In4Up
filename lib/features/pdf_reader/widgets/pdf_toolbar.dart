@@ -7,11 +7,13 @@ import '../pdf_reader_controller.dart';
 class PdfToolbar extends StatelessWidget {
   final PdfReaderController controller;
   final String title;
+  final VoidCallback? onUserInteraction;
 
   const PdfToolbar({
     super.key,
     required this.controller,
     required this.title,
+    this.onUserInteraction,
   });
 
   @override
@@ -33,7 +35,10 @@ class PdfToolbar extends StatelessWidget {
         children: [
           // ← Back
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              onUserInteraction?.call();
+              Navigator.pop(context);
+            },
             icon: const Icon(Icons.arrow_back_ios_new,
                 size: 18, color: Colors.white70),
           ),
@@ -72,17 +77,26 @@ class PdfToolbar extends StatelessWidget {
           const SizedBox(width: 6),
 
           // Color mode cycle button
-          _ColorModeButton(controller: controller),
+          _ColorModeButton(
+            controller: controller,
+            onUserInteraction: onUserInteraction,
+          ),
 
           const SizedBox(width: 4),
 
           // View mode toggle
-          _ViewModeButton(controller: controller),
+          _ViewModeButton(
+            controller: controller,
+            onUserInteraction: onUserInteraction,
+          ),
 
           const SizedBox(width: 4),
 
           // More options
-          _MoreButton(controller: controller),
+          _MoreButton(
+            controller: controller,
+            onUserInteraction: onUserInteraction,
+          ),
         ],
       ),
     );
@@ -93,13 +107,19 @@ class PdfToolbar extends StatelessWidget {
 
 class _ColorModeButton extends StatelessWidget {
   final PdfReaderController controller;
-  const _ColorModeButton({required this.controller});
+  final VoidCallback? onUserInteraction;
+
+  const _ColorModeButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isActive = controller.colorMode != ColorMode.none;
     return GestureDetector(
       onTap: () {
+        onUserInteraction?.call();
         HapticFeedback.selectionClick();
         controller.cycleColorMode();
       },
@@ -143,13 +163,19 @@ class _ColorModeButton extends StatelessWidget {
 
 class _ViewModeButton extends StatelessWidget {
   final PdfReaderController controller;
-  const _ViewModeButton({required this.controller});
+  final VoidCallback? onUserInteraction;
+
+  const _ViewModeButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isPdf = controller.viewMode == PdfViewMode.pdfView;
     return GestureDetector(
       onTap: () {
+        onUserInteraction?.call();
         HapticFeedback.selectionClick();
         if (isPdf) {
           controller.switchToTextMode();
@@ -177,12 +203,20 @@ class _ViewModeButton extends StatelessWidget {
 
 class _MoreButton extends StatelessWidget {
   final PdfReaderController controller;
-  const _MoreButton({required this.controller});
+  final VoidCallback? onUserInteraction;
+
+  const _MoreButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showOptionsSheet(context),
+      onTap: () {
+        onUserInteraction?.call();
+        _showOptionsSheet(context);
+      },
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(

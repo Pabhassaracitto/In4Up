@@ -79,6 +79,7 @@ class WebReaderController extends ChangeNotifier {
   static const _bookmarksKey = 'bookmarks';
   static const _userCollectionsKey = 'user_collections_v1';
   static const _pinnedCollectionIdsKey = 'pinned_collection_ids_v1';
+  static const _pinnedArticleUrlsKey = 'pinned_article_urls_v1';
   static const _lastOpenedUrlKey = 'last_opened_url_v1';
 
   // ─── State ────────────────────────────────────────────────
@@ -138,6 +139,7 @@ class WebReaderController extends ChangeNotifier {
   late final List<WebCollection> _presetCollections = _buildPresetCollections();
   final List<WebCollection> _userCollections = [];
   final Set<String> _pinnedCollectionIds = <String>{};
+  final Set<String> _pinnedArticleUrls = <String>{};
 
   List<WebCollection> get presetCollections =>
       List.unmodifiable(_presetCollections);
@@ -165,6 +167,21 @@ class WebReaderController extends ChangeNotifier {
         history.where((entry) => entry.hasMeaningfulProgress).toList(),
       );
 
+  List<WebHistoryEntry> get completedEntries => List.unmodifiable(
+        history.where((entry) => entry.progress >= 0.98).toList(),
+      );
+
+  List<WebHistoryEntry> get recentEntries => List.unmodifiable(
+        history.where((entry) {
+          final diff = DateTime.now().difference(entry.effectiveReadAt);
+          return diff.inHours < 48;
+        }).toList(),
+      );
+
+  List<WebHistoryEntry> get pinnedArticleEntries => List.unmodifiable(
+        history.where((entry) => _pinnedArticleUrls.contains(entry.url)).toList(),
+      );
+
   List<WebHistoryEntry> get resumeEntries {
     final items = <WebHistoryEntry>[];
     final seen = <String>{};
@@ -185,6 +202,7 @@ class WebReaderController extends ChangeNotifier {
     _loadBookmarks();
     _loadUserCollections();
     _loadPinnedCollectionIds();
+    _loadPinnedArticleUrls();
     _loadLastOpenedUrl();
   }
 
@@ -522,7 +540,8 @@ class WebReaderController extends ChangeNotifier {
     );
     await _persistHistory();
 
-    final bookmarkIndex = _bookmarks.indexWhere((entry) => entry.url == normalizedUrl);
+    final bookmarkIndex =
+        _bookmarks.indexWhere((entry) => entry.url == normalizedUrl);
     if (bookmarkIndex >= 0) {
       final existing = _bookmarks.removeAt(bookmarkIndex);
       _bookmarks.add(
@@ -530,13 +549,75 @@ class WebReaderController extends ChangeNotifier {
           title: (title ?? '').trim().isEmpty ? existing.title : title!.trim(),
           lastReadAt: DateTime.now(),
           progress: clampedProgress,
-          preview: (preview ?? '').trim().isEmpty ? existing.preview : preview!.trim(),
+          preview: (preview ?? '').trim().isEmpty
+              ? existing.preview
+              : preview!.trim(),
         ),
       );
       await _persistBookmarks();
     }
 
     notifyListeners();
+  }
+
+  bool isArticlePinned(String url) => _pinnedArticleUrls.contains(url.trim());
+
+  bool isArticleCompleted(String url) => progressForUrl(url) >= 0.98;
+
+  Future<void> toggleArticlePin(
+    String url, {
+    String? title,
+    String? preview,
+  }) async {
+    final normalizedUrl = url.trim();
+    if (normalizedUrl.isEmpty ||
+        normalizedUrl.startsWith('about:') ||
+        normalizedUrl.contains('google.com/search')) {
+      return;
+    }
+
+    if (_pinnedArticleUrls.contains(normalizedUrl)) {
+      _pinnedArticleUrls.remove(normalizedUrl);
+    } else {
+      _pinnedArticleUrls.add(normalizedUrl);
+      if (_findHistoryEntry(normalizedUrl) == null) {
+        _upsertHistoryEntry(
+          url: normalizedUrl,
+          title: (title ?? '').trim(),
+          preview: preview,
+          touchReadTime: false,
+        );
+        await _persistHistory();
+      }
+    }
+    await _savePinnedArticleUrls();
+    notifyListeners();
+  }
+
+  Future<void> markArticleCompleted(
+    String url, {
+    String? title,
+    String? preview,
+  }) async {
+    await updateReadingProgress(
+      url: url,
+      title: title,
+      preview: preview,
+      progress: 1.0,
+    );
+  }
+
+  Future<void> resetArticleProgress(
+    String url, {
+    String? title,
+    String? preview,
+  }) async {
+    await updateReadingProgress(
+      url: url,
+      title: title,
+      preview: preview,
+      progress: 0.0,
+    );
   }
 
   bool isCollectionPinned(String collectionId) =>
@@ -738,6 +819,33 @@ class WebReaderController extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('WebReaderController: _savePinnedCollectionIds error: $e');
+    }
+  }
+
+  Future<void> _loadPinnedArticleUrls() async {
+    try {
+      final box = await _getStorageBox();
+      final raw = box?.get(_pinnedArticleUrlsKey);
+      if (raw == null) return;
+      final list = jsonDecode(raw) as List;
+      _pinnedArticleUrls
+        ..clear()
+        ..addAll(list.map((e) => e.toString()).where((e) => e.trim().isNotEmpty));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadPinnedArticleUrls error: $e');
+    }
+  }
+
+  Future<void> _savePinnedArticleUrls() async {
+    try {
+      final box = await _getStorageBox();
+      await box?.put(
+        _pinnedArticleUrlsKey,
+        jsonEncode(_pinnedArticleUrls.toList()),
+      );
+    } catch (e) {
+      debugPrint('WebReaderController: _savePinnedArticleUrls error: $e');
     }
   }
 

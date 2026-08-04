@@ -633,6 +633,55 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
+  Future<void> _toggleCurrentArticlePin() async {
+    final url = _controller.currentUrl.trim();
+    if (url.isEmpty || _showDashboard) return;
+    final wasPinned = _controller.isArticlePinned(url);
+    await _controller.toggleArticlePin(
+      url,
+      title: _controller.pageTitle,
+    );
+    _showSnack(
+      wasPinned ? 'Đã bỏ ghim bài hiện tại' : 'Đã ghim bài hiện tại',
+    );
+  }
+
+  Future<void> _toggleCurrentArticleCompleted() async {
+    final url = _controller.currentUrl.trim();
+    if (url.isEmpty || _showDashboard) return;
+    final wasCompleted = _controller.isArticleCompleted(url);
+    if (wasCompleted) {
+      await _controller.resetArticleProgress(
+        url,
+        title: _controller.pageTitle,
+      );
+      _showSnack('Đã chuyển bài hiện tại về trạng thái chưa đọc xong');
+    } else {
+      await _controller.markArticleCompleted(
+        url,
+        title: _controller.pageTitle,
+      );
+      _showSnack('Đã đánh dấu bài hiện tại là đọc xong');
+    }
+  }
+
+  void _handlePageAction(String value) {
+    switch (value) {
+      case 'pinArticle':
+        _toggleCurrentArticlePin();
+        break;
+      case 'toggleCompleted':
+        _toggleCurrentArticleCompleted();
+        break;
+      case 'saveToCollection':
+        _saveCurrentPageToCollection();
+        break;
+      case 'extractText':
+        _extractTextToStudio();
+        break;
+    }
+  }
+
   void _showSnack(String msg, {int duration = 3}) {
     final now = DateTime.now();
     if (_lastSnackbar != null && now.difference(_lastSnackbar!).inSeconds < 1) {
@@ -696,6 +745,40 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                     }
                   },
           ),
+          if (!_showDashboard && _controller.currentUrl.isNotEmpty)
+            PopupMenuButton<String>(
+              color: const Color(0xFF151B26),
+              tooltip: 'Tác vụ bài đọc',
+              onSelected: _handlePageAction,
+              itemBuilder: (context) {
+                final isPinned =
+                    _controller.isArticlePinned(_controller.currentUrl);
+                final isCompleted =
+                    _controller.isArticleCompleted(_controller.currentUrl);
+                return [
+                  PopupMenuItem(
+                    value: 'pinArticle',
+                    child: Text(isPinned ? 'Bỏ ghim bài này' : 'Ghim bài này'),
+                  ),
+                  PopupMenuItem(
+                    value: 'toggleCompleted',
+                    child: Text(
+                      isCompleted
+                          ? 'Đánh dấu chưa đọc xong'
+                          : 'Đánh dấu đọc xong',
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'saveToCollection',
+                    child: Text('Lưu vào nhóm'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'extractText',
+                    child: Text('Mở trong Text Studio'),
+                  ),
+                ];
+              },
+            ),
         ],
       ),
       body: Column(

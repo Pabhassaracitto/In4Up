@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../models/web_collection.dart';
 import '../web_reader_controller.dart';
 
+enum _ReadingFeedFilter { all, inProgress, completed, recent, pinned }
+
 class WebReaderHomeView extends StatefulWidget {
   final WebReaderController controller;
   final ValueChanged<String> onNavigate;
@@ -21,6 +23,7 @@ class WebReaderHomeView extends StatefulWidget {
 class _WebReaderHomeViewState extends State<WebReaderHomeView> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  _ReadingFeedFilter _feedFilter = _ReadingFeedFilter.all;
 
   @override
   void dispose() {
@@ -41,17 +44,22 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               _filterCollections(widget.controller.presetCollections);
           final userCollections =
               _filterCollections(widget.controller.userCollections);
+          final pinnedArticles =
+              _filterHistory(widget.controller.pinnedArticleEntries)
+                  .take(6)
+                  .toList();
           final resumeEntries =
               _filterHistory(widget.controller.resumeEntries).take(6).toList();
-          final history = _filterHistory(widget.controller.history).take(12).toList();
+          final statusEntries = _buildStatusEntries();
           final bookmarks =
               _filterHistory(widget.controller.bookmarks).take(8).toList();
           final hasQuery = _normalizedQuery.isNotEmpty;
-          final hasAnyResults = resumeEntries.isNotEmpty ||
+          final hasAnyResults = pinnedArticles.isNotEmpty ||
+              resumeEntries.isNotEmpty ||
               pinnedCollections.isNotEmpty ||
               presetCollections.isNotEmpty ||
               userCollections.isNotEmpty ||
-              history.isNotEmpty ||
+              statusEntries.isNotEmpty ||
               bookmarks.isNotEmpty;
 
           return SingleChildScrollView(
@@ -65,10 +73,11 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                 const SizedBox(height: 12),
                 _buildSearchMeta(
                   pinnedCount: pinnedCollections.length,
+                  pinnedArticleCount: pinnedArticles.length,
                   presetCount: presetCollections.length,
                   userCount: userCollections.length,
                   bookmarkCount: bookmarks.length,
-                  historyCount: history.length,
+                  statusCount: statusEntries.length,
                   resumeCount: resumeEntries.length,
                   hasQuery: hasQuery,
                 ),
@@ -99,11 +108,24 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     )
                   else
                     _buildResumeGrid(resumeEntries),
+                  if (pinnedArticles.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    _SectionHeader(
+                      icon: Icons.bookmarks_outlined,
+                      title: hasQuery
+                          ? 'Bài đã ghim · ${pinnedArticles.length}'
+                          : 'Bài đã ghim',
+                      subtitle:
+                          'Ghim từng bài cụ thể để giữ những trang quan trọng ngoài collection.',
+                    ),
+                    const SizedBox(height: 14),
+                    _buildArticleGrid(pinnedArticles),
+                  ],
                   if (pinnedCollections.isNotEmpty) ...[
                     const SizedBox(height: 28),
                     _SectionHeader(
                       icon: Icons.push_pin_outlined,
-                      title: 'Đã ghim',
+                      title: 'Collection đã ghim',
                       subtitle:
                           'Các bộ sưu tập quan trọng được kéo lên đầu để mở nhanh.',
                     ),
@@ -176,12 +198,13 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   ),
                   const SizedBox(height: 28),
                   _SectionHeader(
-                    icon: Icons.history_rounded,
+                    icon: Icons.filter_list_rounded,
                     title: hasQuery
-                        ? 'Lịch sử duyệt gần đây · ${history.length}'
-                        : 'Lịch sử duyệt gần đây',
-                    subtitle: 'Giữ mạch học cũ để quay lại đúng bài đang đọc.',
-                    action: history.isEmpty || hasQuery
+                        ? '${_feedFilterLabel(_feedFilter)} · ${statusEntries.length}'
+                        : 'Bộ lọc trạng thái bài đọc',
+                    subtitle:
+                        'Lọc nhanh bài đang đọc dở, mới mở gần đây, đã đọc xong, hoặc bài đã ghim.',
+                    action: widget.controller.history.isEmpty || hasQuery
                         ? null
                         : TextButton.icon(
                             onPressed: _confirmClearHistory,
@@ -190,15 +213,17 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                           ),
                   ),
                   const SizedBox(height: 14),
+                  _buildFeedFilterBar(),
+                  const SizedBox(height: 14),
                   _buildHistoryBlock(
-                    items: history,
+                    items: statusEntries,
                     emptyIcon: Icons.history_toggle_off,
                     emptyTitle: hasQuery
-                        ? 'Không có lịch sử nào khớp tìm kiếm'
-                        : 'Chưa có lịch sử đọc',
+                        ? 'Không có bài nào khớp bộ lọc hiện tại'
+                        : 'Chưa có bài nào trong bộ lọc này',
                     emptyDescription: hasQuery
-                        ? 'Thử tên miền, tiêu đề trang, hoặc xoá từ khoá tìm kiếm.'
-                        : 'Sau khi bạn mở một trang web, lịch sử sẽ hiện ở đây để quay lại nhanh.',
+                        ? 'Thử tên miền, tiêu đề trang, hoặc đổi bộ lọc trạng thái.'
+                        : 'Hãy mở vài trang và cuộn đọc để hệ thống phân loại bài theo trạng thái.',
                   ),
                 ],
               ],
@@ -219,6 +244,47 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
   List<WebHistoryEntry> _filterHistory(List<WebHistoryEntry> items) {
     if (_normalizedQuery.isEmpty) return items;
     return items.where(_matchesHistory).toList();
+  }
+
+  List<WebHistoryEntry> _buildStatusEntries() {
+    final source = _filterHistory(widget.controller.history);
+    switch (_feedFilter) {
+      case _ReadingFeedFilter.inProgress:
+        return source.where((entry) => entry.hasMeaningfulProgress).take(12).toList();
+      case _ReadingFeedFilter.completed:
+        return source.where((entry) => entry.progress >= 0.98).take(12).toList();
+      case _ReadingFeedFilter.recent:
+        return source
+            .where((entry) =>
+                DateTime.now().difference(entry.effectiveReadAt).inHours < 48)
+            .take(12)
+            .toList();
+      case _ReadingFeedFilter.pinned:
+        return _filterHistory(widget.controller.pinnedArticleEntries)
+            .take(12)
+            .toList();
+      case _ReadingFeedFilter.all:
+        return source.take(12).toList();
+    }
+  }
+
+  String _feedFilterLabel(_ReadingFeedFilter filter) {
+    switch (filter) {
+      case _ReadingFeedFilter.all:
+        return 'Tất cả bài đọc';
+      case _ReadingFeedFilter.inProgress:
+        return 'Đang đọc dở';
+      case _ReadingFeedFilter.completed:
+        return 'Đã đọc xong';
+      case _ReadingFeedFilter.recent:
+        return 'Mới mở gần đây';
+      case _ReadingFeedFilter.pinned:
+        return 'Bài đã ghim';
+    }
+  }
+
+  bool _isRecentEntry(WebHistoryEntry entry) {
+    return DateTime.now().difference(entry.effectiveReadAt).inHours < 48;
   }
 
   bool _matchesCollection(WebCollection collection) {
@@ -357,10 +423,11 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
 
   Widget _buildSearchMeta({
     required int pinnedCount,
+    required int pinnedArticleCount,
     required int presetCount,
     required int userCount,
     required int bookmarkCount,
-    required int historyCount,
+    required int statusCount,
     required int resumeCount,
     required bool hasQuery,
   }) {
@@ -369,13 +436,14 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
         : _searchQuery.trim();
     final chips = <Widget>[
       _InfoChip(icon: Icons.play_circle_outline, label: '$resumeCount tiếp tục'),
-      _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount ghim'),
+      _InfoChip(icon: Icons.bookmarks_outlined, label: '$pinnedArticleCount bài ghim'),
+      _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount collection ghim'),
       _InfoChip(
           icon: Icons.dashboard_customize_outlined,
           label: '$presetCount preset'),
       _InfoChip(icon: Icons.folder_copy_outlined, label: '$userCount nhóm riêng'),
       _InfoChip(icon: Icons.bookmark_outline, label: '$bookmarkCount bookmark'),
-      _InfoChip(icon: Icons.history_rounded, label: '$historyCount lịch sử'),
+      _InfoChip(icon: Icons.filter_list_rounded, label: '$statusCount theo bộ lọc'),
     ];
 
     return Wrap(
@@ -418,13 +486,77 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   child: _ResumeCard(
                     entry: entry,
                     isLastOpened: entry.url == lastOpenedUrl,
+                    isPinned: widget.controller.isArticlePinned(entry.url),
+                    isCompleted: widget.controller.isArticleCompleted(entry.url),
                     onTap: () => widget.onNavigate(entry.url),
+                    onTogglePin: () => widget.controller.toggleArticlePin(
+                      entry.url,
+                      title: entry.title,
+                      preview: entry.preview,
+                    ),
+                    onToggleCompleted: () =>
+                        widget.controller.isArticleCompleted(entry.url)
+                            ? widget.controller.resetArticleProgress(
+                                entry.url,
+                                title: entry.title,
+                                preview: entry.preview,
+                              )
+                            : widget.controller.markArticleCompleted(
+                                entry.url,
+                                title: entry.title,
+                                preview: entry.preview,
+                              ),
                   ),
                 ),
               )
               .toList(),
         );
       },
+    );
+  }
+
+  Widget _buildArticleGrid(List<WebHistoryEntry> entries) {
+    return _buildResumeGrid(entries);
+  }
+
+  Widget _buildFeedFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _FeedChip(
+            label: 'Tất cả',
+            selected: _feedFilter == _ReadingFeedFilter.all,
+            onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.all),
+          ),
+          const SizedBox(width: 8),
+          _FeedChip(
+            label: 'Đang đọc dở',
+            selected: _feedFilter == _ReadingFeedFilter.inProgress,
+            onTap: () =>
+                setState(() => _feedFilter = _ReadingFeedFilter.inProgress),
+          ),
+          const SizedBox(width: 8),
+          _FeedChip(
+            label: 'Đã đọc xong',
+            selected: _feedFilter == _ReadingFeedFilter.completed,
+            onTap: () =>
+                setState(() => _feedFilter = _ReadingFeedFilter.completed),
+          ),
+          const SizedBox(width: 8),
+          _FeedChip(
+            label: 'Mới mở',
+            selected: _feedFilter == _ReadingFeedFilter.recent,
+            onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.recent),
+          ),
+          const SizedBox(width: 8),
+          _FeedChip(
+            label: 'Bài đã ghim',
+            selected: _feedFilter == _ReadingFeedFilter.pinned,
+            onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.pinned),
+          ),
+        ],
+      ),
     );
   }
 
@@ -508,10 +640,30 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           for (int i = 0; i < items.length; i++) ...[
             _HistoryTile(
               entry: items[i],
+              isPinned: widget.controller.isArticlePinned(items[i].url),
+              isCompleted: widget.controller.isArticleCompleted(items[i].url),
+              isRecent: _isRecentEntry(items[i]),
               onTap: () {
                 HapticFeedback.lightImpact();
                 widget.onNavigate(items[i].url);
               },
+              onTogglePin: () => widget.controller.toggleArticlePin(
+                items[i].url,
+                title: items[i].title,
+                preview: items[i].preview,
+              ),
+              onToggleCompleted: () =>
+                  widget.controller.isArticleCompleted(items[i].url)
+                      ? widget.controller.resetArticleProgress(
+                          items[i].url,
+                          title: items[i].title,
+                          preview: items[i].preview,
+                        )
+                      : widget.controller.markArticleCompleted(
+                          items[i].url,
+                          title: items[i].title,
+                          preview: items[i].preview,
+                        ),
             ),
             if (i != items.length - 1)
               Divider(
@@ -1296,12 +1448,20 @@ class _SectionHeader extends StatelessWidget {
 class _ResumeCard extends StatelessWidget {
   final WebHistoryEntry entry;
   final bool isLastOpened;
+  final bool isPinned;
+  final bool isCompleted;
   final VoidCallback onTap;
+  final VoidCallback onTogglePin;
+  final VoidCallback onToggleCompleted;
 
   const _ResumeCard({
     required this.entry,
     required this.isLastOpened,
+    required this.isPinned,
+    required this.isCompleted,
     required this.onTap,
+    required this.onTogglePin,
+    required this.onToggleCompleted,
   });
 
   @override
@@ -1329,13 +1489,20 @@ class _ResumeCard extends StatelessWidget {
                 _InfoChip(
                   icon: isLastOpened
                       ? Icons.history_toggle_off
-                      : Icons.menu_book,
-                  label: isLastOpened ? 'Lần mở gần nhất' : 'Đang đọc dở',
+                      : (isCompleted ? Icons.check_circle_outline : Icons.menu_book),
+                  label: isLastOpened
+                      ? 'Lần mở gần nhất'
+                      : (isCompleted ? 'Đã đọc xong' : 'Đang đọc dở'),
                 ),
                 _InfoChip(
                   icon: Icons.language,
                   label: _HistoryTile._domain(entry.url),
                 ),
+                if (isPinned)
+                  const _InfoChip(
+                    icon: Icons.push_pin,
+                    label: 'Đã ghim',
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1399,13 +1566,46 @@ class _ResumeCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: onTap,
-                icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: const Text('Tiếp tục đọc'),
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: onTap,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(isCompleted ? 'Mở lại bài' : 'Tiếp tục đọc'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onTogglePin,
+                  icon: Icon(
+                    isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    size: 18,
+                  ),
+                  label: Text(isPinned ? 'Bỏ ghim' : 'Ghim bài'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onToggleCompleted,
+                  icon: Icon(
+                    isCompleted ? Icons.restart_alt : Icons.check_circle_outline,
+                    size: 18,
+                  ),
+                  label: Text(isCompleted ? 'Đọc lại' : 'Đọc xong'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isCompleted
+                        ? (Colors.orange[200] ?? Colors.orangeAccent)
+                        : (Colors.green[200] ?? Colors.greenAccent),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1655,11 +1855,67 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-class _HistoryTile extends StatelessWidget {
-  final WebHistoryEntry entry;
+class _FeedChip extends StatelessWidget {
+  final String label;
+  final bool selected;
   final VoidCallback onTap;
 
-  const _HistoryTile({required this.entry, required this.onTap});
+  const _FeedChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF2196F3).withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF64B5F6).withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF90CAF9) : Colors.white70,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryTile extends StatelessWidget {
+  final WebHistoryEntry entry;
+  final bool isPinned;
+  final bool isCompleted;
+  final bool isRecent;
+  final VoidCallback onTap;
+  final VoidCallback onTogglePin;
+  final VoidCallback onToggleCompleted;
+
+  const _HistoryTile({
+    required this.entry,
+    required this.isPinned,
+    required this.isCompleted,
+    required this.isRecent,
+    required this.onTap,
+    required this.onTogglePin,
+    required this.onToggleCompleted,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1707,6 +1963,26 @@ class _HistoryTile extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (isPinned)
+                  const _InfoChip(icon: Icons.push_pin, label: 'Đã ghim'),
+                if (isCompleted)
+                  const _InfoChip(
+                      icon: Icons.check_circle_outline, label: 'Đã xong')
+                else if (showProgress)
+                  _InfoChip(
+                    icon: Icons.menu_book,
+                    label: 'Đang đọc ${entry.progressPercent}%',
+                  )
+                else if (isRecent)
+                  const _InfoChip(
+                      icon: Icons.history_toggle_off, label: 'Mới mở'),
+              ],
+            ),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
@@ -1740,8 +2016,32 @@ class _HistoryTile extends StatelessWidget {
           ],
         ),
       ),
-      trailing:
-          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
+      trailing: PopupMenuButton<String>(
+        color: const Color(0xFF151B26),
+        icon: const Icon(Icons.more_horiz, size: 18, color: Colors.white54),
+        onSelected: (value) {
+          switch (value) {
+            case 'pin':
+              onTogglePin();
+              break;
+            case 'complete':
+              onToggleCompleted();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'pin',
+            child: Text(isPinned ? 'Bỏ ghim bài này' : 'Ghim bài này'),
+          ),
+          PopupMenuItem(
+            value: 'complete',
+            child: Text(
+              isCompleted ? 'Đánh dấu chưa đọc xong' : 'Đánh dấu đọc xong',
+            ),
+          ),
+        ],
+      ),
       onTap: onTap,
     );
   }

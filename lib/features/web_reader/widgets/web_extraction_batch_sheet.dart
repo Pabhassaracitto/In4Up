@@ -49,6 +49,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   List<WebExtractionCandidate> _candidates = const [];
   bool _onlyNew = false;
   bool _onlyPhrases = false;
+  bool _onlyReady = false;
+  bool _importReadyOnly = false;
   bool _isEnriching = false;
   double _enrichProgress = 0;
   int _minLength = 4;
@@ -88,9 +90,12 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     final visible = _candidates.where((candidate) {
       if (_onlyNew && candidate.existed) return false;
       if (_onlyPhrases && !candidate.isPhrase) return false;
+      if (_onlyReady && !candidate.isImportReady) return false;
       if (q.isEmpty) return true;
       return candidate.normalized.contains(q) ||
-          candidate.sampleContext.toLowerCase().contains(q);
+          candidate.sampleContext.toLowerCase().contains(q) ||
+          candidate.meaning.toLowerCase().contains(q) ||
+          (candidate.topic ?? '').toLowerCase().contains(q);
     }).toList();
 
     visible.sort((a, b) {
@@ -141,6 +146,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       _candidates.where((candidate) => candidate.isPriority).length;
   int get _enrichedCount =>
       _candidates.where((candidate) => candidate.enriched).length;
+  int get _readyCount =>
+      _candidates.where((candidate) => candidate.isImportReady).length;
+  int get _selectedReadyCount => _candidates
+      .where((candidate) => candidate.selected && candidate.isImportReady)
+      .length;
 
   void _setAllVisible(bool selected) {
     for (final candidate in _visibleCandidates) {
@@ -226,8 +236,240 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     );
   }
 
+  Future<void> _bulkApplyToSelected() async {
+    final targets = _candidates.where((candidate) => candidate.selected).toList();
+    if (targets.isEmpty) return;
+
+    final topicCtrl = TextEditingController();
+    final exampleCtrl = TextEditingController();
+    bool useSampleContextIfEmpty = true;
+
+    final shouldApply = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF151B26),
+              title: const Text('Bulk apply cho mục đã chọn'),
+              titleTextStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+              content: SizedBox(
+                width: 460,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _editorField(
+                      controller: topicCtrl,
+                      label: 'Topic áp cho tất cả',
+                      hint: 'Ví dụ: dharma, english_learning, news',
+                    ),
+                    const SizedBox(height: 12),
+                    _editorField(
+                      controller: exampleCtrl,
+                      label: 'Example chung (tuỳ chọn)',
+                      hint: 'Nếu nhập, sẽ áp cho tất cả mục đã chọn',
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      value: useSampleContextIfEmpty,
+                      onChanged: (value) => setLocalState(
+                        () => useSampleContextIfEmpty = value ?? true,
+                      ),
+                      activeColor: const Color(0xFF64B5F6),
+                      title: const Text(
+                        'Dùng sample context làm example nếu còn trống',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Huỷ'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Áp dụng'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (shouldApply != true) return;
+
+    final topic = topicCtrl.text.trim();
+    final example = exampleCtrl.text.trim();
+    for (final candidate in targets) {
+      if (topic.isNotEmpty) {
+        candidate.topic = topic;
+      }
+      if (example.isNotEmpty) {
+        candidate.example = example;
+      } else if (useSampleContextIfEmpty &&
+          (candidate.example ?? '').trim().isEmpty) {
+        candidate.example = candidate.sampleContext;
+      }
+      candidate.enriched = true;
+      candidate.enrichSource = 'manual';
+    }
+
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🛠️ Đã áp dụng bulk fields cho ${targets.length} mục'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _editCandidate(WebExtractionCandidate candidate) async {
+    final meaningCtrl = TextEditingController(text: candidate.meaning);
+    final phoneticCtrl = TextEditingController(text: candidate.phonetic ?? '');
+    final topicCtrl = TextEditingController(text: candidate.topic ?? '');
+    final exampleCtrl = TextEditingController(
+      text: (candidate.example ?? '').trim().isEmpty
+          ? candidate.sampleContext
+          : candidate.example,
+    );
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: Text('Sửa mục: ${candidate.text}'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _editorField(
+                    controller: meaningCtrl,
+                    label: 'Meaning',
+                    hint: 'Nghĩa / giải thích ngắn',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  _editorField(
+                    controller: phoneticCtrl,
+                    label: 'IPA / Phonetic',
+                    hint: '/.../',
+                  ),
+                  const SizedBox(height: 12),
+                  _editorField(
+                    controller: topicCtrl,
+                    label: 'Topic',
+                    hint: 'dharma / english_learning / news...',
+                  ),
+                  const SizedBox(height: 12),
+                  _editorField(
+                    controller: exampleCtrl,
+                    label: 'Example',
+                    hint: 'Câu ví dụ',
+                    maxLines: 4,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Lưu'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave != true || !mounted) return;
+
+    setState(() {
+      candidate.meaning = meaningCtrl.text.trim();
+      candidate.phonetic = phoneticCtrl.text.trim().isEmpty
+          ? null
+          : phoneticCtrl.text.trim();
+      candidate.topic =
+          topicCtrl.text.trim().isEmpty ? null : topicCtrl.text.trim();
+      candidate.example =
+          exampleCtrl.text.trim().isEmpty ? null : exampleCtrl.text.trim();
+      candidate.enriched = true;
+      candidate.enrichSource = 'manual';
+    });
+  }
+
+  InputDecoration _inputDecoration(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: TextStyle(color: Colors.grey[300]),
+      hintStyle: TextStyle(color: Colors.grey[600]),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.04),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF64B5F6)),
+      ),
+    );
+  }
+
+  Widget _editorField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      style: const TextStyle(color: Colors.white),
+      decoration: _inputDecoration(label, hint: hint),
+    );
+  }
+
+  String _candidateStatusText(WebExtractionCandidate candidate) {
+    if (candidate.isImportReady) {
+      return 'Sẵn sàng nhập: đã có nghĩa + topic + example';
+    }
+    final missing = <String>[];
+    if (!candidate.hasMeaning) missing.add('meaning');
+    if (!candidate.hasTopic) missing.add('topic');
+    if (!candidate.hasExample) missing.add('example');
+    return 'Thiếu: ${missing.join(', ')}';
+  }
+
   Future<void> _importSelected() async {
-    final result = widget.controller.importBatchToWordList(_candidates);
+    final result = widget.controller.importBatchToWordList(
+      _candidates,
+      onlyReady: _importReadyOnly,
+    );
     if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -235,7 +477,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
         content: Text(
           result.processedCount == 0
               ? 'Chưa có mục nào được nhập vào WordList'
-              : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}',
+              : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}, bỏ qua ${result.skippedCount}',
         ),
         backgroundColor: const Color(0xFF1E5F3A),
         behavior: SnackBarBehavior.floating,
@@ -292,6 +534,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 _MetaChip(label: 'Phrase $_phraseCount'),
                 _MetaChip(label: 'Ưu tiên $_priorityCount'),
                 _MetaChip(label: 'Đã enrich $_enrichedCount'),
+                _MetaChip(label: 'Sẵn sàng $_readyCount'),
                 _MetaChip(label: 'Đã có $_existingCount'),
                 _MetaChip(label: 'Đã chọn $_selectedCount'),
               ],
@@ -354,6 +597,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   selected: _onlyPhrases,
                   onSelected: (value) => setState(() => _onlyPhrases = value),
                 ),
+                ChoiceChip(
+                  label: const Text('Chỉ sẵn sàng'),
+                  selected: _onlyReady,
+                  onSelected: (value) => setState(() => _onlyReady = value),
+                ),
                 _LengthChip(
                   value: _minLength,
                   onChanged: (value) {
@@ -388,6 +636,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   label: Text(_isEnriching
                       ? 'Đang làm giàu...'
                       : 'Làm giàu AI/local'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _selectedCount == 0 ? null : _bulkApplyToSelected,
+                  icon: const Icon(Icons.playlist_add_check, size: 18),
+                  label: const Text('Bulk apply'),
                 ),
               ],
             ),
@@ -429,6 +682,12 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                       ),
                                     ),
                                   ),
+                                  if (candidate.isImportReady)
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      size: 16,
+                                      color: Colors.greenAccent,
+                                    ),
                                   const SizedBox(width: 8),
                                   Text(
                                     candidate.rankScore.toStringAsFixed(0),
@@ -436,6 +695,17 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                       color: Colors.blue[200],
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  IconButton(
+                                    tooltip: 'Sửa mục này',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => _editCandidate(candidate),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                      color: Colors.white70,
                                     ),
                                   ),
                                 ],
@@ -466,6 +736,16 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                         ? Colors.orangeAccent
                                         : Colors.greenAccent,
                                   ),
+                                  if (candidate.isImportReady)
+                                    const _MiniBadge(
+                                      label: 'Ready',
+                                      color: Colors.greenAccent,
+                                    )
+                                  else
+                                    const _MiniBadge(
+                                      label: 'Thiếu dữ liệu',
+                                      color: Colors.redAccent,
+                                    ),
                                   _MiniBadge(
                                     label: 'x${candidate.frequency}',
                                     color: Colors.blueAccent,
@@ -520,12 +800,25 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                     height: 1.4,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _candidateStatusText(candidate),
+                                  style: TextStyle(
+                                    color: candidate.isImportReady
+                                        ? Colors.green[200]
+                                        : Colors.red[200],
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 if (candidate.enriched) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     candidate.enrichSource == 'ai+local'
                                         ? '✨ AI/local'
-                                        : '✨ Local/heuristic',
+                                        : candidate.enrichSource == 'manual'
+                                            ? '✨ Manual'
+                                            : '✨ Local/heuristic',
                                     style: TextStyle(
                                       color: Colors.purple[200],
                                       fontSize: 11.5,
@@ -542,6 +835,23 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                         );
                       },
                     ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                FilterChip(
+                  label: const Text('Chỉ nhập mục sẵn sàng'),
+                  selected: _importReadyOnly,
+                  onSelected: (value) => setState(() => _importReadyOnly = value),
+                ),
+                const Spacer(),
+                Text(
+                  _importReadyOnly
+                      ? 'Ready đã chọn: $_selectedReadyCount'
+                      : 'Đã chọn: $_selectedCount',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
@@ -563,9 +873,18 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 Expanded(
                   flex: 2,
                   child: FilledButton.icon(
-                    onPressed: _selectedCount == 0 ? null : _importSelected,
+                    onPressed: (_importReadyOnly
+                                ? _selectedReadyCount == 0
+                                : _selectedCount == 0) ||
+                            _isEnriching
+                        ? null
+                        : _importSelected,
                     icon: const Icon(Icons.library_add_check),
-                    label: Text('Nhập $_selectedCount mục vào WordList'),
+                    label: Text(
+                      _importReadyOnly
+                          ? 'Nhập $_selectedReadyCount mục sẵn sàng'
+                          : 'Nhập $_selectedCount mục vào WordList',
+                    ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),

@@ -44,6 +44,12 @@ class WebExtractionCandidate {
     this.enrichSource = '',
     this.selected = false,
   });
+
+  bool get hasMeaning => meaning.trim().isNotEmpty;
+  bool get hasTopic => (topic ?? '').trim().isNotEmpty;
+  bool get hasExample =>
+      ((example ?? '').trim().isNotEmpty) || sampleContext.trim().isNotEmpty;
+  bool get isImportReady => hasMeaning && hasTopic && hasExample;
 }
 
 class WebBatchImportResult {

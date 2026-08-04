@@ -613,14 +613,19 @@ class WebReaderController extends ChangeNotifier {
   }
 
   WebBatchImportResult importBatchToWordList(
-    Iterable<WebExtractionCandidate> candidates,
-  ) {
+    Iterable<WebExtractionCandidate> candidates, {
+    bool onlyReady = false,
+  }) {
     int addedCount = 0;
     int updatedCount = 0;
     int skippedCount = 0;
 
     for (final candidate in candidates) {
       if (!candidate.selected) continue;
+      if (onlyReady && !candidate.isImportReady) {
+        skippedCount++;
+        continue;
+      }
       final normalized = _normalizeStudyText(candidate.normalized).toLowerCase();
       if (normalized.isEmpty || normalized.length < 2) {
         skippedCount++;

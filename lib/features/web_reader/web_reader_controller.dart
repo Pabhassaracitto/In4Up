@@ -84,6 +84,7 @@ class WebReaderController extends ChangeNotifier {
   static const _pinnedCollectionIdsKey = 'pinned_collection_ids_v1';
   static const _pinnedArticleUrlsKey = 'pinned_article_urls_v1';
   static const _articleNotesKey = 'article_notes_v1';
+  static const _batchDraftsKey = 'web_batch_drafts_v1';
   static const _lastOpenedUrlKey = 'last_opened_url_v1';
   static final RegExp _wordRegex = RegExp(r"[A-Za-z][A-Za-z'-]{1,}");
   static const Set<String> _webBatchStopWords = {
@@ -172,6 +173,7 @@ class WebReaderController extends ChangeNotifier {
   final Set<String> _pinnedCollectionIds = <String>{};
   final Set<String> _pinnedArticleUrls = <String>{};
   final Map<String, String> _articleNotes = <String, String>{};
+  final List<WebExtractionDraft> _batchDrafts = [];
 
   List<WebCollection> get presetCollections =>
       List.unmodifiable(_presetCollections);
@@ -216,7 +218,13 @@ class WebReaderController extends ChangeNotifier {
   List<WebHistoryEntry> get notedEntries =>
       List.unmodifiable(_entriesForUrls(_articleNotes.keys));
 
+  List<WebExtractionDraft> get batchDrafts => List.unmodifiable(
+        List<WebExtractionDraft>.from(_batchDrafts)
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
+      );
+
   int get articleNoteCount => _articleNotes.length;
+  int get batchDraftCount => _batchDrafts.length;
 
   List<WebHistoryEntry> get resumeEntries {
     final items = <WebHistoryEntry>[];
@@ -240,6 +248,7 @@ class WebReaderController extends ChangeNotifier {
     _loadPinnedCollectionIds();
     _loadPinnedArticleUrls();
     _loadArticleNotes();
+    _loadBatchDrafts();
     _loadLastOpenedUrl();
   }
 
@@ -659,6 +668,52 @@ class WebReaderController extends ChangeNotifier {
       updatedCount: updatedCount,
       skippedCount: skippedCount,
     );
+  }
+
+  Future<WebExtractionDraft> saveBatchDraft({
+    String? draftId,
+    required String sourceLabel,
+    required String sourceText,
+    required bool fromSelection,
+    required List<WebExtractionCandidate> candidates,
+  }) async {
+    final now = DateTime.now();
+    final existingIndex =
+        draftId == null ? -1 : _batchDrafts.indexWhere((d) => d.id == draftId);
+    final draft = WebExtractionDraft(
+      id: existingIndex >= 0
+          ? _batchDrafts[existingIndex].id
+          : 'draft_${now.microsecondsSinceEpoch}',
+      sourceLabel: sourceLabel.trim(),
+      sourceText: sourceText,
+      fromSelection: fromSelection,
+      createdAt: existingIndex >= 0 ? _batchDrafts[existingIndex].createdAt : now,
+      updatedAt: now,
+      candidates: candidates
+          .map((candidate) => WebExtractionCandidate.fromJson(candidate.toJson()))
+          .toList(),
+    );
+
+    if (existingIndex >= 0) {
+      _batchDrafts[existingIndex] = draft;
+    } else {
+      _batchDrafts.add(draft);
+    }
+
+    if (_batchDrafts.length > 20) {
+      _batchDrafts.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _batchDrafts.removeRange(20, _batchDrafts.length);
+    }
+
+    await _saveBatchDrafts();
+    notifyListeners();
+    return draft;
+  }
+
+  Future<void> deleteBatchDraft(String draftId) async {
+    _batchDrafts.removeWhere((draft) => draft.id == draftId);
+    await _saveBatchDrafts();
+    notifyListeners();
   }
 
   void enrichCandidateLocally(WebExtractionCandidate candidate) {
@@ -1413,6 +1468,34 @@ class WebReaderController extends ChangeNotifier {
       await box?.put(_articleNotesKey, jsonEncode(_articleNotes));
     } catch (e) {
       debugPrint('WebReaderController: _saveArticleNotes error: $e');
+    }
+  }
+
+  Future<void> _loadBatchDrafts() async {
+    try {
+      final box = await _getStorageBox();
+      final raw = box?.get(_batchDraftsKey);
+      if (raw == null) return;
+      final list = jsonDecode(raw) as List;
+      _batchDrafts
+        ..clear()
+        ..addAll(list.map((e) =>
+            WebExtractionDraft.fromJson(Map<String, dynamic>.from(e as Map))));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadBatchDrafts error: $e');
+    }
+  }
+
+  Future<void> _saveBatchDrafts() async {
+    try {
+      final box = await _getStorageBox();
+      await box?.put(
+        _batchDraftsKey,
+        jsonEncode(_batchDrafts.map((e) => e.toJson()).toList()),
+      );
+    } catch (e) {
+      debugPrint('WebReaderController: _saveBatchDrafts error: $e');
     }
   }
 

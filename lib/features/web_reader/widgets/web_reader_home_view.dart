@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
 import '../models/web_collection.dart';
+import '../models/web_extraction_candidate.dart';
 import '../web_reader_controller.dart';
+import 'web_extraction_batch_sheet.dart';
 
 enum _ReadingFeedFilter { all, inProgress, completed, recent, pinned, notes }
 
@@ -52,6 +54,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   .toList();
           final notedArticles =
               _filterHistory(widget.controller.notedEntries).take(6).toList();
+          final draftBatches = _filterDrafts(widget.controller.batchDrafts)
+              .take(6)
+              .toList();
           final resumeEntries =
               _filterHistory(widget.controller.resumeEntries).take(6).toList();
           final statusEntries = _buildStatusEntries();
@@ -60,6 +65,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           final hasQuery = _normalizedQuery.isNotEmpty;
           final hasAnyResults = pinnedArticles.isNotEmpty ||
               notedArticles.isNotEmpty ||
+              draftBatches.isNotEmpty ||
               resumeEntries.isNotEmpty ||
               pinnedCollections.isNotEmpty ||
               presetCollections.isNotEmpty ||
@@ -80,6 +86,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   pinnedCount: pinnedCollections.length,
                   pinnedArticleCount: pinnedArticles.length,
                   noteCount: notedArticles.length,
+                  draftCount: draftBatches.length,
                   presetCount: presetCollections.length,
                   userCount: userCollections.length,
                   bookmarkCount: bookmarks.length,
@@ -139,6 +146,19 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     ),
                     const SizedBox(height: 14),
                     _buildArticleGrid(notedArticles),
+                  ],
+                  if (draftBatches.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    _SectionHeader(
+                      icon: Icons.inventory_2_outlined,
+                      title: hasQuery
+                          ? 'Batch nháp · ${draftBatches.length}'
+                          : 'Batch nháp',
+                      subtitle:
+                          'Lưu lại batch để mở tiếp sau, chỉnh thêm rồi mới import.',
+                    ),
+                    const SizedBox(height: 14),
+                    _buildDraftGrid(draftBatches),
                   ],
                   if (pinnedCollections.isNotEmpty) ...[
                     const SizedBox(height: 28),
@@ -263,6 +283,19 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
   List<WebHistoryEntry> _filterHistory(List<WebHistoryEntry> items) {
     if (_normalizedQuery.isEmpty) return items;
     return items.where(_matchesHistory).toList();
+  }
+
+  List<WebExtractionDraft> _filterDrafts(List<WebExtractionDraft> drafts) {
+    if (_normalizedQuery.isEmpty) return drafts;
+    final q = _normalizedQuery;
+    return drafts.where((draft) {
+      if (draft.sourceLabel.toLowerCase().contains(q)) return true;
+      if (draft.sourceText.toLowerCase().contains(q)) return true;
+      return draft.candidates.any((candidate) =>
+          candidate.normalized.contains(q) ||
+          candidate.meaning.toLowerCase().contains(q) ||
+          (candidate.topic ?? '').toLowerCase().contains(q));
+    }).toList();
   }
 
   List<WebHistoryEntry> _buildStatusEntries() {
@@ -445,6 +478,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     required int pinnedCount,
     required int pinnedArticleCount,
     required int noteCount,
+    required int draftCount,
     required int presetCount,
     required int userCount,
     required int bookmarkCount,
@@ -459,6 +493,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       _InfoChip(icon: Icons.play_circle_outline, label: '$resumeCount tiếp tục'),
       _InfoChip(icon: Icons.bookmarks_outlined, label: '$pinnedArticleCount bài ghim'),
       _InfoChip(icon: Icons.sticky_note_2_outlined, label: '$noteCount ghi chú'),
+      _InfoChip(icon: Icons.inventory_2_outlined, label: '$draftCount batch nháp'),
       _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount collection ghim'),
       _InfoChip(
           icon: Icons.dashboard_customize_outlined,
@@ -542,6 +577,48 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
 
   Widget _buildArticleGrid(List<WebHistoryEntry> entries) {
     return _buildResumeGrid(entries);
+  }
+
+  Widget _buildDraftGrid(List<WebExtractionDraft> drafts) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        int columns = 1;
+        if (width >= 1100) {
+          columns = 3;
+        } else if (width >= 760) {
+          columns = 2;
+        }
+        final spacing = 14.0;
+        final itemWidth = columns == 1
+            ? width
+            : (width - (spacing * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: drafts
+              .map(
+                (draft) => SizedBox(
+                  width: itemWidth,
+                  child: _DraftCard(
+                    draft: draft,
+                    onOpen: () => WebExtractionBatchSheet.show(
+                      context,
+                      controller: widget.controller,
+                      sourceLabel: draft.sourceLabel,
+                      sourceText: draft.sourceText,
+                      fromSelection: draft.fromSelection,
+                      initialDraft: draft,
+                    ),
+                    onDelete: () => widget.controller.deleteBatchDraft(draft.id),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
   }
 
   Widget _buildFeedFilterBar() {
@@ -1583,6 +1660,107 @@ class _SectionHeader extends StatelessWidget {
         ),
         if (action != null) action!,
       ],
+    );
+  }
+}
+
+class _DraftCard extends StatelessWidget {
+  final WebExtractionDraft draft;
+  final VoidCallback onOpen;
+  final VoidCallback onDelete;
+
+  const _DraftCard({
+    required this.draft,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedCount = draft.candidates.where((c) => c.selected).length;
+    final readyCount = draft.candidates.where((c) => c.isImportReady).length;
+    final phraseCount = draft.candidates.where((c) => c.isPhrase).length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  draft.sourceLabel,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Xoá nháp',
+                visualDensity: VisualDensity.compact,
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline,
+                    color: Colors.white70, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            draft.fromSelection ? 'Nguồn: đoạn đã chọn' : 'Nguồn: cả bài web',
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoChip(icon: Icons.inventory_2_outlined, label: '${draft.candidates.length} mục'),
+              _InfoChip(icon: Icons.done_all, label: '$selectedCount đã chọn'),
+              _InfoChip(icon: Icons.verified_outlined, label: '$readyCount ready'),
+              _InfoChip(icon: Icons.short_text, label: '$phraseCount phrase'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            draft.candidates.isEmpty
+                ? 'Nháp này chưa có dữ liệu.'
+                : draft.candidates.first.sampleContext,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12.5,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Cập nhật ${_HistoryTile._formatVisitedAt(draft.updatedAt)}',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onOpen,
+                icon: const Icon(Icons.folder_open, size: 18),
+                label: const Text('Mở nháp'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

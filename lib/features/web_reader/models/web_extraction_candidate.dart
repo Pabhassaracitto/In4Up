@@ -5,6 +5,77 @@ enum WebExtractionSort {
   alphabetic,
 }
 
+class WebExtractionDraft {
+  final String id;
+  final String sourceLabel;
+  final String sourceText;
+  final bool fromSelection;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<WebExtractionCandidate> candidates;
+
+  const WebExtractionDraft({
+    required this.id,
+    required this.sourceLabel,
+    required this.sourceText,
+    required this.fromSelection,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.candidates,
+  });
+
+  WebExtractionDraft copyWith({
+    String? id,
+    String? sourceLabel,
+    String? sourceText,
+    bool? fromSelection,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    List<WebExtractionCandidate>? candidates,
+  }) {
+    return WebExtractionDraft(
+      id: id ?? this.id,
+      sourceLabel: sourceLabel ?? this.sourceLabel,
+      sourceText: sourceText ?? this.sourceText,
+      fromSelection: fromSelection ?? this.fromSelection,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      candidates: candidates ?? this.candidates,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'sourceLabel': sourceLabel,
+        'sourceText': sourceText,
+        'fromSelection': fromSelection,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'candidates': candidates.map((e) => e.toJson()).toList(),
+      };
+
+  factory WebExtractionDraft.fromJson(Map<String, dynamic> json) {
+    final rawCandidates = json['candidates'];
+    return WebExtractionDraft(
+      id: (json['id'] ?? '').toString(),
+      sourceLabel: (json['sourceLabel'] ?? '').toString(),
+      sourceText: (json['sourceText'] ?? '').toString(),
+      fromSelection: json['fromSelection'] == true,
+      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
+          DateTime.now(),
+      updatedAt: DateTime.tryParse((json['updatedAt'] ?? '').toString()) ??
+          DateTime.now(),
+      candidates: rawCandidates is List
+          ? rawCandidates
+              .whereType<Map>()
+              .map((e) =>
+                  WebExtractionCandidate.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+    );
+  }
+}
+
 class WebExtractionCandidate {
   final String text;
   final String normalized;
@@ -44,6 +115,54 @@ class WebExtractionCandidate {
     this.enrichSource = '',
     this.selected = false,
   });
+
+  Map<String, dynamic> toJson() => {
+        'text': text,
+        'normalized': normalized,
+        'sampleContext': sampleContext,
+        'frequency': frequency,
+        'existed': existed,
+        'isPhrase': isPhrase,
+        'wordCount': wordCount,
+        'appearsInTitle': appearsInTitle,
+        'isPriority': isPriority,
+        'rankScore': rankScore,
+        'meaning': meaning,
+        'phonetic': phonetic,
+        'topic': topic,
+        'example': example,
+        'enriched': enriched,
+        'enrichSource': enrichSource,
+        'selected': selected,
+      };
+
+  factory WebExtractionCandidate.fromJson(Map<String, dynamic> json) {
+    return WebExtractionCandidate(
+      text: (json['text'] ?? '').toString(),
+      normalized: (json['normalized'] ?? '').toString(),
+      sampleContext: (json['sampleContext'] ?? '').toString(),
+      frequency: (json['frequency'] as num?)?.toInt() ?? 0,
+      existed: json['existed'] == true,
+      isPhrase: json['isPhrase'] == true,
+      wordCount: (json['wordCount'] as num?)?.toInt() ?? 1,
+      appearsInTitle: json['appearsInTitle'] == true,
+      isPriority: json['isPriority'] == true,
+      rankScore: ((json['rankScore'] as num?) ?? 0).toDouble(),
+      meaning: (json['meaning'] ?? '').toString(),
+      phonetic: (json['phonetic'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['phonetic'] ?? '').toString(),
+      topic: (json['topic'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['topic'] ?? '').toString(),
+      example: (json['example'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['example'] ?? '').toString(),
+      enriched: json['enriched'] == true,
+      enrichSource: (json['enrichSource'] ?? '').toString(),
+      selected: json['selected'] == true,
+    );
+  }
 
   bool get hasMeaning => meaning.trim().isNotEmpty;
   bool get hasTopic => (topic ?? '').trim().isNotEmpty;

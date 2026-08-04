@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up_ai/in2up_ai.dart';
 
+import '../../../providers/text_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
+import '../../../services/text_library_service.dart';
 import '../models/web_extraction_candidate.dart';
 import '../web_reader_controller.dart';
 
@@ -11,6 +13,7 @@ class WebExtractionBatchSheet extends StatefulWidget {
   final String sourceLabel;
   final String sourceText;
   final bool fromSelection;
+  final WebExtractionDraft? initialDraft;
 
   const WebExtractionBatchSheet({
     super.key,
@@ -18,6 +21,7 @@ class WebExtractionBatchSheet extends StatefulWidget {
     required this.sourceLabel,
     required this.sourceText,
     required this.fromSelection,
+    this.initialDraft,
   });
 
   static Future<void> show(
@@ -26,6 +30,7 @@ class WebExtractionBatchSheet extends StatefulWidget {
     required String sourceLabel,
     required String sourceText,
     required bool fromSelection,
+    WebExtractionDraft? initialDraft,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -37,6 +42,7 @@ class WebExtractionBatchSheet extends StatefulWidget {
         sourceLabel: sourceLabel,
         sourceText: sourceText,
         fromSelection: fromSelection,
+        initialDraft: initialDraft,
       ),
     );
   }
@@ -47,6 +53,7 @@ class WebExtractionBatchSheet extends StatefulWidget {
 
 class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   List<WebExtractionCandidate> _candidates = const [];
+  String? _draftId;
   bool _onlyNew = false;
   bool _onlyPhrases = false;
   bool _onlyReady = false;
@@ -61,7 +68,14 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   @override
   void initState() {
     super.initState();
-    _rebuildCandidates();
+    if (widget.initialDraft != null) {
+      _draftId = widget.initialDraft!.id;
+      _candidates = widget.initialDraft!.candidates
+          .map((e) => WebExtractionCandidate.fromJson(e.toJson()))
+          .toList();
+    } else {
+      _rebuildCandidates();
+    }
   }
 
   @override
@@ -465,6 +479,148 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     return 'Thiếu: ${missing.join(', ')}';
   }
 
+  Future<void> _saveDraft() async {
+    final draft = await widget.controller.saveBatchDraft(
+      draftId: _draftId,
+      sourceLabel: widget.sourceLabel,
+      sourceText: widget.sourceText,
+      fromSelection: widget.fromSelection,
+      candidates: _candidates,
+    );
+    if (!mounted) return;
+    _draftId = draft.id;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('💾 Đã lưu batch nháp'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _buildExportPayload({required bool onlySelected}) {
+    final rows = <WebExtractionCandidate>[];
+    for (final candidate in _candidates) {
+      if (onlySelected && !candidate.selected) continue;
+      rows.add(candidate);
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln('word\tmeaning\tipa\ttopic\texample');
+    for (final candidate in rows) {
+      final example = ((candidate.example ?? '').trim().isEmpty
+              ? candidate.sampleContext
+              : candidate.example ?? '')
+          .replaceAll('\n', ' ')
+          .replaceAll('\t', ' ')
+          .trim();
+      buffer.writeln(
+        '${candidate.text.replaceAll('\t', ' ')}\t'
+        '${candidate.meaning.replaceAll('\t', ' ')}\t'
+        '${(candidate.phonetic ?? '').replaceAll('\t', ' ')}\t'
+        '${(candidate.topic ?? '').replaceAll('\t', ' ')}\t'
+        '$example',
+      );
+    }
+    return buffer.toString().trim();
+  }
+
+  void _exportSelectedToTextStudio() {
+    final payload = _buildExportPayload(onlySelected: true);
+    if (payload.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có mục nào để export')),
+      );
+      return;
+    }
+    context.read<TextProvider>().loadFromString(
+          payload,
+          title: 'Web batch · ${widget.sourceLabel}',
+        );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📝 Đã mở batch trong Text Studio'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _saveSelectedToTextLibrary() async {
+    final payload = _buildExportPayload(onlySelected: true);
+    if (payload.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có mục nào để lưu')),
+      );
+      return;
+    }
+
+    final titleCtrl = TextEditingController(text: 'Web batch · ${widget.sourceLabel}');
+    final categoryCtrl = TextEditingController(text: 'web_batch');
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Lưu batch sang Text Library'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _editorField(
+                  controller: titleCtrl,
+                  label: 'Tiêu đề',
+                  hint: 'Ví dụ: Web batch bài Dharma 01',
+                ),
+                const SizedBox(height: 12),
+                _editorField(
+                  controller: categoryCtrl,
+                  label: 'Category',
+                  hint: 'web_batch / dharma / news...',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Lưu'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave != true || !mounted) return;
+
+    final service = TextLibraryService();
+    final entry = await service.add(
+      title: titleCtrl.text.trim().isEmpty ? 'Web batch' : titleCtrl.text.trim(),
+      content: payload,
+      category:
+          categoryCtrl.text.trim().isEmpty ? 'web_batch' : categoryCtrl.text.trim(),
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(entry == null
+            ? 'Không thể lưu sang Text Library (có thể chưa đăng nhập)'
+            : '☁️ Đã lưu batch sang Text Library'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _importSelected() async {
     final result = widget.controller.importBatchToWordList(
       _candidates,
@@ -641,6 +797,21 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   onPressed: _selectedCount == 0 ? null : _bulkApplyToSelected,
                   icon: const Icon(Icons.playlist_add_check, size: 18),
                   label: const Text('Bulk apply'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _saveDraft,
+                  icon: const Icon(Icons.save_outlined, size: 18),
+                  label: Text(_draftId == null ? 'Lưu nháp' : 'Cập nhật nháp'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _selectedCount == 0 ? null : _exportSelectedToTextStudio,
+                  icon: const Icon(Icons.text_snippet_outlined, size: 18),
+                  label: const Text('Text Studio'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _selectedCount == 0 ? null : _saveSelectedToTextLibrary,
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  label: const Text('Text Library'),
                 ),
               ],
             ),

@@ -452,6 +452,12 @@ class _LocalTab extends StatelessWidget {
       );
       return;
     }
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cần đăng nhập Google để cập nhật file cloud hiện tại')),
+      );
+      return;
+    }
     if (tp.currentCloudId == null) {
       await _updateCurrentTextOnCloud(context, tp);
       return;

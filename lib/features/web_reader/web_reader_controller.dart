@@ -6,11 +6,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
+import '../../models/vocabulary_type.dart';
 import '../../models/word_analysis.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
+import 'models/web_extraction_candidate.dart';
 
 enum WebReaderState { idle, loading, ready, error }
 
@@ -83,6 +85,33 @@ class WebReaderController extends ChangeNotifier {
   static const _pinnedArticleUrlsKey = 'pinned_article_urls_v1';
   static const _articleNotesKey = 'article_notes_v1';
   static const _lastOpenedUrlKey = 'last_opened_url_v1';
+  static final RegExp _wordRegex = RegExp(r"[A-Za-z][A-Za-z'-]{1,}");
+  static const Set<String> _webBatchStopWords = {
+    'about', 'above', 'after', 'again', 'against', 'almost', 'along', 'also',
+    'among', 'amongst', 'because', 'before', 'below', 'beneath', 'between',
+    'beyond', 'could', 'doing', 'during', 'every', 'first', 'from', 'have',
+    'having', 'into', 'itself', 'just', 'might', 'must', 'other', 'ought',
+    'ours', 'ourselves', 'over', 'quite', 'rather', 'should', 'since',
+    'still', 'such', 'than', 'that', 'their', 'theirs', 'them', 'themselves',
+    'there', 'these', 'they', 'this', 'those', 'through', 'toward', 'towards',
+    'under', 'until', 'very', 'what', 'when', 'where', 'which', 'while',
+    'with', 'within', 'without', 'would', 'your', 'yours', 'yourself',
+    'yourselves', 'into', 'onto', 'upon', 'were', 'been', 'being', 'does',
+    'did', 'done', 'than', 'then', 'here', 'therefore', 'however', 'across',
+    'beforehand', 'cannot', 'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven',
+    'isn', 'aren', 'wasn', 'weren', 'won', 'wouldn', 'shan', 'shouldn', 'the',
+    'and', 'for', 'are', 'you', 'our', 'but', 'not', 'can', 'all', 'any',
+    'why', 'who', 'how', 'out', 'its', "it's", 'his', 'her', 'she', 'him',
+    'was', 'has', 'had', 'let', 'may', 'use', 'used', 'using', 'many', 'much',
+    'more', 'most', 'some', 'same', 'each', 'only', 'both', 'few', 'ever',
+    'even', 'well', 'back', 'gets', 'get', 'got', 'make', 'made', 'take',
+    'took', 'come', 'came', 'goes', 'went', 'go', 'said', 'says', 'say',
+    'look', 'looks', 'looking', 'know', 'knows', 'known', 'like', 'liked',
+    'them', 'they', 'there', 'here', 'where', 'whose', 'whom', 'ours', 'mine',
+    'themselves', 'ourselves', 'myself', 'himself', 'herself', 'it', 'a', 'an',
+    'to', 'of', 'in', 'on', 'at', 'by', 'or', 'if', 'be', 'is', 'am', 'as',
+    'we', 'he', 'do', 'my', 'me', 'i'
+  };
 
   // ─── State ────────────────────────────────────────────────
   WebReaderState _state = WebReaderState.idle;
@@ -466,6 +495,103 @@ class WebReaderController extends ChangeNotifier {
     );
   }
 
+  List<WebExtractionCandidate> extractBatchCandidates(
+    String sourceText, {
+    int minLength = 4,
+    int maxItems = 120,
+  }) {
+    final cleanedSource = _normalizeSourceText(sourceText);
+    if (cleanedSource.isEmpty) return const [];
+
+    final frequencies = <String, int>{};
+    final samples = <String, String>{};
+    final displayText = <String, String>{};
+
+    final sentences = _splitIntoSentences(cleanedSource);
+    for (final sentence in sentences) {
+      final sample = _normalizeStudyText(sentence);
+      if (sample.isEmpty) continue;
+      final words = _wordRegex
+          .allMatches(sample)
+          .map((m) => _normalizeWordToken(m.group(0) ?? ''))
+          .where((token) => _isUsefulBatchWord(token, minLength: minLength));
+
+      for (final token in words) {
+        frequencies[token] = (frequencies[token] ?? 0) + 1;
+        samples[token] ??= sample;
+        displayText[token] ??= token;
+      }
+    }
+
+    final candidates = frequencies.entries
+        .map(
+          (entry) => WebExtractionCandidate(
+            text: displayText[entry.key] ?? entry.key,
+            normalized: entry.key,
+            sampleContext: samples[entry.key] ?? entry.key,
+            frequency: entry.value,
+            existed: VocabularyBridge.hasWord(entry.key),
+            selected: !VocabularyBridge.hasWord(entry.key),
+          ),
+        )
+        .toList()
+      ..sort((a, b) {
+        if (a.existed != b.existed) {
+          return a.existed ? 1 : -1;
+        }
+        final frequencyCompare = b.frequency.compareTo(a.frequency);
+        if (frequencyCompare != 0) return frequencyCompare;
+        final lengthCompare = b.normalized.length.compareTo(a.normalized.length);
+        if (lengthCompare != 0) return lengthCompare;
+        return a.normalized.compareTo(b.normalized);
+      });
+
+    if (candidates.length > maxItems) {
+      return candidates.take(maxItems).toList();
+    }
+    return candidates;
+  }
+
+  WebBatchImportResult importBatchToWordList(
+    Iterable<WebExtractionCandidate> candidates,
+  ) {
+    int addedCount = 0;
+    int updatedCount = 0;
+    int skippedCount = 0;
+
+    for (final candidate in candidates) {
+      if (!candidate.selected) continue;
+      final normalized = _normalizeStudyText(candidate.normalized).toLowerCase();
+      if (normalized.isEmpty || normalized.length < 2) {
+        skippedCount++;
+        continue;
+      }
+
+      final existed = VocabularyBridge.hasWord(normalized);
+      final entry = VocabularyBridge.addContextual(
+        text: normalized,
+        meaning: '',
+        example: candidate.sampleContext,
+        forceType: candidate.isPhrase ? VocabularyType.phrase : null,
+        context: _buildCurrentWebContext(candidate.sampleContext),
+      );
+
+      if (entry == null) {
+        skippedCount++;
+      } else if (existed) {
+        updatedCount++;
+      } else {
+        addedCount++;
+      }
+    }
+
+    return WebBatchImportResult(
+      addedCount: addedCount,
+      updatedCount: updatedCount,
+      skippedCount: skippedCount,
+    );
+  }
+
   VocabContext _buildCurrentWebContext(String surroundingText) {
     return VocabContext.fromWeb(
       url: _currentUrl,
@@ -474,8 +600,34 @@ class WebReaderController extends ChangeNotifier {
     );
   }
 
+  String _normalizeSourceText(String text) =>
+      text.replaceAll(RegExp(r'\r\n?'), '\n').trim();
+
   String _normalizeStudyText(String text) =>
       text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  List<String> _splitIntoSentences(String source) {
+    return source
+        .split(RegExp(r'(?<=[\.!?\n])\s+'))
+        .map(_normalizeStudyText)
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  String _normalizeWordToken(String raw) {
+    return raw
+        .toLowerCase()
+        .replaceAll(RegExp(r"^[^a-z]+|[^a-z']+$"), '')
+        .trim();
+  }
+
+  bool _isUsefulBatchWord(String token, {required int minLength}) {
+    if (token.length < minLength) return false;
+    if (_webBatchStopWords.contains(token)) return false;
+    if (!RegExp(r"[a-z]").hasMatch(token)) return false;
+    if (token.startsWith("'") || token.endsWith("'")) return false;
+    return true;
+  }
 
   // ─── Collections ─────────────────────────────────────────
 

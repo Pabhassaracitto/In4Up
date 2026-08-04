@@ -15,6 +15,7 @@ import '../../models/color_mode.dart';
 import '../../providers/text_provider.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
+import 'widgets/web_extraction_batch_sheet.dart';
 import 'widgets/web_reader_home_view.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
@@ -346,18 +347,10 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     } catch (_) {}
   }
 
-  Future<void> _extractTextToStudio() async {
-    if (_controller.state != WebReaderState.ready || _showDashboard) return;
-
-    _showSnack('⏳ Đang trích xuất văn bản...', duration: 1);
-
+  Future<String?> _extractMainArticleText() async {
     try {
-      var raw = await _runJSReturning(WebReaderJS.extractMainTextScript);
-      if (raw == null) {
-        _showSnack('❌ Không thể extract text từ trang này');
-        return;
-      }
-
+      final raw = await _runJSReturning(WebReaderJS.extractMainTextScript);
+      if (raw == null) return null;
       var text = raw.toString();
       if (text.startsWith('"') && text.endsWith('"')) {
         text = text.substring(1, text.length - 1);
@@ -368,25 +361,68 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           .replaceAll('\\"', '"')
           .replaceAll("\\'", "'")
           .trim();
-
-      if (text.isEmpty) {
-        _showSnack('❌ Không thể extract text từ trang này');
-        return;
-      }
-
-      if (mounted) {
-        context.read<TextProvider>().loadFromString(
-              text,
-              title: _controller.pageTitle,
-            );
-        _showSnack(
-          '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng',
-        );
-      }
+      return text.isEmpty ? null : text;
     } catch (e) {
       debugPrint('WebReaderScreen: extract error: $e');
-      _showSnack('❌ Lỗi: $e');
+      return null;
     }
+  }
+
+  Future<void> _extractTextToStudio() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+
+    _showSnack('⏳ Đang trích xuất văn bản...', duration: 1);
+    final text = await _extractMainArticleText();
+    if (text == null || text.isEmpty) {
+      _showSnack('❌ Không thể extract text từ trang này');
+      return;
+    }
+
+    if (mounted) {
+      context.read<TextProvider>().loadFromString(
+            text,
+            title: _controller.pageTitle,
+          );
+      _showSnack(
+        '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng',
+      );
+    }
+  }
+
+  Future<void> _openBatchFromCurrentPage() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+    _showSnack('⏳ Đang chuẩn bị batch từ bài hiện tại...', duration: 1);
+    final text = await _extractMainArticleText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack('❌ Không thể lấy nội dung bài để tạo batch');
+      return;
+    }
+    await WebExtractionBatchSheet.show(
+      context,
+      controller: _controller,
+      sourceLabel: _controller.pageTitle.isEmpty
+          ? _controller.currentUrl
+          : _controller.pageTitle,
+      sourceText: text,
+      fromSelection: false,
+    );
+  }
+
+  Future<void> _openBatchFromSelection() async {
+    if (_showDashboard) return;
+    final selection = _selectionText.trim();
+    if (selection.isEmpty) {
+      _showSnack('Bạn cần bôi chọn một đoạn trước');
+      return;
+    }
+    await WebExtractionBatchSheet.show(
+      context,
+      controller: _controller,
+      sourceLabel: 'Đoạn đã chọn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+      sourceText: selection,
+      fromSelection: true,
+    );
   }
 
   Future<void> _saveCurrentPageToCollection() async {
@@ -822,6 +858,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       case 'editNote':
         _editCurrentArticleNote();
         break;
+      case 'batchPage':
+        _openBatchFromCurrentPage();
+        break;
       case 'saveToCollection':
         _saveCurrentPageToCollection();
         break;
@@ -924,6 +963,10 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                           ? 'Sửa ghi chú bài này'
                           : 'Thêm ghi chú bài này',
                     ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'batchPage',
+                    child: Text('Tạo batch WordList từ bài này'),
                   ),
                   const PopupMenuItem(
                     value: 'saveToCollection',
@@ -1071,6 +1114,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _SelectionMoreButton(
             onSaveToWordList: _saveSelectionToWordList,
             onSaveToMemory: _saveSelectionToMemory,
+            onCreateBatch: _openBatchFromSelection,
           ),
           const SizedBox(width: 6),
           GestureDetector(
@@ -1086,10 +1130,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 class _SelectionMoreButton extends StatelessWidget {
   final VoidCallback onSaveToWordList;
   final VoidCallback onSaveToMemory;
+  final VoidCallback onCreateBatch;
 
   const _SelectionMoreButton({
     required this.onSaveToWordList,
     required this.onSaveToMemory,
+    required this.onCreateBatch,
   });
 
   @override
@@ -1115,6 +1161,9 @@ class _SelectionMoreButton extends StatelessWidget {
             case 'memory':
               onSaveToMemory();
               break;
+            case 'batch':
+              onCreateBatch();
+              break;
           }
         },
         itemBuilder: (context) => const [
@@ -1125,6 +1174,10 @@ class _SelectionMoreButton extends StatelessWidget {
           PopupMenuItem(
             value: 'memory',
             child: Text('Lưu đoạn chọn vào Vườn Nhớ'),
+          ),
+          PopupMenuItem(
+            value: 'batch',
+            child: Text('Tạo batch WordList từ đoạn chọn'),
           ),
         ],
       ),

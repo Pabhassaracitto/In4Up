@@ -48,7 +48,13 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
     final tp = context.read<TextProvider>();
 
     // Load content
-    tp.loadFromString(entry.content, title: entry.title);
+    tp.loadFromString(
+      entry.content,
+      title: entry.title,
+      sourceType: TextSourceType.cloud,
+      cloudId: entry.id,
+      category: entry.category,
+    );
 
     // Lưu vào recent
     final file = RecentFile.fromCloud(

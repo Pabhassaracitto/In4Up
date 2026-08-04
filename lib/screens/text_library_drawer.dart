@@ -251,9 +251,13 @@ class _LocalTab extends StatelessWidget {
                       Expanded(
                         child: _ActionButton(
                           icon: Icons.cloud_sync_outlined,
-                          label: 'Cập nhật Cloud',
+                          label: tp.isCurrentTextFromCloud
+                              ? 'Cập nhật file cloud hiện tại'
+                              : 'Cập nhật Cloud',
                           color: const Color(0xFF7E57C2),
-                          onTap: () => _updateCurrentTextOnCloud(context, tp),
+                          onTap: () => tp.isCurrentTextFromCloud
+                              ? _updateCurrentCloudDirectly(context, tp)
+                              : _updateCurrentTextOnCloud(context, tp),
                         ),
                       ),
                     ],
@@ -437,6 +441,58 @@ class _LocalTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateCurrentCloudDirectly(
+    BuildContext context,
+    TextProvider tp,
+  ) async {
+    final payload = _currentTextPayload(tp);
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có văn bản hiện tại để cập nhật cloud')),
+      );
+      return;
+    }
+    if (tp.currentCloudId == null) {
+      await _updateCurrentTextOnCloud(context, tp);
+      return;
+    }
+
+    final entry = await TextLibraryService().getById(tp.currentCloudId!);
+    if (!context.mounted) return;
+    if (entry == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy file cloud hiện tại, hãy chọn file khác để cập nhật')),
+      );
+      await _updateCurrentTextOnCloud(context, tp);
+      return;
+    }
+
+    final updated = await showDialog<TextLibraryEntry>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        entry: entry,
+        initialTitle: payload.title,
+        initialContent: payload.content,
+        initialCategory: tp.currentTextCategory ?? entry.category,
+        preferInitialValues: true,
+      ),
+    );
+
+    if (updated != null && context.mounted) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: updated.id,
+          title: updated.title,
+          category: updated.category,
+          totalLines: updated.lineCount,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã cập nhật trực tiếp file cloud "${updated.title}"')),
+      );
+    }
+  }
+
   Future<void> _updateCurrentTextOnCloud(
     BuildContext context,
     TextProvider tp,
@@ -583,6 +639,9 @@ class _CloudTabState extends State<_CloudTab> {
     context.read<TextProvider>().loadFromString(
           entry.content,
           title: entry.title,
+          sourceType: TextSourceType.cloud,
+          cloudId: entry.id,
+          category: entry.category,
         );
 
     // ★ THÊM: Lưu vào RecentFiles để hiện trong thư viện đọc
@@ -655,7 +714,7 @@ class _CloudTabState extends State<_CloudTab> {
         entry: entry,
         initialTitle: title,
         initialContent: content,
-        initialCategory: entry.category,
+        initialCategory: tp.currentTextCategory ?? entry.category,
         preferInitialValues: true,
       ),
     );
@@ -1234,6 +1293,14 @@ class _EmptyState extends StatelessWidget {
             if (action != null) ...[
               const SizedBox(height: 16),
               action!,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+on!,
             ],
           ],
         ),

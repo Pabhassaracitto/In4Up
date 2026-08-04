@@ -4,7 +4,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/text_provider.dart';
 import '../../services/text_library_service.dart';
 
 class TextEntryDialog extends StatefulWidget {
@@ -58,18 +60,46 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
     final data = await Clipboard.getData('text/plain');
     final text = data?.text?.trim();
     if (text == null || text.isEmpty || !mounted) return;
+    _seedFromContent(text);
+  }
 
+  void _fillFromCurrentText() {
+    final tp = context.read<TextProvider>();
+    final text = tp.fullText.trim().isNotEmpty
+        ? tp.fullText.trim()
+        : tp.lines.map((e) => e.content).join('\n').trim();
+    if (text.isEmpty) return;
+    _seedFromContent(
+      text,
+      preferredTitle: tp.currentDocument?.title,
+      preferredCategory: tp.currentTextCategory,
+    );
+  }
+
+  void _seedFromContent(
+    String text, {
+    String? preferredTitle,
+    String? preferredCategory,
+  }) {
     setState(() {
       _contentCtrl.text = text;
+      if ((preferredCategory ?? '').trim().isNotEmpty &&
+          _categoryCtrl.text.trim().isEmpty) {
+        _categoryCtrl.text = preferredCategory!.trim();
+      }
       if (_titleCtrl.text.trim().isEmpty) {
-        final firstLine = text
-            .split('\n')
-            .map((e) => e.trim())
-            .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
-        final clipped = firstLine.length > 48
-            ? '${firstLine.substring(0, 48).trim()}...'
-            : firstLine;
-        _titleCtrl.text = clipped;
+        if ((preferredTitle ?? '').trim().isNotEmpty) {
+          _titleCtrl.text = preferredTitle!.trim();
+        } else {
+          final firstLine = text
+              .split('\n')
+              .map((e) => e.trim())
+              .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
+          final clipped = firstLine.length > 48
+              ? '${firstLine.substring(0, 48).trim()}...'
+              : firstLine;
+          _titleCtrl.text = clipped;
+        }
       }
     });
   }
@@ -176,13 +206,21 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                     const SizedBox(height: 16),
 
                     // Nội dung
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Expanded(child: _FieldLabel(label: 'Nội dung *')),
+                        const _FieldLabel(label: 'Nội dung *'),
                         TextButton.icon(
                           onPressed: _pasteFromClipboard,
                           icon: const Icon(Icons.content_paste_go_outlined, size: 16),
                           label: const Text('Dán clipboard'),
+                        ),
+                        TextButton.icon(
+                          onPressed: _fillFromCurrentText,
+                          icon: const Icon(Icons.copy_all_outlined, size: 16),
+                          label: const Text('Lấy văn bản hiện tại'),
                         ),
                       ],
                     ),

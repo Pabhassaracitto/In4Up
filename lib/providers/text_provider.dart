@@ -31,6 +31,13 @@ enum TtsPlaybackOwner {
   vocabReview, // Đọc từ khó
 }
 
+enum TextSourceType {
+  manual,
+  localFile,
+  cloud,
+  generated,
+}
+
 class TextProvider extends ChangeNotifier with TranslationMixin {
   final TtsService _ttsService = TtsService();
   final StorageService _storage = StorageService();
@@ -117,6 +124,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? _selectedText;
   String _fullText = '';
   String? _currentTextPath;
+  TextSourceType _currentSourceType = TextSourceType.manual;
+  String? _currentCloudId;
+  String? _currentTextCategory;
 
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
@@ -161,6 +171,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String get fullText => _fullText;
   bool get hasLyrics => _lines.isNotEmpty;
   String? get currentTextPath => _currentTextPath;
+  TextSourceType get currentSourceType => _currentSourceType;
+  String? get currentCloudId => _currentCloudId;
+  String? get currentTextCategory => _currentTextCategory;
+  bool get isCurrentTextFromCloud =>
+      _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
   ColorMode get colorMode => _colorMode;
   List<TextSegment> get segments => List.unmodifiable(_segments);
@@ -236,12 +251,24 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void loadText(String content, {String? title}) {
     _parsePlainText(content, title: title);
-    _currentTextPath = null;
+    _setSourceMeta(sourceType: TextSourceType.manual);
   }
 
-  void loadFromString(String content, {String? title}) {
+  void loadFromString(
+    String content, {
+    String? title,
+    TextSourceType sourceType = TextSourceType.manual,
+    String? localPath,
+    String? cloudId,
+    String? category,
+  }) {
     _parsePlainText(content, title: title);
-    _currentTextPath = null;
+    _setSourceMeta(
+      sourceType: sourceType,
+      localPath: localPath,
+      cloudId: cloudId,
+      category: category,
+    );
   }
 
   Future<void> loadTextFile(String path, {String? title}) async {
@@ -252,7 +279,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         return;
       }
 
-      _currentTextPath = path;
       final content = await file.readAsString();
       final lower = path.toLowerCase();
       final docTitle = title ?? _extractFileName(path);
@@ -265,6 +291,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         _parsePlainText(content, title: docTitle);
       }
 
+      _setSourceMeta(
+        sourceType: TextSourceType.localFile,
+        localPath: path,
+      );
+
       // ★ THÊM: Save last text path
       _storage.saveLastTextPath(path);
     } catch (e) {
@@ -274,6 +305,18 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void updateFullText(String newText) {
     _parsePlainText(newText, title: _currentDocument?.title);
+  }
+
+  void _setSourceMeta({
+    required TextSourceType sourceType,
+    String? localPath,
+    String? cloudId,
+    String? category,
+  }) {
+    _currentSourceType = sourceType;
+    _currentTextPath = localPath;
+    _currentCloudId = cloudId;
+    _currentTextCategory = category;
   }
 
   void clearText() {
@@ -286,6 +329,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _fullText = '';
     _segments.clear();
     _currentTextPath = null;
+    _currentCloudId = null;
+    _currentTextCategory = null;
+    _currentSourceType = TextSourceType.manual;
     notifyListeners();
   }
 
@@ -379,6 +425,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentLineIndex = -1;
     _selectedTextInfo = null;
     _selectedText = null;
+    _setSourceMeta(sourceType: TextSourceType.generated);
     notifyListeners();
   }
 

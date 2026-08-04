@@ -161,7 +161,13 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
         if (!mounted) return;
 
         if (entry != null) {
-          tp.loadFromString(entry.content, title: entry.title);
+          tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
           await _service.addOrUpdate(
             file.copyWith(
               lastOpened: DateTime.now(),
@@ -975,7 +981,13 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   Future<void> _loadCloudEntry(TextLibraryEntry entry) async {
     final tp = context.read<TextProvider>();
-    tp.loadFromString(entry.content, title: entry.title);
+    tp.loadFromString(
+      entry.content,
+      title: entry.title,
+      sourceType: TextSourceType.cloud,
+      cloudId: entry.id,
+      category: entry.category,
+    );
 
     final file = RecentFile.fromCloud(
       id: entry.id,

@@ -3,6 +3,8 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../models/vocab_context.dart';
+import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
 import 'vocabulary_provider.dart';
 
@@ -61,6 +63,47 @@ class VocabularyBridge {
       example: example,
       source: sourceFile,
     );
+  }
+
+  /// Thêm vào WordList với context để tích luỹ ngữ cảnh gặp lại.
+  static WordEntry? addContextual({
+    required String text,
+    String meaning = '',
+    String? phonetic,
+    String? example,
+    VocabContext? context,
+    VocabularyType? forceType,
+    String language = 'en',
+    String? topic,
+  }) {
+    final inst = _instance;
+    if (inst == null) {
+      debugPrint('⚠️ VocabularyBridge: not initialized');
+      return null;
+    }
+
+    final normalized = text.trim();
+    if (normalized.isEmpty || normalized.length < 2) {
+      return null;
+    }
+
+    final entry = inst.addWithAutoClassify(
+      text: normalized,
+      meaning: meaning,
+      phonetic: phonetic,
+      forceType: forceType,
+      context: context,
+      language: language,
+      topic: topic,
+    );
+
+    final normalizedExample = example?.trim() ?? '';
+    if (normalizedExample.isNotEmpty &&
+        (entry.example == null || entry.example!.trim().isEmpty)) {
+      inst.updateWord(entry.id, example: normalizedExample);
+    }
+
+    return entry;
   }
 
   static bool hasWord(String word) => _instance?.hasWord(word) ?? false;

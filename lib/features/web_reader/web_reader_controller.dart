@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
+import '../../models/vocab_context.dart';
 import '../../models/word_analysis.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
@@ -410,6 +411,71 @@ class WebReaderController extends ChangeNotifier {
       sourceFile: _safeHost(_currentUrl),
     );
   }
+
+  bool saveWordToWordList(
+    String word, {
+    AnalyzedWord? analyzed,
+    String? surroundingText,
+  }) {
+    final clean = word.trim().toLowerCase();
+    if (clean.isEmpty || clean.length < 2) return false;
+
+    final existed = VocabularyBridge.hasWord(clean);
+    VocabularyBridge.addContextual(
+      text: clean,
+      meaning: analyzed?.meaning ?? '',
+      phonetic: analyzed?.phonetic,
+      example: (surroundingText ?? '').trim().isEmpty
+          ? _selectedText?.trim()
+          : surroundingText!.trim(),
+      context: _buildCurrentWebContext(
+        ((surroundingText ?? '').trim().isEmpty
+                ? _selectedText?.trim()
+                : surroundingText?.trim()) ??
+            clean,
+      ),
+    );
+    return !existed;
+  }
+
+  bool saveSelectionToWordList(String selection) {
+    final normalized = _normalizeStudyText(selection);
+    if (normalized.isEmpty || normalized.length < 2) return false;
+
+    final existed = VocabularyBridge.hasWord(normalized);
+    VocabularyBridge.addContextual(
+      text: normalized,
+      meaning: '',
+      example: normalized,
+      context: _buildCurrentWebContext(normalized),
+    );
+    return !existed;
+  }
+
+  bool saveSelectionToMemory(String selection) {
+    final normalized = _normalizeStudyText(selection);
+    if (normalized.isEmpty || normalized.length < 2) return false;
+
+    return MemoryProvider.addWord(
+      word: normalized,
+      meaning: '',
+      example: normalized,
+      context: normalized,
+      sourceFile: _pageTitle.trim().isEmpty ? _safeHost(_currentUrl) : _pageTitle,
+      tags: const ['web_reader'],
+    );
+  }
+
+  VocabContext _buildCurrentWebContext(String surroundingText) {
+    return VocabContext.fromWeb(
+      url: _currentUrl,
+      pageTitle: _pageTitle,
+      surroundingText: surroundingText,
+    );
+  }
+
+  String _normalizeStudyText(String text) =>
+      text.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   // ─── Collections ─────────────────────────────────────────
 

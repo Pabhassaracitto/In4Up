@@ -778,6 +778,28 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     _showSnack('Đã thêm đoạn chọn vào ghi chú bài đọc');
   }
 
+  void _saveSelectionToWordList() {
+    final selection = _selectionText.trim();
+    if (selection.isEmpty || _showDashboard) return;
+    final added = _controller.saveSelectionToWordList(selection);
+    _showSnack(
+      added
+          ? '📚 Đã thêm đoạn chọn vào WordList'
+          : '📚 Đã bổ sung ngữ cảnh cho mục này trong WordList',
+    );
+  }
+
+  void _saveSelectionToMemory() {
+    final selection = _selectionText.trim();
+    if (selection.isEmpty || _showDashboard) return;
+    final saved = _controller.saveSelectionToMemory(selection);
+    _showSnack(
+      saved
+          ? '🧠 Đã lưu đoạn chọn vào Vườn Nhớ'
+          : 'Đoạn chọn này chưa thể lưu vào Vườn Nhớ',
+    );
+  }
+
   void _openSelectionInTextStudio() {
     final selection = _selectionText.trim();
     if (selection.isEmpty) return;
@@ -1046,9 +1068,63 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             onTap: () => _controller.speakText(_selectionText),
           ),
           const SizedBox(width: 6),
+          _SelectionMoreButton(
+            onSaveToWordList: _saveSelectionToWordList,
+            onSaveToMemory: _saveSelectionToMemory,
+          ),
+          const SizedBox(width: 6),
           GestureDetector(
             onTap: () => setState(() => _showSelectionBar = false),
             child: const Icon(Icons.close, color: Colors.white, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionMoreButton extends StatelessWidget {
+  final VoidCallback onSaveToWordList;
+  final VoidCallback onSaveToMemory;
+
+  const _SelectionMoreButton({
+    required this.onSaveToWordList,
+    required this.onSaveToMemory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Thao tác học tập',
+      child: PopupMenuButton<String>(
+        tooltip: 'Thao tác học tập',
+        color: const Color(0xFF151B26),
+        icon: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(Icons.more_horiz, color: Colors.white, size: 18),
+        ),
+        onSelected: (value) {
+          switch (value) {
+            case 'wordlist':
+              onSaveToWordList();
+              break;
+            case 'memory':
+              onSaveToMemory();
+              break;
+          }
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: 'wordlist',
+            child: Text('Lưu đoạn chọn vào WordList'),
+          ),
+          PopupMenuItem(
+            value: 'memory',
+            child: Text('Lưu đoạn chọn vào Vườn Nhớ'),
           ),
         ],
       ),

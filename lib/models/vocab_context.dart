@@ -91,7 +91,32 @@ class VocabContext {
         encounteredAt: DateTime.now(),
       );
 
-  /// /// Tạo context từ Read Mode / Story
+  /// Tạo context từ Web Reader
+  factory VocabContext.fromWeb({
+    required String url,
+    String? pageTitle,
+    required String surroundingText,
+  }) {
+    String host;
+    try {
+      host = Uri.parse(url).host.replaceFirst('www.', '');
+    } catch (_) {
+      host = url;
+    }
+
+    return VocabContext(
+      id: 'ctx_${DateTime.now().millisecondsSinceEpoch}',
+      sourceType: 'web',
+      sourceName: (pageTitle != null && pageTitle.trim().isNotEmpty)
+          ? pageTitle.trim()
+          : host,
+      pageOrPosition: host,
+      surroundingText: surroundingText,
+      encounteredAt: DateTime.now(),
+    );
+  }
+
+  /// Tạo context từ Read Mode / Story
   factory VocabContext.fromStory({
     required String storyTitle,
     required int lineIndex,

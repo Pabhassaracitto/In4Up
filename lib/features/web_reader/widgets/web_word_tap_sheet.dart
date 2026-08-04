@@ -192,9 +192,7 @@ class WebWordTapSheet extends StatelessWidget {
           // ── Actions ──────────────────────────────────────
           Row(
             children: [
-              // Save to Memory
               Expanded(
-                flex: 3,
                 child: GestureDetector(
                   onTap: () {
                     controller.saveWordToMemory(cleanWord, analyzed: analyzed);
@@ -214,10 +212,11 @@ class WebWordTapSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: Color(0xFF6C63FF).withValues(alpha: 0.15),
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color: Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -225,20 +224,85 @@ class WebWordTapSheet extends StatelessWidget {
                         Icon(Icons.psychology,
                             color: Color(0xFF6C63FF), size: 16),
                         SizedBox(width: 6),
-                        Text('Lưu vào Vườn Nhớ',
+                        Flexible(
+                          child: Text(
+                            'Vườn Nhớ',
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                color: Color(0xFF6C63FF),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
+                              color: Color(0xFF6C63FF),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-
               const SizedBox(width: 8),
-
-              // Oxford dictionary
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    final added = controller.saveWordToWordList(
+                      cleanWord,
+                      analyzed: analyzed,
+                    );
+                    HapticFeedback.mediumImpact();
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          added
+                              ? '📚 Đã thêm "$cleanWord" vào WordList'
+                              : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList',
+                        ),
+                        backgroundColor: const Color(0xFF2E7D32),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF43A047).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF43A047).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.library_add,
+                            color: Color(0xFF43A047), size: 16),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'WordList',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF43A047),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
               _IconBtn(
                 icon: Icons.open_in_new,
                 tooltip: 'Oxford',
@@ -250,10 +314,7 @@ class WebWordTapSheet extends StatelessWidget {
                   );
                 },
               ),
-
               const SizedBox(width: 6),
-
-              // Copy
               _IconBtn(
                 icon: Icons.copy,
                 tooltip: 'Copy',

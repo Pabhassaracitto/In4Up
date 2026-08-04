@@ -34,15 +34,23 @@ class WordImportSheet extends StatefulWidget {
 
 class _WordImportSheetState extends State<WordImportSheet>
     with SingleTickerProviderStateMixin {
+  static const int _previewLimit = 80;
+
   late TabController _tabCtrl;
 
   final _pasteCtrl = TextEditingController();
   List<_ImportCandidate> _parsedWords = [];
+  List<_ImportCandidate> _providerWords = [];
   int _minLength = 3;
   bool _excludeStopWords = true;
   bool _onlyNewWords = true;
+  bool _showAllClipboard = false;
+  bool _showAllProvider = false;
+  bool _showAllFile = false;
+  String _providerSourceKey = '';
 
   String? _filePath;
+  String _fileContent = '';
   List<_ImportCandidate> _fileWords = [];
   bool _isLoadingFile = false;
 
@@ -62,6 +70,11 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   List<_ImportCandidate> _parseText(String text) {
+    final structured = _parseStructuredContent(text);
+    if (structured.isNotEmpty) {
+      return structured;
+    }
+
     final freq =
         TextParser.wordFrequency(text, excludeStopWords: _excludeStopWords);
 
@@ -79,16 +92,167 @@ class _WordImportSheetState extends State<WordImportSheet>
 
   void _parsePasted() {
     final text = _pasteCtrl.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      setState(() => _parsedWords = []);
+      return;
+    }
     setState(() {
       _parsedWords = _parseText(text);
     });
+  }
+
+  void _refreshProviderWords(TextProvider tp) {
+    final nextKey = [
+      tp.fullText.hashCode,
+      _minLength,
+      _excludeStopWords,
+      _onlyNewWords,
+    ].join('|');
+    if (_providerSourceKey == nextKey) return;
+    _providerSourceKey = nextKey;
+    _providerWords = _parseFromProvider(tp);
   }
 
   List<_ImportCandidate> _parseFromProvider(TextProvider tp) {
     final text = tp.fullText;
     if (text.isEmpty) return [];
     return _parseText(text);
+  }
+
+  static const Map<String, String> _fieldAliases = {
+    'word': 'word',
+    'vocab': 'word',
+    'tu': 'word',
+    'tuvung': 'word',
+    'term': 'word',
+    'meaning': 'meaning',
+    'nghia': 'meaning',
+    'definition': 'meaning',
+    'ipa': 'phonetic',
+    'phonetic': 'phonetic',
+    'pronunciation': 'phonetic',
+    'topic': 'topic',
+    'category': 'topic',
+    'chude': 'topic',
+    'folder': 'topic',
+    'example': 'example',
+    'example_simple': 'exampleSimple',
+    'simpleexample': 'exampleSimple',
+    'vidu': 'example',
+    'vidudon': 'exampleSimple',
+    'example_complex': 'exampleComplex',
+    'complexexample': 'exampleComplex',
+    'viduphuc': 'exampleComplex',
+    'language': 'language',
+    'lang': 'language',
+    'ngonngu': 'language',
+  };
+
+  List<_ImportCandidate> _parseStructuredContent(String content) {
+    final lines = content
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    if (lines.length < 2) return const [];
+
+    final headerParts = _splitStructuredLine(lines.first);
+    final normalizedHeader = headerParts.map(_normalizeHeaderKey).toList();
+    final mapped = normalizedHeader.map((e) => _fieldAliases[e]).toList();
+    if (!mapped.contains('word')) return const [];
+    if (mapped.whereType<String>().toSet().length < 2) return const [];
+
+    final candidates = <_ImportCandidate>[];
+    for (final line in lines.skip(1)) {
+      final parts = _splitStructuredLine(line);
+      if (parts.isEmpty) continue;
+      final data = <String, String>{};
+      for (int i = 0; i < mapped.length && i < parts.length; i++) {
+        final key = mapped[i];
+        if (key == null) continue;
+        data[key] = parts[i].trim();
+      }
+
+      final word = (data['word'] ?? '').trim().toLowerCase();
+      if (word.isEmpty || word.length < _minLength) continue;
+      if (_onlyNewWords && _provider.hasWord(word)) continue;
+
+      final exampleParts = <String>[];
+      if ((data['example'] ?? '').trim().isNotEmpty) {
+        exampleParts.add(data['example']!.trim());
+      }
+      if ((data['exampleSimple'] ?? '').trim().isNotEmpty) {
+        exampleParts.add('Ví dụ đơn: ${data['exampleSimple']!.trim()}');
+      }
+      if ((data['exampleComplex'] ?? '').trim().isNotEmpty) {
+        exampleParts.add('Ví dụ phức: ${data['exampleComplex']!.trim()}');
+      }
+
+      candidates.add(
+        _ImportCandidate(
+          word: word,
+          meaning: _nullIfEmpty(data['meaning']),
+          phonetic: _nullIfEmpty(data['phonetic']),
+          topic: _nullIfEmpty(data['topic']),
+          language: _nullIfEmpty(data['language']) ?? 'en',
+          example: exampleParts.isEmpty ? null : exampleParts.join('\n'),
+          rawLine: line,
+          selected: true,
+          frequency: 1,
+        ),
+      );
+    }
+
+    return candidates;
+  }
+
+  List<String> _splitStructuredLine(String line) {
+    if (line.contains('\t')) {
+      return line.split('\t').map((e) => e.trim()).toList();
+    }
+    if (line.contains('|')) {
+      return line.split('|').map((e) => e.trim()).toList();
+    }
+    if (line.contains(';')) {
+      return line.split(';').map((e) => e.trim()).toList();
+    }
+    if (line.contains(',')) {
+      return line.split(',').map((e) => e.trim()).toList();
+    }
+    return const [];
+  }
+
+  String _normalizeHeaderKey(String input) {
+    return input
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-zA-Z\u00C0-\u024F]'), '')
+        .replaceAll('ừ', 'u')
+        .replaceAll('ự', 'u')
+        .replaceAll('ư', 'u')
+        .replaceAll('í', 'i')
+        .replaceAll('ị', 'i')
+        .replaceAll('ý', 'y')
+        .replaceAll('ỳ', 'y')
+        .replaceAll('đ', 'd')
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('ả', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('ạ', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('ă', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('è', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('ó', 'o')
+        .replaceAll('ò', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('ơ', 'o');
+  }
+
+  String? _nullIfEmpty(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _pickFile() async {
@@ -107,6 +271,7 @@ class _WordImportSheetState extends State<WordImportSheet>
       final content = await File(_filePath!).readAsString();
       final words = _parseFileContent(content);
       setState(() {
+        _fileContent = content;
         _fileWords = words;
         _isLoadingFile = false;
       });
@@ -121,6 +286,9 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   List<_ImportCandidate> _parseFileContent(String content) {
+    final structured = _parseStructuredContent(content);
+    if (structured.isNotEmpty) return structured;
+
     final lines = content
         .split('\n')
         .map((l) => l.trim())
@@ -135,12 +303,13 @@ class _WordImportSheetState extends State<WordImportSheet>
       final meaning =
           parts.length > 1 ? parts.sublist(1).join(',').trim() : null;
 
-      if (word.isEmpty || word.length < 2) continue;
+      if (word.isEmpty || word.length < _minLength) continue;
       if (_onlyNewWords && _provider.hasWord(word)) continue;
 
       candidates.add(_ImportCandidate(
         word: word,
-        meaning: meaning,
+        meaning: _nullIfEmpty(meaning),
+        rawLine: line,
         selected: true,
       ));
     }
@@ -156,10 +325,16 @@ class _WordImportSheetState extends State<WordImportSheet>
     int count = 0;
     for (final c in selected) {
       if (!provider.hasWord(c.word)) {
-        provider.addWithAutoClassify(
+        final entry = provider.addWithAutoClassify(
           text: c.word,
           meaning: c.meaning ?? '',
+          phonetic: c.phonetic,
+          language: c.language,
+          topic: c.topic,
         );
+        if ((c.example ?? '').trim().isNotEmpty) {
+          provider.updateWord(entry.id, example: c.example);
+        }
         count++;
       }
     }
@@ -172,6 +347,82 @@ class _WordImportSheetState extends State<WordImportSheet>
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  void _reparseAllSources() {
+    if (_pasteCtrl.text.trim().isNotEmpty) {
+      _parsedWords = _parseText(_pasteCtrl.text.trim());
+    }
+    if (_filePath != null && _fileContent.isNotEmpty) {
+      _fileWords = _parseFileContent(_fileContent);
+    }
+    _providerSourceKey = '';
+  }
+
+  Future<void> _pickMinLength(BuildContext context) async {
+    final selected = await showMenu<int>(
+      context: context,
+      position: const RelativeRect.fromLTRB(20, 150, 20, 0),
+      color: const Color(0xFF141D2E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      items: [
+        for (final value in [1, 2, 3, 4, 5, 6, 8])
+          PopupMenuItem<int>(
+            value: value,
+            child: _MinLengthMenuItem(
+              label: '$value ký tự',
+              selected: _minLength == value,
+            ),
+          ),
+        const PopupMenuDivider(height: 1),
+        const PopupMenuItem<int>(
+          value: -1,
+          child: _MinLengthMenuItem(label: 'Tùy chỉnh...'),
+        ),
+      ],
+    );
+
+    if (selected == null) return;
+    if (selected == -1) {
+      final ctrl = TextEditingController(text: '$_minLength');
+      final custom = await showDialog<int>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A2235),
+          title: const Text('Tối thiểu bao nhiêu ký tự?',
+              style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: const TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text.trim())),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      if (custom != null && custom >= 1) {
+        setState(() {
+          _minLength = custom;
+          _reparseAllSources();
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _minLength = selected;
+      _reparseAllSources();
+    });
   }
 
   @override
@@ -284,38 +535,37 @@ class _WordImportSheetState extends State<WordImportSheet>
   Widget _buildOptionsBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          _OptionChip(
-            label: 'Tối thiểu $_minLength ký tự',
-            icon: Icons.text_fields,
-            onTap: () {
-              setState(() =>
-                  _minLength = _minLength == 3 ? 4 : (_minLength == 4 ? 5 : 3));
-              _parsePasted();
-            },
-          ),
-          const SizedBox(width: 8),
-          _OptionChip(
-            label: 'Bỏ stop words',
-            icon: Icons.filter_list,
-            isActive: _excludeStopWords,
-            onTap: () {
-              setState(() => _excludeStopWords = !_excludeStopWords);
-              _parsePasted();
-            },
-          ),
-          const SizedBox(width: 8),
-          _OptionChip(
-            label: 'Chỉ từ mới',
-            icon: Icons.new_releases_outlined,
-            isActive: _onlyNewWords,
-            onTap: () {
-              setState(() => _onlyNewWords = !_onlyNewWords);
-              _parsePasted();
-            },
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _OptionChip(
+              label: 'Tối thiểu $_minLength ký tự',
+              icon: Icons.text_fields,
+              onTap: () => _pickMinLength(context),
+            ),
+            const SizedBox(width: 8),
+            _OptionChip(
+              label: 'Bỏ stop words',
+              icon: Icons.filter_list,
+              isActive: _excludeStopWords,
+              onTap: () {
+                setState(() => _excludeStopWords = !_excludeStopWords);
+                _reparseAllSources();
+              },
+            ),
+            const SizedBox(width: 8),
+            _OptionChip(
+              label: 'Chỉ từ mới',
+              icon: Icons.new_releases_outlined,
+              isActive: _onlyNewWords,
+              onTap: () {
+                setState(() => _onlyNewWords = !_onlyNewWords);
+                _reparseAllSources();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -339,7 +589,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                 maxLines: 5,
                 decoration: InputDecoration(
                   hintText:
-                      'Dán văn bản hoặc danh sách từ vào đây...\nHỗ trợ: text thường, một từ mỗi dòng, CSV (word,meaning)',
+                      'Dán văn bản hoặc danh sách từ vào đây...\nHỗ trợ: text thường, một từ mỗi dòng, hoặc bảng có cột như word, meaning, ipa, topic, example, language',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(14),
@@ -385,7 +635,9 @@ class _WordImportSheetState extends State<WordImportSheet>
           _buildWordList(_parsedWords, (idx) {
             setState(
                 () => _parsedWords[idx].selected = !_parsedWords[idx].selected);
-          }),
+          },
+              expanded: _showAllClipboard,
+              onToggleExpanded: () => setState(() => _showAllClipboard = !_showAllClipboard)),
           const SizedBox(height: 12),
           _buildImportButton(_parsedWords),
         ] else if (_pasteCtrl.text.isNotEmpty) ...[
@@ -423,7 +675,8 @@ class _WordImportSheetState extends State<WordImportSheet>
           );
         }
 
-        final words = _parseFromProvider(tp);
+        _refreshProviderWords(tp);
+        final words = _providerWords;
 
         return ListView(
           controller: scroll,
@@ -459,7 +712,11 @@ class _WordImportSheetState extends State<WordImportSheet>
                     style: TextStyle(color: Colors.grey[500])),
               )
             else ...[
-              _buildWordList(words, (_) => setState(() {})),
+              _buildWordList(words, (idx) {
+                setState(() => words[idx].selected = !words[idx].selected);
+              },
+                  expanded: _showAllProvider,
+                  onToggleExpanded: () => setState(() => _showAllProvider = !_showAllProvider)),
               const SizedBox(height: 12),
               _buildImportButton(words),
             ],
@@ -495,8 +752,9 @@ class _WordImportSheetState extends State<WordImportSheet>
               ]),
               const SizedBox(height: 6),
               Text(
-                '.txt: Mỗi dòng 1 từ (hoặc văn bản thường)\n'
-                '.csv: word,meaning (mỗi dòng 1 cặp)',
+                '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
+                '.csv/.txt bảng cột: word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
+                'Có thể dùng dấu phẩy, chấm phẩy, tab hoặc | để ngăn cột',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
@@ -539,7 +797,9 @@ class _WordImportSheetState extends State<WordImportSheet>
           _buildWordList(_fileWords, (idx) {
             setState(
                 () => _fileWords[idx].selected = !_fileWords[idx].selected);
-          }),
+          },
+              expanded: _showAllFile,
+              onToggleExpanded: () => setState(() => _showAllFile = !_showAllFile)),
           const SizedBox(height: 12),
           _buildImportButton(_fileWords),
         ],
@@ -548,19 +808,25 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   Widget _buildWordList(
-      List<_ImportCandidate> words, void Function(int) onToggle) {
+    List<_ImportCandidate> words,
+    void Function(int) onToggle, {
+    required bool expanded,
+    required VoidCallback onToggleExpanded,
+  }) {
     final selectedCount = words.where((w) => w.selected).length;
+    final visibleWords = expanded ? words : words.take(_previewLimit).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(
-              '${words.length} từ tìm thấy · $selectedCount được chọn',
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            Expanded(
+              child: Text(
+                '${words.length} từ tìm thấy · $selectedCount được chọn',
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              ),
             ),
-            const Spacer(),
             TextButton(
               onPressed: () => setState(() {
                 for (final w in words) {
@@ -587,10 +853,11 @@ class _WordImportSheetState extends State<WordImportSheet>
         Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: words.take(80).toList().asMap().entries.map((entry) {
+          children: visibleWords.asMap().entries.map((entry) {
             final i = entry.key;
             final w = entry.value;
             return GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => onToggle(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
@@ -598,18 +865,26 @@ class _WordImportSheetState extends State<WordImportSheet>
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: w.selected
-                      ? Color(0xFF6C63FF).withValues(alpha: 0.2)
+                      ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
                       : Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: w.selected
-                        ? Color(0xFF6C63FF).withValues(alpha: 0.5)
+                        ? const Color(0xFF6C63FF).withValues(alpha: 0.5)
                         : Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Icon(
+                      w.selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                      size: 13,
+                      color: w.selected
+                          ? const Color(0xFF9C8FFF)
+                          : Colors.grey[700],
+                    ),
+                    const SizedBox(width: 6),
                     Text(
                       w.word,
                       style: TextStyle(
@@ -626,18 +901,35 @@ class _WordImportSheetState extends State<WordImportSheet>
                         style: TextStyle(color: Colors.grey[600], fontSize: 9),
                       ),
                     ],
+                    if ((w.meaning ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.info_outline, size: 11, color: Colors.grey[600]),
+                    ],
                   ],
                 ),
               ),
             );
           }).toList(),
         ),
-        if (words.length > 80)
+        if (words.length > _previewLimit)
           Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '... và ${words.length - 80} từ nữa (tất cả sẽ được import)',
-              style: TextStyle(color: Colors.grey[700], fontSize: 11),
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              onPressed: onToggleExpanded,
+              icon: Icon(
+                expanded ? Icons.unfold_less : Icons.unfold_more,
+                size: 16,
+                color: const Color(0xFF6C63FF),
+              ),
+              label: Text(
+                expanded
+                    ? 'Thu gọn danh sách'
+                    : 'Mở rộng thêm ${words.length - _previewLimit} từ',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF6C63FF),
+                ),
+              ),
             ),
           ),
       ],
@@ -671,15 +963,51 @@ class _WordImportSheetState extends State<WordImportSheet>
 class _ImportCandidate {
   final String word;
   final String? meaning;
+  final String? phonetic;
+  final String? topic;
+  final String? example;
+  final String language;
+  final String? rawLine;
   final int frequency;
   bool selected;
 
   _ImportCandidate({
     required this.word,
     this.meaning,
+    this.phonetic,
+    this.topic,
+    this.example,
+    this.language = 'en',
+    this.rawLine,
     this.frequency = 1,
     this.selected = true,
   });
+}
+
+class _MinLengthMenuItem extends StatelessWidget {
+  final String label;
+  final bool selected;
+
+  const _MinLengthMenuItem({required this.label, this.selected = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (selected)
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.check, size: 14, color: Color(0xFF6C63FF)),
+          )
+        else
+          const SizedBox(width: 22),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+      ],
+    );
+  }
 }
 
 class _OptionChip extends StatelessWidget {

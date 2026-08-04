@@ -730,12 +730,7 @@ class _WordListScreenState extends State<WordListScreen> {
           _ListRepeatButton(
             count: _listRepeatCount,
             current: _listRepeatCurrent,
-            onTap: () => _showRepeatCountMenu(
-              context,
-              current: _listRepeatCount,
-              allowInfinite: true,
-              onChanged: (v) => setState(() => _listRepeatCount = v),
-            ),
+            onChanged: (v) => setState(() => _listRepeatCount = v),
           ),
           const SizedBox(width: 8),
           // Play All
@@ -2890,14 +2885,19 @@ class _RepeatMenuItem extends StatelessWidget {
 
 class _ListRepeatButton extends StatelessWidget {
   final int count, current;
-  final VoidCallback onTap;
+  final ValueChanged<int> onChanged;
   const _ListRepeatButton(
-      {required this.count, required this.current, required this.onTap});
+      {required this.count, required this.current, required this.onChanged});
   @override
   Widget build(BuildContext context) {
     final label = count == 0 ? '∞' : '$count×';
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _showRepeatCountMenu(
+        context,
+        current: count,
+        allowInfinite: true,
+        onChanged: onChanged,
+      ),
       child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(

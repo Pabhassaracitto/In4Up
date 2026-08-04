@@ -1,28 +1,7 @@
+import com.android.build.api.variant.AndroidComponentsExtension
 import com.android.build.gradle.BaseExtension
-import org.apache.tools.ant.taskdefs.condition.Os
-import java.util.Properties
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-// 1. TỰ ĐỘNG CẬP NHẬT local.properties THEO OS
-val localPropsFile = file("local.properties")
-val localProps = Properties()
-
-if (localPropsFile.exists()) {
-    localPropsFile.inputStream().use { localProps.load(it) }
-}
-
-val isWindows = Os.isFamily(Os.FAMILY_WINDOWS)
-
-if (isWindows) {
-    localProps.remove("ndk.dir")
-} else {
-    val linuxSdk = localProps.getProperty("sdk.dir") ?: "/media/pabahassara/MEDIA/LINUX/LIBRARY/Android/Sdk"
-    localProps.setProperty("ndk.dir", "$linuxSdk/ndk/27.3.13750724")
-}
-
-localPropsFile.outputStream().use { localProps.store(it, "Auto-generated NDK path by Gradle") }
-
-
-// 2. CẤU HÌNH DỰ ÁN VÀ ÉP NDK CHO TẤT CẢ SUBPROJECTS BEFORE EVALUATE
 allprojects {
     repositories {
         google()
@@ -32,21 +11,42 @@ allprojects {
 
 rootProject.layout.buildDirectory.set(file("../build"))
 
-val targetNdkVersion = if (isWindows) "28.2.13676358" else "27.3.13750724"
+val targetNdkVersion = "28.2.13676358"
+val targetCompileSdk = 36
 
 subprojects {
     project.layout.buildDirectory.set(file("${rootProject.layout.buildDirectory.get()}/${project.name}"))
 
-    // CHÌA KHÓA Ở ĐÂY: Can thiệp TRƯỚC KHI plugin phụ thuộc (như :jni) kịp đọc config cũ
-    beforeEvaluate {
-        plugins.withId("com.android.application") {
-            extensions.configure<BaseExtension> {
-                ndkVersion = targetNdkVersion
+    // Đồng bộ compileSdk, NDK và Java 17 cho tất cả Android modules
+    val configureAndroid = {
+        val androidComponents = project.extensions.findByType(AndroidComponentsExtension::class.java)
+        androidComponents?.finalizeDsl { extension ->
+            extension.compileSdk = targetCompileSdk
+        }
+
+        val android = project.extensions.findByType(BaseExtension::class.java)
+        android?.apply {
+            ndkVersion = targetNdkVersion
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
             }
         }
-        plugins.withId("com.android.library") {
-            extensions.configure<BaseExtension> {
-                ndkVersion = targetNdkVersion
+    }
+
+    project.plugins.withId("com.android.library") { configureAndroid() }
+    project.plugins.withId("com.android.application") { configureAndroid() }
+
+    // ÉP TẤT CẢ TASK BIÊN DỊCH VỀ JAVA 17 (KỂ CẢ VỚI FLUTTER_TTS)
+    project.afterEvaluate {
+        tasks.withType(JavaCompile::class.java).configureEach {
+            sourceCompatibility = JavaVersion.VERSION_17.toString()
+            targetCompatibility = JavaVersion.VERSION_17.toString()
+        }
+
+        tasks.withType(KotlinCompile::class.java).configureEach {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
             }
         }
     }

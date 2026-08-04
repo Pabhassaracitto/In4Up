@@ -335,3 +335,5 @@ google_sign_in_config.dart
 project/
 .aider*
 android/local.properties
+.guide
+docs/

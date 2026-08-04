@@ -16,6 +16,13 @@ class WebExtractionCandidate {
   final bool appearsInTitle;
   final bool isPriority;
   final double rankScore;
+
+  String meaning;
+  String? phonetic;
+  String? topic;
+  String? example;
+  bool enriched;
+  String enrichSource;
   bool selected;
 
   WebExtractionCandidate({
@@ -29,6 +36,12 @@ class WebExtractionCandidate {
     required this.isPriority,
     required this.rankScore,
     this.isPhrase = false,
+    this.meaning = '',
+    this.phonetic,
+    this.topic,
+    this.example,
+    this.enriched = false,
+    this.enrichSource = '',
     this.selected = false,
   });
 }

@@ -630,8 +630,12 @@ class WebReaderController extends ChangeNotifier {
       final existed = VocabularyBridge.hasWord(normalized);
       final entry = VocabularyBridge.addContextual(
         text: normalized,
-        meaning: '',
-        example: candidate.sampleContext,
+        meaning: candidate.meaning.trim(),
+        phonetic: candidate.phonetic,
+        example: (candidate.example ?? '').trim().isEmpty
+            ? candidate.sampleContext
+            : candidate.example,
+        topic: candidate.topic,
         forceType: candidate.isPhrase ? VocabularyType.phrase : null,
         context: _buildCurrentWebContext(candidate.sampleContext),
       );
@@ -650,6 +654,83 @@ class WebReaderController extends ChangeNotifier {
       updatedCount: updatedCount,
       skippedCount: skippedCount,
     );
+  }
+
+  void enrichCandidateLocally(WebExtractionCandidate candidate) {
+    final topic = _inferTopic(
+      '${_pageTitle.trim()} ${candidate.sampleContext} ${candidate.text}',
+    );
+    candidate.topic ??= topic;
+    candidate.example ??= candidate.sampleContext;
+
+    final direct = SyntaxHighlighterService.instance.analyzeWord(candidate.normalized);
+    if ((candidate.meaning).trim().isEmpty) {
+      candidate.meaning = (direct.meaning ?? '').trim();
+    }
+    candidate.phonetic ??= direct.phonetic;
+
+    if (candidate.isPhrase && candidate.meaning.trim().isEmpty) {
+      final partHints = candidate.normalized
+          .split(' ')
+          .map((part) => SyntaxHighlighterService.instance.analyzeWord(part))
+          .map((analysis) => analysis.meaning?.trim() ?? '')
+          .where((meaning) => meaning.isNotEmpty)
+          .take(3)
+          .toList();
+      if (partHints.isNotEmpty) {
+        candidate.meaning = partHints.join(' · ');
+      }
+    }
+
+    candidate.enriched = true;
+    candidate.enrichSource = direct.meaning != null || direct.phonetic != null
+        ? 'local'
+        : 'heuristic';
+  }
+
+  void applyAiAssistToCandidate(
+    WebExtractionCandidate candidate, {
+    String? meaning,
+    String? phonetic,
+    String? topic,
+    String? example,
+    required bool usedAi,
+  }) {
+    final aiMeaning = (meaning ?? '').trim();
+    final aiPhonetic = (phonetic ?? '').trim();
+    final aiTopic = (topic ?? '').trim();
+    final aiExample = (example ?? '').trim();
+
+    if (aiMeaning.isNotEmpty) candidate.meaning = aiMeaning;
+    if (aiPhonetic.isNotEmpty) candidate.phonetic = aiPhonetic;
+    if (aiTopic.isNotEmpty) candidate.topic = aiTopic;
+    if (aiExample.isNotEmpty) candidate.example = aiExample;
+    if ((candidate.topic ?? '').trim().isEmpty) {
+      candidate.topic = _inferTopic(candidate.sampleContext);
+    }
+    if ((candidate.example ?? '').trim().isEmpty) {
+      candidate.example = candidate.sampleContext;
+    }
+    candidate.enriched = true;
+    candidate.enrichSource = usedAi ? 'ai+local' : candidate.enrichSource;
+  }
+
+  String _inferTopic(String source) {
+    final haystack = source.toLowerCase();
+    if (RegExp(r'\b(dharma|buddha|sutta|meditation|mindfulness|monk)\b')
+        .hasMatch(haystack)) {
+      return 'dharma';
+    }
+    if (RegExp(r'\b(learning english|voa|bbc learning|english|grammar|vocabulary)\b')
+        .hasMatch(haystack)) {
+      return 'english_learning';
+    }
+    if (RegExp(r'\b(news|reuters|guardian|bbc|cnn|report)\b')
+        .hasMatch(haystack)) {
+      return 'news';
+    }
+    final host = _safeHost(_currentUrl);
+    return host.trim().isEmpty ? 'web_reader' : host;
   }
 
   VocabContext _buildCurrentWebContext(String surroundingText) {

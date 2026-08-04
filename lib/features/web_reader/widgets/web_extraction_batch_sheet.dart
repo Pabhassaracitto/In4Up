@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:in2up_ai/in2up_ai.dart';
 
+import '../../../services/syntax_highlighter_service.dart';
 import '../models/web_extraction_candidate.dart';
 import '../web_reader_controller.dart';
 
@@ -46,6 +49,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   List<WebExtractionCandidate> _candidates = const [];
   bool _onlyNew = false;
   bool _onlyPhrases = false;
+  bool _isEnriching = false;
+  double _enrichProgress = 0;
   int _minLength = 4;
   WebExtractionSort _sort = WebExtractionSort.priority;
   final TextEditingController _searchCtrl = TextEditingController();
@@ -134,12 +139,91 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       _candidates.where((candidate) => candidate.isPhrase).length;
   int get _priorityCount =>
       _candidates.where((candidate) => candidate.isPriority).length;
+  int get _enrichedCount =>
+      _candidates.where((candidate) => candidate.enriched).length;
 
   void _setAllVisible(bool selected) {
     for (final candidate in _visibleCandidates) {
       candidate.selected = selected;
     }
     setState(() {});
+  }
+
+  Future<void> _enrichSelected() async {
+    final targets = _candidates.where((candidate) => candidate.selected).toList();
+    if (targets.isEmpty) return;
+
+    final facade = context.read<AiServiceFacade>();
+    setState(() {
+      _isEnriching = true;
+      _enrichProgress = 0;
+    });
+
+    int processed = 0;
+    for (final candidate in targets) {
+      widget.controller.enrichCandidateLocally(candidate);
+
+      if (!candidate.isPhrase) {
+        final localAnalysis = SyntaxHighlighterService.instance.analyzeWord(
+          candidate.normalized,
+        );
+        try {
+          await facade.analyzeWord(
+            word: candidate.normalized,
+            sentenceContext: candidate.sampleContext,
+            localDictLookup: (_) => localAnalysis.meaning,
+            ipaPhoneLookup: (_) => null,
+          );
+          final detail = facade.currentAnalysis?.wordDetail;
+          final topic = (facade.currentAnalysis?.topics.isNotEmpty ?? false)
+              ? facade.currentAnalysis!.topics.first
+              : null;
+          widget.controller.applyAiAssistToCandidate(
+            candidate,
+            meaning: detail?.meaning,
+            phonetic: detail?.phonetic,
+            topic: topic,
+            example: candidate.sampleContext,
+            usedAi: facade.hasModel,
+          );
+        } catch (_) {
+          widget.controller.applyAiAssistToCandidate(
+            candidate,
+            example: candidate.sampleContext,
+            usedAi: false,
+          );
+        }
+      } else {
+        widget.controller.applyAiAssistToCandidate(
+          candidate,
+          example: candidate.sampleContext,
+          usedAi: false,
+        );
+      }
+
+      processed++;
+      if (mounted) {
+        setState(() {
+          _enrichProgress = processed / targets.length;
+        });
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isEnriching = false;
+      _enrichProgress = 1;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          facade.hasModel
+              ? '✨ Đã làm giàu ${targets.length} mục bằng AI/local'
+              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _importSelected() async {
@@ -207,10 +291,22 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 _MetaChip(label: 'Mới $_newCount'),
                 _MetaChip(label: 'Phrase $_phraseCount'),
                 _MetaChip(label: 'Ưu tiên $_priorityCount'),
+                _MetaChip(label: 'Đã enrich $_enrichedCount'),
                 _MetaChip(label: 'Đã có $_existingCount'),
                 _MetaChip(label: 'Đã chọn $_selectedCount'),
               ],
             ),
+            if (_isEnriching) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: _enrichProgress <= 0 ? null : _enrichProgress,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(999),
+                backgroundColor: Colors.white10,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(Color(0xFF64B5F6)),
+              ),
+            ],
             const SizedBox(height: 14),
             TextField(
               controller: _searchCtrl,
@@ -278,6 +374,20 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   onPressed: () => _setAllVisible(false),
                   icon: const Icon(Icons.remove_done, size: 18),
                   label: const Text('Bỏ chọn'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed:
+                      _selectedCount == 0 || _isEnriching ? null : _enrichSelected,
+                  icon: _isEnriching
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome, size: 18),
+                  label: Text(_isEnriching
+                      ? 'Đang làm giàu...'
+                      : 'Làm giàu AI/local'),
                 ),
               ],
             ),
@@ -366,14 +476,64 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                           ),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              candidate.sampleContext,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                height: 1.4,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (candidate.meaning.trim().isNotEmpty)
+                                  Text(
+                                    '💡 ${candidate.meaning.trim()}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.green[200],
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                if ((candidate.phonetic ?? '').trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    candidate.phonetic!.trim(),
+                                    style: TextStyle(
+                                      color: Colors.blue[100],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                                if ((candidate.topic ?? '').trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '🏷️ ${candidate.topic!.trim()}',
+                                    style: TextStyle(
+                                      color: Colors.orange[200],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  candidate.sampleContext,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    height: 1.4,
+                                  ),
+                                ),
+                                if (candidate.enriched) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    candidate.enrichSource == 'ai+local'
+                                        ? '✨ AI/local'
+                                        : '✨ Local/heuristic',
+                                    style: TextStyle(
+                                      color: Colors.purple[200],
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           onChanged: (value) {

@@ -43,6 +43,7 @@ class WebReaderController extends ChangeNotifier {
   static const _historyKey = 'history';
   static const _bookmarksKey = 'bookmarks';
   static const _userCollectionsKey = 'user_collections_v1';
+  static const _pinnedCollectionIdsKey = 'pinned_collection_ids_v1';
 
   // ─── State ────────────────────────────────────────────────
   WebReaderState _state = WebReaderState.idle;
@@ -97,6 +98,7 @@ class WebReaderController extends ChangeNotifier {
   // ─── Collections ─────────────────────────────────────────
   late final List<WebCollection> _presetCollections = _buildPresetCollections();
   final List<WebCollection> _userCollections = [];
+  final Set<String> _pinnedCollectionIds = <String>{};
 
   List<WebCollection> get presetCollections =>
       List.unmodifiable(_presetCollections);
@@ -105,11 +107,17 @@ class WebReaderController extends ChangeNotifier {
         ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase())));
   List<WebCollection> get allCollections =>
       List.unmodifiable([...presetCollections, ...userCollections]);
+  List<WebCollection> get pinnedCollections => List.unmodifiable(
+        allCollections.where((c) => _pinnedCollectionIds.contains(c.id)).toList()
+          ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase())),
+      );
+  bool get hasUserCollections => _userCollections.isNotEmpty;
 
   WebReaderController() {
     _loadHistory();
     _loadBookmarks();
     _loadUserCollections();
+    _loadPinnedCollectionIds();
   }
 
   // ─── URL Navigation ──────────────────────────────────────
@@ -311,7 +319,7 @@ class WebReaderController extends ChangeNotifier {
 
   // ─── Collections ─────────────────────────────────────────
 
-  Future<void> createOrUpdateUserCollection({
+  Future<String?> createOrUpdateUserCollection({
     String? id,
     required String title,
     String description = '',
@@ -319,7 +327,7 @@ class WebReaderController extends ChangeNotifier {
     List<WebCollectionLink> links = const [],
   }) async {
     final normalizedTitle = title.trim();
-    if (normalizedTitle.isEmpty) return;
+    if (normalizedTitle.isEmpty) return null;
 
     final normalizedDescription = description.trim();
     final normalizedEmoji = emoji.trim().isEmpty ? '📁' : emoji.trim();
@@ -344,27 +352,37 @@ class WebReaderController extends ChangeNotifier {
 
     await _saveUserCollections();
     notifyListeners();
+    return collection.id;
   }
 
   Future<void> deleteUserCollection(String collectionId) async {
     _userCollections.removeWhere((c) => c.id == collectionId);
+    final removedPinned = _pinnedCollectionIds.remove(collectionId);
     await _saveUserCollections();
+    if (removedPinned) {
+      await _savePinnedCollectionIds();
+    }
     notifyListeners();
   }
 
-  Future<void> addLinkToUserCollection({
+  Future<bool> addLinkToUserCollection({
     required String collectionId,
     required String title,
     required String url,
     String note = '',
   }) async {
     final index = _userCollections.indexWhere((c) => c.id == collectionId);
-    if (index < 0) return;
+    if (index < 0) return false;
 
     final normalizedUrl = normalizeUrl(url);
-    if (normalizedUrl.isEmpty) return;
+    if (normalizedUrl.isEmpty) return false;
 
-    final links = List<WebCollectionLink>.from(_userCollections[index].links)
+    final existingLinks = List<WebCollectionLink>.from(_userCollections[index].links);
+    if (existingLinks.any((link) => normalizeUrl(link.url) == normalizedUrl)) {
+      return false;
+    }
+
+    final links = existingLinks
       ..add(WebCollectionLink(
         id: _newId('link'),
         title: title.trim().isEmpty ? _safeHost(normalizedUrl) : title.trim(),
@@ -375,6 +393,7 @@ class WebReaderController extends ChangeNotifier {
     _userCollections[index] = _userCollections[index].copyWith(links: links);
     await _saveUserCollections();
     notifyListeners();
+    return true;
   }
 
   Future<void> removeLinkFromUserCollection({
@@ -392,13 +411,26 @@ class WebReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addCurrentPageToUserCollection(String collectionId) async {
-    if (_currentUrl.isEmpty) return;
-    await addLinkToUserCollection(
+  Future<bool> addCurrentPageToUserCollection(String collectionId) async {
+    if (_currentUrl.isEmpty) return false;
+    return addLinkToUserCollection(
       collectionId: collectionId,
       title: _pageTitle.isEmpty ? _safeHost(_currentUrl) : _pageTitle,
       url: _currentUrl,
     );
+  }
+
+  bool isCollectionPinned(String collectionId) =>
+      _pinnedCollectionIds.contains(collectionId);
+
+  Future<void> toggleCollectionPin(String collectionId) async {
+    if (_pinnedCollectionIds.contains(collectionId)) {
+      _pinnedCollectionIds.remove(collectionId);
+    } else {
+      _pinnedCollectionIds.add(collectionId);
+    }
+    await _savePinnedCollectionIds();
+    notifyListeners();
   }
 
   // ─── History ─────────────────────────────────────────────
@@ -495,6 +527,33 @@ class WebReaderController extends ChangeNotifier {
   }
 
   // ─── Persistence helpers ─────────────────────────────────
+
+  Future<void> _loadPinnedCollectionIds() async {
+    try {
+      final box = await _getStorageBox();
+      final raw = box?.get(_pinnedCollectionIdsKey);
+      if (raw == null) return;
+      final list = jsonDecode(raw) as List;
+      _pinnedCollectionIds
+        ..clear()
+        ..addAll(list.map((e) => e.toString()).where((e) => e.trim().isNotEmpty));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadPinnedCollectionIds error: $e');
+    }
+  }
+
+  Future<void> _savePinnedCollectionIds() async {
+    try {
+      final box = await _getStorageBox();
+      await box?.put(
+        _pinnedCollectionIdsKey,
+        jsonEncode(_pinnedCollectionIds.toList()),
+      );
+    } catch (e) {
+      debugPrint('WebReaderController: _savePinnedCollectionIds error: $e');
+    }
+  }
 
   Future<void> _loadUserCollections() async {
     try {

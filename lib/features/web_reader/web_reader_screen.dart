@@ -363,6 +363,250 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
   }
 
+  Future<void> _saveCurrentPageToCollection() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+
+    if (!_controller.hasUserCollections) {
+      final newCollectionId = await _showCreateCollectionDialog(
+        suggestedTitle: 'Nguồn đọc của tôi',
+      );
+      if (newCollectionId == null) return;
+      final added = await _controller.addCurrentPageToUserCollection(newCollectionId);
+      _showSnack(
+        added
+            ? '✅ Đã tạo nhóm và lưu trang hiện tại'
+            : 'Trang này đã có sẵn trong nhóm vừa tạo',
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: const Color(0xFF111827),
+      builder: (sheetContext) {
+        final collections = _controller.userCollections;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Lưu trang hiện tại vào nhóm',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _controller.pageTitle.isEmpty
+                    ? _controller.currentUrl
+                    : _controller.pageTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey[300], height: 1.45),
+              ),
+              const SizedBox(height: 14),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: collections.length + 1,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0x332196F3),
+                          child: Icon(Icons.create_new_folder_outlined,
+                              color: Colors.white),
+                        ),
+                        title: const Text(
+                          'Tạo nhóm mới rồi lưu luôn',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          'Dùng khi bạn muốn gom bài đang đọc vào một nhóm mới.',
+                          style: TextStyle(color: Colors.grey[400]),
+                        ),
+                        onTap: () async {
+                          final collectionId = await _showCreateCollectionDialog();
+                          if (collectionId == null) return;
+                          final added = await _controller
+                              .addCurrentPageToUserCollection(collectionId);
+                          if (!mounted) return;
+                          Navigator.pop(sheetContext);
+                          _showSnack(
+                            added
+                                ? '✅ Đã tạo nhóm mới và lưu trang hiện tại'
+                                : 'Trang này đã có sẵn trong nhóm đó rồi',
+                          );
+                        },
+                      );
+                    }
+
+                    final collection = collections[index - 1];
+                    final isPinned =
+                        _controller.isCollectionPinned(collection.id);
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.white12,
+                        child: Text(collection.emoji),
+                      ),
+                      title: Text(
+                        collection.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        collection.description.isEmpty
+                            ? '${collection.linkCount} liên kết'
+                            : collection.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
+                      trailing: isPinned
+                          ? const Icon(Icons.push_pin,
+                              color: Colors.amber, size: 18)
+                          : null,
+                      onTap: () async {
+                        final added = await _controller
+                            .addCurrentPageToUserCollection(collection.id);
+                        if (!mounted) return;
+                        Navigator.pop(sheetContext);
+                        _showSnack(
+                          added
+                              ? '✅ Đã lưu vào nhóm "${collection.title}"'
+                              : 'Trang này đã có sẵn trong nhóm "${collection.title}"',
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<String?> _showCreateCollectionDialog({String? suggestedTitle}) async {
+    final titleCtrl = TextEditingController(text: suggestedTitle ?? '');
+    final descCtrl = TextEditingController();
+    final emojiCtrl = TextEditingController(text: '📁');
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF151B26),
+          title: const Text('Tạo nhóm mới'),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _dialogInputDecoration(
+                    label: 'Tên nhóm',
+                    hint: 'Ví dụ: Bài đọc hôm nay',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 2,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _dialogInputDecoration(
+                    label: 'Mô tả',
+                    hint: 'Ghi chú ngắn cho nhóm này',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emojiCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _dialogInputDecoration(
+                    label: 'Emoji',
+                    hint: '📁 hoặc 🪷 hoặc 🇬🇧',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Tên nhóm không được để trống')),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Tạo & lưu'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave != true) return null;
+
+    return _controller.createOrUpdateUserCollection(
+      title: titleCtrl.text,
+      description: descCtrl.text,
+      emoji: emojiCtrl.text,
+    );
+  }
+
+  InputDecoration _dialogInputDecoration({
+    required String label,
+    required String hint,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: TextStyle(color: Colors.grey[300]),
+      hintStyle: TextStyle(color: Colors.grey[600]),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.04),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF64B5F6)),
+      ),
+    );
+  }
+
   void _showSnack(String msg, {int duration = 3}) {
     final now = DateTime.now();
     if (_lastSnackbar != null && now.difference(_lastSnackbar!).inSeconds < 1) {
@@ -434,6 +678,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             controller: _controller,
             onNavigate: _navigate,
             onExtractText: _extractTextToStudio,
+            onSavePageToCollection: _saveCurrentPageToCollection,
             showingDashboard: _showDashboard,
           ),
           Expanded(

@@ -8,6 +8,7 @@ class WebReaderToolbar extends StatefulWidget {
   final WebReaderController controller;
   final Function(String url) onNavigate;
   final VoidCallback onExtractText;
+  final VoidCallback onSavePageToCollection;
   final bool showingDashboard;
 
   const WebReaderToolbar({
@@ -15,6 +16,7 @@ class WebReaderToolbar extends StatefulWidget {
     required this.controller,
     required this.onNavigate,
     required this.onExtractText,
+    required this.onSavePageToCollection,
     required this.showingDashboard,
   });
 
@@ -190,6 +192,14 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 activeThumbColor: const Color(0xFF2196F3),
               ),
               _ToolbarBtn(
+                icon: Icons.playlist_add,
+                size: 18,
+                enabled: pageActionsEnabled,
+                onTap: widget.onSavePageToCollection,
+                tooltip: 'Lưu trang hiện tại vào nhóm',
+                activeThumbColor: const Color(0xFF66BB6A),
+              ),
+              _ToolbarBtn(
                 icon: ctrl.isBookmarked(ctrl.currentUrl)
                     ? Icons.bookmark
                     : Icons.bookmark_border,
@@ -229,6 +239,7 @@ class _ColorModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = enabled && controller.colorMode != ColorMode.none;
+    final showLabel = isActive && MediaQuery.of(context).size.width >= 430;
     return GestureDetector(
       onTap: enabled
           ? () {
@@ -239,7 +250,10 @@ class _ColorModeButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: showLabel ? 8 : 7,
+          vertical: 6,
+        ),
         decoration: BoxDecoration(
           color: isActive
               ? const Color(0xFF2196F3).withValues(alpha: 0.2)
@@ -260,7 +274,7 @@ class _ColorModeButton extends StatelessWidget {
                   ? (isActive ? const Color(0xFF2196F3) : Colors.grey)
                   : Colors.grey[700],
             ),
-            if (isActive) ...[
+            if (showLabel) ...[
               const SizedBox(width: 3),
               Text(
                 controller.colorMode.label,

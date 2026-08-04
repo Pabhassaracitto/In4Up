@@ -19,6 +19,15 @@ class WebReaderHomeView extends StatefulWidget {
 }
 
 class _WebReaderHomeViewState extends State<WebReaderHomeView> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -26,10 +35,21 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       child: AnimatedBuilder(
         animation: widget.controller,
         builder: (context, _) {
-          final presets = widget.controller.presetCollections;
-          final userCollections = widget.controller.userCollections;
-          final history = widget.controller.history.take(12).toList();
-          final bookmarks = widget.controller.bookmarks.take(8).toList();
+          final pinnedCollections =
+              _filterCollections(widget.controller.pinnedCollections);
+          final presetCollections =
+              _filterCollections(widget.controller.presetCollections);
+          final userCollections =
+              _filterCollections(widget.controller.userCollections);
+          final history = _filterHistory(widget.controller.history).take(12).toList();
+          final bookmarks =
+              _filterHistory(widget.controller.bookmarks).take(8).toList();
+          final hasQuery = _normalizedQuery.isNotEmpty;
+          final hasAnyResults = pinnedCollections.isNotEmpty ||
+              presetCollections.isNotEmpty ||
+              userCollections.isNotEmpty ||
+              history.isNotEmpty ||
+              bookmarks.isNotEmpty;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
@@ -37,81 +57,167 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeroSection(context),
-                const SizedBox(height: 24),
-                _SectionHeader(
-                  icon: Icons.dashboard_customize_outlined,
-                  title: 'Bộ sưu tập có sẵn',
-                  subtitle: 'Preset của app, luôn giữ lại khi bạn thêm nhóm riêng.',
+                const SizedBox(height: 18),
+                _buildSearchBar(),
+                const SizedBox(height: 12),
+                _buildSearchMeta(
+                  pinnedCount: pinnedCollections.length,
+                  presetCount: presetCollections.length,
+                  userCount: userCollections.length,
+                  bookmarkCount: bookmarks.length,
+                  historyCount: history.length,
+                  hasQuery: hasQuery,
                 ),
-                const SizedBox(height: 14),
-                _buildCollectionGrid(presets, allowManage: false),
-                const SizedBox(height: 28),
-                _SectionHeader(
-                  icon: Icons.folder_copy_outlined,
-                  title: 'Nhóm của tôi',
-                  subtitle: 'Tự tạo nhóm link để gom nguồn học cá nhân.',
-                  action: TextButton.icon(
-                    onPressed: () => _showCollectionEditor(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Tạo nhóm'),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (userCollections.isEmpty)
+                if (hasQuery && !hasAnyResults) ...[
+                  const SizedBox(height: 18),
                   _buildEmptyState(
-                    icon: Icons.folder_open,
-                    title: 'Chưa có nhóm riêng',
+                    icon: Icons.search_off_rounded,
+                    title: 'Không thấy kết quả phù hợp',
                     description:
-                        'Hãy tạo nhóm đầu tiên như “IELTS Reading”, “Pháp thoại buổi sáng”, hoặc “Nguồn nghiên cứu”.',
-                    action: FilledButton.icon(
-                      onPressed: () => _showCollectionEditor(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Tạo nhóm đầu tiên'),
+                        'Thử từ khoá ngắn hơn, tên miền, hoặc tên bộ sưu tập / link.',
+                  ),
+                ] else ...[
+                  if (pinnedCollections.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      icon: Icons.push_pin_outlined,
+                      title: 'Đã ghim',
+                      subtitle:
+                          'Các bộ sưu tập quan trọng được kéo lên đầu để mở nhanh.',
                     ),
-                  )
-                else
-                  _buildCollectionGrid(userCollections, allowManage: true),
-                const SizedBox(height: 28),
-                _SectionHeader(
-                  icon: Icons.bookmark_rounded,
-                  title: 'Đã lưu nhanh',
-                  subtitle: 'Bookmark từ khi bạn đang đọc trong Web Reader.',
-                ),
-                const SizedBox(height: 14),
-                _buildHistoryBlock(
-                  items: bookmarks,
-                  emptyIcon: Icons.bookmark_border,
-                  emptyTitle: 'Chưa có bookmark',
-                  emptyDescription:
-                      'Khi đang mở một trang, bấm biểu tượng bookmark trên toolbar để lưu lại.',
-                ),
-                const SizedBox(height: 28),
-                _SectionHeader(
-                  icon: Icons.history_rounded,
-                  title: 'Lịch sử duyệt gần đây',
-                  subtitle: 'Giữ mạch học cũ để quay lại đúng bài đang đọc.',
-                  action: history.isEmpty
-                      ? null
-                      : TextButton.icon(
-                          onPressed: _confirmClearHistory,
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          label: const Text('Xoá lịch sử'),
-                        ),
-                ),
-                const SizedBox(height: 14),
-                _buildHistoryBlock(
-                  items: history,
-                  emptyIcon: Icons.history_toggle_off,
-                  emptyTitle: 'Chưa có lịch sử đọc',
-                  emptyDescription:
-                      'Sau khi bạn mở một trang web, lịch sử sẽ hiện ở đây để quay lại nhanh.',
-                ),
+                    const SizedBox(height: 14),
+                    _buildCollectionGrid(pinnedCollections, allowManage: true),
+                  ],
+                  const SizedBox(height: 28),
+                  _SectionHeader(
+                    icon: Icons.dashboard_customize_outlined,
+                    title: hasQuery
+                        ? 'Bộ sưu tập có sẵn · ${presetCollections.length}'
+                        : 'Bộ sưu tập có sẵn',
+                    subtitle:
+                        'Preset của app, luôn giữ lại khi bạn thêm nhóm riêng.',
+                  ),
+                  const SizedBox(height: 14),
+                  if (presetCollections.isEmpty && hasQuery)
+                    _buildCompactEmpty('Không có preset nào khớp với từ khoá này.')
+                  else
+                    _buildCollectionGrid(presetCollections, allowManage: false),
+                  const SizedBox(height: 28),
+                  _SectionHeader(
+                    icon: Icons.folder_copy_outlined,
+                    title: hasQuery
+                        ? 'Nhóm của tôi · ${userCollections.length}'
+                        : 'Nhóm của tôi',
+                    subtitle: 'Tự tạo nhóm link để gom nguồn học cá nhân.',
+                    action: TextButton.icon(
+                      onPressed: () => _showCollectionEditor(),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Tạo nhóm'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (widget.controller.userCollections.isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.folder_open,
+                      title: 'Chưa có nhóm riêng',
+                      description:
+                          'Hãy tạo nhóm đầu tiên như “IELTS Reading”, “Pháp thoại buổi sáng”, hoặc “Nguồn nghiên cứu”.',
+                      action: FilledButton.icon(
+                        onPressed: () => _showCollectionEditor(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Tạo nhóm đầu tiên'),
+                      ),
+                    )
+                  else if (userCollections.isEmpty && hasQuery)
+                    _buildCompactEmpty('Không có nhóm riêng nào khớp với từ khoá này.')
+                  else
+                    _buildCollectionGrid(userCollections, allowManage: true),
+                  const SizedBox(height: 28),
+                  _SectionHeader(
+                    icon: Icons.bookmark_rounded,
+                    title: hasQuery
+                        ? 'Đã lưu nhanh · ${bookmarks.length}'
+                        : 'Đã lưu nhanh',
+                    subtitle:
+                        'Bookmark từ khi bạn đang đọc trong Web Reader.',
+                  ),
+                  const SizedBox(height: 14),
+                  _buildHistoryBlock(
+                    items: bookmarks,
+                    emptyIcon: Icons.bookmark_border,
+                    emptyTitle: hasQuery
+                        ? 'Không có bookmark khớp tìm kiếm'
+                        : 'Chưa có bookmark',
+                    emptyDescription: hasQuery
+                        ? 'Thử tên trang, tên miền, hoặc xoá bộ lọc tìm kiếm.'
+                        : 'Khi đang mở một trang, bấm biểu tượng bookmark trên toolbar để lưu lại.',
+                  ),
+                  const SizedBox(height: 28),
+                  _SectionHeader(
+                    icon: Icons.history_rounded,
+                    title: hasQuery
+                        ? 'Lịch sử duyệt gần đây · ${history.length}'
+                        : 'Lịch sử duyệt gần đây',
+                    subtitle: 'Giữ mạch học cũ để quay lại đúng bài đang đọc.',
+                    action: history.isEmpty || hasQuery
+                        ? null
+                        : TextButton.icon(
+                            onPressed: _confirmClearHistory,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: const Text('Xoá lịch sử'),
+                          ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildHistoryBlock(
+                    items: history,
+                    emptyIcon: Icons.history_toggle_off,
+                    emptyTitle: hasQuery
+                        ? 'Không có lịch sử nào khớp tìm kiếm'
+                        : 'Chưa có lịch sử đọc',
+                    emptyDescription: hasQuery
+                        ? 'Thử tên miền, tiêu đề trang, hoặc xoá từ khoá tìm kiếm.'
+                        : 'Sau khi bạn mở một trang web, lịch sử sẽ hiện ở đây để quay lại nhanh.',
+                  ),
+                ],
               ],
             ),
           );
         },
       ),
     );
+  }
+
+  String get _normalizedQuery => _searchQuery.trim().toLowerCase();
+
+  List<WebCollection> _filterCollections(List<WebCollection> collections) {
+    if (_normalizedQuery.isEmpty) return collections;
+    return collections.where(_matchesCollection).toList();
+  }
+
+  List<WebHistoryEntry> _filterHistory(List<WebHistoryEntry> items) {
+    if (_normalizedQuery.isEmpty) return items;
+    return items.where(_matchesHistory).toList();
+  }
+
+  bool _matchesCollection(WebCollection collection) {
+    final q = _normalizedQuery;
+    final haystacks = <String>[
+      collection.title,
+      collection.description,
+      collection.emoji,
+      ...collection.links.map((e) => e.title),
+      ...collection.links.map((e) => e.note),
+      ...collection.links.map((e) => e.url),
+      ...collection.links.map((e) => e.domain),
+    ].map((e) => e.toLowerCase());
+    return haystacks.any((text) => text.contains(q));
+  }
+
+  bool _matchesHistory(WebHistoryEntry entry) {
+    final q = _normalizedQuery;
+    return entry.title.toLowerCase().contains(q) ||
+        entry.url.toLowerCase().contains(q) ||
+        _domain(entry.url).toLowerCase().contains(q);
   }
 
   Widget _buildHeroSection(BuildContext context) {
@@ -137,7 +243,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               borderRadius: BorderRadius.circular(999),
             ),
             child: const Text(
-              'WEB READER · PHASE 1',
+              'WEB READER · PHASE 2',
               style: TextStyle(
                 color: Color(0xFF64B5F6),
                 fontSize: 11,
@@ -148,7 +254,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           ),
           const SizedBox(height: 14),
           const Text(
-            'Đọc theo bộ sưu tập, không còn mở web rời rạc',
+            'Đọc theo bộ sưu tập, ghim nhanh, tìm lại đúng nguồn',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -158,7 +264,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Phase 1 dựng nền: preset của app, nhóm do bạn tự tạo, bookmark và lịch sử quay lại. Các preset cũ vẫn được giữ, đồng thời bạn có thể bổ sung nguồn riêng mà không bị ghi đè.',
+            'Phase 2 thêm lớp thao tác thực dụng: tìm kiếm xuyên bộ sưu tập, ghim nhóm quan trọng, và chuẩn bị cho flow lưu trang đang đọc vào nhóm riêng chỉ với ít thao tác hơn.',
             style: TextStyle(
               color: Colors.grey[300],
               fontSize: 13,
@@ -193,6 +299,74 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return TextField(
+      controller: _searchCtrl,
+      onChanged: (value) => setState(() => _searchQuery = value),
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: 'Tìm bộ sưu tập, link, bookmark, lịch sử, tên miền...',
+        hintStyle: TextStyle(color: Colors.grey[500]),
+        prefixIcon: const Icon(Icons.search, color: Colors.white70),
+        suffixIcon: _searchQuery.trim().isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Xoá tìm kiếm',
+                onPressed: () {
+                  _searchCtrl.clear();
+                  setState(() => _searchQuery = '');
+                },
+                icon: const Icon(Icons.close, color: Colors.white70),
+              ),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.04),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF64B5F6)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchMeta({
+    required int pinnedCount,
+    required int presetCount,
+    required int userCount,
+    required int bookmarkCount,
+    required int historyCount,
+    required bool hasQuery,
+  }) {
+    final queryLabel = _searchQuery.trim().length > 24
+        ? '${_searchQuery.trim().substring(0, 24)}…'
+        : _searchQuery.trim();
+    final chips = <Widget>[
+      _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount ghim'),
+      _InfoChip(
+          icon: Icons.dashboard_customize_outlined,
+          label: '$presetCount preset'),
+      _InfoChip(icon: Icons.folder_copy_outlined, label: '$userCount nhóm riêng'),
+      _InfoChip(icon: Icons.bookmark_outline, label: '$bookmarkCount bookmark'),
+      _InfoChip(icon: Icons.history_rounded, label: '$historyCount lịch sử'),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (hasQuery)
+          _InfoChip(
+            icon: Icons.tune,
+            label: 'Đang lọc: “$queryLabel”',
+          ),
+        ...chips,
+      ],
+    );
+  }
+
   Widget _buildCollectionGrid(
     List<WebCollection> collections, {
     required bool allowManage,
@@ -216,24 +390,31 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           runSpacing: spacing,
           children: collections
               .map(
-                (collection) => SizedBox(
-                  width: itemWidth,
-                  child: _CollectionCard(
-                    collection: collection,
-                    allowManage: allowManage,
-                    onOpen: () => _showCollectionSheet(collection),
-                    onNavigate: widget.onNavigate,
-                    onEdit: allowManage
-                        ? () => _showCollectionEditor(existing: collection)
-                        : null,
-                    onDelete: allowManage
-                        ? () => _confirmDeleteCollection(collection)
-                        : null,
-                    onAddLink: allowManage
-                        ? () => _showLinkEditor(collectionId: collection.id)
-                        : null,
-                  ),
-                ),
+                (collection) {
+                  final canManage = allowManage && !collection.isPreset;
+                  return SizedBox(
+                    width: itemWidth,
+                    child: _CollectionCard(
+                      collection: collection,
+                      allowManage: canManage,
+                      isPinned:
+                          widget.controller.isCollectionPinned(collection.id),
+                      onTogglePin: () => widget.controller
+                          .toggleCollectionPin(collection.id),
+                      onOpen: () => _showCollectionSheet(collection),
+                      onNavigate: widget.onNavigate,
+                      onEdit: canManage
+                          ? () => _showCollectionEditor(existing: collection)
+                          : null,
+                      onDelete: canManage
+                          ? () => _confirmDeleteCollection(collection)
+                          : null,
+                      onAddLink: canManage
+                          ? () => _showLinkEditor(collectionId: collection.id)
+                          : null,
+                    ),
+                  );
+                },
               )
               .toList(),
         );
@@ -324,6 +505,22 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
             action,
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactEmpty(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(color: Colors.grey[400], height: 1.45),
       ),
     );
   }
@@ -501,12 +698,17 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     );
 
     if (shouldSave == true) {
-      await widget.controller.addLinkToUserCollection(
+      final added = await widget.controller.addLinkToUserCollection(
         collectionId: selectedId,
         title: titleCtrl.text,
         url: urlCtrl.text,
         note: noteCtrl.text,
       );
+      if (mounted && !added) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link này đã có trong nhóm rồi')),
+        );
+      }
     }
   }
 
@@ -577,12 +779,17 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     );
 
     if (shouldSave == true) {
-      await widget.controller.addLinkToUserCollection(
+      final added = await widget.controller.addLinkToUserCollection(
         collectionId: collectionId,
         title: titleCtrl.text,
         url: urlCtrl.text,
         note: noteCtrl.text,
       );
+      if (mounted && !added) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link này đã có trong nhóm rồi')),
+        );
+      }
     }
   }
 
@@ -601,6 +808,11 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     (c) => c.id == collection.id,
                     orElse: () => collection,
                   );
+            final isPinned =
+                widget.controller.isCollectionPinned(currentCollection.id);
+            final canSaveCurrentPage = !currentCollection.isPreset &&
+                widget.controller.currentUrl.isNotEmpty &&
+                widget.controller.state == WebReaderState.ready;
 
             return FractionallySizedBox(
               heightFactor: 0.85,
@@ -640,8 +852,21 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             ],
                           ),
                         ),
+                        IconButton(
+                          tooltip: isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                          onPressed: () async {
+                            await widget.controller
+                                .toggleCollectionPin(currentCollection.id);
+                            if (mounted) setModalState(() {});
+                          },
+                          icon: Icon(
+                            isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                            color: isPinned ? Colors.amber : Colors.white70,
+                          ),
+                        ),
                         if (!currentCollection.isPreset)
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 tooltip: 'Thêm link',
@@ -690,18 +915,45 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             ),
                           ),
                           const Spacer(),
-                          if (!currentCollection.isPreset)
-                            Text(
-                              'Link do bạn thêm sẽ được lưu lại',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 12,
-                              ),
+                          Text(
+                            currentCollection.isPreset
+                                ? 'Preset của app'
+                                : 'Link do bạn thêm sẽ được lưu lại',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
                             ),
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    if (canSaveCurrentPage) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final added = await widget.controller
+                                .addCurrentPageToUserCollection(
+                                    currentCollection.id);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  added
+                                      ? 'Đã lưu trang hiện tại vào nhóm "${currentCollection.title}"'
+                                      : 'Trang này đã có sẵn trong nhóm "${currentCollection.title}"',
+                                ),
+                              ),
+                            );
+                            setModalState(() {});
+                          },
+                          icon: const Icon(Icons.playlist_add),
+                          label: const Text('Lưu trang hiện tại vào nhóm này'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
                     Expanded(
                       child: currentCollection.links.isEmpty
                           ? _buildEmptyState(
@@ -912,6 +1164,14 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       ),
     );
   }
+
+  String _domain(String url) {
+    try {
+      return Uri.parse(url).host.replaceFirst('www.', '');
+    } catch (_) {
+      return url;
+    }
+  }
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -975,6 +1235,8 @@ class _SectionHeader extends StatelessWidget {
 class _CollectionCard extends StatelessWidget {
   final WebCollection collection;
   final bool allowManage;
+  final bool isPinned;
+  final VoidCallback onTogglePin;
   final VoidCallback onOpen;
   final ValueChanged<String> onNavigate;
   final VoidCallback? onEdit;
@@ -984,6 +1246,8 @@ class _CollectionCard extends StatelessWidget {
   const _CollectionCard({
     required this.collection,
     required this.allowManage,
+    required this.isPinned,
+    required this.onTogglePin,
     required this.onOpen,
     required this.onNavigate,
     this.onEdit,
@@ -1045,6 +1309,15 @@ class _CollectionCard extends StatelessWidget {
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                visualDensity: VisualDensity.compact,
+                onPressed: onTogglePin,
+                icon: Icon(
+                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: isPinned ? Colors.amber : Colors.white70,
+                ),
+              ),
               if (allowManage)
                 PopupMenuButton<String>(
                   color: const Color(0xFF151B26),
@@ -1083,6 +1356,11 @@ class _CollectionCard extends StatelessWidget {
                 icon: collection.isPreset ? Icons.lock_outline : Icons.edit,
                 label: collection.isPreset ? 'Preset' : 'Tuỳ biến',
               ),
+              if (isPinned)
+                const _InfoChip(
+                  icon: Icons.push_pin,
+                  label: 'Đã ghim',
+                ),
             ],
           ),
           const SizedBox(height: 14),

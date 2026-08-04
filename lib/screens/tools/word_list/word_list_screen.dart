@@ -565,6 +565,9 @@ class _WordListScreenState extends State<WordListScreen> {
               onTap: () {
                 p.setFilterLanguage(lang);
               },
+              onDelete: p.isCustomLanguage(lang)
+                  ? () => p.removeCustomLanguage(lang)
+                  : null,
             ),
           ),
         _AddChip(onTap: () => _promptAddLanguage(p)),
@@ -594,6 +597,9 @@ class _WordListScreenState extends State<WordListScreen> {
               onTap: () {
                 p.setFilterTopic(topic);
               },
+              onDelete: p.isCustomTopic(topic)
+                  ? () => p.removeCustomTopic(topic)
+                  : null,
             ),
           ),
         _AddChip(onTap: () => _promptAddTopic(p)),
@@ -647,15 +653,15 @@ class _WordListScreenState extends State<WordListScreen> {
             child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final val = textC.text.trim();
               if (val.isNotEmpty) {
-                p.setFilterLanguage(val);
+                await p.addCustomLanguage(val);
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
-            child: const Text('Lọc'),
+            child: const Text('Tạo & lọc'),
           ),
         ],
       ),
@@ -686,15 +692,15 @@ class _WordListScreenState extends State<WordListScreen> {
             child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final val = textC.text.trim();
               if (val.isNotEmpty) {
-                p.setFilterTopic(val);
+                await p.addCustomTopic(val);
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
-            child: const Text('Lọc'),
+            child: const Text('Tạo & lọc'),
           ),
         ],
       ),
@@ -844,6 +850,9 @@ class _WordListScreenState extends State<WordListScreen> {
           Text('${_selectedIds.length} đã chọn',
               style: const TextStyle(
                   color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
+          const Sp          color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 13)),
           const Spacer(),
@@ -3125,12 +3134,14 @@ class _FilterSegmentChip extends StatelessWidget {
   final Color? color;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _FilterSegmentChip({
     required this.label,
     this.color,
     required this.isSelected,
     required this.onTap,
+    this.onDelete,
   });
 
   @override
@@ -3149,13 +3160,25 @@ class _FilterSegmentChip extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? chipColor : Colors.grey[400],
-            fontSize: 10.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? chipColor : Colors.grey[400],
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onDelete,
+                child: Icon(Icons.close, size: 12, color: Colors.grey[500]),
+              ),
+            ],
+          ],
         ),
       ),
     );

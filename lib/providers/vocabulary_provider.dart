@@ -13,6 +13,9 @@ import '../services/vocab_sync_service.dart';
 
 class VocabularyProvider extends ChangeNotifier {
   static const String _boxName = 'vocabulary_v2';
+  static const String _metaBoxName = 'vocabulary_meta';
+  static const String _customLanguagesKey = 'custom_languages';
+  static const String _customTopicsKey = 'custom_topics';
 
   final List<WordEntry> _words = [];
   MasteryZone? _filterZone;
@@ -24,6 +27,9 @@ class VocabularyProvider extends ChangeNotifier {
   String? _filterLanguage;
   String? _filterTopic;
   String? _filterLearningStatus;
+
+  final Set<String> _customLanguages = {};
+  final Set<String> _customTopics = {};
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
@@ -46,14 +52,26 @@ class VocabularyProvider extends ChangeNotifier {
   DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;
 
   Set<String> get allLanguages {
-    final Set<String> langs = _words.map((w) => w.language).where((l) => l.isNotEmpty).toSet();
+    final Set<String> langs = _words
+        .map((w) => w.language)
+        .where((l) => l.isNotEmpty)
+        .toSet()
+      ..addAll(_customLanguages);
     if (langs.isEmpty) return {'en'};
     return langs;
   }
 
   Set<String> get allTopics {
-    return _words.map((w) => w.topic).whereType<String>().where((t) => t.isNotEmpty).toSet();
+    return _words
+        .map((w) => w.topic)
+        .whereType<String>()
+        .where((t) => t.isNotEmpty)
+        .toSet()
+      ..addAll(_customTopics);
   }
+
+  bool isCustomLanguage(String lang) => _customLanguages.contains(lang);
+  bool isCustomTopic(String topic) => _customTopics.contains(topic);
 
   ValueNotifier<SyncStatus> get syncStatusNotifier => _sync.status;
   ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
@@ -266,9 +284,11 @@ class VocabularyProvider extends ChangeNotifier {
 
   static Future<void> ensureBoxOpen() async {
     if (!Hive.isBoxOpen(_boxName)) await Hive.openBox<String>(_boxName);
+    if (!Hive.isBoxOpen(_metaBoxName)) await Hive.openBox<String>(_metaBoxName);
   }
 
   Box<String> get _box => Hive.box<String>(_boxName);
+  Box<String> get _metaBox => Hive.box<String>(_metaBoxName);
 
   Future<void> enableSync(String uid) async {
     if (_isEnablingSync) return;
@@ -337,6 +357,12 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       await ensureBoxOpen();
       _words.clear();
+      _customLanguages
+        ..clear()
+        ..addAll(_readMetaSet(_customLanguagesKey));
+      _customTopics
+        ..clear()
+        ..addAll(_readMetaSet(_customTopicsKey));
       _words.addAll(_box.values.map((json) {
         try {
           return WordEntry.fromJson(jsonDecode(json) as Map<String, dynamic>);
@@ -349,6 +375,21 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('VocabularyProvider._reloadFromHive error: $e');
     }
+  }
+
+  Set<String> _readMetaSet(String key) {
+    try {
+      final raw = _metaBox.get(key);
+      if (raw == null || raw.isEmpty) return <String>{};
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty).toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> _saveMetaSet(String key, Set<String> values) async {
+    await _metaBox.put(key, jsonEncode(values.toList()..sort()));
   }
 
   // ═══════════════════════════════════════════════════════
@@ -403,6 +444,38 @@ class VocabularyProvider extends ChangeNotifier {
 
   void setFilterLearningStatus(String? status) {
     _filterLearningStatus = _filterLearningStatus == status ? null : status;
+    notifyListeners();
+  }
+
+  Future<void> addCustomLanguage(String lang, {bool select = true}) async {
+    final normalized = lang.trim();
+    if (normalized.isEmpty) return;
+    _customLanguages.add(normalized);
+    if (select) _filterLanguage = normalized;
+    await _saveMetaSet(_customLanguagesKey, _customLanguages);
+    notifyListeners();
+  }
+
+  Future<void> removeCustomLanguage(String lang) async {
+    _customLanguages.remove(lang);
+    if (_filterLanguage == lang) _filterLanguage = null;
+    await _saveMetaSet(_customLanguagesKey, _customLanguages);
+    notifyListeners();
+  }
+
+  Future<void> addCustomTopic(String topic, {bool select = true}) async {
+    final normalized = topic.trim();
+    if (normalized.isEmpty) return;
+    _customTopics.add(normalized);
+    if (select) _filterTopic = normalized;
+    await _saveMetaSet(_customTopicsKey, _customTopics);
+    notifyListeners();
+  }
+
+  Future<void> removeCustomTopic(String topic) async {
+    _customTopics.remove(topic);
+    if (_filterTopic == topic) _filterTopic = null;
+    await _saveMetaSet(_customTopicsKey, _customTopics);
     notifyListeners();
   }
 

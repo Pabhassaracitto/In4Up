@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class LocalTextDraft {
   final String title;
@@ -60,6 +61,26 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
     _contentCtrl.dispose();
     _categoryCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData('text/plain');
+    final text = data?.text?.trim();
+    if (text == null || text.isEmpty || !mounted) return;
+
+    setState(() {
+      _contentCtrl.text = text;
+      if (_titleCtrl.text.trim().isEmpty) {
+        final firstLine = text
+            .split('\n')
+            .map((e) => e.trim())
+            .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
+        final clipped = firstLine.length > 48
+            ? '${firstLine.substring(0, 48).trim()}...'
+            : firstLine;
+        _titleCtrl.text = clipped;
+      }
+    });
   }
 
   void _submit() {
@@ -163,7 +184,16 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const _FieldLabel(label: 'Nội dung *'),
+                      Row(
+                        children: [
+                          const Expanded(child: _FieldLabel(label: 'Nội dung *')),
+                          TextButton.icon(
+                            onPressed: _pasteFromClipboard,
+                            icon: const Icon(Icons.content_paste_go_outlined, size: 16),
+                            label: const Text('Dán clipboard'),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _contentCtrl,

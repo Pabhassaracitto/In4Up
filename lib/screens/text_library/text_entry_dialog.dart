@@ -12,6 +12,7 @@ class TextEntryDialog extends StatefulWidget {
   final String? initialTitle;
   final String? initialContent;
   final String? initialCategory;
+  final bool preferInitialValues;
 
   const TextEntryDialog({
     super.key,
@@ -19,6 +20,7 @@ class TextEntryDialog extends StatefulWidget {
     this.initialTitle,
     this.initialContent,
     this.initialCategory,
+    this.preferInitialValues = false,
   });
 
   @override
@@ -37,15 +39,39 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController(
-      text: widget.entry?.title ?? widget.initialTitle ?? '',
-    );
-    _contentCtrl = TextEditingController(
-      text: widget.entry?.content ?? widget.initialContent ?? '',
-    );
-    _categoryCtrl = TextEditingController(
-      text: widget.entry?.category ?? widget.initialCategory ?? '',
-    );
+    final seedTitle = widget.preferInitialValues
+        ? (widget.initialTitle ?? widget.entry?.title ?? '')
+        : (widget.entry?.title ?? widget.initialTitle ?? '');
+    final seedContent = widget.preferInitialValues
+        ? (widget.initialContent ?? widget.entry?.content ?? '')
+        : (widget.entry?.content ?? widget.initialContent ?? '');
+    final seedCategory = widget.preferInitialValues
+        ? (widget.initialCategory ?? widget.entry?.category ?? '')
+        : (widget.entry?.category ?? widget.initialCategory ?? '');
+
+    _titleCtrl = TextEditingController(text: seedTitle);
+    _contentCtrl = TextEditingController(text: seedContent);
+    _categoryCtrl = TextEditingController(text: seedCategory);
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData('text/plain');
+    final text = data?.text?.trim();
+    if (text == null || text.isEmpty || !mounted) return;
+
+    setState(() {
+      _contentCtrl.text = text;
+      if (_titleCtrl.text.trim().isEmpty) {
+        final firstLine = text
+            .split('\n')
+            .map((e) => e.trim())
+            .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
+        final clipped = firstLine.length > 48
+            ? '${firstLine.substring(0, 48).trim()}...'
+            : firstLine;
+        _titleCtrl.text = clipped;
+      }
+    });
   }
 
   @override
@@ -150,7 +176,16 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                     const SizedBox(height: 16),
 
                     // Nội dung
-                    const _FieldLabel(label: 'Nội dung *'),
+                    Row(
+                      children: [
+                        const Expanded(child: _FieldLabel(label: 'Nội dung *')),
+                        TextButton.icon(
+                          onPressed: _pasteFromClipboard,
+                          icon: const Icon(Icons.content_paste_go_outlined, size: 16),
+                          label: const Text('Dán clipboard'),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _contentCtrl,

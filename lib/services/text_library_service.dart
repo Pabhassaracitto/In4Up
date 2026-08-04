@@ -124,6 +124,20 @@ class TextLibraryService {
     });
   }
 
+  // ── Lấy toàn bộ một lần ──────────────────────────────────
+  Future<List<TextLibraryEntry>> fetchAll() async {
+    final col = _collection;
+    if (col == null) return const [];
+
+    try {
+      final snap = await col.orderBy('updatedAt', descending: true).get();
+      return snap.docs.map(TextLibraryEntry.fromFirestore).toList();
+    } catch (e) {
+      debugPrint('TextLibraryService.fetchAll error: $e');
+      return const [];
+    }
+  }
+
   // ── Thêm mới ─────────────────────────────────────────────
   Future<TextLibraryEntry?> add({
     required String title,

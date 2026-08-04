@@ -19,7 +19,6 @@ import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
 import 'knowledge_graph_screen.dart';
-import 'loop_count_picker.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
@@ -35,6 +34,8 @@ class WordListScreen extends StatefulWidget {
 }
 
 class _WordListScreenState extends State<WordListScreen> {
+  static const double _kWordListSpeakSpeed = 0.82;
+
   // ── Services ──
   final _tts = TtsService();
 
@@ -420,7 +421,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterType == null,
                       onTap: () {
                         p.setFilterType(null);
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -432,7 +432,6 @@ class _WordListScreenState extends State<WordListScreen> {
                             isSelected: p.filterType == type,
                             onTap: () {
                               p.setFilterType(type);
-                              setState(() => _filterExpanded = false);
                             },
                           ),
                         )),
@@ -449,7 +448,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == null,
                       onTap: () {
                         p.setFilterLearningStatus(null);
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -459,7 +457,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'due',
                       onTap: () {
                         p.setFilterLearningStatus('due');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -469,7 +466,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'learning',
                       onTap: () {
                         p.setFilterLearningStatus('learning');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -479,7 +475,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'mastered',
                       onTap: () {
                         p.setFilterLearningStatus('mastered');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -489,7 +484,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'blindSpot',
                       onTap: () {
                         p.setFilterLearningStatus('blindSpot');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                   ]),
@@ -547,7 +541,6 @@ class _WordListScreenState extends State<WordListScreen> {
           isSelected: p.filterLanguage == null,
           onTap: () {
             p.setFilterLanguage(null);
-            setState(() => _filterExpanded = false);
           },
         ),
         const SizedBox(width: 6),
@@ -560,7 +553,6 @@ class _WordListScreenState extends State<WordListScreen> {
                 isSelected: p.filterLanguage == lang,
                 onTap: () {
                   p.setFilterLanguage(lang);
-                  setState(() => _filterExpanded = false);
                 },
               ),
             ),
@@ -572,7 +564,6 @@ class _WordListScreenState extends State<WordListScreen> {
               isSelected: p.filterLanguage == lang,
               onTap: () {
                 p.setFilterLanguage(lang);
-                setState(() => _filterExpanded = false);
               },
             ),
           ),
@@ -591,7 +582,6 @@ class _WordListScreenState extends State<WordListScreen> {
           isSelected: p.filterTopic == null,
           onTap: () {
             p.setFilterTopic(null);
-            setState(() => _filterExpanded = false);
           },
         ),
         const SizedBox(width: 6),
@@ -603,7 +593,6 @@ class _WordListScreenState extends State<WordListScreen> {
               isSelected: p.filterTopic == topic,
               onTap: () {
                 p.setFilterTopic(topic);
-                setState(() => _filterExpanded = false);
               },
             ),
           ),
@@ -741,21 +730,11 @@ class _WordListScreenState extends State<WordListScreen> {
           _ListRepeatButton(
             count: _listRepeatCount,
             current: _listRepeatCurrent,
-            onTap: () => showModalBottomSheet(
-              context: context,
-              backgroundColor: const Color(0xFF0D1520),
-              isScrollControlled: true,
-              shape: const RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(20))),
-              builder: (_) => LoopCountPickerSheet(
-                current: _listRepeatCount,
-                allowInfinite: true,
-                onChanged: (v) {
-                  setState(() => _listRepeatCount = v);
-                  Navigator.pop(context);
-                },
-              ),
+            onTap: () => _showRepeatCountMenu(
+              context,
+              current: _listRepeatCount,
+              allowInfinite: true,
+              onChanged: (v) => setState(() => _listRepeatCount = v),
             ),
           ),
           const SizedBox(width: 8),
@@ -805,7 +784,6 @@ class _WordListScreenState extends State<WordListScreen> {
                 isAlreadySown:
                     sownWords.contains(entry.word.trim().toLowerCase()),
                 provider: p,
-                tts: _tts,
                 repeatCount: _getRepeatCount(entry.id),
                 playingRepeat: isPlaying ? _playingRepeatCurrent : 0,
                 onTap: _isSelecting
@@ -826,6 +804,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 onRepeatChanged: (v) =>
                     setState(() => _repeatOverrides[entry.id] = v),
                 onEdit: () => _showEditSheet(entry, p),
+                onSpeak: () => _speakWord(entry.word),
               );
             },
           ),
@@ -995,6 +974,16 @@ class _WordListScreenState extends State<WordListScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _speakWord(String text) async {
+    final previousSpeed = _tts.speed;
+    _tts.configure(speed: _kWordListSpeakSpeed);
+    try {
+      await _tts.speak(text);
+    } finally {
+      _tts.configure(speed: previousSpeed);
+    }
   }
 
   void _showAddMenu(VocabularyProvider provider) {
@@ -1207,48 +1196,55 @@ class _WordListScreenState extends State<WordListScreen> {
     if (items.isEmpty) return;
     HapticFeedback.mediumImpact();
     _stopRequested = false;
+    final previousSpeed = _tts.speed;
+    _tts.configure(speed: _kWordListSpeakSpeed);
     setState(() {
       _isPlaying = true;
       _listRepeatCurrent = 0;
     });
 
-    int listPass = 0;
-    while (!_stopRequested && mounted) {
-      listPass++;
-      setState(() => _listRepeatCurrent = listPass);
+    try {
+      int listPass = 0;
+      while (!_stopRequested && mounted) {
+        listPass++;
+        setState(() => _listRepeatCurrent = listPass);
 
-      for (int i = 0; i < items.length; i++) {
-        if (_stopRequested || !mounted) break;
-        setState(() => _playingIndex = i);
-        final entry = items[i];
-        final repeat = _getRepeatCount(entry.id);
-        for (int r = 0; r < repeat; r++) {
+        for (int i = 0; i < items.length; i++) {
           if (_stopRequested || !mounted) break;
-          setState(() => _playingRepeatCurrent = r + 1);
-          await _tts.speak(entry.word);
-          if (r < repeat - 1 && !_stopRequested && mounted) {
-            await Future.delayed(const Duration(milliseconds: 700));
+          setState(() => _playingIndex = i);
+          final entry = items[i];
+          final repeat = _getRepeatCount(entry.id);
+          for (int r = 0; r < repeat; r++) {
+            if (_stopRequested || !mounted) break;
+            setState(() => _playingRepeatCurrent = r + 1);
+            await _tts.speak(entry.word);
+            if (r < repeat - 1 && !_stopRequested && mounted) {
+              await Future.delayed(const Duration(milliseconds: 700));
+            }
+          }
+          if (!_stopRequested && mounted && i < items.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 500));
           }
         }
-        if (!_stopRequested && mounted && i < items.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 500));
+
+        if (_stopRequested || !mounted) break;
+        if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
+        if (!_stopRequested && mounted) {
+          await Future.delayed(const Duration(milliseconds: 1200));
         }
       }
-
-      if (_stopRequested || !mounted) break;
-      if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-      if (!_stopRequested && mounted)
-        await Future.delayed(const Duration(milliseconds: 1200));
+    } finally {
+      _tts.configure(speed: previousSpeed);
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _playingIndex = -1;
+          _playingRepeatCurrent = 0;
+          _listRepeatCurrent = 0;
+          _stopRequested = false;
+        });
+      }
     }
-
-    if (mounted)
-      setState(() {
-        _isPlaying = false;
-        _playingIndex = -1;
-        _playingRepeatCurrent = 0;
-        _listRepeatCurrent = 0;
-        _stopRequested = false;
-      });
   }
 
   void _stopPlayback() {
@@ -1578,6 +1574,7 @@ class _WordListScreenState extends State<WordListScreen> {
   void _showEditSheet(WordEntry entry, VocabularyProvider p) {
     final wordC = TextEditingController(text: entry.word);
     final meanC = TextEditingController(text: entry.meaning);
+    final ipaC = TextEditingController(text: entry.phonetic ?? '');
     final noteC = TextEditingController(text: entry.personalNotes ?? '');
     final topicC = TextEditingController(text: entry.topic ?? '');
     String selectedLang = entry.language;
@@ -1621,6 +1618,8 @@ class _WordListScreenState extends State<WordListScreen> {
                     _editField(wordC, 'Từ / Cụm từ / Câu / Đoạn', Icons.text_fields),
                     const SizedBox(height: 10),
                     _editField(meanC, 'Nghĩa', Icons.translate),
+                    const SizedBox(height: 10),
+                    _editField(ipaC, 'Phiên âm / IPA', Icons.record_voice_over_outlined),
                     const SizedBox(height: 10),
                     _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
@@ -1689,6 +1688,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               entry.id,
                               word: wordC.text.trim(),
                               meaning: meanC.text.trim(),
+                              phonetic: ipaC.text.trim(),
                               language: selectedLang,
                               topic: topicC.text.trim(),
                               vocabType: selectedType,
@@ -1744,9 +1744,8 @@ class _CompactListItem extends StatelessWidget {
   final bool isAlreadySown;
   final WordListSettings settings;
   final VocabularyProvider provider;
-  final TtsService tts;
   final int repeatCount, playingRepeat;
-  final VoidCallback onTap, onLongPress, onEdit;
+  final VoidCallback onTap, onLongPress, onEdit, onSpeak;
   final ValueChanged<int> onRepeatChanged;
 
   const _CompactListItem({
@@ -1759,13 +1758,13 @@ class _CompactListItem extends StatelessWidget {
     required this.isSelecting,
     required this.settings,
     required this.provider,
-    required this.tts,
     required this.repeatCount,
     required this.playingRepeat,
     required this.onTap,
     required this.onLongPress,
     required this.onRepeatChanged,
     required this.onEdit,
+    required this.onSpeak,
   });
 
   @override
@@ -2007,7 +2006,7 @@ class _CompactListItem extends StatelessWidget {
 
               // TTS
               GestureDetector(
-                onTap: () => tts.speak(entry.word),
+                onTap: onSpeak,
                 child: Container(
                     width: 28,
                     height: 28,
@@ -2762,6 +2761,133 @@ class _PlayAllButton extends StatelessWidget {
       );
 }
 
+Future<void> _showRepeatCountMenu(
+  BuildContext context, {
+  required int current,
+  required ValueChanged<int> onChanged,
+  bool allowInfinite = false,
+}) async {
+  final box = context.findRenderObject() as RenderBox?;
+  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+  if (box == null || overlay == null) return;
+
+  final rect = RelativeRect.fromRect(
+    Rect.fromPoints(
+      box.localToGlobal(Offset.zero, ancestor: overlay),
+      box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+    ),
+    Offset.zero & overlay.size,
+  );
+
+  final selected = await showMenu<int>(
+    context: context,
+    position: rect,
+    color: const Color(0xFF141D2E),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    items: [
+      if (allowInfinite)
+        PopupMenuItem<int>(
+          value: 0,
+          child: _RepeatMenuItem(label: '∞', subtitle: 'Lặp mãi', selected: current == 0),
+        ),
+      for (final value in [1, 2, 3, 4, 5, 7, 10])
+        PopupMenuItem<int>(
+          value: value,
+          child: _RepeatMenuItem(
+            label: '$value×',
+            subtitle: value == 1 ? 'Một lần' : '$value lần',
+            selected: current == value,
+          ),
+        ),
+      const PopupMenuDivider(height: 1),
+      const PopupMenuItem<int>(
+        value: -1,
+        child: _RepeatMenuItem(label: 'Tùy chỉnh...', subtitle: 'Nhập số khác'),
+      ),
+    ],
+  );
+
+  if (selected == null) return;
+  if (selected == -1) {
+    final ctrl = TextEditingController(text: current > 0 ? '$current' : '');
+    final custom = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2235),
+        title: const Text('Nhập số lần lặp', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'VD: 12',
+            hintStyle: TextStyle(color: Colors.grey[600]),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = int.tryParse(ctrl.text.trim());
+              Navigator.pop(ctx, value);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (custom != null && custom >= 0) {
+      HapticFeedback.selectionClick();
+      onChanged(custom);
+    }
+    return;
+  }
+
+  HapticFeedback.selectionClick();
+  onChanged(selected);
+}
+
+class _RepeatMenuItem extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool selected;
+
+  const _RepeatMenuItem({
+    required this.label,
+    required this.subtitle,
+    this.selected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (selected)
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.check, size: 14, color: Color(0xFFFFB300)),
+          )
+        else
+          const SizedBox(width: 22),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+              Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ListRepeatButton extends StatelessWidget {
   final int count, current;
   final VoidCallback onTap;
@@ -2811,18 +2937,10 @@ class _PerWordRepeatBtn extends StatelessWidget {
       required this.onChanged});
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () => showModalBottomSheet(
-          context: context,
-          backgroundColor: const Color(0xFF0D1520),
-          isScrollControlled: true,
-          shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-          builder: (ctx) => LoopCountPickerSheet(
-              current: count,
-              onChanged: (v) {
-                onChanged(v.clamp(1, 999));
-                Navigator.pop(ctx);
-              }),
+        onTap: () => _showRepeatCountMenu(
+          context,
+          current: count,
+          onChanged: (v) => onChanged(v.clamp(1, 999)),
         ),
         child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),

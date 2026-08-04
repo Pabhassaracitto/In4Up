@@ -97,8 +97,8 @@ class WebReaderController extends ChangeNotifier {
     'there', 'these', 'they', 'this', 'those', 'through', 'toward', 'towards',
     'under', 'until', 'very', 'what', 'when', 'where', 'which', 'while',
     'with', 'within', 'without', 'would', 'your', 'yours', 'yourself',
-    'yourselves', 'into', 'onto', 'upon', 'were', 'been', 'being', 'does',
-    'did', 'done', 'than', 'then', 'here', 'therefore', 'however', 'across',
+    'yourselves', 'onto', 'upon', 'were', 'been', 'being', 'does',
+    'did', 'done', 'then', 'here', 'therefore', 'however', 'across',
     'beforehand', 'cannot', 'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven',
     'isn', 'aren', 'wasn', 'weren', 'won', 'wouldn', 'shan', 'shouldn', 'the',
     'and', 'for', 'are', 'you', 'our', 'but', 'not', 'can', 'all', 'any',
@@ -108,8 +108,7 @@ class WebReaderController extends ChangeNotifier {
     'even', 'well', 'back', 'gets', 'get', 'got', 'make', 'made', 'take',
     'took', 'come', 'came', 'goes', 'went', 'go', 'said', 'says', 'say',
     'look', 'looks', 'looking', 'know', 'knows', 'known', 'like', 'liked',
-    'them', 'they', 'there', 'here', 'where', 'whose', 'whom', 'ours', 'mine',
-    'themselves', 'ourselves', 'myself', 'himself', 'herself', 'it', 'a', 'an',
+    'whose', 'whom', 'mine', 'myself', 'himself', 'herself', 'it', 'a', 'an',
     'to', 'of', 'in', 'on', 'at', 'by', 'or', 'if', 'be', 'is', 'am', 'as',
     'we', 'he', 'do', 'my', 'me', 'i'
   };

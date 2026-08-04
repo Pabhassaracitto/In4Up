@@ -18,6 +18,7 @@ import '../services/text_library_service.dart';
 //news
 import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
+import 'text_library/local_text_entry_dialog.dart';
 import 'text_library/text_entry_dialog.dart';
 
 class TextLibraryDrawer extends StatefulWidget {
@@ -183,81 +184,99 @@ class _LocalTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Actions
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
-            children: [
-              Row(
+    return Consumer<TextProvider>(
+      builder: (context, tp, _) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.upload_file,
-                      label: 'Import',
-                      color: const Color(0xFF2196F3),
-                      onTap: () => _importTextFile(context),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.upload_file,
+                          label: 'Import',
+                          color: const Color(0xFF2196F3),
+                          onTap: () => _importTextFile(context),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.content_paste_rounded,
+                          label: 'Dán tay',
+                          color: const Color(0xFF26C6DA),
+                          onTap: () => _openManualEntryDialog(context),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.play_circle_fill,
+                          label: 'YouTube',
+                          color: const Color(0xFFFF0000),
+                          onTap: () =>
+                              YoutubeSheet.show(context, captionsFirst: true),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.picture_as_pdf,
+                          label: 'Mở PDF',
+                          color: const Color(0xFFEF5350),
+                          onTap: () => _importPdfFile(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
                     child: _ActionButton(
-                      icon: Icons.play_circle_fill,
-                      label: 'YouTube',
-                      color: const Color(0xFFFF0000),
-                      onTap: () =>
-                          YoutubeSheet.show(context, captionsFirst: true),
+                      icon: Icons.cloud_upload_outlined,
+                      label: 'Đưa văn bản hiện tại lên Cloud',
+                      color: const Color(0xFF6C63FF),
+                      onTap: () => _uploadCurrentTextToCloud(context, tp),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: _ActionButton(
-                  icon: Icons.picture_as_pdf,
-                  label: 'Mở file PDF',
-                  color: const Color(0xFFEF5350),
-                  onTap: () => _importPdfFile(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-
-        // List
-        Expanded(
-          child: Consumer<TextProvider>(
-            builder: (context, tp, _) {
-              if (!tp.hasLyrics) {
-                return const _EmptyState(
-                  icon: Icons.text_snippet_outlined,
-                  title: 'Chưa có văn bản',
-                  subtitle: 'Import file TXT, LRC, hoặc SRT',
-                );
-              }
-              return ListView(
-                padding: const EdgeInsets.all(12),
-                children: [
-                  _TextCard(
-                    title: tp.currentTextPath?.split('/').last ??
-                        tp.currentDocument?.title ??
-                        'Văn bản hiện tại',
-                    subtitle: '${tp.lines.length} dòng',
-                    icon: Icons.description_outlined,
-                    color: const Color(0xFF2196F3),
-                    isActive: true,
-                    onTap: onClose,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+            ),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+            Expanded(
+              child: !tp.hasLyrics
+                  ? const _EmptyState(
+                      icon: Icons.text_snippet_outlined,
+                      title: 'Chưa có văn bản',
+                      subtitle:
+                          'Import file TXT/LRC/SRT, dán tay hoặc tải nội dung lên cloud',
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.all(12),
+                      children: [
+                        _TextCard(
+                          title: tp.currentTextPath?.split('/').last ??
+                              tp.currentDocument?.title ??
+                              'Văn bản hiện tại',
+                          subtitle: '${tp.lines.length} dòng',
+                          icon: Icons.description_outlined,
+                          color: const Color(0xFF2196F3),
+                          isActive: true,
+                          onTap: onClose,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -296,11 +315,9 @@ class _LocalTab extends StatelessWidget {
     final path = result.files.single.path!;
     if (!context.mounted) return;
 
-    // Load vào TextProvider
     final tp = context.read<TextProvider>();
     await tp.loadTextFile(path);
 
-    // ★ THÊM: Lưu vào recent
     if (context.mounted) {
       final file = RecentFile.fromLocalText(path).copyWith(
         totalLines: tp.lines.length,
@@ -309,6 +326,97 @@ class _LocalTab extends StatelessWidget {
     }
 
     onClose();
+  }
+
+  Future<void> _openManualEntryDialog(BuildContext context) async {
+    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final draft = await showDialog<LocalTextDraft>(
+      context: context,
+      builder: (_) => LocalTextEntryDialog(
+        allowUploadToCloud: isLoggedIn,
+        titleText: 'Dán / nhập văn bản thủ công',
+        confirmText: isLoggedIn ? 'Nạp văn bản' : 'Nạp vào Đọc',
+      ),
+    );
+
+    if (draft == null || !context.mounted) return;
+
+    final tp = context.read<TextProvider>();
+    tp.loadFromString(draft.content, title: draft.title);
+
+    if (draft.uploadToCloud) {
+      final entry = await TextLibraryService().add(
+        title: draft.title,
+        content: draft.content,
+        category: draft.category,
+      );
+      if (entry != null) {
+        await RecentFilesService().addOrUpdate(
+          RecentFile.fromCloud(
+            id: entry.id,
+            title: entry.title,
+            category: entry.category,
+            totalLines: entry.lineCount,
+          ),
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã nạp văn bản và lưu lên cloud')),
+          );
+        }
+      }
+    }
+
+    if (context.mounted) onClose();
+  }
+
+  Future<void> _uploadCurrentTextToCloud(
+    BuildContext context,
+    TextProvider tp,
+  ) async {
+    if (!tp.hasLyrics && tp.fullText.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có văn bản hiện tại để đưa lên cloud')),
+      );
+      return;
+    }
+
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cần đăng nhập Google để lưu thư viện cloud')),
+      );
+      return;
+    }
+
+    final content = tp.fullText.trim().isNotEmpty
+        ? tp.fullText.trim()
+        : tp.lines.map((e) => e.content).join('\n');
+    final title = tp.currentDocument?.title ??
+        tp.currentTextPath?.split('/').last ??
+        'Văn bản hiện tại';
+
+    final entry = await showDialog<TextLibraryEntry>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        initialTitle: title,
+        initialContent: content,
+        initialCategory: null,
+      ),
+    );
+
+    if (entry != null && context.mounted) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: entry.id,
+          title: entry.title,
+          category: entry.category,
+          totalLines: entry.lineCount,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã lưu "${entry.title}" lên cloud')),
+      );
+    }
   }
 }
 

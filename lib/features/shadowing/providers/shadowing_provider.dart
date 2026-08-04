@@ -349,21 +349,26 @@ class ShadowingProvider extends ChangeNotifier {
     debugPrint('🎵 Loop: $_loopStart → $_loopEnd');
     debugPrint('🎵 Repeats: $_repeatCount, Speed: $_playbackSpeed');
 
+    _positionTimer?.cancel();
     _setState(ShadowingState.playingOriginal);
     _completedRepetitions = 0;
 
     try {
-      // Load audio file
       await _player.setFilePath(_originalAudioPath!);
       await _player.setSpeed(_playbackSpeed);
 
       final startPos = _loopStart ?? Duration.zero;
-      final endPos =
-          _loopEnd ?? _player.duration ?? const Duration(seconds: 10);
+      final endPos = _loopEnd ?? _player.duration ?? const Duration(seconds: 10);
+      if (endPos <= startPos) {
+        debugPrint('⚠️ Invalid loop range: $startPos → $endPos');
+        await _player.pause();
+        _setState(ShadowingState.idle);
+        return;
+      }
 
       debugPrint('🎵 Will play from $startPos to $endPos');
+      final loopSpan = endPos - startPos;
 
-      // Play N times
       for (int i = 0; i < _repeatCount; i++) {
         if (_state != ShadowingState.playingOriginal) {
           debugPrint('🎵 Playback interrupted at repeat ${i + 1}');
@@ -375,72 +380,70 @@ class ShadowingProvider extends ChangeNotifier {
 
         debugPrint('🎵 Playing repeat ${i + 1}/$_repeatCount');
 
-        // Seek to start of loop
         await _player.seek(startPos);
         await _player.play();
 
-        // Monitor position and stop at endPos
-        await _waitUntilPosition(endPos);
+        await _waitUntilPosition(
+          endPos,
+          maxWait: Duration(
+            milliseconds: (loopSpan.inMilliseconds / _playbackSpeed).ceil() + 600,
+          ),
+        );
 
-        // Pause player
         await _player.pause();
+        await _player.seek(endPos);
 
         debugPrint('🎵 Repeat ${i + 1} complete');
 
-        // Pause between repeats
+        if (_state != ShadowingState.playingOriginal) break;
+
         if (i < _repeatCount - 1) {
-          await Future.delayed(const Duration(milliseconds: 800));
+          await Future.delayed(const Duration(milliseconds: 350));
         }
       }
 
       debugPrint('🎵 All repeats complete, returning to idle');
-
-      // ✅ QUAN TRỌNG: Quay về idle để nút hoạt động lại
       if (_state == ShadowingState.playingOriginal) {
         _setState(ShadowingState.idle);
       }
     } catch (e) {
       debugPrint('❌ Error playing audio: $e');
+      await _player.pause();
       _setState(ShadowingState.idle);
     }
   }
 
-  /// Đợi cho đến khi player đến vị trí target
-  Future<void> _waitUntilPosition(Duration targetPosition) async {
+  /// Đợi cho đến khi player đến vị trí target hoặc hard timeout theo độ dài loop
+  Future<void> _waitUntilPosition(
+    Duration targetPosition, {
+    required Duration maxWait,
+  }) async {
     final completer = Completer<void>();
 
     _positionTimer?.cancel();
-    _positionTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _positionTimer = Timer.periodic(const Duration(milliseconds: 60), (timer) {
       final currentPos = _player.position;
 
-      // Kiểm tra đã đến vị trí target chưa
-      if (currentPos >= targetPosition) {
-        timer.cancel();
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-
-      // Kiểm tra player đã dừng chưa
-      if (!_player.playing) {
-        timer.cancel();
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-
-      // Kiểm tra state đã thay đổi chưa (user cancel)
       if (_state != ShadowingState.playingOriginal) {
         timer.cancel();
         if (!completer.isCompleted) completer.complete();
         return;
       }
+
+      if (currentPos >= targetPosition) {
+        timer.cancel();
+        unawaited(_player.pause());
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
     });
 
-    // Timeout safety (max 60 seconds)
-    return completer.future.timeout(
-      const Duration(seconds: 60),
-      onTimeout: () {
+    await completer.future.timeout(
+      maxWait,
+      onTimeout: () async {
         _positionTimer?.cancel();
-        debugPrint('⚠️ Playback timeout');
+        debugPrint('⚠️ Loop playback hard-stop at $targetPosition');
+        await _player.pause();
       },
     );
   }

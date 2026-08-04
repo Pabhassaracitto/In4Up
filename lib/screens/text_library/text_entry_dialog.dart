@@ -9,8 +9,17 @@ import '../../services/text_library_service.dart';
 
 class TextEntryDialog extends StatefulWidget {
   final TextLibraryEntry? entry; // null = thêm mới
+  final String? initialTitle;
+  final String? initialContent;
+  final String? initialCategory;
 
-  const TextEntryDialog({super.key, this.entry});
+  const TextEntryDialog({
+    super.key,
+    this.entry,
+    this.initialTitle,
+    this.initialContent,
+    this.initialCategory,
+  });
 
   @override
   State<TextEntryDialog> createState() => _TextEntryDialogState();
@@ -28,9 +37,15 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController(text: widget.entry?.title ?? '');
-    _contentCtrl = TextEditingController(text: widget.entry?.content ?? '');
-    _categoryCtrl = TextEditingController(text: widget.entry?.category ?? '');
+    _titleCtrl = TextEditingController(
+      text: widget.entry?.title ?? widget.initialTitle ?? '',
+    );
+    _contentCtrl = TextEditingController(
+      text: widget.entry?.content ?? widget.initialContent ?? '',
+    );
+    _categoryCtrl = TextEditingController(
+      text: widget.entry?.category ?? widget.initialCategory ?? '',
+    );
   }
 
   @override

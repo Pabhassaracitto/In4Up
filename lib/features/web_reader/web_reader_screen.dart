@@ -22,8 +22,13 @@ import 'widgets/web_word_tap_sheet.dart';
 
 class WebReaderScreen extends StatefulWidget {
   final String? initialUrl;
+  final String? initialFocusTerm;
 
-  const WebReaderScreen({super.key, this.initialUrl});
+  const WebReaderScreen({
+    super.key,
+    this.initialUrl,
+    this.initialFocusTerm,
+  });
 
   @override
   State<WebReaderScreen> createState() => _WebReaderScreenState();
@@ -238,6 +243,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
     if (_controller.colorMode != ColorMode.none) await _applyHighlight();
     await _updateFab();
+    await _applyFocusCue();
   }
 
   Future<void> _onPageFinishedWin(String url) async {
@@ -261,6 +267,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
     if (_controller.colorMode != ColorMode.none) await _applyHighlight();
     await _updateFab();
+    await _applyFocusCue();
   }
 
   void _onJsMessage(JavaScriptMessage message) {
@@ -325,6 +332,16 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       await _runJS(WebReaderJS.buildRestoreScrollScript(progress));
     } catch (e) {
       debugPrint('WebReader: _restoreReadingProgress error: $e');
+    }
+  }
+
+  Future<void> _applyFocusCue() async {
+    final term = widget.initialFocusTerm?.trim() ?? '';
+    if (_showDashboard || term.isEmpty) return;
+    try {
+      await _runJS(WebReaderJS.buildFocusCueScript(term));
+    } catch (e) {
+      debugPrint('WebReader: _applyFocusCue error: $e');
     }
   }
 

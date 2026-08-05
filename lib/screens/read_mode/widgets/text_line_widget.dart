@@ -61,6 +61,7 @@ class TextLineWidget extends StatelessWidget {
                   isCurrentLine:
                       index == tp.currentLineIndex || isPlaybackActive,
                   isPlaying: _checkIsPlaying(tp, pp, index),
+                  isFocusCue: index == tp.focusCueLineIndex,
                   colorMode: tp.colorMode,
                   showLineNumbers: tp.showLineNumbers,
                   textAlign: tp.textAlign,
@@ -167,20 +168,33 @@ class TextLineWidget extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: data.isCurrentLine
-              ? Color(0xFF2196F3).withValues(alpha: 0.08)
-              : data.isPlaying
-                  ? Color(0xFF4CAF50).withValues(alpha: 0.08)
-                  : Colors.transparent,
+          color: data.isFocusCue
+              ? const Color(0xFFFFD54F).withValues(alpha: 0.12)
+              : data.isCurrentLine
+                  ? const Color(0xFF2196F3).withValues(alpha: 0.08)
+                  : data.isPlaying
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
+                      : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: data.isCurrentLine
-                ? Color(0xFF2196F3).withValues(alpha: 0.25)
-                : data.isPlaying
-                    ? Color(0xFF4CAF50).withValues(alpha: 0.25)
-                    : Colors.transparent,
-            width: data.isCurrentLine ? 1.5 : 1.0,
+            color: data.isFocusCue
+                ? const Color(0xFFFFD54F).withValues(alpha: 0.7)
+                : data.isCurrentLine
+                    ? const Color(0xFF2196F3).withValues(alpha: 0.25)
+                    : data.isPlaying
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
+                        : Colors.transparent,
+            width: data.isFocusCue || data.isCurrentLine ? 1.5 : 1.0,
           ),
+          boxShadow: data.isFocusCue
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFFD54F).withValues(alpha: 0.22),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: data.textAlign == TextAlign.center
@@ -350,6 +364,7 @@ class _LineData {
   final Duration? endTime;
   final bool isCurrentLine;
   final bool isPlaying;
+  final bool isFocusCue;
   final ColorMode colorMode;
   final bool showLineNumbers;
   final TextAlign textAlign;
@@ -367,6 +382,7 @@ class _LineData {
     this.endTime,
     required this.isCurrentLine,
     required this.isPlaying,
+    required this.isFocusCue,
     required this.colorMode,
     required this.showLineNumbers,
     required this.textAlign,
@@ -385,6 +401,7 @@ class _LineData {
         endTime = null,
         isCurrentLine = false,
         isPlaying = false,
+        isFocusCue = false,
         colorMode = ColorMode.none,
         showLineNumbers = true,
         textAlign = TextAlign.left,
@@ -408,6 +425,7 @@ class _LineData {
         translation == other.translation &&
         isCurrentLine == other.isCurrentLine &&
         isPlaying == other.isPlaying &&
+        isFocusCue == other.isFocusCue &&
         colorMode == other.colorMode &&
         showLineNumbers == other.showLineNumbers &&
         textAlign == other.textAlign &&
@@ -424,6 +442,7 @@ class _LineData {
           content,
           isCurrentLine,
           isPlaying,
+          isFocusCue,
           colorMode,
           showLineNumbers,
           textAlign,

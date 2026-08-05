@@ -8,6 +8,8 @@ import '../models/vocab_context.dart';
 import '../models/word_entry.dart';
 import '../providers/text_provider.dart';
 import '../providers/vocabulary_provider.dart';
+import '../screens/read_mode/models/recent_file.dart';
+import '../screens/read_mode/read_mode_screen.dart';
 import '../services/text_library_service.dart';
 
 class UnifiedKnowledgeSheet extends StatefulWidget {
@@ -634,7 +636,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
                         onPressed: context.canReopenSource
-                            ? () => _openContextSource(context)
+                            ? () => _openContextSource(context, word)
                             : null,
                         icon: const Icon(Icons.open_in_new, size: 16),
                         label: Text(context.reopenActionLabel),
@@ -649,7 +651,10 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     );
   }
 
-  Future<void> _openContextSource(VocabContext contextEntry) async {
+  Future<void> _openContextSource(
+    VocabContext contextEntry,
+    WordEntry currentWord,
+  ) async {
     if (!contextEntry.canReopenSource || !mounted) return;
 
     final navigator = Navigator.of(context);
@@ -665,6 +670,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           builder: (_) => PdfReaderScreen(
             pdfPath: ref,
             initialPageIndex: pageHint == null ? null : pageHint - 1,
+            initialFocusWord: currentWord.word,
           ),
         ),
       );
@@ -674,7 +680,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     if (type == 'webUrl') {
       navigator.pop();
       navigator.push(
-        MaterialPageRoute(builder: (_) => WebReaderScreen(initialUrl: ref)),
+        MaterialPageRoute(
+          builder: (_) => WebReaderScreen(
+            initialUrl: ref,
+            initialFocusTerm: currentWord.word,
+          ),
+        ),
       );
       return;
     }
@@ -685,13 +696,20 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       final lineHint = contextEntry.numericPositionHint;
       if (lineHint != null && tp.lines.isNotEmpty) {
         final target = (lineHint - 1).clamp(0, tp.lines.length - 1).toInt();
-        tp.setCurrentLine(target);
+        tp.focusLineCue(target);
       }
       if (!mounted) return;
       navigator.pop();
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ReadModeScreen(
+            currentFile: RecentFile.fromLocalText(ref),
+          ),
+        ),
+      );
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('✅ Đã nạp nguồn vào Đọc / Text Studio'),
+          content: Text('✅ Đã mở nguồn local vào tab Đọc'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -722,12 +740,24 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       final lineHint = contextEntry.numericPositionHint;
       if (lineHint != null && tp.lines.isNotEmpty) {
         final target = (lineHint - 1).clamp(0, tp.lines.length - 1).toInt();
-        tp.setCurrentLine(target);
+        tp.focusLineCue(target);
       }
       navigator.pop();
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ReadModeScreen(
+            currentFile: RecentFile.fromCloud(
+              id: entry.id,
+              title: entry.title,
+              category: entry.category,
+              totalLines: entry.lineCount,
+            ),
+          ),
+        ),
+      );
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('☁️ Đã nạp nguồn cloud vào Đọc / Text Studio'),
+          content: Text('☁️ Đã mở nguồn cloud vào tab Đọc'),
           behavior: SnackBarBehavior.floating,
         ),
       );

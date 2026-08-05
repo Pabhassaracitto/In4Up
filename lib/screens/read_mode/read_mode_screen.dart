@@ -32,6 +32,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   final ScrollController _scrollController = ScrollController();
   late ReadModeController _controller;
   bool _controllerInitialized = false;
+  int _lastHandledFocusCueVersion = 0;
   VoidCallback? _playerListener;
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false; // wordlist
@@ -114,6 +115,19 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       value: _controller,
       child: Consumer<TextProvider>(
         builder: (context, textProvider, _) {
+          if (textProvider.focusCueVersion != _lastHandledFocusCueVersion &&
+              textProvider.focusCueLineIndex != null) {
+            _lastHandledFocusCueVersion = textProvider.focusCueVersion;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || !_scrollController.hasClients) return;
+              _controller.scrollToLine(
+                _scrollController,
+                textProvider.focusCueLineIndex!,
+                animated: true,
+              );
+            });
+          }
+
           if (!textProvider.hasLyrics) {
             return const ReadEmptyState();
           }

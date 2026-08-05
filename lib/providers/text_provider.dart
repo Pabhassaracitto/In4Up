@@ -123,6 +123,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextDocument? _currentDocument;
   List<TextItem> _lines = [];
   int _currentLineIndex = -1;
+  int? _focusCueLineIndex;
+  int _focusCueVersion = 0;
   String? _selectedText;
   String _fullText = '';
   String? _currentTextPath;
@@ -169,6 +171,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   @override
   List<TextItem> get lines => _lines;
   int get currentLineIndex => _currentLineIndex;
+  int? get focusCueLineIndex => _focusCueLineIndex;
+  int get focusCueVersion => _focusCueVersion;
   String? get selectedText => _selectedText;
   String get fullText => _fullText;
   bool get hasLyrics => _lines.isNotEmpty;
@@ -342,6 +346,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _analyzedLines = [];
     _currentDocument = null;
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedText = null;
     _selectedTextInfo = null;
     _fullText = '';
@@ -369,6 +374,23 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       _currentLineIndex = index;
       notifyListeners();
     }
+  }
+
+  void focusLineCue(int index, {Duration duration = const Duration(seconds: 2)}) {
+    if (index < 0 || index >= _lines.length) return;
+    _currentLineIndex = index;
+    _focusCueLineIndex = index;
+    _focusCueVersion++;
+    final version = _focusCueVersion;
+    notifyListeners();
+
+    Future.delayed(duration, () {
+      if (_focusCueVersion != version) return;
+      if (_focusCueLineIndex == index) {
+        _focusCueLineIndex = null;
+        notifyListeners();
+      }
+    });
   }
 
   String _extractFileName(String path) {
@@ -409,6 +431,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
@@ -499,6 +522,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
@@ -568,6 +592,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
@@ -1362,6 +1387,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
@@ -1377,6 +1403,7 @@ DateTime.now().millisecondsSinceEpoch.toString(),
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();

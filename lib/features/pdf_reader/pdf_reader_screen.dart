@@ -34,11 +34,13 @@ import 'widgets/pdf_wordlist_panel.dart';
 class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
   final int? initialPageIndex;
+  final String? initialFocusWord;
 
   const PdfReaderScreen({
     super.key,
     required this.pdfPath,
     this.initialPageIndex,
+    this.initialFocusWord,
   });
 
   @override
@@ -296,14 +298,18 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     widget.initialPageIndex! < document.pages.length
                 ? widget.initialPageIndex!
                 : _controller.currentPage;
-            if (targetPage > 0) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (targetPage > 0) {
                 _pdfViewerController.goToPage(
                   pageNumber: targetPage + 1,
                 );
                 _controller.onPageChanged(targetPage);
-              });
-            }
+              }
+              if (widget.initialFocusWord != null &&
+                  widget.initialFocusWord!.trim().isNotEmpty) {
+                _controller.showFocusCueForWord(widget.initialFocusWord!);
+              }
+            });
           }
         },
 
@@ -314,14 +320,17 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           final annotations = _controller.annotationsForPage(pageIndex);
 
           return [
-            // Layer 1: Word highlight (CEFR / WordType)
-            if (_controller.colorMode != ColorMode.none && words.isNotEmpty)
+            // Layer 1: Word highlight / recall / focus cue
+            if ((_controller.colorMode != ColorMode.none ||
+                    _controller.focusWordCue != null) &&
+                words.isNotEmpty)
               Positioned.fill(
                 child: PdfWordOverlay(
                   words: words,
                   colorMode: _controller.colorMode,
                   page: page,
                   speakingWord: _controller.currentSpeakingWord,
+                  focusWordCue: _controller.focusWordCue,
                 ),
               ),
 

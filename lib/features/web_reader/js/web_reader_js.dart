@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 //
 // Tập hợp các JavaScript strings được inject vào WebView
 // Mỗi function được tách riêng để dễ debug và maintain
@@ -457,6 +459,98 @@ window.getSelection()?.toString() || '';
   setTimeout(applyRestore, 120);
   setTimeout(applyRestore, 500);
   setTimeout(applyRestore, 1200);
+})();
+''';
+  }
+
+  static String buildFocusCueScript(String term) {
+    final encoded = jsonEncode(term);
+    return '''
+(function() {
+  const term = ($encoded || '').toString().trim();
+  if (!term) return;
+
+  const old = document.getElementById('in2up-focus-cue');
+  if (old) {
+    const parent = old.parentNode;
+    if (parent) {
+      parent.replaceChild(document.createTextNode(old.textContent || ''), old);
+      parent.normalize();
+    }
+  }
+
+  function normalize(value) {
+    return (value || '').toLowerCase().replace(/[^\\w']/g, '');
+  }
+
+  const normTerm = normalize(term);
+  if (!normTerm) return;
+
+  const wrapped = Array.from(document.querySelectorAll('.in2up-word'));
+  const direct = wrapped.find((el) => normalize(el.textContent) === normTerm);
+  if (direct) {
+    direct.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    direct.style.outline = '2px solid #64B5F6';
+    direct.style.outlineOffset = '2px';
+    direct.style.boxShadow = '0 0 0 6px rgba(100,181,246,0.18)';
+    setTimeout(() => {
+      direct.style.outline = '';
+      direct.style.outlineOffset = '';
+      direct.style.boxShadow = '';
+    }, 2600);
+    return;
+  }
+
+  const root = document.querySelector('article') ||
+    document.querySelector('[role="main"]') ||
+    document.querySelector('main') ||
+    document.body;
+
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node || !node.textContent || !node.textContent.trim()) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const parent = node.parentNode;
+        const tag = parent && parent.tagName ? parent.tagName.toLowerCase() : '';
+        if (['script','style','noscript','textarea','code','pre'].includes(tag)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.textContent || '';
+    const lower = text.toLowerCase();
+    const index = lower.indexOf(term.toLowerCase());
+    if (index < 0) continue;
+    try {
+      const range = document.createRange();
+      range.setStart(node, index);
+      range.setEnd(node, index + term.length);
+      const mark = document.createElement('mark');
+      mark.id = 'in2up-focus-cue';
+      mark.style.background = 'rgba(100,181,246,0.28)';
+      mark.style.outline = '2px solid #64B5F6';
+      mark.style.borderRadius = '4px';
+      mark.style.padding = '0 2px';
+      range.surroundContents(mark);
+      mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setTimeout(() => {
+        const parent = mark.parentNode;
+        if (!parent) return;
+        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+        parent.normalize();
+      }, 2600);
+      return;
+    } catch (_) {}
+  }
 })();
 ''';
   }

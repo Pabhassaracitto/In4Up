@@ -60,6 +60,10 @@ class PdfReaderController extends ChangeNotifier {
   PdfTtsState get ttsState => _ttsState;
   String? _currentSpeakingWord;
   String? get currentSpeakingWord => _currentSpeakingWord;
+  String? _focusWordCue;
+  String? get focusWordCue => _focusWordCue;
+  int _focusCueVersion = 0;
+  int get focusCueVersion => _focusCueVersion;
 
   String _ttsLanguage = 'en-US'; // 'en-US' | 'vi-VN' | 'bilingual'
   String get ttsLanguage => _ttsLanguage;
@@ -126,6 +130,22 @@ class PdfReaderController extends ChangeNotifier {
     if (pageIndex + 1 < totalPages) {
       _loadWordsForPage(pageIndex + 1);
     }
+  }
+
+  void showFocusCueForWord(String word,
+      {Duration duration = const Duration(seconds: 3)}) {
+    final normalized = word.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    _focusWordCue = normalized;
+    _focusCueVersion++;
+    notifyListeners();
+
+    final version = _focusCueVersion;
+    Future.delayed(duration, () {
+      if (_focusCueVersion != version) return;
+      _focusWordCue = null;
+      notifyListeners();
+    });
   }
 
   // ─── Color Mode ──────────────────────────────────────────

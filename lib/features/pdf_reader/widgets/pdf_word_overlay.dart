@@ -10,6 +10,7 @@ class PdfWordOverlay extends StatelessWidget {
   final ColorMode colorMode;
   final PdfPage page;
   final String? speakingWord;
+  final String? focusWordCue;
 
   const PdfWordOverlay({
     super.key,
@@ -17,6 +18,7 @@ class PdfWordOverlay extends StatelessWidget {
     required this.colorMode,
     required this.page,
     this.speakingWord,
+    this.focusWordCue,
   });
 
   @override
@@ -42,6 +44,7 @@ class PdfWordOverlay extends StatelessWidget {
           scaleX: scaleX,
           scaleY: scaleY,
           speakingWord: speakingWord,
+          focusWordCue: focusWordCue,
           pageHeight: page.height,
         ),
       );
@@ -55,6 +58,7 @@ class _WordHighlightPainter extends CustomPainter {
   final double scaleX;
   final double scaleY;
   final String? speakingWord;
+  final String? focusWordCue;
   final double pageHeight;
 
   _WordHighlightPainter({
@@ -63,6 +67,7 @@ class _WordHighlightPainter extends CustomPainter {
     required this.scaleX,
     required this.scaleY,
     this.speakingWord,
+    this.focusWordCue,
     required this.pageHeight,
   });
 
@@ -115,6 +120,31 @@ class _WordHighlightPainter extends CustomPainter {
         );
       }
 
+      if (focusWordCue != null) {
+        final normalized = word.text.replaceAll(RegExp(r'[^\w\s]'), '').trim().toLowerCase();
+        if (normalized == focusWordCue) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              screenRect.inflate(3),
+              const Radius.circular(4),
+            ),
+            Paint()
+              ..color = const Color(0xFF64B5F6).withValues(alpha: 0.28)
+              ..style = PaintingStyle.fill,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              screenRect.inflate(3),
+              const Radius.circular(4),
+            ),
+            Paint()
+              ..color = const Color(0xFF64B5F6)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.8,
+          );
+        }
+      }
+
       // Speaking word highlight (yellow glow)
       if (speakingWord != null &&
           word.text.toLowerCase() == speakingWord!.toLowerCase()) {
@@ -146,5 +176,6 @@ class _WordHighlightPainter extends CustomPainter {
   bool shouldRepaint(_WordHighlightPainter old) =>
       old.colorMode != colorMode ||
       old.speakingWord != speakingWord ||
+      old.focusWordCue != focusWordCue ||
       old.words.length != words.length;
 }

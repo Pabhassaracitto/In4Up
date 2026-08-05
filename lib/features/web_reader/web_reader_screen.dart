@@ -55,6 +55,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   }
 
   ColorMode _lastColorMode = ColorMode.none;
+  int _lastHighlightVersion = 0;
 
   void _onStateChanged() {
     if (!mounted) {
@@ -64,8 +65,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
     if (!isCurrentRoute) return;
 
-    if (_controller.colorMode != _lastColorMode) {
+    final colorModeChanged = _controller.colorMode != _lastColorMode;
+    final highlightChanged =
+        _controller.highlightVersion != _lastHighlightVersion;
+
+    if (colorModeChanged || highlightChanged) {
       _lastColorMode = _controller.colorMode;
+      _lastHighlightVersion = _controller.highlightVersion;
       if (_controller.colorMode == ColorMode.none) {
         _removeHighlight();
       } else {
@@ -1071,7 +1077,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         child: Text(
           _controller.colorMode == ColorMode.cefrLevel
               ? 'CEFR: A1 A2 B1 B2 C1 C2'
-              : 'Loại từ: N V Adj Adv',
+              : _controller.colorMode == ColorMode.difficulty
+                  ? 'Độ khó: Dễ · TB · Khó · Rất khó'
+                  : 'Loại từ: N V Adj Adv',
           style: const TextStyle(color: Colors.white, fontSize: 11),
         ),
       ),

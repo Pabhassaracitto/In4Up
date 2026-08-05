@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
@@ -134,8 +135,10 @@ class WebReaderController extends ChangeNotifier {
 
   // ─── Color Mode ───────────────────────────────────────────
   ColorMode _colorMode = ColorMode.none;
+  int _highlightVersion = 0;
   ColorMode get colorMode => _colorMode;
   bool get isHighlightActive => _colorMode != ColorMode.none;
+  int get highlightVersion => _highlightVersion;
 
   // ─── Word tap ────────────────────────────────────────────
   AnalyzedWord? _tappedWord;
@@ -312,11 +315,13 @@ class WebReaderController extends ChangeNotifier {
 
   void setColorMode(ColorMode mode) {
     _colorMode = mode;
+    _highlightVersion++;
     notifyListeners();
   }
 
   void cycleColorMode() {
     _colorMode = _colorMode.next;
+    _highlightVersion++;
     notifyListeners();
   }
 
@@ -360,6 +365,7 @@ class WebReaderController extends ChangeNotifier {
     final config = {
       'mode': _colorMode.name,
       'cefrDictionary': cefrMap,
+      'difficultyDictionary': VocabularyBridge.exportDifficultyMap(),
       'colors': {
         'cefr': {
           'a1': '#78909C',
@@ -380,6 +386,12 @@ class WebReaderController extends ChangeNotifier {
           'pronoun': '#FF7043',
           'determiner': '#78909C',
           'unknown': 'transparent',
+        },
+        'difficulty': {
+          'easy': '#4CAF50',
+          'medium': '#FF9800',
+          'hard': '#F44336',
+          'veryHard': '#9C27B0',
         },
       },
       'suffixes': {
@@ -447,6 +459,34 @@ class WebReaderController extends ChangeNotifier {
       meaning: analyzed?.meaning,
       sourceFile: _safeHost(_currentUrl),
     );
+  }
+
+  bool markWordDifficulty(
+    String word,
+    DifficultyLevel difficulty, {
+    AnalyzedWord? analyzed,
+  }) {
+    final clean = word.trim().toLowerCase();
+    if (clean.isEmpty) return false;
+
+    VocabularyBridge.upsertDifficulty(
+      text: clean,
+      difficulty: difficulty,
+      meaning: analyzed?.meaning ?? '',
+      phonetic: analyzed?.phonetic,
+      forceType: clean.contains(' ') ? VocabularyType.phrase : VocabularyType.word,
+      context: VocabContext.fromWeb(
+        url: _currentUrl,
+        pageTitle: _pageTitle,
+        surroundingText: _selectedText?.trim().isNotEmpty == true
+            ? _selectedText!.trim()
+            : clean,
+      ),
+      topic: _inferTopic('$_pageTitle ${_selectedText ?? clean}'),
+    );
+    _highlightVersion++;
+    notifyListeners();
+    return true;
   }
 
   bool saveWordToWordList(

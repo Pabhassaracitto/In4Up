@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
+
 import 'vocabulary_type.dart';
 import 'vocab_context.dart';
 
@@ -221,6 +223,7 @@ class WordEntry {
   List<String> parentIds;
   List<String> childIds;
   String? personalNotes;
+  DifficultyLevel? userDifficulty;
   bool isUnborn;
 
   // ── ★ MỚI: Ma trận Ngôn ngữ và Chủ đề ──
@@ -249,6 +252,7 @@ class WordEntry {
     List<String>? parentIds,
     List<String>? childIds,
     this.personalNotes,
+    this.userDifficulty,
     this.isUnborn = false,
     this.language = 'en',
     this.topic,
@@ -572,6 +576,7 @@ class WordEntry {
         'parentIds': parentIds,
         'childIds': childIds,
         'personalNotes': personalNotes,
+        'userDifficulty': userDifficulty?.name,
         'isUnborn': isUnborn,
         'language': language,
         'topic': topic,
@@ -622,6 +627,12 @@ class WordEntry {
         parentIds: (json['parentIds'] as List?)?.cast<String>() ?? [],
         childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
         personalNotes: json['personalNotes'] as String?,
+        userDifficulty: json['userDifficulty'] != null
+            ? DifficultyLevel.values.firstWhere(
+                (d) => d.name == json['userDifficulty'],
+                orElse: () => DifficultyLevel.medium,
+              )
+            : null,
         isUnborn: json['isUnborn'] as bool? ?? false,
         language: json['language'] as String? ?? 'en',
         topic: json['topic'] as String?,
@@ -656,6 +667,12 @@ class WordEntry {
       parentIds: (json['parentIds'] as List?)?.cast<String>() ?? [],
       childIds: (json['childIds'] as List?)?.cast<String>() ?? [],
       personalNotes: json['personalNotes'] as String?,
+      userDifficulty: json['userDifficulty'] != null
+          ? DifficultyLevel.values.firstWhere(
+              (d) => d.name == json['userDifficulty'],
+              orElse: () => DifficultyLevel.medium,
+            )
+          : null,
       isUnborn: json['isUnborn'] as bool? ?? false,
       language: json['language'] as String? ?? 'en',
       topic: json['topic'] as String?,
@@ -669,6 +686,7 @@ class WordEntry {
     String? example,
     VocabularyType? vocabType,
     String? personalNotes,
+    DifficultyLevel? userDifficulty,
     bool? isUnborn,
     String? language,
     String? topic,
@@ -691,6 +709,7 @@ class WordEntry {
         parentIds: parentIds,
         childIds: childIds,
         personalNotes: personalNotes ?? this.personalNotes,
+        userDifficulty: userDifficulty ?? this.userDifficulty,
         isUnborn: isUnborn ?? this.isUnborn,
         language: language ?? this.language,
         topic: topic ?? this.topic,

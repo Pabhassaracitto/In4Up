@@ -1,4 +1,5 @@
 import '../models/word_analysis.dart';
+import '../providers/vocabulary_bridge.dart';
 
 class SyntaxHighlighterService {
   SyntaxHighlighterService._();
@@ -32,7 +33,7 @@ class SyntaxHighlighterService {
     final isStop = _stopWords.contains(clean);
     final type = isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean);
     final cefr = _estimateCEFR(clean);
-    return AnalyzedWord(
+    final base = AnalyzedWord(
       word: word,
       originalWord: word,
       wordType: type,
@@ -40,6 +41,7 @@ class SyntaxHighlighterService {
       meaning: _basicDict[clean],
       isStopWord: isStop,
     );
+    return _applyGlobalVocabularyData(base, clean);
   }
 
   /// Expose CEFR dictionary cho JavaScript serialization
@@ -50,7 +52,14 @@ class SyntaxHighlighterService {
     if (src.isEmpty) return [];
 
     final cached = _cache[src];
-    if (cached != null) return cached;
+    if (cached != null) {
+      return cached
+          .map((word) => _applyGlobalVocabularyData(
+                word,
+                word.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), ''),
+              ))
+          .toList();
+    }
 
     final tokens = _tokenize(src);
     final result = <AnalyzedWord>[];
@@ -109,7 +118,28 @@ class SyntaxHighlighterService {
 
     _trimCacheIfNeeded();
     _cache[src] = result;
-    return result;
+    return result
+        .map((word) => _applyGlobalVocabularyData(
+              word,
+              word.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), ''),
+            ))
+        .toList();
+  }
+
+  AnalyzedWord _applyGlobalVocabularyData(AnalyzedWord word, String clean) {
+    if (clean.isEmpty) return word;
+    final entry = VocabularyBridge.findByWord(clean);
+    if (entry == null) return word;
+    return word.copyWith(
+      meaning: entry.meaning.trim().isNotEmpty ? entry.meaning.trim() : word.meaning,
+      phonetic: (entry.phonetic?.trim().isNotEmpty ?? false)
+          ? entry.phonetic!.trim()
+          : word.phonetic,
+      example: (entry.example?.trim().isNotEmpty ?? false)
+          ? entry.example!.trim()
+          : word.example,
+      userDifficulty: entry.userDifficulty,
+    );
   }
 
   List<String> _tokenize(String text) {

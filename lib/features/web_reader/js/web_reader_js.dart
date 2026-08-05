@@ -14,6 +14,7 @@ class WebReaderJS {
   const CONFIG = $configJson;
   const MODE = CONFIG.mode;
   const CEFR_DICT = CONFIG.cefrDictionary || {};
+  const DIFFICULTY_DICT = CONFIG.difficultyDictionary || {};
   const COLORS = CONFIG.colors || {};
   const SUFFIXES = CONFIG.suffixes || {};
 
@@ -42,6 +43,13 @@ class WebReaderJS {
       if (w.length <= 5) return { mode: 'cefr', level: 'a2' };
       if (w.length <= 8) return { mode: 'cefr', level: 'b1' };
       return { mode: 'cefr', level: 'b2' };
+    }
+
+    if (MODE === 'difficulty') {
+      if (DIFFICULTY_DICT[w]) {
+        return { mode: 'difficulty', level: DIFFICULTY_DICT[w] };
+      }
+      return null;
     }
 
     if (MODE === 'wordType') {
@@ -108,6 +116,9 @@ class WebReaderJS {
     if (classification.mode === 'wordType') {
       return (COLORS.wordType || {})[classification.type];
     }
+    if (classification.mode === 'difficulty') {
+      return (COLORS.difficulty || {})[classification.level];
+    }
     return null;
   }
 
@@ -150,7 +161,9 @@ class WebReaderJS {
         span.setAttribute('data-type',
           classification.mode === 'cefr'
             ? classification.level
-            : classification.type);
+            : classification.mode === 'difficulty'
+              ? classification.level
+              : classification.type);
         span.textContent = token;
         span.style.cssText = [
           'background-color: ' + color + '22',

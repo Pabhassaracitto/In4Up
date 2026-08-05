@@ -2,6 +2,7 @@
 // Gọi từ TextProvider, WebReaderController, PdfReaderController, v.v.
 
 import 'package:flutter/foundation.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
@@ -104,6 +105,52 @@ class VocabularyBridge {
     }
 
     return entry;
+  }
+
+  static WordEntry? upsertDifficulty({
+    required String text,
+    required DifficultyLevel difficulty,
+    VocabContext? context,
+    VocabularyType? forceType,
+    String meaning = '',
+    String? phonetic,
+    String language = 'en',
+    String? topic,
+  }) {
+    final inst = _instance;
+    if (inst == null) {
+      debugPrint('⚠️ VocabularyBridge: not initialized');
+      return null;
+    }
+    return inst.upsertDifficulty(
+      text: text.trim(),
+      difficulty: difficulty,
+      context: context,
+      forceType: forceType,
+      meaning: meaning,
+      phonetic: phonetic,
+      language: language,
+      topic: topic,
+    );
+  }
+
+  static void updateDifficulty(String id, DifficultyLevel? difficulty) {
+    _instance?.updateDifficulty(id, difficulty);
+  }
+
+  static DifficultyLevel? difficultyOf(String word) =>
+      _instance?.findByWord(word.trim().toLowerCase())?.userDifficulty;
+
+  static Map<String, String> exportDifficultyMap() {
+    final inst = _instance;
+    if (inst == null) return const {};
+    final out = <String, String>{};
+    for (final entry in inst.allWords) {
+      final difficulty = entry.userDifficulty;
+      if (difficulty == null) continue;
+      out[entry.word.toLowerCase().trim()] = difficulty.name;
+    }
+    return out;
   }
 
   static bool hasWord(String word) => _instance?.hasWord(word) ?? false;

@@ -264,26 +264,37 @@ class _WordSheet extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: DifficultyLevel.values.map((d) {
+              final isSelected = analyzed?.userDifficulty == d;
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: GestureDetector(
                     onTap: () {
-                      // Lưu difficulty cho từ này
+                      controller.markWordDifficulty(wordInfo, d);
+                      HapticFeedback.selectionClick();
                       Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('"$displayWord" → ${d.label}'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: d.color.withValues(alpha: 0.15),
+                        color: d.color.withValues(alpha: isSelected ? 0.24 : 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: d.color.withValues(alpha: 0.3),
+                          color: isSelected
+                              ? d.color
+                              : d.color.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
                         children: [
-                          Icon(d.icon, color: d.color, size: 16),
+                          Icon(_difficultyIcon(d), color: d.color, size: 16),
                           const SizedBox(height: 2),
                           Text(
                             d.label,
@@ -954,5 +965,18 @@ class _IconActionBtn extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+IconData _difficultyIcon(DifficultyLevel level) {
+  switch (level) {
+    case DifficultyLevel.easy:
+      return Icons.sentiment_satisfied_alt;
+    case DifficultyLevel.medium:
+      return Icons.timelapse;
+    case DifficultyLevel.hard:
+      return Icons.local_fire_department;
+    case DifficultyLevel.veryHard:
+      return Icons.warning_amber_rounded;
   }
 }

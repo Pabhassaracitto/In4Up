@@ -13,6 +13,8 @@ import '../features/tts/tts_service.dart';
 import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
+import '../models/vocab_context.dart';
+import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
@@ -560,6 +562,12 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   void setColorMode(ColorMode mode) {
     _colorMode = mode;
 
+    if (_lines.isNotEmpty) {
+      _analyzedLines = SyntaxHighlighterService.analyzeLines(
+        _lines.map((l) => l.content).toList(),
+      );
+    }
+
     // ★ THÊM: Persist
     _storage.saveColorMode(mode.name);
 
@@ -570,6 +578,12 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     final modes = ColorMode.values;
     final currentIndex = modes.indexOf(_colorMode);
     _colorMode = modes[(currentIndex + 1) % modes.length];
+
+    if (_lines.isNotEmpty) {
+      _analyzedLines = SyntaxHighlighterService.analyzeLines(
+        _lines.map((l) => l.content).toList(),
+      );
+    }
 
     // ★ THÊM: Persist
     _storage.saveColorMode(_colorMode.name);
@@ -947,15 +961,46 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void markWordDifficulty(
       int lineIndex, int wordIndex, DifficultyLevel difficulty) {
-    if (lineIndex >= 0 && lineIndex < _analyzedLines.length) {
-      if (wordIndex >= 0 && wordIndex < _analyzedLines[lineIndex].length) {
-        _analyzedLines[lineIndex][wordIndex] =
-            _analyzedLines[lineIndex][wordIndex].copyWith(
-          userDifficulty: difficulty,
-        );
-        notifyListeners();
+    if (lineIndex < 0 || lineIndex >= _analyzedLines.length) return;
+    if (wordIndex < 0 || wordIndex >= _analyzedLines[lineIndex].length) return;
+
+    final target = _analyzedLines[lineIndex][wordIndex];
+    final normalized =
+        target.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '').trim();
+    if (normalized.isEmpty) return;
+
+    for (int i = 0; i < _analyzedLines.length; i++) {
+      for (int j = 0; j < _analyzedLines[i].length; j++) {
+        final current = _analyzedLines[i][j];
+        final currentNormalized = current.word
+            .toLowerCase()
+            .replaceAll(RegExp(r"[^\w']"), '')
+            .trim();
+        if (currentNormalized == normalized) {
+          _analyzedLines[i][j] = current.copyWith(userDifficulty: difficulty);
+        }
       }
     }
+
+    final lineText =
+        (lineIndex >= 0 && lineIndex < _lines.length) ? _lines[lineIndex].content : normalized;
+    VocabularyBridge.upsertDifficulty(
+      text: normalized,
+      difficulty: difficulty,
+      meaning: target.meaning ?? '',
+      phonetic: target.phonetic,
+      forceType: normalized.contains(' ')
+          ? VocabularyType.phrase
+          : VocabularyType.word,
+      context: VocabContext.fromStory(
+        storyTitle: _currentDocument?.title ?? 'Read Mode',
+        lineIndex: lineIndex,
+        surroundingText: lineText,
+      ),
+      topic: _currentTextCategory,
+    );
+
+    notifyListeners();
   }
 
   Future<void> speakDifficultWordsFirst() async {

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
@@ -671,6 +672,42 @@ class VocabularyProvider extends ChangeNotifier {
       _saveWord(w);
       notifyListeners();
     } catch (_) {}
+  }
+
+  void updateDifficulty(String id, DifficultyLevel? difficulty) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.userDifficulty = difficulty;
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  WordEntry upsertDifficulty({
+    required String text,
+    required DifficultyLevel difficulty,
+    VocabContext? context,
+    VocabularyType? forceType,
+    String meaning = '',
+    String? phonetic,
+    String language = 'en',
+    String? topic,
+  }) {
+    final entry = addWithAutoClassify(
+      text: text,
+      meaning: meaning,
+      phonetic: phonetic,
+      forceType: forceType,
+      context: context,
+      language: language,
+      topic: topic,
+    );
+    entry.userDifficulty = difficulty;
+    entry.updatedAt = DateTime.now();
+    _saveWord(entry);
+    notifyListeners();
+    return entry;
   }
 
   void removeWord(String id) {

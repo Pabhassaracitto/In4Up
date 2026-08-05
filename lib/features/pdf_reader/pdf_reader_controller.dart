@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import '../../features/tts/tts_service.dart';
@@ -419,6 +420,34 @@ class PdfReaderController extends ChangeNotifier {
       color: color,
       note: note.trim().isEmpty ? null : note.trim(),
     );
+  }
+
+  bool markWordDifficulty(PdfWordInfo wordInfo, DifficultyLevel difficulty) {
+    final word = wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim().toLowerCase();
+    if (word.isEmpty) return false;
+
+    final context = VocabContext.fromPdf(
+      fileName: pdfPath.split('/').last,
+      page: wordInfo.pageIndex + 1,
+      surroundingText: (wordInfo.analyzed?.example?.trim().isNotEmpty ?? false)
+          ? wordInfo.analyzed!.example!.trim()
+          : word,
+    );
+
+    VocabularyBridge.upsertDifficulty(
+      text: word,
+      difficulty: difficulty,
+      meaning: wordInfo.analyzed?.meaning ?? '',
+      phonetic: wordInfo.analyzed?.phonetic,
+      forceType: word.contains(' ') ? VocabularyType.phrase : VocabularyType.word,
+      context: context,
+    );
+
+    _pageWords.clear();
+    _extractor.clearCache();
+    _loadWordsForPage(_currentPage);
+    notifyListeners();
+    return true;
   }
 
   // ─── Dispose ─────────────────────────────────────────────

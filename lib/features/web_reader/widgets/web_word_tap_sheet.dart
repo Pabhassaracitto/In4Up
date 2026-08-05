@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in2up_core/vocab_level_difficulty.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
@@ -186,6 +187,82 @@ class WebWordTapSheet extends StatelessWidget {
               ],
             ),
           ],
+
+          if (analyzed?.userDifficulty != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.flag_rounded,
+                    color: analyzed!.userDifficulty!.color, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  'Độ khó đã lưu: ${analyzed!.userDifficulty!.label}',
+                  style: TextStyle(
+                    color: analyzed!.userDifficulty!.color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          const Text(
+            'Đánh dấu độ khó:',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: DifficultyLevel.values.map((level) {
+              final isSelected = analyzed?.userDifficulty == level;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: GestureDetector(
+                    onTap: () {
+                      controller.markWordDifficulty(
+                        cleanWord,
+                        level,
+                        analyzed: analyzed,
+                      );
+                      HapticFeedback.selectionClick();
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('"$cleanWord" → ${level.label}'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: level.color.withValues(alpha: isSelected ? 0.24 : 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? level.color
+                              : level.color.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.flag_rounded, color: level.color, size: 14),
+                          const SizedBox(height: 2),
+                          Text(
+                            level.label,
+                            style: TextStyle(color: level.color, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
 
           const SizedBox(height: 16),
 

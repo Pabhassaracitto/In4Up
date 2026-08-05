@@ -181,6 +181,7 @@ class _WordSheet extends StatelessWidget {
                         (analyzed?.example?.trim().isNotEmpty ?? false)
                             ? analyzed!.example!.trim()
                             : displayWord,
+                    pdfPath: controller.pdfPath,
                   ),
                 );
                 controller.refreshVocabularySignals();

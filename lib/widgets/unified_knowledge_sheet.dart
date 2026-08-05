@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 
+import '../features/pdf_reader/pdf_reader_screen.dart';
+import '../features/web_reader/web_reader_screen.dart';
+import '../models/vocab_context.dart';
 import '../models/word_entry.dart';
+import '../providers/text_provider.dart';
 import '../providers/vocabulary_provider.dart';
+import '../services/text_library_service.dart';
 
 class UnifiedKnowledgeSheet extends StatefulWidget {
   final WordEntry word;
@@ -81,6 +86,8 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     _buildDifficultySection(provider, word),
                     const SizedBox(height: 12),
                     _buildStatsSection(word),
+                    const SizedBox(height: 12),
+                    _buildQuickReviewSection(provider, word),
                     const SizedBox(height: 12),
                     _buildSourceMapSection(word),
                     const SizedBox(height: 12),
@@ -301,6 +308,139 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     );
   }
 
+  Widget _buildQuickReviewSection(VocabularyProvider provider, WordEntry word) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            icon: Icons.bolt_outlined,
+            title: 'Ôn nhanh 3 chiều',
+          ),
+          const SizedBox(height: 10),
+          _quickSkillRow(
+            provider,
+            word,
+            Skill.understand,
+            'Hiểu',
+            const Color(0xFF42A5F5),
+            word.understand,
+          ),
+          const SizedBox(height: 8),
+          _quickSkillRow(
+            provider,
+            word,
+            Skill.listen,
+            'Nghe',
+            const Color(0xFF66BB6A),
+            word.listen,
+          ),
+          const SizedBox(height: 8),
+          _quickSkillRow(
+            provider,
+            word,
+            Skill.read,
+            'Đọc',
+            const Color(0xFFEF5350),
+            word.read,
+          ),
+          if (word.hasAnyDue) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _sm2Button(provider, word, 1, 'Again 1d', Colors.redAccent),
+                _sm2Button(provider, word, 3, 'Hard', Colors.orangeAccent),
+                _sm2Button(provider, word, 4, 'Good', Colors.green),
+                _sm2Button(provider, word, 5, 'Easy', Colors.blueAccent),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _quickSkillRow(
+    VocabularyProvider provider,
+    WordEntry word,
+    Skill skill,
+    String label,
+    Color color,
+    double value,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 42,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: value,
+                minHeight: 6,
+                backgroundColor: Colors.white10,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${(value * 100).round()}%',
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: '$label chưa chắc',
+            onPressed: () => provider.quickAnswerWord(word.id, skill, false),
+            icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
+          ),
+          IconButton(
+            tooltip: '$label ổn',
+            onPressed: () => provider.quickAnswerWord(word.id, skill, true),
+            icon: const Icon(Icons.check_rounded, color: Colors.greenAccent),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sm2Button(
+    VocabularyProvider provider,
+    WordEntry word,
+    int quality,
+    String label,
+    Color color,
+  ) {
+    return OutlinedButton(
+      onPressed: () => provider.reviewWord(word.id, quality),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(label),
+    );
+  }
+
   Widget _buildSourceMapSection(WordEntry word) {
     final grouped = <String, int>{};
     for (final context in word.contexts) {
@@ -518,9 +658,15 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     final type = contextEntry.sourceRefType!;
 
     if (type == 'pdfPath') {
+      final pageHint = contextEntry.numericPositionHint;
       navigator.pop();
       navigator.push(
-        MaterialPageRoute(builder: (_) => PdfReaderScreen(pdfPath: ref)),
+        MaterialPageRoute(
+          builder: (_) => PdfReaderScreen(
+            pdfPath: ref,
+            initialPageIndex: pageHint == null ? null : pageHint - 1,
+          ),
+        ),
       );
       return;
     }
@@ -536,6 +682,11 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     if (type == 'localText') {
       final tp = context.read<TextProvider>();
       await tp.loadTextFile(ref, title: contextEntry.sourceName);
+      final lineHint = contextEntry.numericPositionHint;
+      if (lineHint != null && tp.lines.isNotEmpty) {
+        final target = (lineHint - 1).clamp(0, tp.lines.length - 1).toInt();
+        tp.setCurrentLine(target);
+      }
       if (!mounted) return;
       navigator.pop();
       messenger.showSnackBar(
@@ -560,13 +711,19 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         );
         return;
       }
-      context.read<TextProvider>().loadFromString(
-            entry.content,
-            title: entry.title,
-            sourceType: TextSourceType.cloud,
-            cloudId: entry.id,
-            category: entry.category,
-          );
+      final tp = context.read<TextProvider>();
+      tp.loadFromString(
+        entry.content,
+        title: entry.title,
+        sourceType: TextSourceType.cloud,
+        cloudId: entry.id,
+        category: entry.category,
+      );
+      final lineHint = contextEntry.numericPositionHint;
+      if (lineHint != null && tp.lines.isNotEmpty) {
+        final target = (lineHint - 1).clamp(0, tp.lines.length - 1).toInt();
+        tp.setCurrentLine(target);
+      }
       navigator.pop();
       messenger.showSnackBar(
         const SnackBar(

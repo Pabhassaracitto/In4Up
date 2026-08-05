@@ -435,6 +435,7 @@ class PdfReaderController extends ChangeNotifier {
       surroundingText: (wordInfo.analyzed?.example?.trim().isNotEmpty ?? false)
           ? wordInfo.analyzed!.example!.trim()
           : word,
+      pdfPath: pdfPath,
     );
 
     VocabularyBridge.upsertDifficulty(

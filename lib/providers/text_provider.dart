@@ -178,6 +178,22 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? get currentTextCategory => _currentTextCategory;
   bool get isCurrentTextFromCloud =>
       _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
+  String? get currentContextSourceRef {
+    if (isCurrentTextFromCloud && _currentCloudId != null) return _currentCloudId;
+    if (_currentTextPath != null && _currentTextPath!.trim().isNotEmpty) {
+      return _currentTextPath;
+    }
+    return null;
+  }
+
+  String? get currentContextSourceRefType {
+    if (isCurrentTextFromCloud && _currentCloudId != null) return 'cloudText';
+    if (_currentTextPath != null && _currentTextPath!.trim().isNotEmpty) {
+      return 'localText';
+    }
+    return null;
+  }
+
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
   ColorMode get colorMode => _colorMode;
   List<TextSegment> get segments => List.unmodifiable(_segments);

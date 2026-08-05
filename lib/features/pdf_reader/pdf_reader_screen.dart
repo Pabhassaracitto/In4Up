@@ -33,8 +33,13 @@ import 'widgets/pdf_wordlist_panel.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
+  final int? initialPageIndex;
 
-  const PdfReaderScreen({super.key, required this.pdfPath});
+  const PdfReaderScreen({
+    super.key,
+    required this.pdfPath,
+    this.initialPageIndex,
+  });
 
   @override
   State<PdfReaderScreen> createState() => _PdfReaderScreenState();
@@ -286,12 +291,17 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         onDocumentChanged: (document) {
           if (document != null) {
             _controller.onDocumentLoaded(document);
-            // Jump to last page
-            if (_controller.currentPage > 0) {
+            final targetPage = widget.initialPageIndex != null &&
+                    widget.initialPageIndex! >= 0 &&
+                    widget.initialPageIndex! < document.pages.length
+                ? widget.initialPageIndex!
+                : _controller.currentPage;
+            if (targetPage > 0) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _pdfViewerController.goToPage(
-                  pageNumber: _controller.currentPage + 1,
+                  pageNumber: targetPage + 1,
                 );
+                _controller.onPageChanged(targetPage);
               });
             }
           }

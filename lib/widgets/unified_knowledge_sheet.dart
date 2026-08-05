@@ -82,9 +82,11 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     const SizedBox(height: 12),
                     _buildStatsSection(word),
                     const SizedBox(height: 12),
+                    _buildSourceMapSection(word),
+                    const SizedBox(height: 12),
                     _buildNotesSection(provider, word),
                     const SizedBox(height: 12),
-                    _buildContextsSection(word),
+                    _buildTimelineSection(word),
                   ],
                 ),
               ),
@@ -299,6 +301,50 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     );
   }
 
+  Widget _buildSourceMapSection(WordEntry word) {
+    final grouped = <String, int>{};
+    for (final context in word.contexts) {
+      grouped[context.sourceType] = (grouped[context.sourceType] ?? 0) + 1;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            icon: Icons.route_outlined,
+            title: 'Bản đồ nguồn đã gặp',
+          ),
+          const SizedBox(height: 10),
+          if (grouped.isEmpty)
+            Text(
+              'Chưa có dữ liệu nguồn.',
+              style: TextStyle(color: Colors.grey[500]),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: grouped.entries.map((entry) {
+                return _StatusChip(
+                  label: '${_sourceTypeLabel(entry.key)} · ${entry.value}',
+                  color: _sourceTypeColor(entry.key),
+                  icon: _sourceTypeIcon(entry.key),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNotesSection(VocabularyProvider provider, WordEntry word) {
     final notes = (word.personalNotes ?? '').trim();
     return Container(
@@ -374,7 +420,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     );
   }
 
-  Widget _buildContextsSection(WordEntry word) {
+  Widget _buildTimelineSection(WordEntry word) {
     final contexts = List.of(word.contexts)
       ..sort((a, b) => b.encounteredAt.compareTo(a.encounteredAt));
     return Container(
@@ -388,7 +434,10 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(icon: Icons.hub_outlined, title: 'Bản đồ ngữ cảnh đã gặp'),
+          const _SectionTitle(
+            icon: Icons.timeline_outlined,
+            title: 'Timeline gặp lại & mở nguồn',
+          ),
           const SizedBox(height: 10),
           if (contexts.isEmpty)
             Text(
@@ -396,7 +445,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
               style: TextStyle(color: Colors.grey[500]),
             )
           else
-            ...contexts.take(6).map(
+            ...contexts.take(12).map(
               (context) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(10),
@@ -422,6 +471,13 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                             ),
                           ),
                         ),
+                        Text(
+                          _formatEncounterAt(context.encounteredAt),
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -433,6 +489,17 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                         fontSize: 12,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: context.canReopenSource
+                            ? () => _openContextSource(context)
+                            : null,
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: Text(context.reopenActionLabel),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -440,6 +507,135 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         ],
       ),
     );
+  }
+
+  Future<void> _openContextSource(VocabContext contextEntry) async {
+    if (!contextEntry.canReopenSource || !mounted) return;
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ref = contextEntry.sourceRef!;
+    final type = contextEntry.sourceRefType!;
+
+    if (type == 'pdfPath') {
+      navigator.pop();
+      navigator.push(
+        MaterialPageRoute(builder: (_) => PdfReaderScreen(pdfPath: ref)),
+      );
+      return;
+    }
+
+    if (type == 'webUrl') {
+      navigator.pop();
+      navigator.push(
+        MaterialPageRoute(builder: (_) => WebReaderScreen(initialUrl: ref)),
+      );
+      return;
+    }
+
+    if (type == 'localText') {
+      final tp = context.read<TextProvider>();
+      await tp.loadTextFile(ref, title: contextEntry.sourceName);
+      if (!mounted) return;
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('✅ Đã nạp nguồn vào Đọc / Text Studio'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (type == 'cloudText') {
+      final service = TextLibraryService();
+      final entry = await service.getById(ref);
+      if (!mounted) return;
+      if (entry == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Không tìm thấy nguồn cloud để mở lại'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      context.read<TextProvider>().loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('☁️ Đã nạp nguồn cloud vào Đọc / Text Studio'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  String _formatEncounterAt(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inMinutes < 1) return 'Vừa xong';
+    if (diff.inHours < 1) return '${diff.inMinutes}p';
+    if (diff.inDays < 1) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays} ngày';
+    return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}';
+  }
+
+  String _sourceTypeLabel(String sourceType) {
+    switch (sourceType) {
+      case 'pdf':
+        return 'PDF';
+      case 'web':
+        return 'Web';
+      case 'story':
+        return 'Text';
+      case 'clipboard':
+        return 'Clipboard';
+      case 'youtube':
+        return 'YouTube';
+      default:
+        return sourceType;
+    }
+  }
+
+  Color _sourceTypeColor(String sourceType) {
+    switch (sourceType) {
+      case 'pdf':
+        return const Color(0xFFEF5350);
+      case 'web':
+        return const Color(0xFF42A5F5);
+      case 'story':
+        return const Color(0xFF66BB6A);
+      case 'clipboard':
+        return const Color(0xFF26C6DA);
+      case 'youtube':
+        return const Color(0xFFFF0000);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _sourceTypeIcon(String sourceType) {
+    switch (sourceType) {
+      case 'pdf':
+        return Icons.picture_as_pdf_outlined;
+      case 'web':
+        return Icons.language;
+      case 'story':
+        return Icons.menu_book_outlined;
+      case 'clipboard':
+        return Icons.content_paste_go_outlined;
+      case 'youtube':
+        return Icons.smart_display_outlined;
+      default:
+        return Icons.link_outlined;
+    }
   }
 
   Widget _metric(String label, String value) {

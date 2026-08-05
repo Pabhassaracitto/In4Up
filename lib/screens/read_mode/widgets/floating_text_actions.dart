@@ -58,6 +58,8 @@ class _FloatingBar extends StatelessWidget {
       storyTitle: title,
       lineIndex: lineIndex,
       surroundingText: lineContent,
+      sourceRef: tp.currentContextSourceRef,
+      sourceRefType: tp.currentContextSourceRefType,
     );
 
     vocabProvider.addWithAutoClassify(

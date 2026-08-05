@@ -996,6 +996,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         storyTitle: _currentDocument?.title ?? 'Read Mode',
         lineIndex: lineIndex,
         surroundingText: lineText,
+        sourceRef: currentContextSourceRef,
+        sourceRefType: currentContextSourceRefType,
       ),
       topic: _currentTextCategory,
     );
@@ -1337,6 +1339,21 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentDocument = TextDocument(
       id: _currentDocument?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title ?? _currentDocument?.title ?? 'Untitled',
+      lines: _lines,
+      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
+    _selectedTextInfo = null;
+    _selectedText = null;
+    notifyListeners();
+
+    debugPrint('✂️ Auto-split: ${_lines.length} lines');
+  }
+}
+DateTime.now().millisecondsSinceEpoch.toString(),
       title: title ?? _currentDocument?.title ?? 'Untitled',
       lines: _lines,
       createdAt: _currentDocument?.createdAt ?? DateTime.now(),

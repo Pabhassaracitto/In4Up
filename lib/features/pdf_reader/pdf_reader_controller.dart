@@ -381,6 +381,7 @@ class PdfReaderController extends ChangeNotifier {
       fileName: pdfPath.split('/').last,
       page: _currentPage + 1,
       surroundingText: text,
+      pdfPath: pdfPath,
     );
 
     final existed = VocabularyBridge.hasWord(text);

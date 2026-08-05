@@ -928,6 +928,8 @@ class _WordListScreenState extends State<WordListScreen> {
           storyTitle: textProvider.currentDocument!.title,
           lineIndex: textProvider.currentLineIndex,
           surroundingText: line,
+          sourceRef: textProvider.currentContextSourceRef,
+          sourceRefType: textProvider.currentContextSourceRefType,
         );
       }
     } catch (_) {}

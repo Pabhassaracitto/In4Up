@@ -121,12 +121,16 @@ class VocabContext {
     required String storyTitle,
     required int lineIndex,
     required String surroundingText,
+    String? sourceRef,
+    String? sourceRefType,
   }) =>
       VocabContext(
         id: 'ctx_${DateTime.now().millisecondsSinceEpoch}',
         sourceType: 'story',
         sourceName: storyTitle,
         pageOrPosition: 'dòng ${lineIndex + 1}',
+        sourceRef: sourceRef,
+        sourceRefType: sourceRefType,
         surroundingText: surroundingText,
         encounteredAt: DateTime.now(),
       );

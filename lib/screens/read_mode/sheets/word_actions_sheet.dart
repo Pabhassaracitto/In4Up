@@ -764,6 +764,8 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
       storyTitle: title,
       lineIndex: widget.lineIndex,
       surroundingText: lineContent,
+      sourceRef: tp.currentContextSourceRef,
+      sourceRefType: tp.currentContextSourceRefType,
     );
   }
 

@@ -601,6 +601,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
         fileName: widget.pdfFileName,
         page: widget.pageIndex + 1,
         surroundingText: widget.surroundingText,
+        pdfPath: widget.controller.pdfPath,
       );
 
   @override

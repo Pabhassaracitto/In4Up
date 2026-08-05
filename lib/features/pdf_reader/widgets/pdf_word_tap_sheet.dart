@@ -182,6 +182,7 @@ class _WordSheet extends StatelessWidget {
                             : displayWord,
                   ),
                 );
+                controller.refreshVocabularySignals();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Đã thêm ngữ cảnh PDF mới cho từ này'),
@@ -192,6 +193,7 @@ class _WordSheet extends StatelessWidget {
               onEditNotes: () => _showEditSavedNotesDialog(
                 context,
                 provider,
+                controller,
                 existing,
               ),
             ),
@@ -311,6 +313,7 @@ class _WordSheet extends StatelessWidget {
 
           // ── Lưu vào Wordlist ─────────────────────────────
           PdfWordSaveSection(
+            controller: controller,
             word: lookupWord,
             surroundingText: (analyzed?.example?.trim().isNotEmpty ?? false)
                 ? analyzed!.example!.trim()
@@ -329,6 +332,7 @@ class _WordSheet extends StatelessWidget {
 Future<void> _showEditSavedNotesDialog(
   BuildContext context,
   VocabularyProvider provider,
+  PdfReaderController controller,
   WordEntry entry,
 ) async {
   final noteCtrl = TextEditingController(text: entry.personalNotes ?? '');
@@ -377,6 +381,7 @@ Future<void> _showEditSavedNotesDialog(
 
   if (shouldSave == true) {
     provider.updateNotes(entry.id, noteCtrl.text.trim());
+    controller.refreshVocabularySignals();
   }
 }
 
@@ -548,6 +553,7 @@ class _RecallChip extends StatelessWidget {
 /// Widget lưu từ vào Wordlist từ PDF
 /// Tích hợp vào PdfWordTapSheet hiện có
 class PdfWordSaveSection extends StatefulWidget {
+  final PdfReaderController controller;
   final String word;
   final String surroundingText;
   final String pdfFileName;
@@ -555,6 +561,7 @@ class PdfWordSaveSection extends StatefulWidget {
 
   const PdfWordSaveSection({
     super.key,
+    required this.controller,
     required this.word,
     required this.surroundingText,
     required this.pdfFileName,
@@ -648,6 +655,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
       meaning: '', // Sẽ bổ sung sau (Progressive Effort)
       context: _context,
     );
+    widget.controller.refreshVocabularySignals();
     setState(() => _saved = true);
     HapticFeedback.lightImpact();
   }
@@ -740,6 +748,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
       meaning: _meaningCtrl.text.trim(),
       context: _context,
     );
+    widget.controller.refreshVocabularySignals();
     setState(() {
       _saved = true;
       _showForm = false;
@@ -770,6 +779,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
               final existing = provider.findByWord(widget.word);
               if (existing != null) {
                 provider.addContextToWord(existing.id, _context);
+                widget.controller.refreshVocabularySignals();
               }
               setState(() => _saved = true);
               HapticFeedback.selectionClick();

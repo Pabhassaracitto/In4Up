@@ -153,6 +153,23 @@ class VocabularyBridge {
     return out;
   }
 
+  static Map<String, Map<String, dynamic>> exportRecallMetadata() {
+    final inst = _instance;
+    if (inst == null) return const {};
+    final out = <String, Map<String, dynamic>>{};
+    for (final entry in inst.allWords) {
+      final key = entry.word.toLowerCase().trim();
+      if (key.isEmpty) continue;
+      out[key] = {
+        'saved': true,
+        'note': (entry.personalNotes?.trim().isNotEmpty ?? false),
+        'due': entry.hasAnyDue,
+        'count': entry.encounterCount,
+      };
+    }
+    return out;
+  }
+
   static bool hasWord(String word) => _instance?.hasWord(word) ?? false;
   static WordEntry? findByWord(String word) => _instance?.findByWord(word);
   static int get dueCount => _instance?.dueCount ?? 0;

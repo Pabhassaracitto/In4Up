@@ -207,6 +207,29 @@ class WebWordTapSheet extends StatelessWidget {
             ),
           ],
 
+          if (analyzed?.isSaved == true ||
+              analyzed?.hasSavedNotes == true ||
+              analyzed?.hasDueReview == true) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (analyzed?.isSaved == true)
+                  const _Tag(label: 'Đã lưu', color: Color(0xFF4CAF50)),
+                if (analyzed?.hasSavedNotes == true)
+                  const _Tag(label: 'Có ghi chú', color: Colors.amber),
+                if (analyzed?.hasDueReview == true)
+                  const _Tag(label: 'Đến kỳ ôn', color: Colors.redAccent),
+                if ((analyzed?.encounterCount ?? 0) > 1)
+                  _Tag(
+                    label: '${analyzed!.encounterCount} lần gặp',
+                    color: const Color(0xFF64B5F6),
+                  ),
+              ],
+            ),
+          ],
+
           const SizedBox(height: 14),
           const Text(
             'Đánh dấu độ khó:',

@@ -240,6 +240,10 @@ class AnalyzedWord {
   final String? example;
   final int? frequency;
   final bool isStopWord;
+  final bool isSaved;
+  final bool hasSavedNotes;
+  final bool hasDueReview;
+  final int encounterCount;
 
   const AnalyzedWord({
     required this.word,
@@ -252,6 +256,10 @@ class AnalyzedWord {
     this.example,
     this.frequency,
     this.isStopWord = false,
+    this.isSaved = false,
+    this.hasSavedNotes = false,
+    this.hasDueReview = false,
+    this.encounterCount = 0,
   }) : originalWord = originalWord ?? word;
 
   AnalyzedWord copyWith({
@@ -265,6 +273,10 @@ class AnalyzedWord {
     String? example,
     int? frequency,
     bool? isStopWord,
+    bool? isSaved,
+    bool? hasSavedNotes,
+    bool? hasDueReview,
+    int? encounterCount,
   }) {
     return AnalyzedWord(
       word: word ?? this.word,
@@ -277,6 +289,10 @@ class AnalyzedWord {
       example: example ?? this.example,
       frequency: frequency ?? this.frequency,
       isStopWord: isStopWord ?? this.isStopWord,
+      isSaved: isSaved ?? this.isSaved,
+      hasSavedNotes: hasSavedNotes ?? this.hasSavedNotes,
+      hasDueReview: hasDueReview ?? this.hasDueReview,
+      encounterCount: encounterCount ?? this.encounterCount,
     );
   }
 
@@ -287,9 +303,22 @@ class AnalyzedWord {
         other.word == word &&
         other.wordType == wordType &&
         other.cefrLevel == cefrLevel &&
-        other.userDifficulty == userDifficulty;
+        other.userDifficulty == userDifficulty &&
+        other.isSaved == isSaved &&
+        other.hasSavedNotes == hasSavedNotes &&
+        other.hasDueReview == hasDueReview &&
+        other.encounterCount == encounterCount;
   }
 
   @override
-  int get hashCode => Object.hash(word, wordType, cefrLevel, userDifficulty);
+  int get hashCode => Object.hash(
+        word,
+        wordType,
+        cefrLevel,
+        userDifficulty,
+        isSaved,
+        hasSavedNotes,
+        hasDueReview,
+        encounterCount,
+      );
 }

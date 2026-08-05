@@ -366,6 +366,7 @@ class WebReaderController extends ChangeNotifier {
       'mode': _colorMode.name,
       'cefrDictionary': cefrMap,
       'difficultyDictionary': VocabularyBridge.exportDifficultyMap(),
+      'recallDictionary': VocabularyBridge.exportRecallMetadata(),
       'colors': {
         'cefr': {
           'a1': '#78909C',
@@ -459,6 +460,8 @@ class WebReaderController extends ChangeNotifier {
       meaning: analyzed?.meaning,
       sourceFile: _safeHost(_currentUrl),
     );
+    _highlightVersion++;
+    notifyListeners();
   }
 
   bool markWordDifficulty(
@@ -512,6 +515,8 @@ class WebReaderController extends ChangeNotifier {
             clean,
       ),
     );
+    _highlightVersion++;
+    notifyListeners();
     return !existed;
   }
 
@@ -526,6 +531,8 @@ class WebReaderController extends ChangeNotifier {
       example: normalized,
       context: _buildCurrentWebContext(normalized),
     );
+    _highlightVersion++;
+    notifyListeners();
     return !existed;
   }
 

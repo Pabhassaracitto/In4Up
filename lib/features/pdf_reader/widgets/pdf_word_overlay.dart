@@ -21,7 +21,11 @@ class PdfWordOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (colorMode == ColorMode.none && speakingWord == null) {
+    final hasRecallMarkers = words.any((w) =>
+        w.analyzed?.isSaved == true ||
+        w.analyzed?.hasSavedNotes == true ||
+        w.analyzed?.hasDueReview == true);
+    if (colorMode == ColorMode.none && speakingWord == null && !hasRecallMarkers) {
       return const SizedBox.shrink();
     }
 
@@ -86,6 +90,31 @@ class _WordHighlightPainter extends CustomPainter {
         }
       }
 
+      final analyzed = word.analyzed;
+      if (analyzed?.isSaved == true) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(screenRect.inflate(1), const Radius.circular(3)),
+          Paint()
+            ..color = const Color(0xFF4CAF50).withValues(alpha: 0.45)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
+        );
+      }
+      if (analyzed?.hasSavedNotes == true) {
+        canvas.drawCircle(
+          Offset(screenRect.right - 3, screenRect.top + 3),
+          2.4,
+          Paint()..color = Colors.amberAccent,
+        );
+      }
+      if (analyzed?.hasDueReview == true) {
+        canvas.drawCircle(
+          Offset(screenRect.left + 3, screenRect.top + 3),
+          2.4,
+          Paint()..color = Colors.redAccent,
+        );
+      }
+
       // Speaking word highlight (yellow glow)
       if (speakingWord != null &&
           word.text.toLowerCase() == speakingWord!.toLowerCase()) {
@@ -95,7 +124,7 @@ class _WordHighlightPainter extends CustomPainter {
             const Radius.circular(3),
           ),
           Paint()
-            ..color = Color(0xFFFFEB3B).withValues(alpha: 0.6)
+            ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.6)
             ..style = PaintingStyle.fill,
         );
         // Border

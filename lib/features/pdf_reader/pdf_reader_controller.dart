@@ -351,7 +351,6 @@ class PdfReaderController extends ChangeNotifier {
     final word = wordInfo.text.replaceAll(RegExp(r'[^\w]'), '').toLowerCase();
     if (word.isEmpty) return;
 
-    // ★ Bridge → VocabularyProvider (hệ thống chung)
     VocabularyBridge.addFromAnalyzed(
       word: word,
       meaning: wordInfo.analyzed?.meaning,
@@ -370,6 +369,8 @@ class PdfReaderController extends ChangeNotifier {
       sourceFile: pdfPath.split('/').last,
       sourceLine: wordInfo.pageIndex,
     );
+
+    refreshVocabularySignals();
   }
 
   bool saveSelectedTextToWordList() {
@@ -392,6 +393,7 @@ class PdfReaderController extends ChangeNotifier {
           ? VocabularyType.phrase
           : VocabularyType.word,
     );
+    refreshVocabularySignals();
     return !existed;
   }
 
@@ -443,11 +445,15 @@ class PdfReaderController extends ChangeNotifier {
       context: context,
     );
 
+    refreshVocabularySignals();
+    return true;
+  }
+
+  void refreshVocabularySignals() {
     _pageWords.clear();
     _extractor.clearCache();
     _loadWordsForPage(_currentPage);
     notifyListeners();
-    return true;
   }
 
   // ─── Dispose ─────────────────────────────────────────────

@@ -139,6 +139,10 @@ class SyntaxHighlighterService {
           ? entry.example!.trim()
           : word.example,
       userDifficulty: entry.userDifficulty,
+      isSaved: true,
+      hasSavedNotes: (entry.personalNotes?.trim().isNotEmpty ?? false),
+      hasDueReview: entry.hasAnyDue,
+      encounterCount: entry.encounterCount,
     );
   }
 

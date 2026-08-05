@@ -15,6 +15,7 @@ class WebReaderJS {
   const MODE = CONFIG.mode;
   const CEFR_DICT = CONFIG.cefrDictionary || {};
   const DIFFICULTY_DICT = CONFIG.difficultyDictionary || {};
+  const RECALL_DICT = CONFIG.recallDictionary || {};
   const COLORS = CONFIG.colors || {};
   const SUFFIXES = CONFIG.suffixes || {};
 
@@ -122,6 +123,25 @@ class WebReaderJS {
     return null;
   }
 
+  function getRecallMeta(word) {
+    const w = word.toLowerCase().replace(/[^\\w']/g, '');
+    return RECALL_DICT[w] || null;
+  }
+
+  function applyRecallStyle(span, meta) {
+    if (!meta) return;
+    if (meta.saved) {
+      span.style.outline = '1px solid rgba(76,175,80,0.45)';
+      span.style.outlineOffset = '1px';
+    }
+    if (meta.note) {
+      span.style.boxShadow = 'inset 0 -2px 0 rgba(255,193,7,0.75)';
+    }
+    if (meta.due) {
+      span.style.borderTop = '2px solid rgba(244,67,54,0.85)';
+    }
+  }
+
   // ── Text node walker ──────────────────────────────────
   function processTextNode(textNode) {
     const text = textNode.textContent;
@@ -153,6 +173,7 @@ class WebReaderJS {
 
       const classification = classifyWord(token);
       const color = getColor(classification);
+      const recallMeta = getRecallMeta(token);
 
       if (color && color !== 'transparent') {
         const span = document.createElement('span');
@@ -182,6 +203,8 @@ class WebReaderJS {
           span.style.backgroundColor = color + '22';
         });
 
+        applyRecallStyle(span, recallMeta);
+
         // Click → gửi message về Flutter
         span.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -207,6 +230,7 @@ class WebReaderJS {
         span.setAttribute('data-word', token.toLowerCase());
         span.textContent = token;
         span.style.cssText = 'cursor: pointer;';
+        applyRecallStyle(span, recallMeta);
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();

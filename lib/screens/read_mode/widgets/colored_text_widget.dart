@@ -49,6 +49,26 @@ class ColoredTextWidget extends StatelessWidget {
   }
 }
 
+class _MiniMark extends StatelessWidget {
+  final Color color;
+  final double width;
+
+  const _MiniMark({required this.color, this.width = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: 2,
+      margin: const EdgeInsets.only(top: 1),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
+  }
+}
+
 class _ColoredWord extends StatelessWidget {
   final AnalyzedWord word;
   final int wordIndex;
@@ -69,19 +89,26 @@ class _ColoredWord extends StatelessWidget {
     final bgColor = word.getBackgroundColor(colorMode);
     final textColor = word.getColor(colorMode);
     final hasDifficulty = word.userDifficulty != null;
+    final hasRecall = word.isSaved || word.hasSavedNotes || word.hasDueReview;
+    final borderColor = hasDifficulty
+        ? word.userDifficulty!.color.withValues(alpha: 0.5)
+        : word.hasDueReview
+            ? Colors.redAccent.withValues(alpha: 0.45)
+            : word.hasSavedNotes
+                ? Colors.amber.withValues(alpha: 0.38)
+                : word.isSaved
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.28)
+                    : Colors.transparent;
 
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        // Tap = phát âm
         context.read<TextProvider>().speak(word.word);
       },
       onDoubleTap: () {
-        // Double tap = xem nghĩa nhanh
         _showQuickMeaning(context);
       },
       onLongPress: () {
-        // Long press = full word actions
         WordActionsSheet.show(context, word, lineIndex, wordIndex);
       },
       child: AnimatedContainer(
@@ -90,10 +117,10 @@ class _ColoredWord extends StatelessWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(4),
-          border: hasDifficulty
+          border: hasDifficulty || hasRecall
               ? Border.all(
-                  color: word.userDifficulty!.color.withValues(alpha: 0.5),
-                  width: 1.5,
+                  color: borderColor,
+                  width: hasDifficulty ? 1.5 : 1,
                 )
               : null,
         ),
@@ -105,20 +132,26 @@ class _ColoredWord extends StatelessWidget {
               style: TextStyle(
                 fontSize: fontSize,
                 color: textColor,
-                fontWeight: hasDifficulty ? FontWeight.bold : FontWeight.normal,
+                fontWeight: hasDifficulty || word.isSaved
+                    ? FontWeight.bold
+                    : FontWeight.normal,
                 height: 1.6,
               ),
             ),
-            // Mini difficulty indicator
-            if (hasDifficulty)
-              Container(
-                width: 16,
-                height: 2,
-                margin: const EdgeInsets.only(top: 1),
-                decoration: BoxDecoration(
-                  color: word.userDifficulty!.color,
-                  borderRadius: BorderRadius.circular(1),
-                ),
+            if (hasDifficulty || hasRecall)
+              Wrap(
+                spacing: 3,
+                runSpacing: 2,
+                children: [
+                  if (hasDifficulty)
+                    _MiniMark(color: word.userDifficulty!.color),
+                  if (word.isSaved)
+                    const _MiniMark(color: Color(0xFF4CAF50), width: 6),
+                  if (word.hasSavedNotes)
+                    const _MiniMark(color: Colors.amber, width: 6),
+                  if (word.hasDueReview)
+                    const _MiniMark(color: Colors.redAccent, width: 6),
+                ],
               ),
           ],
         ),

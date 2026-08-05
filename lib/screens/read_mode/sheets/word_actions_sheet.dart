@@ -759,6 +759,18 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     final lineContent = widget.lineIndex < tp.lines.length
         ? tp.lines[widget.lineIndex].content
         : widget.word.word;
+    final selectedInfo = tp.selectedTextInfo;
+    final selectedNormalized = (selectedInfo?.text ?? '')
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\w']"), '')
+        .trim();
+    final wordNormalized = widget.word.word
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\w']"), '')
+        .trim();
+    final useSelectionAnchor = selectedInfo != null &&
+        selectedInfo.lineIndex == widget.lineIndex &&
+        selectedNormalized == wordNormalized;
 
     return VocabContext.fromStory(
       storyTitle: title,
@@ -766,6 +778,9 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
       surroundingText: lineContent,
       sourceRef: tp.currentContextSourceRef,
       sourceRefType: tp.currentContextSourceRefType,
+      anchorText: widget.word.word,
+      textStartOffset: useSelectionAnchor ? selectedInfo.startOffset : null,
+      textEndOffset: useSelectionAnchor ? selectedInfo.endOffset : null,
     );
   }
 

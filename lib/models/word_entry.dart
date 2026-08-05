@@ -406,13 +406,15 @@ class WordEntry {
   }
 
   void addContext(VocabContext ctx) {
-    final isDuplicate = contexts.any((c) =>
-        c.sourceName == ctx.sourceName &&
-        c.surroundingText == ctx.surroundingText);
-    if (!isDuplicate) {
-      contexts.add(ctx);
+    final existingIndex = contexts.indexWhere((c) => c.isLikelyDuplicateOf(ctx));
+    if (existingIndex >= 0) {
+      contexts[existingIndex] = contexts[existingIndex].mergeWith(ctx);
       updatedAt = DateTime.now();
+      return;
     }
+
+    contexts.add(ctx);
+    updatedAt = DateTime.now();
   }
 
   void addParent(String parentId) {

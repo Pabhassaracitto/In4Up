@@ -144,6 +144,41 @@ class WebReaderJS {
     }
   }
 
+  function getScrollProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(1, scrollHeight - viewportHeight);
+    return Math.max(0, Math.min(1, scrollTop / maxScrollable));
+  }
+
+  function getContextTextForNode(node, focusText) {
+    const element = node && node.closest
+      ? node.closest('p, li, blockquote, h1, h2, h3, h4, td, th, figcaption, article, main')
+      : null;
+    let text = '';
+    if (element) {
+      text = (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+    if (!text && node) {
+      text = ((node.innerText || node.textContent || '') + '').replace(/\s+/g, ' ').trim();
+    }
+    const focus = (focusText || '').replace(/\s+/g, ' ').trim();
+    if (!text) return focus;
+    if (!focus || text.length <= 260) return text;
+
+    const lower = text.toLowerCase();
+    const index = lower.indexOf(focus.toLowerCase());
+    if (index < 0) return text.slice(0, 260).trim();
+
+    const start = Math.max(0, index - 90);
+    const end = Math.min(text.length, index + focus.length + 120);
+    return text.slice(start, end).trim();
+  }
+
   // ── Text node walker ──────────────────────────────────
   function processTextNode(textNode) {
     const text = textNode.textContent;
@@ -220,6 +255,8 @@ class WebReaderJS {
             cefrLevel: classification.mode === 'cefr'
               ? classification.level
               : null,
+            contextText: getContextTextForNode(span, token),
+            scrollProgress: getScrollProgress(),
           }));
         });
 
@@ -241,6 +278,8 @@ class WebReaderJS {
             word: token,
             wordType: null,
             cefrLevel: null,
+            contextText: getContextTextForNode(span, token),
+            scrollProgress: getScrollProgress(),
           }));
         });
         fragment.appendChild(span);
@@ -348,27 +387,61 @@ window.getSelection()?.toString() || '';
   if (window.__in2upSelectionReady) return;
   window.__in2upSelectionReady = true;
 
-  document.addEventListener('mouseup', function() {
-    const sel = window.getSelection();
-    if (sel && sel.toString().trim().length > 0) {
-      window.in2upChannel.postMessage(JSON.stringify({
-        type: 'textSelected',
-        text: sel.toString().trim()
-      }));
+  function getScrollProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(1, scrollHeight - viewportHeight);
+    return Math.max(0, Math.min(1, scrollTop / maxScrollable));
+  }
+
+  function buildContextText(selection) {
+    if (!selection || selection.rangeCount === 0) return '';
+    const range = selection.getRangeAt(0);
+    const selectedText = (selection.toString() || '').replace(/\s+/g, ' ').trim();
+    if (!selectedText) return '';
+
+    const element = range.startContainer && range.startContainer.parentElement
+      ? range.startContainer.parentElement.closest('p, li, blockquote, h1, h2, h3, h4, td, th, figcaption, article, main')
+      : null;
+    let text = '';
+    if (element) {
+      text = (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
     }
-  });
+    if (!text) {
+      text = selectedText;
+    }
+    if (text.length <= 320) return text;
+
+    const lower = text.toLowerCase();
+    const index = lower.indexOf(selectedText.toLowerCase());
+    if (index < 0) return text.slice(0, 320).trim();
+
+    const start = Math.max(0, index - 110);
+    const end = Math.min(text.length, index + selectedText.length + 140);
+    return text.slice(start, end).trim();
+  }
+
+  function sendSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.toString().trim().length === 0) return;
+    const text = sel.toString().trim();
+    window.in2upChannel.postMessage(JSON.stringify({
+      type: 'textSelected',
+      text: text,
+      contextText: buildContextText(sel),
+      scrollProgress: getScrollProgress(),
+    }));
+  }
+
+  document.addEventListener('mouseup', sendSelection);
 
   // Touch devices
   document.addEventListener('touchend', function() {
-    setTimeout(() => {
-      const sel = window.getSelection();
-      if (sel && sel.toString().trim().length > 0) {
-        window.in2upChannel.postMessage(JSON.stringify({
-          type: 'textSelected',
-          text: sel.toString().trim()
-        }));
-      }
-    }, 100);
+    setTimeout(sendSelection, 100);
   }, { passive: true });
 
   console.log('[in2up] Selection listener ready');
@@ -463,94 +536,220 @@ window.getSelection()?.toString() || '';
 ''';
   }
 
-  static String buildFocusCueScript(String term) {
-    final encoded = jsonEncode(term);
+  static String buildPreciseFocusCueScript({
+    String? term,
+    String? anchorText,
+    String? surroundingText,
+    double? scrollProgress,
+  }) {
+    final encodedTerm = jsonEncode(term ?? '');
+    final encodedAnchor = jsonEncode(anchorText ?? '');
+    final encodedContext = jsonEncode(surroundingText ?? '');
+    final encodedScroll = scrollProgress == null
+        ? 'null'
+        : scrollProgress.clamp(0.0, 1.0).toStringAsFixed(4);
+
     return '''
 (function() {
-  const term = ($encoded || '').toString().trim();
-  if (!term) return;
+  const term = ($encodedTerm || '').toString().trim();
+  const anchorText = ($encodedAnchor || '').toString().trim();
+  const surroundingText = ($encodedContext || '').toString().trim();
+  const scrollProgress = $encodedScroll;
 
-  const old = document.getElementById('in2up-focus-cue');
-  if (old) {
+  function clearOldCue() {
+    const old = document.getElementById('in2up-focus-cue');
+    if (!old) return;
     const parent = old.parentNode;
-    if (parent) {
-      parent.replaceChild(document.createTextNode(old.textContent || ''), old);
-      parent.normalize();
-    }
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(old.textContent || ''), old);
+    parent.normalize();
   }
 
-  function normalize(value) {
+  clearOldCue();
+
+  function normalizeWord(value) {
     return (value || '').toLowerCase().replace(/[^\\w']/g, '');
   }
 
-  const normTerm = normalize(term);
-  if (!normTerm) return;
+  function normalizeText(value) {
+    return (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  }
 
-  const wrapped = Array.from(document.querySelectorAll('.in2up-word'));
-  const direct = wrapped.find((el) => normalize(el.textContent) === normTerm);
-  if (direct) {
-    direct.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    direct.style.outline = '2px solid #64B5F6';
-    direct.style.outlineOffset = '2px';
-    direct.style.boxShadow = '0 0 0 6px rgba(100,181,246,0.18)';
+  function getRoot() {
+    return document.querySelector('article') ||
+      document.querySelector('[role="main"]') ||
+      document.querySelector('main') ||
+      document.body;
+  }
+
+  function applyScrollProgress(progress) {
+    if (progress == null || Number.isNaN(progress) || progress <= 0.01) return;
+    function run() {
+      const scrollHeight = Math.max(
+        document.body.scrollHeight || 0,
+        document.documentElement.scrollHeight || 0
+      );
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const maxScrollable = Math.max(0, scrollHeight - viewportHeight);
+      const target = Math.max(0, Math.min(maxScrollable, maxScrollable * progress));
+      window.scrollTo({ top: target, behavior: 'auto' });
+    }
+    setTimeout(run, 60);
+    setTimeout(run, 240);
+  }
+
+  function glowElement(el) {
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const prevOutline = el.style.outline;
+    const prevOutlineOffset = el.style.outlineOffset;
+    const prevBoxShadow = el.style.boxShadow;
+    const prevBackground = el.style.background;
+    el.style.outline = '2px solid #64B5F6';
+    el.style.outlineOffset = '2px';
+    el.style.boxShadow = '0 0 0 6px rgba(100,181,246,0.18)';
+    el.style.background = el.style.background || 'rgba(100,181,246,0.12)';
     setTimeout(() => {
-      direct.style.outline = '';
-      direct.style.outlineOffset = '';
-      direct.style.boxShadow = '';
+      el.style.outline = prevOutline;
+      el.style.outlineOffset = prevOutlineOffset;
+      el.style.boxShadow = prevBoxShadow;
+      el.style.background = prevBackground;
     }, 2600);
+  }
+
+  function findSpanSequence(rawText, scope) {
+    const tokens = rawText
+      .split(/\s+/)
+      .map(normalizeWord)
+      .filter(Boolean);
+    if (!tokens.length) return null;
+
+    const spans = Array.from((scope || document).querySelectorAll('.in2up-word'));
+    for (let i = 0; i <= spans.length - tokens.length; i++) {
+      let ok = true;
+      for (let j = 0; j < tokens.length; j++) {
+        if (normalizeWord(spans[i + j].textContent) !== tokens[j]) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return spans.slice(i, i + tokens.length);
+    }
+    return null;
+  }
+
+  function glowSpanGroup(group) {
+    if (!group || !group.length) return false;
+    group[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    group.forEach((el) => {
+      el.style.outline = '2px solid #64B5F6';
+      el.style.outlineOffset = '2px';
+      el.style.boxShadow = '0 0 0 6px rgba(100,181,246,0.18)';
+    });
+    setTimeout(() => {
+      group.forEach((el) => {
+        el.style.outline = '';
+        el.style.outlineOffset = '';
+        el.style.boxShadow = '';
+      });
+    }, 2600);
+    return true;
+  }
+
+  function findContextBlock() {
+    const needle = normalizeText(surroundingText);
+    const anchorNeedle = normalizeText(anchorText || term);
+    if (!needle && !anchorNeedle) return null;
+
+    const root = getRoot();
+    const blocks = Array.from(
+      root.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, td, th, figcaption, article, main, section')
+    );
+    if (!blocks.length) blocks.push(root);
+
+    let best = null;
+    let bestScore = 0;
+    const shortNeedle = needle.length > 120 ? needle.slice(0, 120) : needle;
+
+    for (const el of blocks) {
+      const text = normalizeText(el.innerText || el.textContent || '');
+      if (!text) continue;
+      let score = 0;
+      if (needle && text.includes(needle)) score += 4;
+      else if (shortNeedle && text.includes(shortNeedle)) score += 3;
+      if (anchorNeedle && text.includes(anchorNeedle)) score += 2;
+      if (score > bestScore) {
+        best = el;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function markTextInElement(root, rawTarget) {
+    const target = (rawTarget || '').trim();
+    if (!target) return false;
+
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node || !node.textContent || !node.textContent.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentNode;
+          const tag = parent && parent.tagName ? parent.tagName.toLowerCase() : '';
+          if (['script','style','noscript','textarea','code','pre'].includes(tag)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.textContent || '';
+      const index = text.toLowerCase().indexOf(target.toLowerCase());
+      if (index < 0) continue;
+      try {
+        const range = document.createRange();
+        range.setStart(node, index);
+        range.setEnd(node, index + target.length);
+        const mark = document.createElement('mark');
+        mark.id = 'in2up-focus-cue';
+        mark.style.background = 'rgba(100,181,246,0.28)';
+        mark.style.outline = '2px solid #64B5F6';
+        mark.style.borderRadius = '4px';
+        mark.style.padding = '0 2px';
+        range.surroundContents(mark);
+        mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        setTimeout(clearOldCue, 2600);
+        return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  applyScrollProgress(scrollProgress);
+
+  const contextBlock = findContextBlock();
+  if (contextBlock) {
+    const scopedGroup = findSpanSequence(anchorText || term, contextBlock);
+    if (glowSpanGroup(scopedGroup)) return;
+    glowElement(contextBlock);
+    if (anchorText && markTextInElement(contextBlock, anchorText)) return;
+    if (term && markTextInElement(contextBlock, term)) return;
     return;
   }
 
-  const root = document.querySelector('article') ||
-    document.querySelector('[role="main"]') ||
-    document.querySelector('main') ||
-    document.body;
+  const directGroup = findSpanSequence(anchorText || term, document);
+  if (glowSpanGroup(directGroup)) return;
 
-  const walker = document.createTreeWalker(
-    root,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        if (!node || !node.textContent || !node.textContent.trim()) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        const parent = node.parentNode;
-        const tag = parent && parent.tagName ? parent.tagName.toLowerCase() : '';
-        if (['script','style','noscript','textarea','code','pre'].includes(tag)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    }
-  );
-
-  let node;
-  while ((node = walker.nextNode())) {
-    const text = node.textContent || '';
-    const lower = text.toLowerCase();
-    const index = lower.indexOf(term.toLowerCase());
-    if (index < 0) continue;
-    try {
-      const range = document.createRange();
-      range.setStart(node, index);
-      range.setEnd(node, index + term.length);
-      const mark = document.createElement('mark');
-      mark.id = 'in2up-focus-cue';
-      mark.style.background = 'rgba(100,181,246,0.28)';
-      mark.style.outline = '2px solid #64B5F6';
-      mark.style.borderRadius = '4px';
-      mark.style.padding = '0 2px';
-      range.surroundContents(mark);
-      mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setTimeout(() => {
-        const parent = mark.parentNode;
-        if (!parent) return;
-        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
-        parent.normalize();
-      }, 2600);
-      return;
-    } catch (_) {}
-  }
+  const root = getRoot();
+  if (anchorText && markTextInElement(root, anchorText)) return;
+  if (term) markTextInElement(root, term);
 })();
 ''';
   }

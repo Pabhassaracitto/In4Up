@@ -149,6 +149,10 @@ class WebReaderController extends ChangeNotifier {
   // ─── Selected text ───────────────────────────────────────
   String? _selectedText;
   String? get selectedText => _selectedText;
+  String? _selectedContextText;
+  double? _selectedScrollProgress;
+  String? _tappedWordContextText;
+  double? _tappedWordScrollProgress;
 
   // ─── TTS ────────────────────────────────────────────────
   final TtsService _tts = TtsService();
@@ -328,8 +332,14 @@ class WebReaderController extends ChangeNotifier {
   // ─── JavaScript data processing ──────────────────────────
 
   /// Nhận từ bị tap từ JS bridge
-  void onWordTapped(String word) {
+  void onWordTapped(
+    String word, {
+    String? contextText,
+    double? scrollProgress,
+  }) {
     _tappedWordRaw = word;
+    _tappedWordContextText = _normalizeOptionalStudyText(contextText);
+    _tappedWordScrollProgress = scrollProgress?.clamp(0.0, 1.0).toDouble();
     final clean = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
     if (clean.isEmpty) return;
 
@@ -341,16 +351,26 @@ class WebReaderController extends ChangeNotifier {
   void clearTappedWord() {
     _tappedWord = null;
     _tappedWordRaw = null;
+    _tappedWordContextText = null;
+    _tappedWordScrollProgress = null;
     notifyListeners();
   }
 
-  void onTextSelected(String text) {
+  void onTextSelected(
+    String text, {
+    String? contextText,
+    double? scrollProgress,
+  }) {
     _selectedText = text.trim();
+    _selectedContextText = _normalizeOptionalStudyText(contextText);
+    _selectedScrollProgress = scrollProgress?.clamp(0.0, 1.0).toDouble();
     notifyListeners();
   }
 
   void clearSelection() {
     _selectedText = null;
+    _selectedContextText = null;
+    _selectedScrollProgress = null;
     notifyListeners();
   }
 
@@ -472,20 +492,21 @@ class WebReaderController extends ChangeNotifier {
     final clean = word.trim().toLowerCase();
     if (clean.isEmpty) return false;
 
+    final anchorText = (_tappedWordRaw ?? clean).trim();
+    final surroundingText = _resolveTappedContextText(clean);
+
     VocabularyBridge.upsertDifficulty(
       text: clean,
       difficulty: difficulty,
       meaning: analyzed?.meaning ?? '',
       phonetic: analyzed?.phonetic,
       forceType: clean.contains(' ') ? VocabularyType.phrase : VocabularyType.word,
-      context: VocabContext.fromWeb(
-        url: _currentUrl,
-        pageTitle: _pageTitle,
-        surroundingText: _selectedText?.trim().isNotEmpty == true
-            ? _selectedText!.trim()
-            : clean,
+      context: _buildCurrentWebContext(
+        surroundingText,
+        anchorText: anchorText,
+        scrollProgressHint: _resolveTappedScrollProgress(),
       ),
-      topic: _inferTopic('$_pageTitle ${_selectedText ?? clean}'),
+      topic: _inferTopic('$_pageTitle $surroundingText'),
     );
     _highlightVersion++;
     notifyListeners();
@@ -501,18 +522,18 @@ class WebReaderController extends ChangeNotifier {
     if (clean.isEmpty || clean.length < 2) return false;
 
     final existed = VocabularyBridge.hasWord(clean);
+    final contextText = (surroundingText ?? '').trim().isNotEmpty
+        ? surroundingText!.trim()
+        : _resolveTappedContextText(clean);
     VocabularyBridge.addContextual(
       text: clean,
       meaning: analyzed?.meaning ?? '',
       phonetic: analyzed?.phonetic,
-      example: (surroundingText ?? '').trim().isEmpty
-          ? _selectedText?.trim()
-          : surroundingText!.trim(),
+      example: contextText,
       context: _buildCurrentWebContext(
-        ((surroundingText ?? '').trim().isEmpty
-                ? _selectedText?.trim()
-                : surroundingText?.trim()) ??
-            clean,
+        contextText,
+        anchorText: (_tappedWordRaw ?? clean).trim(),
+        scrollProgressHint: _resolveTappedScrollProgress(),
       ),
     );
     _highlightVersion++;
@@ -524,12 +545,17 @@ class WebReaderController extends ChangeNotifier {
     final normalized = _normalizeStudyText(selection);
     if (normalized.isEmpty || normalized.length < 2) return false;
 
+    final contextText = _resolveSelectionContextText(normalized);
     final existed = VocabularyBridge.hasWord(normalized);
     VocabularyBridge.addContextual(
       text: normalized,
       meaning: '',
-      example: normalized,
-      context: _buildCurrentWebContext(normalized),
+      example: contextText,
+      context: _buildCurrentWebContext(
+        contextText,
+        anchorText: selection.trim(),
+        scrollProgressHint: _selectedScrollProgress,
+      ),
     );
     _highlightVersion++;
     notifyListeners();
@@ -540,11 +566,12 @@ class WebReaderController extends ChangeNotifier {
     final normalized = _normalizeStudyText(selection);
     if (normalized.isEmpty || normalized.length < 2) return false;
 
+    final contextText = _resolveSelectionContextText(normalized);
     return MemoryProvider.addWord(
       word: normalized,
       meaning: '',
-      example: normalized,
-      context: normalized,
+      example: contextText,
+      context: contextText,
       sourceFile: _pageTitle.trim().isEmpty ? _safeHost(_currentUrl) : _pageTitle,
       tags: const ['web_reader'],
     );
@@ -839,11 +866,39 @@ class WebReaderController extends ChangeNotifier {
     return host.trim().isEmpty ? 'web_reader' : host;
   }
 
-  VocabContext _buildCurrentWebContext(String surroundingText) {
+  String? _normalizeOptionalStudyText(String? text) {
+    final normalized = _normalizeStudyText(text ?? '');
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  String _resolveTappedContextText(String fallback) {
+    final tapped = (_tappedWordContextText ?? '').trim();
+    if (tapped.isNotEmpty) return tapped;
+    final selected = (_selectedContextText ?? '').trim();
+    if (selected.isNotEmpty) return selected;
+    return fallback;
+  }
+
+  String _resolveSelectionContextText(String fallback) {
+    final selected = (_selectedContextText ?? '').trim();
+    if (selected.isNotEmpty) return selected;
+    return fallback;
+  }
+
+  double? _resolveTappedScrollProgress() =>
+      _tappedWordScrollProgress ?? _selectedScrollProgress;
+
+  VocabContext _buildCurrentWebContext(
+    String surroundingText, {
+    String? anchorText,
+    double? scrollProgressHint,
+  }) {
     return VocabContext.fromWeb(
       url: _currentUrl,
       pageTitle: _pageTitle,
       surroundingText: surroundingText,
+      anchorText: anchorText,
+      scrollProgressHint: scrollProgressHint,
     );
   }
 

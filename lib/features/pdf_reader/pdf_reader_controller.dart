@@ -62,6 +62,14 @@ class PdfReaderController extends ChangeNotifier {
   String? get currentSpeakingWord => _currentSpeakingWord;
   String? _focusWordCue;
   String? get focusWordCue => _focusWordCue;
+  Rect? _focusRectCue;
+  Rect? get focusRectCue => _focusRectCue;
+  int? _focusPageIndexCue;
+  int? get focusPageIndexCue => _focusPageIndexCue;
+  int? _focusTextStartOffsetCue;
+  int? get focusTextStartOffsetCue => _focusTextStartOffsetCue;
+  int? _focusTextEndOffsetCue;
+  int? get focusTextEndOffsetCue => _focusTextEndOffsetCue;
   int _focusCueVersion = 0;
   int get focusCueVersion => _focusCueVersion;
 
@@ -132,10 +140,19 @@ class PdfReaderController extends ChangeNotifier {
     }
   }
 
+  void _clearFocusCueData() {
+    _focusWordCue = null;
+    _focusRectCue = null;
+    _focusPageIndexCue = null;
+    _focusTextStartOffsetCue = null;
+    _focusTextEndOffsetCue = null;
+  }
+
   void showFocusCueForWord(String word,
       {Duration duration = const Duration(seconds: 3)}) {
     final normalized = word.trim().toLowerCase();
     if (normalized.isEmpty) return;
+    _clearFocusCueData();
     _focusWordCue = normalized;
     _focusCueVersion++;
     notifyListeners();
@@ -143,7 +160,30 @@ class PdfReaderController extends ChangeNotifier {
     final version = _focusCueVersion;
     Future.delayed(duration, () {
       if (_focusCueVersion != version) return;
-      _focusWordCue = null;
+      _clearFocusCueData();
+      notifyListeners();
+    });
+  }
+
+  void showFocusCueForContext(
+    VocabContext context, {
+    String? fallbackWord,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    _clearFocusCueData();
+    final anchor = (context.anchorText ?? fallbackWord ?? '').trim().toLowerCase();
+    _focusWordCue = anchor.isEmpty ? null : anchor;
+    _focusRectCue = context.rectHint;
+    _focusPageIndexCue = context.pageIndexHint;
+    _focusTextStartOffsetCue = context.textStartOffset;
+    _focusTextEndOffsetCue = context.textEndOffset;
+    _focusCueVersion++;
+    notifyListeners();
+
+    final version = _focusCueVersion;
+    Future.delayed(duration, () {
+      if (_focusCueVersion != version) return;
+      _clearFocusCueData();
       notifyListeners();
     });
   }
@@ -367,6 +407,45 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   // ─── Save to Memory Garden ───────────────────────────────
+  VocabContext buildWordContext(
+    PdfWordInfo wordInfo, {
+    String? surroundingText,
+    String? anchorText,
+  }) {
+    final displayText = wordInfo.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final snippet = ((surroundingText ?? '').trim().isNotEmpty
+            ? surroundingText!.trim()
+            : (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+                ? wordInfo.contextSnippet!.trim()
+                : displayText)
+        .trim();
+
+    return VocabContext.fromPdf(
+      fileName: pdfPath.split('/').last,
+      page: wordInfo.pageIndex + 1,
+      pageIndexHint: wordInfo.pageIndex,
+      surroundingText: snippet,
+      pdfPath: pdfPath,
+      anchorText: (anchorText ?? displayText).trim(),
+      textStartOffset: wordInfo.startOffset,
+      textEndOffset: wordInfo.endOffset,
+      rectHint: wordInfo.bounds,
+    );
+  }
+
+  VocabContext buildSelectionContext(String selectedText) {
+    final text = selectedText.trim();
+    return VocabContext.fromPdf(
+      fileName: pdfPath.split('/').last,
+      page: _currentPage + 1,
+      pageIndexHint: _currentPage,
+      surroundingText: text,
+      pdfPath: pdfPath,
+      anchorText: text,
+      rectHint: _selectionRect,
+    );
+  }
+
   void saveWordToMemory(PdfWordInfo wordInfo) {
     final word = wordInfo.text.replaceAll(RegExp(r'[^\w]'), '').toLowerCase();
     if (word.isEmpty) return;
@@ -380,6 +459,9 @@ class PdfReaderController extends ChangeNotifier {
       sourceFile: pdfPath.split('/').last,
     );
 
+    final memoryContext = (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+        ? wordInfo.contextSnippet!.trim()
+        : word;
     MemoryProvider.addWord(
       word: word,
       wordType: wordInfo.analyzed?.wordType.name,
@@ -388,6 +470,8 @@ class PdfReaderController extends ChangeNotifier {
       phonetic: wordInfo.analyzed?.phonetic,
       sourceFile: pdfPath.split('/').last,
       sourceLine: wordInfo.pageIndex,
+      context: memoryContext,
+      example: memoryContext,
     );
 
     refreshVocabularySignals();
@@ -397,12 +481,7 @@ class PdfReaderController extends ChangeNotifier {
     final text = _selectedText?.trim() ?? '';
     if (text.isEmpty) return false;
 
-    final context = VocabContext.fromPdf(
-      fileName: pdfPath.split('/').last,
-      page: _currentPage + 1,
-      surroundingText: text,
-      pdfPath: pdfPath,
-    );
+    final context = buildSelectionContext(text);
 
     final existed = VocabularyBridge.hasWord(text);
     VocabularyBridge.addContextual(
@@ -449,13 +528,14 @@ class PdfReaderController extends ChangeNotifier {
     final word = wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim().toLowerCase();
     if (word.isEmpty) return false;
 
-    final context = VocabContext.fromPdf(
-      fileName: pdfPath.split('/').last,
-      page: wordInfo.pageIndex + 1,
-      surroundingText: (wordInfo.analyzed?.example?.trim().isNotEmpty ?? false)
-          ? wordInfo.analyzed!.example!.trim()
-          : word,
-      pdfPath: pdfPath,
+    final context = buildWordContext(
+      wordInfo,
+      surroundingText: (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+          ? wordInfo.contextSnippet!.trim()
+          : (wordInfo.analyzed?.example?.trim().isNotEmpty ?? false)
+              ? wordInfo.analyzed!.example!.trim()
+              : word,
+      anchorText: word,
     );
 
     VocabularyBridge.upsertDifficulty(

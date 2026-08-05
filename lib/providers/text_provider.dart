@@ -1025,6 +1025,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     final lineText =
         (lineIndex >= 0 && lineIndex < _lines.length) ? _lines[lineIndex].content : normalized;
+    final selectedInfo = _selectedTextInfo;
+    final selectedNormalized = (selectedInfo?.text ?? '')
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\w']"), '')
+        .trim();
+    final useSelectionAnchor =
+        selectedInfo != null && selectedInfo.lineIndex == lineIndex && selectedNormalized == normalized;
+
     VocabularyBridge.upsertDifficulty(
       text: normalized,
       difficulty: difficulty,
@@ -1039,6 +1047,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         surroundingText: lineText,
         sourceRef: currentContextSourceRef,
         sourceRefType: currentContextSourceRefType,
+        anchorText: target.word,
+        textStartOffset: useSelectionAnchor ? selectedInfo.startOffset : null,
+        textEndOffset: useSelectionAnchor ? selectedInfo.endOffset : null,
       ),
       topic: _currentTextCategory,
     );
@@ -1380,22 +1391,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentDocument = TextDocument(
       id: _currentDocument?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title ?? _currentDocument?.title ?? 'Untitled',
-      lines: _lines,
-      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    _currentLineIndex = -1;
-    _focusCueLineIndex = null;
-    _selectedTextInfo = null;
-    _selectedText = null;
-    notifyListeners();
-
-    debugPrint('✂️ Auto-split: ${_lines.length} lines');
-  }
-}
-DateTime.now().millisecondsSinceEpoch.toString(),
       title: title ?? _currentDocument?.title ?? 'Untitled',
       lines: _lines,
       createdAt: _currentDocument?.createdAt ?? DateTime.now(),

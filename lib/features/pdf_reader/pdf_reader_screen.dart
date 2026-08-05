@@ -16,6 +16,7 @@ import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
 import '../../models/color_mode.dart';
+import '../../models/vocab_context.dart';
 import '../../models/word_entry.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -35,12 +36,14 @@ class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
   final int? initialPageIndex;
   final String? initialFocusWord;
+  final VocabContext? initialFocusContext;
 
   const PdfReaderScreen({
     super.key,
     required this.pdfPath,
     this.initialPageIndex,
     this.initialFocusWord,
+    this.initialFocusContext,
   });
 
   @override
@@ -293,19 +296,29 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         onDocumentChanged: (document) {
           if (document != null) {
             _controller.onDocumentLoaded(document);
+            final contextPage = widget.initialFocusContext?.pageIndexHint;
             final targetPage = widget.initialPageIndex != null &&
                     widget.initialPageIndex! >= 0 &&
                     widget.initialPageIndex! < document.pages.length
                 ? widget.initialPageIndex!
-                : _controller.currentPage;
+                : contextPage != null &&
+                        contextPage >= 0 &&
+                        contextPage < document.pages.length
+                    ? contextPage
+                    : _controller.currentPage;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (targetPage > 0) {
+              if (targetPage != _controller.currentPage) {
                 _pdfViewerController.goToPage(
                   pageNumber: targetPage + 1,
                 );
                 _controller.onPageChanged(targetPage);
               }
-              if (widget.initialFocusWord != null &&
+              if (widget.initialFocusContext != null) {
+                _controller.showFocusCueForContext(
+                  widget.initialFocusContext!,
+                  fallbackWord: widget.initialFocusWord,
+                );
+              } else if (widget.initialFocusWord != null &&
                   widget.initialFocusWord!.trim().isNotEmpty) {
                 _controller.showFocusCueForWord(widget.initialFocusWord!);
               }
@@ -322,15 +335,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           return [
             // Layer 1: Word highlight / recall / focus cue
             if ((_controller.colorMode != ColorMode.none ||
-                    _controller.focusWordCue != null) &&
-                words.isNotEmpty)
+                    _controller.focusWordCue != null ||
+                    _controller.focusRectCue != null ||
+                    _controller.focusTextStartOffsetCue != null) &&
+                (words.isNotEmpty || _controller.focusRectCue != null))
               Positioned.fill(
                 child: PdfWordOverlay(
                   words: words,
+                  pageIndex: pageIndex,
                   colorMode: _controller.colorMode,
                   page: page,
                   speakingWord: _controller.currentSpeakingWord,
                   focusWordCue: _controller.focusWordCue,
+                  focusRectCue: _controller.focusRectCue,
+                  focusPageIndexCue: _controller.focusPageIndexCue,
+                  focusTextStartOffsetCue: _controller.focusTextStartOffsetCue,
+                  focusTextEndOffsetCue: _controller.focusTextEndOffsetCue,
                 ),
               ),
 

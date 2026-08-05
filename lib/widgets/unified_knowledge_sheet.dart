@@ -631,6 +631,45 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                         fontSize: 12,
                       ),
                     ),
+                    if (context.hasPreciseAnchor) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF64B5F6).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF64B5F6).withValues(alpha: 0.24),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.center_focus_strong,
+                              size: 12,
+                              color: Color(0xFF64B5F6),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                context.precisionSummary,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF90CAF9),
+                                  fontSize: 10.8,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
@@ -663,14 +702,18 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     final type = contextEntry.sourceRefType!;
 
     if (type == 'pdfPath') {
-      final pageHint = contextEntry.numericPositionHint;
+      final pageHint = contextEntry.pageIndexHint ??
+          (contextEntry.numericPositionHint == null
+              ? null
+              : contextEntry.numericPositionHint! - 1);
       navigator.pop();
       navigator.push(
         MaterialPageRoute(
           builder: (_) => PdfReaderScreen(
             pdfPath: ref,
-            initialPageIndex: pageHint == null ? null : pageHint - 1,
+            initialPageIndex: pageHint,
             initialFocusWord: currentWord.word,
+            initialFocusContext: contextEntry,
           ),
         ),
       );
@@ -684,6 +727,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           builder: (_) => WebReaderScreen(
             initialUrl: ref,
             initialFocusTerm: currentWord.word,
+            initialFocusContext: contextEntry,
           ),
         ),
       );
@@ -693,9 +737,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     if (type == 'localText') {
       final tp = context.read<TextProvider>();
       await tp.loadTextFile(ref, title: contextEntry.sourceName);
-      final lineHint = contextEntry.numericPositionHint;
+      final lineHint = contextEntry.lineIndexHint ??
+          (contextEntry.numericPositionHint == null
+              ? null
+              : contextEntry.numericPositionHint! - 1);
       if (lineHint != null && tp.lines.isNotEmpty) {
-        final target = (lineHint - 1).clamp(0, tp.lines.length - 1).toInt();
+        final target = lineHint.clamp(0, tp.lines.length - 1).toInt();
         tp.focusLineCue(target);
       }
       if (!mounted) return;
@@ -737,9 +784,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         cloudId: entry.id,
         category: entry.category,
       );
-      final lineHint = contextEntry.numericPositionHint;
+      final lineHint = contextEntry.lineIndexHint ??
+          (contextEntry.numericPositionHint == null
+              ? null
+              : contextEntry.numericPositionHint! - 1);
       if (lineHint != null && tp.lines.isNotEmpty) {
-        final target = (lineHint - 1).clamp(0, tp.lines.length - 1).toInt();
+        final target = lineHint.clamp(0, tp.lines.length - 1).toInt();
         tp.focusLineCue(target);
       }
       navigator.pop();

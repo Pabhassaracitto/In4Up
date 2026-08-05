@@ -12,6 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
 import '../../models/color_mode.dart';
+import '../../models/vocab_context.dart';
 import '../../providers/text_provider.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
@@ -23,11 +24,13 @@ import 'widgets/web_word_tap_sheet.dart';
 class WebReaderScreen extends StatefulWidget {
   final String? initialUrl;
   final String? initialFocusTerm;
+  final VocabContext? initialFocusContext;
 
   const WebReaderScreen({
     super.key,
     this.initialUrl,
     this.initialFocusTerm,
+    this.initialFocusContext,
   });
 
   @override
@@ -279,7 +282,11 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         case 'wordTap':
           final word = data['word'] as String? ?? '';
           if (word.isEmpty) return;
-          _controller.onWordTapped(word);
+          _controller.onWordTapped(
+            word,
+            contextText: (data['contextText'] ?? '').toString(),
+            scrollProgress: (data['scrollProgress'] as num?)?.toDouble(),
+          );
           if (mounted) {
             WebWordTapSheet.show(
               context,
@@ -293,7 +300,11 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         case 'textSelected':
           final text = data['text'] as String? ?? '';
           if (text.isEmpty) return;
-          _controller.onTextSelected(text);
+          _controller.onTextSelected(
+            text,
+            contextText: (data['contextText'] ?? '').toString(),
+            scrollProgress: (data['scrollProgress'] as num?)?.toDouble(),
+          );
           if (mounted) {
             setState(() {
               _showSelectionBar = true;
@@ -326,6 +337,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   Future<void> _restoreReadingProgress(String url) async {
     if (_showDashboard) return;
+    if (widget.initialFocusContext?.scrollProgressHint != null) return;
     final progress = _controller.progressForUrl(url);
     if (progress <= 0.01) return;
     try {
@@ -337,9 +349,19 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   Future<void> _applyFocusCue() async {
     final term = widget.initialFocusTerm?.trim() ?? '';
-    if (_showDashboard || term.isEmpty) return;
+    final focusContext = widget.initialFocusContext;
+    final hasPreciseContext = focusContext != null &&
+        (focusContext.hasPreciseAnchor || focusContext.surroundingText.trim().isNotEmpty);
+    if (_showDashboard || (term.isEmpty && !hasPreciseContext)) return;
     try {
-      await _runJS(WebReaderJS.buildFocusCueScript(term));
+      await _runJS(
+        WebReaderJS.buildPreciseFocusCueScript(
+          term: term,
+          anchorText: focusContext?.anchorText,
+          surroundingText: focusContext?.surroundingText,
+          scrollProgress: focusContext?.scrollProgressHint,
+        ),
+      );
     } catch (e) {
       debugPrint('WebReader: _applyFocusCue error: $e');
     }
@@ -1143,7 +1165,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           ),
           const SizedBox(width: 6),
           GestureDetector(
-            onTap: () => setState(() => _showSelectionBar = false),
+            onTap: () {
+              _controller.clearSelection();
+              setState(() {
+                _showSelectionBar = false;
+                _selectionText = '';
+              });
+            },
             child: const Icon(Icons.close, color: Colors.white, size: 18),
           ),
         ],

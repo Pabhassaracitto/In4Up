@@ -174,14 +174,15 @@ class _WordSheet extends StatelessWidget {
               onAddContext: () {
                 provider.addContextToWord(
                   existing.id,
-                  VocabContext.fromPdf(
-                    fileName: controller.pdfPath.split(Platform.pathSeparator).last,
-                    page: wordInfo.pageIndex + 1,
+                  controller.buildWordContext(
+                    wordInfo,
                     surroundingText:
-                        (analyzed?.example?.trim().isNotEmpty ?? false)
-                            ? analyzed!.example!.trim()
-                            : displayWord,
-                    pdfPath: controller.pdfPath,
+                        (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+                            ? wordInfo.contextSnippet!.trim()
+                            : (analyzed?.example?.trim().isNotEmpty ?? false)
+                                ? analyzed!.example!.trim()
+                                : displayWord,
+                    anchorText: displayWord,
                   ),
                 );
                 controller.refreshVocabularySignals();
@@ -316,10 +317,13 @@ class _WordSheet extends StatelessWidget {
           // ── Lưu vào Wordlist ─────────────────────────────
           PdfWordSaveSection(
             controller: controller,
+            wordInfo: wordInfo,
             word: lookupWord,
-            surroundingText: (analyzed?.example?.trim().isNotEmpty ?? false)
-                ? analyzed!.example!.trim()
-                : displayWord,
+            surroundingText: (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+                ? wordInfo.contextSnippet!.trim()
+                : (analyzed?.example?.trim().isNotEmpty ?? false)
+                    ? analyzed!.example!.trim()
+                    : displayWord,
             pdfFileName: controller.pdfPath.split(Platform.pathSeparator).last,
             pageIndex: wordInfo.pageIndex,
           ),
@@ -562,6 +566,7 @@ class _RecallChip extends StatelessWidget {
 /// Tích hợp vào PdfWordTapSheet hiện có
 class PdfWordSaveSection extends StatefulWidget {
   final PdfReaderController controller;
+  final PdfWordInfo? wordInfo;
   final String word;
   final String surroundingText;
   final String pdfFileName;
@@ -570,6 +575,7 @@ class PdfWordSaveSection extends StatefulWidget {
   const PdfWordSaveSection({
     super.key,
     required this.controller,
+    this.wordInfo,
     required this.word,
     required this.surroundingText,
     required this.pdfFileName,
@@ -598,12 +604,25 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
     super.dispose();
   }
 
-  VocabContext get _context => VocabContext.fromPdf(
-        fileName: widget.pdfFileName,
-        page: widget.pageIndex + 1,
+  VocabContext get _context {
+    final precise = widget.wordInfo;
+    if (precise != null) {
+      return widget.controller.buildWordContext(
+        precise,
         surroundingText: widget.surroundingText,
-        pdfPath: widget.controller.pdfPath,
+        anchorText: widget.word,
       );
+    }
+
+    return VocabContext.fromPdf(
+      fileName: widget.pdfFileName,
+      page: widget.pageIndex + 1,
+      pageIndexHint: widget.pageIndex,
+      surroundingText: widget.surroundingText,
+      pdfPath: widget.controller.pdfPath,
+      anchorText: widget.word,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

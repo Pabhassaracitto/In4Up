@@ -49,17 +49,22 @@ class _FloatingBar extends StatelessWidget {
     final vocabProvider = context.read<VocabularyProvider>();
     final tp = context.read<TextProvider>();
 
+    final selectedInfo = tp.selectedTextInfo;
+    final resolvedLineIndex = selectedInfo?.lineIndex ?? lineIndex;
     final title = tp.currentDocument?.title ?? 'Text Studio';
-    final lineContent = lineIndex < tp.lines.length
-        ? tp.lines[lineIndex].content
+    final lineContent = resolvedLineIndex < tp.lines.length
+        ? tp.lines[resolvedLineIndex].content
         : selectedText;
 
     final ctx = VocabContext.fromStory(
       storyTitle: title,
-      lineIndex: lineIndex,
+      lineIndex: resolvedLineIndex,
       surroundingText: lineContent,
       sourceRef: tp.currentContextSourceRef,
       sourceRefType: tp.currentContextSourceRefType,
+      anchorText: (selectedInfo?.text ?? selectedText).trim(),
+      textStartOffset: selectedInfo?.startOffset,
+      textEndOffset: selectedInfo?.endOffset,
     );
 
     vocabProvider.addWithAutoClassify(

@@ -98,6 +98,9 @@ class PdfTextExtractor {
           text: token,
           bounds: bounds,
           pageIndex: pageIndex,
+          startOffset: m.start,
+          endOffset: m.end,
+          contextSnippet: _extractContextSnippet(fullText, m.start, m.end),
           analyzed: analyzed,
         ));
       }
@@ -137,6 +140,38 @@ class PdfTextExtractor {
       pdfRect.right,
       pdfRect.bottom,
     );
+  }
+
+  String _extractContextSnippet(String source, int start, int end) {
+    if (source.isEmpty) return '';
+
+    var left = start.clamp(0, source.length);
+    var right = end.clamp(0, source.length);
+
+    while (left > 0) {
+      final ch = source[left - 1];
+      if (ch == '.' || ch == '!' || ch == '?' || ch == '\n') break;
+      left--;
+    }
+
+    while (right < source.length) {
+      final ch = source[right];
+      if (ch == '.' || ch == '!' || ch == '?' || ch == '\n') {
+        right++;
+        break;
+      }
+      right++;
+    }
+
+    if (right - left < 18) {
+      left = (start - 72).clamp(0, source.length);
+      right = (end + 92).clamp(0, source.length);
+    }
+
+    return source
+        .substring(left, right)
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Làm sạch text extract từ PDF

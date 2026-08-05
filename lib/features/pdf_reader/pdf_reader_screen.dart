@@ -19,6 +19,7 @@ import '../../models/color_mode.dart';
 import '../../models/word_entry.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../widgets/unified_knowledge_sheet.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
 import 'pdf_reader_controller.dart';
@@ -933,6 +934,25 @@ void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
               ),
             ),
           ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                UnifiedKnowledgeSheet.show(context, word: entry);
+              },
+              icon: const Icon(Icons.hub_outlined, size: 18),
+              label: const Text('Mở hồ sơ tri thức hợp nhất'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF64B5F6),
+                side: BorderSide(
+                  color: const Color(0xFF64B5F6).withValues(alpha: 0.35),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
         ],
       ),
     ),

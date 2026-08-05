@@ -11,6 +11,7 @@ import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
+import '../../../widgets/unified_knowledge_sheet.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
 
@@ -487,26 +488,32 @@ class _SavedRecallCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: onAddContext,
-                  icon: const Icon(Icons.add_link, size: 16),
-                  label: const Text('Thêm ngữ cảnh PDF'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFB9F6CA),
-                  ),
+              TextButton.icon(
+                onPressed: onAddContext,
+                icon: const Icon(Icons.add_link, size: 16),
+                label: const Text('Thêm ngữ cảnh PDF'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFB9F6CA),
                 ),
               ),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: onEditNotes,
-                  icon: const Icon(Icons.edit_note, size: 16),
-                  label: Text(note.isEmpty ? 'Thêm ghi chú' : 'Sửa ghi chú'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                  ),
+              TextButton.icon(
+                onPressed: onEditNotes,
+                icon: const Icon(Icons.edit_note, size: 16),
+                label: Text(note.isEmpty ? 'Thêm ghi chú' : 'Sửa ghi chú'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => UnifiedKnowledgeSheet.show(context, word: entry),
+                icon: const Icon(Icons.hub_outlined, size: 16),
+                label: const Text('Hồ sơ tri thức'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF64B5F6),
                 ),
               ),
             ],

@@ -8,6 +8,7 @@ import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../../widgets/unified_knowledge_sheet.dart';
 // XÓA: import 'package:in2up_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
 
@@ -52,6 +53,7 @@ class _WordActionsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tp = context.read<TextProvider>();
+    final existingWord = context.read<VocabularyProvider>().findByWord(word.word);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -217,6 +219,31 @@ class _WordActionsContent extends StatelessWidget {
                 ],
               ),
             ),
+
+          if (existingWord != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  UnifiedKnowledgeSheet.show(context, word: existingWord);
+                },
+                icon: const Icon(Icons.hub_outlined, size: 18),
+                label: const Text('Mở hồ sơ tri thức hợp nhất'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4CAF50),
+                  side: BorderSide(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // ===== DIFFICULTY MARKING =====
           const Align(

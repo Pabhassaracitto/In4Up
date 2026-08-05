@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
+import '../../../providers/vocabulary_provider.dart';
+import '../../../widgets/unified_knowledge_sheet.dart';
 import '../web_reader_controller.dart';
 
 /// Bottom sheet hiện khi tap vào từ trong Web Reader
@@ -44,17 +47,20 @@ class WebWordTapSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final cleanWord = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Consumer<VocabularyProvider>(
+      builder: (context, provider, _) {
+        final existing = provider.findByWord(cleanWord);
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Handle
           Center(
             child: Container(
@@ -227,6 +233,31 @@ class WebWordTapSheet extends StatelessWidget {
                     color: const Color(0xFF64B5F6),
                   ),
               ],
+            ),
+          ],
+
+          if (existing != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  UnifiedKnowledgeSheet.show(context, word: existing);
+                },
+                icon: const Icon(Icons.hub_outlined, size: 18),
+                label: const Text('Mở hồ sơ tri thức hợp nhất'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4CAF50),
+                  side: BorderSide(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
           ],
 
@@ -427,6 +458,8 @@ class WebWordTapSheet extends StatelessWidget {
           ),
         ],
       ),
+        );
+      },
     );
   }
 }

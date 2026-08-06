@@ -333,3 +333,7 @@ google_sign_in_config.dart
 .ai/
 .roo/
 project/
+# Bỏ qua các file localization tự sinh
+lib/l10n/app_localizations*.dart
+.dart_tool/
+.guide/

@@ -16,6 +16,7 @@ class AiModelMapper {
       return AiAnalysis.fallback(
         inputText,
         errorReason: 'No valid JSON in output',
+        analysisType: type,
       );
     }
 
@@ -27,6 +28,7 @@ class AiModelMapper {
       return AiAnalysis.fallback(
         inputText,
         errorReason: 'JSON parse error: $e',
+        analysisType: type,
       );
     }
 
@@ -35,16 +37,19 @@ class AiModelMapper {
       return AiAnalysis.fallback(
         inputText,
         errorReason: 'Schema validation failed',
+        analysisType: type,
       );
     }
 
-    // Bước 4: Map sang AiAnalysis
+    // Bước 4: Map sang AiAnalysis — inject type nếu JSON thiếu analysisType
     try {
+      jsonMap['analysisType'] ??= type.name;
       return AiAnalysis.fromJson(jsonMap, inputText);
     } catch (e) {
       return AiAnalysis.fallback(
         inputText,
         errorReason: 'Mapping error: $e',
+        analysisType: type,
       );
     }
   }

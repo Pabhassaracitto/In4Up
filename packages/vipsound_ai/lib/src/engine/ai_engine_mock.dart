@@ -1,9 +1,9 @@
+// packages/vipsound_ai/lib/src/engine/ai_engine_mock.dart
 // v11.0-final — fix AiAnalysis() constructor (required fields)
 
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
-
+import '../models/ai_analysis.dart';
 import 'ai_engine.dart';
 
 /// Mock engine dùng cho test / offline fallback khi chưa có model thật
@@ -26,21 +26,21 @@ class AiEngineMock implements AiEngine {
   }) async* {
     await Future.delayed(const Duration(milliseconds: 300));
 
-    // ★ FIX: AiAnalysis() constructor bây giờ required
-    //   summary, topics, terms, success
     yield AiAnalysis(
-      inputText: text,
-      type: type,
       summary: _mockSummary(type, text),
       topics: _mockTopics(type),
       terms: _mockTerms(type, text),
       success: true,
+      actionItems: const [],
+      language: 'en',
+      analysisType: type,
       wordDetail: type == AiAnalysisType.wordLookup
-          ? WordAnalysis(
+          ? WordDetail(
               word: text,
               meaning: 'nghĩa mock của "$text"',
               cefrLevel: 'B2',
-              wordTypeLabel: 'noun',
+              wordType: 'noun',
+              etymologyHint: 'Mock etymology',
               memoryHook: 'Hình dung $text trong cuộc sống hàng ngày',
             )
           : null,
@@ -52,7 +52,6 @@ class AiEngineMock implements AiEngine {
             ]
           : const [],
       isPartial: false,
-      generatedAt: DateTime.now(),
     );
   }
 

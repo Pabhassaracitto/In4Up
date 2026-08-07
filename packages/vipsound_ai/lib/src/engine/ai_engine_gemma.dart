@@ -1,11 +1,10 @@
+// packages/vipsound_ai/lib/src/engine/ai_engine_gemma.dart
 // v11.0-final — fix param analysisType (không phải type)
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:isolate';
-
 import 'package:flutter/foundation.dart';
-
+import '../models/ai_analysis.dart';
 import 'ai_engine.dart';
 
 class AiEngineGemma implements AiEngine {
@@ -45,6 +44,7 @@ class AiEngineGemma implements AiEngine {
       yield AiAnalysis.fallback(
         text,
         errorReason: 'Engine not ready',
+        analysisType: type,
       );
       return;
     }
@@ -69,11 +69,10 @@ class AiEngineGemma implements AiEngine {
 
       if (msg is _IsolateResponse && msg.isComplete) {
         engine._state = AiEngineState.ready;
-        final json = jsonDecode(msg.fullText) as Map<String, dynamic>;
-        yield AiAnalysis.fromJson(
-          json,
-          text,
-        ); // type is extracted from json['analysisType'] inside fromJson
+        yield AiAnalysis.fromGemmaJson(
+          msg.fullText,
+          analysisType: type,
+        );
         responsePort.close();
         break;
       } else if (msg is _IsolateError) {
@@ -81,6 +80,7 @@ class AiEngineGemma implements AiEngine {
         yield AiAnalysis.fallback(
           text,
           errorReason: msg.error,
+          analysisType: type,
         );
         responsePort.close();
         break;
@@ -151,7 +151,6 @@ class AiEngineGemma implements AiEngine {
 {
   "summary": "Phân tích các khái niệm kỹ thuật và thuật ngữ chuyên ngành.",
   "topics": ["Technology", "Language Learning"],
-  "analysisType": "sentenceParse",
   "technical_terms": [
     {
       "text": "Isolate",

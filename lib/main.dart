@@ -6,7 +6,8 @@ import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -96,7 +97,12 @@ Future<void> main() async {
   }
 
   // ★ runApp ngay - không block
-  runApp(const MyApp());
+  runApp(
+    DevicePreview(
+      enabled: !kReleaseMode,
+      builder: (context) => const MyApp(),
+    ),
+  );
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();
@@ -278,7 +284,7 @@ class _MyAppState extends State<MyApp> {
         builder: (context, localeProvider, child) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            locale: localeProvider.locale,
+            locale: localeProvider.locale ?? DevicePreview.locale(context),
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -298,7 +304,7 @@ class _MyAppState extends State<MyApp> {
             },
             supportedLocales: AppLocalizations.supportedLocales,
             theme: _buildTheme(),
-            builder: (context, child) => _clampedMediaQuery(context, child),
+            builder: (context, child) => _appBuilder(context, child),
             home: const MainShell(),
           );
         },
@@ -325,6 +331,11 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+Widget _appBuilder(BuildContext context, Widget? child) {
+  final previewChild = DevicePreview.appBuilder(context, child);
+  return _clampedMediaQuery(context, previewChild);
+}
+
 Widget _clampedMediaQuery(BuildContext context, Widget? child) {
   final mediaQuery = MediaQuery.maybeOf(context);
   if (mediaQuery == null) return child ?? const SizedBox.shrink();
@@ -344,7 +355,7 @@ class _AppLoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      builder: (context, child) => _clampedMediaQuery(context, child),
+      builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(
         backgroundColor: const Color(0xFF080B1A),
         body: SafeArea(
@@ -414,7 +425,7 @@ class _AppErrorScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      builder: (context, child) => _clampedMediaQuery(context, child),
+      builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(
         backgroundColor: const Color(0xFF1A1A2E),
         body: SafeArea(

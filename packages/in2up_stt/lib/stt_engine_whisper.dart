@@ -24,11 +24,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:path/path.dart' as path;
 
 import 'models/content_id.dart';
 import 'models/stt_isolate_payload.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
+import 'utils/audio_converter.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHẦN 1: FFI TYPE DEFINITIONS — ĐÃ RÀ SOÁT VỚI WHISPER.H
@@ -432,29 +435,35 @@ class _LanguagePinner {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _WhisperLib {
-  // Init functions — có thể không có trong mọi build:
-  //  - whisper_context_default_params + whisper_init_from_file_with_params
-  //    (API mới, recommended trong whisper.h)
-  //  - whisper_init_from_file (API deprecated, chỉ dùng khi DLL cũ)
+  // Tất cả field đều nullable vì một file .dll bất kỳ có thể KHÔNG export
+  // các symbol whisper_* (vd: build thiếu -DWHISPER_SHARED). Loader sẽ kiểm
+  // tra các hàm cốt lõi và ném lỗi có chẩn đoán rõ ràng thay vì crash ngầm.
   final _WhisperContextDefaultParamsD? whisperContextDefaultParams;
   final _WhisperInitFromFileWithParamsD? whisperInitFromFileWithParams;
   final _WhisperInitFromFileD? whisperInitFromFile;
 
-  // Các hàm còn lại — bắt buộc có (đều là API ổn định).
-  final _WhisperFreeD whisperFree;
-  final _WhisperFullDefaultParamsD whisperFullDefaultParams;
-  final _WhisperFullD whisperFull;
-  final _WhisperFullNSegsD whisperFullNSegments;
-  final _WhisperGetSegTextD whisperFullGetSegmentText;
-  final _WhisperGetSegT0D whisperFullGetSegmentT0;
-  final _WhisperGetSegT1D whisperFullGetSegmentT1;
-  final _WhisperFullNTokensD whisperFullNTokens;
-  final _WhisperGetTokenDataD whisperFullGetTokenData;
-  final _WhisperGetTokenTextD whisperFullGetTokenText;
+  final _WhisperFreeD? whisperFree;
+  final _WhisperFullDefaultParamsD? whisperFullDefaultParams;
+  final _WhisperFullD? whisperFull;
+  final _WhisperFullNSegsD? whisperFullNSegments;
+  final _WhisperGetSegTextD? whisperFullGetSegmentText;
+  final _WhisperGetSegT0D? whisperFullGetSegmentT0;
+  final _WhisperGetSegT1D? whisperFullGetSegmentT1;
+  final _WhisperFullNTokensD? whisperFullNTokens;
+  final _WhisperGetTokenDataD? whisperFullGetTokenData;
+  final _WhisperGetTokenTextD? whisperFullGetTokenText;
 
   /// Lookup một symbol nhưng KHÔNG ném lỗi nếu thiếu → trả về null.
   /// Dùng try/catch quanh [ffi.DynamicLibrary.lookupFunction] (giống cách
   /// [ffi.DynamicLibrary.open] có thể ném lỗi khi symbol không tồn tại).
+  static T? _safe<T>(T Function() block) {
+    try {
+      return block();
+    } catch (_) {
+      return null;
+    }
+  }
+
   static _WhisperContextDefaultParamsD? _lookupContextDefaultParams(
           ffi.DynamicLibrary dylib) =>
       _safe(() => dylib
@@ -472,57 +481,61 @@ class _WhisperLib {
       _safe(() => dylib.lookupFunction<_WhisperInitFromFileN, _WhisperInitFromFileD>(
           'whisper_init_from_file'));
 
-  static T? _safe<T>(T Function() block) {
-    try {
-      return block();
-    } catch (_) {
-      return null;
-    }
-  }
+  static _WhisperFreeD? _lookupFree(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperFreeN, _WhisperFreeD>(
+          'whisper_free'));
+
+  static _WhisperFullDefaultParamsD? _lookupFullDefaultParams(
+          ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperFullDefaultParamsN,
+          _WhisperFullDefaultParamsD>('whisper_full_default_params'));
+
+  static _WhisperFullD? _lookupFull(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperFullN, _WhisperFullD>(
+          'whisper_full'));
+
+  static _WhisperFullNSegsD? _lookupFullNSegments(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperFullNSegsN, _WhisperFullNSegsD>(
+          'whisper_full_n_segments'));
+
+  static _WhisperGetSegTextD? _lookupGetSegText(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperGetSegTextN, _WhisperGetSegTextD>(
+          'whisper_full_get_segment_text'));
+
+  static _WhisperGetSegT0D? _lookupGetSegT0(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperGetSegT0N, _WhisperGetSegT0D>(
+          'whisper_full_get_segment_t0'));
+
+  static _WhisperGetSegT1D? _lookupGetSegT1(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperGetSegT1N, _WhisperGetSegT1D>(
+          'whisper_full_get_segment_t1'));
+
+  static _WhisperFullNTokensD? _lookupFullNTokens(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperFullNTokensN, _WhisperFullNTokensD>(
+          'whisper_full_n_tokens'));
+
+  static _WhisperGetTokenDataD? _lookupGetTokenData(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperGetTokenDataN, _WhisperGetTokenDataD>(
+          'whisper_full_get_token_data'));
+
+  static _WhisperGetTokenTextD? _lookupGetTokenText(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperGetTokenTextN, _WhisperGetTokenTextD>(
+          'whisper_full_get_token_text'));
 
   _WhisperLib(ffi.DynamicLibrary dylib)
-      : whisperContextDefaultParams =
-            _lookupContextDefaultParams(dylib),
-        whisperInitFromFileWithParams =
-            _lookupInitFromFileWithParams(dylib),
+      : whisperContextDefaultParams = _lookupContextDefaultParams(dylib),
+        whisperInitFromFileWithParams = _lookupInitFromFileWithParams(dylib),
         whisperInitFromFile = _lookupInitFromFile(dylib),
-        whisperFree = dylib.lookupFunction<_WhisperFreeN, _WhisperFreeD>(
-          'whisper_free',
-        ),
-        whisperFullDefaultParams = dylib.lookupFunction<
-            _WhisperFullDefaultParamsN, _WhisperFullDefaultParamsD>(
-          'whisper_full_default_params',
-        ),
-        whisperFull =
-            dylib.lookupFunction<_WhisperFullN, _WhisperFullD>('whisper_full'),
-        whisperFullNSegments =
-            dylib.lookupFunction<_WhisperFullNSegsN, _WhisperFullNSegsD>(
-          'whisper_full_n_segments',
-        ),
-        whisperFullGetSegmentText =
-            dylib.lookupFunction<_WhisperGetSegTextN, _WhisperGetSegTextD>(
-          'whisper_full_get_segment_text',
-        ),
-        whisperFullGetSegmentT0 =
-            dylib.lookupFunction<_WhisperGetSegT0N, _WhisperGetSegT0D>(
-          'whisper_full_get_segment_t0',
-        ),
-        whisperFullGetSegmentT1 =
-            dylib.lookupFunction<_WhisperGetSegT1N, _WhisperGetSegT1D>(
-          'whisper_full_get_segment_t1',
-        ),
-        whisperFullNTokens =
-            dylib.lookupFunction<_WhisperFullNTokensN, _WhisperFullNTokensD>(
-          'whisper_full_n_tokens',
-        ),
-        whisperFullGetTokenData =
-            dylib.lookupFunction<_WhisperGetTokenDataN, _WhisperGetTokenDataD>(
-          'whisper_full_get_token_data',
-        ),
-        whisperFullGetTokenText =
-            dylib.lookupFunction<_WhisperGetTokenTextN, _WhisperGetTokenTextD>(
-          'whisper_full_get_token_text',
-        );
+        whisperFree = _lookupFree(dylib),
+        whisperFullDefaultParams = _lookupFullDefaultParams(dylib),
+        whisperFull = _lookupFull(dylib),
+        whisperFullNSegments = _lookupFullNSegments(dylib),
+        whisperFullGetSegmentText = _lookupGetSegText(dylib),
+        whisperFullGetSegmentT0 = _lookupGetSegT0(dylib),
+        whisperFullGetSegmentT1 = _lookupGetSegT1(dylib),
+        whisperFullNTokens = _lookupFullNTokens(dylib),
+        whisperFullGetTokenData = _lookupGetTokenData(dylib),
+        whisperFullGetTokenText = _lookupGetTokenText(dylib);
 
   static _WhisperLib? tryCreate(ffi.DynamicLibrary dylib) {
     try {
@@ -589,39 +602,199 @@ class SttEngineWhisper {
     required String audioFingerprint,
   }) async {
     final sw = Stopwatch()..start();
-    final pcmSamples = await _loadAudioAsPcm(audioPath);
-    final lib = _loadWhisperLib();
-    final ctxPtr = _initWhisperContext(lib, modelPath);
 
-    try {
-      final returnCode = _buildAndRunWhisper(
-        lib: lib,
-        ctx: ctxPtr,
-        language: language,
-        wordTimestamps: wordTimestamps,
-        pcmSamples: Float32List.fromList(pcmSamples),
-      );
-      if (returnCode != 0)
-        throw Exception('whisper_full() thất bại: $returnCode');
-      final segments = _parseWhisperSegments(
-          lib: lib,
-          ctx: ctxPtr,
-          fingerprint: audioFingerprint,
-          wordTimestamps: wordTimestamps);
-      sw.stop();
-      return SttResult(
-        fullText: segments.map((s) => s.text).join(' ').trim(),
-        segments: segments,
-        engineUsed: SttEngineType.whisper,
-        language: language,
-        processingTime: sw.elapsed,
-        audioFingerprint: audioFingerprint,
-        hasWordTimestamps:
-            wordTimestamps && segments.any((s) => s.words.isNotEmpty),
-      );
-    } finally {
-      _freeWhisperContext(lib, ctxPtr);
+    // ── Đường 1: FFI trực tiếp (cần whisper.dll build với WHISPER_SHARED) ──
+    final lib = _tryLoadWhisperLib();
+    if (lib != null) {
+      try {
+        final pcmSamples = await _loadAudioAsPcm(audioPath);
+        final ctxPtr = _initWhisperContext(lib, modelPath);
+        try {
+          final returnCode = _buildAndRunWhisper(
+            lib: lib,
+            ctx: ctxPtr,
+            language: language,
+            wordTimestamps: wordTimestamps,
+            pcmSamples: Float32List.fromList(pcmSamples),
+          );
+          if (returnCode != 0)
+            throw Exception('whisper_full() thất bại: $returnCode');
+          final segments = _parseWhisperSegments(
+              lib: lib,
+              ctx: ctxPtr,
+              fingerprint: audioFingerprint,
+              wordTimestamps: wordTimestamps);
+          sw.stop();
+          return SttResult(
+            fullText: segments.map((s) => s.text).join(' ').trim(),
+            segments: segments,
+            engineUsed: SttEngineType.whisper,
+            language: language,
+            processingTime: sw.elapsed,
+            audioFingerprint: audioFingerprint,
+            hasWordTimestamps:
+                wordTimestamps && segments.any((s) => s.words.isNotEmpty),
+          );
+        } finally {
+          _freeWhisperContext(lib, ctxPtr);
+        }
+      } catch (e) {
+        debugPrint('⚠️ Whisper FFI thất bại, chuyển sang CLI: $e');
+      }
     }
+
+    // ── Đường 2: CLI whisper.exe (whisper.cpp release — có sẵn ggml DLLs) ──
+    return _transcribeViaCli(
+      audioPath: audioPath,
+      modelPath: modelPath,
+      language: language,
+      wordTimestamps: wordTimestamps,
+      audioFingerprint: audioFingerprint,
+    );
+  }
+
+  /// Chạy whisper.cpp CLI (whisper.exe) qua Process rồi parse kết quả SRT.
+  ///
+  /// Hoạt động với bộ file release chuẩn của whisper.cpp:
+  /// whisper.exe + ggml-base.dll + ggml-cpu.dll + SDL2.dll (+ ffmpeg.exe).
+  /// Đây là fallback khi whisper.dll không export C API (không phải bản
+  /// WHISPER_SHARED) — lỗi "undefined symbol: whisper_free" thường gặp đó.
+  static Future<SttResult> _transcribeViaCli({
+    required String audioPath,
+    required String modelPath,
+    required String language,
+    required bool wordTimestamps,
+    required String audioFingerprint,
+  }) async {
+    final cli = _findCliBinary();
+
+    // whisper.cpp CLI yêu cầu file audio 16kHz mono WAV → convert trước.
+    final wavPath =
+        await AudioConverter.convertToWhisperCompatible(audioPath) ?? audioPath;
+
+    // Đầu ra SRT vào thư mục temp để parse segment + timestamp.
+    final outBase = path.join(
+      Directory.systemTemp.path,
+      'in2up_whisper_${DateTime.now().millisecondsSinceEpoch}',
+    );
+    final srtPath = '$outBase.srt';
+
+    final langCode = language.split('-').first.toLowerCase();
+    final args = <String>[
+      '-m',
+      modelPath,
+      '-f',
+      wavPath,
+      '-l',
+      langCode,
+      '-osrt',
+      '-of',
+      outBase,
+    ];
+
+    final result = await Process.run(cli, args);
+    if (result.exitCode != 0) {
+      throw StateError(
+        'whisper.exe thất bại (exit ${result.exitCode}): ${result.stderr}',
+      );
+    }
+
+    final srtFile = File(srtPath);
+    if (!await srtFile.exists()) {
+      throw StateError('whisper.exe không tạo file SRT: $srtPath');
+    }
+
+    final segments = _parseSrt(await srtFile.readAsString(),
+        audioFingerprint: audioFingerprint);
+    await srtFile.delete();
+
+    // Dọn file tạm của converter.
+    if (wavPath != audioPath) {
+      await AudioConverter.cleanupConvertedFile(wavPath);
+    }
+
+    return SttResult(
+      fullText: segments.map((s) => s.text).join(' ').trim(),
+      segments: segments,
+      engineUsed: SttEngineType.whisper,
+      language: language,
+      processingTime: Duration.zero,
+      audioFingerprint: audioFingerprint,
+      hasWordTimestamps: false,
+    );
+  }
+
+  /// Tìm whisper.exe: ưu tiên cạnh file thực thi, rồi PATH.
+  ///
+  /// whisper.cpp release thường đặt whisper.exe + ggml DLLs cạnh nhau trong
+  /// thư mục app. Nếu không thấy file, vẫn trả về tên 'whisper.exe' để
+  /// [Process.run] tự tìm trong PATH (đúng hành vi command-line).
+  static String _findCliBinary() {
+    const name = 'whisper.exe';
+    try {
+      final exeDir = File(Platform.resolvedExecutable).parent.path;
+      final near = path.join(exeDir, name);
+      if (File(near).existsSync()) return near;
+    } catch (_) {}
+
+    // Nếu PATH không có, Process.run sẽ ném lỗi rõ ràng "not found".
+    return name;
+  }
+
+  /// Parse nội dung SRT → List<SttSegment>.
+  static List<SttSegment> _parseSrt(
+    String srt, {
+    required String audioFingerprint,
+  }) {
+    final segments = <SttSegment>[];
+    final blocks = srt.trim().split(RegExp(r'\n\s*\n'));
+
+    var id = 0;
+    for (final block in blocks) {
+      final lines = block
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
+      if (lines.length < 2) continue;
+
+      // Dòng [HH:MM:SS,mmm --> HH:MM:SS,mmm]
+      final timeMatch = RegExp(
+              r'(\d+):(\d{2}):(\d{2}),(\d{3})\s*-->\s*'
+              r'(\d+):(\d{2}):(\d{2}),(\d{3})')
+          .firstMatch(lines[1]);
+      if (timeMatch == null) continue;
+
+      final text = lines.sublist(2).join(' ').trim();
+      if (text.isEmpty) continue;
+
+      final startSec = _srtTimeToSeconds(timeMatch, offset: 1);
+      final endSec = _srtTimeToSeconds(timeMatch, offset: 5);
+      final startMs = (startSec * 1000).round();
+
+      segments.add(SttSegment(
+        id: id++,
+        uid: ContentId.segmentUid(
+          audioFingerprint: audioFingerprint,
+          startMs: startMs,
+          text: text,
+        ),
+        startSeconds: startSec,
+        endSeconds: endSec,
+        text: text,
+        words: const [],
+        avgConfidence: 1.0,
+      ));
+    }
+    return segments;
+  }
+
+  static double _srtTimeToSeconds(RegExpMatch m, {required int offset}) {
+    final h = int.parse(m.group(offset)!);
+    final mi = int.parse(m.group(offset + 1)!);
+    final s = int.parse(m.group(offset + 2)!);
+    final ms = int.parse(m.group(offset + 3)!);
+    return (h * 3600) + (mi * 60) + s + (ms / 1000.0);
   }
 
   static int _buildAndRunWhisper({
@@ -634,7 +807,7 @@ class SttEngineWhisper {
     final paramsPtr = calloc<WhisperFullParams>();
     final langPinner = _LanguagePinner();
     try {
-      final defaults = lib.whisperFullDefaultParams(0);
+      final defaults = lib.whisperFullDefaultParams!(0);
       // Copy TOÀN BỘ struct từ defaults (gồm cả các trường mới: callbacks,
       // grammar, VAD...) để layout ABI khớp 100% với C struct.
       paramsPtr.ref = defaults;
@@ -653,7 +826,7 @@ class SttEngineWhisper {
       final samplesPtr = calloc<ffi.Float>(nSamples);
       try {
         samplesPtr.asTypedList(nSamples).setAll(0, pcmSamples);
-        return lib.whisperFull(ctx, paramsPtr.ref, samplesPtr, nSamples);
+        return lib.whisperFull!(ctx, paramsPtr.ref, samplesPtr, nSamples);
       } finally {
         calloc.free(samplesPtr);
       }
@@ -663,18 +836,56 @@ class SttEngineWhisper {
     }
   }
 
-  static _WhisperLib _loadWhisperLib() {
-    final dylib = Platform.isWindows
-        ? ffi.DynamicLibrary.open('whisper.dll')
-        : ffi.DynamicLibrary.open('libwhisper.so');
-    try {
-      return _WhisperLib(dylib);
-    } on ArgumentError catch (e) {
-      throw StateError(
-        'Thư viện Whisper thiếu hàm cần thiết. Hãy đảm bảo whisper.dll '
-        '(whisper.cpp mới nhất) nằm cạnh file .exe.\nChi tiết: $e',
-      );
+  /// Cố gắng nạp thư viện Whisper cho FFI. Trả về null nếu không nạp được
+  /// hoặc file DLL không export C API (chuyển sang CLI fallback).
+  ///
+  /// Tên thư viện thực tế phụ thuộc bản build của whisper.cpp:
+  ///   - Linux/macOS : libwhisper.so / libwhisper.dylib
+  ///   - Windows     : whisper.cpp CMake tạo "libwhisper.dll"
+  ///                   (kèm ggml-base.dll, ggml-cpu.dll, SDL2.dll).
+  ///                   Một số người đặt tên lại thành "whisper.dll".
+  /// Thử nhiều tên để tương thích cả hai trường hợp.
+  static _WhisperLib? _tryLoadWhisperLib() {
+    final candidates = Platform.isWindows
+        ? const <String>['libwhisper.dll', 'whisper.dll']
+        : const <String>['libwhisper.so', 'libwhisper.dylib'];
+
+    Object? lastError;
+    _WhisperLib? lib;
+    String? openedName;
+    for (final name in candidates) {
+      try {
+        final dylib = ffi.DynamicLibrary.open(name);
+        lib = _WhisperLib(dylib);
+        openedName = name;
+        break;
+      } catch (e) {
+        lastError = e;
+      }
     }
+
+    if (lib == null) {
+      debugPrint(
+        'ℹ️ Whisper FFI không nạp được thư viện (${candidates.join(', ')}): '
+        '$lastError → chuyển sang CLI fallback.',
+      );
+      return null;
+    }
+
+    // DLL mở được nhưng thiếu symbol cần thiết (vd: whisper_free) → tức là
+    // file .dll được build KHÔNG export C API. Whisper chỉ export các hàm
+    // "whisper_*" khi được build với cờ -DWHISPER_SHARED=ON (WHISPER_API =
+    // __declspec(dllexport) trong whisper.h). Nếu không, DLL chỉ chứa logic
+    // bên trong mà không lộ hàm nào → mọi lookup đều fail "undefined symbol".
+    if (lib.whisperFree == null || lib.whisperFull == null) {
+      debugPrint(
+        'ℹ️ ${openedName ?? 'whisper DLL'} không export C API whisper_* '
+        '(undefined symbol: whisper_free/whisper_full) → chuyển sang CLI.',
+      );
+      return null;
+    }
+
+    return lib;
   }
 
   static ffi.Pointer<WhisperContext> _initWhisperContext(
@@ -709,7 +920,7 @@ class SttEngineWhisper {
 
   static void _freeWhisperContext(
           _WhisperLib lib, ffi.Pointer<WhisperContext> ctx) =>
-      lib.whisperFree(ctx);
+      lib.whisperFree!(ctx);
 
   static List<SttSegment> _parseWhisperSegments({
     required _WhisperLib lib,
@@ -717,10 +928,10 @@ class SttEngineWhisper {
     required String fingerprint,
     required bool wordTimestamps,
   }) {
-    final nSegments = lib.whisperFullNSegments(ctx);
+    final nSegments = lib.whisperFullNSegments!(ctx);
     final segments = <SttSegment>[];
     for (var i = 0; i < nSegments; i++) {
-      final textPtr = lib.whisperFullGetSegmentText(ctx, i);
+      final textPtr = lib.whisperFullGetSegmentText!(ctx, i);
       if (textPtr == ffi.nullptr) continue;
       final rawText = textPtr.cast<Utf8>().toDartString().trim();
       segments.add(SttSegment(

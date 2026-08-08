@@ -100,9 +100,14 @@ Pointer<Void>? whisperInitFromFile(String path) {
       // fallthrough → API deprecated
     }
 
-    final func = lib.lookupFunction<whisper_init_from_file_native,
-        WhisperInitFromFile>('whisper_init_from_file');
-    return func(pathPtr);
+    try {
+      final func = lib.lookupFunction<whisper_init_from_file_native,
+          WhisperInitFromFile>('whisper_init_from_file');
+      return func(pathPtr);
+    } catch (_) {
+      // Cả API mới lẫn deprecated đều thiếu → không init được, trả về null.
+      return null;
+    }
   } finally {
     calloc.free(pathPtr);
   }

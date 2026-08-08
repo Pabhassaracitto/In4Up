@@ -69,12 +69,30 @@ class SttProgress {
   final String message;
   final SttEngineType? activeEngine;
 
+  /// Tiến độ chunk (nếu có bật chunking).
+  final int chunkIndex; // 0-based, chunk đang xử lý
+  final int chunkCount; // tổng số chunk
+
   const SttProgress({
     required this.status,
     required this.progress,
     required this.message,
     this.activeEngine,
+    this.chunkIndex = 0,
+    this.chunkCount = 0,
   });
+
+  /// Tạo bản sao với thông tin chunk mới (giữ nguyên các trường khác).
+  SttProgress withChunk({required int index, required int count}) {
+    return SttProgress(
+      status: status,
+      progress: progress,
+      message: message,
+      activeEngine: activeEngine,
+      chunkIndex: index,
+      chunkCount: count,
+    );
+  }
 
   static const idle = SttProgress(
     status: SttFacadeStatus.idle,
@@ -147,6 +165,13 @@ class SttServiceFacade extends ChangeNotifier {
 
   Stream<SttProgress> get progressStream => _progressSubject.stream;
   SttProgress get currentProgress => _progressSubject.value;
+
+  // Stream kết quả từng phần khi transcribe theo chunk — UI có thể hiện
+  // dần lời thoại thay vì đợi hết file.
+  final _partialSubject = BehaviorSubject<SttResult>.seeded(
+    SttResult.empty(SttEngineType.whisper),
+  );
+  Stream<SttResult> get partialResultStream => _partialSubject.stream;
 
   // Cache key: "${audioPath}_${engine}_${modelLevel}_${language}"
   final _resultCache = <String, SttResult>{};
@@ -452,13 +477,27 @@ class SttServiceFacade extends ChangeNotifier {
     // cho desktop.
     if (SttEngineWhisper.isMobilePluginSupported) {
       try {
-        return await SttEngineWhisper.transcribeMobile(
+        return await SttEngineWhisper.transcribeMobileChunked(
           audioPath: convertedPath ?? audioPath,
           modelDir: _modelManager.modelDirectoryPath,
           level: config.whisperModel,
           language: config.language,
           wordTimestamps: true,
           audioFingerprint: fingerprint,
+          chunkDurationSeconds: config.chunkDurationSeconds,
+          maxChunks: config.maxChunks,
+          onChunkDone: (chunk, count, partial) {
+            _emitProgress(
+              SttFacadeStatus.processingWhisper,
+              0.10 + 0.85 * ((chunk + 1) / count),
+              'Đang nhận diện chunk ${chunk + 1}/$count…',
+              engine: SttEngineType.whisper,
+              chunkIndex: chunk,
+              chunkCount: count,
+            );
+            if (!_disposed) _partialSubject.add(partial);
+          },
+          shouldCancel: () => _disposed,
         );
       } finally {
         // Dọn file tạm của converter (đường mobile không qua isolate).
@@ -721,6 +760,8 @@ class SttServiceFacade extends ChangeNotifier {
     double progress,
     String message, {
     SttEngineType? engine,
+    int chunkIndex = 0,
+    int chunkCount = 0,
   }) {
     if (_disposed) return;
     _progressSubject.add(SttProgress(
@@ -728,6 +769,8 @@ class SttServiceFacade extends ChangeNotifier {
       progress: progress.clamp(0.0, 1.0),
       message: message,
       activeEngine: engine,
+      chunkIndex: chunkIndex,
+      chunkCount: chunkCount,
     ));
   }
 
@@ -793,6 +836,7 @@ class SttServiceFacade extends ChangeNotifier {
     _nativeEngine.dispose();
     _modelManager.dispose();
     _progressSubject.close();
+    _partialSubject.close();
     _instance = null;
     super.dispose();
   }

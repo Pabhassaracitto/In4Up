@@ -152,47 +152,68 @@ mixin PlayerSttMixin on ChangeNotifier {
     try {
       final stt = SttServiceFacade();
 
-      SttTranscribeOutput output;
-      if (level == null) {
-        output = await stt.transcribeAuto(
-          path,
-          language: 'en',
-          generateLrc: true,
-        );
-      } else {
-        output = await stt.transcribeFile(
-          path,
-          config: SttConfig.deepLearning.copyWith(
-            preferredEngine: SttEngineType.whisper,
-            whisperModel: level,
-            language: 'en',
-            generateLrc: true,
-          ),
-          generateLrc: true,
-        );
-      }
-
-      _lastSttOutput = output;
-      _lastSttError = output.success ? null : output.errorMessage;
-
-      if (output.lrcFilePath != null) {
-        _lastGeneratedLrcPath = output.lrcFilePath;
-      }
-
-      if (output.success &&
-          output.lrcFilePath != null &&
-          understandProvider != null) {
-        final lrcLines = await parseLrcFile(output.lrcFilePath!);
+      // ★ Stream kết quả từng phần: hiện dần lyrics mỗi khi xong 1 chunk,
+      //   thay vì đợi hết cả file mới hiện.
+      final partialSub = stt.partialResultStream.listen((partial) {
+        if (partial.segments.isEmpty || understandProvider == null) return;
+        // Chuyển partial → LrcLine để UnderstandProvider hiện dần
+        final lrcLines = partial.segments
+            .map((s) => LrcLine(
+                  timestamp: Duration(milliseconds: s.startMs),
+                  text: s.text,
+                ))
+            .where((l) => l.text.trim().isNotEmpty)
+            .toList();
         if (lrcLines.isNotEmpty) {
           understandProvider!.loadLrcLines(lrcLines);
-          debugPrint(
-            '✅ Auto-loaded ${lrcLines.length} LRC lines after generate',
+        }
+      });
+
+      try {
+        final SttTranscribeOutput output;
+        if (level == null) {
+          output = await stt.transcribeAuto(
+            path,
+            language: 'en',
+            generateLrc: true,
+          );
+        } else {
+          output = await stt.transcribeFile(
+            path,
+            config: SttConfig.deepLearning.copyWith(
+              preferredEngine: SttEngineType.whisper,
+              whisperModel: level,
+              language: 'en',
+              generateLrc: true,
+            ),
+            generateLrc: true,
           );
         }
-        _lrcJustGenerated = true;
-      }
 
-      return output;
+        _lastSttOutput = output;
+        _lastSttError = output.success ? null : output.errorMessage;
+
+        if (output.lrcFilePath != null) {
+          _lastGeneratedLrcPath = output.lrcFilePath;
+        }
+
+        if (output.success &&
+            output.lrcFilePath != null &&
+            understandProvider != null) {
+          final lrcLines = await parseLrcFile(output.lrcFilePath!);
+          if (lrcLines.isNotEmpty) {
+            understandProvider!.loadLrcLines(lrcLines);
+            debugPrint(
+              '✅ Auto-loaded ${lrcLines.length} LRC lines after generate',
+            );
+          }
+          _lrcJustGenerated = true;
+        }
+
+        return output;
+      } finally {
+        partialSub.cancel();
+      }
     } catch (e) {
       _lastSttError = e.toString();
       return null;

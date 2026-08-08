@@ -21,6 +21,18 @@ class SttConfig {
   /// Có lưu kết quả vào cache không
   final bool cacheResults;
 
+  /// Có chia nhỏ file audio thành từng chunk để transcribe dần không.
+  /// Bật lên để file dài không phải đợi hết: kết quả stream về từng chunk,
+  /// có progress + có thể hủy giữa chừng.
+  final bool enableChunking;
+
+  /// Độ dài mỗi chunk (giây). Whisper vốn xử lý theo cửa sổ ~30s.
+  final int chunkDurationSeconds;
+
+  /// Số chunk tối đa cho phép trước khi yêu cầu chọn tải theo chặng
+  /// (bảo vệ file cực dài, tránh chờ quá lâu). 0 = không giới hạn.
+  final int maxChunks;
+
   const SttConfig({
     this.preferredEngine = SttEngineType.native,
     this.language = 'en-US',
@@ -29,6 +41,9 @@ class SttConfig {
     this.autoFallback = true,
     this.generateLrc = false,
     this.cacheResults = true,
+    this.enableChunking = true,
+    this.chunkDurationSeconds = 30,
+    this.maxChunks = 0,
   });
 
   /// Config nhanh cho "ghi chú tức thì" - dùng Native
@@ -62,6 +77,9 @@ class SttConfig {
     bool? autoFallback,
     bool? generateLrc,
     bool? cacheResults,
+    bool? enableChunking,
+    int? chunkDurationSeconds,
+    int? maxChunks,
   }) {
     return SttConfig(
       preferredEngine: preferredEngine ?? this.preferredEngine,
@@ -70,6 +88,9 @@ class SttConfig {
       autoFallback: autoFallback ?? this.autoFallback,
       generateLrc: generateLrc ?? this.generateLrc,
       cacheResults: cacheResults ?? this.cacheResults,
+      enableChunking: enableChunking ?? this.enableChunking,
+      chunkDurationSeconds: chunkDurationSeconds ?? this.chunkDurationSeconds,
+      maxChunks: maxChunks ?? this.maxChunks,
     );
   }
 }

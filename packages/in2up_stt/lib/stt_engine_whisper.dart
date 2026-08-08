@@ -605,6 +605,144 @@ class SttEngineWhisper {
     return result;
   }
 
+  /// Transcribe file dài trên Mobile theo CHUNK (progressive).
+  ///
+  /// Chia audio thành từng chunk nhỏ (mặc định 30s — khớp cửa sổ whisper),
+  /// transcribe từng chunk và gọi [onChunkDone] sau mỗi chunk. Nhờ vậy:
+  ///  - UI hiện kết quả từng phần ngay khi xong chunk, không đợi hết file;
+  ///  - có [shouldCancel] để dừng giữa chừng (giữ kết quả các chunk đã xong);
+  ///  - timestamp các chunk sau được cộng offset để ra đúng LRC/karaoke.
+  ///
+  /// Nếu file không quá dài (1 chunk) hoặc tắt chunking → hành vi như cũ.
+  static Future<SttResult> transcribeMobileChunked({
+    required String audioPath,
+    required String modelDir,
+    required WhisperModelLevel level,
+    required String language,
+    required bool wordTimestamps,
+    required String audioFingerprint,
+    int chunkDurationSeconds = 30,
+    int maxChunks = 0,
+    void Function(int chunkIndex, int chunkCount, SttResult partial)? onChunkDone,
+    bool Function()? shouldCancel,
+  }) async {
+    final sw = Stopwatch()..start();
+
+    // Convert sang WAV 16k mono một lần.
+    final wavPath =
+        await AudioConverter.convertToWhisperCompatible(audioPath) ?? audioPath;
+
+    // Chia chunk (chỉ khi có FFmpeg; nếu probe không ra duration vẫn an toàn).
+    final split = await AudioConverter.splitIntoChunks(
+      wavPath,
+      chunkDurationSeconds: chunkDurationSeconds,
+    );
+
+    var chunks = split.chunkPaths;
+
+    // Giới hạn số chunk nếu người dùng muốn load theo chặng.
+    if (maxChunks > 0 && chunks.length > maxChunks) {
+      chunks = chunks.sublist(0, maxChunks);
+    }
+
+    // Reuse 1 instance plugin cho cả file (tránh reload model mỗi chunk).
+    final whisper = Whisper(
+      model: _mapToPluginModel(level),
+      modelDir: modelDir,
+    );
+
+    final allSegments = <SttSegment>[];
+    final allWords = <SttWord>[];
+    var chunkMsOffset = 0;
+
+    try {
+      for (var i = 0; i < chunks.length; i++) {
+        if (shouldCancel?.call() ?? false) {
+          debugPrint('⏹️ Whisper bị hủy tại chunk $i/${chunks.length}');
+          break;
+        }
+
+        final chunkPath = chunks[i];
+        debugPrint('🎙️ Chunk $i/${chunks.length}: $chunkPath');
+
+        final chunkResult = await whisper.transcribe(
+          transcribeRequest: TranscribeRequest(
+            audio: chunkPath,
+            isTranslate: false,
+            isNoTimestamps: false,
+            splitOnWord: wordTimestamps,
+            diarize: false,
+            language: language,
+          ),
+        );
+
+        final parsed = _parsePluginResult(
+          chunkResult,
+          audioFingerprint: audioFingerprint,
+          language: language,
+          processingTime: Duration.zero,
+        );
+
+        // Cộng offset thời gian của chunk vào segment/word.
+        for (final seg in parsed.segments) {
+          final shifted = seg.shiftByMs(
+            chunkMsOffset,
+            audioFingerprint: audioFingerprint,
+          );
+          allSegments.add(shifted);
+          allWords.addAll(shifted.words);
+        }
+
+        // Mỗi chunk dài `chunkDurationSeconds` → offset mốc thời gian tăng dần.
+        chunkMsOffset += chunkDurationSeconds * 1000;
+
+        onChunkDone?.call(i, chunks.length, _buildChunkPartial(
+          segments: List<SttSegment>.from(allSegments),
+          audioFingerprint: audioFingerprint,
+          language: language,
+        ));
+
+        // Nhường event loop để UI repaint progress giữa các chunk.
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      }
+    } finally {
+      // Dọn chunk + file convert tạm (giữ file gốc).
+      await AudioConverter.cleanupChunkFiles(chunks);
+      if (wavPath != audioPath) {
+        await AudioConverter.cleanupConvertedFile(wavPath);
+      }
+    }
+
+    sw.stop();
+
+    return SttResult(
+      fullText: allSegments.map((s) => s.text).join(' ').trim(),
+      segments: allSegments,
+      engineUsed: SttEngineType.whisper,
+      language: language,
+      processingTime: sw.elapsed,
+      audioFingerprint: audioFingerprint,
+      hasWordTimestamps: allWords.isNotEmpty,
+    );
+  }
+
+  /// Gom các segment đã có thành một SttResult tạm (cho progress/stream).
+  static SttResult _buildChunkPartial({
+    required List<SttSegment> segments,
+    required String audioFingerprint,
+    required String language,
+  }) {
+    return SttResult(
+      fullText: segments.map((s) => s.text).join(' ').trim(),
+      segments: segments,
+      engineUsed: SttEngineType.whisper,
+      language: language,
+      processingTime: Duration.zero,
+      audioFingerprint: audioFingerprint,
+      hasWordTimestamps: segments.any((s) => s.words.isNotEmpty),
+    );
+  }
+
   /// Parse kết quả plugin → SttResult.
   ///
   /// Plugin trả về segments ở mức TỪ (do `splitOnWord: true`). Ta gom từ

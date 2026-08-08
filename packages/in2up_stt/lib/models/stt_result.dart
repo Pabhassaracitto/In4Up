@@ -75,6 +75,34 @@ class SttSegment {
   Duration get startDuration => Duration(milliseconds: startMs);
   Duration get endDuration => Duration(milliseconds: endMs);
 
+  /// Trả về segment mới với mọi timestamp (segment + word) dịch thêm [offsetMs].
+  /// Dùng để ghép các chunk về đúng mốc thời gian trên file gốc.
+  /// [audioFingerprint] được dùng để tính lại UID cho đúng mốc mới.
+  SttSegment shiftByMs(int offsetMs, {String audioFingerprint = ''}) {
+    if (offsetMs == 0) return this;
+    final newStartMs = startMs + offsetMs;
+    return SttSegment(
+      id: id,
+      uid: ContentId.segmentUid(
+        audioFingerprint: audioFingerprint,
+        startMs: newStartMs,
+        text: text,
+      ),
+      startSeconds: startSeconds + (offsetMs / 1000.0),
+      endSeconds: endSeconds + (offsetMs / 1000.0),
+      text: text,
+      words: words
+          .map((w) => SttWord(
+                word: w.word,
+                startSeconds: w.startSeconds + (offsetMs / 1000.0),
+                endSeconds: w.endSeconds + (offsetMs / 1000.0),
+                confidence: w.confidence,
+              ))
+          .toList(),
+      avgConfidence: avgConfidence,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'uid': uid,

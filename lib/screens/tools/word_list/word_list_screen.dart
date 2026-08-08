@@ -150,96 +150,129 @@ class _WordListScreenState extends State<WordListScreen> {
         border: Border(
             bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                color: Colors.white, size: 18),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(width: 4),
-          if (!_showSearch) ...[
-            Expanded(
-              child: Row(
-                children: [
-                  const Text('Wordlist',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 8),
-                  _CountBadge(count: p.total, color: const Color(0xFF6C63FF)),
-                  if (sm2Due > 0) ...[
-                    const SizedBox(width: 8),
-                    _CountBadge(
-                      count: sm2Due,
-                      color: const Color(0xFFFF5722),
-                      icon: Icons.alarm,
-                      label: 'ôn',
-                      onTap: () =>
-                          setState(() => _sortMode = WordListSortMode.sm2Due),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          return Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new,
+                    color: Colors.white, size: 18),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(width: 4),
+              if (!_showSearch) ...[
+                Expanded(
+                  child: compact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Wordlist',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                _CountBadge(count: p.total, color: const Color(0xFF6C63FF)),
+                                if (sm2Due > 0)
+                                  _CountBadge(
+                                    count: sm2Due,
+                                    color: const Color(0xFFFF5722),
+                                    icon: Icons.alarm,
+                                    label: 'ôn',
+                                    onTap: () => setState(() => _sortMode = WordListSortMode.sm2Due),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            const Flexible(
+                              child: Text('Wordlist',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800)),
+                            ),
+                            const SizedBox(width: 8),
+                            _CountBadge(count: p.total, color: const Color(0xFF6C63FF)),
+                            if (sm2Due > 0) ...[
+                              const SizedBox(width: 8),
+                              _CountBadge(
+                                count: sm2Due,
+                                color: const Color(0xFFFF5722),
+                                icon: Icons.alarm,
+                                label: 'ôn',
+                                onTap: () => setState(() => _sortMode = WordListSortMode.sm2Due),
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
+              ] else ...[
+                Expanded(
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                  const SizedBox(width: 8),
-                  const SyncStatusBadge(),
-                ],
-              ),
-            ),
-          ] else ...[
-            Expanded(
-              child: Container(
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'Tìm từ, cụm từ, câu...',
-                    hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    prefixIcon:
-                        Icon(Icons.search, color: Colors.grey[600], size: 16),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm từ, cụm từ, câu...',
+                        hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        prefixIcon:
+                            Icon(Icons.search, color: Colors.grey[600], size: 16),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      ),
+                      onChanged: p.setSearch,
+                    ),
                   ),
-                  onChanged: p.setSearch,
                 ),
+              ],
+              if (!compact && !_showSearch) const SyncStatusBadge(),
+              IconButton(
+                icon: Icon(_showSearch ? Icons.close : Icons.search,
+                    color: Colors.grey[400], size: 20),
+                onPressed: () {
+                  setState(() => _showSearch = !_showSearch);
+                  if (!_showSearch) {
+                    _searchCtrl.clear();
+                    p.clearSearch();
+                  }
+                },
               ),
-            ),
-          ],
-          IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search,
-                color: Colors.grey[400], size: 20),
-            onPressed: () {
-              setState(() => _showSearch = !_showSearch);
-              if (!_showSearch) {
-                _searchCtrl.clear();
-                p.clearSearch();
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.view_sidebar_outlined,
-                color: Colors.grey[400], size: 20),
-            onPressed: () => _showSmartGroupsSheet(p),
-          ),
-          // Knowledge Graph button
-          IconButton(
-            icon: Icon(Icons.hub_outlined, color: Colors.grey[400], size: 20),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const KnowledgeGraphScreen(),
+              IconButton(
+                icon: Icon(Icons.view_sidebar_outlined,
+                    color: Colors.grey[400], size: 20),
+                onPressed: () => _showSmartGroupsSheet(p),
               ),
-            ),
-            tooltip: 'Knowledge Graph',
-          ),
-          _buildOverflowMenu(p),
-        ],
+              IconButton(
+                icon: Icon(Icons.hub_outlined, color: Colors.grey[400], size: 20),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const KnowledgeGraphScreen(),
+                  ),
+                ),
+                tooltip: 'Knowledge Graph',
+              ),
+              _buildOverflowMenu(p),
+            ],
+          );
+        },
       ),
     );
   }

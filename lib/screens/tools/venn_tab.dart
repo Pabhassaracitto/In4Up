@@ -509,27 +509,35 @@ class _VennTabState extends State<VennTab> {
   }
 
   Widget _wordChip(WordEntry w) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: w.zone.color.withAlpha(20),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: w.zone.color.withAlpha(80)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(w.zone.icon, size: 12, color: w.zone.color),
-          const SizedBox(width: 4),
-          Text(
-            w.word,
-            style: TextStyle(
-              fontSize: 13,
-              color: w.zone.color,
-              fontWeight: FontWeight.w500,
+    final maxWidth = MediaQuery.of(context).size.width * 0.42;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: w.zone.color.withAlpha(20),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: w.zone.color.withAlpha(80)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(w.zone.icon, size: 12, color: w.zone.color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                w.word,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: w.zone.color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

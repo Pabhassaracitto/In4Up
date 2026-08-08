@@ -457,13 +457,18 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFF6C63FF),
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFF6C63FF),
+          duration: const Duration(milliseconds: 1200),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   String _fmtDuration(Duration d) {
@@ -1376,9 +1381,11 @@ class _AIPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return ConstrainedBox(
       constraints:
-          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
-      child: const SingleChildScrollView(
-        child: Column(
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.62),
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             GenerateLrcButton(),
             SizedBox(height: 12),
@@ -1625,13 +1632,18 @@ class _SmartActionBarState extends State<_SmartActionBar> {
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFF6C63FF),
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFF6C63FF),
+          duration: const Duration(milliseconds: 1200),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   static String _fmt(Duration d) {
@@ -1834,14 +1846,18 @@ class GenerateLrcButton extends StatelessWidget {
                       provider.generateLrcForCurrentAudio(level: level),
                 ),
                 const SizedBox(height: 12),
-                Row(children: [
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        context.read<SttServiceFacade>().startListening(),
-                    icon: const Icon(Icons.mic),
-                    label: const Text('Shadowing'),
-                  ),
-                ]),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          context.read<SttServiceFacade>().startListening(),
+                      icon: const Icon(Icons.mic),
+                      label: const Text('Shadowing'),
+                    ),
+                  ],
+                ),
               ],
             );
           },

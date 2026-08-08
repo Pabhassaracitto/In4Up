@@ -698,7 +698,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   Widget _buildTabBar() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 380;
+        final compact = constraints.maxWidth < 420;
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           padding: const EdgeInsets.all(4),
@@ -729,7 +729,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 icon: Icons.history_rounded,
                 label: 'Gần đây',
                 compact: compact,
-                trailing: _files.isNotEmpty ? _TabBadge(count: _files.length) : null,
+                trailing: !compact && _files.isNotEmpty ? _TabBadge(count: _files.length) : null,
               ),
               _libraryTab(
                 icon: Icons.cloud_rounded,

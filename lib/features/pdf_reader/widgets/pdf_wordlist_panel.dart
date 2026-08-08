@@ -81,7 +81,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
 
   Widget _buildHeader(int count) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1520),
         border: Border(
@@ -92,28 +92,37 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
         children: [
           const Icon(Icons.library_books, size: 14, color: Color(0xFF6C63FF)),
           const SizedBox(width: 6),
-          const Expanded(
+          Expanded(
             child: Text(
               'Từ đã lưu',
-              style: TextStyle(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Color(0xFF6C63FF).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                color: Color(0xFF9C8FFF),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+          const SizedBox(width: 6),
+          Flexible(
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Color(0xFF9C8FFF),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ),
@@ -124,26 +133,29 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
 
   Widget _buildSortBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       color: const Color(0xFF0A0F1A),
-      child: Row(
-        children: [
-          _SortBtn(
-            label: 'Mới',
-            isSelected: _sortMode == 'added',
-            onTap: () => setState(() => _sortMode = 'added'),
-          ),
-          _SortBtn(
-            label: 'A-Z',
-            isSelected: _sortMode == 'alpha',
-            onTap: () => setState(() => _sortMode = 'alpha'),
-          ),
-          _SortBtn(
-            label: 'Thuần thục',
-            isSelected: _sortMode == 'mastery',
-            onTap: () => setState(() => _sortMode = 'mastery'),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _SortBtn(
+              label: 'Mới',
+              isSelected: _sortMode == 'added',
+              onTap: () => setState(() => _sortMode = 'added'),
+            ),
+            _SortBtn(
+              label: 'A-Z',
+              isSelected: _sortMode == 'alpha',
+              onTap: () => setState(() => _sortMode = 'alpha'),
+            ),
+            _SortBtn(
+              label: 'Thuần thục',
+              isSelected: _sortMode == 'mastery',
+              onTap: () => setState(() => _sortMode = 'mastery'),
+            ),
+          ],
+        ),
       ),
     );
   }

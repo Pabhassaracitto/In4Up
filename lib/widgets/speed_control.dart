@@ -35,43 +35,51 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 340;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(Icons.speed, color: Color(0xFF6C63FF)),
-                      SizedBox(width: 8),
-                      Text(
-                        'Playback Speed',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.speed, color: Color(0xFF6C63FF)),
+                          SizedBox(width: 8),
+                          Text(
+                            'Playback Speed',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 12 : 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              _getSpeedColor(currentSpeed).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${currentSpeed.toStringAsFixed(2)}x',
+                          style: TextStyle(
+                            fontSize: compact ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                            color: _getSpeedColor(currentSpeed),
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                  // Current Speed Display
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          _getSpeedColor(currentSpeed).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${currentSpeed.toStringAsFixed(2)}x',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: _getSpeedColor(currentSpeed),
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
 
               const SizedBox(height: 16),
@@ -219,8 +227,10 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
   Widget _buildQuickSpeedButtons(PlayerProvider player, double currentSpeed) {
     const quickSpeeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
       children: quickSpeeds.map((speed) {
         final isSelected = (currentSpeed - speed).abs() < 0.01;
 
@@ -241,7 +251,7 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? _getSpeedColor(speed) : Colors.white10,
           borderRadius: BorderRadius.circular(12),

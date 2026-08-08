@@ -29,6 +29,7 @@ class WordActionsSheet {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      useSafeArea: true,
       isScrollControlled: true,
       builder: (sheetContext) => _WordActionsContent(
         word: word,
@@ -55,7 +56,7 @@ class _WordActionsContent extends StatelessWidget {
     final tp = context.read<TextProvider>();
     final existingWord = context.read<VocabularyProvider>().findByWord(word.word);
 
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -618,13 +619,39 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
   // ── Form nhập nghĩa (Cấp 2) ───────────────────────────────
 
   Widget _buildMeaningInput(VocabularyProvider vocabProvider) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 340;
+        final actions = [
+          GestureDetector(
+            onTap: () => _saveWithMeaning(vocabProvider),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2196F3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 18),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _showMeaningInput = false),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.close, color: Colors.grey, size: 18),
+            ),
+          ),
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
+            if (compact) ...[
+              TextField(
                 controller: _meaningCtrl,
                 autofocus: true,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -648,34 +675,54 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
                 ),
                 onSubmitted: (_) => _saveWithMeaning(vocabProvider),
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _saveWithMeaning(vocabProvider),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 18),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  actions[0],
+                  const SizedBox(width: 4),
+                  actions[1],
+                ],
               ),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => setState(() => _showMeaningInput = false),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.close, color: Colors.grey, size: 18),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _meaningCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Nhập nghĩa tiếng Việt...',
+                        hintStyle:
+                            TextStyle(color: Colors.grey[600], fontSize: 12),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF2196F3), width: 1.5),
+                        ),
+                      ),
+                      onSubmitted: (_) => _saveWithMeaning(vocabProvider),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  actions[0],
+                  const SizedBox(width: 4),
+                  actions[1],
+                ],
               ),
-            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 

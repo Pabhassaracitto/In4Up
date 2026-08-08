@@ -444,6 +444,30 @@ class SttServiceFacade extends ChangeNotifier {
         ? audioFingerprint
         : await _computeAudioFingerprint(audioPath);
 
+    // ── C2. Mobile (Android/iOS) → chạy plugin trên Main Thread ────────────
+    //
+    // whisper_flutter_new dùng MethodChannel + native lib bundle riêng cho
+    // mobile, PHẢI chạy trên Main Thread (không được đưa vào Isolate).
+    // Đây là "known-good path" trước refactor v11. FFI-in-isolate chỉ hợp
+    // cho desktop.
+    if (SttEngineWhisper.isMobilePluginSupported) {
+      try {
+        return await SttEngineWhisper.transcribeMobile(
+          audioPath: convertedPath ?? audioPath,
+          modelDir: _modelManager.modelDirectoryPath,
+          level: config.whisperModel,
+          language: config.language,
+          wordTimestamps: true,
+          audioFingerprint: fingerprint,
+        );
+      } finally {
+        // Dọn file tạm của converter (đường mobile không qua isolate).
+        if (convertedPath != null) {
+          await AudioConverter.cleanupConvertedFile(convertedPath);
+        }
+      }
+    }
+
     // ── D. Build SttIsolatePayload — CHỈ plain data ────────────────────────
     final payload = SttIsolatePayload(
       audioPath: convertedPath ?? audioPath,

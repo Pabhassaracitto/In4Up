@@ -24,8 +24,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:path/path.dart' as path;
+import 'package:whisper_flutter_new/whisper_flutter_new.dart';
 
 import 'models/content_id.dart';
 import 'models/stt_isolate_payload.dart';
@@ -547,6 +548,145 @@ class _WhisperLib {
 }
 
 class SttEngineWhisper {
+  /// Đường chạy Whisper cho Mobile (Android/iOS) qua plugin
+  /// [whisper_flutter_new]. Plugin này bundle sẵn native lib cho mobile và
+  /// PHẢI chạy trên Main Thread (dùng MethodChannel) — không nằm trong Isolate.
+  ///
+  /// Đây là "known-good path" đã từng hoạt động trên Android trước refactor
+  /// v11 (xem commit gốc trong packages/vipsound_stt). Refactor đã thay nó
+  /// bằng FFI-in-isolate chỉ chạy trên desktop, làm Android mất đường
+  /// transcription từ file. Path này khôi phục lại cho mobile.
+  static bool get isMobilePluginSupported =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
+
+  /// Transcribe file trên Mobile (Main Thread) bằng plugin whisper_flutter_new.
+  static Future<SttResult> transcribeMobile({
+    required String audioPath,
+    required String modelDir,
+    required WhisperModelLevel level,
+    required String language,
+    required bool wordTimestamps,
+    required String audioFingerprint,
+  }) async {
+    final sw = Stopwatch()..start();
+
+    // Plugin yêu cầu WAV 16kHz mono.
+    final wavPath =
+        await AudioConverter.convertToWhisperCompatible(audioPath) ?? audioPath;
+
+    final whisper = Whisper(
+      model: _mapToPluginModel(level),
+      modelDir: modelDir,
+    );
+
+    debugPrint('🎙️ Whisper (mobile plugin) đang transcribe: $wavPath');
+    final transcribeResult = await whisper.transcribe(
+      transcribeRequest: TranscribeRequest(
+        audio: wavPath,
+        isTranslate: false,
+        isNoTimestamps: false,
+        splitOnWord: wordTimestamps,
+        diarize: false,
+        language: language,
+      ),
+    );
+
+    if (wavPath != audioPath) {
+      await AudioConverter.cleanupConvertedFile(wavPath);
+    }
+
+    final result = _parsePluginResult(
+      transcribeResult,
+      audioFingerprint: audioFingerprint,
+      language: language,
+      processingTime: sw.elapsed,
+    );
+    sw.stop();
+    return result;
+  }
+
+  /// Parse kết quả plugin → SttResult (bất biến, gán UID Content-Anchored).
+  static SttResult _parsePluginResult(
+    dynamic output, {
+    required String audioFingerprint,
+    required String language,
+    required Duration processingTime,
+  }) {
+    try {
+      if (output == null) {
+        return SttResult.empty(SttEngineType.whisper);
+      }
+      final response = output as WhisperTranscribeResponse;
+      final rawSegments = response.segments ?? const [];
+
+      if (rawSegments.isEmpty) {
+        return SttResult.empty(SttEngineType.whisper);
+      }
+
+      final segments = <SttSegment>[];
+      var id = 0;
+      for (final seg in rawSegments) {
+        final text = (seg.text ?? '').trim();
+        if (text.isEmpty) continue;
+        if (_isNoise(text)) continue;
+
+        final startMs = seg.fromTs.inMilliseconds;
+        final endMs = seg.toTs.inMilliseconds;
+        final startSec = startMs / 1000.0;
+        final endSec = endMs / 1000.0;
+
+        segments.add(SttSegment(
+          id: id++,
+          uid: ContentId.segmentUid(
+            audioFingerprint: audioFingerprint,
+            startMs: startMs,
+            text: text,
+          ),
+          startSeconds: startSec,
+          endSeconds: endSec,
+          text: text,
+          words: const [],
+          avgConfidence: 1.0,
+        ));
+      }
+
+      return SttResult(
+        fullText: segments.map((s) => s.text).join(' ').trim(),
+        segments: segments,
+        engineUsed: SttEngineType.whisper,
+        language: language,
+        processingTime: processingTime,
+        audioFingerprint: audioFingerprint,
+        hasWordTimestamps: false,
+      );
+    } catch (e) {
+      debugPrint('❌ Whisper mobile parse error: $e');
+      return SttResult.empty(SttEngineType.whisper);
+    }
+  }
+
+  static bool _isNoise(String text) {
+    final upper = text.toUpperCase();
+    return upper.contains('[MUSIC]') ||
+        upper.contains('[NOISE]') ||
+        upper.contains('[LAUGHTER]');
+  }
+
+  static WhisperModel _mapToPluginModel(WhisperModelLevel level) {
+    switch (level) {
+      case WhisperModelLevel.tiny:
+        return WhisperModel.tiny;
+      case WhisperModelLevel.base:
+        return WhisperModel.base;
+      case WhisperModelLevel.small:
+        return WhisperModel.small;
+      case WhisperModelLevel.medium:
+        return WhisperModel.medium;
+      case WhisperModelLevel.large:
+        return WhisperModel.largeV2;
+    }
+  }
+
   Future<SttResult> transcribe(
     String audioPath, {
     required WhisperModelLevel level,

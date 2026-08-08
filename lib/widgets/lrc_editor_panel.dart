@@ -53,6 +53,11 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
       builder: (context, provider, _) {
         final lrcPath = provider.lastGeneratedLrcPath;
         final error = provider.lastSttError;
+        final compactLayout =
+            widget.compact ||
+            MediaQuery.sizeOf(context).height < 760 ||
+            MediaQuery.sizeOf(context).width < 430;
+        final listHeight = compactLayout ? 148.0 : 220.0;
 
         // ★ DEBUG - xóa sau khi fix xong
         debugPrint('🔍 LrcEditorPanel rebuild: '
@@ -122,8 +127,8 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
         }
 
         return Container(
-          margin: const EdgeInsets.only(top: 12),
-          padding: const EdgeInsets.all(12),
+          margin: EdgeInsets.only(top: compactLayout ? 8 : 12),
+          padding: EdgeInsets.all(compactLayout ? 10 : 12),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
@@ -159,10 +164,10 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
               ),
 
               if (_expanded) ...[
-                const SizedBox(height: 10),
+                SizedBox(height: compactLayout ? 8 : 10),
                 // Danh sách dòng LRC
                 SizedBox(
-                  height: 220,
+                  height: listHeight,
                   child: ListView.builder(
                     itemCount: _lines!.length,
                     itemBuilder: (context, index) {
@@ -183,8 +188,10 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                           Expanded(
                             child: TextField(
                               controller: _controllers[index],
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 13),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: compactLayout ? 12.5 : 13,
+                              ),
                               maxLines: null,
                               decoration: const InputDecoration(
                                 isDense: true,
@@ -200,40 +207,64 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                   ),
                 ),
 
-                const SizedBox(height: 10),
+                SizedBox(height: compactLayout ? 8 : 10),
 
                 // Buttons
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _saveEdits,
-                      icon: const Icon(Icons.save_outlined, size: 16),
-                      label: const Text('Lưu chỉnh sửa'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.3)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stackedButtons = compactLayout || constraints.maxWidth < 320;
+                    final buttons = [
+                      OutlinedButton.icon(
+                        onPressed: _saveEdits,
+                        icon: const Icon(Icons.save_outlined, size: 16),
+                        label: const Text('Lưu chỉnh sửa'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compactLayout ? 10 : 12,
+                            vertical: compactLayout ? 7 : 8,
+                          ),
+                        ),
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        _useThisLrc();
-                        widget.onLrcApplied?.call();
-                      },
-                      icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const Text('Sử dụng LRC này'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6C63FF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          _useThisLrc();
+                          widget.onLrcApplied?.call();
+                        },
+                        icon: const Icon(Icons.check_circle_outline, size: 16),
+                        label: const Text('Sử dụng LRC này'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C63FF),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compactLayout ? 10 : 12,
+                            vertical: compactLayout ? 7 : 8,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ];
+
+                    if (stackedButtons) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (int i = 0; i < buttons.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 8),
+                            buttons[i],
+                          ],
+                        ],
+                      );
+                    }
+
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: buttons,
+                    );
+                  },
                 ),
               ] else
                 Padding(

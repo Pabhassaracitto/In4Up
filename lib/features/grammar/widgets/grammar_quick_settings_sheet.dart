@@ -19,6 +19,7 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
   final ValueChanged<GrammarHighlightStyle> onSelectStyle;
   final ValueChanged<GrammarCategory> onToggleCategory;
   final ValueChanged<bool> onToggleLegend;
+  final VoidCallback onShowAllCategories;
 
   const GrammarQuickSettingsSheet({
     super.key,
@@ -32,6 +33,7 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
     required this.onSelectStyle,
     required this.onToggleCategory,
     required this.onToggleLegend,
+    required this.onShowAllCategories,
   });
 
   static Future<void> show(
@@ -46,6 +48,7 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
     required ValueChanged<GrammarHighlightStyle> onSelectStyle,
     required ValueChanged<GrammarCategory> onToggleCategory,
     required ValueChanged<bool> onToggleLegend,
+    required VoidCallback onShowAllCategories,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -68,6 +71,7 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
           onSelectStyle: onSelectStyle,
           onToggleCategory: onToggleCategory,
           onToggleLegend: onToggleLegend,
+          onShowAllCategories: onShowAllCategories,
         ),
       ),
     );
@@ -77,6 +81,10 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final presets = GrammarHighlightPresets.defaults();
     final palettes = GrammarPalettes.defaults();
+    final hiddenCategories = GrammarCategory.values
+        .where((category) => !settings.visibleCategories.contains(category))
+        .toList()
+      ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
@@ -141,6 +149,75 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
                   activeThumbColor: const Color(0xFF6C63FF),
                   onChanged: onToggleLegend,
                 ),
+                if (hiddenCategories.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị mất — bạn có thể bật lại từng nhóm phía dưới hoặc dùng nút khôi phục nhanh.',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 11.5,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: onShowAllCategories,
+                              icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                              label: const Text('Bật lại tất cả'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFB8B5FF),
+                                side: BorderSide(
+                                  color: const Color(0xFF6C63FF)
+                                      .withValues(alpha: 0.35),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                            for (final category in hiddenCategories.take(5))
+                              ActionChip(
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.04),
+                                side: BorderSide(
+                                  color: palette
+                                      .styleFor(category)
+                                      .color
+                                      .withValues(alpha: 0.28),
+                                ),
+                                label: Text(
+                                  '+ ${category.labelVi}',
+                                  style: TextStyle(
+                                    color: palette.styleFor(category).color,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                onPressed: () => onToggleCategory(category),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _sectionLabel('Preset học tập'),
                 const SizedBox(height: 8),

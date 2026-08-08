@@ -230,37 +230,37 @@ class _GrammarLegendStrip extends StatelessWidget {
     final palette = textProvider.activeGrammarPalette;
     final visibleCategories = settings.visibleCategories.toList()
       ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
-    final displaySettings = settings.legendCollapsed && visibleCategories.length > 4
+    final hiddenCount =
+        GrammarCategory.values.length - settings.visibleCategories.length;
+    final canCollapse = visibleCategories.length > 4;
+    final displaySettings = settings.legendCollapsed && canCollapse
         ? settings.copyWith(
             visibleCategories: visibleCategories.take(4).toSet(),
           )
         : settings;
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.auto_awesome_motion,
-                size: 14,
-                color: Color(0xFF6C63FF),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                settings.activePresetId == 'custom'
-                    ? 'Grammar Highlight · Tùy chỉnh'
-                    : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        final actionButtons = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: compact ? WrapAlignment.start : WrapAlignment.end,
+          children: [
+            if (hiddenCount > 0)
+              OutlinedButton.icon(
+                onPressed: textProvider.showAllGrammarCategories,
+                icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                label: const Text('Bật lại tất cả'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
-              const Spacer(),
+            if (canCollapse)
               TextButton.icon(
                 onPressed: () => textProvider.setGrammarLegendCollapsed(
                   !settings.legendCollapsed,
@@ -277,17 +277,111 @@ class _GrammarLegendStrip extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                 ),
               ),
+          ],
+        );
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (compact) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome_motion,
+                      size: 14,
+                      color: Color(0xFF6C63FF),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            settings.activePresetId == 'custom'
+                                ? 'Grammar Highlight · Tùy chỉnh'
+                                : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (hiddenCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                actionButtons,
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome_motion,
+                      size: 14,
+                      color: Color(0xFF6C63FF),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            settings.activePresetId == 'custom'
+                                ? 'Grammar Highlight · Tùy chỉnh'
+                                : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (hiddenCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(child: actionButtons),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 6),
+              GrammarLegendBar(
+                settings: displaySettings,
+                palette: palette,
+                onToggleCategory: (category) =>
+                    textProvider.toggleGrammarCategory(category),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          GrammarLegendBar(
-            settings: displaySettings,
-            palette: palette,
-            onToggleCategory: (category) =>
-                textProvider.toggleGrammarCategory(category),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

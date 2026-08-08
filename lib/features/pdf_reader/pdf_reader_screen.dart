@@ -617,6 +617,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       onSelectStyle: (style) => _controller.setGrammarHighlightStyle(style),
       onToggleCategory: (category) => _controller.toggleGrammarCategory(category),
       onToggleLegend: (visible) => _controller.setGrammarLegendVisible(visible),
+      onShowAllCategories: () => _controller.showAllGrammarCategories(),
     );
   }
 

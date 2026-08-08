@@ -117,9 +117,18 @@ class GrammarHighlightPresets {
 
   static GrammarHighlightPreset byId(String? id) {
     final presets = defaults();
-    return presets.firstWhere(
-      (preset) => preset.id == id,
-      orElse: () => presets.first,
-    );
+    for (final preset in presets) {
+      if (preset.id == id) return preset;
+    }
+    if ((id ?? '').trim().toLowerCase() == 'custom') {
+      return const GrammarHighlightPreset(
+        id: 'custom',
+        name: 'Tùy chỉnh',
+        description: 'Preset tùy chỉnh — bật/tắt thủ công từng nhóm từ loại.',
+        visibleCategories: <GrammarCategory>{},
+        showLegend: true,
+      );
+    }
+    return presets.first;
   }
 }

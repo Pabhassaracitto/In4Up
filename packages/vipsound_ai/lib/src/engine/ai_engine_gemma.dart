@@ -4,7 +4,6 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
-import '../models/ai_analysis.dart';
 import 'ai_engine.dart';
 
 class AiEngineGemma implements AiEngine {

@@ -3,7 +3,6 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../models/ai_analysis.dart';
 import 'ai_engine.dart';
 
 /// Mock engine dùng cho test / offline fallback khi chưa có model thật
@@ -34,6 +33,7 @@ class AiEngineMock implements AiEngine {
       actionItems: const [],
       language: 'en',
       analysisType: type,
+      generatedAt: DateTime.now(),
       wordDetail: type == AiAnalysisType.wordLookup
           ? WordDetail(
               word: text,

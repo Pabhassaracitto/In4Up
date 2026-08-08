@@ -40,6 +40,22 @@ class AiServiceFacade extends ChangeNotifier {
 
   // ── Init ──────────────────────────────────────────────────
 
+  Future<void> initializeAsync() async {
+    if (_initialized) return;
+    try {
+      final loader = AiModelLoader();
+      final result = await loader.findOrLoadModel(allowDownload: false);
+      if (result.success && result.modelPath != null) {
+        await initialize(modelPath: result.modelPath!);
+      } else {
+        await initialize(modelPath: '', useMock: true);
+      }
+    } catch (e) {
+      debugPrint('[AiServiceFacade] initializeAsync error: $e');
+      await initialize(modelPath: '', useMock: true);
+    }
+  }
+
   Future<bool> initialize({
     required String modelPath,
     bool useMock = false,

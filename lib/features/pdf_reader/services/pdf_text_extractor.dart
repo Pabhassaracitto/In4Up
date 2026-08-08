@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pdfrx/pdfrx.dart';
+import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import '../../../models/color_mode.dart';
 import '../../../services/syntax_highlighter_service.dart';

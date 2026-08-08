@@ -298,18 +298,7 @@ class _MyAppState extends State<MyApp> {
             },
             supportedLocales: AppLocalizations.supportedLocales,
             theme: _buildTheme(),
-            builder: (context, child) {
-              final mediaQuery = MediaQuery.maybeOf(context);
-              if (mediaQuery == null) return child ?? const SizedBox.shrink();
-
-              return MediaQuery(
-                data: mediaQuery.copyWith(
-                  textScaleFactor:
-                      AppResponsive.clampTextScale(mediaQuery.textScaleFactor),
-                ),
-                child: child ?? const SizedBox.shrink(),
-              );
-            },
+            builder: (context, child) => _clampedMediaQuery(context, child),
             home: const MainShell(),
           );
         },
@@ -336,6 +325,18 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+Widget _clampedMediaQuery(BuildContext context, Widget? child) {
+  final mediaQuery = MediaQuery.maybeOf(context);
+  if (mediaQuery == null) return child ?? const SizedBox.shrink();
+
+  return MediaQuery(
+    data: mediaQuery.copyWith(
+      textScaler: AppResponsive.clampTextScaler(mediaQuery.textScaler),
+    ),
+    child: child ?? const SizedBox.shrink(),
+  );
+}
+
 class _AppLoadingScreen extends StatelessWidget {
   const _AppLoadingScreen();
 
@@ -343,57 +344,60 @@ class _AppLoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => _clampedMediaQuery(context, child),
       home: Scaffold(
         backgroundColor: const Color(0xFF080B1A),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.headphones,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'in2up',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Đang khởi động...',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 40),
-              const SizedBox(
-                width: 200,
-                child: LinearProgressIndicator(
-                  backgroundColor: Colors.white12,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Color(0xFF6C63FF),
+                  child: const Icon(
+                    Icons.headphones,
+                    color: Colors.white,
+                    size: 40,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                const Text(
+                  'in2up',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Đang khởi động...',
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                const SizedBox(
+                  width: 200,
+                  child: LinearProgressIndicator(
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF6C63FF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -410,22 +414,25 @@ class _AppErrorScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => _clampedMediaQuery(context, child),
       home: Scaffold(
         backgroundColor: const Color(0xFF1A1A2E),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, color: Colors.red, size: 64),
-                const SizedBox(height: 20),
-                Text(
-                  'Initialization Error:\n$error',
-                  style: const TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, color: Colors.red, size: 64),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Initialization Error:\n$error',
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

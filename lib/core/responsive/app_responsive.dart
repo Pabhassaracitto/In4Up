@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+/// Responsive helpers cho layout và text scale.
+
 enum AppWindowClass {
   compact,
   medium,
@@ -27,6 +29,10 @@ class AppResponsive {
 
   static double clampTextScale(double scale) {
     return scale.clamp(0.95, 1.15).toDouble();
+  }
+
+  static TextScaler clampTextScaler(TextScaler scaler) {
+    return scaler.clamp(minScaleFactor: 0.95, maxScaleFactor: 1.15);
   }
 
   static int adaptiveGridColumns(

@@ -36,6 +36,125 @@ import 'models/stt_result.dart';
 
 final class WhisperContext extends ffi.Opaque {}
 
+final class WhisperState extends ffi.Opaque {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// whisper_context_params + các struct hỗ trợ
+// (whisper.h — dùng cho whisper_init_from_file_with_params)
+// ─────────────────────────────────────────────────────────────────────────────
+
+final class WhisperAhead extends ffi.Struct {
+  @ffi.Int32()
+  external int n_text_layer;
+
+  @ffi.Int32()
+  external int n_head;
+}
+
+final class WhisperAheads extends ffi.Struct {
+  @ffi.Size()
+  external int n_heads;
+
+  external ffi.Pointer<WhisperAhead> heads;
+}
+
+final class WhisperContextParams extends ffi.Struct {
+  @ffi.Bool()
+  external bool use_gpu;
+
+  @ffi.Bool()
+  external bool flash_attn;
+
+  @ffi.Int32()
+  external int gpu_device;
+
+  @ffi.Bool()
+  external bool dtw_token_timestamps;
+
+  @ffi.Int32()
+  external int dtw_aheads_preset;
+
+  @ffi.Int32()
+  external int dtw_n_top;
+
+  external WhisperAheads dtw_aheads;
+
+  @ffi.Size()
+  external int dtw_mem_size;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Callback typedefs (Native) cho các con trỏ hàm trong whisper_full_params
+// ─────────────────────────────────────────────────────────────────────────────
+
+typedef _WhisperNewSegmentCbN = ffi.Void Function(ffi.Pointer<WhisperContext>,
+    ffi.Pointer<WhisperState>, ffi.Int32, ffi.Pointer<ffi.Void>);
+
+typedef _WhisperProgressCbN = ffi.Void Function(ffi.Pointer<WhisperContext>,
+    ffi.Pointer<WhisperState>, ffi.Int32, ffi.Pointer<ffi.Void>);
+
+typedef _WhisperEncoderBeginCbN = ffi.Bool Function(
+    ffi.Pointer<WhisperContext>, ffi.Pointer<WhisperState>, ffi.Pointer<ffi.Void>);
+
+typedef _GgmlAbortCbN = ffi.Bool Function(ffi.Pointer<ffi.Void>);
+
+typedef _WhisperLogitsFilterCbN = ffi.Void Function(
+    ffi.Pointer<WhisperContext>,
+    ffi.Pointer<WhisperState>,
+    ffi.Pointer<WhisperTokenData>,
+    ffi.Int32,
+    ffi.Pointer<ffi.Float>,
+    ffi.Pointer<ffi.Void>);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Struct nhỏ nhúng trong whisper_full_params
+// ─────────────────────────────────────────────────────────────────────────────
+
+final class _WhisperGreedyParams extends ffi.Struct {
+  @ffi.Int32()
+  external int best_of;
+}
+
+final class _WhisperBeamSearchParams extends ffi.Struct {
+  @ffi.Int32()
+  external int beam_size;
+
+  @ffi.Float()
+  external double patience;
+}
+
+final class WhisperGrammarElement extends ffi.Struct {
+  @ffi.Int32()
+  external int type;
+
+  @ffi.Uint32()
+  external int value;
+}
+
+final class WhisperVadParams extends ffi.Struct {
+  @ffi.Float()
+  external double threshold;
+
+  @ffi.Int32()
+  external int min_speech_duration_ms;
+
+  @ffi.Int32()
+  external int min_silence_duration_ms;
+
+  @ffi.Float()
+  external double max_speech_duration_s;
+
+  @ffi.Int32()
+  external int speech_pad_ms;
+
+  @ffi.Float()
+  external double samples_overlap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// whisper_full_params — ĐẦY ĐỦ theo whisper.h (không cắt bớt trường)
+// ─────────────────────────────────────────────────────────────────────────────
+
 final class WhisperFullParams extends ffi.Struct {
   @ffi.Int32()
   external int strategy;
@@ -100,10 +219,98 @@ final class WhisperFullParams extends ffi.Struct {
   @ffi.Int32()
   external int audio_ctx;
 
+  @ffi.Bool()
+  external bool tdrz_enable;
+
+  external ffi.Pointer<ffi.Char> suppress_regex;
+
+  external ffi.Pointer<ffi.Char> initial_prompt;
+
+  @ffi.Bool()
+  external bool carry_initial_prompt;
+
+  external ffi.Pointer<ffi.Int32> prompt_tokens;
+
+  @ffi.Int32()
+  external int prompt_n_tokens;
+
   external ffi.Pointer<ffi.Char> language;
 
   @ffi.Bool()
   external bool detect_language;
+
+  @ffi.Bool()
+  external bool suppress_blank;
+
+  @ffi.Bool()
+  external bool suppress_nst;
+
+  @ffi.Float()
+  external double temperature;
+
+  @ffi.Float()
+  external double max_initial_ts;
+
+  @ffi.Float()
+  external double length_penalty;
+
+  @ffi.Float()
+  external double temperature_inc;
+
+  @ffi.Float()
+  external double entropy_thold;
+
+  @ffi.Float()
+  external double logprob_thold;
+
+  @ffi.Float()
+  external double no_speech_thold;
+
+  external _WhisperGreedyParams greedy;
+
+  external _WhisperBeamSearchParams beam_search;
+
+  external ffi.Pointer<ffi.NativeFunction<_WhisperNewSegmentCbN>>
+      new_segment_callback;
+
+  external ffi.Pointer<ffi.Void> new_segment_callback_user_data;
+
+  external ffi.Pointer<ffi.NativeFunction<_WhisperProgressCbN>>
+      progress_callback;
+
+  external ffi.Pointer<ffi.Void> progress_callback_user_data;
+
+  external ffi.Pointer<ffi.NativeFunction<_WhisperEncoderBeginCbN>>
+      encoder_begin_callback;
+
+  external ffi.Pointer<ffi.Void> encoder_begin_callback_user_data;
+
+  external ffi.Pointer<ffi.NativeFunction<_GgmlAbortCbN>> abort_callback;
+
+  external ffi.Pointer<ffi.Void> abort_callback_user_data;
+
+  external ffi.Pointer<ffi.NativeFunction<_WhisperLogitsFilterCbN>>
+      logits_filter_callback;
+
+  external ffi.Pointer<ffi.Void> logits_filter_callback_user_data;
+
+  external ffi.Pointer<ffi.Pointer<WhisperGrammarElement>> grammar_rules;
+
+  @ffi.Size()
+  external int n_grammar_rules;
+
+  @ffi.Size()
+  external int i_start_rule;
+
+  @ffi.Float()
+  external double grammar_penalty;
+
+  @ffi.Bool()
+  external bool vad;
+
+  external ffi.Pointer<ffi.Char> vad_model_path;
+
+  external WhisperVadParams vad_params;
 }
 
 final class WhisperTokenData extends ffi.Struct {
@@ -142,6 +349,17 @@ final class WhisperTokenData extends ffi.Struct {
 // PHẦN 2: FFI FUNCTION TYPEDEFS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// whisper_init_from_file_with_params — API mới (recommended trong whisper.h),
+// thay thế cho whisper_init_from_file bị deprecated (có thể bị bỏ khỏi build).
+typedef _WhisperContextDefaultParamsN = WhisperContextParams Function();
+typedef _WhisperContextDefaultParamsD = WhisperContextParams Function();
+
+typedef _WhisperInitFromFileWithParamsN = ffi.Pointer<WhisperContext> Function(
+    ffi.Pointer<ffi.Char>, WhisperContextParams);
+typedef _WhisperInitFromFileWithParamsD = ffi.Pointer<WhisperContext> Function(
+    ffi.Pointer<ffi.Char>, WhisperContextParams);
+
+// whisper_init_from_file — API deprecated, giữ lại làm fallback cho DLL cũ.
 typedef _WhisperInitFromFileN = ffi.Pointer<WhisperContext> Function(
     ffi.Pointer<ffi.Char>);
 typedef _WhisperInitFromFileD = ffi.Pointer<WhisperContext> Function(
@@ -214,7 +432,15 @@ class _LanguagePinner {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _WhisperLib {
-  final _WhisperInitFromFileD whisperInitFromFile;
+  // Init functions — có thể không có trong mọi build:
+  //  - whisper_context_default_params + whisper_init_from_file_with_params
+  //    (API mới, recommended trong whisper.h)
+  //  - whisper_init_from_file (API deprecated, chỉ dùng khi DLL cũ)
+  final _WhisperContextDefaultParamsD? whisperContextDefaultParams;
+  final _WhisperInitFromFileWithParamsD? whisperInitFromFileWithParams;
+  final _WhisperInitFromFileD? whisperInitFromFile;
+
+  // Các hàm còn lại — bắt buộc có (đều là API ổn định).
   final _WhisperFreeD whisperFree;
   final _WhisperFullDefaultParamsD whisperFullDefaultParams;
   final _WhisperFullD whisperFull;
@@ -226,11 +452,40 @@ class _WhisperLib {
   final _WhisperGetTokenDataD whisperFullGetTokenData;
   final _WhisperGetTokenTextD whisperFullGetTokenText;
 
+  /// Lookup một symbol nhưng KHÔNG ném lỗi nếu thiếu → trả về null.
+  /// Dùng try/catch quanh [ffi.DynamicLibrary.lookupFunction] (giống cách
+  /// [ffi.DynamicLibrary.open] có thể ném lỗi khi symbol không tồn tại).
+  static _WhisperContextDefaultParamsD? _lookupContextDefaultParams(
+          ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib
+          .lookupFunction<_WhisperContextDefaultParamsN,
+              _WhisperContextDefaultParamsD>('whisper_context_default_params'));
+
+  static _WhisperInitFromFileWithParamsD? _lookupInitFromFileWithParams(
+          ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib
+          .lookupFunction<_WhisperInitFromFileWithParamsN,
+              _WhisperInitFromFileWithParamsD>(
+              'whisper_init_from_file_with_params'));
+
+  static _WhisperInitFromFileD? _lookupInitFromFile(ffi.DynamicLibrary dylib) =>
+      _safe(() => dylib.lookupFunction<_WhisperInitFromFileN, _WhisperInitFromFileD>(
+          'whisper_init_from_file'));
+
+  static T? _safe<T>(T Function() block) {
+    try {
+      return block();
+    } catch (_) {
+      return null;
+    }
+  }
+
   _WhisperLib(ffi.DynamicLibrary dylib)
-      : whisperInitFromFile =
-            dylib.lookupFunction<_WhisperInitFromFileN, _WhisperInitFromFileD>(
-          'whisper_init_from_file',
-        ),
+      : whisperContextDefaultParams =
+            _lookupContextDefaultParams(dylib),
+        whisperInitFromFileWithParams =
+            _lookupInitFromFileWithParams(dylib),
+        whisperInitFromFile = _lookupInitFromFile(dylib),
         whisperFree = dylib.lookupFunction<_WhisperFreeN, _WhisperFreeD>(
           'whisper_free',
         ),
@@ -380,30 +635,9 @@ class SttEngineWhisper {
     final langPinner = _LanguagePinner();
     try {
       final defaults = lib.whisperFullDefaultParams(0);
-      paramsPtr.ref
-        ..strategy = defaults.strategy
-        ..n_threads = defaults.n_threads
-        ..n_max_text_ctx = defaults.n_max_text_ctx
-        ..offset_ms = defaults.offset_ms
-        ..duration_ms = defaults.duration_ms
-        ..translate = defaults.translate
-        ..no_context = defaults.no_context
-        ..no_timestamps = defaults.no_timestamps
-        ..single_segment = defaults.single_segment
-        ..print_special = defaults.print_special
-        ..print_progress = defaults.print_progress
-        ..print_realtime = defaults.print_realtime
-        ..print_timestamps = defaults.print_timestamps
-        ..token_timestamps = defaults.token_timestamps
-        ..thold_pt = defaults.thold_pt
-        ..thold_ptsum = defaults.thold_ptsum
-        ..max_len = defaults.max_len
-        ..split_on_word = defaults.split_on_word
-        ..max_tokens = defaults.max_tokens
-        ..debug_mode = defaults.debug_mode
-        ..audio_ctx = defaults.audio_ctx
-        ..language = defaults.language
-        ..detect_language = defaults.detect_language;
+      // Copy TOÀN BỘ struct từ defaults (gồm cả các trường mới: callbacks,
+      // grammar, VAD...) để layout ABI khớp 100% với C struct.
+      paramsPtr.ref = defaults;
 
       paramsPtr.ref
         ..translate = false
@@ -433,14 +667,41 @@ class SttEngineWhisper {
     final dylib = Platform.isWindows
         ? ffi.DynamicLibrary.open('whisper.dll')
         : ffi.DynamicLibrary.open('libwhisper.so');
-    return _WhisperLib(dylib);
+    try {
+      return _WhisperLib(dylib);
+    } on ArgumentError catch (e) {
+      throw StateError(
+        'Thư viện Whisper thiếu hàm cần thiết. Hãy đảm bảo whisper.dll '
+        '(whisper.cpp mới nhất) nằm cạnh file .exe.\nChi tiết: $e',
+      );
+    }
   }
 
   static ffi.Pointer<WhisperContext> _initWhisperContext(
       _WhisperLib lib, String modelPath) {
     final modelPathC = modelPath.toNativeUtf8(allocator: calloc);
     try {
-      return lib.whisperInitFromFile(modelPathC.cast<ffi.Char>());
+      final pathC = modelPathC.cast<ffi.Char>();
+
+      // Ưu tiên API mới: whisper_init_from_file_with_params. Đây là entry
+      // point chính thức trong whisper.h — tránh lỗi "undefined symbol:
+      // whisper_init_from_file" khi build mới đã bỏ deprecated symbol.
+      if (lib.whisperContextDefaultParams != null &&
+          lib.whisperInitFromFileWithParams != null) {
+        final cparams = lib.whisperContextDefaultParams!();
+        return lib.whisperInitFromFileWithParams!(pathC, cparams);
+      }
+
+      // Fallback: API deprecated cho DLL cũ.
+      if (lib.whisperInitFromFile != null) {
+        return lib.whisperInitFromFile!(pathC);
+      }
+
+      throw StateError(
+        'Whisper library không export được symbol khởi tạo model nào '
+        '(cả whisper_init_from_file_with_params lẫn whisper_init_from_file). '
+        'Hãy cập nhật whisper.dll.',
+      );
     } finally {
       calloc.free(modelPathC);
     }

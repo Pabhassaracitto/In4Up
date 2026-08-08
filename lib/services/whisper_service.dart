@@ -59,7 +59,7 @@ class WhisperService {
         debugPrint(
             '✅ WhisperService: Native context khởi tạo thành công tại $_context');
       } else {
-        debugPrint('❌ WhisperService: whisper_init_from_file trả về null');
+        debugPrint('❌ WhisperService: whisper_init_* trả về null (context rỗng)');
       }
     } catch (e) {
       debugPrint('❌ WhisperService Error: $e');

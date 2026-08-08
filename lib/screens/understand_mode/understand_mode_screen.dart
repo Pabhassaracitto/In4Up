@@ -14,6 +14,7 @@ import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
+import '../../widgets/karaoke_lyrics_line.dart';
 import '../../widgets/lrc_editor_panel.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
@@ -435,16 +436,13 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            line.text,
-                            style: TextStyle(
-                              color: isActive ? Colors.white : Colors.grey[500],
-                              fontSize: isActive ? 16 : 14,
-                              fontWeight: isActive
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                              height: 1.4,
-                            ),
+                          child: KaraokeLyricsLine(
+                            line: line,
+                            isActive: isActive,
+                            words: provider!.wordsForLine(index),
+                            activeWordIndex: isActive
+                                ? provider.currentWordIndex
+                                : -1,
                           ),
                         ),
                       );

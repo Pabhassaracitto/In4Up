@@ -16,6 +16,7 @@ import 'package:in2up_stt/models/stt_model_info.dart';
 import 'package:in2up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up/screens/understand_mode/understand_provider.dart';
+import 'package:in2up/widgets/karaoke_lyrics_line.dart';
 import 'package:in2up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
@@ -599,21 +600,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                           ),
-                                          child: Text(
-                                            line.text,
-                                            style: TextStyle(
-                                              color: isActive
-                                                  ? Colors.white
-                                                  : Colors.grey[500],
-                                              fontSize: isActive ? 16 : 14,
-                                              fontWeight: isActive
-                                                  ? FontWeight.w700
-                                                  : FontWeight.normal,
-                                              height: 1.4,
-                                            ),
-                                          )
+                                          child: KaraokeLyricsLine(
+                                            line: line,
+                                            isActive: isActive,
+                                            words: understand!
+                                                .wordsForLine(index),
+                                            activeWordIndex: isActive
+                                                ? understand.currentWordIndex
+                                                : -1,
+                                          ),
                                         ),
-                                        );
+                                      );
                                     },
                                   ),
                                 ),

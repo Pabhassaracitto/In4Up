@@ -285,10 +285,10 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
 
     final updatedLines = _buildUpdatedLines();
 
-    // Ghi lại file LRC
+    // Ghi lại file LRC (giữ inline word timestamps nếu có để karaoke)
     final buffer = StringBuffer();
     for (final line in updatedLines) {
-      buffer.writeln('[${_formatDuration(line.timestamp)}] ${line.text}');
+      buffer.writeln(SttLrcConverter.serializeLine(line));
     }
 
     await File(_lastLrcPath!).writeAsString(buffer.toString(), flush: true);
@@ -342,6 +342,8 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
       return LrcLine(
         timestamp: _lines![i].timestamp,
         text: text,
+        // Giữ word-timestamps cũ để karaoke vẫn hoạt động sau khi sửa
+        words: _lines![i].words,
       );
     });
   }

@@ -7,6 +7,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in2up_stt/models/stt_result.dart';
 
+import '../features/grammar/models/grammar_category.dart';
+import '../features/grammar/models/grammar_highlight_preset.dart';
+import '../features/grammar/models/grammar_highlight_settings.dart';
+import '../features/grammar/models/grammar_highlight_style.dart';
+import '../features/grammar/models/grammar_palette.dart';
+import '../features/grammar/services/grammar_settings_service.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
@@ -135,6 +141,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
+  GrammarHighlightSettings _grammarSettings =
+      GrammarHighlightSettings.defaults();
 
   // ==================== TEXT SEGMENTS ====================
   final List<TextSegment> _segments = [];
@@ -200,6 +208,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
   ColorMode get colorMode => _colorMode;
+  GrammarHighlightSettings get grammarSettings => _grammarSettings;
+  GrammarPalette get activeGrammarPalette =>
+      GrammarPalettes.byId(_grammarSettings.paletteId);
+  GrammarHighlightPreset get activeGrammarPreset =>
+      GrammarHighlightPresets.byId(_grammarSettings.activePresetId);
   List<TextSegment> get segments => List.unmodifiable(_segments);
   SelectedTextInfo? get selectedTextInfo => _selectedTextInfo;
   double get ttsSpeed => _ttsSpeed;
@@ -222,6 +235,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   TextProvider() {
     _restoreFromStorage();
+    unawaited(_restoreGrammarSettings());
   }
 
   // ★ THÊM: Restore settings
@@ -267,6 +281,67 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     } catch (e) {
       debugPrint('⚠️ Error restoring TextProvider: $e');
     }
+  }
+
+  Future<void> _restoreGrammarSettings() async {
+    try {
+      _grammarSettings = await GrammarSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error restoring grammar settings: $e');
+    }
+  }
+
+  Future<void> _saveGrammarSettings() async {
+    try {
+      await GrammarSettingsService.save(_grammarSettings);
+    } catch (e) {
+      debugPrint('⚠️ Error saving grammar settings: $e');
+    }
+  }
+
+  Future<void> setGrammarSettings(GrammarHighlightSettings settings) async {
+    _grammarSettings = settings;
+    notifyListeners();
+    await _saveGrammarSettings();
+  }
+
+  Future<void> setGrammarHighlightEnabled(bool enabled) {
+    return setGrammarSettings(_grammarSettings.copyWith(enabled: enabled));
+  }
+
+  Future<void> applyGrammarPreset(String presetId) {
+    final preset = GrammarHighlightPresets.byId(presetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<void> setGrammarPalette(String paletteId) {
+    return setGrammarSettings(_grammarSettings.copyWith(paletteId: paletteId));
+  }
+
+  Future<void> setGrammarHighlightStyle(GrammarHighlightStyle style) {
+    return setGrammarSettings(_grammarSettings.copyWith(highlightStyle: style));
+  }
+
+  Future<void> toggleGrammarCategory(GrammarCategory category) {
+    final next = Set<GrammarCategory>.from(_grammarSettings.visibleCategories);
+    if (next.contains(category)) {
+      next.remove(category);
+    } else {
+      next.add(category);
+    }
+    return setGrammarSettings(_grammarSettings.copyWith(
+      activePresetId: 'custom',
+      visibleCategories: next,
+    ));
+  }
+
+  Future<void> setGrammarLegendVisible(bool visible) {
+    return setGrammarSettings(_grammarSettings.copyWith(showLegend: visible));
+  }
+
+  Future<void> setGrammarLegendCollapsed(bool collapsed) {
+    return setGrammarSettings(_grammarSettings.copyWith(legendCollapsed: collapsed));
   }
 
   // ==================== TEXT MANAGEMENT ====================

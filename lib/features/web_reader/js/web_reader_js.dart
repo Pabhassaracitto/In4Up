@@ -19,6 +19,9 @@ class WebReaderJS {
   const DIFFICULTY_DICT = CONFIG.difficultyDictionary || {};
   const RECALL_DICT = CONFIG.recallDictionary || {};
   const COLORS = CONFIG.colors || {};
+  const VISIBLE_WORD_TYPES = new Set(CONFIG.visibleWordTypes || []);
+  const HIDE_ALL_WORD_TYPES = !!CONFIG.hideAllWordTypes;
+  const WORDTYPE_BOLD = CONFIG.wordTypeBold || {};
   const SUFFIXES = CONFIG.suffixes || {};
 
   // ── Cleanup script (xóa highlight cũ) ─────────────────
@@ -117,6 +120,10 @@ class WebReaderJS {
       return (COLORS.cefr || {})[classification.level];
     }
     if (classification.mode === 'wordType') {
+      if (HIDE_ALL_WORD_TYPES) return null;
+      if (VISIBLE_WORD_TYPES.size > 0 && !VISIBLE_WORD_TYPES.has(classification.type)) {
+        return null;
+      }
       return (COLORS.wordType || {})[classification.type];
     }
     if (classification.mode === 'difficulty') {
@@ -223,6 +230,7 @@ class WebReaderJS {
               ? classification.level
               : classification.type);
         span.textContent = token;
+        const isBold = classification.mode === 'wordType' && !!WORDTYPE_BOLD[classification.type];
         span.style.cssText = [
           'background-color: ' + color + '22',
           'border-bottom: 2px solid ' + color,
@@ -230,6 +238,7 @@ class WebReaderJS {
           'cursor: pointer',
           'padding: 0 1px',
           'transition: background-color 0.15s',
+          isBold ? 'font-weight: 700' : '',
         ].join(';');
 
         // Hover effect via JS (không dùng CSS class để tránh xung đột)

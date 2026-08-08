@@ -1,9 +1,16 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 
+import '../../features/grammar/models/grammar_category.dart';
+import '../../features/grammar/models/grammar_highlight_preset.dart';
+import '../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../features/grammar/models/grammar_highlight_style.dart';
+import '../../features/grammar/models/grammar_palette.dart';
+import '../../features/grammar/services/grammar_settings_service.dart';
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
@@ -135,10 +142,17 @@ class WebReaderController extends ChangeNotifier {
 
   // ─── Color Mode ───────────────────────────────────────────
   ColorMode _colorMode = ColorMode.none;
+  GrammarHighlightSettings _grammarSettings =
+      GrammarHighlightSettings.defaults();
   int _highlightVersion = 0;
   ColorMode get colorMode => _colorMode;
   bool get isHighlightActive => _colorMode != ColorMode.none;
   int get highlightVersion => _highlightVersion;
+  GrammarHighlightSettings get grammarSettings => _grammarSettings;
+  GrammarPalette get activeGrammarPalette =>
+      GrammarPalettes.byId(_grammarSettings.paletteId);
+  GrammarHighlightPreset get activeGrammarPreset =>
+      GrammarHighlightPresets.byId(_grammarSettings.activePresetId);
 
   // ─── Word tap ────────────────────────────────────────────
   AnalyzedWord? _tappedWord;
@@ -256,6 +270,7 @@ class WebReaderController extends ChangeNotifier {
     _loadArticleNotes();
     _loadBatchDrafts();
     _loadLastOpenedUrl();
+    _loadGrammarSettings();
   }
 
   // ─── URL Navigation ──────────────────────────────────────
@@ -316,6 +331,64 @@ class WebReaderController extends ChangeNotifier {
   }
 
   // ─── Color Mode ──────────────────────────────────────────
+
+  Future<void> _loadGrammarSettings() async {
+    try {
+      _grammarSettings = await GrammarSettingsService.load();
+      _highlightVersion++;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadGrammarSettings error: $e');
+    }
+  }
+
+  Future<void> _saveGrammarSettings() async {
+    try {
+      await GrammarSettingsService.save(_grammarSettings);
+    } catch (e) {
+      debugPrint('WebReaderController: _saveGrammarSettings error: $e');
+    }
+  }
+
+  Future<void> setGrammarSettings(GrammarHighlightSettings settings) async {
+    _grammarSettings = settings;
+    _highlightVersion++;
+    notifyListeners();
+    await _saveGrammarSettings();
+  }
+
+  Future<void> setGrammarHighlightEnabled(bool enabled) {
+    return setGrammarSettings(_grammarSettings.copyWith(enabled: enabled));
+  }
+
+  Future<void> applyGrammarPreset(String presetId) {
+    final preset = GrammarHighlightPresets.byId(presetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<void> setGrammarPalette(String paletteId) {
+    return setGrammarSettings(_grammarSettings.copyWith(paletteId: paletteId));
+  }
+
+  Future<void> setGrammarHighlightStyle(GrammarHighlightStyle style) {
+    return setGrammarSettings(_grammarSettings.copyWith(highlightStyle: style));
+  }
+
+  Future<void> toggleGrammarCategory(GrammarCategory category) {
+    final next = Set<GrammarCategory>.from(_grammarSettings.visibleCategories);
+    if (next.contains(category)) {
+      next.remove(category);
+    } else {
+      next.add(category);
+    }
+    return setGrammarSettings(
+      _grammarSettings.copyWith(activePresetId: 'custom', visibleCategories: next),
+    );
+  }
+
+  Future<void> setGrammarLegendVisible(bool visible) {
+    return setGrammarSettings(_grammarSettings.copyWith(showLegend: visible));
+  }
 
   void setColorMode(ColorMode mode) {
     _colorMode = mode;
@@ -382,11 +455,52 @@ class WebReaderController extends ChangeNotifier {
       cefrMap[entry.key] = entry.value.name;
     }
 
+    final palette = activeGrammarPalette;
+    final wordTypeColors = {
+      'noun': _cssColor(palette.styleFor(GrammarCategory.noun).color),
+      'verb': _cssColor(palette.styleFor(GrammarCategory.verb).color),
+      'adjective': _cssColor(palette.styleFor(GrammarCategory.adjective).color),
+      'adverb': _cssColor(palette.styleFor(GrammarCategory.adverb).color),
+      'preposition': _cssColor(palette.styleFor(GrammarCategory.preposition).color),
+      'conjunction': _cssColor(palette.styleFor(GrammarCategory.conjunction).color),
+      'pronoun': _cssColor(palette.styleFor(GrammarCategory.pronoun).color),
+      'determiner': _cssColor(palette.styleFor(GrammarCategory.determiner).color),
+      'unknown': 'transparent',
+    };
+
+    final visibleWordTypes = _grammarSettings.visibleCategories
+        .map((category) => category.legacyWordType.name)
+        .where((type) =>
+            type == 'noun' ||
+            type == 'verb' ||
+            type == 'adjective' ||
+            type == 'adverb' ||
+            type == 'preposition' ||
+            type == 'conjunction' ||
+            type == 'pronoun' ||
+            type == 'determiner')
+        .toSet()
+        .toList();
+
+    final wordTypeBold = <String, bool>{
+      'noun': palette.styleFor(GrammarCategory.noun).isBold,
+      'verb': palette.styleFor(GrammarCategory.verb).isBold,
+      'adjective': palette.styleFor(GrammarCategory.adjective).isBold,
+      'adverb': palette.styleFor(GrammarCategory.adverb).isBold,
+      'preposition': palette.styleFor(GrammarCategory.preposition).isBold,
+      'conjunction': palette.styleFor(GrammarCategory.conjunction).isBold,
+      'pronoun': palette.styleFor(GrammarCategory.pronoun).isBold,
+      'determiner': palette.styleFor(GrammarCategory.determiner).isBold,
+    };
+
     final config = {
       'mode': _colorMode.name,
       'cefrDictionary': cefrMap,
       'difficultyDictionary': VocabularyBridge.exportDifficultyMap(),
       'recallDictionary': VocabularyBridge.exportRecallMetadata(),
+      'visibleWordTypes': visibleWordTypes,
+      'hideAllWordTypes': _grammarSettings.visibleCategories.isEmpty,
+      'wordTypeBold': wordTypeBold,
       'colors': {
         'cefr': {
           'a1': '#78909C',
@@ -397,17 +511,7 @@ class WebReaderController extends ChangeNotifier {
           'c2': '#EF5350',
           'unknown': 'transparent',
         },
-        'wordType': {
-          'noun': '#42A5F5',
-          'verb': '#EF5350',
-          'adjective': '#66BB6A',
-          'adverb': '#FFCA28',
-          'preposition': '#AB47BC',
-          'conjunction': '#26C6DA',
-          'pronoun': '#FF7043',
-          'determiner': '#78909C',
-          'unknown': 'transparent',
-        },
+        'wordType': wordTypeColors,
         'difficulty': {
           'easy': '#4CAF50',
           'medium': '#FF9800',
@@ -1796,6 +1900,11 @@ class WebReaderController extends ChangeNotifier {
 
   String _newId(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+
+  String _cssColor(Color color) {
+    final value = color.toARGB32() & 0x00FFFFFF;
+    return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
 
   String _safeHost(String url) {
     try {

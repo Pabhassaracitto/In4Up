@@ -4,6 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
+import '../../features/grammar/models/grammar_category.dart';
+import '../../features/grammar/models/grammar_highlight_preset.dart';
+import '../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../features/grammar/models/grammar_highlight_style.dart';
+import '../../features/grammar/models/grammar_palette.dart';
+import '../../features/grammar/services/grammar_settings_service.dart';
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
@@ -44,7 +50,14 @@ class PdfReaderController extends ChangeNotifier {
 
   // ─── Color Mode ─────────────────────────────────────────
   ColorMode _colorMode = ColorMode.none;
+  GrammarHighlightSettings _grammarSettings =
+      GrammarHighlightSettings.defaults();
   ColorMode get colorMode => _colorMode;
+  GrammarHighlightSettings get grammarSettings => _grammarSettings;
+  GrammarPalette get activeGrammarPalette =>
+      GrammarPalettes.byId(_grammarSettings.paletteId);
+  GrammarHighlightPreset get activeGrammarPreset =>
+      GrammarHighlightPresets.byId(_grammarSettings.activePresetId);
 
   // ─── Words overlay ───────────────────────────────────────
   /// Cache: pageIndex → words với positions
@@ -107,6 +120,11 @@ class PdfReaderController extends ChangeNotifier {
     await _storage.initialize();
     _annotations = _storage.loadAnnotations(pdfPath);
     _currentPage = _storage.loadLastPage(pdfPath);
+    try {
+      _grammarSettings = await GrammarSettingsService.load();
+    } catch (e) {
+      debugPrint('PdfReaderController: grammar settings load error: $e');
+    }
     notifyListeners();
   }
 
@@ -189,6 +207,53 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   // ─── Color Mode ──────────────────────────────────────────
+  Future<void> _saveGrammarSettings() async {
+    try {
+      await GrammarSettingsService.save(_grammarSettings);
+    } catch (e) {
+      debugPrint('PdfReaderController: grammar settings save error: $e');
+    }
+  }
+
+  Future<void> setGrammarSettings(GrammarHighlightSettings settings) async {
+    _grammarSettings = settings;
+    refreshVocabularySignals();
+    await _saveGrammarSettings();
+  }
+
+  Future<void> setGrammarHighlightEnabled(bool enabled) {
+    return setGrammarSettings(_grammarSettings.copyWith(enabled: enabled));
+  }
+
+  Future<void> applyGrammarPreset(String presetId) {
+    final preset = GrammarHighlightPresets.byId(presetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<void> setGrammarPalette(String paletteId) {
+    return setGrammarSettings(_grammarSettings.copyWith(paletteId: paletteId));
+  }
+
+  Future<void> setGrammarHighlightStyle(GrammarHighlightStyle style) {
+    return setGrammarSettings(_grammarSettings.copyWith(highlightStyle: style));
+  }
+
+  Future<void> toggleGrammarCategory(GrammarCategory category) {
+    final next = Set<GrammarCategory>.from(_grammarSettings.visibleCategories);
+    if (next.contains(category)) {
+      next.remove(category);
+    } else {
+      next.add(category);
+    }
+    return setGrammarSettings(
+      _grammarSettings.copyWith(activePresetId: 'custom', visibleCategories: next),
+    );
+  }
+
+  Future<void> setGrammarLegendVisible(bool visible) {
+    return setGrammarSettings(_grammarSettings.copyWith(showLegend: visible));
+  }
+
   void setColorMode(ColorMode mode) {
     if (_colorMode == mode) return;
     _colorMode = mode;

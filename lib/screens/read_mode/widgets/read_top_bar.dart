@@ -190,6 +190,9 @@ class _ColorModeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = textProvider.colorMode != ColorMode.none;
+    final showGrammarBadge =
+        textProvider.colorMode == ColorMode.wordType &&
+        textProvider.grammarSettings.enabled;
 
     return GestureDetector(
       onTap: () {
@@ -227,6 +230,24 @@ class _ColorModeChip extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            if (showGrammarBadge) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  textProvider.activeGrammarPreset.name,
+                  style: const TextStyle(
+                    color: Color(0xFFB8B5FF),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

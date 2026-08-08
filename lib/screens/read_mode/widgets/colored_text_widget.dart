@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 
+import '../../../features/grammar/models/grammar_category.dart';
+import '../../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../../features/grammar/models/grammar_palette.dart';
+import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
@@ -86,10 +90,30 @@ class _ColoredWord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = word.getBackgroundColor(colorMode);
-    final textColor = word.getColor(colorMode);
+    final grammarSettings =
+        context.select<TextProvider, GrammarHighlightSettings>(
+      (tp) => tp.grammarSettings,
+    );
+    final activePalette = context.select<TextProvider, GrammarPalette>(
+      (tp) => tp.activeGrammarPalette,
+    );
     final hasDifficulty = word.userDifficulty != null;
     final hasRecall = word.isSaved || word.hasSavedNotes || word.hasDueReview;
+
+    final grammarCategory = grammarCategoryFromLegacyWordType(word.wordType);
+    final useGrammarStyle =
+        colorMode == ColorMode.wordType && grammarSettings.enabled;
+    final grammarResolved = useGrammarStyle
+        ? GrammarStyleMapper.resolve(
+            category: grammarCategory,
+            palette: activePalette,
+            settings: grammarSettings,
+            defaultTextColor: Colors.white,
+          )
+        : null;
+
+    final bgColor = grammarResolved?.background ?? word.getBackgroundColor(colorMode);
+    final textColor = grammarResolved?.foreground ?? word.getColor(colorMode);
     final borderColor = hasDifficulty
         ? word.userDifficulty!.color.withValues(alpha: 0.5)
         : word.hasDueReview
@@ -98,7 +122,7 @@ class _ColoredWord extends StatelessWidget {
                 ? Colors.amber.withValues(alpha: 0.38)
                 : word.isSaved
                     ? const Color(0xFF4CAF50).withValues(alpha: 0.28)
-                    : Colors.transparent;
+                    : grammarResolved?.outline ?? Colors.transparent;
 
     return GestureDetector(
       onTap: () {
@@ -117,7 +141,7 @@ class _ColoredWord extends StatelessWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(4),
-          border: hasDifficulty || hasRecall
+          border: hasDifficulty || hasRecall || grammarResolved?.outline != null
               ? Border.all(
                   color: borderColor,
                   width: hasDifficulty ? 1.5 : 1,
@@ -132,9 +156,15 @@ class _ColoredWord extends StatelessWidget {
               style: TextStyle(
                 fontSize: fontSize,
                 color: textColor,
-                fontWeight: hasDifficulty || word.isSaved
-                    ? FontWeight.bold
-                    : FontWeight.normal,
+                fontWeight: grammarResolved?.fontWeight ??
+                    (hasDifficulty || word.isSaved
+                        ? FontWeight.bold
+                        : FontWeight.normal),
+                decoration: grammarResolved?.underline != null
+                    ? TextDecoration.underline
+                    : null,
+                decorationColor: grammarResolved?.underline,
+                decorationThickness: grammarResolved?.underline != null ? 2 : null,
                 height: 1.6,
               ),
             ),
@@ -191,7 +221,7 @@ class _ColoredWord extends StatelessWidget {
                     style: const TextStyle(color: Colors.white),
                   ),
                   Text(
-                    '${word.wordType.labelVi} · ${word.cefrLevel.shortLabel}',
+                    '${grammarCategoryFromLegacyWordType(word.wordType).labelVi} · ${word.cefrLevel.shortLabel}',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 10,

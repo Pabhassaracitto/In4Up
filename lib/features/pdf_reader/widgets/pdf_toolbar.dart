@@ -9,6 +9,7 @@ class PdfToolbar extends StatelessWidget {
   final String title;
   final VoidCallback? onUserInteraction;
   final VoidCallback? onShowAnnotations;
+  final VoidCallback? onOpenGrammarSettings;
 
   const PdfToolbar({
     super.key,
@@ -16,6 +17,7 @@ class PdfToolbar extends StatelessWidget {
     required this.title,
     this.onUserInteraction,
     this.onShowAnnotations,
+    this.onOpenGrammarSettings,
   });
 
   @override
@@ -99,6 +101,7 @@ class PdfToolbar extends StatelessWidget {
             controller: controller,
             onUserInteraction: onUserInteraction,
             onShowAnnotations: onShowAnnotations,
+            onOpenGrammarSettings: onOpenGrammarSettings,
           ),
         ],
       ),
@@ -120,6 +123,8 @@ class _ColorModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = controller.colorMode != ColorMode.none;
+    final showGrammarBadge =
+        controller.colorMode == ColorMode.wordType && controller.grammarSettings.enabled;
     return GestureDetector(
       onTap: () {
         onUserInteraction?.call();
@@ -155,6 +160,24 @@ class _ColorModeButton extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            if (showGrammarBadge && MediaQuery.of(context).size.width >= 700) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  controller.activeGrammarPreset.name,
+                  style: const TextStyle(
+                    color: Color(0xFFB8B5FF),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -208,11 +231,13 @@ class _MoreButton extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback? onUserInteraction;
   final VoidCallback? onShowAnnotations;
+  final VoidCallback? onOpenGrammarSettings;
 
   const _MoreButton({
     required this.controller,
     this.onUserInteraction,
     this.onShowAnnotations,
+    this.onOpenGrammarSettings,
   });
 
   @override
@@ -243,6 +268,7 @@ class _MoreButton extends StatelessWidget {
       builder: (_) => _PdfOptionsSheet(
         controller: controller,
         onShowAnnotations: onShowAnnotations,
+        onOpenGrammarSettings: onOpenGrammarSettings,
       ),
     );
   }
@@ -251,10 +277,12 @@ class _MoreButton extends StatelessWidget {
 class _PdfOptionsSheet extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback? onShowAnnotations;
+  final VoidCallback? onOpenGrammarSettings;
 
   const _PdfOptionsSheet({
     required this.controller,
     this.onShowAnnotations,
+    this.onOpenGrammarSettings,
   });
 
   @override
@@ -301,6 +329,26 @@ class _PdfOptionsSheet extends StatelessWidget {
           _TtsSpeedSlider(controller: controller),
 
           const SizedBox(height: 8),
+
+          if (controller.colorMode == ColorMode.wordType) ...[
+            ListTile(
+              leading: const Icon(Icons.auto_awesome_motion, color: Color(0xFF6C63FF)),
+              title: const Text(
+                'Từ loại chuyên sâu',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                controller.activeGrammarPreset.name,
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+              onTap: () {
+                Navigator.pop(context);
+                onOpenGrammarSettings?.call();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
 
           // Annotations count
           ListTile(

@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up/models/word_entry.dart';
 
+import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
+import '../../models/color_mode.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -131,9 +133,16 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           if (!textProvider.hasLyrics) {
             return const ReadEmptyState();
           }
+          final showGrammarLegend =
+              textProvider.colorMode == ColorMode.wordType &&
+              textProvider.grammarSettings.enabled &&
+              textProvider.grammarSettings.showLegend;
+
           return Column(
             children: [
               const ReadTopBar(),
+              if (showGrammarLegend)
+                _GrammarLegendStrip(textProvider: textProvider),
               if (textProvider.showTranslation) const TranslationToolbar(),
               Expanded(
                 child: _showWordlistPanel
@@ -205,6 +214,79 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _GrammarLegendStrip extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _GrammarLegendStrip({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = textProvider.grammarSettings;
+    final palette = textProvider.activeGrammarPalette;
+    final visibleCategories = settings.visibleCategories.toList()
+      ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
+    final displaySettings = settings.legendCollapsed && visibleCategories.length > 4
+        ? settings.copyWith(
+            visibleCategories: visibleCategories.take(4).toSet(),
+          )
+        : settings;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_motion,
+                size: 14,
+                color: Color(0xFF6C63FF),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                settings.activePresetId == 'custom'
+                    ? 'Grammar Highlight · Tùy chỉnh'
+                    : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => textProvider.setGrammarLegendCollapsed(
+                  !settings.legendCollapsed,
+                ),
+                icon: Icon(
+                  settings.legendCollapsed
+                      ? Icons.unfold_more_rounded
+                      : Icons.unfold_less_rounded,
+                  size: 16,
+                ),
+                label: Text(settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF9FA8DA),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          GrammarLegendBar(
+            settings: displaySettings,
+            palette: palette,
+            onToggleCategory: (category) =>
+                textProvider.toggleGrammarCategory(category),
+          ),
+        ],
       ),
     );
   }

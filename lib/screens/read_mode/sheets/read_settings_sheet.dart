@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 
+import '../../../features/grammar/grammar.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
@@ -115,6 +116,11 @@ class _SettingsContent extends StatelessWidget {
                   if (tp.colorMode != ColorMode.none) ...[
                     const SizedBox(height: 16),
                     _LegendPanel(colorMode: tp.colorMode),
+                  ],
+
+                  if (tp.colorMode == ColorMode.wordType) ...[
+                    const SizedBox(height: 16),
+                    _GrammarHighlightSection(tp: tp),
                   ],
 
                   const SizedBox(height: 24),
@@ -602,6 +608,253 @@ class _Chip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GrammarHighlightSection extends StatelessWidget {
+  final TextProvider tp;
+
+  const _GrammarHighlightSection({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = tp.grammarSettings;
+    final palette = tp.activeGrammarPalette;
+    final presets = GrammarHighlightPresets.defaults();
+    final palettes = GrammarPalettes.defaults();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: _SectionTitle(
+                  title: 'Phase A · Từ loại chuyên sâu',
+                  icon: Icons.auto_awesome_motion,
+                ),
+              ),
+              Switch(
+                value: settings.enabled,
+                activeColor: const Color(0xFF6C63FF),
+                onChanged: (value) => tp.setGrammarHighlightEnabled(value),
+              ),
+            ],
+          ),
+          Text(
+            'Dùng palette/preset mới lấy cảm hứng từ English Syntax Highlighter để làm rõ loại từ và cho phép bật tắt từng nhóm.',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GrammarStylePreview(
+            settings: settings,
+            palette: palette,
+          ),
+          const SizedBox(height: 12),
+          GrammarLegendBar(
+            settings: settings,
+            palette: palette,
+            onToggleCategory: (category) => tp.toggleGrammarCategory(category),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Preset học tập',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: presets.map((preset) {
+              final selected = settings.activePresetId == preset.id;
+              return _ChoiceChipButton(
+                label: preset.name,
+                subtitle: preset.description,
+                selected: selected,
+                onTap: () => tp.applyGrammarPreset(preset.id),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Palette màu',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: palettes.map((item) {
+              final selected = settings.paletteId == item.id;
+              return _ChoiceChipButton(
+                label: item.name,
+                selected: selected,
+                compact: true,
+                onTap: () => tp.setGrammarPalette(item.id),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Kiểu tô màu',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: GrammarHighlightStyle.values.map((style) {
+              final selected = settings.highlightStyle == style;
+              return _ChoiceChipButton(
+                label: style.labelVi,
+                selected: selected,
+                compact: true,
+                onTap: () => tp.setGrammarHighlightStyle(style),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Bật/tắt từng nhóm từ loại',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: GrammarCategory.values.map((category) {
+              final selected = settings.visibleCategories.contains(category);
+              final style = palette.styleFor(category);
+              return FilterChip(
+                selected: selected,
+                selectedColor: style.color.withValues(alpha: 0.18),
+                backgroundColor: Colors.white.withValues(alpha: 0.04),
+                side: BorderSide(
+                  color: selected
+                      ? style.color.withValues(alpha: 0.45)
+                      : Colors.white.withValues(alpha: 0.08),
+                ),
+                label: Text(
+                  category.labelVi,
+                  style: TextStyle(
+                    color: selected ? style.color : Colors.white70,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onSelected: (_) => tp.toggleGrammarCategory(category),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Hiện legend mini trong phần cài đặt',
+              style: TextStyle(color: Colors.white, fontSize: 13),
+            ),
+            value: settings.showLegend,
+            activeThumbColor: const Color(0xFF6C63FF),
+            onChanged: (value) => tp.setGrammarLegendVisible(value),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoiceChipButton extends StatelessWidget {
+  final String label;
+  final String? subtitle;
+  final bool selected;
+  final bool compact;
+  final VoidCallback onTap;
+
+  const _ChoiceChipButton({
+    required this.label,
+    this.subtitle,
+    required this.selected,
+    this.compact = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 10,
+          vertical: compact ? 9 : 10,
+        ),
+        constraints: BoxConstraints(minWidth: compact ? 0 : 120),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF6C63FF).withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? const Color(0xFFB8B5FF) : Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+            if (!compact && subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 10.5,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

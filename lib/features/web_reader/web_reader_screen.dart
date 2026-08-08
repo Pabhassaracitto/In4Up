@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
+import '../../features/grammar/grammar.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../providers/text_provider.dart';
@@ -468,6 +469,25 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       sourceText: selection,
       fromSelection: true,
     );
+  }
+
+  Future<void> _openGrammarSettings() async {
+    await GrammarQuickSettingsSheet.show(
+      context,
+      title: 'Web Reader · Từ loại chuyên sâu',
+      settings: _controller.grammarSettings,
+      palette: _controller.activeGrammarPalette,
+      activePreset: _controller.activeGrammarPreset,
+      onToggleEnabled: (value) => _controller.setGrammarHighlightEnabled(value),
+      onSelectPreset: (id) => _controller.applyGrammarPreset(id),
+      onSelectPalette: (id) => _controller.setGrammarPalette(id),
+      onSelectStyle: (style) => _controller.setGrammarHighlightStyle(style),
+      onToggleCategory: (category) => _controller.toggleGrammarCategory(category),
+      onToggleLegend: (visible) => _controller.setGrammarLegendVisible(visible),
+    );
+    if (_controller.colorMode == ColorMode.wordType) {
+      await _applyHighlight();
+    }
   }
 
   Future<void> _saveCurrentPageToCollection() async {
@@ -1033,6 +1053,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             onNavigate: _navigate,
             onExtractText: _extractTextToStudio,
             onSavePageToCollection: _saveCurrentPageToCollection,
+            onOpenGrammarSettings: _openGrammarSettings,
             showingDashboard: _showDashboard,
           ),
           Expanded(

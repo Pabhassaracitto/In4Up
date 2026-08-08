@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../../features/grammar/models/grammar_category.dart';
+import '../../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../../features/grammar/models/grammar_palette.dart';
+import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../models/color_mode.dart';
 import '../models/pdf_word_info.dart';
 
@@ -9,6 +13,8 @@ class PdfWordOverlay extends StatelessWidget {
   final List<PdfWordInfo> words;
   final int pageIndex;
   final ColorMode colorMode;
+  final GrammarHighlightSettings grammarSettings;
+  final GrammarPalette grammarPalette;
   final PdfPage page;
   final String? speakingWord;
   final String? focusWordCue;
@@ -22,6 +28,8 @@ class PdfWordOverlay extends StatelessWidget {
     required this.words,
     required this.pageIndex,
     required this.colorMode,
+    required this.grammarSettings,
+    required this.grammarPalette,
     required this.page,
     this.speakingWord,
     this.focusWordCue,
@@ -54,6 +62,8 @@ class PdfWordOverlay extends StatelessWidget {
           words: words,
           pageIndex: pageIndex,
           colorMode: colorMode,
+          grammarSettings: grammarSettings,
+          grammarPalette: grammarPalette,
           scaleX: scaleX,
           scaleY: scaleY,
           speakingWord: speakingWord,
@@ -73,6 +83,8 @@ class _WordHighlightPainter extends CustomPainter {
   final List<PdfWordInfo> words;
   final int pageIndex;
   final ColorMode colorMode;
+  final GrammarHighlightSettings grammarSettings;
+  final GrammarPalette grammarPalette;
   final double scaleX;
   final double scaleY;
   final String? speakingWord;
@@ -87,6 +99,8 @@ class _WordHighlightPainter extends CustomPainter {
     required this.words,
     required this.pageIndex,
     required this.colorMode,
+    required this.grammarSettings,
+    required this.grammarPalette,
     required this.scaleX,
     required this.scaleY,
     this.speakingWord,
@@ -106,11 +120,53 @@ class _WordHighlightPainter extends CustomPainter {
       final screenRect = _toScreenRect(word.bounds);
 
       if (colorMode != ColorMode.none) {
-        final color = word.getHighlightColor(colorMode);
+        Color color = word.getHighlightColor(colorMode);
+        Color? outlineColor;
+        Color? underlineColor;
+        double underlineThickness = 0;
+
+        if (colorMode == ColorMode.wordType && grammarSettings.enabled) {
+          final analyzed = word.analyzed;
+          if (analyzed != null) {
+            final category = grammarCategoryFromLegacyWordType(analyzed.wordType);
+            final resolved = GrammarStyleMapper.resolve(
+              category: category,
+              palette: grammarPalette,
+              settings: grammarSettings,
+              defaultTextColor: Colors.white,
+            );
+            color = resolved.background;
+            outlineColor = resolved.outline;
+            underlineColor = resolved.underline;
+            underlineThickness = resolved.underline != null ? 2 : 0;
+            if (!grammarSettings.isVisible(category)) {
+              color = Colors.transparent;
+            }
+          }
+        }
+
         if (color != Colors.transparent) {
           canvas.drawRRect(
             RRect.fromRectAndRadius(screenRect, const Radius.circular(2)),
             Paint()..color = color,
+          );
+        }
+        if (outlineColor != null) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(screenRect.inflate(1.2), const Radius.circular(3)),
+            Paint()
+              ..color = outlineColor
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1,
+          );
+        }
+        if (underlineThickness > 0) {
+          canvas.drawLine(
+            Offset(screenRect.left, screenRect.bottom - 1),
+            Offset(screenRect.right, screenRect.bottom - 1),
+            Paint()
+              ..color = underlineColor ?? outlineColor ?? const Color(0xFF64B5F6)
+              ..strokeWidth = underlineThickness,
           );
         }
       }
@@ -231,6 +287,8 @@ class _WordHighlightPainter extends CustomPainter {
   bool shouldRepaint(_WordHighlightPainter old) =>
       old.pageIndex != pageIndex ||
       old.colorMode != colorMode ||
+      old.grammarSettings != grammarSettings ||
+      old.grammarPalette.id != grammarPalette.id ||
       old.speakingWord != speakingWord ||
       old.focusWordCue != focusWordCue ||
       old.focusRectCue != focusRectCue ||

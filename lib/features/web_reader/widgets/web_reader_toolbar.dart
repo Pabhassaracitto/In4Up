@@ -9,6 +9,7 @@ class WebReaderToolbar extends StatefulWidget {
   final Function(String url) onNavigate;
   final VoidCallback onExtractText;
   final VoidCallback onSavePageToCollection;
+  final VoidCallback onOpenGrammarSettings;
   final bool showingDashboard;
 
   const WebReaderToolbar({
@@ -17,6 +18,7 @@ class WebReaderToolbar extends StatefulWidget {
     required this.onNavigate,
     required this.onExtractText,
     required this.onSavePageToCollection,
+    required this.onOpenGrammarSettings,
     required this.showingDashboard,
   });
 
@@ -183,6 +185,16 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
               ),
               const SizedBox(width: 4),
               _ColorModeButton(controller: ctrl, enabled: pageActionsEnabled),
+              if (pageActionsEnabled && ctrl.colorMode == ColorMode.wordType)
+                _ToolbarBtn(
+                  icon: Icons.auto_awesome_motion,
+                  size: 18,
+                  enabled: true,
+                  isActive: ctrl.grammarSettings.enabled,
+                  onTap: widget.onOpenGrammarSettings,
+                  tooltip: 'Cài đặt từ loại chuyên sâu',
+                  activeThumbColor: const Color(0xFF6C63FF),
+                ),
               _ToolbarBtn(
                 icon: Icons.text_fields,
                 size: 18,
@@ -240,6 +252,8 @@ class _ColorModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isActive = enabled && controller.colorMode != ColorMode.none;
     final showLabel = isActive && MediaQuery.of(context).size.width >= 430;
+    final showGrammarBadge =
+        isActive && controller.colorMode == ColorMode.wordType && controller.grammarSettings.enabled;
     return GestureDetector(
       onTap: enabled
           ? () {
@@ -282,6 +296,24 @@ class _ColorModeButton extends StatelessWidget {
                   color: Color(0xFF2196F3),
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (showGrammarBadge && MediaQuery.of(context).size.width >= 520) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  controller.activeGrammarPreset.name,
+                  style: const TextStyle(
+                    color: Color(0xFFB8B5FF),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],

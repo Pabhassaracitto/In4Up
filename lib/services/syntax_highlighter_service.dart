@@ -1,3 +1,4 @@
+import '../features/grammar/services/grammar_lexicon_service.dart';
 import '../models/word_analysis.dart';
 import '../providers/vocabulary_bridge.dart';
 
@@ -5,6 +6,7 @@ class SyntaxHighlighterService {
   SyntaxHighlighterService._();
   static final SyntaxHighlighterService instance = SyntaxHighlighterService._();
 
+  final GrammarLexiconService _grammarLexicon = GrammarLexiconService.instance;
   final Map<String, List<AnalyzedWord>> _cache = {};
   static const int _maxCacheSize = 500;
 
@@ -30,8 +32,10 @@ class SyntaxHighlighterService {
     if (clean.isEmpty) {
       return AnalyzedWord(word: word, wordType: WordType.unknown);
     }
-    final isStop = _stopWords.contains(clean);
-    final type = isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean);
+    final lexiconEntry = _grammarLexicon.lookup(clean);
+    final isStop = _stopWords.contains(clean) || (lexiconEntry?.category.isFunctionWord ?? false);
+    final type = lexiconEntry?.category.legacyWordType ??
+        (isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean));
     final cefr = _estimateCEFR(clean);
     final base = AnalyzedWord(
       word: word,
@@ -101,9 +105,11 @@ class SyntaxHighlighterService {
         continue;
       }
 
-      final isStop = _stopWords.contains(clean);
-      final type =
-          isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean);
+      final lexiconEntry = _grammarLexicon.lookup(clean);
+      final isStop =
+          _stopWords.contains(clean) || (lexiconEntry?.category.isFunctionWord ?? false);
+      final type = lexiconEntry?.category.legacyWordType ??
+          (isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean));
       final cefr = _estimateCEFR(clean);
 
       result.add(AnalyzedWord(

@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
+import '../../features/grammar/grammar.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../models/word_entry.dart';
@@ -180,6 +181,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     title: _title,
                     onUserInteraction: () => _showChrome(),
                     onShowAnnotations: _showAnnotationManager,
+                    onOpenGrammarSettings: _openGrammarSettings,
                   ),
                 ),
               ),
@@ -344,6 +346,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   words: words,
                   pageIndex: pageIndex,
                   colorMode: _controller.colorMode,
+                  grammarSettings: _controller.grammarSettings,
+                  grammarPalette: _controller.activeGrammarPalette,
                   page: page,
                   speakingWord: _controller.currentSpeakingWord,
                   focusWordCue: _controller.focusWordCue,
@@ -597,6 +601,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         controller: _controller,
         title: _title,
       ),
+    );
+  }
+
+  Future<void> _openGrammarSettings() async {
+    await GrammarQuickSettingsSheet.show(
+      context,
+      title: 'PDF Reader · Từ loại chuyên sâu',
+      settings: _controller.grammarSettings,
+      palette: _controller.activeGrammarPalette,
+      activePreset: _controller.activeGrammarPreset,
+      onToggleEnabled: (value) => _controller.setGrammarHighlightEnabled(value),
+      onSelectPreset: (id) => _controller.applyGrammarPreset(id),
+      onSelectPalette: (id) => _controller.setGrammarPalette(id),
+      onSelectStyle: (style) => _controller.setGrammarHighlightStyle(style),
+      onToggleCategory: (category) => _controller.toggleGrammarCategory(category),
+      onToggleLegend: (visible) => _controller.setGrammarLegendVisible(visible),
     );
   }
 

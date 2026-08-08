@@ -85,26 +85,23 @@ Pointer<Void>? whisperInitFromFile(String path) {
 
   try {
     // Ưu tiên API mới (recommended): whisper_init_from_file_with_params.
+    // Lưu ý: lookupFunction() đã trả thẳng Dart function — KHÔNG gọi thêm
+    // .asFunction() (chỉ dùng .asFunction cho lookup() cũ).
     try {
-      final contextDefaultParams = lib
-          .lookupFunction<whisper_context_default_params_native,
-              WhisperContextDefaultParams>('whisper_context_default_params')
-          .asFunction<WhisperContextDefaultParams>();
-      final initWithParams = lib
-          .lookupFunction<whisper_init_from_file_with_params_native,
-              WhisperInitFromFileWithParams>(
-              'whisper_init_from_file_with_params')
-          .asFunction<WhisperInitFromFileWithParams>();
+      final contextDefaultParams = lib.lookupFunction<
+          whisper_context_default_params_native, WhisperContextDefaultParams>(
+          'whisper_context_default_params');
+      final initWithParams = lib.lookupFunction<
+          whisper_init_from_file_with_params_native,
+          WhisperInitFromFileWithParams>('whisper_init_from_file_with_params');
       final cparams = contextDefaultParams();
       return initWithParams(pathPtr, cparams);
     } catch (_) {
       // fallthrough → API deprecated
     }
 
-    final func = lib
-        .lookupFunction<whisper_init_from_file_native, WhisperInitFromFile>(
-            'whisper_init_from_file')
-        .asFunction<WhisperInitFromFile>();
+    final func = lib.lookupFunction<whisper_init_from_file_native,
+        WhisperInitFromFile>('whisper_init_from_file');
     return func(pathPtr);
   } finally {
     calloc.free(pathPtr);

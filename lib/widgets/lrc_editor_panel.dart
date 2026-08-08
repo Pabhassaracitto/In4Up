@@ -225,7 +225,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                         widget.onLrcApplied?.call();
                       },
                       icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const Text('Sử dụng LRC này'),
+                      label: const Text('Nạp vào Đọc & Hiểu'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6C63FF),
                         foregroundColor: Colors.white,

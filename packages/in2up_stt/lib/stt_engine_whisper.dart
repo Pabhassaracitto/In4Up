@@ -605,7 +605,13 @@ class SttEngineWhisper {
     return result;
   }
 
-  /// Parse kết quả plugin → SttResult (bất biến, gán UID Content-Anchored).
+  /// Parse kết quả plugin → SttResult.
+  ///
+  /// Plugin trả về segments ở mức TỪ (do `splitOnWord: true`). Ta gom từ
+  /// thành các đoạn (câu) theo khoảng lặng — đúng như code cũ — để:
+  ///  - LRC có dòng theo ĐOẠN (không phải từng chữ);
+  ///  - VẪN giữ word-timestamps trong mỗi segment để hỗ trợ highlight
+  ///    kiểu karaoke nếu cần.
   static SttResult _parsePluginResult(
     dynamic output, {
     required String audioFingerprint,
@@ -623,32 +629,30 @@ class SttEngineWhisper {
         return SttResult.empty(SttEngineType.whisper);
       }
 
-      final segments = <SttSegment>[];
-      var id = 0;
+      // Bước 1: thu thập tất cả word với timestamp.
+      final words = <SttWord>[];
       for (final seg in rawSegments) {
         final text = (seg.text ?? '').trim();
         if (text.isEmpty) continue;
         if (_isNoise(text)) continue;
 
-        final startMs = seg.fromTs.inMilliseconds;
-        final endMs = seg.toTs.inMilliseconds;
-        final startSec = startMs / 1000.0;
-        final endSec = endMs / 1000.0;
-
-        segments.add(SttSegment(
-          id: id++,
-          uid: ContentId.segmentUid(
-            audioFingerprint: audioFingerprint,
-            startMs: startMs,
-            text: text,
-          ),
-          startSeconds: startSec,
-          endSeconds: endSec,
-          text: text,
-          words: const [],
-          avgConfidence: 1.0,
+        words.add(SttWord(
+          word: text,
+          startSeconds: seg.fromTs.inMilliseconds / 1000.0,
+          endSeconds: seg.toTs.inMilliseconds / 1000.0,
+          confidence: 1.0,
         ));
       }
+
+      if (words.isEmpty) {
+        return SttResult.empty(SttEngineType.whisper);
+      }
+
+      // Bước 2: gom từ thành đoạn theo khoảng lặng (>0.7s) và cuối câu.
+      final segments = _groupWordsIntoSegments(
+        words,
+        audioFingerprint: audioFingerprint,
+      );
 
       return SttResult(
         fullText: segments.map((s) => s.text).join(' ').trim(),
@@ -657,12 +661,60 @@ class SttEngineWhisper {
         language: language,
         processingTime: processingTime,
         audioFingerprint: audioFingerprint,
-        hasWordTimestamps: false,
+        hasWordTimestamps:
+            segments.any((s) => s.words.isNotEmpty),
+
       );
     } catch (e) {
       debugPrint('❌ Whisper mobile parse error: $e');
       return SttResult.empty(SttEngineType.whisper);
     }
+  }
+
+  /// Gom danh sách word thành các SttSegment (đoạn/câu).
+  ///
+  /// Quy tắc tách đoạn (giữ giống code cũ trong vipsound_stt):
+  ///  - khoảng lặng giữa 2 từ > 0.7s → cắt;
+  ///  - hết list → cắt.
+  /// Mỗi segment giữ nguyên danh sách `words` để hỗ trợ karaoke.
+  static List<SttSegment> _groupWordsIntoSegments(
+    List<SttWord> words, {
+    required String audioFingerprint,
+  }) {
+    final segments = <SttSegment>[];
+    List<SttWord> current = [];
+
+    for (var i = 0; i < words.length; i++) {
+      current.add(words[i]);
+
+      var breakHere = false;
+      if (i < words.length - 1) {
+        final gap = words[i + 1].startSeconds - words[i].endSeconds;
+        if (gap > 0.7) breakHere = true;
+      }
+      if (i == words.length - 1) breakHere = true;
+
+      if (breakHere) {
+        final startMs = (current.first.startSeconds * 1000).round();
+        final text = current.map((w) => w.word).join(' ');
+        segments.add(SttSegment(
+          id: segments.length,
+          uid: ContentId.segmentUid(
+            audioFingerprint: audioFingerprint,
+            startMs: startMs,
+            text: text,
+          ),
+          startSeconds: current.first.startSeconds,
+          endSeconds: current.last.endSeconds,
+          text: text,
+          words: List<SttWord>.from(current),
+          avgConfidence: 1.0,
+        ));
+        current.clear();
+      }
+    }
+
+    return segments;
   }
 
   static bool _isNoise(String text) {

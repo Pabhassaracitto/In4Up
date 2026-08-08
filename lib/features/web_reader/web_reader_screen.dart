@@ -484,6 +484,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       onSelectStyle: (style) => _controller.setGrammarHighlightStyle(style),
       onToggleCategory: (category) => _controller.toggleGrammarCategory(category),
       onToggleLegend: (visible) => _controller.setGrammarLegendVisible(visible),
+      onShowAllCategories: () => _controller.showAllGrammarCategories(),
     );
     if (_controller.colorMode == ColorMode.wordType) {
       await _applyHighlight();

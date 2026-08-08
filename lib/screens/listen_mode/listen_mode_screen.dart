@@ -1376,18 +1376,22 @@ class _AIPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final compact = screenSize.width < 430 || screenSize.height < 780;
+    final maxHeight = compact ? screenSize.height * 0.42 : screenSize.height * 0.55;
+
     return ConstrainedBox(
-      constraints:
-          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.62),
+      constraints: BoxConstraints(maxHeight: maxHeight),
       child: SingleChildScrollView(
         physics: const ClampingScrollPhysics(),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GenerateLrcButton(),
-            SizedBox(height: 12),
+            const GenerateLrcButton(),
+            SizedBox(height: compact ? 10 : 12),
             LrcEditorPanel(
               initiallyExpanded: true,
+              compact: compact,
             ),
           ],
         ),

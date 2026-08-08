@@ -18,49 +18,72 @@ class ReadTopBar extends StatelessWidget {
     final tp = context.watch<TextProvider>();
     final controller = context.watch<ReadModeController>();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withValues(alpha: 0.05),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          // ── Title bấm được → QuickLibrarySheet ──────────────
-          _TitleButton(tp: tp, controller: controller),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 620;
+        final actionRow = compact
+            ? Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  _ColorModeChip(textProvider: tp, compact: true),
+                  _AutoSyncChip(controller: controller),
+                  _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
+                ],
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ColorModeChip(textProvider: tp),
+                  const SizedBox(width: 8),
+                  _AutoSyncChip(controller: controller),
+                  const SizedBox(width: 8),
+                  _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
+                ],
+              );
 
-          const Spacer(),
-
-          // ── Color Mode ───────────────────────────────────────
-          _ColorModeChip(textProvider: tp),
-          const SizedBox(width: 8),
-
-          // ── Auto Sync ────────────────────────────────────────
-          _AutoSyncChip(controller: controller),
-          const SizedBox(width: 8),
-
-          // ── Settings ─────────────────────────────────────────
-          GestureDetector(
-            onTap: () => ReadSettingsSheet.show(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.tune,
-                size: 18,
-                color: Colors.white70,
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.05),
               ),
             ),
           ),
-        ],
-      ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _TitleButton(tp: tp, controller: controller),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: actionRow,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _TitleButton(tp: tp, controller: controller),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: actionRow,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
@@ -101,82 +124,86 @@ class _TitleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Nút title bấm được ─────────────────────────────────
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            QuickLibrarySheet.show(context);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: Color(0xFF2196F3).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Color(0xFF2196F3).withValues(alpha: 0.25),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon sách
-                const Icon(
-                  Icons.menu_book_rounded,
-                  size: 13,
-                  color: Color(0xFF2196F3),
-                ),
-                const SizedBox(width: 6),
-
-                // Tên tài liệu
-                Text(
-                  _displayTitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 320;
+        return Row(
+          children: [
+            Flexible(
+              fit: FlexFit.loose,
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  QuickLibrarySheet.show(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF2196F3).withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.menu_book_rounded,
+                        size: 13,
+                        color: Color(0xFF2196F3),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          _displayTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 15,
+                        color: Color(0xFF2196F3),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 4),
-
-                // Mũi tên dropdown
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 15,
-                  color: Color(0xFF2196F3),
+              ),
+            ),
+            if (!compact) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 3,
                 ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 8),
-
-        // ── Progress chip: dòng hiện tại / tổng ───────────────
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 7,
-            vertical: 3,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            controller.readingProgressText,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[500],
-              fontFamily: 'monospace',
-            ),
-          ),
-        ),
-      ],
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  controller.readingProgressText,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -185,12 +212,20 @@ class _TitleButton extends StatelessWidget {
 // Giữ nguyên từ file cũ
 class _ColorModeChip extends StatelessWidget {
   final TextProvider textProvider;
-  const _ColorModeChip({required this.textProvider});
+  final bool compact;
+
+  const _ColorModeChip({
+    required this.textProvider,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isActive = textProvider.colorMode != ColorMode.none;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final showGrammarBadge =
+        !compact &&
+        screenWidth >= 520 &&
         textProvider.colorMode == ColorMode.wordType &&
         textProvider.grammarSettings.enabled;
 
@@ -201,15 +236,18 @@ class _ColorModeChip extends StatelessWidget {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 9 : 10,
+          vertical: 6,
+        ),
         decoration: BoxDecoration(
           color: isActive
-              ? Color(0xFF2196F3).withValues(alpha: 0.2)
+              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: isActive
               ? Border.all(
-                  color: Color(0xFF2196F3).withValues(alpha: 0.3),
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.3),
                 )
               : null,
         ),
@@ -249,6 +287,31 @@ class _ColorModeChip extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _SettingsButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(
+          Icons.tune,
+          size: 18,
+          color: Colors.white70,
         ),
       ),
     );

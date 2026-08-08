@@ -336,6 +336,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     ));
   }
 
+  Future<void> showAllGrammarCategories() {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(
+        activePresetId: 'custom',
+        visibleCategories: Set<GrammarCategory>.from(GrammarCategory.values),
+      ),
+    );
+  }
+
   Future<void> setGrammarLegendVisible(bool visible) {
     return setGrammarSettings(_grammarSettings.copyWith(showLegend: visible));
   }

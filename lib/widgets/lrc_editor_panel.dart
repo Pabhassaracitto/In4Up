@@ -70,16 +70,31 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.error_outline,
-                    color: Colors.redAccent, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    error,
-                    style: const TextStyle(color: Colors.redAccent),
-                  ),
+                const Row(
+                  children: [
+                    Icon(Icons.error_outline,
+                        color: Colors.redAccent, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Lỗi tạo LRC',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error,
+                  maxLines: 6,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.redAccent, height: 1.35),
                 ),
               ],
             ),

@@ -31,10 +31,23 @@ class WordActionsSheet {
       ),
       useSafeArea: true,
       isScrollControlled: true,
-      builder: (sheetContext) => _WordActionsContent(
-        word: word,
-        lineIndex: lineIndex,
-        wordIndex: wordIndex,
+      builder: (sheetContext) => AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: FractionallySizedBox(
+            heightFactor: 0.88,
+            child: _WordActionsContent(
+              word: word,
+              lineIndex: lineIndex,
+              wordIndex: wordIndex,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -57,12 +70,8 @@ class _WordActionsContent extends StatelessWidget {
     final existingWord = context.read<VocabularyProvider>().findByWord(word.word);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

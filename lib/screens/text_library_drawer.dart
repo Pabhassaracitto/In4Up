@@ -216,64 +216,41 @@ class _LocalTab extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 430;
+                      final tiles = [
+                        _ActionButton(
                           icon: Icons.upload_file,
                           label: 'Import',
                           color: const Color(0xFF2196F3),
                           onTap: () => _importTextFile(context),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionButton(
+                        _ActionButton(
                           icon: Icons.content_paste_rounded,
                           label: 'Dán tay',
                           color: const Color(0xFF26C6DA),
                           onTap: () => _openManualEntryDialog(context),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
+                        _ActionButton(
                           icon: Icons.play_circle_fill,
                           label: 'YouTube',
                           color: const Color(0xFFFF0000),
-                          onTap: () =>
-                              YoutubeSheet.show(context, captionsFirst: true),
+                          onTap: () => YoutubeSheet.show(context, captionsFirst: true),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionButton(
+                        _ActionButton(
                           icon: Icons.picture_as_pdf,
                           label: 'Mở PDF',
                           color: const Color(0xFFEF5350),
                           onTap: () => _importPdfFile(context),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
+                        _ActionButton(
                           icon: Icons.cloud_upload_outlined,
                           label: 'Lưu mới lên Cloud',
                           color: const Color(0xFF6C63FF),
                           onTap: () => _uploadCurrentTextToCloud(context, tp),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionButton(
+                        _ActionButton(
                           icon: Icons.cloud_sync_outlined,
                           label: tp.isCurrentTextFromCloud
                               ? 'Cập nhật file cloud hiện tại'
@@ -283,8 +260,34 @@ class _LocalTab extends StatelessWidget {
                               ? _updateCurrentCloudDirectly(context, tp)
                               : _updateCurrentTextOnCloud(context, tp),
                         ),
-                      ),
-                    ],
+                      ];
+
+                      if (compact) {
+                        return Column(
+                          children: [
+                            for (int i = 0; i < tiles.length; i++) ...[
+                              tiles[i],
+                              if (i != tiles.length - 1) const SizedBox(height: 8),
+                            ],
+                          ],
+                        );
+                      }
+
+                      return Column(
+                        children: [
+                          for (int i = 0; i < tiles.length; i += 2) ...[
+                            Row(
+                              children: [
+                                Expanded(child: tiles[i]),
+                                const SizedBox(width: 8),
+                                Expanded(child: tiles[i + 1]),
+                              ],
+                            ),
+                            if (i < tiles.length - 2) const SizedBox(height: 8),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1070,9 +1073,12 @@ class _CloudEntryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (entry.category != null) ...[
+                          if (entry.category != null)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 1),
@@ -1090,8 +1096,6 @@ class _CloudEntryCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
-                          ],
                           Text(
                             '${entry.wordCount} từ · ${entry.lineCount} dòng',
                             style: TextStyle(
@@ -1193,25 +1197,50 @@ class _ActionButton extends StatelessWidget {
         HapticFeedback.lightImpact();
         onTap();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 13),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 170;
+          return Container(
+            padding: EdgeInsets.symmetric(vertical: compact ? 10 : 11, horizontal: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
-          ],
-        ),
+            child: compact
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 18, color: color),
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, size: 16, color: color),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: color, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+          );
+        },
       ),
     );
   }

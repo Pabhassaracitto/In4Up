@@ -7,6 +7,7 @@ export 'models/grammar_palette.dart';
 export 'models/grammar_token.dart';
 export 'services/grammar_analysis_service.dart';
 export 'services/grammar_lexicon_service.dart';
+export 'services/grammar_preset_library_service.dart';
 export 'services/grammar_settings_service.dart';
 export 'services/grammar_style_mapper.dart';
 export 'widgets/grammar_legend_bar.dart';

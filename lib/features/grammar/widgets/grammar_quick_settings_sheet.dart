@@ -8,20 +8,23 @@ import '../models/grammar_palette.dart';
 import 'grammar_legend_bar.dart';
 import 'grammar_style_preview.dart';
 
-class GrammarQuickSettingsSheet extends StatelessWidget {
+class GrammarQuickSettingsSheet extends StatefulWidget {
   final String title;
   final GrammarHighlightSettings settings;
   final GrammarPalette palette;
   final GrammarHighlightPreset activePreset;
-  final ValueChanged<bool> onToggleEnabled;
-  final ValueChanged<String> onSelectPreset;
-  final VoidCallback onRestorePreviousPreset;
-  final ValueChanged<bool> onToggleAdvancedMode;
-  final ValueChanged<String> onSelectPalette;
-  final ValueChanged<GrammarHighlightStyle> onSelectStyle;
-  final ValueChanged<GrammarCategory> onToggleCategory;
-  final ValueChanged<bool> onToggleLegend;
-  final VoidCallback onShowAllCategories;
+  final List<GrammarHighlightPreset> presets;
+  final Future<void> Function(bool value) onToggleEnabled;
+  final Future<void> Function(String id) onSelectPreset;
+  final Future<GrammarHighlightPreset> Function(String name, String description)
+      onSaveCurrentAsPreset;
+  final Future<void> Function() onRestorePreviousPreset;
+  final Future<void> Function(bool value) onToggleAdvancedMode;
+  final Future<void> Function(String id) onSelectPalette;
+  final Future<void> Function(GrammarHighlightStyle style) onSelectStyle;
+  final Future<void> Function(GrammarCategory category) onToggleCategory;
+  final Future<void> Function(bool visible) onToggleLegend;
+  final Future<void> Function() onShowAllCategories;
 
   const GrammarQuickSettingsSheet({
     super.key,
@@ -29,8 +32,10 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
     required this.settings,
     required this.palette,
     required this.activePreset,
+    required this.presets,
     required this.onToggleEnabled,
     required this.onSelectPreset,
+    required this.onSaveCurrentAsPreset,
     required this.onRestorePreviousPreset,
     required this.onToggleAdvancedMode,
     required this.onSelectPalette,
@@ -46,15 +51,18 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
     required GrammarHighlightSettings settings,
     required GrammarPalette palette,
     required GrammarHighlightPreset activePreset,
-    required ValueChanged<bool> onToggleEnabled,
-    required ValueChanged<String> onSelectPreset,
-    required VoidCallback onRestorePreviousPreset,
-    required ValueChanged<bool> onToggleAdvancedMode,
-    required ValueChanged<String> onSelectPalette,
-    required ValueChanged<GrammarHighlightStyle> onSelectStyle,
-    required ValueChanged<GrammarCategory> onToggleCategory,
-    required ValueChanged<bool> onToggleLegend,
-    required VoidCallback onShowAllCategories,
+    required List<GrammarHighlightPreset> presets,
+    required Future<void> Function(bool value) onToggleEnabled,
+    required Future<void> Function(String id) onSelectPreset,
+    required Future<GrammarHighlightPreset> Function(String name, String description)
+        onSaveCurrentAsPreset,
+    required Future<void> Function() onRestorePreviousPreset,
+    required Future<void> Function(bool value) onToggleAdvancedMode,
+    required Future<void> Function(String id) onSelectPalette,
+    required Future<void> Function(GrammarHighlightStyle style) onSelectStyle,
+    required Future<void> Function(GrammarCategory category) onToggleCategory,
+    required Future<void> Function(bool visible) onToggleLegend,
+    required Future<void> Function() onShowAllCategories,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -71,8 +79,10 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
           settings: settings,
           palette: palette,
           activePreset: activePreset,
+          presets: presets,
           onToggleEnabled: onToggleEnabled,
           onSelectPreset: onSelectPreset,
+          onSaveCurrentAsPreset: onSaveCurrentAsPreset,
           onRestorePreviousPreset: onRestorePreviousPreset,
           onToggleAdvancedMode: onToggleAdvancedMode,
           onSelectPalette: onSelectPalette,
@@ -86,22 +96,149 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
   }
 
   @override
+  State<GrammarQuickSettingsSheet> createState() =>
+      _GrammarQuickSettingsSheetState();
+}
+
+class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
+  late GrammarHighlightSettings _settings;
+  late List<GrammarHighlightPreset> _presets;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+    _presets = List<GrammarHighlightPreset>.from(widget.presets);
+  }
+
+  GrammarPalette get _palette => GrammarPalettes.byId(_settings.paletteId);
+
+  GrammarHighlightPreset get _activePreset =>
+      _findPreset(_settings.activePresetId);
+
+  GrammarHighlightPreset get _previousPreset =>
+      _findPreset(_settings.lastNonCustomPresetId);
+
+  GrammarHighlightPreset _findPreset(String? presetId) {
+    for (final preset in _presets) {
+      if (preset.id == presetId) return preset;
+    }
+    return GrammarHighlightPresets.byId(presetId);
+  }
+
+  List<GrammarHighlightPreset> get _builtInPresets =>
+      _presets.where((preset) => preset.isBuiltIn).toList();
+
+  List<GrammarHighlightPreset> get _customPresets =>
+      _presets.where((preset) => !preset.isBuiltIn).toList();
+
+  List<GrammarCategory> get _hiddenCategories {
+    final hidden = GrammarCategory.values
+        .where((category) => !_settings.visibleCategories.contains(category))
+        .toList();
+    hidden.sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
+    return hidden;
+  }
+
+  Future<void> _handleToggleEnabled(bool value) async {
+    await widget.onToggleEnabled(value);
+    if (!mounted) return;
+    setState(() => _settings = _settings.copyWith(enabled: value));
+  }
+
+  Future<void> _handleSelectPreset(String presetId) async {
+    final preset = _findPreset(presetId);
+    await widget.onSelectPreset(presetId);
+    if (!mounted) return;
+    setState(() => _settings = _settings.applyPreset(preset));
+  }
+
+  Future<void> _handleRestorePreviousPreset() async {
+    final preset = _previousPreset;
+    await widget.onRestorePreviousPreset();
+    if (!mounted) return;
+    setState(() => _settings = _settings.applyPreset(preset));
+  }
+
+  Future<void> _handleSaveCurrentPreset() async {
+    final draft = await _showSavePresetDialog(context, _activePreset.name);
+    if (draft == null) return;
+    final saved = await widget.onSaveCurrentAsPreset(draft.name, draft.description);
+    if (!mounted) return;
+    final next = List<GrammarHighlightPreset>.from(_presets);
+    final index = next.indexWhere((preset) => preset.id == saved.id);
+    if (index >= 0) {
+      next[index] = saved;
+    } else {
+      next.add(saved);
+    }
+    setState(() {
+      _presets = next;
+      _settings = _settings.applyPreset(saved);
+    });
+  }
+
+  Future<void> _handleToggleAdvancedMode(bool value) async {
+    await widget.onToggleAdvancedMode(value);
+    if (!mounted) return;
+    setState(() => _settings = _settings.copyWith(showAdvancedControls: value));
+  }
+
+  Future<void> _handleSelectPalette(String paletteId) async {
+    await widget.onSelectPalette(paletteId);
+    if (!mounted) return;
+    setState(() => _settings = _settings.copyWith(paletteId: paletteId));
+  }
+
+  Future<void> _handleSelectStyle(GrammarHighlightStyle style) async {
+    await widget.onSelectStyle(style);
+    if (!mounted) return;
+    setState(() => _settings = _settings.copyWith(highlightStyle: style));
+  }
+
+  Future<void> _handleToggleCategory(GrammarCategory category) async {
+    await widget.onToggleCategory(category);
+    if (!mounted) return;
+    final next = Set<GrammarCategory>.from(_settings.visibleCategories);
+    if (next.contains(category)) {
+      next.remove(category);
+    } else {
+      next.add(category);
+    }
+    setState(() {
+      _settings = _settings.copyWith(
+        activePresetId: 'custom',
+        visibleCategories: next,
+      );
+    });
+  }
+
+  Future<void> _handleToggleLegend(bool visible) async {
+    await widget.onToggleLegend(visible);
+    if (!mounted) return;
+    setState(() => _settings = _settings.copyWith(showLegend: visible));
+  }
+
+  Future<void> _handleShowAllCategories() async {
+    await widget.onShowAllCategories();
+    if (!mounted) return;
+    setState(() {
+      _settings = _settings.copyWith(
+        activePresetId: 'custom',
+        visibleCategories: Set<GrammarCategory>.from(GrammarCategory.values),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final presets = GrammarHighlightPresets.defaults();
-    final palettes = GrammarPalettes.defaults();
-    final previousPreset =
-        GrammarHighlightPresets.byId(settings.lastNonCustomPresetId);
-    final hiddenCategories = GrammarCategory.values
-        .where((category) => !settings.visibleCategories.contains(category))
-        .toList()
-      ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
-    final visibleCount = settings.visibleCategories.length;
     final groupOrder = const [
       GrammarCategoryGroup.contentWord,
       GrammarCategoryGroup.functionWord,
       GrammarCategoryGroup.symbols,
       GrammarCategoryGroup.structural,
     ];
+    final hiddenCategories = _hiddenCategories;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
@@ -123,7 +260,7 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  widget.title,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -132,14 +269,14 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
                 ),
               ),
               Switch(
-                value: settings.enabled,
+                value: _settings.enabled,
                 activeColor: const Color(0xFF6C63FF),
-                onChanged: onToggleEnabled,
+                onChanged: _handleToggleEnabled,
               ),
             ],
           ),
           Text(
-            'Bản điều khiển grammar highlight dùng chung cho Read, Web và PDF. Bạn có thể dùng chế độ mini để thao tác nhanh hoặc mở advanced để canh sâu hơn.',
+            'Bản điều khiển grammar highlight dùng chung cho Read, Web và PDF. Chế độ mini ưu tiên thao tác nhanh; advanced mở sâu cho preset riêng và palette.',
             style: TextStyle(color: Colors.grey[400], height: 1.4),
           ),
           const SizedBox(height: 14),
@@ -147,46 +284,64 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
             child: ListView(
               children: [
                 _SummaryControlCard(
-                  settings: settings,
-                  activePreset: activePreset,
-                  previousPreset: previousPreset,
-                  visibleCount: visibleCount,
+                  settings: _settings,
+                  activePreset: _activePreset,
+                  previousPreset: _previousPreset,
+                  visibleCount: _settings.visibleCategories.length,
                   hiddenCount: hiddenCategories.length,
-                  onRestorePreviousPreset: onRestorePreviousPreset,
-                  onToggleAdvancedMode: onToggleAdvancedMode,
+                  onRestorePreviousPreset: _handleRestorePreviousPreset,
+                  onToggleAdvancedMode: _handleToggleAdvancedMode,
+                  onSaveCurrentPreset: _handleSaveCurrentPreset,
                 ),
                 const SizedBox(height: 14),
-                _sectionLabel('Preset học tập'),
+                _sectionLabel('Preset gợi ý'),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: presets
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _builtInPresets
                       .map(
-                        (preset) => _ChoiceChipButton(
-                          label: preset.name,
-                          subtitle: preset.description,
-                          selected: activePreset.id == preset.id,
-                          onTap: () => onSelectPreset(preset.id),
+                        (preset) => _PresetCard(
+                          preset: preset,
+                          selected: _activePreset.id == preset.id,
+                          onTap: () => _handleSelectPreset(preset.id),
                         ),
                       )
                       .toList(),
                 ),
-                const SizedBox(height: 14),
+                if (_customPresets.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _sectionLabel('Preset của bạn'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _customPresets
+                        .map(
+                          (preset) => _PresetCard(
+                            preset: preset,
+                            selected: _activePreset.id == preset.id,
+                            onTap: () => _handleSelectPreset(preset.id),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 16),
                 _sectionLabel(
-                  settings.showAdvancedControls
+                  _settings.showAdvancedControls
                       ? 'Preview & cảm nhận'
                       : 'Preview nhanh',
                 ),
                 const SizedBox(height: 8),
-                GrammarStylePreview(settings: settings, palette: palette),
+                GrammarStylePreview(settings: _settings, palette: _palette),
                 const SizedBox(height: 14),
                 _sectionLabel('Legend điều khiển'),
                 const SizedBox(height: 8),
                 GrammarLegendBar(
-                  settings: settings,
-                  palette: palette,
-                  onToggleCategory: onToggleCategory,
+                  settings: _settings,
+                  palette: _palette,
+                  onToggleCategory: _handleToggleCategory,
                 ),
                 SwitchListTile(
                   dense: true,
@@ -196,46 +351,45 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
                     style: TextStyle(color: Colors.white, fontSize: 13),
                   ),
                   subtitle: Text(
-                    settings.showLegend
-                        ? 'Đang bật thanh legend để đổi nhanh category ngay trên màn đọc.'
-                        : 'Tắt để mặt đọc sạch hơn; bạn vẫn điều chỉnh được trong bảng này.',
+                    _settings.showLegend
+                        ? 'Đang bật để đổi nhanh category ngay trên màn đọc.'
+                        : 'Tắt để mặt đọc sạch hơn; phần điều khiển vẫn giữ trong bảng này.',
                     style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
                   ),
-                  value: settings.showLegend,
+                  value: _settings.showLegend,
                   activeThumbColor: const Color(0xFF6C63FF),
-                  onChanged: onToggleLegend,
+                  onChanged: _handleToggleLegend,
                 ),
                 if (hiddenCategories.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   _HiddenCategoriesCard(
                     hiddenCategories: hiddenCategories,
-                    palette: palette,
-                    onShowAllCategories: onShowAllCategories,
-                    onToggleCategory: onToggleCategory,
-                    previousPresetName: previousPreset.name,
+                    palette: _palette,
+                    previousPresetName: _previousPreset.name,
+                    onShowAllCategories: _handleShowAllCategories,
+                    onToggleCategory: _handleToggleCategory,
                   ),
                 ],
-                if (!settings.showAdvancedControls) ...[
+                if (!_settings.showAdvancedControls) ...[
                   const SizedBox(height: 14),
-                  _HintCard(
+                  const _HintCard(
                     title: 'Mini mode đang bật',
                     message:
-                        'Bạn đang thấy các nút cốt lõi trước: preset, legend và phục hồi nhanh. Bật advanced nếu muốn chia nhóm content/function words, đổi palette và style chi tiết hơn.',
+                        'Bạn đang thấy preset, preview, legend và phục hồi nhanh trước. Bật advanced nếu muốn so màu trực quan, chia nhóm content/function words và lưu preset cá nhân.',
                   ),
                 ] else ...[
                   const SizedBox(height: 14),
-                  _sectionLabel('Palette màu'),
+                  _sectionLabel('So sánh palette trực quan'),
                   const SizedBox(height: 8),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: palettes
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: GrammarPalettes.defaults()
                         .map(
-                          (item) => _ChoiceChipButton(
-                            label: item.name,
-                            selected: palette.id == item.id,
-                            compact: true,
-                            onTap: () => onSelectPalette(item.id),
+                          (item) => _PalettePreviewCard(
+                            palette: item,
+                            selected: _palette.id == item.id,
+                            onTap: () => _handleSelectPalette(item.id),
                           ),
                         )
                         .toList(),
@@ -250,9 +404,9 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
                         .map(
                           (style) => _ChoiceChipButton(
                             label: style.labelVi,
-                            selected: settings.highlightStyle == style,
+                            selected: _settings.highlightStyle == style,
                             compact: true,
-                            onTap: () => onSelectStyle(style),
+                            onTap: () => _handleSelectStyle(style),
                           ),
                         )
                         .toList(),
@@ -262,17 +416,15 @@ class GrammarQuickSettingsSheet extends StatelessWidget {
                   const SizedBox(height: 8),
                   ...groupOrder.map((group) {
                     final categories = grammarCategoriesForGroup(group);
-                    if (categories.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
+                    if (categories.isEmpty) return const SizedBox.shrink();
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _GrammarGroupCard(
                         group: group,
                         categories: categories,
-                        settings: settings,
-                        palette: palette,
-                        onToggleCategory: onToggleCategory,
+                        settings: _settings,
+                        palette: _palette,
+                        onToggleCategory: _handleToggleCategory,
                       ),
                     );
                   }),
@@ -303,8 +455,9 @@ class _SummaryControlCard extends StatelessWidget {
   final GrammarHighlightPreset previousPreset;
   final int visibleCount;
   final int hiddenCount;
-  final VoidCallback onRestorePreviousPreset;
-  final ValueChanged<bool> onToggleAdvancedMode;
+  final Future<void> Function() onRestorePreviousPreset;
+  final Future<void> Function(bool value) onToggleAdvancedMode;
+  final Future<void> Function() onSaveCurrentPreset;
 
   const _SummaryControlCard({
     required this.settings,
@@ -314,11 +467,11 @@ class _SummaryControlCard extends StatelessWidget {
     required this.hiddenCount,
     required this.onRestorePreviousPreset,
     required this.onToggleAdvancedMode,
+    required this.onSaveCurrentPreset,
   });
 
   @override
   Widget build(BuildContext context) {
-    final presetName = activePreset.name;
     final subtitle = settings.isCustomPreset
         ? 'Đang chỉnh tay từ preset gần nhất: ${previousPreset.name}'
         : activePreset.description;
@@ -356,7 +509,7 @@ class _SummaryControlCard extends StatelessWidget {
                     Text(
                       settings.isCustomPreset
                           ? 'Preset hiện tại: Tùy chỉnh'
-                          : 'Preset hiện tại: $presetName',
+                          : 'Preset hiện tại: ${activePreset.name}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -391,10 +544,9 @@ class _SummaryControlCard extends StatelessWidget {
                 label: '$hiddenCount nhóm đang ẩn',
               ),
               _InfoPill(
-                icon: settings.showLegend
-                    ? Icons.view_agenda_outlined
-                    : Icons.view_day_outlined,
-                label: settings.showLegend ? 'Legend đang hiện' : 'Legend đang tắt',
+                icon:
+                    settings.showLegend ? Icons.drag_handle : Icons.view_day_rounded,
+                label: settings.showLegend ? 'Legend nổi' : 'Legend tắt',
               ),
             ],
           ),
@@ -441,6 +593,17 @@ class _SummaryControlCard extends StatelessWidget {
                       : Colors.white.withValues(alpha: 0.08),
                 ),
               ),
+              OutlinedButton.icon(
+                onPressed: onSaveCurrentPreset,
+                icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+                label: const Text('Lưu preset riêng'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
               if (settings.isCustomPreset)
                 OutlinedButton.icon(
                   onPressed: onRestorePreviousPreset,
@@ -461,19 +624,230 @@ class _SummaryControlCard extends StatelessWidget {
   }
 }
 
+class _PresetCard extends StatelessWidget {
+  final GrammarHighlightPreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PresetCard({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 168,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF6C63FF).withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    preset.audienceLabel,
+                    style: TextStyle(
+                      color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  preset.isBuiltIn ? Icons.auto_awesome : Icons.person_outline,
+                  size: 15,
+                  color: selected ? const Color(0xFFD4D2FF) : Colors.grey,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              preset.name,
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.white,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              preset.description,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              preset.focusSummary,
+              style: TextStyle(
+                color: selected ? const Color(0xFFB8B5FF) : Colors.grey[500],
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PalettePreviewCard extends StatelessWidget {
+  final GrammarPalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PalettePreviewCard({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sampleCategories = [
+      GrammarCategory.verb,
+      GrammarCategory.adjective,
+      GrammarCategory.noun,
+      GrammarCategory.preposition,
+      GrammarCategory.pronoun,
+    ];
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 170,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF6C63FF).withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    palette.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    palette.isDark ? 'Dark' : 'Light',
+                    style: TextStyle(
+                      color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: sampleCategories.map((category) {
+                final color = palette.styleFor(category).color;
+                return Expanded(
+                  child: Container(
+                    height: 12,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _paletteHint(palette.id),
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _paletteHint(String id) {
+    switch (id) {
+      case 'classic-dark':
+        return 'Màu sâu, nổi rõ trên nền tối.';
+      case 'classic-light':
+        return 'Sáng, dễ so màu khi đọc nền trắng.';
+      case 'noun-verb-focus':
+        return 'Cực rõ noun/verb để luyện cấu trúc cốt lõi.';
+      default:
+        return 'So sánh trực quan các nhóm màu chính.';
+    }
+  }
+}
+
 class _HiddenCategoriesCard extends StatelessWidget {
   final List<GrammarCategory> hiddenCategories;
   final GrammarPalette palette;
-  final VoidCallback onShowAllCategories;
-  final ValueChanged<GrammarCategory> onToggleCategory;
   final String previousPresetName;
+  final Future<void> Function() onShowAllCategories;
+  final Future<void> Function(GrammarCategory category) onToggleCategory;
 
   const _HiddenCategoriesCard({
     required this.hiddenCategories,
     required this.palette,
+    required this.previousPresetName,
     required this.onShowAllCategories,
     required this.onToggleCategory,
-    required this.previousPresetName,
   });
 
   @override
@@ -510,10 +884,6 @@ class _HiddenCategoriesCard extends StatelessWidget {
                   side: BorderSide(
                     color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
                 ),
               ),
               for (final category in hiddenCategories.take(6))
@@ -545,7 +915,7 @@ class _GrammarGroupCard extends StatelessWidget {
   final List<GrammarCategory> categories;
   final GrammarHighlightSettings settings;
   final GrammarPalette palette;
-  final ValueChanged<GrammarCategory> onToggleCategory;
+  final Future<void> Function(GrammarCategory category) onToggleCategory;
 
   const _GrammarGroupCard({
     required this.group,
@@ -775,4 +1145,103 @@ class _ChoiceChipButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PresetDraft {
+  final String name;
+  final String description;
+
+  const _PresetDraft({required this.name, required this.description});
+}
+
+Future<_PresetDraft?> _showSavePresetDialog(
+  BuildContext context,
+  String suggestedName,
+) async {
+  final nameCtrl = TextEditingController(
+    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
+  );
+  final descCtrl = TextEditingController();
+
+  final shouldSave = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF151B26),
+        title: const Text('Lưu preset cá nhân'),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: _dialogInputDecoration(
+                  label: 'Tên preset',
+                  hint: 'Ví dụ: Verb focus riêng',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                maxLines: 3,
+                style: const TextStyle(color: Colors.white),
+                decoration: _dialogInputDecoration(
+                  label: 'Mô tả ngắn',
+                  hint: 'Ghi chú cách dùng của preset này',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(dialogContext, true);
+            },
+            child: const Text('Lưu preset'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldSave != true) return null;
+  return _PresetDraft(
+    name: nameCtrl.text.trim(),
+    description: descCtrl.text.trim(),
+  );
+}
+
+InputDecoration _dialogInputDecoration({
+  required String label,
+  required String hint,
+}) {
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    labelStyle: const TextStyle(color: Colors.white70),
+    hintStyle: const TextStyle(color: Colors.grey),
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.04),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFF6C63FF)),
+    ),
+  );
 }

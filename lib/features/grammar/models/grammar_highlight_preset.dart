@@ -7,6 +7,9 @@ class GrammarHighlightPreset {
   final Set<GrammarCategory> visibleCategories;
   final bool showLegend;
   final bool emphasizeContentWords;
+  final String audienceLabel;
+  final String focusSummary;
+  final bool isBuiltIn;
 
   const GrammarHighlightPreset({
     required this.id,
@@ -15,6 +18,9 @@ class GrammarHighlightPreset {
     required this.visibleCategories,
     this.showLegend = true,
     this.emphasizeContentWords = false,
+    this.audienceLabel = 'Cá nhân',
+    this.focusSummary = '',
+    this.isBuiltIn = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -24,21 +30,29 @@ class GrammarHighlightPreset {
         'visibleCategories': visibleCategories.map((value) => value.name).toList(),
         'showLegend': showLegend,
         'emphasizeContentWords': emphasizeContentWords,
+        'audienceLabel': audienceLabel,
+        'focusSummary': focusSummary,
+        'isBuiltIn': isBuiltIn,
       };
 
   factory GrammarHighlightPreset.fromJson(Map<String, dynamic> json) {
+    final rawVisible = json['visibleCategories'];
+    final visible = (rawVisible is List ? rawVisible : const <dynamic>[])
+        .map((item) => GrammarCategory.values.firstWhere(
+              (value) => value.name == item,
+              orElse: () => GrammarCategory.unknown,
+            ))
+        .toSet();
     return GrammarHighlightPreset(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
-      visibleCategories: ((json['visibleCategories'] as List<dynamic>? ?? const [])
-              .map((item) => GrammarCategory.values.firstWhere(
-                    (value) => value.name == item,
-                    orElse: () => GrammarCategory.unknown,
-                  )))
-          .toSet(),
+      visibleCategories: visible,
       showLegend: json['showLegend'] != false,
       emphasizeContentWords: json['emphasizeContentWords'] == true,
+      audienceLabel: (json['audienceLabel'] ?? 'Cá nhân').toString(),
+      focusSummary: (json['focusSummary'] ?? '').toString(),
+      isBuiltIn: json['isBuiltIn'] == true,
     );
   }
 }
@@ -59,6 +73,9 @@ class GrammarHighlightPresets {
           GrammarCategory.adverb,
         },
         showLegend: true,
+        audienceLabel: 'Học nhanh',
+        focusSummary: 'Noun · Verb · Adj · Adv',
+        isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'content-words',
@@ -74,6 +91,9 @@ class GrammarHighlightPresets {
         },
         showLegend: true,
         emphasizeContentWords: true,
+        audienceLabel: 'Đọc sâu',
+        focusSummary: 'Nhấn nghĩa chính trong câu',
+        isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'function-words',
@@ -89,6 +109,9 @@ class GrammarHighlightPresets {
           GrammarCategory.particle,
         },
         showLegend: true,
+        audienceLabel: 'Ngữ pháp',
+        focusSummary: 'Khung câu · liên kết · trợ từ',
+        isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'verb-focus',
@@ -101,6 +124,9 @@ class GrammarHighlightPresets {
           GrammarCategory.adverb,
         },
         showLegend: true,
+        audienceLabel: 'Verb chain',
+        focusSummary: 'Động từ chính · trợ động · modal',
+        isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'minimal',
@@ -111,6 +137,9 @@ class GrammarHighlightPresets {
           GrammarCategory.verb,
         },
         showLegend: false,
+        audienceLabel: 'Tối giản',
+        focusSummary: 'Chỉ giữ noun + verb',
+        isBuiltIn: true,
       ),
     ];
   }
@@ -127,6 +156,8 @@ class GrammarHighlightPresets {
         description: 'Preset tùy chỉnh — bật/tắt thủ công từng nhóm từ loại.',
         visibleCategories: <GrammarCategory>{},
         showLegend: true,
+        audienceLabel: 'Cá nhân',
+        focusSummary: 'Tùy biến thủ công',
       );
     }
     return presets.first;

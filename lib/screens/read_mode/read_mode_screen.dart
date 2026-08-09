@@ -232,8 +232,10 @@ class _GrammarLegendStrip extends StatelessWidget {
       ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
     final hiddenCount =
         GrammarCategory.values.length - settings.visibleCategories.length;
-    final previousPreset =
-        GrammarHighlightPresets.byId(settings.lastNonCustomPresetId);
+    final previousPreset = textProvider.availableGrammarPresets.firstWhere(
+      (preset) => preset.id == settings.lastNonCustomPresetId,
+      orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
+    );
     final canCollapse = visibleCategories.length > 4;
     final displaySettings = settings.legendCollapsed && canCollapse
         ? settings.copyWith(
@@ -394,6 +396,10 @@ class _GrammarLegendStrip extends StatelessWidget {
               GrammarLegendBar(
                 settings: displaySettings,
                 palette: palette,
+                toolbarStyle: true,
+                compact: settings.legendCollapsed || compact,
+                horizontalScroll: settings.legendCollapsed || compact,
+                showHandle: true,
                 onToggleCategory: (category) =>
                     textProvider.toggleGrammarCategory(category),
               ),

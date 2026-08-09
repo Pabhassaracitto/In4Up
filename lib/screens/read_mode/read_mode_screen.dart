@@ -232,6 +232,8 @@ class _GrammarLegendStrip extends StatelessWidget {
       ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
     final hiddenCount =
         GrammarCategory.values.length - settings.visibleCategories.length;
+    final previousPreset =
+        GrammarHighlightPresets.byId(settings.lastNonCustomPresetId);
     final canCollapse = visibleCategories.length > 4;
     final displaySettings = settings.legendCollapsed && canCollapse
         ? settings.copyWith(
@@ -247,6 +249,19 @@ class _GrammarLegendStrip extends StatelessWidget {
           runSpacing: 8,
           alignment: compact ? WrapAlignment.start : WrapAlignment.end,
           children: [
+            if (settings.isCustomPreset)
+              OutlinedButton.icon(
+                onPressed: textProvider.restorePreviousGrammarPreset,
+                icon: const Icon(Icons.undo_rounded, size: 16),
+                label: Text('Khôi phục ${previousPreset.name}'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             if (hiddenCount > 0)
               OutlinedButton.icon(
                 onPressed: textProvider.showAllGrammarCategories,
@@ -301,7 +316,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            settings.activePresetId == 'custom'
+                            settings.isCustomPreset
                                 ? 'Grammar Highlight · Tùy chỉnh'
                                 : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
                             style: const TextStyle(
@@ -313,7 +328,9 @@ class _GrammarLegendStrip extends StatelessWidget {
                           if (hiddenCount > 0) ...[
                             const SizedBox(height: 4),
                             Text(
-                              'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.',
+                              settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về ${previousPreset.name}.'
+                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.',
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,
@@ -343,7 +360,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            settings.activePresetId == 'custom'
+                            settings.isCustomPreset
                                 ? 'Grammar Highlight · Tùy chỉnh'
                                 : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
                             style: const TextStyle(
@@ -355,7 +372,9 @@ class _GrammarLegendStrip extends StatelessWidget {
                           if (hiddenCount > 0) ...[
                             const SizedBox(height: 4),
                             Text(
-                              'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.',
+                              settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về ${previousPreset.name}.'
+                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.',
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,

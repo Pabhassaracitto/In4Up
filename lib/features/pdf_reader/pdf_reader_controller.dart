@@ -230,6 +230,16 @@ class PdfReaderController extends ChangeNotifier {
     return setGrammarSettings(_grammarSettings.applyPreset(preset));
   }
 
+  Future<void> restorePreviousGrammarPreset() {
+    return setGrammarSettings(_grammarSettings.restorePreviousPreset());
+  }
+
+  Future<void> setGrammarAdvancedControls(bool value) {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(showAdvancedControls: value),
+    );
+  }
+
   Future<void> setGrammarPalette(String paletteId) {
     return setGrammarSettings(_grammarSettings.copyWith(paletteId: paletteId));
   }

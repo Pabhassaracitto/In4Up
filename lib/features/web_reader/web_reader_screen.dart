@@ -480,6 +480,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       activePreset: _controller.activeGrammarPreset,
       onToggleEnabled: (value) => _controller.setGrammarHighlightEnabled(value),
       onSelectPreset: (id) => _controller.applyGrammarPreset(id),
+      onRestorePreviousPreset: () => _controller.restorePreviousGrammarPreset(),
+      onToggleAdvancedMode: (value) => _controller.setGrammarAdvancedControls(value),
       onSelectPalette: (id) => _controller.setGrammarPalette(id),
       onSelectStyle: (style) => _controller.setGrammarHighlightStyle(style),
       onToggleCategory: (category) => _controller.toggleGrammarCategory(category),

@@ -14,6 +14,7 @@ class ReadSettingsSheet {
   ReadSettingsSheet._();
 
   static void show(BuildContext context) {
+    context.read<TextProvider>().refreshGrammarPresetLibrary();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -622,12 +623,24 @@ class _GrammarHighlightSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = tp.grammarSettings;
     final palette = tp.activeGrammarPalette;
-    final presets = GrammarHighlightPresets.defaults();
+    final presets = tp.availableGrammarPresets;
+    final builtInPresets = presets.where((preset) => preset.isBuiltIn).toList();
+    final customPresets = presets.where((preset) => !preset.isBuiltIn).toList();
     final palettes = GrammarPalettes.defaults();
+    final previousPreset = presets.firstWhere(
+      (preset) => preset.id == settings.lastNonCustomPresetId,
+      orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
+    );
     final hiddenCategories = GrammarCategory.values
         .where((category) => !settings.visibleCategories.contains(category))
         .toList()
       ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
+    final groupOrder = const [
+      GrammarCategoryGroup.contentWord,
+      GrammarCategoryGroup.functionWord,
+      GrammarCategoryGroup.symbols,
+      GrammarCategoryGroup.structural,
+    ];
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -654,7 +667,7 @@ class _GrammarHighlightSection extends StatelessWidget {
             ],
           ),
           Text(
-            'Dùng palette/preset mới lấy cảm hứng từ English Syntax Highlighter để làm rõ loại từ và cho phép bật tắt từng nhóm.',
+            'Panel này đã được làm lại theo hướng control panel: preset đẹp hơn, so sánh palette trực quan hơn, có mini/advanced và cho phép lưu preset cá nhân.',
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 12,
@@ -662,6 +675,82 @@ class _GrammarHighlightSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _GrammarControlSummary(
+            settings: settings,
+            activePresetName: tp.activeGrammarPreset.name,
+            previousPresetName: previousPreset.name,
+            visibleCount: settings.visibleCategories.length,
+            hiddenCount: hiddenCategories.length,
+            onRestorePreviousPreset: tp.restorePreviousGrammarPreset,
+            onToggleAdvancedMode: tp.setGrammarAdvancedControls,
+            onSaveCurrentPreset: () async {
+              final draft = await _showReadSavePresetDialog(
+                context,
+                tp.activeGrammarPreset.name,
+              );
+              if (draft == null) return;
+              await tp.saveCurrentGrammarPreset(
+                name: draft.name,
+                description: draft.description,
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Preset gợi ý',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: builtInPresets.map((preset) {
+              final selected = settings.activePresetId == preset.id;
+              return _PresetChoiceCard(
+                preset: preset,
+                selected: selected,
+                onTap: () => tp.applyGrammarPreset(preset.id),
+              );
+            }).toList(),
+          ),
+          if (customPresets.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Preset của bạn',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: customPresets.map((preset) {
+                final selected = settings.activePresetId == preset.id;
+                return _PresetChoiceCard(
+                  preset: preset,
+                  selected: selected,
+                  onTap: () => tp.applyGrammarPreset(preset.id),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text(
+            settings.showAdvancedControls ? 'Preview & legend' : 'Preview nhanh',
+            style: TextStyle(
+              color: Colors.grey[300],
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
           GrammarStylePreview(
             settings: settings,
             palette: palette,
@@ -674,155 +763,400 @@ class _GrammarHighlightSection extends StatelessWidget {
           ),
           if (hiddenCategories.isNotEmpty) ...[
             const SizedBox(height: 10),
+            _ReadSettingsHiddenGrammarCard(
+              hiddenCategories: hiddenCategories,
+              palette: palette,
+              previousPresetName: previousPreset.name,
+              onShowAllCategories: tp.showAllGrammarCategories,
+              onToggleCategory: tp.toggleGrammarCategory,
+            ),
+          ],
+          const SizedBox(height: 10),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Hiện legend mini trong vùng đọc',
+              style: TextStyle(color: Colors.white, fontSize: 13),
+            ),
+            subtitle: Text(
+              settings.showLegend
+                  ? 'Đang bật để bạn lọc category trực tiếp trên màn đọc.'
+                  : 'Tắt để vùng đọc sạch hơn; phần điều khiển vẫn nằm ở đây.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
+            ),
+            value: settings.showLegend,
+            activeThumbColor: const Color(0xFF6C63FF),
+            onChanged: (value) => tp.setGrammarLegendVisible(value),
+          ),
+          if (settings.showAdvancedControls) ...[
+            const SizedBox(height: 14),
+            Text(
+              'So sánh palette trực quan',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: palettes.map((item) {
+                final selected = settings.paletteId == item.id;
+                return _PaletteChoiceCard(
+                  palette: item,
+                  selected: selected,
+                  onTap: () => tp.setGrammarPalette(item.id),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Kiểu tô màu',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: GrammarHighlightStyle.values.map((style) {
+                final selected = settings.highlightStyle == style;
+                return _ChoiceChipButton(
+                  label: style.labelVi,
+                  selected: selected,
+                  compact: true,
+                  onTap: () => tp.setGrammarHighlightStyle(style),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Nhóm từ loại',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...groupOrder.map((group) {
+              final categories = grammarCategoriesForGroup(group);
+              if (categories.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ReadSettingsGrammarGroupCard(
+                  group: group,
+                  categories: categories,
+                  settings: settings,
+                  palette: palette,
+                  onToggleCategory: tp.toggleGrammarCategory,
+                ),
+              );
+            }),
+          ] else ...[
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.03),
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.22),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị xoá — bạn có thể bật lại từng nhóm ở danh sách bên dưới hoặc khôi phục nhanh tất cả.',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 11.5,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: tp.showAllGrammarCategories,
-                        icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                        label: const Text('Bật lại tất cả'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFB8B5FF),
-                          side: BorderSide(
-                            color: const Color(0xFF6C63FF)
-                                .withValues(alpha: 0.35),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                      ),
-                      for (final category in hiddenCategories.take(5))
-                        ActionChip(
-                          backgroundColor: Colors.white.withValues(alpha: 0.04),
-                          side: BorderSide(
-                            color: palette
-                                .styleFor(category)
-                                .color
-                                .withValues(alpha: 0.28),
-                          ),
-                          label: Text(
-                            '+ ${category.labelVi}',
-                            style: TextStyle(
-                              color: palette.styleFor(category).color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          onPressed: () => tp.toggleGrammarCategory(category),
-                        ),
-                    ],
-                  ),
-                ],
+              child: const Text(
+                'Mini mode đang ưu tiên thao tác cốt lõi: chọn preset, xem preview, bật tắt legend, lưu preset riêng và khôi phục nhanh. Bật advanced để chia category theo content / function / symbols và so màu trực quan hơn.',
+                style: TextStyle(
+                  color: Color(0xFFB8B5FF),
+                  height: 1.45,
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
-          const SizedBox(height: 14),
+        ],
+      ),
+    );
+  }
+}
+
+class _GrammarControlSummary extends StatelessWidget {
+  final GrammarHighlightSettings settings;
+  final String activePresetName;
+  final String previousPresetName;
+  final int visibleCount;
+  final int hiddenCount;
+  final Future<void> Function() onRestorePreviousPreset;
+  final Future<void> Function(bool value) onToggleAdvancedMode;
+  final Future<void> Function() onSaveCurrentPreset;
+
+  const _GrammarControlSummary({
+    required this.settings,
+    required this.activePresetName,
+    required this.previousPresetName,
+    required this.visibleCount,
+    required this.hiddenCount,
+    required this.onRestorePreviousPreset,
+    required this.onToggleAdvancedMode,
+    required this.onSaveCurrentPreset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'Preset học tập',
-            style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 12,
+            settings.isCustomPreset
+                ? 'Đang dùng preset: Tùy chỉnh'
+                : 'Đang dùng preset: $activePresetName',
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: presets.map((preset) {
-              final selected = settings.activePresetId == preset.id;
-              return _ChoiceChipButton(
-                label: preset.name,
-                subtitle: preset.description,
-                selected: selected,
-                onTap: () => tp.applyGrammarPreset(preset.id),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 4),
           Text(
-            'Palette màu',
+            settings.isCustomPreset
+                ? 'Bạn đang chỉnh tay từ preset gần nhất: $previousPresetName'
+                : 'Có thể chuyển sang tùy chỉnh nếu cần ẩn/hiện thủ công từng nhóm từ loại.',
             style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              color: Colors.grey[400],
+              fontSize: 11.5,
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: palettes.map((item) {
-              final selected = settings.paletteId == item.id;
-              return _ChoiceChipButton(
-                label: item.name,
-                selected: selected,
-                compact: true,
-                onTap: () => tp.setGrammarPalette(item.id),
-              );
-            }).toList(),
+            children: [
+              _TinyStatChip(label: '$visibleCount bật'),
+              _TinyStatChip(label: '$hiddenCount ẩn'),
+              _TinyStatChip(
+                label: settings.showLegend ? 'Legend nổi' : 'Legend tắt',
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Mini'),
+                selected: !settings.showAdvancedControls,
+                onSelected: (_) => onToggleAdvancedMode(false),
+                selectedColor:
+                    const Color(0xFF6C63FF).withValues(alpha: 0.20),
+                backgroundColor: Colors.white.withValues(alpha: 0.04),
+                labelStyle: TextStyle(
+                  color: !settings.showAdvancedControls
+                      ? const Color(0xFFB8B5FF)
+                      : Colors.white70,
+                  fontWeight: FontWeight.w700,
+                ),
+                side: BorderSide(
+                  color: !settings.showAdvancedControls
+                      ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                      : Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              ChoiceChip(
+                label: const Text('Advanced'),
+                selected: settings.showAdvancedControls,
+                onSelected: (_) => onToggleAdvancedMode(true),
+                selectedColor:
+                    const Color(0xFF6C63FF).withValues(alpha: 0.20),
+                backgroundColor: Colors.white.withValues(alpha: 0.04),
+                labelStyle: TextStyle(
+                  color: settings.showAdvancedControls
+                      ? const Color(0xFFB8B5FF)
+                      : Colors.white70,
+                  fontWeight: FontWeight.w700,
+                ),
+                side: BorderSide(
+                  color: settings.showAdvancedControls
+                      ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                      : Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: onSaveCurrentPreset,
+                icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+                label: const Text('Lưu preset riêng'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
+              if (settings.isCustomPreset)
+                OutlinedButton.icon(
+                  onPressed: onRestorePreviousPreset,
+                  icon: const Icon(Icons.undo_rounded, size: 16),
+                  label: Text('Khôi phục $previousPresetName'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB8B5FF),
+                    side: BorderSide(
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadSettingsHiddenGrammarCard extends StatelessWidget {
+  final List<GrammarCategory> hiddenCategories;
+  final GrammarPalette palette;
+  final String previousPresetName;
+  final Future<void> Function() onShowAllCategories;
+  final Future<void> Function(GrammarCategory category) onToggleCategory;
+
+  const _ReadSettingsHiddenGrammarCard({
+    required this.hiddenCategories,
+    required this.palette,
+    required this.previousPresetName,
+    required this.onShowAllCategories,
+    required this.onToggleCategory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'Kiểu tô màu',
+            'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị xoá — bạn có thể bật lại từng nhóm, bật hết, hoặc quay về preset $previousPresetName.',
             style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              color: Colors.grey[400],
+              fontSize: 11.5,
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: GrammarHighlightStyle.values.map((style) {
-              final selected = settings.highlightStyle == style;
-              return _ChoiceChipButton(
-                label: style.labelVi,
-                selected: selected,
-                compact: true,
-                onTap: () => tp.setGrammarHighlightStyle(style),
-              );
-            }).toList(),
+            children: [
+              OutlinedButton.icon(
+                onPressed: onShowAllCategories,
+                icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                label: const Text('Bật lại tất cả'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
+              for (final category in hiddenCategories.take(6))
+                ActionChip(
+                  backgroundColor: Colors.white.withValues(alpha: 0.04),
+                  side: BorderSide(
+                    color: palette.styleFor(category).color.withValues(alpha: 0.28),
+                  ),
+                  label: Text(
+                    '+ ${category.labelVi}',
+                    style: TextStyle(
+                      color: palette.styleFor(category).color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onPressed: () => onToggleCategory(category),
+                ),
+            ],
           ),
-          const SizedBox(height: 14),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadSettingsGrammarGroupCard extends StatelessWidget {
+  final GrammarCategoryGroup group;
+  final List<GrammarCategory> categories;
+  final GrammarHighlightSettings settings;
+  final GrammarPalette palette;
+  final Future<void> Function(GrammarCategory category) onToggleCategory;
+
+  const _ReadSettingsGrammarGroupCard({
+    required this.group,
+    required this.categories,
+    required this.settings,
+    required this.palette,
+    required this.onToggleCategory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(group.icon, size: 16, color: const Color(0xFFB8B5FF)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  group.labelVi,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           Text(
-            'Bật/tắt từng nhóm từ loại',
+            group.helperVi,
             style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              color: Colors.grey[500],
+              fontSize: 11.5,
+              height: 1.35,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: GrammarCategory.values.map((category) {
+            children: categories.map((category) {
               final selected = settings.visibleCategories.contains(category);
               final style = palette.styleFor(category);
               return FilterChip(
@@ -834,6 +1168,14 @@ class _GrammarHighlightSection extends StatelessWidget {
                       ? style.color.withValues(alpha: 0.45)
                       : Colors.white.withValues(alpha: 0.08),
                 ),
+                avatar: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: selected ? style.color : Colors.grey,
+                    shape: BoxShape.circle,
+                  ),
+                ),
                 label: Text(
                   category.labelVi,
                   style: TextStyle(
@@ -842,23 +1184,247 @@ class _GrammarHighlightSection extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                onSelected: (_) => tp.toggleGrammarCategory(category),
+                onSelected: (_) => onToggleCategory(category),
               );
             }).toList(),
           ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Hiện legend mini trong phần cài đặt',
-              style: TextStyle(color: Colors.white, fontSize: 13),
-            ),
-            value: settings.showLegend,
-            activeThumbColor: const Color(0xFF6C63FF),
-            onChanged: (value) => tp.setGrammarLegendVisible(value),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _PresetChoiceCard extends StatelessWidget {
+  final GrammarHighlightPreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PresetChoiceCard({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 168,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF6C63FF).withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    preset.audienceLabel,
+                    style: TextStyle(
+                      color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  preset.isBuiltIn ? Icons.auto_awesome : Icons.person_outline,
+                  size: 15,
+                  color: selected ? const Color(0xFFD4D2FF) : Colors.grey,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              preset.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              preset.description,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              preset.focusSummary,
+              style: TextStyle(
+                color: selected ? const Color(0xFFB8B5FF) : Colors.grey[500],
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaletteChoiceCard extends StatelessWidget {
+  final GrammarPalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PaletteChoiceCard({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sampleCategories = [
+      GrammarCategory.verb,
+      GrammarCategory.adjective,
+      GrammarCategory.noun,
+      GrammarCategory.preposition,
+      GrammarCategory.pronoun,
+    ];
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 170,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF6C63FF).withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    palette.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    palette.isDark ? 'Dark' : 'Light',
+                    style: TextStyle(
+                      color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: sampleCategories.map((category) {
+                final color = palette.styleFor(category).color;
+                return Expanded(
+                  child: Container(
+                    height: 12,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _paletteHint(palette.id),
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _paletteHint(String id) {
+    switch (id) {
+      case 'classic-dark':
+        return 'Màu sâu, nổi rõ trên nền tối.';
+      case 'classic-light':
+        return 'Sáng, dễ so màu khi đọc nền trắng.';
+      case 'noun-verb-focus':
+        return 'Rất rõ noun/verb để luyện cấu trúc cốt lõi.';
+      default:
+        return 'So sánh trực quan các nhóm màu chính.';
+    }
+  }
+}
+
+class _TinyStatChip extends StatelessWidget {
+  final String label;
+
+  const _TinyStatChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -932,7 +1498,107 @@ class _ChoiceChipButton extends StatelessWidget {
   }
 }
 
+class _ReadPresetDraft {
+  final String name;
+  final String description;
+
+  const _ReadPresetDraft({required this.name, required this.description});
+}
+
+Future<_ReadPresetDraft?> _showReadSavePresetDialog(
+  BuildContext context,
+  String suggestedName,
+) async {
+  final nameCtrl = TextEditingController(
+    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
+  );
+  final descCtrl = TextEditingController();
+
+  final shouldSave = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF151B26),
+        title: const Text('Lưu preset cá nhân'),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: _readDialogInputDecoration(
+                  label: 'Tên preset',
+                  hint: 'Ví dụ: Verb focus riêng',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                maxLines: 3,
+                style: const TextStyle(color: Colors.white),
+                decoration: _readDialogInputDecoration(
+                  label: 'Mô tả ngắn',
+                  hint: 'Ghi chú cách dùng của preset này',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(dialogContext, true);
+            },
+            child: const Text('Lưu preset'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldSave != true) return null;
+  return _ReadPresetDraft(
+    name: nameCtrl.text.trim(),
+    description: descCtrl.text.trim(),
+  );
+}
+
+InputDecoration _readDialogInputDecoration({
+  required String label,
+  required String hint,
+}) {
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    labelStyle: const TextStyle(color: Colors.white70),
+    hintStyle: const TextStyle(color: Colors.grey),
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.04),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFF6C63FF)),
+    ),
+  );
+}
+
 class _DisplayOptions extends StatelessWidget {
+
   final TextProvider tp;
   const _DisplayOptions({required this.tp});
 

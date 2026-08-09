@@ -10,6 +10,7 @@ import '../../features/grammar/models/grammar_highlight_preset.dart';
 import '../../features/grammar/models/grammar_highlight_settings.dart';
 import '../../features/grammar/models/grammar_highlight_style.dart';
 import '../../features/grammar/models/grammar_palette.dart';
+import '../../features/grammar/services/grammar_preset_library_service.dart';
 import '../../features/grammar/services/grammar_settings_service.dart';
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
@@ -144,15 +145,19 @@ class WebReaderController extends ChangeNotifier {
   ColorMode _colorMode = ColorMode.none;
   GrammarHighlightSettings _grammarSettings =
       GrammarHighlightSettings.defaults();
+  List<GrammarHighlightPreset> _availableGrammarPresets =
+      GrammarHighlightPresets.defaults();
   int _highlightVersion = 0;
   ColorMode get colorMode => _colorMode;
   bool get isHighlightActive => _colorMode != ColorMode.none;
   int get highlightVersion => _highlightVersion;
   GrammarHighlightSettings get grammarSettings => _grammarSettings;
+  List<GrammarHighlightPreset> get availableGrammarPresets =>
+      List.unmodifiable(_availableGrammarPresets);
   GrammarPalette get activeGrammarPalette =>
       GrammarPalettes.byId(_grammarSettings.paletteId);
   GrammarHighlightPreset get activeGrammarPreset =>
-      GrammarHighlightPresets.byId(_grammarSettings.activePresetId);
+      _findGrammarPresetById(_grammarSettings.activePresetId);
 
   // ─── Word tap ────────────────────────────────────────────
   AnalyzedWord? _tappedWord;
@@ -270,6 +275,7 @@ class WebReaderController extends ChangeNotifier {
     _loadArticleNotes();
     _loadBatchDrafts();
     _loadLastOpenedUrl();
+    _loadGrammarPresetLibrary();
     _loadGrammarSettings();
   }
 
@@ -332,6 +338,33 @@ class WebReaderController extends ChangeNotifier {
 
   // ─── Color Mode ──────────────────────────────────────────
 
+  GrammarHighlightPreset _findGrammarPresetById(String? presetId) {
+    for (final preset in _availableGrammarPresets) {
+      if (preset.id == presetId) return preset;
+    }
+    return GrammarHighlightPresets.byId(presetId);
+  }
+
+  Future<void> _loadGrammarPresetLibrary() async {
+    try {
+      _availableGrammarPresets = await GrammarPresetLibraryService.loadAllPresets();
+      _highlightVersion++;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('WebReaderController: _loadGrammarPresetLibrary error: $e');
+    }
+  }
+
+  Future<void> _refreshGrammarPresetLibrary() async {
+    _availableGrammarPresets = await GrammarPresetLibraryService.loadAllPresets();
+    _highlightVersion++;
+    notifyListeners();
+  }
+
+  Future<void> refreshGrammarPresetLibrary() {
+    return _refreshGrammarPresetLibrary();
+  }
+
   Future<void> _loadGrammarSettings() async {
     try {
       _grammarSettings = await GrammarSettingsService.load();
@@ -362,8 +395,33 @@ class WebReaderController extends ChangeNotifier {
   }
 
   Future<void> applyGrammarPreset(String presetId) {
-    final preset = GrammarHighlightPresets.byId(presetId);
+    final preset = _findGrammarPresetById(presetId);
     return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<void> restorePreviousGrammarPreset() {
+    final preset = _findGrammarPresetById(_grammarSettings.lastNonCustomPresetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<GrammarHighlightPreset> saveCurrentGrammarPreset({
+    required String name,
+    String description = '',
+  }) async {
+    final saved = await GrammarPresetLibraryService.savePreset(
+      name: name,
+      description: description,
+      settings: _grammarSettings,
+    );
+    await _refreshGrammarPresetLibrary();
+    await setGrammarSettings(_grammarSettings.applyPreset(saved));
+    return saved;
+  }
+
+  Future<void> setGrammarAdvancedControls(bool value) {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(showAdvancedControls: value),
+    );
   }
 
   Future<void> setGrammarPalette(String paletteId) {

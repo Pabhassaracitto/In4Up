@@ -27,6 +27,47 @@ enum GrammarCategory {
   unknown,
 }
 
+extension GrammarCategoryGroupInfo on GrammarCategoryGroup {
+  String get labelVi {
+    switch (this) {
+      case GrammarCategoryGroup.contentWord:
+        return 'Content words';
+      case GrammarCategoryGroup.functionWord:
+        return 'Function words';
+      case GrammarCategoryGroup.symbols:
+        return 'Symbols';
+      case GrammarCategoryGroup.structural:
+        return 'Khác';
+    }
+  }
+
+  String get helperVi {
+    switch (this) {
+      case GrammarCategoryGroup.contentWord:
+        return 'Các từ mang nghĩa chính như noun, verb, adjective, adverb.';
+      case GrammarCategoryGroup.functionWord:
+        return 'Các từ làm khung ngữ pháp như pronoun, determiner, preposition...';
+      case GrammarCategoryGroup.symbols:
+        return 'Dấu câu và ký hiệu giúp chia nhịp câu.';
+      case GrammarCategoryGroup.structural:
+        return 'Nhóm dự phòng cho các mục chưa phân loại rõ.';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case GrammarCategoryGroup.contentWord:
+        return Icons.auto_stories_outlined;
+      case GrammarCategoryGroup.functionWord:
+        return Icons.account_tree_outlined;
+      case GrammarCategoryGroup.symbols:
+        return Icons.more_horiz_rounded;
+      case GrammarCategoryGroup.structural:
+        return Icons.help_outline_rounded;
+    }
+  }
+}
+
 extension GrammarCategoryInfo on GrammarCategory {
   String get labelVi {
     switch (this) {
@@ -226,6 +267,16 @@ extension GrammarCategoryInfo on GrammarCategory {
         return 8;
     }
   }
+}
+
+List<GrammarCategory> grammarCategoriesForGroup(GrammarCategoryGroup group) {
+  final categories = GrammarCategory.values
+      .where((category) => category.group == group)
+      .toList();
+  categories.sort(
+    (a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex),
+  );
+  return categories;
 }
 
 GrammarCategory grammarCategoryFromLegacyWordType(WordType type) {

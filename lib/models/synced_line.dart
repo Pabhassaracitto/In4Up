@@ -43,7 +43,9 @@ class SyncedLine {
       final seconds = int.parse(match.group(2)!);
       final millisStr = match.group(3) ?? '0';
       final millis = millisStr.isNotEmpty ? int.parse(millisStr.padRight(3, '0')) : 0;
-      final text = match.group(4)?.trim() ?? '';
+      // Bỏ inline word timestamps `<mm:ss.cs>` để không lộ ra text hiển thị.
+      var text = (match.group(4) ?? '').trim();
+      text = text.replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2,3}>'), '').trim();
 
       if (text.isEmpty) return null;
 

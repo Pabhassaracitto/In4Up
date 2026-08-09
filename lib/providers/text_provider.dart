@@ -624,7 +624,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
       final seconds = int.tryParse(match.group(2) ?? '') ?? 0;
       final fraction = match.group(3) ?? '00';
-      final text = (match.group(4) ?? '').trim();
+      // Bỏ inline word timestamps `<mm:ss.cs>` để không lộ ra chữ hiển thị.
+      var text = (match.group(4) ?? '').trim();
+      text = text.replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2,3}>'), '').trim();
       if (text.isEmpty) continue;
 
       final ms =

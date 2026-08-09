@@ -94,39 +94,9 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (!await file.exists()) return [];
 
       final content = await file.readAsString();
-      final lines = <LrcLine>[];
-
-      for (final rawLine in content.split('\n')) {
-        final trimmed = rawLine.trim();
-        if (trimmed.isEmpty) continue;
-
-        final match = RegExp(
-          r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$',
-        ).firstMatch(trimmed);
-
-        if (match != null) {
-          final minutes = int.parse(match.group(1)!);
-          final seconds = int.parse(match.group(2)!);
-          final centisStr = match.group(3)!;
-          final millis = centisStr.length == 2
-              ? int.parse(centisStr) * 10
-              : int.parse(centisStr);
-
-          final timestamp = Duration(
-            minutes: minutes,
-            seconds: seconds,
-            milliseconds: millis,
-          );
-          final text = match.group(4)?.trim() ?? '';
-
-          if (text.isNotEmpty) {
-            lines.add(
-              LrcLine(timestamp: timestamp, text: text),
-            );
-          }
-        }
-      }
-
+      // Dùng SttLrcConverter để tách đúng: bỏ inline `<mm:ss.cs>` khỏi text
+      // hiển thị và lưu vào words cho karaoke (tránh lộ timestamps ra chữ).
+      final lines = await SttLrcConverter().parseLrcContent(content);
       debugPrint('📄 Parsed ${lines.length} LRC lines from $lrcPath');
       return lines;
     } catch (e) {

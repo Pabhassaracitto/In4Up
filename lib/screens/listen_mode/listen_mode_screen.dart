@@ -217,43 +217,29 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       final viewportHeight = position.viewportDimension;
       if (viewportHeight <= 0) return;
 
-      // Lấy chiều cao trung bình thực tế từ context nếu có, fallback 52
-      // Để tránh nhảy lệch, dùng estimated nhưng có buffer
       const estimatedLineHeight = 52.0;
-
       final targetOffset = index * estimatedLineHeight;
-      // Muốn dòng active nằm ở 1/3 trên của viewport (dễ nhìn hơn là giữa)
       final desiredCenter = viewportHeight * 0.35;
-      final centerOffset = targetOffset - desiredCenter + (estimatedLineHeight / 2);
+      final centerOffset =
+          targetOffset - desiredCenter + (estimatedLineHeight / 2);
 
-      // Clamp trong phạm vi scroll
       if (position.maxScrollExtent <= 0) return;
       final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
 
-      // Kiểm tra nếu đã trong vùng nhìn với lề rộng hơn (tránh giật)
       const visibleBuffer = 48.0;
       final inView = targetOffset >= position.pixels - visibleBuffer &&
           targetOffset <=
-              position.pixels + viewportHeight - estimatedLineHeight - visibleBuffer;
+              position.pixels +
+                  viewportHeight -
+                  estimatedLineHeight -
+                  visibleBuffer;
 
       if (inView && (position.pixels - clamped).abs() < 32) {
-        // Đã ở gần vị trí mong muốn, không cần scroll lại
         return;
       }
 
-      // Tránh animate khi đang animate khác
-      if (position.activity is! HoldScrollActivity &&
-          position.activity is! ScrollHoldActivity) {
-        // Nếu đang có animation scroll, bỏ qua để tránh giật
-        // Chỉ animate khi không có animation active hoặc cách xa
-        if ((position.pixels - clamped).abs() > 24) {
-          _lrcScrollController.animateTo(
-            clamped,
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      } else {
+      // Chỉ animate khi cách xa đủ lớn để tránh giật liên tục
+      if ((position.pixels - clamped).abs() > 24) {
         _lrcScrollController.animateTo(
           clamped,
           duration: const Duration(milliseconds: 320),

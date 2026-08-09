@@ -21,6 +21,10 @@ import 'package:in2up_stt/models/stt_model_info.dart';
 import 'package:in2up_stt/stt_service_facade.dart';
 
 import 'core/responsive/app_responsive.dart';
+import 'data/repositories/interfaces/canon_repository.dart';
+import 'data/repositories/interfaces/text_library_repository.dart';
+import 'data/repositories/interfaces/vocab_repository.dart';
+import 'data/repositories/repository_providers.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
@@ -97,6 +101,12 @@ Future<void> main() async {
     await Hive.openBox<String>('vocab_sync_pending');
   }
 
+  // Log cấu hình Repository (để debug flag USE_SUPABASE)
+  logRepositoryConfig();
+
+  // Pre-warm Canon repository (assets .md + FTS) ở background — không block runApp
+  unawaited(_prewarmCanonInBackground());
+
   // ★ runApp ngay - không block
   runApp(
     DevicePreview(
@@ -124,6 +134,16 @@ void _bootstrapSttInBackground() {
   WhisperService().initNativeContext().catchError((e) {
     debugPrint('⚠️ STT background init error: $e');
   });
+}
+
+Future<void> _prewarmCanonInBackground() async {
+  try {
+    final repo = createCanonRepository();
+    await repo.init();
+    debugPrint('📚 Canon pre-warm done: ${repo.count} entries');
+  } catch (e) {
+    debugPrint('⚠️ Canon pre-warm error: $e');
+  }
 }
 
 Future<FirebaseApp?> _initializeFirebaseSafely() async {
@@ -282,6 +302,22 @@ class _MyAppState extends State<MyApp> {
             facade.initializeAsync();
             return facade;
           },
+        ),
+
+        // ── Repository Layer (Data) — Offline-First, đổi backend bằng flag ──
+        // Vocab & TextLibrary đang là Firebase+Hive (mặc định), Canon là Assets+FTS
+        // Để test Supabase: flutter run --dart-define=USE_SUPABASE_VOCAB=true
+        Provider<VocabRepository>(
+          create: (_) => createVocabRepository(),
+          dispose: (_, repo) => repo.dispose(),
+        ),
+        Provider<TextLibraryRepository>(
+          create: (_) => createTextLibraryRepository(),
+          dispose: (_, repo) => repo.dispose(),
+        ),
+        Provider<CanonRepository>(
+          create: (_) => createCanonRepository(),
+          dispose: (_, repo) => repo.dispose(),
         ),
       ],
       child: Consumer<LocaleProvider>(

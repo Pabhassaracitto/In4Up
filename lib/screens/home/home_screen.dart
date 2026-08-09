@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:in2up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
+import '../../features/canon/widgets/canon_home_card.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 import '../settings/stt_model_settings_screen.dart';
@@ -84,6 +85,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           sliver: const SliverToBoxAdapter(
                             child: HebbianInputCard(),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: CanonHomeCard(),
                           ),
                         ),
                         SliverPadding(

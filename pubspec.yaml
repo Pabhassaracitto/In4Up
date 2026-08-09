@@ -110,3 +110,4 @@ flutter:
     - assets/dictionary/ 
     - assets/icons/   
     - assets/whisper_models/
+    - assets/canon/

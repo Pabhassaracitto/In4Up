@@ -30,6 +30,7 @@ import 'package:whisper_flutter_new/whisper_flutter_new.dart';
 
 import 'models/content_id.dart';
 import 'models/stt_isolate_payload.dart';
+import 'models/stt_config.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 import 'utils/audio_converter.dart';
@@ -623,6 +624,7 @@ class SttEngineWhisper {
     required String audioFingerprint,
     int chunkDurationSeconds = 30,
     int maxChunks = 0,
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     void Function(int chunkIndex, int chunkCount, SttResult partial)? onChunkDone,
     bool Function()? shouldCancel,
   }) async {
@@ -681,6 +683,7 @@ class SttEngineWhisper {
           audioFingerprint: audioFingerprint,
           language: language,
           processingTime: Duration.zero,
+          grouping: grouping,
         );
 
         // Cộng offset thời gian của chunk vào segment/word.
@@ -755,6 +758,7 @@ class SttEngineWhisper {
     required String audioFingerprint,
     required String language,
     required Duration processingTime,
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) {
     try {
       if (output == null) {
@@ -786,10 +790,11 @@ class SttEngineWhisper {
         return SttResult.empty(SttEngineType.whisper);
       }
 
-      // Bước 2: gom từ thành đoạn theo khoảng lặng (>0.7s) và cuối câu.
+      // Bước 2: gom từ thành đoạn theo câu hoặc cụm (grouping).
       final segments = _groupWordsIntoSegments(
         words,
         audioFingerprint: audioFingerprint,
+        grouping: grouping,
       );
 
       return SttResult(
@@ -809,15 +814,15 @@ class SttEngineWhisper {
     }
   }
 
-  /// Gom danh sách word thành các SttSegment (đoạn/câu).
+  /// Gom danh sách word thành các SttSegment (câu hoặc cụm).
   ///
-  /// Quy tắc tách đoạn (giữ giống code cũ trong vipsound_stt):
-  ///  - khoảng lặng giữa 2 từ > 0.7s → cắt;
-  ///  - hết list → cắt.
-  /// Mỗi segment giữ nguyên danh sách `words` để hỗ trợ karaoke.
+  ///  - sentence: cắt khi gặp cuối câu (dấu `. ! ? …`) — dòng dài, ít dòng.
+  ///  - phrase  : cắt theo khoảng lặng >0.7s — dòng ngắn, nhiều dòng.
+  /// Cả hai đều cắt ở cuối list. Mỗi segment giữ `words` để hỗ trợ karaoke.
   static List<SttSegment> _groupWordsIntoSegments(
     List<SttWord> words, {
     required String audioFingerprint,
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) {
     final segments = <SttSegment>[];
     List<SttWord> current = [];
@@ -827,8 +832,13 @@ class SttEngineWhisper {
 
       var breakHere = false;
       if (i < words.length - 1) {
-        final gap = words[i + 1].startSeconds - words[i].endSeconds;
-        if (gap > 0.7) breakHere = true;
+        if (grouping == SttSegmentGrouping.phrase) {
+          final gap = words[i + 1].startSeconds - words[i].endSeconds;
+          if (gap > 0.7) breakHere = true;
+        } else {
+          // sentence: tách khi từ hiện tại kết thúc bằng dấu câu.
+          if (_endsSentence(words[i].word)) breakHere = true;
+        }
       }
       if (i == words.length - 1) breakHere = true;
 
@@ -853,6 +863,12 @@ class SttEngineWhisper {
     }
 
     return segments;
+  }
+
+  /// Kiểm tra một từ có kết thúc bằng dấu câu (kết thúc câu) hay không.
+  static bool _endsSentence(String word) {
+    if (word.isEmpty) return false;
+    return RegExp(r'[.!?…]$').hasMatch(word.trim());
   }
 
   static bool _isNoise(String text) {

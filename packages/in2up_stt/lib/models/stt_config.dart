@@ -33,6 +33,11 @@ class SttConfig {
   /// (bảo vệ file cực dài, tránh chờ quá lâu). 0 = không giới hạn.
   final int maxChunks;
 
+  /// Cách gom từ thành dòng LRC:
+  ///  - sentence: tách theo câu (dấu câu .!?...) — dòng dài, ít dòng.
+  ///  - phrase  : tách theo cụm/ngắt giọng (khoảng lặng) — dòng ngắn hơn.
+  final SttSegmentGrouping grouping;
+
   const SttConfig({
     this.preferredEngine = SttEngineType.native,
     this.language = 'en-US',
@@ -44,6 +49,7 @@ class SttConfig {
     this.enableChunking = true,
     this.chunkDurationSeconds = 30,
     this.maxChunks = 0,
+    this.grouping = SttSegmentGrouping.sentence,
   });
 
   /// Config nhanh cho "ghi chú tức thì" - dùng Native
@@ -80,6 +86,7 @@ class SttConfig {
     bool? enableChunking,
     int? chunkDurationSeconds,
     int? maxChunks,
+    SttSegmentGrouping? grouping,
   }) {
     return SttConfig(
       preferredEngine: preferredEngine ?? this.preferredEngine,
@@ -91,6 +98,13 @@ class SttConfig {
       enableChunking: enableChunking ?? this.enableChunking,
       chunkDurationSeconds: chunkDurationSeconds ?? this.chunkDurationSeconds,
       maxChunks: maxChunks ?? this.maxChunks,
+      grouping: grouping ?? this.grouping,
     );
   }
+}
+
+/// Cách gom từ thành dòng LRC (issue: chia theo câu hay theo cụm).
+enum SttSegmentGrouping {
+  sentence,
+  phrase,
 }

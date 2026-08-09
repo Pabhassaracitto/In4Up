@@ -137,6 +137,7 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) async {
     final path = currentSongPath;
     if (path == null) {
@@ -147,6 +148,10 @@ mixin PlayerSttMixin on ChangeNotifier {
 
     _isGeneratingLrc = true;
     _lastSttError = null;
+
+    // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
+    //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").
+    understandProvider?.clear();
     notifyListeners();
 
     try {
@@ -176,6 +181,7 @@ mixin PlayerSttMixin on ChangeNotifier {
             path,
             language: 'en',
             generateLrc: true,
+            grouping: grouping,
           );
         } else {
           output = await stt.transcribeFile(
@@ -185,6 +191,7 @@ mixin PlayerSttMixin on ChangeNotifier {
               whisperModel: level,
               language: 'en',
               generateLrc: true,
+              grouping: grouping,
             ),
             generateLrc: true,
           );
@@ -221,6 +228,20 @@ mixin PlayerSttMixin on ChangeNotifier {
       _isGeneratingLrc = false;
       notifyListeners();
     }
+  }
+
+  /// Dừng tạo LRC đang chạy (chunk transcribe). Đặt lại trạng thái để
+  /// người dùng không bị "kẹt" ở màn hình đang xử lý.
+  Future<void> cancelLrcGeneration() async {
+    debugPrint('⏹️ cancelLrcGeneration() — hủy transcribe');
+    try {
+      _sttService.cancelTranscription();
+    } catch (e) {
+      debugPrint('⚠️ cancelLrcGeneration error: $e');
+    }
+    // Reset trạng thái đang xử lý — để nút khả dụng lại ngay.
+    _isGeneratingLrc = false;
+    notifyListeners();
   }
 
   Future<String> transcribeForShadowing(String audioPath) async {

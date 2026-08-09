@@ -160,6 +160,9 @@ class SttServiceFacade extends ChangeNotifier {
   SttConfig _config = const SttConfig();
   Future<void>? _initFuture;
 
+  // Cờ hủy: người dùng có thể dừng transcribe giữa chừng (giữa các chunk).
+  bool _cancelRequested = false;
+
   final _progressSubject =
       BehaviorSubject<SttProgress>.seeded(SttProgress.idle);
 
@@ -172,6 +175,23 @@ class SttServiceFacade extends ChangeNotifier {
     SttResult.empty(SttEngineType.whisper),
   );
   Stream<SttResult> get partialResultStream => _partialSubject.stream;
+
+  /// Yêu cầu hủy transcribe đang chạy (dừng giữa các chunk, giữ kết quả
+  /// đã hoàn thành). Cờ được reset khi bắt đầu transcribe mới.
+  void cancelTranscription() {
+    _cancelRequested = true;
+    debugPrint('⏹️ SttServiceFacade: cancelTranscription() được gọi');
+  }
+
+  /// Đặt lại trạng thái cho lần transcribe mới: bỏ cờ hủy + làm rỗng
+  /// partial (tránh giữ nội dung bài cũ).
+  void resetForNewTranscription() {
+    _cancelRequested = false;
+    if (!_disposed) {
+      _partialSubject.add(SttResult.empty(SttEngineType.whisper));
+    }
+    debugPrint('🔄 SttServiceFacade: resetForNewTranscription()');
+  }
 
   // Cache key: "${audioPath}_${engine}_${modelLevel}_${language}"
   final _resultCache = <String, SttResult>{};
@@ -249,6 +269,9 @@ class SttServiceFacade extends ChangeNotifier {
     String audioFingerprint = '',
   }) async {
     _ensureInitialized();
+
+    // Reset cờ hủy + partial từ lần trước khi bắt đầu lần mới.
+    resetForNewTranscription();
 
     final cfg = config ?? _config;
     final shouldGenerateLrc = generateLrc || cfg.generateLrc;
@@ -382,6 +405,7 @@ class SttServiceFacade extends ChangeNotifier {
     String? lrcOutputPath,
     bool generateLrc = true,
     String audioFingerprint = '',
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) async {
     _ensureInitialized();
 
@@ -410,6 +434,7 @@ class SttServiceFacade extends ChangeNotifier {
         whisperModel: localLevel,
         language: language,
         generateLrc: generateLrc,
+        grouping: grouping,
       ),
       lrcOutputPath: lrcOutputPath,
       generateLrc: generateLrc,
@@ -486,6 +511,7 @@ class SttServiceFacade extends ChangeNotifier {
           audioFingerprint: fingerprint,
           chunkDurationSeconds: config.chunkDurationSeconds,
           maxChunks: config.maxChunks,
+          grouping: config.grouping,
           onChunkDone: (chunk, count, partial) {
             _emitProgress(
               SttFacadeStatus.processingWhisper,
@@ -497,7 +523,7 @@ class SttServiceFacade extends ChangeNotifier {
             );
             if (!_disposed) _partialSubject.add(partial);
           },
-          shouldCancel: () => _disposed,
+          shouldCancel: () => _disposed || _cancelRequested,
         );
       } finally {
         // Dọn file tạm của converter (đường mobile không qua isolate).

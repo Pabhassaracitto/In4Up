@@ -313,6 +313,9 @@ class PlayerProvider extends ChangeNotifier
     if (_currentSongPath != null &&
         _normalizePath(_currentSongPath!) != _normalizePath(normalizedPath)) {
       _understandProvider?.clear();
+      // Hủy transcribe/LRC đang chạy của bài cũ để không "kẹt" hay ghi
+      // kết quả bài cũ vào bài mới.
+      cancelLrcGeneration();
       debugPrint('🧹 Cleared UnderstandProvider for new song: $normalizedPath');
     }
 

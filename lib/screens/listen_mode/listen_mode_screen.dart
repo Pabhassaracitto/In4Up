@@ -12,11 +12,14 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in2up_stt/models/stt_config.dart';
 import 'package:in2up_stt/models/stt_model_info.dart';
 import 'package:in2up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up/screens/understand_mode/understand_provider.dart';
+import 'package:in2up/providers/karaoke_settings_provider.dart';
 import 'package:in2up/widgets/karaoke_lyrics_line.dart';
+import 'package:in2up/widgets/karaoke_settings_sheet.dart';
 import 'package:in2up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
@@ -60,6 +63,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // LRC ScrollController for sophisticated LRC display
   late ScrollController _lrcScrollController;
   bool _autoScroll = true;
+
+  /// Khi người dùng đang tự kéo danh sách → tạm tắt auto-scroll để không
+  /// giật ngược vị trí (issue: kéo thủ công không được).
+  bool _userScrollingLrc = false;
 
   bool _sheetOpen = false;
   bool _listenersSetup = false;
@@ -197,15 +204,24 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   void _scrollToLine(int index) {
     if (!_lrcScrollController.hasClients || index < 0) return;
 
-    const double estimatedLineHeight = 52.0; // Average height of a line item
+    // Chỉ scroll khi dòng hiện tại nằm ngoài vùng nhìn, tránh giật liên tục.
+    final position = _lrcScrollController.position;
+    final viewportHeight = position.viewportDimension;
+    final estimatedLineHeight = 56.0;
 
     final targetOffset = index * estimatedLineHeight;
-    final viewportHeight = _lrcScrollController.position.viewportDimension;
     final centerOffset =
         targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
+    final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
+
+    // Nếu dòng đã ở trong vùng nhìn (với một chút lề) thì không cần scroll.
+    final tolerance = 8.0;
+    final inView = targetOffset >= position.pixels - tolerance &&
+        targetOffset <= position.pixels + viewportHeight - tolerance;
+    if (inView) return;
 
     _lrcScrollController.animateTo(
-      centerOffset.clamp(0.0, _lrcScrollController.position.maxScrollExtent),
+      clamped,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
@@ -303,11 +319,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       setState(() {
         _showLrcOnMain = true;
       });
+    } else if (!hasLrcLines && _showLrcOnMain) {
+      // Đã đổi bài / clear → ẩn panel lyrics cũ đi, tránh giữ chữ bài cũ.
+      setState(() {
+        _showLrcOnMain = false;
+      });
     }
 
     // Auto-scroll to current line (from UnderstandModeScreen logic)
     final idx = understand.currentLineIndex;
-    if (idx >= 0 && _autoScroll && hasLrcLines) {
+    // Chỉ auto-scroll khi user KHÔNG đang tự kéo danh sách.
+    if (idx >= 0 && _autoScroll && !_userScrollingLrc && hasLrcLines) {
       _scrollToLine(idx);
     }
   }
@@ -560,18 +582,42 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.close,
-                                            color: Colors.grey),
-                                        onPressed: () => setState(
-                                            () => _showLrcOnMain = false),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.tune,
+                                                color: Colors.grey, size: 20),
+                                            tooltip: 'Tuỳ chỉnh karaoke',
+                                            onPressed: () =>
+                                                KaraokeSettingsSheet.show(
+                                                    context),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.close,
+                                                color: Colors.grey),
+                                            onPressed: () => setState(
+                                                () => _showLrcOnMain = false),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
                                 // Sophisticated LRC ListView (from UnderstandModeScreen)
                                 Expanded(
-                                  child: ListView.builder(
+                                  child: NotificationListener<ScrollNotification>(
+                                    onNotification: (n) {
+                                      // Người dùng bắt đầu tự kéo → tạm tắt auto-scroll;
+                                      // ngừng kéo một lúc → bật lại.
+                                      if (n is ScrollStartNotification) {
+                                        _userScrollingLrc = true;
+                                      } else if (n is ScrollEndNotification) {
+                                        _userScrollingLrc = false;
+                                      }
+                                      return false;
+                                    },
+                                    child: ListView.builder(
                                     controller: _lrcScrollController,
                                     itemCount: understand!.lrcLines.length,
                                     itemBuilder: (context, index) {
@@ -600,18 +646,23 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                           ),
-                                          child: KaraokeLyricsLine(
-                                            line: line,
-                                            isActive: isActive,
-                                            words: understand!
-                                                .wordsForLine(index),
-                                            activeWordIndex: isActive
-                                                ? understand.currentWordIndex
-                                                : -1,
+                                          child: Consumer<KaraokeSettingsProvider>(
+                                            builder: (_, karaoke, __) =>
+                                                KaraokeLyricsLine(
+                                              line: line,
+                                              isActive: isActive,
+                                              words: understand!
+                                                  .wordsForLine(index),
+                                              activeWordIndex: isActive
+                                                  ? understand.currentWordIndex
+                                                  : -1,
+                                              style: karaoke.style,
+                                            ),
                                           ),
                                         ),
                                       );
                                     },
+                                  ),
                                   ),
                                 ),
                               ],
@@ -1843,8 +1894,11 @@ class GenerateLrcButton extends StatelessWidget {
                 const SizedBox(height: 8),
                 _LrcModelSelector(
                   isProcessing: isActive || provider.isGeneratingLrc,
-                  onGenerate: (level) =>
-                      provider.generateLrcForCurrentAudio(level: level),
+                  onGenerate: (level, grouping) =>
+                      provider.generateLrcForCurrentAudio(
+                    level: level,
+                    grouping: grouping,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -1870,7 +1924,8 @@ class GenerateLrcButton extends StatelessWidget {
 
 class _LrcModelSelector extends StatefulWidget {
   final bool isProcessing;
-  final Future<SttTranscribeOutput?> Function(WhisperModelLevel?) onGenerate;
+  final Future<SttTranscribeOutput?> Function(
+      WhisperModelLevel?, SttSegmentGrouping) onGenerate;
 
   const _LrcModelSelector(
       {required this.isProcessing, required this.onGenerate});
@@ -1881,6 +1936,7 @@ class _LrcModelSelector extends StatefulWidget {
 
 class _LrcModelSelectorState extends State<_LrcModelSelector> {
   WhisperModelLevel? _selectedLevel;
+  SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
 
   @override
   Widget build(BuildContext context) {
@@ -1912,23 +1968,62 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
           }),
         ]),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: widget.isProcessing
-              ? null
-              : () => widget.onGenerate(_selectedLevel),
-          icon: widget.isProcessing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.subtitles_outlined),
-          label: Text(
-              widget.isProcessing ? 'Đang xử lý...' : 'Tạo lời thoại (LRC)'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        if (!widget.isProcessing)
+          SegmentedButton<SttSegmentGrouping>(
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+            ),
+            segments: const [
+              ButtonSegment(
+                value: SttSegmentGrouping.sentence,
+                label: Text('Theo câu',
+                    style: TextStyle(fontSize: 12)),
+              ),
+              ButtonSegment(
+                value: SttSegmentGrouping.phrase,
+                label: Text('Theo cụm',
+                    style: TextStyle(fontSize: 12)),
+              ),
+            ],
+            selected: {_grouping},
+            onSelectionChanged: (s) =>
+                setState(() => _grouping = s.first),
           ),
-        ),
+        const SizedBox(height: 12),
+        if (widget.isProcessing)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              const Text('Đang xử lý...'),
+              const SizedBox(width: 12),
+              TextButton.icon(
+                onPressed: () =>
+                    context.read<PlayerProvider>().cancelLrcGeneration(),
+                icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                label: const Text('Hủy'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                ),
+              ),
+            ],
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: () => widget.onGenerate(_selectedLevel, _grouping),
+            icon: const Icon(Icons.subtitles_outlined),
+            label: const Text('Tạo lời thoại (LRC)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
       ]),
     );
   }

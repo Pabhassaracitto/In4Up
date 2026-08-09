@@ -14,7 +14,9 @@ import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
+import '../../providers/karaoke_settings_provider.dart';
 import '../../widgets/karaoke_lyrics_line.dart';
+import '../../widgets/karaoke_settings_sheet.dart';
 import '../../widgets/lrc_editor_panel.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
@@ -51,6 +53,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   // Auto-scroll to current line
   bool _autoScroll = true;
 
+  /// Người dùng đang tự kéo danh sách lyrics → tạm tắt auto-scroll.
+  bool _userScrollingLrc = false;
+
   @override
   void initState() {
     super.initState();
@@ -69,8 +74,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         understandProvider.updatePosition(_playerProvider!.state.position);
 
         final idx = understandProvider.currentLineIndex;
-        // ★ FIX: Gọi _scrollToLine với đúng index
-        if (idx >= 0 && _autoScroll) {
+        // ★ FIX: Gọi _scrollToLine với đúng index (chỉ khi user không tự kéo)
+        if (idx >= 0 && _autoScroll && !_userScrollingLrc) {
           _scrollToLine(idx);
         }
       };
@@ -164,17 +169,26 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   // NEW: Auto-scroll to active line
   void _scrollToLine(int index) {
-    if (!_textScrollController.hasClients || index < 0) return;
+    if (!_lrcScrollController.hasClients || index < 0) return;
 
-    const double estimatedLineHeight = 52.0; // Average height of a line item
+    const double estimatedLineHeight = 56.0; // Average height of a line item
+
+    final position = _lrcScrollController.position;
+    final viewportHeight = position.viewportDimension;
 
     final targetOffset = index * estimatedLineHeight;
-    final viewportHeight = _textScrollController.position.viewportDimension;
     final centerOffset =
         targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
+    final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
 
-    _textScrollController.animateTo(
-      centerOffset.clamp(0.0, _textScrollController.position.maxScrollExtent),
+    // Chỉ scroll khi dòng nằm ngoài vùng nhìn → tránh giật liên tục.
+    final tolerance = 8.0;
+    final inView = targetOffset >= position.pixels - tolerance &&
+        targetOffset <= position.pixels + viewportHeight - tolerance;
+    if (inView) return;
+
+    _lrcScrollController.animateTo(
+      clamped,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
@@ -413,7 +427,16 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     );
                   }
 
-                  return ListView.builder(
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      if (n is ScrollStartNotification) {
+                        _userScrollingLrc = true;
+                      } else if (n is ScrollEndNotification) {
+                        _userScrollingLrc = false;
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
                     controller: _lrcScrollController,
                     itemCount: provider!.lrcLines.length,
                     itemBuilder: (context, index) {
@@ -436,29 +459,44 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: KaraokeLyricsLine(
-                            line: line,
-                            isActive: isActive,
-                            words: provider!.wordsForLine(index),
-                            activeWordIndex: isActive
-                                ? provider.currentWordIndex
-                                : -1,
+                          child: Consumer<KaraokeSettingsProvider>(
+                            builder: (_, karaoke, __) => KaraokeLyricsLine(
+                              line: line,
+                              isActive: isActive,
+                              words: provider!.wordsForLine(index),
+                              activeWordIndex: isActive
+                                  ? provider.currentWordIndex
+                                  : -1,
+                              style: karaoke.style,
+                            ),
                           ),
                         ),
                       );
                     },
+                  ),
                   );
                 },
               ),
               Positioned(
                 top: 8,
                 right: 8,
-                child: AutoScrollButton(
-                  isActive: _autoScroll,
-                  onToggle: () {
-                    setState(() => _autoScroll = !_autoScroll);
-                    // _scrollToLine will be called automatically by UnderstandProvider listener
-                  },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.tune,
+                          color: Colors.grey, size: 20),
+                      tooltip: 'Tuỳ chỉnh karaoke',
+                      onPressed: () => KaraokeSettingsSheet.show(context),
+                    ),
+                    AutoScrollButton(
+                      isActive: _autoScroll,
+                      onToggle: () {
+                        setState(() => _autoScroll = !_autoScroll);
+                        // _scrollToLine will be called automatically by UnderstandProvider listener
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -24,6 +24,7 @@ import 'core/responsive/app_responsive.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
+import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/text_provider.dart';
@@ -240,6 +241,9 @@ class _MyAppState extends State<MyApp> {
         ),
         ChangeNotifierProvider(create: (_) => ShadowingProvider()),
         ChangeNotifierProvider(create: (_) => FocusProvider()),
+        ChangeNotifierProvider(
+            create: (_) => KaraokeSettingsProvider()..load()),
+
 
         // Nếu đây là singleton/global controller thì dùng .value an toàn hơn
         ChangeNotifierProvider<MemoryController>.value(

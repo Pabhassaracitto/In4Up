@@ -8,6 +8,7 @@ export 'stt_engine.dart';
 export 'stt_engine_registry.dart';
 export 'stt_engine_whisper_strategy.dart';
 export 'stt_engine_native_strategy.dart';
+export 'stt_engine_sherpa.dart';
 export 'stt_lrc_converter.dart';
 export 'stt_service_facade.dart';
 export 'diarization/speaker_annotation.dart';

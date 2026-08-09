@@ -19,6 +19,9 @@ dependencies:
   ffmpeg_kit_flutter_new: ^4.1.0
   #ffmpeg_kit_flutter: ^6.0.3 #change from 2.2.0  
 
+  # Engine 3: Sherpa-ONNX (next-gen Kaldi, streaming, TTS/VAD) — spike
+  sherpa_onnx: ^1.13.4
+
   # Storage & networking
   path_provider: ^2.1.4
   dio: ^5.4.0

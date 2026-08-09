@@ -8,6 +8,7 @@ import 'models/stt_result.dart';
 import 'stt_engine.dart';
 import 'stt_engine_native.dart';
 import 'stt_engine_native_strategy.dart';
+import 'stt_engine_sherpa.dart';
 import 'stt_engine_whisper_strategy.dart';
 
 /// Factory đăng ký một loại engine.
@@ -20,8 +21,12 @@ class SttEngineRegistry {
   static final Map<SttEngineType, SttEngineFactory> _factories = {
     SttEngineType.native: _nativeFactory,
     SttEngineType.whisper: _whisperFactory,
-    // Sherpa sẽ được đăng ký khi tích hợp (branch spike).
+    // Sherpa — spike PoC. Khi chạy thử có thể tắt bằng cách đăng ký lại
+    // hoặc bỏ dòng này để không build sherpa vào APK.
+    SttEngineType.sherpa: _sherpaFactory,
   };
+
+  static SttEngine _sherpaFactory() => SherpaSttEngine();
 
   /// Whisper cần modelDir — set từ ngoài sau khi SttModelManager khởi tạo.
   static String? whisperModelDir;

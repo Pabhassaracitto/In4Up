@@ -104,12 +104,20 @@ endif()
 if(EXISTS "${_GEN_REGISTRANT}")
   file(READ "${_GEN_REGISTRANT}" _REG_CONTENT)
   set(_REG_NEEDS_PATCH FALSE)
-  if(_REG_CONTENT MATCHES "ffmpeg_kit_flutter_new")
+  if(_REG_CONTENT MATCHES "ffmpeg_kit_flutter_new" OR _REG_CONTENT MATCHES "FFmpegKitFlutterPlugin")
     set(_REG_NEEDS_PATCH TRUE)
     message(STATUS "[in2up][patch] Removing ffmpeg includes from registrant.cc")
+    # Remove #include lines for all variants
     string(REGEX REPLACE "#include <ffmpeg_kit_flutter_new[^>]*>\n" "" _REG_CONTENT "${_REG_CONTENT}")
     string(REGEX REPLACE "#include <ffmpeg_kit_flutter_new_full[^>]*>\n" "" _REG_CONTENT "${_REG_CONTENT}")
-    string(REGEX REPLACE "  FFmpegKitFlutterPluginRegisterWithRegistrar[^\n]*\n" "" _REG_CONTENT "${_REG_CONTENT}")
+    # Remove registration block that spans 2 lines:
+    #   FFmpegKitFlutterPluginRegisterWithRegistrar(
+    #       registry->GetRegistrarForPlugin("FFmpegKitFlutterPlugin"));
+    # Use [^;]*; to span across newlines until semicolon
+    string(REGEX REPLACE "[ \t]*FFmpegKitFlutterPluginRegisterWithRegistrar\\([^;]*;[\r\n]*" "" _REG_CONTENT "${_REG_CONTENT}")
+    # Fallback: remove any leftover line that still contains FFmpegKitFlutterPlugin (orphaned second line from previous buggy patch)
+    string(REGEX REPLACE ".*FFmpegKitFlutterPlugin.*\n" "" _REG_CONTENT "${_REG_CONTENT}")
+    string(REGEX REPLACE ".*GetRegistrarForPlugin\\(\"FFmpegKitFlutterPlugin.*\n" "" _REG_CONTENT "${_REG_CONTENT}")
   endif()
   # Also silence webview_windows /await deprecation warning by ensuring
   # we don't inject extra flags here; the fix for /await is in plugin's CMakeLists patch below.

@@ -337,3 +337,4 @@ project/
 android/local.properties
 .guide
 docs/
+.agent_arena/

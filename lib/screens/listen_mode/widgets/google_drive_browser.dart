@@ -1,7 +1,3 @@
-//
-// Widget duyệt và phát âm thanh từ Google Drive
-// Tích hợp vào AudioLibraryDrawer (tab Drive)
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -36,7 +32,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
   void initState() {
     super.initState();
     _driveService.addListener(_onServiceUpdate);
-    // Nếu đã đăng nhập → load ngay
     if (_driveService.isSignedIn) {
       _loadItems();
     }
@@ -81,7 +76,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     }
   }
 
-  // ── Phát file từ Drive ──────────────────────────────
   Future<void> _playFile(DriveItem item) async {
     if (item.isFolder) {
       _driveService.enterFolder(item);
@@ -92,7 +86,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     HapticFeedback.mediumImpact();
     final player = context.read<PlayerProvider>();
 
-    // Hiện dialog: Stream hoặc Download
     final choice = await _showPlayDialog(item);
     if (choice == null) return;
 
@@ -115,7 +108,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle
             Container(
               width: 36,
               height: 4,
@@ -125,14 +117,12 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
               ),
             ),
             const SizedBox(height: 16),
-
-            // File info
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Color(0xFF4CAF50).withValues(alpha: 0.15),
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.audio_file,
@@ -160,8 +150,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
               ],
             ),
             const SizedBox(height: 24),
-
-            // Options
             _PlayOption(
               icon: Icons.stream,
               title: 'Stream trực tiếp',
@@ -191,11 +179,10 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
       return;
     }
 
-    // Tạo URL có auth token embed (just_audio hỗ trợ custom headers)
-    // Cách đơn giản: dùng URL với Bearer token
     final token = info.headers['Authorization'] ?? '';
-    final urlWithToken =
-        '${info.url}&access_token=${token.replaceFirst('Bearer ', '')}';
+    final urlWithToken = info.url.contains('?')
+        ? '${info.url}&access_token=${token.replaceFirst('Bearer ', '')}'
+        : '${info.url}?access_token=${token.replaceFirst('Bearer ', '')}';
 
     await player.loadSong(
       path: urlWithToken,
@@ -205,7 +192,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     );
 
     if (context.mounted) {
-      Navigator.pop(context); // Đóng drawer
+      Navigator.pop(context);
       _showSnack('🎵 Đang stream: ${item.name}');
     }
   }
@@ -223,6 +210,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
       },
     );
 
+    if (!mounted) return;
     setState(() => _downloadingId = null);
 
     if (path == null) {
@@ -244,6 +232,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
   }
 
   void _showSnack(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       behavior: SnackBarBehavior.floating,
@@ -253,14 +242,10 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     ));
   }
 
-  // ═══════════════════════════════════════════════════
-  //  BUILD
-  // ═══════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Chưa đăng nhập
     if (!_driveService.isSignedIn) {
       return _buildSignInScreen();
     }
@@ -283,7 +268,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     );
   }
 
-  // ── Sign In Screen ────────────────────────────────────
   Widget _buildSignInScreen() {
     return Center(
       child: Padding(
@@ -291,7 +275,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Google Drive icon
             Container(
               width: 80,
               height: 80,
@@ -318,7 +301,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-
             if (_driveService.isLoading)
               const CircularProgressIndicator(color: Color(0xFF4285F4))
             else ...[
@@ -345,7 +327,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                 ),
               ],
             ],
-
             const SizedBox(height: 20),
             Text(
               'Chỉ đọc file — không chỉnh sửa hay xóa',
@@ -357,7 +338,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     );
   }
 
-  // ── Search Bar ────────────────────────────────────────
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -404,7 +384,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     );
   }
 
-  // ── Breadcrumb ────────────────────────────────────────
   Widget _buildBreadcrumb() {
     final breadcrumb = _driveService.breadcrumb;
     if (breadcrumb.length <= 1) return const SizedBox.shrink();
@@ -448,7 +427,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     );
   }
 
-  // ── File List ─────────────────────────────────────────
   Widget _buildFileList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
@@ -494,7 +472,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     );
   }
 
-  // ── Bottom Bar ────────────────────────────────────────
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -504,7 +481,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
       ),
       child: Row(
         children: [
-          // Avatar + name
           CircleAvatar(
             radius: 14,
             backgroundColor: const Color(0xFF4285F4),
@@ -524,19 +500,22 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // Refresh
           IconButton(
             icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
             onPressed: _loadItems,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
-          // Sign out
           IconButton(
             icon: const Icon(Icons.logout, size: 16, color: Colors.grey),
             onPressed: () async {
               await _driveService.signOut();
-              setState(() => _items = []);
+              if (mounted) {
+                setState(() {
+                  _items = [];
+                  _searchCtrl.clear();
+                });
+              }
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -547,7 +526,6 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
   }
 }
 
-// ─── Tile mỗi file/thư mục ───────────────────────────────
 class _DriveItemTile extends StatelessWidget {
   final DriveItem item;
   final bool isDownloading;
@@ -588,7 +566,7 @@ class _DriveItemTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isDownloading
-                ? Color(0xFF6C63FF).withValues(alpha: 0.4)
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.4)
                 : Colors.white.withValues(alpha: 0.07),
           ),
         ),
@@ -596,7 +574,6 @@ class _DriveItemTile extends StatelessWidget {
           children: [
             Row(
               children: [
-                // Icon
                 Container(
                   width: 36,
                   height: 36,
@@ -607,8 +584,6 @@ class _DriveItemTile extends StatelessWidget {
                   child: Icon(_icon, color: _iconColor, size: 18),
                 ),
                 const SizedBox(width: 12),
-
-                // Name + info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,8 +616,6 @@ class _DriveItemTile extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // Arrow for folder / play for file
                 Icon(
                   item.isFolder
                       ? Icons.chevron_right
@@ -652,8 +625,6 @@ class _DriveItemTile extends StatelessWidget {
                 ),
               ],
             ),
-
-            // Download progress bar
             if (isDownloading) ...[
               const SizedBox(height: 8),
               ClipRRect(
@@ -698,7 +669,6 @@ class _Badge extends StatelessWidget {
   }
 }
 
-// ─── Google Sign-In button ───────────────────────────────
 class _GoogleSignInButton extends StatelessWidget {
   final VoidCallback onTap;
   const _GoogleSignInButton({required this.onTap});
@@ -722,7 +692,6 @@ class _GoogleSignInButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Google G logo
             Container(
               width: 20,
               height: 20,
@@ -753,7 +722,6 @@ class _GoogleSignInButton extends StatelessWidget {
   }
 }
 
-// ─── Play option button ───────────────────────────────────
 class _PlayOption extends StatelessWidget {
   final IconData icon;
   final String title;

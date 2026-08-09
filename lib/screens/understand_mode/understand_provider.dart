@@ -5,8 +5,6 @@ import 'package:in2up_stt/stt_lrc_converter.dart';
 import 'models/understand_line.dart';
 import 'services/understand_service.dart';
 
-export 'package:in2up_stt/stt_lrc_converter.dart' show LrcWord, LrcLine;
-
 class UnderstandProvider extends ChangeNotifier {
   List<UnderstandLine> _understandLines = [];
   int _currentUnderstandLineIndex = -1;

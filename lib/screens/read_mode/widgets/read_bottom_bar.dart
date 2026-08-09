@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/translation/translation_display_mode.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
@@ -56,12 +57,20 @@ class ReadBottomBar extends StatelessWidget {
                     onTap: () => tp.setFontSize(tp.fontSize + 2),
                   ),
 
-                  // Translation toggle
+                  // Translation toggle — fix: explicit set stackedBelow/hidden
                   _BarAction(
                     icon: Icons.translate,
                     isActive: tp.showTranslation,
                     activeThumbColor: const Color(0xFF4CAF50),
-                    onTap: () => tp.toggleTranslation(),
+                    onTap: () {
+                      if (tp.showTranslation) {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.hidden);
+                      } else {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.stackedBelow);
+                      }
+                    },
                   ),
 
                   // TTS current line

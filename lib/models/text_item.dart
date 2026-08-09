@@ -21,19 +21,30 @@ class TextItem {
     this.isHighlighted = false,
   });
 
+  static const _unset = Object();
+
   TextItem copyWith({
     String? id,
     String? content,
-    String? translation,
+    Object? translation = _unset,
     Duration? startTime,
     Duration? endTime,
     List<WordItem>? words,
     bool? isHighlighted,
+    bool clearTranslation = false,
   }) {
+    String? newTranslation;
+    if (clearTranslation) {
+      newTranslation = null;
+    } else if (translation == _unset) {
+      newTranslation = this.translation;
+    } else {
+      newTranslation = translation as String?;
+    }
     return TextItem(
       id: id ?? this.id,
       content: content ?? this.content,
-      translation: translation ?? this.translation,
+      translation: newTranslation,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       words: words ?? this.words,

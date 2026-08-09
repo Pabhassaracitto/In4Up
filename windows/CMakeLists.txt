@@ -63,12 +63,99 @@ endfunction()
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+# === PATCH: Workaround for broken Windows plugins ===
+# Issue: ffmpeg_kit_flutter_new v4.2.1 fails with C1083
+#   Cannot open include file: 'include/ffmpeg_kit_flutter_new_full/f_fmpeg_kit_flutter_plugin.h'
+# Root cause: old CMake unpacked prebuilt archive into pub-cache symlink (fails on Windows)
+#   Fixed in 4.6.2 (commit c83a702) by unpacking into CMAKE_CURRENT_BINARY_DIR.
+# Our Dart code already guards ffmpeg_kit to Android/iOS only (AudioConverter._useFFmpegKit),
+# so on Windows we can safely REMOVE the plugin from the build. Desktop uses Process.run('ffmpeg').
+#
+# This patch runs at CMake configure time, before runner and plugins are added:
+#  - Removes ffmpeg_kit_flutter_new (+ variants) from generated_plugins.cmake
+#  - Removes its #include and RegisterWithRegistrar from generated_plugin_registrant.cc
+# If flutter pub get regenerates those files, patch re-applies on next build.
+# Also patches webview_windows's deprecated /await flag to /await:strict to silence D9047.
+
+set(_GEN_PLUGINS "${CMAKE_CURRENT_SOURCE_DIR}/flutter/generated_plugins.cmake")
+set(_GEN_REGISTRANT "${CMAKE_CURRENT_SOURCE_DIR}/flutter/generated_plugin_registrant.cc")
+set(_GEN_REGISTRANT_H "${CMAKE_CURRENT_SOURCE_DIR}/flutter/generated_plugin_registrant.h")
+
+# --- Patch generated_plugins.cmake ---
+if(EXISTS "${_GEN_PLUGINS}")
+  file(READ "${_GEN_PLUGINS}" _PLUGINS_CONTENT)
+  set(_NEEDS_PATCH FALSE)
+  if(_PLUGINS_CONTENT MATCHES "ffmpeg_kit_flutter_new")
+    set(_NEEDS_PATCH TRUE)
+    message(STATUS "[in2up][patch] Removing ffmpeg_kit_flutter_new from Windows plugin list")
+    # Handle all known variants
+    foreach(_VARIANT ffmpeg_kit_flutter_new ffmpeg_kit_flutter_new_full ffmpeg_kit_flutter_new_min ffmpeg_kit_flutter_new_min_gpl ffmpeg_kit_flutter_new_https ffmpeg_kit_flutter_new_https_gpl ffmpeg_kit_flutter_new_audio ffmpeg_kit_flutter_new_video ffmpeg_kit_flutter_new_full_gpl)
+      string(REPLACE "  ${_VARIANT}\n" "" _PLUGINS_CONTENT "${_PLUGINS_CONTENT}")
+      string(REPLACE "  ${_VARIANT}\r\n" "" _PLUGINS_CONTENT "${_PLUGINS_CONTENT}")
+    endforeach()
+  endif()
+  if(_NEEDS_PATCH)
+    file(WRITE "${_GEN_PLUGINS}" "${_PLUGINS_CONTENT}")
+    message(STATUS "[in2up][patch] Patched ${_GEN_PLUGINS}")
+  endif()
+endif()
+
+# --- Patch generated_plugin_registrant.cc ---
+if(EXISTS "${_GEN_REGISTRANT}")
+  file(READ "${_GEN_REGISTRANT}" _REG_CONTENT)
+  set(_REG_NEEDS_PATCH FALSE)
+  if(_REG_CONTENT MATCHES "ffmpeg_kit_flutter_new")
+    set(_REG_NEEDS_PATCH TRUE)
+    message(STATUS "[in2up][patch] Removing ffmpeg includes from registrant.cc")
+    string(REGEX REPLACE "#include <ffmpeg_kit_flutter_new[^>]*>\n" "" _REG_CONTENT "${_REG_CONTENT}")
+    string(REGEX REPLACE "#include <ffmpeg_kit_flutter_new_full[^>]*>\n" "" _REG_CONTENT "${_REG_CONTENT}")
+    string(REGEX REPLACE "  FFmpegKitFlutterPluginRegisterWithRegistrar[^\n]*\n" "" _REG_CONTENT "${_REG_CONTENT}")
+  endif()
+  # Also silence webview_windows /await deprecation warning by ensuring
+  # we don't inject extra flags here; the fix for /await is in plugin's CMakeLists patch below.
+  if(_REG_NEEDS_PATCH)
+    file(WRITE "${_GEN_REGISTRANT}" "${_REG_CONTENT}")
+    message(STATUS "[in2up][patch] Patched ${_GEN_REGISTRANT}")
+  endif()
+endif()
+
+# --- Patch webview_windows plugin if present (fix /await -> /await:strict) ---
+# The plugin's windows/CMakeLists.txt uses target_compile_options(... "/await") which is deprecated (D9047)
+# We try to patch the pub-cache symlink source if writable.
+set(_WEBVIEW_CMAKE "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlinks/webview_windows/windows/CMakeLists.txt")
+if(EXISTS "${_WEBVIEW_CMAKE}")
+  file(READ "${_WEBVIEW_CMAKE}" _WEBVIEW_CONTENT)
+  if(_WEBVIEW_CONTENT MATCHES "\"/await\"")
+    message(STATUS "[in2up][patch] Fixing webview_windows /await -> /await:strict")
+    string(REPLACE "\"/await\"" "\"/await:strict\"" _WEBVIEW_CONTENT "${_WEBVIEW_CONTENT}")
+    # Write back if we can (may fail if pub-cache read-only, ignore error)
+    file(WRITE "${_WEBVIEW_CMAKE}" "${_WEBVIEW_CONTENT}")
+  endif()
+endif()
+
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+
+# --- Post-include: Remove /await flag from target if it still exists ---
+# This handles cases where webview_windows CMakeLists couldn't be patched on disk
+# (read-only pub cache). We strip the flag from the target compile options.
+if(TARGET webview_windows_plugin)
+  get_target_property(_WV_OPTS webview_windows_plugin COMPILE_OPTIONS)
+  if(_WV_OPTS)
+    list(REMOVE_ITEM _WV_OPTS "/await")
+    # Ensure /await:strict is present for coroutine support
+    list(FIND _WV_OPTS "/await:strict" _IDX)
+    if(_IDX EQUAL -1)
+      list(APPEND _WV_OPTS "/await:strict")
+    endif()
+    set_target_properties(webview_windows_plugin PROPERTIES COMPILE_OPTIONS "${_WV_OPTS}")
+    message(STATUS "[in2up][patch] Adjusted webview_windows_plugin compile options: ${_WV_OPTS}")
+  endif()
+endif()
 
 
 # === Installation ===
@@ -148,4 +235,18 @@ file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
 if(EXTRA_DLLS)
     message(STATUS "[in2up] Found extra DLLs in libs/: ${EXTRA_DLLS}")
     install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()
+
+# Also bundle FFmpeg exe if present (for desktop audio conversion fallback)
+file(GLOB EXTRA_EXES "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.exe")
+if(EXTRA_EXES)
+    message(STATUS "[in2up] Found extra EXEs in libs/: ${EXTRA_EXES}")
+    install(FILES ${EXTRA_EXES} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()
+
+# Bundle Whisper binaries (ggml*.dll, whisper.dll) + ffmpeg.exe presence check
+file(GLOB WHISPER_BINS "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.exe" "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.dll")
+if(WHISPER_BINS)
+    message(STATUS "[in2up] Found Whisper binaries: ${WHISPER_BINS}")
+    install(FILES ${WHISPER_BINS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()

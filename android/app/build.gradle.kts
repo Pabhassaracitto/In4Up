@@ -9,7 +9,8 @@ android {
     namespace = "com.in2up"
     compileSdk = 36 // Đưa lên 36 để đáp ứng các plugin như file_picker, sqflite...
 
-    // Dùng chung NDK 28.2 trên cả Windows và Linux
+    // NDK 28.2 dùng chung Windows + Linux (bạn yêu cầu giữ 28)
+    // CI sẽ cài cả 27 và 28 để tránh lỗi plugin yêu cầu NDK 27
     ndkVersion = "28.2.13676358"
 
     compileOptions {

@@ -209,14 +209,15 @@ class TextLineWidget extends StatelessWidget {
               displayMode: data.displayMode,
               originalWidget: _buildTextContent(context, data),
               textAlign: data.textAlign,
-              // ★ Ghost Sentence: Mờ đi khi đang đọc Tiếng Anh (ghostVI = true)
+              // Ghost VI: khi đang phát EN, dòng VI mờ đi nhưng vẫn đọc được
+              // Trước đây alpha 0.15 quá mờ khiến user tưởng bản dịch biến mất
               translationStyle: TextStyle(
                 fontSize: data.fontSize - 2,
                 color: data.ghostVI
-                    ? Colors.grey[500]!.withValues(alpha: 0.15)
-                    : Colors.grey[500],
+                    ? Colors.grey[400]!.withValues(alpha: 0.55)
+                    : Colors.grey[400],
                 fontStyle: FontStyle.italic,
-                height: 1.4,
+                height: 1.45,
               ),
             ),
           ],

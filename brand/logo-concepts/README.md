@@ -50,6 +50,7 @@ Có thể xây hệ nhận diện theo mô hình:
 - Mở [`index.html`](./index.html) để xem trang đánh giá responsive, thử nền sáng/tối và kiểm tra icon ở 96/48/32 px.
 - Mở [`logo-concepts-board.png`](./logo-concepts-board.png) để xem nhanh bảng tổng hợp.
 - Mỗi phương án có bản **SVG vector** và **PNG 1024 × 1024**.
+- Phương án 04 đã được phát triển thêm thành [**5 biến thể Hidden Gift**](./hidden-gift-variants/), kèm bảng so sánh và kiểm tra kích thước nhỏ.
 
 ## Danh sách tệp
 

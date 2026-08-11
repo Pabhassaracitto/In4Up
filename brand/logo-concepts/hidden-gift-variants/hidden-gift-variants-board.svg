@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1800 1400" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up Hidden Gift — logo variants</title>
+  <desc id="desc">The original Hidden Gift direction and five refinements: Quiet Reveal, Mirror Bloom, Service Seal, Resonant Gift and One Stroke.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1800" y2="290" gradientUnits="userSpaceOnUse"><stop stop-color="#251D38"/><stop offset="0.5" stop-color="#10273A"/><stop offset="1" stop-color="#0A2930"/></linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="135%"><feDropShadow dx="0" dy="15" stdDeviation="18" flood-color="#162033" flood-opacity="0.12"/></filter>
+    <style>
+      .font{font-family:'DejaVu Sans',Arial,sans-serif}.eyebrow{font-size:17px;font-weight:700;letter-spacing:3.5px}.headline{font-size:53px;font-weight:700;letter-spacing:-2px}.concept{font-size:23px;font-weight:700;letter-spacing:-.5px}.body{font-size:16px;font-weight:400}.tag{font-size:12px;font-weight:700;letter-spacing:.5px}.wordmark{font-size:48px;font-weight:700;letter-spacing:-3px}
+    </style>
+  </defs>
+
+  <rect width="1800" height="1400" fill="#F2F0EA"/>
+  <path d="M0 0H1800V235C1490 290 1240 217 911 254C582 291 312 298 0 230V0Z" fill="url(#header)"/>
+  <circle cx="1595" cy="57" r="170" fill="#53D6BD" opacity="0.055"/>
+  <circle cx="1700" cy="165" r="118" fill="#F4C95D" opacity="0.07"/>
+  <g class="font">
+    <text x="66" y="63" class="eyebrow" fill="#6EE1CE">IN4UP · HIDDEN GIFT / VARIANTS 01</text>
+    <text x="66" y="133" class="headline" fill="#FAF5E9">Khai triển “In4Up → I4U”</text>
+    <text x="68" y="182" font-size="20" fill="#BBC8D3">Giữ tầng nghĩa phụng sự — thử năm cá tính: tĩnh, đối xứng, cao cấp, âm thanh và gần gũi.</text>
+    <rect x="67" y="205" width="106" height="7" rx="4" fill="#F4C95D"/><rect x="180" y="205" width="68" height="7" rx="4" fill="#53D6BD"/>
+  </g>
+
+  <!-- Reference -->
+  <g filter="url(#cardShadow)"><rect x="55" y="285" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
+  <image href="00-reference-orbit.svg" xlink:href="00-reference-orbit.svg" x="76" y="318" width="268" height="268"/>
+  <g class="font">
+    <text x="371" y="340" class="eyebrow" font-size="11" fill="#7C8791">00 · THAM CHIẾU</text>
+    <text x="371" y="382" class="concept" fill="#10243A">Orbit Reveal</text>
+    <text x="371" y="444" class="wordmark" fill="#10243A">I<tspan fill="#5B8B88" fill-opacity=".42">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#5B8B88" fill-opacity=".42">p</tspan></text>
+    <text x="371" y="489" class="body" fill="#506577">Bản gốc giàu chuyển động.</text>
+    <text x="371" y="516" class="body" fill="#506577">Hai quỹ đạo kể hành trình</text>
+    <text x="371" y="543" class="body" fill="#506577">đi vào trong rồi hướng lên.</text>
+    <rect x="371" y="574" width="102" height="27" rx="14" fill="#F4EEE0"/><text x="422" y="592" text-anchor="middle" class="tag" fill="#947227">MOTION</text>
+    <text x="78" y="643" class="tag" fill="#788995">PHÙ HỢP: SPLASH · VIDEO THƯƠNG HIỆU · STORYTELLING</text>
+    <image href="00-reference-orbit.svg" xlink:href="00-reference-orbit.svg" x="78" y="673" width="56" height="56"/>
+    <text x="150" y="707" class="body" fill="#506577">Kiểm tra nhanh ở 56 px</text>
+  </g>
+
+  <!-- A -->
+  <g filter="url(#cardShadow)"><rect x="630" y="285" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
+  <image href="04a-quiet-reveal.svg" xlink:href="04a-quiet-reveal.svg" x="651" y="318" width="268" height="268"/>
+  <g class="font">
+    <rect x="946" y="319" width="96" height="28" rx="14" fill="#DFF7F1"/><text x="994" y="338" text-anchor="middle" class="tag" fill="#188875">ĐỀ XUẤT</text>
+    <text x="946" y="382" class="concept" fill="#10243A">Quiet Reveal</text>
+    <text x="946" y="444" class="wordmark" fill="#10243A">I<tspan fill="#5B8B88" fill-opacity=".36">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#5B8B88" fill-opacity=".36">p</tspan></text>
+    <text x="946" y="489" class="body" fill="#506577">Bỏ mũi tên vòng, tăng độ rõ.</text>
+    <text x="946" y="516" class="body" fill="#506577">Cân bằng tốt nhất giữa nét</text>
+    <text x="946" y="543" class="body" fill="#506577">đặc biệt và khả năng thu nhỏ.</text>
+    <rect x="946" y="574" width="104" height="27" rx="14" fill="#E3F6F1"/><text x="998" y="592" text-anchor="middle" class="tag" fill="#188875">MASTER</text>
+    <text x="653" y="643" class="tag" fill="#788995">PHÙ HỢP: APP ICON · FAVICON · LOGO CHÍNH</text>
+    <image href="04a-quiet-reveal.svg" xlink:href="04a-quiet-reveal.svg" x="653" y="673" width="56" height="56"/>
+    <text x="725" y="707" class="body" fill="#506577">Tốt nhất ở kích thước nhỏ</text>
+  </g>
+
+  <!-- B -->
+  <g filter="url(#cardShadow)"><rect x="1205" y="285" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
+  <image href="04b-mirror-bloom.svg" xlink:href="04b-mirror-bloom.svg" x="1226" y="318" width="268" height="268"/>
+  <g class="font">
+    <text x="1521" y="340" class="eyebrow" font-size="11" fill="#7C8791">04B · ĐỐI XỨNG</text>
+    <text x="1521" y="382" class="concept" fill="#10243A">Mirror Bloom</text>
+    <text x="1521" y="444" class="wordmark" fill="#10243A">I<tspan fill="#776CA9" fill-opacity=".42">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#4A8D86" fill-opacity=".42">p</tspan></text>
+    <text x="1521" y="489" class="body" fill="#506577">n và U như hai nét xoay</text>
+    <text x="1521" y="516" class="body" fill="#506577">đối xứng, nở thành một</text>
+    <text x="1521" y="543" class="body" fill="#506577">“bông hoa” chuyển hóa.</text>
+    <rect x="1521" y="574" width="112" height="27" rx="14" fill="#ECE7F8"/><text x="1577" y="592" text-anchor="middle" class="tag" fill="#6755A0">INNER</text>
+    <text x="1228" y="643" class="tag" fill="#788995">PHÙ HỢP: NỘI DUNG PHÁP · CỘNG ĐỒNG · BIỂU TƯỢNG PHỤ</text>
+    <image href="04b-mirror-bloom.svg" xlink:href="04b-mirror-bloom.svg" x="1228" y="673" width="56" height="56"/>
+    <text x="1300" y="707" class="body" fill="#506577">Mềm, sâu và giàu liên tưởng</text>
+  </g>
+
+  <!-- C -->
+  <g filter="url(#cardShadow)"><rect x="55" y="805" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
+  <image href="04c-service-seal.svg" xlink:href="04c-service-seal.svg" x="76" y="838" width="268" height="268"/>
+  <g class="font">
+    <text x="371" y="860" class="eyebrow" font-size="11" fill="#7C8791">04C · CAO CẤP</text>
+    <text x="371" y="902" class="concept" fill="#10243A">Service Seal</text>
+    <text x="371" y="964" class="wordmark" fill="#10243A">I<tspan fill="#5B8B88" fill-opacity=".42">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#5B8B88" fill-opacity=".42">p</tspan></text>
+    <text x="371" y="1009" class="body" fill="#506577">Nền ngà và huy hiệu tròn</text>
+    <text x="371" y="1036" class="body" fill="#506577">mang cảm giác tin cậy,</text>
+    <text x="371" y="1063" class="body" fill="#506577">điềm tĩnh và bền vững.</text>
+    <rect x="371" y="1094" width="112" height="27" rx="14" fill="#F5EFD9"/><text x="427" y="1112" text-anchor="middle" class="tag" fill="#947227">PREMIUM</text>
+    <text x="78" y="1163" class="tag" fill="#788995">PHÙ HỢP: DESKTOP · ẤN PHẨM · GÓI NỘI DUNG CHUYÊN SÂU</text>
+    <image href="04c-service-seal.svg" xlink:href="04c-service-seal.svg" x="78" y="1193" width="56" height="56"/>
+    <text x="150" y="1227" class="body" fill="#506577">Biến thể sáng nổi bật nhất</text>
+  </g>
+
+  <!-- D -->
+  <g filter="url(#cardShadow)"><rect x="630" y="805" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
+  <image href="04d-resonant-gift.svg" xlink:href="04d-resonant-gift.svg" x="651" y="838" width="268" height="268"/>
+  <g class="font">
+    <text x="946" y="860" class="eyebrow" font-size="11" fill="#7C8791">04D · ÂM THANH</text>
+    <text x="946" y="902" class="concept" fill="#10243A">Resonant Gift</text>
+    <text x="946" y="964" class="wordmark" fill="#10243A">I<tspan fill="#547BA4" fill-opacity=".45">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#547BA4" fill-opacity=".45">p</tspan></text>
+    <text x="946" y="1009" class="body" fill="#506577">Sóng âm chạy xuyên qua tên,</text>
+    <text x="946" y="1036" class="body" fill="#506577">nhưng I4U vẫn là lớp sáng</text>
+    <text x="946" y="1063" class="body" fill="#506577">và dễ nhận ra nhất.</text>
+    <rect x="946" y="1094" width="104" height="27" rx="14" fill="#E4EEF9"/><text x="998" y="1112" text-anchor="middle" class="tag" fill="#3E6A96">AUDIO</text>
+    <text x="653" y="1163" class="tag" fill="#788995">PHÙ HỢP: PLAYER · PODCAST · PHÁP THOẠI · WAVEFORM</text>
+    <image href="04d-resonant-gift.svg" xlink:href="04d-resonant-gift.svg" x="653" y="1193" width="56" height="56"/>
+    <text x="725" y="1227" class="body" fill="#506577">Năng động và đúng sản phẩm</text>
+  </g>
+
+  <!-- E -->
+  <g filter="url(#cardShadow)"><rect x="1205" y="805" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
+  <image href="04e-one-stroke.svg" xlink:href="04e-one-stroke.svg" x="1226" y="838" width="268" height="268"/>
+  <g class="font">
+    <text x="1521" y="860" class="eyebrow" font-size="11" fill="#7C8791">04E · NHÂN VĂN</text>
+    <text x="1521" y="902" class="concept" fill="#10243A">One Stroke</text>
+    <text x="1521" y="964" class="wordmark" fill="#10243A">i<tspan fill="#4A8D86" fill-opacity=".42">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#4A8D86" fill-opacity=".42">p</tspan></text>
+    <text x="1521" y="1009" class="body" fill="#506577">Nét liền mềm như chữ viết,</text>
+    <text x="1521" y="1036" class="body" fill="#506577">gợi sự đồng hành gần gũi</text>
+    <text x="1521" y="1063" class="body" fill="#506577">thay vì một hệ thống lạnh.</text>
+    <rect x="1521" y="1094" width="112" height="27" rx="14" fill="#E2F4EF"/><text x="1577" y="1112" text-anchor="middle" class="tag" fill="#277E70">HUMAN</text>
+    <text x="1228" y="1163" class="tag" fill="#788995">PHÙ HỢP: HỌC TẬP · CỘNG ĐỒNG · THƯƠNG HIỆU THÂN THIỆN</text>
+    <image href="04e-one-stroke.svg" xlink:href="04e-one-stroke.svg" x="1228" y="1193" width="56" height="56"/>
+    <text x="1300" y="1227" class="body" fill="#506577">Ấm áp và ít “công nghệ” hơn</text>
+  </g>
+
+  <g class="font">
+    <rect x="55" y="1335" width="1690" height="1" fill="#CBD2D6"/>
+    <text x="55" y="1373" font-size="16" fill="#5C6C77">Khuyến nghị: 04A làm icon chính · 00 dành cho motion · 04B cho Pháp học · 04D cho audio · 04C là phiên bản sáng/cao cấp.</text>
+    <text x="1745" y="1373" text-anchor="end" class="eyebrow" font-size="11" fill="#9A7B32">VECTOR STUDY · 2026</text>
+  </g>
+</svg>

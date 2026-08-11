@@ -832,9 +832,10 @@ class _MainShellState extends State<MainShell> {
                       ),
                     ),
                     onDismissed: (_) {
-                      // Khi vuốt ẩn, dừng phát và xóa current song để mini biến mất
+                      // Khi vuốt ẩn, xóa bài hiện tại để mini biến mất hoàn toàn, tránh lỗi
+                      // "A dismissed Dismissible widget is still part of the tree"
                       HapticFeedback.mediumImpact();
-                      player.stop();
+                      player.clearCurrentSong();
                     },
                     child: MiniPlayer(
                       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),

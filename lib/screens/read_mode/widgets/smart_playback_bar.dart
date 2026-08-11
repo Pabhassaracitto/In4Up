@@ -983,29 +983,39 @@ class _SpeedSliderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
           const Text('0.5x',
-              style: TextStyle(color: Colors.grey, fontSize: 10)),
+              style: TextStyle(color: Colors.grey, fontSize: 9)),
+          const SizedBox(width: 4),
           Expanded(
-            child: Slider(
-              value: speed,
-              min: 0.5,
-              max: 2.0,
-              divisions: 6,
-              label: '${speed.toStringAsFixed(2)}x',
-              activeColor: const Color(0xFF6C63FF),
-              onChanged: onChanged,
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              ),
+              child: Slider(
+                value: speed,
+                min: 0.5,
+                max: 2.0,
+                divisions: 6,
+                label: '${speed.toStringAsFixed(2)}x',
+                activeColor: const Color(0xFF6C63FF),
+                onChanged: onChanged,
+              ),
             ),
           ),
+          const SizedBox(width: 4),
           const Text('2.0x',
-              style: TextStyle(color: Colors.grey, fontSize: 10)),
+              style: TextStyle(color: Colors.grey, fontSize: 9)),
+          const SizedBox(width: 2),
           GestureDetector(
             onTap: onClose,
             child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 16, color: Colors.grey),
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.close, size: 14, color: Colors.grey),
             ),
           ),
         ],

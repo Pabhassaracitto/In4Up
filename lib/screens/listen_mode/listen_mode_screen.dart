@@ -60,9 +60,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   List<String> _lrcLines = [];
   bool _showLrcOnMain = false;
   bool _lrcAutoScroll = true;
-  double _lrcHeight = 320.0; // current curtain height
-  static const double _lrcMinHeight = 72.0; // when collapsed, show handle
-  static const double _lrcDefaultHeight = 320.0;
+  double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
+  static const double _lrcMinHeight = 64.0; // when collapsed, show handle
+  static const double _lrcDefaultHeight = 220.0;
   double _lrcDragStartHeight = 320.0;
 
   // LRC ScrollController for sophisticated LRC display
@@ -561,9 +561,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
                         final hasLines = understand!.lrcLines.isNotEmpty;
-                        // Tính max height = 65% màn hình
+                        // Tính max height responsive: 45% màn nhỏ, 62% màn lớn, tránh overflow 1100-1140
                         final screenH = MediaQuery.of(context).size.height;
-                        final maxH = (screenH * 0.62).clamp(240.0, 560.0);
+                        final maxH = (screenH * (screenH < 700 ? 0.45 : 0.55)).clamp(180.0, 420.0);
 
                         // Clamp current height
                         if (_lrcHeight > maxH) _lrcHeight = maxH;
@@ -840,7 +840,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     physics:
                                         const AlwaysScrollableScrollPhysics(),
                                     padding:
-                                        const EdgeInsets.only(bottom: 8),
+                                        const EdgeInsets.only(bottom: 72),
                                     itemCount: understand.lrcLines.length,
                                     itemBuilder: (context, index) {
                                       final line =
@@ -1992,8 +1992,10 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   }
 
   Widget _buildInlinePanel(PlayerProvider player) {
-    // Thêm ConstrainedBox + SingleChildScrollView để tránh Bottom overflow
-    final maxH = MediaQuery.of(context).size.height * 0.42;
+    // Fix overflow 34/354px trên màn hình nhỏ SE (568px): giảm maxHeight xuống 24-28% và cho scroll
+    // Trước 0.42 gây overflow 18px, 0.32 vẫn overflow 34px khi height 1100, nên dùng 0.26-0.30 tùy màn hình
+    final screenH = MediaQuery.of(context).size.height;
+    final maxH = screenH < 700 ? screenH * 0.26 : screenH < 900 ? screenH * 0.28 : screenH * 0.32;
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
       padding: const EdgeInsets.all(12),

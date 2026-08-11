@@ -437,6 +437,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       return false;
                     },
                     child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
                     controller: _lrcScrollController,
                     itemCount: provider!.lrcLines.length,
                     itemBuilder: (context, index) {

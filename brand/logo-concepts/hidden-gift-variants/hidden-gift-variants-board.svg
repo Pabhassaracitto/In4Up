@@ -40,7 +40,7 @@
   <g filter="url(#cardShadow)"><rect x="630" y="285" width="540" height="480" rx="34" fill="#FFFFFF"/></g>
   <image href="04a-quiet-reveal.svg" xlink:href="04a-quiet-reveal.svg" x="651" y="318" width="268" height="268"/>
   <g class="font">
-    <rect x="946" y="319" width="96" height="28" rx="14" fill="#DFF7F1"/><text x="994" y="338" text-anchor="middle" class="tag" fill="#188875">ĐỀ XUẤT</text>
+    <rect x="946" y="319" width="96" height="28" rx="14" fill="#DFF7F1"/><text x="994" y="338" text-anchor="middle" class="tag" fill="#188875">ĐÃ CHỌN</text>
     <text x="946" y="382" class="concept" fill="#10243A">Quiet Reveal</text>
     <text x="946" y="444" class="wordmark" fill="#10243A">I<tspan fill="#5B8B88" fill-opacity=".36">n</tspan><tspan fill="#D7A532">4</tspan>U<tspan fill="#5B8B88" fill-opacity=".36">p</tspan></text>
     <text x="946" y="489" class="body" fill="#506577">Bỏ mũi tên vòng, tăng độ rõ.</text>

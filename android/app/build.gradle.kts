@@ -36,17 +36,17 @@ android {
         create("stable") {
             dimension = "default"
             applicationIdSuffix = ""
-            resValue("string", "app_name", "in2up")
+            resValue("string", "app_name", "In4Up")
         }
         create("dev") {
             dimension = "default"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "in2up Dev")
+            resValue("string", "app_name", "In4Up Dev")
         }
         create("beta") {
             dimension = "default"
             applicationIdSuffix = ".beta"
-            resValue("string", "app_name", "in2up Beta")
+            resValue("string", "app_name", "In4Up Beta")
         }
     }
 

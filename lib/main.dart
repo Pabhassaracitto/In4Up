@@ -315,6 +315,7 @@ class _MyAppState extends State<MyApp> {
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
           return MaterialApp(
+            title: 'In4Up',
             debugShowCheckedModeBanner: false,
             locale: localeProvider.locale ?? DevicePreview.locale(context),
             localizationsDelegates: const [
@@ -386,6 +387,7 @@ class _AppLoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'In4Up',
       debugShowCheckedModeBanner: false,
       builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(
@@ -395,25 +397,20 @@ class _AppLoadingScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.headphones,
-                    color: Colors.white,
-                    size: 40,
+                // Brand mark
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/icons/app_icon.png',
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'In4Up logo',
                   ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'in2up',
+                  'In4Up',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -435,7 +432,7 @@ class _AppLoadingScreen extends StatelessWidget {
                   child: LinearProgressIndicator(
                     backgroundColor: Colors.white12,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF6C63FF),
+                      Color(0xFF53D6BD),
                     ),
                   ),
                 ),
@@ -456,6 +453,7 @@ class _AppErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'In4Up',
       debugShowCheckedModeBanner: false,
       builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(

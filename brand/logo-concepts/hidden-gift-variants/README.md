@@ -1,5 +1,7 @@
 # In4Up — Hidden Gift variants
 
+> **Trạng thái:** `04A · Quiet Reveal` đã được chọn làm biểu tượng chính ngày 12.08.2026.
+
 Vòng phát triển này đi sâu vào phương án **04 · Hidden Gift**, dựa trên phát hiện:
 
 ```text

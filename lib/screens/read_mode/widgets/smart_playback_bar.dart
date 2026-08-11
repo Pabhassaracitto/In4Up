@@ -328,7 +328,11 @@ class _PatternBuilder extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Hàng 1: Lặp câu + Vòng bài ─────────────────────
-          Row(
+          // Fix overflow 35px trên màn hình nhỏ: dùng Wrap
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Label('Lặp câu'),
               _Stepper(
@@ -340,7 +344,6 @@ class _PatternBuilder extends StatelessWidget {
                   recipe.copyWith(lineRepeats: v),
                 ),
               ),
-              const SizedBox(width: 16),
               _Label('Vòng bài'),
               _Stepper(
                 value: recipe.totalPasses == 0 ? 1 : recipe.totalPasses,
@@ -351,7 +354,6 @@ class _PatternBuilder extends StatelessWidget {
                   recipe.copyWith(totalPasses: v),
                 ),
               ),
-              const SizedBox(width: 8),
               _ToggleChip(
                 label: '∞',
                 active: recipe.totalPasses == 0,
@@ -375,9 +377,12 @@ class _PatternBuilder extends StatelessWidget {
               _PatternVisual(recipe: recipe),
               const SizedBox(height: 8),
 
-              Row(
+              // Fix overflow 19px: EN/VI dùng Wrap
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  // EN stepper
                   _Label('🇬🇧 EN'),
                   _Stepper(
                     value: recipe.enRepeats.clamp(0, 5),
@@ -385,18 +390,14 @@ class _PatternBuilder extends StatelessWidget {
                     max: 5,
                     suffix: '×',
                     onChanged: (v) {
-                      // ★ Auto-switch mode khi thay đổi EN/VI
                       final newMode = _resolveMode(v, recipe.viRepeats);
                       controller.updateRecipe(
                         recipe.copyWith(enRepeats: v, mode: newMode),
                       );
                     },
                   ),
-                  const SizedBox(width: 6),
                   const Text('→',
                       style: TextStyle(color: Colors.grey, fontSize: 13)),
-                  const SizedBox(width: 6),
-                  // VI stepper
                   _Label('🇻🇳 VI'),
                   _Stepper(
                     value: recipe.viRepeats.clamp(0, 3),
@@ -418,19 +419,19 @@ class _PatternBuilder extends StatelessWidget {
           const SizedBox(height: 10),
 
           // ── Hàng 3: Khoảng lặng (chỉ khi có VI) ────────────
+          // Fix overflow: dùng Wrap
           if (recipe.viRepeats > 0) ...[
-            Row(
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _Label('Khoảng lặng'),
-                const SizedBox(width: 4),
-                ...SilenceGap.values.map((gap) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _ToggleChip(
-                        label: gap.label,
-                        active: recipe.silenceGap == gap,
-                        onTap: () => controller.updateRecipe(
-                          recipe.copyWith(silenceGap: gap),
-                        ),
+                ...SilenceGap.values.map((gap) => _ToggleChip(
+                      label: gap.label,
+                      active: recipe.silenceGap == gap,
+                      onTap: () => controller.updateRecipe(
+                        recipe.copyWith(silenceGap: gap),
                       ),
                     )),
               ],

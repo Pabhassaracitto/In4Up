@@ -32,46 +32,57 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          # Install Android SDK 36 which is required by plugins
-          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+          # Install Android SDK 36 + NDK (giữ 28.2 cho local dev Windows/Linux, cài thêm 27 cho plugin cần)
+          # Bạn yêu cầu giữ 28.2.13676358 để không tốn băng thông tải lại
+          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36" --install "ndk;27.0.11902837" --install "ndk;28.2.13676358" --install "cmake;3.22.1"
+          echo "NDK 27 và 28.2 đã cài để tương thích cả local và CI"
 
       # ★ THÊM: Tạo lại file google-services.json từ Secret
       - name: Create google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
         run: |
-          # Tạo file từ secret, dùng flag -i để bỏ qua ký tự lạ (như newline)
-          echo "$GOOGLE_SERVICES_JSON" | base64 -d -i > android/app/google-services.json
+          # Tạo file từ secret
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
           
-          # Kiểm tra file có tồn tại và lớn hơn 10 bytes không (tránh file rỗng hoặc chỉ có xuống dòng)
           if [ -s android/app/google-services.json ] && [ $(stat -c%s "android/app/google-services.json") -gt 10 ]; then
             echo "✅ File google-services.json đã được tạo. Kích thước: $(stat -c%s "android/app/google-services.json") bytes."
-            
-            # Copy file vào thêm thư mục src/release để chắc chắn Gradle tìm thấy
+            cat android/app/google-services.json | grep -o '"package_name": "[^"]*"' | sort | uniq
+            # Copy file vào tất cả flavor directories để tránh lỗi No matching client found for com.in2up.beta
+            for flavor in dev beta stable main; do
+              mkdir -p android/app/src/$flavor
+              cp android/app/google-services.json android/app/src/$flavor/google-services.json
+              mkdir -p android/app/src/$flavor/release
+              cp android/app/google-services.json android/app/src/$flavor/release/google-services.json
+              mkdir -p android/app/src/$flavor/debug
+              cp android/app/google-services.json android/app/src/$flavor/debug/google-services.json
+            done
             mkdir -p android/app/src/release
-            mkdir -p android/app/src/Release
             cp android/app/google-services.json android/app/src/release/google-services.json
-            cp android/app/google-services.json android/app/src/Release/google-services.json
-            
-            echo "✅ Đã copy file vào android/app/src/release/ và android/app/src/Release/"
+            echo "✅ Đã copy google-services.json vào tất cả flavor dirs"
           else
-            echo "❌ LỖI: File google-services.json KHÔNG hợp lệ (Rỗng hoặc quá nhỏ). Kiểm tra lại Secret!"
+            echo "❌ LỖI: File google-services.json KHÔNG hợp lệ. Kiểm tra lại Secret!"
             exit 1
           fi
           
-          # Debug: Liệt kê file để xác nhận sự tồn tại
-          ls -R android/app | grep google-services.json
+          ls -R android/app/src | grep google-services.json || true
 
-      # (Tùy chọn) Nếu dùng code generation
-      # - name: Run Build Runner
-      #   run: flutter pub run build_runner build --delete-conflicting-outputs
-
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APK (stable only to avoid missing beta client if secret incomplete)
+        run: flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation || flutter build apk --release --flavor stable
 
       - name: Rename APK
         run: |
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+          ls build/app/outputs/flutter-apk/
+          # Try to find stable apk
+          if [ -f build/app/outputs/flutter-apk/app-stable-release.apk ]; then
+            mv build/app/outputs/flutter-apk/app-stable-release.apk build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+          elif [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+          else
+            # Fallback: rename first apk found
+            first=$(ls build/app/outputs/flutter-apk/*.apk | head -n1)
+            mv "$first" build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

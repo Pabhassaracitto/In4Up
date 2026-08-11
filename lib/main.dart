@@ -133,19 +133,37 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       return Firebase.app();
     }
 
-    final FirebaseApp app;
-    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+    late final FirebaseApp app;
+    if (kIsWeb) {
+      app = await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else if (Platform.isAndroid) {
+      // Android: dùng google-services.json native để hỗ trợ flavors
+      // File này đã chứa nhiều clients cho com.in2up, com.in2up.dev, com.in2up.beta...
+      // Nếu dùng DefaultFirebaseOptions, chỉ có 1 appId và sẽ fail cho beta/dev
+      // nên để Firebase tự đọc google-services.json
+      try {
+        app = await Firebase.initializeApp();
+      } catch (e) {
+        debugPrint('⚠️ Android native init failed, fallback to options: $e');
+        // Fallback: dùng options theo flavor
+        app = await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.androidForFlavor,
+        );
+      }
+    } else if (Platform.isIOS || Platform.isMacOS) {
       // iOS/macOS: dùng GoogleService-Info.plist (native)
-      // KHÔNG truyền options để Firebase tự đọc plist được nhúng trong bundle.
       app = await Firebase.initializeApp();
     } else {
-      // Android / Windows / Web / Linux: dùng DefaultFirebaseOptions
+      // Windows / Linux: bắt buộc dùng options
       app = await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
 
     isFirebaseAvailable = true;
+    debugPrint('✅ Firebase initialized: ${app.options.projectId} flavor=${const String.fromEnvironment('FLAVOR', defaultValue: 'stable')}');
     return app;
   } on FirebaseException catch (e) {
     if (e.code == 'duplicate-app') {
@@ -155,10 +173,20 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
 
     isFirebaseAvailable = false;
     debugPrint('⚠️ Firebase init failed: ${e.code} - ${e.message}');
+    // Thử fallback không options cho Android
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final fallback = await Firebase.initializeApp();
+        isFirebaseAvailable = true;
+        return fallback;
+      } catch (e2) {
+        debugPrint('⚠️ Firebase fallback also failed: $e2');
+      }
+    }
     return null;
-  } catch (e) {
+  } catch (e, st) {
     isFirebaseAvailable = false;
-    debugPrint('⚠️ Firebase init failed: $e');
+    debugPrint('⚠️ Firebase init failed: $e\n$st');
     return null;
   }
 }

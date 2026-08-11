@@ -162,6 +162,9 @@ node_modules/
 !android/app/src/main/jniLibs/armeabi-v7a/libnative_audio.so
 !android/app/src/main/jniLibs/x86/libnative_audio.so
 !android/app/src/main/jniLibs/x86_64/libnative_audio.so
+!lib/firebase_options.dart
+!android/app/google-services.json
+!ios/Runner/GoogleService-Info.plist
 
 # Temporary files
 *.temp
@@ -322,12 +325,8 @@ packages\in2up_core\.dart_tool
 *.msi
 .flutter-plugins*
 build_log.txt
-lib/firebase_options.dart
 .firebase/
 **/.firebase/
-firebase_options.dart
-auth_service.dart
-google_sign_in_config.dart
 *.bin
 *.claudignore
 .ai/
@@ -337,3 +336,9 @@ project/
 android/local.properties
 .guide
 docs/
+
+# Force track Firebase options for Windows build (API keys are not secret, but required)
+!lib/firebase_options.dart
+!android/app/google-services.json
+!ios/Runner/GoogleService-Info.plist
+!lib/services/auth_service.dart

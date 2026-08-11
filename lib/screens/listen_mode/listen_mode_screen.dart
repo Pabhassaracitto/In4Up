@@ -1324,6 +1324,28 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
   }
 }
 
+class _LrcIconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _LrcIconBtn({required this.icon, required this.tooltip, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(left: 4),
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 14, color: Colors.grey),
+      ),
+    );
+  }
+}
+
 class _ZoomBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;

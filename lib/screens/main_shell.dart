@@ -258,7 +258,7 @@ class _MainShellState extends State<MainShell> {
   String get _titleText {
     switch (_currentTab) {
       case _PrimaryTab.home:
-        return 'in2up';
+        return 'In4Up';
       case _PrimaryTab.listen:
         return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
       case _PrimaryTab.read:

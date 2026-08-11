@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up Hidden Gift — One Stroke</title>
+  <desc id="desc">A softer monoline In4Up signature with I4U highlighted and n and p fading into one continuous ribbon.</desc>
+  <defs>
+    <linearGradient id="bg" x1="56" y1="38" x2="458" y2="476" gradientUnits="userSpaceOnUse"><stop stop-color="#273E45"/><stop offset="0.45" stop-color="#142633"/><stop offset="1" stop-color="#121529"/></linearGradient>
+    <linearGradient id="rise" x1="206" y1="340" x2="274" y2="127" gradientUnits="userSpaceOnUse"><stop stop-color="#5ADCC4"/><stop offset="1" stop-color="#F6CD68"/></linearGradient>
+    <linearGradient id="ribbon" x1="52" y1="368" x2="456" y2="368" gradientUnits="userSpaceOnUse"><stop stop-color="#5ADCC4" stop-opacity="0.2"/><stop offset="0.5" stop-color="#5ADCC4"/><stop offset="1" stop-color="#F6CD68" stop-opacity="0.28"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#050812" flood-opacity="0.5"/></filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- A single flowing baseline makes the mark warmer and more human -->
+  <path d="M58 359C113 386 167 390 217 371C264 353 308 349 353 365C392 379 426 378 455 357" fill="none" stroke="url(#ribbon)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M73 173C73 173 73 173 73 173" stroke="#F6CD68" stroke-width="25" stroke-linecap="round"/>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- lowercase i flows into the baseline -->
+    <path d="M73 215V321C73 337 83 346 99 346H109" stroke="#F8F4EA" stroke-width="21"/>
+    <!-- n -->
+    <path d="M111 346V248C111 221 128 205 150 205C174 205 189 222 189 249V346" stroke="#72DCCC" stroke-opacity="0.34" stroke-width="21"/>
+    <!-- 4 -->
+    <path d="M247 346V184L196 275H281" stroke="url(#rise)" stroke-width="24"/>
+    <!-- u -->
+    <path d="M300 211V284C300 323 316 343 343 343C370 343 386 323 386 284V211" stroke="#F8F4EA" stroke-width="23"/>
+    <!-- p descends into the ribbon -->
+    <path d="M414 398V211M414 215H440C461 215 473 230 473 251C473 272 460 287 440 287H414" stroke="#72DCCC" stroke-opacity="0.34" stroke-width="20"/>
+  </g>
+  <path d="M247 124L216 186H278L247 124Z" fill="#F6CD68"/>
+  <path d="M216 402C237 412 277 412 298 402" fill="none" stroke="#F8F4EA" stroke-opacity="0.22" stroke-width="5" stroke-linecap="round"/>
+</svg>

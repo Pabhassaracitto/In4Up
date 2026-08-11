@@ -7,6 +7,27 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
 project(in2up LANGUAGES CXX)
 
+# Local GGUF inference backend (llama.cpp shallow submodule).
+set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_LLAMA_CLI OFF CACHE BOOL "" FORCE)
+set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/llama.cpp
+                 ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp EXCLUDE_FROM_ALL)
+
+add_library(in2up_ai_native SHARED
+  ${CMAKE_CURRENT_SOURCE_DIR}/../packages/in2up_ai/native/in2up_ai_native.cpp
+)
+target_include_directories(in2up_ai_native PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../packages/in2up_ai/native
+  ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/llama.cpp/include
+)
+target_link_libraries(in2up_ai_native PRIVATE llama)
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "in2up")

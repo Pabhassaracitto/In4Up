@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
@@ -23,6 +25,109 @@ class AiServiceFacade extends ChangeNotifier {
   int _retryCount = 0;
   static const int _maxRetries = 3;
 
+  // Conversation state. Kept in the facade so the UI can remain a thin client.
+  static const String _chatHistoryKey = 'in2up_ai_chat_history_v1';
+  final List<ChatMessage> _chatMessages = <ChatMessage>[];
+  List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
+  bool _chatHistoryLoaded = false;
+
+  Future<void> _restoreChatHistory() async {
+    if (_chatHistoryLoaded) return;
+    _chatHistoryLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_chatHistoryKey);
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      _chatMessages
+        ..clear()
+        ..addAll(decoded
+            .whereType<Map<String, dynamic>>()
+            .map(ChatMessage.fromJson));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AiFacade] Could not restore chat history: $e');
+    }
+  }
+
+  Future<void> _persistChatHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _chatHistoryKey,
+        jsonEncode(_chatMessages.map((message) => message.toJson()).toList()),
+      );
+    } catch (e) {
+      debugPrint('[AiFacade] Could not persist chat history: $e');
+    }
+  }
+  bool get isChatLoading => _facadeState == AiFacadeState.chatting;
+
+  Future<void> clearChat() async {
+    _chatMessages.clear();
+    await _persistChatHistory();
+    notifyListeners();
+  }
+
+  /// Send one conversational turn. The history is included as context on each
+  /// request, making the API ready for a real streaming engine later.
+  Future<void> sendMessage(String message) async {
+    final text = message.trim();
+    if (text.isEmpty || isChatLoading) return;
+
+    _chatMessages.add(ChatMessage(
+      id: 'user-${DateTime.now().microsecondsSinceEpoch}',
+      role: ChatRole.user,
+      text: text,
+    ));
+    await _persistChatHistory();
+    _setFacadeState(AiFacadeState.chatting);
+    _lastError = null;
+    notifyListeners();
+
+    final history = _chatMessages
+        .map((m) => '${m.role.name.toUpperCase()}: ${m.text}')
+        .join('\\n');
+
+    try {
+      if (_engine.state != AiEngineState.ready) {
+        _chatMessages.add(ChatMessage(
+          id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+          role: ChatRole.assistant,
+          text: 'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
+          isError: true,
+        ));
+      } else {
+        final result = await _engine.analyze(
+          text: text,
+          type: AiAnalysisType.conversation,
+          context: history,
+          temperature: 0.2,
+        ).first;
+        _chatMessages.add(ChatMessage(
+          id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+          role: ChatRole.assistant,
+          text: result.success && result.summary.isNotEmpty
+              ? result.summary
+              : 'Mình chưa tạo được câu trả lời cho tin nhắn này.',
+          isError: !result.success,
+        ));
+      }
+    } catch (e) {
+      _lastError = e.toString();
+      _chatMessages.add(ChatMessage(
+        id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+        role: ChatRole.assistant,
+        text: 'Có lỗi khi xử lý. Vui lòng thử lại.',
+        isError: true,
+      ));
+    } finally {
+      await _persistChatHistory();
+      _setFacadeState(AiFacadeState.idle);
+      notifyListeners();
+    }
+  }
+
   AiServiceFacade({
     AiEngine? engine,
     AiModelLoader? loader,
@@ -43,6 +148,7 @@ class AiServiceFacade extends ChangeNotifier {
 
   /// Gọi khi app start - không block UI
   Future<void> initializeAsync() async {
+    await _restoreChatHistory();
     _setFacadeState(AiFacadeState.loading);
 
     // Tìm model theo 3 tầng A → B → C
@@ -283,4 +389,5 @@ enum AiFacadeState {
   loading,
   error,
   noModel, // Có thể chạy nhưng thiếu Gemma
+  chatting,
 }

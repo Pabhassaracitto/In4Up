@@ -5,6 +5,7 @@ export 'src/facade/ai_service_facade.dart';
 
 // Models
 export 'src/models/ai_analysis.dart';
+export 'src/models/chat_message.dart';
 
 // Loader - cho UI hiển thị trạng thái model
 export 'src/loader/ai_model_loader.dart'
@@ -15,6 +16,9 @@ export 'src/engine/ai_engine.dart' show AiEngineState;
 
 // Error log - để app layer lưu vào storage
 export 'src/error/ai_error_handler.dart' show ErrorLogEntry;
+
+// Defensive model-output parsing
+export 'src/mapper/ai_model_mapper.dart';
 
 // Mock engine - cho testing
 export 'src/engine/ai_engine_mock.dart';

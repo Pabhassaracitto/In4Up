@@ -2,11 +2,15 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
 import 'ai_engine.dart';
+import 'ai_native_bindings.dart';
+import '../mapper/ai_model_mapper.dart';
+import '../prompts/ai_prompts_library.dart';
 
 class AiEngineGemma implements AiEngine {
   @override
@@ -69,11 +73,13 @@ class AiEngineGemma implements AiEngine {
 
       if (msg is _IsolateResponse && msg.isComplete) {
         engine._state = AiEngineState.ready;
-        final json = jsonDecode(msg.fullText) as Map<String, dynamic>;
-        yield AiAnalysis.fromJson(
-          json,
-          text,
-        ); // type is extracted from json['analysisType'] inside fromJson
+        // The mapper tolerates prose around JSON and never lets malformed
+        // model output crash the isolate consumer.
+        yield AiModelMapper.parse(
+          rawOutput: msg.fullText,
+          inputText: text,
+          type: type,
+        );
         responsePort.close();
         break;
       } else if (msg is _IsolateError) {
@@ -132,12 +138,23 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
+    final native = AiNativeBindings.tryLoad();
+    ffi.Pointer<ffi.Void>? nativeHandle;
+    if (native != null) {
+      nativeHandle = native.create(init.modelPath);
+      if (nativeHandle == ffi.nullptr) nativeHandle = null;
+    }
     init.mainSendPort.send(port.sendPort);
     await for (final msg in port) {
       if (msg is _IsolateMessage) {
         try {
+          final nativeOutput = native != null && nativeHandle != null
+              ? native.generate(nativeHandle!, msg.prompt, temperature: msg.temperature)
+              : null;
           msg.replyPort.send(_IsolateResponse(
-            fullText: _mockInference(msg.prompt),
+            // Fallback remains available for platforms where the native
+            // library has not been built yet.
+            fullText: nativeOutput ?? _mockInference(msg.prompt),
             isComplete: true,
           ));
         } catch (e) {
@@ -145,6 +162,7 @@ class AiEngineGemma implements AiEngine {
         }
       }
     }
+    if (native != null && nativeHandle != null) native.destroy(nativeHandle!);
   }
 
   static String _mockInference(String prompt) {
@@ -156,6 +174,10 @@ class AiEngineGemma implements AiEngine {
     }
     if (prompt.contains('in2up_SUMMARY_REVIEW')) {
       return _mockSummaryReview(prompt);
+    }
+    if (prompt.contains('TYPE: conversation') ||
+        prompt.contains('Analyze conversation:')) {
+      return _mockConversation(prompt);
     }
 
     return jsonEncode({
@@ -174,6 +196,32 @@ class AiEngineGemma implements AiEngine {
       'action_items': [
         'Đọc lại ý chính và rút ngắn phản hồi vào 1-2 ý rõ ràng.'
       ],
+      'language': 'vi',
+    });
+  }
+
+  static String _mockConversation(String prompt) {
+    final lines = prompt.split('\\n');
+    final inputLines = lines
+        .where((line) => line.startsWith('INPUT:'))
+        .map((line) => line.substring('INPUT:'.length).trim())
+        .toList();
+    final input = inputLines.isEmpty ? '' : inputLines.last;
+    final conversationLine = lines
+        .where((line) => line.startsWith('Analyze conversation:'))
+        .map((line) => line.substring('Analyze conversation:'.length).trim())
+        .toList();
+    final question = input.isNotEmpty
+        ? input
+        : conversationLine.isEmpty
+            ? 'câu hỏi của bạn'
+            : conversationLine.last;
+    return jsonEncode({
+      'summary': 'Mình đã nhận được: "$question". AI Chat đang ở bản beta offline; hãy hỏi mình về từ vựng, ngữ pháp hoặc cách luyện nghe.',
+      'topics': ['Conversation'],
+      'analysisType': 'conversation',
+      'technical_terms': <Map<String, dynamic>>[],
+      'action_items': <String>[],
       'language': 'vi',
     });
   }
@@ -424,7 +472,15 @@ class AiEngineGemma implements AiEngine {
     };
   }
 
-  String _buildPrompt(AiAnalysisType type, String text, String? ctx) => '''
+  String _buildPrompt(AiAnalysisType type, String text, String? ctx) {
+    if (type == AiAnalysisType.conversation) {
+      return AiPromptsLibrary.buildPrompt(
+        type: type,
+        text: text,
+        context: ctx,
+      );
+    }
+    return '''
 SYSTEM: Bạn là Gemma AI offline của in2up. Chỉ trả JSON hợp lệ.
 TYPE: ${type.name}
 INPUT: $text
@@ -437,6 +493,7 @@ OUTPUT SCHEMA:
   "action_items": ["string"],
   "language": "en|vi"
 }''';
+  }
 }
 
 class _IsolateInit {

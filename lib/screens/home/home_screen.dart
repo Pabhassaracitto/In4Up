@@ -28,6 +28,7 @@ class HomeScreen extends StatefulWidget {
     required this.onNavigateToRead,
     required this.onNavigateToUnderstand,
     required this.onNavigateToMemory,
+    required this.onOpenAiChat,
   });
 
   @override
@@ -35,6 +36,40 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  Widget _buildAiChatCard(BuildContext context) {
+    return InkWell(
+      onTap: widget.onOpenAiChat,
+      borderRadius: BorderRadius.circular(20),
+      child: Ink(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF312E81), Color(0xFF172554)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Color(0xFFE9D5FF), size: 30),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('I2U AI Chat', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                  SizedBox(height: 4),
+                  Text('Hỏi đáp về từ vựng và ngữ pháp', style: TextStyle(color: Colors.white70)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -57,6 +92,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       physics: const BouncingScrollPhysics(),
                       slivers: [
                         SliverToBoxAdapter(child: _buildGlassHeader(context)),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildAiChatCard(context),
+                          ),
+                        ),
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,

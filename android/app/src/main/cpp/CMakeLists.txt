@@ -1,6 +1,20 @@
 cmake_minimum_required(VERSION 3.10.2)
 project(ultratimestretch)
 
+# Optional local LLM backend. The llama.cpp source is tracked as a shallow
+# submodule; initialize it before building Android:
+#   git submodule update --init --depth 1
+set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_LLAMA_CLI OFF CACHE BOOL "" FORCE)
+set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../../../third_party/llama.cpp
+                 ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp EXCLUDE_FROM_ALL)
+
 if(ANDROID)
     if(NOT DEFINED ANDROID_STL)
         message(WARNING "ANDROID_STL is not defined. This can lead to runtime errors. It is recommended to set this in your app's build.gradle file. For example: android.defaultConfig.externalNativeBuild.cmake.arguments.add('-DANDROID_STL=c++_static')")
@@ -55,3 +69,12 @@ endif()
 # Link libraries
 find_library(log-lib log)
 target_link_libraries(ultratimestretch ${log-lib})
+
+add_library(in2up_ai_native SHARED
+    ../../../../../packages/in2up_ai/native/in2up_ai_native.cpp
+)
+target_include_directories(in2up_ai_native PRIVATE
+    ../../../../../packages/in2up_ai/native
+    ../../../../../third_party/llama.cpp/include
+)
+target_link_libraries(in2up_ai_native PRIVATE llama ${log-lib})

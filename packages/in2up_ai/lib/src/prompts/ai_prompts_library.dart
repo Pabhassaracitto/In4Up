@@ -128,6 +128,7 @@ Return ONLY valid JSON:
 Analyze conversation: "$text"${context != null ? '\nContext: $context' : ''}.
 Return ONLY valid JSON:
 {
+  "analysisType": "conversation",
   "summary": "<Vietnamese 60-word summary>",
   "topics": ["Conversation"],
   "technical_terms": [

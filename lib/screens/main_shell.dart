@@ -14,6 +14,7 @@ import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/storage_service.dart';
 import 'home/home_screen.dart';
+import 'ai_chat/ai_chat_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/speak_mode_screen.dart';
 import 'listen_mode/widgets/audio_library_drawer.dart';
@@ -700,6 +701,11 @@ class _MainShellState extends State<MainShell> {
           onNavigateToRead: () => _setReadMode(0),
           onNavigateToUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
           onNavigateToMemory: () => _setPrimaryTab(_PrimaryTab.remember),
+          onOpenAiChat: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiChatScreen()),
+            );
+          },
         );
       case _PrimaryTab.listen:
         return IndexedStack(

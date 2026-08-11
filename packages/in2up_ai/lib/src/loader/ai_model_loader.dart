@@ -174,7 +174,7 @@ class AiModelLoader {
         );
       }
 
-      // Verify file vẫn còn tồn tại
+      // Verify file vẫn còn tồn tại và có header GGUF hợp lệ.
       final file = File(savedPath);
       if (!await file.exists()) {
         // File đã bị xóa, clear cache
@@ -183,6 +183,16 @@ class AiModelLoader {
           success: false,
           source: ModelSource.none,
           errorMessage: 'Model file đã bị xóa khỏi thiết bị',
+        );
+      }
+
+      final validationError = await _validateGguf(file);
+      if (validationError != null) {
+        await prefs.remove(AiModelConfig._prefKeyModelPath);
+        return ModelLoadResult(
+          success: false,
+          source: ModelSource.none,
+          errorMessage: validationError,
         );
       }
 
@@ -234,6 +244,16 @@ class AiModelLoader {
           success: false,
           source: ModelSource.none,
           errorMessage: 'File phải có đuôi .gguf',
+        );
+      }
+
+      final sourceFile = File(filePath);
+      final validationError = await _validateGguf(sourceFile);
+      if (validationError != null) {
+        return ModelLoadResult(
+          success: false,
+          source: ModelSource.none,
+          errorMessage: validationError,
         );
       }
 
@@ -344,6 +364,22 @@ class AiModelLoader {
         source: ModelSource.none,
         errorMessage: 'Download thất bại: $e',
       );
+    }
+  }
+
+  Future<String?> _validateGguf(File file) async {
+    try {
+      final length = await file.length();
+      if (length < 8) return 'File model quá nhỏ hoặc bị hỏng';
+      final header = await file.openRead(0, 4).fold<List<int>>(
+        <int>[],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      final magic = String.fromCharCodes(header);
+      if (magic != 'GGUF') return 'File không phải model GGUF hợp lệ';
+      return null;
+    } catch (e) {
+      return 'Không thể đọc model: $e';
     }
   }
 

@@ -1,8 +1,9 @@
-// lib/screens/read_mode/services/playback_engine.dart
-
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import '../../../models/text_item.dart'; // ← TextItem thay TextLine
+
+import '../../../core/language/app_language.dart';
+import '../../../models/text_item.dart';
 import '../models/playback_anchor.dart';
 import '../models/playback_event.dart';
 import '../models/playback_recipe.dart';
@@ -20,8 +21,10 @@ class PlaybackEngine {
 
   Future<void> play({
     required PlaybackRunToken token,
-    required List<TextItem> lines, // ← TextItem
+    required List<TextItem> lines,
     required PlaybackRecipe recipe,
+    required String sourceLanguageCode,
+    required String targetLanguageCode,
     required void Function(PlaybackEvent) onEvent,
     required VoidCallback onDone,
     required void Function(EngineError) onError,
@@ -29,68 +32,125 @@ class PlaybackEngine {
   }) async {
     _cancel = false;
 
+    final sourceLanguage = AppLanguageCatalog.fromCode(sourceLanguageCode);
+    final targetLanguage = AppLanguageCatalog.fromCode(targetLanguageCode);
+
     try {
       await tts.setSpeechRate(recipe.speed);
 
       final total = lines.length;
       final passes = recipe.totalPasses;
-      int startLine = resumeFrom?.lineIndex ?? 0;
-      int pass = 0;
+      var startLine = resumeFrom?.lineIndex ?? 0;
+      var pass = 0;
 
       while (!_cancel && (passes == 0 || pass < passes)) {
         final fromLine = pass == 0 ? startLine : 0;
 
-        for (int i = fromLine; i < total; i++) {
-          final fromLR = (pass == 0 && i == startLine)
-              ? (resumeFrom?.lineRepeatIndex ?? 0)
+        for (var index = fromLine; index < total; index++) {
+          final fromRepeat = pass == 0 && index == startLine
+              ? resumeFrom?.lineRepeatIndex ?? 0
               : 0;
+          final lineSourceLanguage = AppLanguageCatalog.fromCode(
+            lines[index].sourceLanguageCode,
+            fallback: sourceLanguage,
+          );
 
-          for (int lr = fromLR; lr < recipe.lineRepeats; lr++) {
+          for (var lineRepeat = fromRepeat;
+              lineRepeat < recipe.lineRepeats;
+              lineRepeat++) {
             if (_cancel) return;
 
-            // lineStart event
             onEvent(PlaybackEvent(
               type: PlaybackEventType.lineStart,
-              snapshot: _snap(i, total, pass, recipe, lr, true),
+              snapshot: _snapshot(
+                index,
+                total,
+                pass,
+                recipe,
+                lineRepeat,
+                true,
+                lineSourceLanguage,
+                targetLanguage,
+              ),
             ));
 
-            // ── EN phase ──────────────────────────────────
-            if (recipe.mode != PlaybackMode.viOnly) {
-              for (int e = 0; e < recipe.enRepeats; e++) {
+            // Original/source phase. Always set the concrete locale before
+            // speaking so a voice from the previous phase can never leak.
+            if (recipe.mode != PlaybackMode.viOnly && recipe.enRepeats > 0) {
+              await tts.setLanguage(lineSourceLanguage.ttsLocale);
+              for (var repeat = 0; repeat < recipe.enRepeats; repeat++) {
                 if (_cancel) return;
                 onEvent(PlaybackEvent(
                   type: PlaybackEventType.phase,
-                  snapshot: _snap(i, total, pass, recipe, lr, true),
+                  snapshot: _snapshot(
+                    index,
+                    total,
+                    pass,
+                    recipe,
+                    lineRepeat,
+                    true,
+                    lineSourceLanguage,
+                    targetLanguage,
+                  ),
                 ));
-                // ★ TextItem.content — tiếng Anh gốc
-                await tts.speak(lines[i].content);
+                await tts.speak(lines[index].content);
               }
             }
 
-            // ── Rhythm Gap ────────────────────────────────
-            final hasVI = recipe.mode != PlaybackMode.enOnly &&
-                (lines[i].translation?.isNotEmpty ?? false);
+            final translation = lines[index].translation?.trim() ?? '';
+            final storedTarget = lines[index].translationLanguageCode == null
+                ? 'VI'
+                : AppLanguageCatalog.normalizeTranslationCode(
+                    lines[index].translationLanguageCode,
+                  );
+            final hasCurrentTarget = translation.isNotEmpty &&
+                storedTarget == targetLanguage.translationCode;
 
-            if (!_cancel && recipe.mode == PlaybackMode.interleaved && hasVI) {
+            final switchesLanguage = recipe.mode != PlaybackMode.enOnly &&
+                recipe.mode != PlaybackMode.viOnly &&
+                recipe.enRepeats > 0 &&
+                recipe.viRepeats > 0;
+            if (!_cancel && switchesLanguage && hasCurrentTarget) {
               onEvent(PlaybackEvent(
                 type: PlaybackEventType.languageSwitch,
-                snapshot: _snap(i, total, pass, recipe, lr, false),
+                snapshot: _snapshot(
+                  index,
+                  total,
+                  pass,
+                  recipe,
+                  lineRepeat,
+                  false,
+                  lineSourceLanguage,
+                  targetLanguage,
+                ),
               ));
-              await Future.delayed(
+              await Future<void>.delayed(
                 Duration(milliseconds: recipe.silenceGap.ms),
               );
             }
 
-            // ── VI phase ──────────────────────────────────
-            if (!_cancel && recipe.mode != PlaybackMode.enOnly && hasVI) {
-              for (int v = 0; v < recipe.viRepeats; v++) {
+            // Translation/target phase, again with an explicit locale switch.
+            if (!_cancel &&
+                recipe.mode != PlaybackMode.enOnly &&
+                recipe.viRepeats > 0 &&
+                hasCurrentTarget) {
+              await tts.setLanguage(targetLanguage.ttsLocale);
+              for (var repeat = 0; repeat < recipe.viRepeats; repeat++) {
                 if (_cancel) return;
                 onEvent(PlaybackEvent(
                   type: PlaybackEventType.phase,
-                  snapshot: _snap(i, total, pass, recipe, lr, false),
+                  snapshot: _snapshot(
+                    index,
+                    total,
+                    pass,
+                    recipe,
+                    lineRepeat,
+                    false,
+                    lineSourceLanguage,
+                    targetLanguage,
+                  ),
                 ));
-                // ★ TextItem.translation — bản dịch tiếng Việt
-                await tts.speak(lines[i].translation!);
+                await tts.speak(translation);
               }
             }
           }
@@ -101,9 +161,13 @@ class PlaybackEngine {
       }
 
       onDone();
-    } catch (e, st) {
-      debugPrint('[PlaybackEngine] error: $e\n$st');
-      onError((message: 'Playback failed', cause: e));
+    } catch (error, stackTrace) {
+      debugPrint('[PlaybackEngine] error: $error\n$stackTrace');
+      onError((
+        message:
+            'Không thể phát ${sourceLanguage.nativeName} → ${targetLanguage.nativeName}',
+        cause: error,
+      ));
     }
   }
 
@@ -116,23 +180,27 @@ class PlaybackEngine {
     tts.stop();
   }
 
-  PlaybackSnapshot _snap(
+  PlaybackSnapshot _snapshot(
     int line,
     int total,
     int pass,
-    PlaybackRecipe r,
-    int lr,
-    bool isEN,
+    PlaybackRecipe recipe,
+    int lineRepeat,
+    bool isSource,
+    AppLanguage source,
+    AppLanguage target,
   ) =>
       PlaybackSnapshot(
         line: line,
         totalLines: total,
         pass: pass,
-        totalPasses: r.totalPasses,
-        lineRepeat: lr,
-        totalLineRepeats: r.lineRepeats,
-        isEN: isEN,
-        enRepeats: r.enRepeats,
-        viRepeats: r.viRepeats,
+        totalPasses: recipe.totalPasses,
+        lineRepeat: lineRepeat,
+        totalLineRepeats: recipe.lineRepeats,
+        isEN: isSource,
+        enRepeats: recipe.enRepeats,
+        viRepeats: recipe.viRepeats,
+        sourceLanguageCode: source.translationCode,
+        targetLanguageCode: target.translationCode,
       );
 }

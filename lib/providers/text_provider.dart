@@ -154,7 +154,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TTS SETTINGS ====================
   double _ttsSpeed = 1.0;
   double _ttsPitch = 1.0;
-  String _ttsLanguage = 'en-US';
+  String _ttsLanguage = 'auto';
   bool _isSpeaking = false;
   //TTS session management
   TtsPlaybackOwner _ttsOwner = TtsPlaybackOwner.none;
@@ -254,7 +254,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
       final savedSpeed = _storage.getTtsSpeed();
       _ttsSpeed = (savedSpeed == 1.75 || savedSpeed == 0.0) ? 1.0 : savedSpeed;
-      _ttsService.configure(speed: _ttsSpeed);
+      _ttsService.configure(
+        speed: _ttsSpeed,
+        language: 'auto',
+        autoDetect: true,
+      );
+
+      restoreTranslationTargetLanguage(
+        _storage.getTranslationTargetLanguage(),
+      );
 
       if (_storage.getShowTranslation()) {
         setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
@@ -816,6 +824,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translation: (translation == null || translation.trim().isEmpty)
           ? null
           : translation.trim(),
+      translationLanguageCode: translation == null || translation.trim().isEmpty
+          ? null
+          : translationTargetLanguage.translationCode,
+      clearTranslation: translation == null || translation.trim().isEmpty,
+      clearSourceLanguage: true,
     );
 
     // Re-analyze từ loại
@@ -875,6 +888,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         id: '${original.id}_s$i',
         content: text,
         translation: trans,
+        sourceLanguageCode: original.sourceLanguageCode,
+        translationLanguageCode: trans == null
+            ? null
+            : original.translationLanguageCode ??
+                translationTargetLanguage.translationCode,
         startTime: i == 0 ? original.startTime : null,
         endTime: i == 0 ? original.endTime : null,
       );
@@ -1069,7 +1087,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   Future<void> setTtsLanguage(String language) async {
     _ttsLanguage = language;
-    _ttsService.configure(language: language);
+    final isAuto = language.toLowerCase() == 'auto';
+    _ttsService.configure(
+      language: isAuto ? 'auto' : language,
+      autoDetect: isAuto,
+    );
     notifyListeners();
   }
 

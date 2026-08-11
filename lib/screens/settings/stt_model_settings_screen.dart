@@ -9,6 +9,8 @@ import 'package:in2up_stt/stt_model_manager.dart';
 import 'package:in2up_stt/stt_service_facade.dart' as modelManager;
 import 'package:in2up_stt/in2up_stt.dart';
 
+import '../../core/language/app_language.dart';
+
 class SttModelSettingsScreen extends StatelessWidget {
   const SttModelSettingsScreen({super.key});
 
@@ -425,37 +427,28 @@ class _LanguageSettingCard extends StatelessWidget {
                   ? 'system'
                   : '${currentLocale.languageCode}${currentLocale.countryCode == null ? '' : '_${currentLocale.countryCode}'}',
               underline: const SizedBox(),
-              items: const [
-                DropdownMenuItem(value: 'system', child: Text('Hệ thống')),
-                DropdownMenuItem(value: 'ar', child: Text('العربية (Arabic)')),
-                DropdownMenuItem(value: 'bn', child: Text('বাংলা (Bengali)')),
-                DropdownMenuItem(value: 'bo', child: Text('བོད་ཡིག (Tibetan)')),
-                DropdownMenuItem(value: 'de', child: Text('Deutsch (German)')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(value: 'es', child: Text('Español (Spanish)')),
-                DropdownMenuItem(value: 'fr', child: Text('Français (French)')),
-                DropdownMenuItem(value: 'hi', child: Text('हिन्दी (Hindi)')),
-                DropdownMenuItem(value: 'id', child: Text('Bahasa Indonesia')),
-                DropdownMenuItem(
-                    value: 'it', child: Text('Italiano (Italian)')),
-                DropdownMenuItem(value: 'ja', child: Text('日本語 (Japanese)')),
-                DropdownMenuItem(value: 'km', child: Text('ភាសាខ្មែរ (Khmer)')),
-                DropdownMenuItem(value: 'ko', child: Text('한국어 (Korean)')),
-                DropdownMenuItem(value: 'lo', child: Text('ລາວ (Lao)')),
-                DropdownMenuItem(
-                    value: 'mn', child: Text('Монгол (Mongolian)')),
-                DropdownMenuItem(value: 'mr', child: Text('मराठी (Marathi)')),
-                DropdownMenuItem(value: 'my', child: Text('မြန်မာ (Burmese)')),
-                DropdownMenuItem(
-                    value: 'pt', child: Text('Português (Portuguese)')),
-                DropdownMenuItem(value: 'ru', child: Text('Русский (Russian)')),
-                DropdownMenuItem(value: 'si', child: Text('සිංහල (Sinhala)')),
-                DropdownMenuItem(value: 'ta', child: Text('தமிழ் (Tamil)')),
-                DropdownMenuItem(value: 'te', child: Text('తెలుగు (Telugu)')),
-                DropdownMenuItem(value: 'th', child: Text('ไทย (Thai)')),
-                DropdownMenuItem(value: 'vi', child: Text('Tiếng Việt')),
-                DropdownMenuItem(value: 'zh', child: Text('中文 (Giản thể)')),
-                DropdownMenuItem(value: 'zh_TW', child: Text('中文 (Phồn thể)')),
+              items: [
+                const DropdownMenuItem(
+                  value: 'system',
+                  child: Text('🌐 Hệ thống'),
+                ),
+                ...AppLanguageCatalog.languages.map(
+                  (language) => DropdownMenuItem(
+                    value: language.appLocaleCode,
+                    child: Text(
+                      '${language.flag} ${language.nativeName} '
+                      '(${language.englishName})',
+                    ),
+                  ),
+                ),
+              ],
+              selectedItemBuilder: (_) => [
+                const Text('🌐 Auto'),
+                ...AppLanguageCatalog.languages.map(
+                  (language) => Text(
+                    '${language.flag} ${language.translationCode}',
+                  ),
+                ),
               ],
               onChanged: (value) {
                 if (value == null || value == 'system') {

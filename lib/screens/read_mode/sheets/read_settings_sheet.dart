@@ -5,11 +5,13 @@ import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
 import '../../../features/translation/translation_display_mode.dart';
+import '../../../features/translation/translation_language_picker.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+import '../services/playback_controller.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();
@@ -108,6 +110,15 @@ class _SettingsContent extends StatelessWidget {
                       title: 'Text-to-Speech', icon: Icons.record_voice_over),
                   const SizedBox(height: 12),
                   _TtsControls(tp: tp),
+                  const SizedBox(height: 24),
+
+                  // ===== TRANSLATION + BILINGUAL TTS =====
+                  const _SectionTitle(
+                    title: 'Dịch & đọc song ngữ',
+                    icon: Icons.compare_arrows_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _TranslationLanguageSection(tp: tp),
                   const SizedBox(height: 24),
 
                   // ===== COLOR MODE =====
@@ -405,6 +416,71 @@ class _TtsControls extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TranslationLanguageSection extends StatelessWidget {
+  final TextProvider tp;
+
+  const _TranslationLanguageSection({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    final source = tp.detectedSourceLanguage;
+    final target = tp.translationTargetLanguage;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TranslationLanguagePickerButton(
+            sourceLanguage: source,
+            targetLanguage: target,
+            compact: false,
+            accentColor: const Color(0xFF53D6BD),
+            onSelected: (language) async {
+              final playback = context.read<PlaybackController>();
+              if (playback.isRunning) {
+                playback.stop(fileId: tp.currentDocument?.id ?? 'unknown');
+              }
+              await tp.stopSpeaking();
+              await tp.setTranslationTargetLanguage(
+                language.translationCode,
+                retranslateExisting: true,
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ '
+            'chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước '
+            'từng lượt đọc.',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          if (tp.translationPairUsesSameLanguage) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.',
+              style: TextStyle(
+                color: Colors.amber,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -37,6 +37,18 @@ class OfflineEngine extends TranslationEngine {
       );
     }
 
+    final source = sourceLang.replaceAll('_', '-').toUpperCase();
+    final target = targetLang.replaceAll('_', '-').toUpperCase();
+    if (source != 'EN' || target != 'VI') {
+      return TranslationResult.failure(
+        original: text,
+        error: 'Từ điển offline hiện chỉ hỗ trợ EN → VI',
+        engine: name,
+        detectedLang: source,
+        targetLang: target,
+      );
+    }
+
     final stopwatch = Stopwatch()..start();
 
     try {

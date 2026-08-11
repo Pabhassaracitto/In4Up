@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
 import 'engines/fpt_tts_engine.dart';
 import 'engines/tts_engine.dart';
@@ -150,7 +151,14 @@ class TtsService extends ChangeNotifier {
     bool? autoDetect,
     TtsPriority? priority,
   }) {
-    if (language != null) _language = language;
+    if (language != null) {
+      final isAuto = language.toLowerCase() == 'auto';
+      final normalized = isAuto
+          ? 'auto'
+          : AppLanguageCatalog.fromCode(language).ttsLocale;
+      if (_language != normalized) _selectedVoiceId = null;
+      _language = normalized;
+    }
     if (speed != null) _speed = speed.clamp(0.25, 2.0);
     if (pitch != null) _pitch = pitch.clamp(0.5, 2.0);
     if (voiceId != null) _selectedVoiceId = voiceId;
@@ -467,8 +475,11 @@ class TtsService extends ChangeNotifier {
   }
 
   String _resolveLanguage(String text) {
-    if (!_autoDetectLanguage && _language != 'auto') return _language;
-    return LanguageDetector.detect(text);
+    if (_language != 'auto') {
+      return AppLanguageCatalog.fromCode(_language).ttsLocale;
+    }
+    if (_autoDetectLanguage) return LanguageDetector.detect(text);
+    return AppLanguageCatalog.english.ttsLocale;
   }
 
   // ═══════════════════════════════════════

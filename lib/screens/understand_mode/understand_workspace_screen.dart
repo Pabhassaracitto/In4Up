@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/auto_hide_banner.dart';
 import 'understand_tab_connector.dart';
 
 class UnderstandWorkspaceScreen extends StatelessWidget {
@@ -20,11 +21,15 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _UnderstandWorkspaceHeader(
-          onOpenSpeakMode: onOpenSpeakMode,
-          onOpenYouGlish: onOpenYouGlish,
-          onOpenReview: onOpenReview,
-          onOpenQuickActions: onOpenQuickActions,
+        AutoHideInfoBanner(
+          storageKey: 'understand_workspace_header',
+          autoHideAfter: const Duration(seconds: 6),
+          child: _UnderstandWorkspaceHeader(
+            onOpenSpeakMode: onOpenSpeakMode,
+            onOpenYouGlish: onOpenYouGlish,
+            onOpenReview: onOpenReview,
+            onOpenQuickActions: onOpenQuickActions,
+          ),
         ),
         const Expanded(
           child: UnderstandTabConnector(),

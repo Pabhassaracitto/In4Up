@@ -138,12 +138,17 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               textProvider.grammarSettings.enabled &&
               textProvider.grammarSettings.showLegend;
 
+          // Nếu đã có bản dịch thì luôn cho phép hiện toolbar để user đổi layout,
+          // kể cả khi showTranslation đang false (tránh trường hợp tắt rồi không mở lại được)
+          final hasTranslation = textProvider.translatedLineCount > 0;
           return Column(
             children: [
               const ReadTopBar(),
               if (showGrammarLegend)
                 _GrammarLegendStrip(textProvider: textProvider),
-              if (textProvider.showTranslation) const TranslationToolbar(),
+              // Hiện toolbar khi đang bật dịch HOẶC đã có bản dịch sẵn
+              if (textProvider.showTranslation || hasTranslation)
+                const TranslationToolbar(),
               Expanded(
                 child: _showWordlistPanel
                     ? _buildSplitView(textProvider)
@@ -152,7 +157,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                         child: _buildTextList(textProvider),
                       ),
               ),
-              const SmartPlaybackBar(), // ← THÊM Smart Playback Bar
+              const SmartPlaybackBar(),
               ReadBottomBar(
                 showWordlistPanel: _showWordlistPanel,
                 onToggleWordlist: () {

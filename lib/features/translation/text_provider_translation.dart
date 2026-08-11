@@ -176,7 +176,7 @@ mixin TranslationMixin on ChangeNotifier {
 
   void clearAllTranslations() {
     for (int i = 0; i < lines.length; i++) {
-      lines[i] = lines[i].copyWith(translation: null);
+      lines[i] = lines[i].copyWith(clearTranslation: true);
     }
     _translationDisplayMode = TranslationDisplayMode.hidden;
     _currentEngine = '';

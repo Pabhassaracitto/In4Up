@@ -336,9 +336,10 @@ project/
 android/local.properties
 .guide
 docs/
-
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 # Force track Firebase options for Windows build (API keys are not secret, but required)
 !lib/firebase_options.dart
-!android/app/google-services.json
-!ios/Runner/GoogleService-Info.plist
 !lib/services/auth_service.dart
+
+.agent_arena/

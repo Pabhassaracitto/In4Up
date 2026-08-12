@@ -25,17 +25,11 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return linux;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -116,5 +110,25 @@ class DefaultFirebaseOptions {
     projectId: 'vipsound-df903',
     authDomain: 'vipsound-df903.firebaseapp.com',
     storageBucket: 'vipsound-df903.firebasestorage.app',
+  );
+
+  static const FirebaseOptions linux = FirebaseOptions(
+    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
+    appId: '1:342774597309:web:linux001122334455',
+    messagingSenderId: '342774597309',
+    projectId: 'vipsound-df903',
+    authDomain: 'vipsound-df903.firebaseapp.com',
+    storageBucket: 'vipsound-df903.firebasestorage.app',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
+    appId: '1:342774597309:ios:40im71rl7k9h99fl1tv77p3oe61hhkg7',
+    messagingSenderId: '342774597309',
+    projectId: 'vipsound-df903',
+    storageBucket: 'vipsound-df903.firebasestorage.app',
+    iosClientId:
+        '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com',
+    iosBundleId: 'com.in2up',
   );
 }

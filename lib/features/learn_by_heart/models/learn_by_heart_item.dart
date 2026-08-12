@@ -1,0 +1,277 @@
+// lib/features/learn_by_heart/models/learn_by_heart_item.dart
+
+import 'chunk.dart';
+import 'fsrs_models.dart';
+import 'line_timestamp.dart';
+import 'recitation_category.dart';
+import 'review_state.dart';
+
+/// Model chính đại diện cho một bài học thuộc lòng (Kệ Pháp Cú, Kinh Tụng, Sutta...)
+class LearnByHeartItem {
+  // ===== CORE CONTENT =====
+  final String id;
+  final String title;
+  final String subtitle;
+  final RecitationCategory category;
+  final String paliText;
+  final String vietnameseText;
+  final String? audioUrl;
+  final String ttsLanguage;
+  final List<LineTimestamp> lineTimestamps;
+  final List<Chunk> chunkList;
+
+  // ===== ELABORATIVE FIELDS =====
+  final List<String> keywords;
+  final String shortMeaning;
+  final String lifeConnection;
+  final String? cueImageUrl;
+
+  // ===== SRS / FSRS STATE =====
+  final ReviewState reviewState;
+  final FSRSParams fsrsParams;
+  final DateTime? nextReviewDate;
+  final int consecutiveSuccesses;
+  final int totalReviews;
+  final int totalAssessments;
+  final int lapseCount;
+  final DateTime? lastAssessmentDate;
+  final DateTime createdAt;
+  final DateTime? lastReviewedAt;
+  final bool isFavorite;
+  final String? notes;
+  final List<ReviewLog> reviewHistory;
+
+  const LearnByHeartItem({
+    required this.id,
+    required this.title,
+    this.subtitle = '',
+    this.category = RecitationCategory.dhammapada,
+    required this.paliText,
+    required this.vietnameseText,
+    this.audioUrl,
+    this.ttsLanguage = 'vi',
+    this.lineTimestamps = const [],
+    this.chunkList = const [],
+    this.keywords = const [],
+    this.shortMeaning = '',
+    this.lifeConnection = '',
+    this.cueImageUrl,
+    this.reviewState = ReviewState.newItem,
+    this.fsrsParams = const FSRSParams(),
+    this.nextReviewDate,
+    this.consecutiveSuccesses = 0,
+    this.totalReviews = 0,
+    this.totalAssessments = 0,
+    this.lapseCount = 0,
+    this.lastAssessmentDate,
+    required this.createdAt,
+    this.lastReviewedAt,
+    this.isFavorite = false,
+    this.notes,
+    this.reviewHistory = const [],
+  });
+
+  // ==================== COMPUTED PROPERTIES ====================
+
+  /// Đã đến hạn ôn tập chưa?
+  bool get isDue {
+    if (reviewState == ReviewState.newItem) return true;
+    if (nextReviewDate == null) return true;
+    return DateTime.now().isAfter(nextReviewDate!);
+  }
+
+  /// Đủ điều kiện kích hoạt bài Kiểm tra thực chất (Assessment Layer)
+  /// Trigger: Khi có 5 lần liên tiếp đánh giá Được / Dễ
+  bool get isReadyForAssessment {
+    return consecutiveSuccesses >= 5;
+  }
+
+  /// Đã thuộc lòng vững chắc (Mastered)
+  bool get isMastered {
+    return fsrsParams.stability >= 21.0 && reviewState == ReviewState.review;
+  }
+
+  /// Số dòng văn bản tiếng Việt
+  List<String> get vietnameseLines {
+    return vietnameseText
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+  }
+
+  /// Số dòng văn bản Pali
+  List<String> get paliLines {
+    return paliText
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+  }
+
+  // ==================== COPY WITH ====================
+
+  LearnByHeartItem copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    RecitationCategory? category,
+    String? paliText,
+    String? vietnameseText,
+    String? audioUrl,
+    String? ttsLanguage,
+    List<LineTimestamp>? lineTimestamps,
+    List<Chunk>? chunkList,
+    List<String>? keywords,
+    String? shortMeaning,
+    String? lifeConnection,
+    String? cueImageUrl,
+    ReviewState? reviewState,
+    FSRSParams? fsrsParams,
+    DateTime? nextReviewDate,
+    int? consecutiveSuccesses,
+    int? totalReviews,
+    int? totalAssessments,
+    int? lapseCount,
+    DateTime? lastAssessmentDate,
+    DateTime? createdAt,
+    DateTime? lastReviewedAt,
+    bool? isFavorite,
+    String? notes,
+    List<ReviewLog>? reviewHistory,
+  }) {
+    return LearnByHeartItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      category: category ?? this.category,
+      paliText: paliText ?? this.paliText,
+      vietnameseText: vietnameseText ?? this.vietnameseText,
+      audioUrl: audioUrl ?? this.audioUrl,
+      ttsLanguage: ttsLanguage ?? this.ttsLanguage,
+      lineTimestamps: lineTimestamps ?? this.lineTimestamps,
+      chunkList: chunkList ?? this.chunkList,
+      keywords: keywords ?? this.keywords,
+      shortMeaning: shortMeaning ?? this.shortMeaning,
+      lifeConnection: lifeConnection ?? this.lifeConnection,
+      cueImageUrl: cueImageUrl ?? this.cueImageUrl,
+      reviewState: reviewState ?? this.reviewState,
+      fsrsParams: fsrsParams ?? this.fsrsParams,
+      nextReviewDate: nextReviewDate ?? this.nextReviewDate,
+      consecutiveSuccesses: consecutiveSuccesses ?? this.consecutiveSuccesses,
+      totalReviews: totalReviews ?? this.totalReviews,
+      totalAssessments: totalAssessments ?? this.totalAssessments,
+      lapseCount: lapseCount ?? this.lapseCount,
+      lastAssessmentDate: lastAssessmentDate ?? this.lastAssessmentDate,
+      createdAt: createdAt ?? this.createdAt,
+      lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+      isFavorite: isFavorite ?? this.isFavorite,
+      notes: notes ?? this.notes,
+      reviewHistory: reviewHistory ?? this.reviewHistory,
+    );
+  }
+
+  // ==================== SERIALIZATION ====================
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'subtitle': subtitle,
+      'category': category.name,
+      'paliText': paliText,
+      'vietnameseText': vietnameseText,
+      'audioUrl': audioUrl,
+      'ttsLanguage': ttsLanguage,
+      'lineTimestamps': lineTimestamps.map((t) => t.toJson()).toList(),
+      'chunkList': chunkList.map((c) => c.toJson()).toList(),
+      'keywords': keywords,
+      'shortMeaning': shortMeaning,
+      'lifeConnection': lifeConnection,
+      'cueImageUrl': cueImageUrl,
+      'reviewState': reviewState.name,
+      'fsrsParams': fsrsParams.toJson(),
+      'nextReviewDate': nextReviewDate?.toIso8601String(),
+      'consecutiveSuccesses': consecutiveSuccesses,
+      'totalReviews': totalReviews,
+      'totalAssessments': totalAssessments,
+      'lapseCount': lapseCount,
+      'lastAssessmentDate': lastAssessmentDate?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'lastReviewedAt': lastReviewedAt?.toIso8601String(),
+      'isFavorite': isFavorite,
+      'notes': notes,
+      'reviewHistory': reviewHistory.map((h) => h.toJson()).toList(),
+    };
+  }
+
+  factory LearnByHeartItem.fromJson(Map<String, dynamic> json) {
+    return LearnByHeartItem(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Chưa đặt tên',
+      subtitle: json['subtitle'] as String? ?? '',
+      category: RecitationCategory.values.firstWhere(
+        (c) => c.name == json['category'],
+        orElse: () => RecitationCategory.dhammapada,
+      ),
+      paliText: json['paliText'] as String? ?? '',
+      vietnameseText: json['vietnameseText'] as String? ?? '',
+      audioUrl: json['audioUrl'] as String?,
+      ttsLanguage: json['ttsLanguage'] as String? ?? 'vi',
+      lineTimestamps: (json['lineTimestamps'] as List<dynamic>?)
+              ?.map((t) => LineTimestamp.fromJson(t as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      chunkList: (json['chunkList'] as List<dynamic>?)
+              ?.map((c) => Chunk.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      keywords: (json['keywords'] as List<dynamic>?)
+              ?.map((k) => k as String)
+              .toList() ??
+          const [],
+      shortMeaning: json['shortMeaning'] as String? ?? '',
+      lifeConnection: json['lifeConnection'] as String? ?? '',
+      cueImageUrl: json['cueImageUrl'] as String?,
+      reviewState: ReviewState.values.firstWhere(
+        (s) => s.name == json['reviewState'],
+        orElse: () => ReviewState.newItem,
+      ),
+      fsrsParams: json['fsrsParams'] != null
+          ? FSRSParams.fromJson(json['fsrsParams'] as Map<String, dynamic>)
+          : const FSRSParams(),
+      nextReviewDate: json['nextReviewDate'] != null
+          ? DateTime.parse(json['nextReviewDate'] as String)
+          : null,
+      consecutiveSuccesses: json['consecutiveSuccesses'] as int? ?? 0,
+      totalReviews: json['totalReviews'] as int? ?? 0,
+      totalAssessments: json['totalAssessments'] as int? ?? 0,
+      lapseCount: json['lapseCount'] as int? ?? 0,
+      lastAssessmentDate: json['lastAssessmentDate'] != null
+          ? DateTime.parse(json['lastAssessmentDate'] as String)
+          : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+      lastReviewedAt: json['lastReviewedAt'] != null
+          ? DateTime.parse(json['lastReviewedAt'] as String)
+          : null,
+      isFavorite: json['isFavorite'] as bool? ?? false,
+      notes: json['notes'] as String?,
+      reviewHistory: (json['reviewHistory'] as List<dynamic>?)
+              ?.map((h) => ReviewLog.fromJson(h as Map<String, dynamic>))
+              .toList() ??
+          const [],
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LearnByHeartItem &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}

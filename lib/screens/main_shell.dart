@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in2up/l10n/app_localizations.dart';
 
+import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
@@ -403,6 +404,13 @@ class _MainShellState extends State<MainShell> {
 
     final rememberTools = <tools.ToolItem>[
       tools.ToolItem(
+        id: 'learn_by_heart',
+        title: 'Thuộc lòng (Learn by Heart)',
+        subtitle: 'Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa',
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFF4CAF50),
+      ),
+      tools.ToolItem(
         id: 'review',
         title: l10n.review,
         subtitle: l10n.reviewSubtitle,
@@ -619,6 +627,13 @@ class _MainShellState extends State<MainShell> {
     }
 
     switch (toolId) {
+      case 'learn_by_heart':
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => const LearnByHeartHubScreen(),
+          ),
+        );
+        return;
       case 'speak_mode':
         _setListenMode(1);
         return;
@@ -742,6 +757,9 @@ class _MainShellState extends State<MainShell> {
         );
       case _PrimaryTab.remember:
         return RememberWorkspaceScreen(
+          onOpenLearnByHeart: () {
+            _handleTool('learn_by_heart');
+          },
           onOpenReview: () {
             _handleTool('review');
           },

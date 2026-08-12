@@ -21,6 +21,7 @@ import 'package:in2up_stt/models/stt_model_info.dart';
 import 'package:in2up_stt/stt_service_facade.dart';
 
 import 'core/responsive/app_responsive.dart';
+import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/focus_provider.dart';
@@ -271,6 +272,8 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => FocusProvider()),
         ChangeNotifierProvider(
             create: (_) => KaraokeSettingsProvider()..load()),
+        ChangeNotifierProvider(
+            create: (_) => LearnByHeartProvider()..loadData()),
 
 
         // Nếu đây là singleton/global controller thì dùng .value an toàn hơn

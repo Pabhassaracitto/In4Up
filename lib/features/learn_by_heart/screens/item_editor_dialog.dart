@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/chunk.dart';
+import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/line_timestamp.dart';
 import '../models/recitation_category.dart';

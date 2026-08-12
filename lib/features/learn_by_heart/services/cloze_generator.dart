@@ -50,7 +50,7 @@ class ClozeGenerator {
       final tokenStr = rawTokens[i];
       if (tokenStr.trim().isEmpty) continue;
 
-      final clean = tokenStr.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true)).toLowerCase();
+      final clean = tokenStr.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '').toLowerCase();
       if (clean.isEmpty) {
         tokens.add(ClozeToken(
           id: tokenId++,
@@ -97,7 +97,7 @@ class ClozeGenerator {
       final tokenStr = rawTokens[i];
       if (tokenStr.trim().isEmpty) continue;
 
-      final clean = tokenStr.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true));
+      final clean = tokenStr.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
       final isMasked = i >= halfIndex && clean.isNotEmpty;
 
       tokens.add(ClozeToken(

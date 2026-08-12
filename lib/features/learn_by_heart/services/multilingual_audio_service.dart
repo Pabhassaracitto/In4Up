@@ -1,6 +1,7 @@
 // lib/features/learn_by_heart/services/multilingual_audio_service.dart
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../tts/tts_service.dart';
@@ -20,7 +21,6 @@ class MultilingualAudioService extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool _isPlaying = false;
-  bool _isLoading = false;
   double _speed = 1.0;
   int? _currentLineIndex; // 1-based line index
   bool _isLoopingChunk = false;
@@ -28,7 +28,6 @@ class MultilingualAudioService extends ChangeNotifier {
   bool _stopRequested = false;
 
   bool get isPlaying => _isPlaying;
-  bool get isLoading => _isLoading;
   double get speed => _speed;
   int? get currentLineIndex => _currentLineIndex;
   bool get isLoopingChunk => _isLoopingChunk;
@@ -199,14 +198,14 @@ class MultilingualAudioService extends ChangeNotifier {
   List<LineTimestamp> _generateEstimatedTimestamps(LearnByHeartItem item) {
     final viLines = item.vietnameseLines;
     final paliLines = item.paliLines;
-    final count = mathMax(viLines.length, paliLines.length);
+    final count = math.max(viLines.length, paliLines.length);
 
     final list = <LineTimestamp>[];
     double currentSec = 0.0;
     for (int i = 1; i <= count; i++) {
       final vi = i - 1 < viLines.length ? viLines[i - 1] : '';
       final pi = i - 1 < paliLines.length ? paliLines[i - 1] : '';
-      final durationSec = mathMax(3.0, (vi.length + pi.length) * 0.08);
+      final durationSec = math.max(3.0, (vi.length + pi.length) * 0.08);
       list.add(LineTimestamp(
         line: i,
         start: currentSec,
@@ -218,8 +217,6 @@ class MultilingualAudioService extends ChangeNotifier {
     }
     return list;
   }
-
-  int mathMax(int a, int b) => a > b ? a : b;
 
   Future<void> stop() async {
     _stopRequested = true;

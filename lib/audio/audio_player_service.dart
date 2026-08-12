@@ -116,11 +116,10 @@ class AudioPlayerService {
   String? _tempSanitizedPath;
 
   bool _needsSanitize(String path) {
-    // Ký tự đặc biệt gây lỗi trên Windows Media Foundation / Uri.decodeFull
-    // - % : gây Illegal percent encoding
-    // - ’ ‘ “ ” … và các non-ascii >127
+    // Ky tu dac biet gay loi tren Windows Media Foundation / Uri.decodeFull
+    // - % : gay Illegal percent encoding
+    // - cac ky tu unicode >127 (’ ‘ “ ” …)
     if (path.contains('%')) return true;
-    if (path.contains('’') || path.contains('‘') || path.contains('“') || path.contains('”')) return true;
     for (final c in path.runes) {
       if (c > 127) return true;
     }
@@ -134,8 +133,8 @@ class AudioPlayerService {
       final srcFile = File(original);
       // Tạo tên an toàn: chỉ giữ ascii alnum + _ -
       final ext = original.split('.').last;
-      final safeName = 'in2up_play_${DateTime.now().millisecondsSinceEpoch}_${original.hashCode.abs()}.$ext'
-          .replaceAll(RegExp(r'[^A-Za-z0-9_\-.]'), '_');
+      final safePrefix = 'in2up_play_${DateTime.now().millisecondsSinceEpoch}_${original.hashCode.abs()}';
+      final safeName = ('${safePrefix}_$ext').replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
       final tempDir = Directory.systemTemp;
       final destPath = path.join(tempDir.path, safeName);
       if (File(destPath).existsSync()) {

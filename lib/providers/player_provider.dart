@@ -306,7 +306,7 @@ class PlayerProvider extends ChangeNotifier
     String? artist,
     bool autoPlay = false,
   }) async {
-    final normalizedPath = path.replaceAll('\\', '/');
+    final normalizedPath = path.replaceAll('\', '/');
 
     // ★ TASK 5: Dọn dẹp dữ liệu LRC bài cũ ngay khi đổi sang bài mới
     // Chỉ clear nếu thực sự đổi bài (tránh clear khi load lại cùng bài)

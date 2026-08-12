@@ -402,10 +402,10 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         text = text.substring(1, text.length - 1);
       }
       text = text
-          .replaceAll('\\n', '\n')
-          .replaceAll('\\t', ' ')
-          .replaceAll('\\"', '"')
-          .replaceAll("\\'", "'")
+          .replaceAll(r'\n', '\n')
+          .replaceAll(r'\t', ' ')
+          .replaceAll(r'\"', '"')
+          .replaceAll(r"\'", "'")
           .trim();
       return text.isEmpty ? null : text;
     } catch (e) {

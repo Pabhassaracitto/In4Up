@@ -1014,9 +1014,43 @@ class SttEngineWhisper {
   }) async {
     final cli = _findCliBinary();
 
+    // Kiểm tra model tồn tại trước khi chạy
+    if (!File(modelPath).existsSync()) {
+      throw StateError(
+        'Model Whisper không tồn tại: $modelPath\n'
+        'Hãy tải model trong Settings > STT Model hoặc kiểm tra đường dẫn.',
+      );
+    }
+
+    // Kiểm tra whisper binary tồn tại (đã có trong _findCliBinary nhưng check lại)
+    final cliFile = File(cli);
+    final cliExists = cliFile.existsSync() ||
+        (Platform.isWindows ? File('$cli.exe').existsSync() : false) ||
+        cli == 'whisper.exe'; // cho phép PATH lookup
+    if (!cliExists && !File(cli).existsSync()) {
+      // Nếu cli là tên đơn 'whisper.exe' thì để Process.run tự tìm trong PATH,
+      // nhưng nếu là path tuyệt đối mà không tồn tại thì báo lỗi rõ
+      if (path.isAbsolute(cli) && !File(cli).existsSync()) {
+        throw StateError(
+          'Không tìm thấy whisper binary: $cli\n'
+          'Đặt whisper.exe cạnh in2up.exe hoặc trong windows/libs/ hoặc thêm vào PATH.',
+        );
+      }
+    }
+
     // whisper.cpp CLI yêu cầu file audio 16kHz mono WAV → convert trước.
-    final wavPath =
-        await AudioConverter.convertToWhisperCompatible(audioPath) ?? audioPath;
+    String? wavPath;
+    try {
+      wavPath = await AudioConverter.convertToWhisperCompatible(audioPath) ??
+          audioPath;
+    } catch (e) {
+      // Nếu lỗi do thiếu ffmpeg, báo rõ để user cài
+      throw StateError('Lỗi convert audio sang WAV 16k: $e');
+    }
+
+    if (!File(wavPath).existsSync()) {
+      throw StateError('File WAV tạm không tồn tại sau convert: $wavPath');
+    }
 
     // Đầu ra SRT vào thư mục temp để parse segment + timestamp.
     final outBase = path.join(
@@ -1038,16 +1072,54 @@ class SttEngineWhisper {
       outBase,
     ];
 
-    final result = await Process.run(cli, args);
-    if (result.exitCode != 0) {
+    debugPrint('[Whisper CLI] $cli ${args.join(' ')}');
+
+    ProcessResult result;
+    try {
+      result = await Process.run(
+        cli,
+        args,
+        stdoutEncoding: systemEncoding,
+        stderrEncoding: systemEncoding,
+      );
+    } on ProcessException catch (e) {
+      // Binary không chạy được (thiếu DLL, ...)
       throw StateError(
-        'whisper.exe thất bại (exit ${result.exitCode}): ${result.stderr}',
+        'Không chạy được $cli: ${e.message}\n'
+        'Chi tiết: $e\n'
+        'Kiểm tra ggml.dll, whisper.dll có cạnh whisper.exe không.',
+      );
+    }
+
+    final stdoutStr = result.stdout?.toString() ?? '';
+    final stderrStr = result.stderr?.toString() ?? '';
+    final combined = (stdoutStr + '\n' + stderrStr).trim();
+
+    if (result.exitCode != 0) {
+      // Dọn wav tạm trước khi throw để tránh rác
+      if (wavPath != audioPath) {
+        try {
+          await AudioConverter.cleanupConvertedFile(wavPath);
+        } catch (_) {}
+      }
+      throw StateError(
+        'whisper.exe thất bại (exit ${result.exitCode}):\n'
+        'ARGS: $cli ${args.join(' ')}\n'
+        'STDOUT: $stdoutStr\n'
+        'STDERR: $stderrStr\n'
+        'Combined: $combined\n'
+        'Model: $modelPath (exists: ${File(modelPath).existsSync()})\n'
+        'WAV: $wavPath (exists: ${File(wavPath).existsSync()}, size: ${File(wavPath).existsSync() ? File(wavPath).lengthSync() : 0})\n',
       );
     }
 
     final srtFile = File(srtPath);
     if (!await srtFile.exists()) {
-      throw StateError('whisper.exe không tạo file SRT: $srtPath');
+      throw StateError(
+        'whisper.exe không tạo file SRT: $srtPath\n'
+        'STDOUT: $stdoutStr\n'
+        'STDERR: $stderrStr',
+      );
     }
 
     final segments = _parseSrt(await srtFile.readAsString(),
@@ -1070,21 +1142,67 @@ class SttEngineWhisper {
     );
   }
 
-  /// Tìm whisper.exe: ưu tiên cạnh file thực thi, rồi PATH.
+  /// Tìm whisper binary: ưu tiên các tên mới của whisper.cpp
+  /// (whisper-cli.exe, whisper-whisper.exe), fallback whisper.exe.
   ///
-  /// whisper.cpp release thường đặt whisper.exe + ggml DLLs cạnh nhau trong
-  /// thư mục app. Nếu không thấy file, vẫn trả về tên 'whisper.exe' để
-  /// [Process.run] tự tìm trong PATH (đúng hành vi command-line).
+  /// whisper.cpp release mới đổi tên binary: whisper.exe cũ chỉ in warning
+  /// "deprecated, use whisper-whisper.exe" rồi exit 1.
+  /// Do đó cần thử nhiều tên theo thứ tự ưu tiên.
   static String _findCliBinary() {
-    const name = 'whisper.exe';
+    const candidates = [
+      'whisper-cli.exe',
+      'whisper-whisper.exe',
+      'whisper.exe',
+      'main.exe',
+    ];
+
+    // 1. Cạnh file thực thi (build/windows/x64/runner/Debug/)
     try {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final near = path.join(exeDir, name);
-      if (File(near).existsSync()) return near;
+      for (final name in candidates) {
+        final near = path.join(exeDir, name);
+        if (File(near).existsSync()) {
+          debugPrint('[Whisper CLI] Found binary near exe: $near');
+          return near;
+        }
+        // Thử trong data/flutter_assets hoặc libs?
+        final nearData = path.join(exeDir, 'data', 'flutter_assets', name);
+        if (File(nearData).existsSync()) return nearData;
+      }
     } catch (_) {}
 
-    // Nếu PATH không có, Process.run sẽ ném lỗi rõ ràng "not found".
-    return name;
+    // 2. Trong windows/libs/ khi chạy flutter run (dev)
+    try {
+      final current = Directory.current.path;
+      for (final name in candidates) {
+        final devPaths = [
+          path.join(current, 'windows', 'libs', name),
+          path.join(current, 'windows', 'libs', 'whisper', name),
+          path.join(current, 'windows', 'libs', 'ffmpeg', 'bin', name),
+        ];
+        for (final p in devPaths) {
+          if (File(p).existsSync()) {
+            debugPrint('[Whisper CLI] Found binary in dev: $p');
+            return p;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Thử tìm trong PATH với từng tên, ưu tiên CLI mới
+    for (final name in candidates) {
+      try {
+        // Thử chạy --help để check tồn tại? Đơn giản trả về tên đầu tiên tồn tại trong PATH
+        // Ở đây ta trả về whisper-cli.exe để Process.run tự tìm trong PATH
+        if (name == 'whisper-cli.exe') {
+          return name; // ưu tiên nhất
+        }
+      } catch (_) {}
+    }
+
+    // Fallback cuối: whisper-cli.exe (mới) để báo lỗi rõ ràng nếu không có
+    debugPrint('[Whisper CLI] No binary found near exe, fallback to whisper-cli.exe in PATH');
+    return 'whisper-cli.exe';
   }
 
   /// Parse nội dung SRT → List<SttSegment>.

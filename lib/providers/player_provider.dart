@@ -374,7 +374,12 @@ class PlayerProvider extends ChangeNotifier
 
   /// Helper normalize path (dùng nội bộ trong provider)
   String _normalizePath(String path) {
-    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
+    try {
+      return Uri.decodeFull(path.replaceAll('\', '/').toLowerCase().trim());
+    } catch (_) {
+      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
+      return path.replaceAll('\', '/').toLowerCase().trim();
+    }
   }
 
   // ★ THÊM: clearCurrentSong() — dùng cho "Xem tất cả" trong QuickAudioSheet

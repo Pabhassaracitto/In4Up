@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/translation/translation_display_mode.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
@@ -40,29 +41,42 @@ class ReadBottomBar extends StatelessWidget {
             // Reading Progress Bar
             _ReadingProgressBar(progress: controller.readingProgress),
 
-            // Action Buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            // Action Buttons - make horizontally scrollable to avoid Bottom overflow on small screens
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Font Size
                   _BarAction(
                     icon: Icons.text_decrease,
                     onTap: () => tp.setFontSize(tp.fontSize - 2),
                   ),
+                  const SizedBox(width: 12),
                   _BarAction(
                     icon: Icons.text_increase,
                     onTap: () => tp.setFontSize(tp.fontSize + 2),
                   ),
+                  const SizedBox(width: 12),
 
-                  // Translation toggle
+                  // Translation toggle — fix: explicit set stackedBelow/hidden
                   _BarAction(
                     icon: Icons.translate,
                     isActive: tp.showTranslation,
                     activeThumbColor: const Color(0xFF4CAF50),
-                    onTap: () => tp.toggleTranslation(),
+                    onTap: () {
+                      if (tp.showTranslation) {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.hidden);
+                      } else {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.stackedBelow);
+                      }
+                    },
                   ),
+                  const SizedBox(width: 12),
 
                   // TTS current line
                   _BarAction(
@@ -79,6 +93,7 @@ class ReadBottomBar extends StatelessWidget {
                       }
                     },
                   ),
+                  const SizedBox(width: 12),
 
                   // Segments (Bookmarks)
                   _BarAction(
@@ -89,6 +104,7 @@ class ReadBottomBar extends StatelessWidget {
                         tp.segments.isNotEmpty ? '${tp.segments.length}' : null,
                     onTap: () => SegmentsListSheet.show(context),
                   ),
+                  const SizedBox(width: 12),
                   _BarAction(
                     icon: showWordlistPanel
                         ? Icons.view_sidebar

@@ -4,13 +4,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
-import 'package:in2up_stt/in2up_stt.dart';
-
-import '../audio/audio_player_service.dart';
-import '../models/playback_state.dart';
-import '../models/segment.dart';
-import '../screens/listen_mode/models/recent_audio.dart';
-import '../screens/listen_mode/services/recent_audio_service.dart';
 import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../services/storage_service.dart';
 import 'text_provider.dart'; // Import TextProvider

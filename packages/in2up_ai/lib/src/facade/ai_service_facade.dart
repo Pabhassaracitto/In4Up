@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:in2up_ai/in2up_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/ai_engine.dart';

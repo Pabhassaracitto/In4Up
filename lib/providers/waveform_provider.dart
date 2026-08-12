@@ -55,7 +55,7 @@ class WaveformProvider extends ChangeNotifier {
 
   /// ★ FIX: Load waveform từ file audio — sửa guard condition
   Future<void> loadWaveform(String filePath, Duration duration) async {
-    final normalizedPath = filePath.replaceAll('\\', '/');
+    final normalizedPath = filePath.replaceAll('\', '/');
 
     // ★ FIX: Guard chặt hơn — chỉ skip khi CÓ data VÀ duration khớp VÀ path khớp
     final alreadyLoaded = _currentFilePath == normalizedPath &&

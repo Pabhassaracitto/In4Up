@@ -1,4 +1,5 @@
 name: in2up_ai
+publish_to: none
 description: AI Analysis module for in2up - Gemma/llama.cpp offline backend
 version: 1.0.0
 

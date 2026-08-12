@@ -19,12 +19,23 @@ class LrcWord {
   /// Phân tách text thành các từ theo khoảng trắng (fallback khi LRC không có
   /// inline timestamp): gán timestamp đều trên cả dòng.
   static List<LrcWord> estimateFrom(String text, Duration lineStart) {
-    final parts = text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+    return estimateFromWithDuration(text, lineStart, const Duration(seconds: 4));
+  }
+
+  /// Phiên bản cải tiến: chia đều duration của dòng cho các từ
+  /// để karaoke nhảy chính xác hơn (fix lỗi không thấy chữ hiện hành).
+  static List<LrcWord> estimateFromWithDuration(
+      String text, Duration lineStart, Duration lineDuration) {
+    final parts = text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (parts.isEmpty) return const [];
     final result = <LrcWord>[];
+    // Chia đều, trừ 200ms dư ở cuối để chừa khoảng lặng
+    final totalMs = (lineDuration.inMilliseconds - 200).clamp(400, 10000);
+    final perWord = totalMs ~/ parts.length;
     var cursor = lineStart;
-    for (final w in parts) {
-      result.add(LrcWord(word: w, start: cursor));
-      cursor += const Duration(milliseconds: 350);
+    for (var i = 0; i < parts.length; i++) {
+      result.add(LrcWord(word: parts[i], start: cursor));
+      cursor += Duration(milliseconds: perWord);
     }
     return result;
   }
@@ -257,7 +268,7 @@ class SttLrcConverter {
       if (!await dir.exists()) await dir.create(recursive: true);
 
       final base = audioPath
-          .replaceAll('\\', '/')
+          .replaceAll('\', '/')
           .split('/')
           .last
           .replaceAll(RegExp(r'\.[^.]+$'), '');

@@ -22,13 +22,13 @@ class AudioFingerprintUtil {
       final file = File(audioPath);
       final size = await file.length();
       final base =
-          audioPath.replaceAll('\\', '/').split('/').last.toLowerCase();
+          audioPath.replaceAll('\', '/').split('/').last.toLowerCase();
       final raw = '$size|$durationMs|$base';
       return md5.convert(utf8.encode(raw)).toString().substring(0, 16);
     } catch (e) {
       debugPrint('[AudioFingerprintUtil] Fallback fingerprint: $e');
       final base =
-          audioPath.replaceAll('\\', '/').split('/').last.toLowerCase();
+          audioPath.replaceAll('\', '/').split('/').last.toLowerCase();
       return md5.convert(utf8.encode(base)).toString().substring(0, 16);
     }
   }
@@ -43,12 +43,12 @@ class AudioFingerprintUtil {
       final file = File(audioPath);
       final size = file.lengthSync();
       final base =
-          audioPath.replaceAll('\\', '/').split('/').last.toLowerCase();
+          audioPath.replaceAll('\', '/').split('/').last.toLowerCase();
       final raw = '$size|$durationMs|$base';
       return md5.convert(utf8.encode(raw)).toString().substring(0, 16);
     } catch (_) {
       final base =
-          audioPath.replaceAll('\\', '/').split('/').last.toLowerCase();
+          audioPath.replaceAll('\', '/').split('/').last.toLowerCase();
       return md5.convert(utf8.encode(base)).toString().substring(0, 16);
     }
   }

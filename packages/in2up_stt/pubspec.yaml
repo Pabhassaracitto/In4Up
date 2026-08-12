@@ -1,4 +1,5 @@
 name: in2up_stt
+publish_to: none
 description: Hybrid STT module for in2up - Native + Whisper AI engines
 version: 1.0.0
 
@@ -14,10 +15,16 @@ dependencies:
   speech_to_text: ^7.3.0
   
   # Engine 2: Whisper AI (accurate, offline)
+  # whisper_flutter_new only supports Android/iOS/macOS — on Windows,
+  # we fallback to FFI (whisper.dll) or CLI (whisper.exe) via stt_engine_whisper.dart
   whisper_flutter_new: ^1.0.1
-  #mp3 -> wav
-  ffmpeg_kit_flutter_new: ^4.1.0
-  #ffmpeg_kit_flutter: ^6.0.3 #change from 2.2.0  
+  # Audio conversion: mobile uses FFmpegKit (native lib bundled),
+  # desktop uses `ffmpeg` binary via Process (see audio_converter.dart)
+  # NOTE: ffmpeg_kit_flutter_new 4.2.1 has broken Windows header (C1083).
+  # Fixed in 4.6.2+ (see https://github.com/sk3llo/ffmpeg_kit_flutter/commit/c83a702)
+  # On Windows we ALSO patch CMake to exclude the plugin entirely, since
+  # Dart code already guards _useFFmpegKit to Android/iOS only.
+  ffmpeg_kit_flutter_new: ^4.6.2  
 
   # Storage & networking
   path_provider: ^2.1.4

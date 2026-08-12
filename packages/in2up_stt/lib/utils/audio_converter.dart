@@ -200,7 +200,7 @@ class AudioConverter {
       }
     }
     safe = buffer.toString();
-    safe = safe.replaceAll('"', '').replaceAll('\\', '');
+    safe = safe.replaceAll('"', '').replaceAll('\', '');
     safe = safe.replaceAll('%', '_');
     // Chi giu ascii an toan
     safe = safe.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');

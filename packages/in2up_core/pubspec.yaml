@@ -1,4 +1,5 @@
 name: in2up_core
+publish_to: none
 description: "A new Flutter package project."
 version: 0.0.1
 homepage:

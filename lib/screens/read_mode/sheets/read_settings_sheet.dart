@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
+import '../../../features/translation/translation_display_mode.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
@@ -1615,11 +1616,22 @@ class _DisplayOptions extends StatelessWidget {
           SwitchListTile(
             title: const Text('Hiện bản dịch',
                 style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: Text('Hiển thị dịch nghĩa bên dưới mỗi dòng',
+            subtitle: Text(
+                tp.translatedLineCount > 0
+                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để ${tp.showTranslation ? 'ẩn' : 'hiện'}'
+                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             value: tp.showTranslation,
             activeThumbColor: const Color(0xFF4CAF50),
-            onChanged: (_) => tp.toggleTranslation(),
+            onChanged: (val) {
+              // Rõ ràng hơn toggle: bật = stackedBelow, tắt = hidden
+              if (val) {
+                tp.setTranslationDisplayMode(
+                    TranslationDisplayMode.stackedBelow);
+              } else {
+                tp.setTranslationDisplayMode(TranslationDisplayMode.hidden);
+              }
+            },
           ),
           Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
           SwitchListTile(

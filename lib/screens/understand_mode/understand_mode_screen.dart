@@ -437,6 +437,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       return false;
                     },
                     child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
                     controller: _lrcScrollController,
                     itemCount: provider!.lrcLines.length,
                     itemBuilder: (context, index) {
@@ -509,95 +510,108 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   Widget _buildQuickControls(PlayerProvider player, TextProvider textProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
           top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.replay_10),
-            color: Colors.white70,
-            onPressed: () => player.replay10(),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Color(0xFFFFB300).withValues(alpha: 0.2),
-              shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.replay_10),
+              color: Colors.white70,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => player.replay10(),
             ),
-            child: IconButton(
-              icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow),
-              color: const Color(0xFFFFB300),
-              iconSize: 28,
-              onPressed: () => player.togglePlayPause(),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Color(0xFFFFB300).withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow),
+                color: const Color(0xFFFFB300),
+                iconSize: 26,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                onPressed: () => player.togglePlayPause(),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.forward_10),
-            color: Colors.white70,
-            onPressed: () => player.forward10(),
-          ),
-          const SizedBox(width: 16),
-          if (player.isLooping)
-            GestureDetector(
-              onTap: () => showLoopControlSheet(context, player),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Color(0xFF4CAF50).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Color(0xFF4CAF50).withValues(alpha: 0.5),
+            IconButton(
+              icon: const Icon(Icons.forward_10),
+              color: Colors.white70,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => player.forward10(),
+            ),
+            const SizedBox(width: 12),
+            if (player.isLooping)
+              GestureDetector(
+                onTap: () => showLoopControlSheet(context, player),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF4CAF50).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Color(0xFF4CAF50).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.loop, size: 14, color: Color(0xFF4CAF50)),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${player.loopCount}x',
+                        style: const TextStyle(
+                          color: Color(0xFF4CAF50),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => player.clearLoop(),
+                        child: const Icon(
+                          Icons.close,
+                          size: 12,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.loop, size: 16, color: Color(0xFF4CAF50)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${player.loopCount}x',
-                      style: const TextStyle(
-                        color: Color(0xFF4CAF50),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: () => player.clearLoop(),
-                      child: const Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ],
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: () => _showSetLoopGuide(context),
+                icon: const Icon(Icons.loop, size: 16),
+                label: const Text('Loop', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                  side: BorderSide(color: Colors.grey[700]!),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: const Size(0, 32),
                 ),
               ),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: () => _showSetLoopGuide(context),
-              icon: const Icon(Icons.loop, size: 18),
-              label: const Text('Set Loop'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey,
-                side: BorderSide(color: Colors.grey[700]!),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
+            const SizedBox(width: 12),
+            SpeedChip(
+              speed: player.state.speed,
+              onTap: () => showSpeedControlSheet(context, player),
             ),
-          const Spacer(),
-          SpeedChip(
-            speed: player.state.speed,
-            onTap: () => showSpeedControlSheet(context, player),
-          ),
-        ],
+            const SizedBox(width: 12),
+          ],
+        ),
       ),
     );
   }

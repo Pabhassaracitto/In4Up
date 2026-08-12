@@ -279,4 +279,11 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   String? _lastGeneratedLrcPath;
   String? get lastGeneratedLrcPath => _lastGeneratedLrcPath;
+
+  void clearSttError() {
+    if (_lastSttError != null) {
+      _lastSttError = null;
+      notifyListeners();
+    }
+  }
 }

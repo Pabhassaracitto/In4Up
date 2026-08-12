@@ -21,6 +21,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToRead;
   final VoidCallback onNavigateToUnderstand;
   final VoidCallback onNavigateToMemory;
+  final VoidCallback onOpenAiChat;
 
   const HomeScreen({
     super.key,

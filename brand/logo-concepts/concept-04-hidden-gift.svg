@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up — Hidden Gift</title>
+  <desc id="desc">The full In4Up name reveals I4U by highlighting I, 4 and U while n and p recede.</desc>
+  <defs>
+    <linearGradient id="bg" x1="56" y1="42" x2="458" y2="474" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#312744"/>
+      <stop offset="0.5" stop-color="#171B2C"/>
+      <stop offset="1" stop-color="#0A1820"/>
+    </linearGradient>
+    <linearGradient id="gift" x1="180" y1="323" x2="321" y2="166" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#59D8C1"/>
+      <stop offset="1" stop-color="#F6CB62"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#050710" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- A quiet mirror orbit: inward, then upward -->
+  <path d="M92 172C130 99 214 67 290 88C349 104 395 147 416 201" fill="none" stroke="#F6CB62" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+  <path d="M420 340C378 415 289 445 210 418C157 400 116 360 96 311" fill="none" stroke="#59D8C1" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+  <path d="M414 173L421 202L392 195" fill="none" stroke="#F6CB62" stroke-opacity="0.55" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M102 340L95 311L124 318" fill="none" stroke="#59D8C1" stroke-opacity="0.55" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Full name drawn as geometry; I + 4 + U surface as I4U -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- I -->
+    <path d="M50 205H86M68 205V318M50 318H86" stroke="#F8F3E9" stroke-width="18"/>
+    <!-- n, intentionally quieter -->
+    <path d="M108 318V241C108 216 123 202 143 202C165 202 179 217 179 241V318" stroke="#7FE0D0" stroke-opacity="0.25" stroke-width="20"/>
+    <!-- 4 -->
+    <path d="M239 320V196L196 271H270" stroke="url(#gift)" stroke-width="21"/>
+    <!-- U -->
+    <path d="M292 207V270C292 301 305 317 328 317C351 317 364 301 364 270V207" stroke="#F8F3E9" stroke-width="21"/>
+    <!-- p, intentionally quieter -->
+    <path d="M398 362V207M398 211H427C450 211 463 226 463 248C463 270 449 285 427 285H398" stroke="#7FE0D0" stroke-opacity="0.25" stroke-width="20"/>
+  </g>
+  <path d="M239 166L218 198H260L239 166Z" fill="#F6CB62"/>
+
+  <path d="M170 339C209 362 303 362 342 339" fill="none" stroke="url(#gift)" stroke-width="8" stroke-linecap="round"/>
+  <g fill="#F8F3E9">
+    <circle cx="220" cy="385" r="4" opacity="0.35"/>
+    <circle cx="244" cy="385" r="4" opacity="0.55"/>
+    <circle cx="268" cy="385" r="4" opacity="0.75"/>
+    <circle cx="292" cy="385" r="4"/>
+  </g>
+</svg>

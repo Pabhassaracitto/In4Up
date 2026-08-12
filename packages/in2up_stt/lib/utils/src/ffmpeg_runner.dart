@@ -41,7 +41,7 @@ class FfmpegRunner {
   static String quotePath(String arg) {
     if (arg.startsWith('-')) return arg;
     // Simple quoting: wrap in double quotes, escape existing quotes
-    if (!arg.contains(' ') && !arg.contains('"') && !arg.contains('\'')) {
+    if (!arg.contains(' ') && !arg.contains('"') && !arg.contains("'")) {
       return arg;
     }
     final escaped = arg.replaceAll('"', r'\"');

@@ -133,19 +133,37 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       return Firebase.app();
     }
 
-    final FirebaseApp app;
-    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+    late final FirebaseApp app;
+    if (kIsWeb) {
+      app = await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else if (Platform.isAndroid) {
+      // Android: dùng google-services.json native để hỗ trợ flavors
+      // File này đã chứa nhiều clients cho com.in2up, com.in2up.dev, com.in2up.beta...
+      // Nếu dùng DefaultFirebaseOptions, chỉ có 1 appId và sẽ fail cho beta/dev
+      // nên để Firebase tự đọc google-services.json
+      try {
+        app = await Firebase.initializeApp();
+      } catch (e) {
+        debugPrint('⚠️ Android native init failed, fallback to options: $e');
+        // Fallback: dùng options theo flavor
+        app = await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.androidForFlavor,
+        );
+      }
+    } else if (Platform.isIOS || Platform.isMacOS) {
       // iOS/macOS: dùng GoogleService-Info.plist (native)
-      // KHÔNG truyền options để Firebase tự đọc plist được nhúng trong bundle.
       app = await Firebase.initializeApp();
     } else {
-      // Android / Windows / Web / Linux: dùng DefaultFirebaseOptions
+      // Windows / Linux: bắt buộc dùng options
       app = await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
 
     isFirebaseAvailable = true;
+    debugPrint('✅ Firebase initialized: ${app.options.projectId} flavor=${const String.fromEnvironment('FLAVOR', defaultValue: 'stable')}');
     return app;
   } on FirebaseException catch (e) {
     if (e.code == 'duplicate-app') {
@@ -155,10 +173,20 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
 
     isFirebaseAvailable = false;
     debugPrint('⚠️ Firebase init failed: ${e.code} - ${e.message}');
+    // Thử fallback không options cho Android
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final fallback = await Firebase.initializeApp();
+        isFirebaseAvailable = true;
+        return fallback;
+      } catch (e2) {
+        debugPrint('⚠️ Firebase fallback also failed: $e2');
+      }
+    }
     return null;
-  } catch (e) {
+  } catch (e, st) {
     isFirebaseAvailable = false;
-    debugPrint('⚠️ Firebase init failed: $e');
+    debugPrint('⚠️ Firebase init failed: $e\n$st');
     return null;
   }
 }
@@ -287,6 +315,7 @@ class _MyAppState extends State<MyApp> {
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
           return MaterialApp(
+            title: 'In4Up',
             debugShowCheckedModeBanner: false,
             locale: localeProvider.locale ?? DevicePreview.locale(context),
             localizationsDelegates: const [
@@ -358,6 +387,7 @@ class _AppLoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'In4Up',
       debugShowCheckedModeBanner: false,
       builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(
@@ -367,25 +397,20 @@ class _AppLoadingScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.headphones,
-                    color: Colors.white,
-                    size: 40,
+                // Brand mark
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/icons/app_icon.png',
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'In4Up logo',
                   ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'in2up',
+                  'In4Up',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -407,7 +432,7 @@ class _AppLoadingScreen extends StatelessWidget {
                   child: LinearProgressIndicator(
                     backgroundColor: Colors.white12,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF6C63FF),
+                      Color(0xFF53D6BD),
                     ),
                   ),
                 ),
@@ -428,6 +453,7 @@ class _AppErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'In4Up',
       debugShowCheckedModeBanner: false,
       builder: (context, child) => _appBuilder(context, child),
       home: Scaffold(

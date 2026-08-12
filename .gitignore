@@ -133,7 +133,7 @@ build_log.txt
 **/.firebase/
 android/local.properties
 docs/
-
+android\app\google-services.json
 # Exceptions - force track important files
 !pubspec.lock
 !android/app/src/main/jniLibs/arm64-v8a/libnative_audio.so
@@ -142,7 +142,6 @@ docs/
 !android/app/src/main/jniLibs/x86_64/libnative_audio.so
 !lib/firebase_options.dart
 !lib/services/auth_service.dart
-!android/app/google-services.json
 !ios/Runner/GoogleService-Info.plist
 !assets/whisper_models/.gitkeep
 !ios/Runner.xcodeproj/project.pbxproj

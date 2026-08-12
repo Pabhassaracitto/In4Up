@@ -1142,21 +1142,67 @@ class SttEngineWhisper {
     );
   }
 
-  /// Tìm whisper.exe: ưu tiên cạnh file thực thi, rồi PATH.
+  /// Tìm whisper binary: ưu tiên các tên mới của whisper.cpp
+  /// (whisper-cli.exe, whisper-whisper.exe), fallback whisper.exe.
   ///
-  /// whisper.cpp release thường đặt whisper.exe + ggml DLLs cạnh nhau trong
-  /// thư mục app. Nếu không thấy file, vẫn trả về tên 'whisper.exe' để
-  /// [Process.run] tự tìm trong PATH (đúng hành vi command-line).
+  /// whisper.cpp release mới đổi tên binary: whisper.exe cũ chỉ in warning
+  /// "deprecated, use whisper-whisper.exe" rồi exit 1.
+  /// Do đó cần thử nhiều tên theo thứ tự ưu tiên.
   static String _findCliBinary() {
-    const name = 'whisper.exe';
+    const candidates = [
+      'whisper-cli.exe',
+      'whisper-whisper.exe',
+      'whisper.exe',
+      'main.exe',
+    ];
+
+    // 1. Cạnh file thực thi (build/windows/x64/runner/Debug/)
     try {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final near = path.join(exeDir, name);
-      if (File(near).existsSync()) return near;
+      for (final name in candidates) {
+        final near = path.join(exeDir, name);
+        if (File(near).existsSync()) {
+          debugPrint('[Whisper CLI] Found binary near exe: $near');
+          return near;
+        }
+        // Thử trong data/flutter_assets hoặc libs?
+        final nearData = path.join(exeDir, 'data', 'flutter_assets', name);
+        if (File(nearData).existsSync()) return nearData;
+      }
     } catch (_) {}
 
-    // Nếu PATH không có, Process.run sẽ ném lỗi rõ ràng "not found".
-    return name;
+    // 2. Trong windows/libs/ khi chạy flutter run (dev)
+    try {
+      final current = Directory.current.path;
+      for (final name in candidates) {
+        final devPaths = [
+          path.join(current, 'windows', 'libs', name),
+          path.join(current, 'windows', 'libs', 'whisper', name),
+          path.join(current, 'windows', 'libs', 'ffmpeg', 'bin', name),
+        ];
+        for (final p in devPaths) {
+          if (File(p).existsSync()) {
+            debugPrint('[Whisper CLI] Found binary in dev: $p');
+            return p;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Thử tìm trong PATH với từng tên, ưu tiên CLI mới
+    for (final name in candidates) {
+      try {
+        // Thử chạy --help để check tồn tại? Đơn giản trả về tên đầu tiên tồn tại trong PATH
+        // Ở đây ta trả về whisper-cli.exe để Process.run tự tìm trong PATH
+        if (name == 'whisper-cli.exe') {
+          return name; // ưu tiên nhất
+        }
+      } catch (_) {}
+    }
+
+    // Fallback cuối: whisper-cli.exe (mới) để báo lỗi rõ ràng nếu không có
+    debugPrint('[Whisper CLI] No binary found near exe, fallback to whisper-cli.exe in PATH');
+    return 'whisper-cli.exe';
   }
 
   /// Parse nội dung SRT → List<SttSegment>.

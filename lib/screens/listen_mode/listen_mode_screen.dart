@@ -252,7 +252,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   }
 
   String _normalizePath(String path) {
-    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
+    try {
+      return Uri.decodeFull(path.replaceAll('\', '/').toLowerCase().trim());
+    } catch (_) {
+      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
+      return path.replaceAll('\', '/').toLowerCase().trim();
+    }
   }
 
   void _onPlayerChange() {

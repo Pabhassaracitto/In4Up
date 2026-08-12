@@ -190,7 +190,14 @@ class AudioConverter {
 
   static String sanitizeFileName(String name) {
     var safe = name.trim();
+    // Loại bỏ ký tự unicode đặc biệt gây lỗi trên Windows (’ ‘ “ ” …)
+    safe = safe.replaceAll('’', '_').replaceAll('‘', '_')
+        .replaceAll('“', '_').replaceAll('”', '_')
+        .replaceAll('…', '_').replaceAll('–', '_').replaceAll('—', '_');
     safe = safe.replaceAll('"', '').replaceAll('\\', '');
+    safe = safe.replaceAll('%', '_');
+    // Chỉ giữ ascii an toàn cho file system
+    safe = safe.replaceAll(RegExp(r'[^A-Za-z0-9_\-.]'), '_');
     safe = safe.replaceAll(RegExp(r'\s+'), '_');
     safe = safe.replaceAll(RegExp(r'_+'), '_');
     safe = safe.replaceAll(RegExp(r'^_+|_+$'), '');

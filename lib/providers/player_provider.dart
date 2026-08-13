@@ -3,6 +3,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:in2up/audio/audio_player_service.dart';
+import 'package:in2up/models/playback_state.dart';
+import 'package:in2up/models/segment.dart';
+import 'package:in2up/screens/listen_mode/models/recent_audio.dart';
 import 'package:in2up_core/vocab_level_difficulty.dart';
 import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../services/storage_service.dart';

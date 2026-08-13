@@ -268,7 +268,7 @@ class SttLrcConverter {
       if (!await dir.exists()) await dir.create(recursive: true);
 
       final base = audioPath
-          .replaceAll('\', '/')
+          .replaceAll("\\", "/")
           .split('/')
           .last
           .replaceAll(RegExp(r'\.[^.]+$'), '');

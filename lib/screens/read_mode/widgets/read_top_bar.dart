@@ -110,7 +110,7 @@ class _TitleButton extends StatelessWidget {
     // 2. Từ file path
     final path = tp.currentTextPath;
     if (path != null) {
-      final name = path.split('/').last.split('\').last;
+      final name = path.split('/').last.split("\\").last;
       final nameNoExt =
           name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
       return nameNoExt.length > 20

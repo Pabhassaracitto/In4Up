@@ -133,7 +133,7 @@ class RecentAudio {
     String? title,
     Duration totalDuration = Duration.zero,
   }) {
-    final normalizedPath = path.replaceAll('\', '/');
+    final normalizedPath = path.replaceAll("\\", "/");
     final name = normalizedPath.split('/').last;
     final nameNoExt =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;

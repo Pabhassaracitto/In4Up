@@ -299,7 +299,7 @@ class PlayerProvider extends ChangeNotifier
     String? artist,
     bool autoPlay = false,
   }) async {
-    final normalizedPath = path.replaceAll('\', '/');
+    final normalizedPath = path.replaceAll("\\", "/");
 
     // ★ TASK 5: Dọn dẹp dữ liệu LRC bài cũ ngay khi đổi sang bài mới
     // Chỉ clear nếu thực sự đổi bài (tránh clear khi load lại cùng bài)
@@ -368,10 +368,10 @@ class PlayerProvider extends ChangeNotifier
   /// Helper normalize path (dùng nội bộ trong provider)
   String _normalizePath(String path) {
     try {
-      return Uri.decodeFull(path.replaceAll('\', '/').toLowerCase().trim());
+      return Uri.decodeFull(path.replaceAll("\\", "/").toLowerCase().trim());
     } catch (_) {
       // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
-      return path.replaceAll('\', '/').toLowerCase().trim();
+      return path.replaceAll("\\", "/").toLowerCase().trim();
     }
   }
 

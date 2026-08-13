@@ -6,39 +6,18 @@ import 'package:path/path.dart' as path;
 import 'src/ffmpeg_runner.dart';
 
 /// Chuyen doi am thanh sang dinh dang Whisper-compatible (PCM 16kHz, mono).
-///
-/// Backend theo nen tang:
-///  - Mobile (Android/iOS): dung [FFmpegKit] (native lib duoc bundle san,
-///    khong can cai `ffmpeg` ngoai). Truoc day goi `Process` bi loi
-///    `No such file or directory` vi Android khong co binary `ffmpeg`.
-///  - Desktop (Windows/macOS/Linux): dung `ffmpeg` qua [Process].
-///
-/// ## Windows build note (fix C1083):
-/// Package `ffmpeg_kit_flutter_new` 4.2.1 bi loi thieu header
-/// `include/ffmpeg_kit_flutter_new_full/f_fmpeg_kit_flutter_plugin.h`.
-/// Da fix bang 2 cach:
-///   1. Nang version len ^4.6.2 (commit c83a702 fix unpack dir)
-///   2. Patch windows/CMakeLists.txt de loai plugin nay khoi build Windows
-///      (vi Dart da guard _useFFmpegKit chi cho Android/iOS).
-/// Xem windows/CMakeLists.txt :: PATCH for ffmpeg_kit.
-///
 class AudioConverter {
-  /// Chuyen doi tep am thanh dau vao sang tep WAV tam thoi
-  /// (PCM 16kHz, mono).
   static Future<String?> convertToWhisperCompatible(String inputPath) async {
     final file = File(inputPath);
     if (!await file.exists()) {
       throw Exception('Tep am thanh khong ton tai: $inputPath');
     }
 
-    // Kiem tra nhanh duoi tep
     final ext = path.extension(inputPath).toLowerCase();
     if (ext == '.wav') {
-      // TODO: co the check header dung 16k/mono, nhung tam coi .wav la ok
       return inputPath;
     }
 
-    // Tao duong dan tam -- SANITIZE ten file
     final dir = Directory.systemTemp.path;
     final rawName = path.basenameWithoutExtension(inputPath);
     final safeName = sanitizeFileName(rawName);
@@ -81,7 +60,6 @@ class AudioConverter {
     }
   }
 
-  /// Ước lượng thời lượng file (ms)
   static Future<int?> probeDurationMs(String inputPath) async {
     try {
       if (_useFFmpegKit) {
@@ -110,7 +88,6 @@ class AudioConverter {
     return null;
   }
 
-  /// Cắt file WAV 16k/mono thành nhiều chunk
   static Future<({
     List<String> chunkPaths,
     int? durationMs,
@@ -181,16 +158,11 @@ class AudioConverter {
     }
   }
 
-  // -- Backend selector ---------------------------------------------------
-
   static bool get _useFFmpegKit =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-  // -- Helpers ------------------------------------------------------------
-
   static String sanitizeFileName(String name) {
     var safe = name.trim();
-    // Loai bo ky tu non-ascii gay loi Windows
     final buffer = StringBuffer();
     for (final r in safe.runes) {
       if (r <= 127) {
@@ -200,9 +172,10 @@ class AudioConverter {
       }
     }
     safe = buffer.toString();
-    safe = safe.replaceAll('"', '').replaceAll('\', '');
+    safe = safe.replaceAll('"', '');
+    safe = safe.replaceAll("'", '');
+    safe = safe.replaceAll("\\", '');
     safe = safe.replaceAll('%', '_');
-    // Chi giu ascii an toan
     safe = safe.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
     safe = safe.replaceAll(RegExp(r'\s+'), '_');
     safe = safe.replaceAll(RegExp(r'_+'), '_');

@@ -14,7 +14,7 @@ class ContentId {
     required int fileSizeBytes,
     required int durationMs,
   }) {
-    final base = filePath.replaceAll('\', '/').split('/').last.toLowerCase();
+    final base = filePath.replaceAll("\\", "/").split('/').last.toLowerCase();
     final raw = '$fileSizeBytes|$durationMs|$base';
     return md5.convert(utf8.encode(raw)).toString().substring(0, 16);
   }

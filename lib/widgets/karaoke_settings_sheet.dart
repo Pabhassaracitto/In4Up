@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/providers/karaoke_settings_provider.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
 
 class KaraokeSettingsSheet extends StatefulWidget {
   const KaraokeSettingsSheet({super.key});

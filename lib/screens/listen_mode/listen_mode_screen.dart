@@ -1,5 +1,5 @@
 // lib/screens/listen_mode/listen_mode_screen.dart
-// in2up – Listen Mode (v11 LRC Fix)
+// in4up – Listen Mode (v11 LRC Fix)
 //
 // CHANGELOG v11:
 //   1. Double-tap: không ẩn waveform (sửa ở rolling_waveform_view.dart)
@@ -12,15 +12,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:in2up_stt/models/stt_config.dart';
-import 'package:in2up_stt/models/stt_model_info.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/models/stt_config.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up/providers/karaoke_settings_provider.dart';
-import 'package:in2up/widgets/karaoke_lyrics_line.dart';
-import 'package:in2up/widgets/karaoke_settings_sheet.dart';
-import 'package:in2up/widgets/lrc_editor_panel.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
+import 'package:in4up/widgets/karaoke_lyrics_line.dart';
+import 'package:in4up/widgets/karaoke_settings_sheet.dart';
+import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';

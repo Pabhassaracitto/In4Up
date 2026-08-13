@@ -1,5 +1,5 @@
 // lib/widgets/ab_loop_controls.dart
-// in2up - Enhanced A-B Loop Controls
+// in4up - Enhanced A-B Loop Controls
 // Version 2.0 - Optimized for Buddhism & English Learning
 
 import 'package:flutter/material.dart';

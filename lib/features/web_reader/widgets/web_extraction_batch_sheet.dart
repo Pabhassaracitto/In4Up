@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_ai/in2up_ai.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 
 import '../../../providers/text_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';

@@ -95,7 +95,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0D1117))
       ..addJavaScriptChannel(
-        'in2upChannel',
+        'in4upChannel',
         onMessageReceived: _onJsMessage,
       )
       ..setNavigationDelegate(NavigationDelegate(
@@ -134,7 +134,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0D1117))
       ..addJavaScriptChannel(
-        'in2upChannel',
+        'in4upChannel',
         onMessageReceived: _onJsMessage,
       )
       ..setNavigationDelegate(WinNavigationDelegate(

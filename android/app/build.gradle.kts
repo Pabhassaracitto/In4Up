@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.in2up"
+    namespace = "com.in4up"
     compileSdk = 36 // Đưa lên 36 để đáp ứng các plugin như file_picker, sqflite...
 
     // NDK 28.2 dùng chung Windows + Linux (bạn yêu cầu giữ 28)
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.in2up"
+        applicationId = "com.in4up"
         minSdk = 24
         targetSdk = 35
         versionCode = 2

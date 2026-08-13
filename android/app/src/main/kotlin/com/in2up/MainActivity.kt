@@ -1,4 +1,4 @@
-package com.in2up
+package com.in4up
 
 import io.flutter.embedding.android.FlutterActivity
 

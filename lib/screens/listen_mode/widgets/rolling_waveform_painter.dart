@@ -1,4 +1,4 @@
-// in2up v11.0 — Painter đa màu speaker
+// in4up v11.0 — Painter đa màu speaker
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

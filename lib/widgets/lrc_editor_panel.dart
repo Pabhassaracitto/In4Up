@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/providers/player_provider.dart';
-import 'package:in2up/providers/text_provider.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up_stt/stt_lrc_converter.dart';
+import 'package:in4up/providers/player_provider.dart';
+import 'package:in4up/providers/text_provider.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up_stt/stt_lrc_converter.dart';
 
 class LrcEditorPanel extends StatefulWidget {
   final bool initiallyExpanded;

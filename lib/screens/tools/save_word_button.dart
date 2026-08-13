@@ -1,15 +1,15 @@
 // lib/screens/tools/venn_tab.dart
 // ═══════════════════════════════════════════════════════════════
-//  in2up INTEGRATION GUIDE
+//  in4up INTEGRATION GUIDE
 //  File: HOW_TO_INTEGRATE.md (dạng Dart comments)
 // ═══════════════════════════════════════════════════════════════
 
 ///
-/// # HƯỚNG DẪN TÍCH HỢP VÀO in2up
+/// # HƯỚNG DẪN TÍCH HỢP VÀO in4up
 ///
 /// ## 1. CẤU TRÚC FILE CẦN TẠO
 ///
-/// Thêm vào project in2up (giả sử tên package là `in2up`):
+/// Thêm vào project in4up (giả sử tên package là `in4up`):
 ///
 /// ```
 /// lib/
@@ -49,21 +49,21 @@
 ///   runApp(
 ///     MultiProvider(
 ///       providers: [
-///         // ... các providers in2up hiện có ...
+///         // ... các providers in4up hiện có ...
 ///         ChangeNotifierProvider(
 ///           create: (_) => VocabularyProvider()..loadData(),
 ///         ),
 ///       ],
-///       child: const in2upApp(),
+///       child: const in4upApp(),
 ///     ),
 ///   );
 /// }
 /// ```
 ///
-/// ## 4. in2up MAIN SCREEN - Thêm tab Tools
+/// ## 4. in4up MAIN SCREEN - Thêm tab Tools
 ///
 /// ```dart
-/// // Trong màn hình chính của in2up, thêm tab thứ 4 (hoặc tab mới):
+/// // Trong màn hình chính của in4up, thêm tab thứ 4 (hoặc tab mới):
 ///
 /// // Nếu dùng BottomNavigationBar:
 /// BottomNavigationBar(
@@ -220,7 +220,7 @@
 library;
 
 // ═══════════════════════════════════════════════════════════════
-//  in2up WORD SAVER WIDGET
+//  in4up WORD SAVER WIDGET
 //  Widget tái sử dụng để lưu từ từ Read tab
 // ═══════════════════════════════════════════════════════════════
 

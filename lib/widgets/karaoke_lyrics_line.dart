@@ -6,8 +6,8 @@
 // Fix audit: thêm hỗ trợ hiện bản dịch nếu có (từ TextProvider hoặc LRC translation).
 
 import 'package:flutter/material.dart';
-import 'package:in2up/providers/karaoke_settings_provider.dart';
-import 'package:in2up_stt/stt_lrc_converter.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
+import 'package:in4up_stt/stt_lrc_converter.dart';
 
 class KaraokeLyricsLine extends StatelessWidget {
   final LrcLine line;

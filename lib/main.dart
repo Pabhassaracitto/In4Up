@@ -8,14 +8,14 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:in2up/l10n/app_localizations.dart';
-import 'package:in2up/screens/memory_mode/controllers/memory_controller.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up/services/storage_service.dart';
-import 'package:in2up_ai/in2up_ai.dart';
-import 'package:in2up_stt/models/stt_config.dart';
-import 'package:in2up_stt/models/stt_model_info.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
+import 'package:in4up/l10n/app_localizations.dart';
+import 'package:in4up/screens/memory_mode/controllers/memory_controller.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/services/storage_service.dart';
+import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up_stt/models/stt_config.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -143,7 +143,7 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       );
     } else if (Platform.isAndroid) {
       // Android: dùng google-services.json native để hỗ trợ flavors
-      // File này đã chứa nhiều clients cho com.in2up, com.in2up.dev, com.in2up.beta...
+      // File này đã chứa nhiều clients cho com.in4up, com.in4up.dev, com.in4up.beta...
       // Nếu dùng DefaultFirebaseOptions, chỉ có 1 appId và sẽ fail cho beta/dev
       // nên để Firebase tự đọc google-services.json
       try {

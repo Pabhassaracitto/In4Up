@@ -1,5 +1,5 @@
 // lib/models/text_item.dart
-// in2up - Text Item Model
+// in4up - Text Item Model
 // Không chứa WordType (được chuyển sang word_analysis.dart)
 
 class TextItem {

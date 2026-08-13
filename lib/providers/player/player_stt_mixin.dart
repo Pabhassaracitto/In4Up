@@ -4,8 +4,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:in2up_stt/in2up_stt.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 
@@ -52,7 +52,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       final candidates = <String>[
         '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
             '/${hash}.lrc',
-        '/data/user/0/com.in2up.app/cache/lrc/$hash.lrc',
+        '/data/user/0/com.in4up.app/cache/lrc/$hash.lrc',
         _replaceExtension(normalizedPath, '.lrc'),
       ];
 

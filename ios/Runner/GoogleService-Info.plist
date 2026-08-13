@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>342774597309-40im71rl7k9h99fl1tv77p3oe61hhkg7.apps.googleusercontent.com</string>
+	<string>342774597309-gk1uua5n5ldohtt4nroc8irie05bed4m.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.342774597309-40im71rl7k9h99fl1tv77p3oe61hhkg7</string>
+	<string>com.googleusercontent.apps.342774597309-gk1uua5n5ldohtt4nroc8irie05bed4m</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>342774597309-29kb187ckrcv52o9bcd9b1q0bpo1h1tb.apps.googleusercontent.com</string>
+	<string>342774597309-276p37a3jequc9hfp3vsrfn1b6jels0b.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.in2up</string>
+	<string>com.in4up</string>
 	<key>PROJECT_ID</key>
 	<string>vipsound-df903</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,7 +31,7 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:342774597309:ios:69923bb84d5f42551319d4</string>
+	<string>1:342774597309:ios:f1643ab0df1208351319d4</string>
 	<key>DATABASE_URL</key>
 	<string>https://vipsound-df903-default-rtdb.firebaseio.com</string>
 </dict>

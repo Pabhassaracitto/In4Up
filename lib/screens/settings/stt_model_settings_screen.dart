@@ -4,10 +4,10 @@ import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/providers/locale_provider.dart';
-import 'package:in2up_stt/stt_model_manager.dart';
-import 'package:in2up_stt/stt_service_facade.dart' as modelManager;
-import 'package:in2up_stt/in2up_stt.dart';
+import 'package:in4up/providers/locale_provider.dart';
+import 'package:in4up_stt/stt_model_manager.dart';
+import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
+import 'package:in4up_stt/in4up_stt.dart';
 
 import '../../core/language/app_language.dart';
 

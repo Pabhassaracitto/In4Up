@@ -1081,7 +1081,7 @@ class _HistoryTile extends StatelessWidget {
 
   static String _buildExportText(ShadowingHistoryEntry entry) {
     final buffer = StringBuffer();
-    buffer.writeln('in2up · Shadowing Review');
+    buffer.writeln('in4up · Shadowing Review');
     buffer.writeln('Thời gian: ${_formatTimestamp(entry.timestamp)}');
     buffer.writeln('Điểm: ${entry.overallScorePercent}% · ${entry.gradeLabel}');
     buffer

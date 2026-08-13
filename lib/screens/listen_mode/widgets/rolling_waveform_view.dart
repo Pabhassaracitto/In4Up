@@ -1,4 +1,4 @@
-// in2up1.0 — View với speakerColorMap parameter
+// in4up1.0 — View với speakerColorMap parameter
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';

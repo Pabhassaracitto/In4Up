@@ -26,7 +26,7 @@ class WebReaderJS {
 
   // ── Cleanup script (xóa highlight cũ) ─────────────────
   function removeHighlights() {
-    const spans = document.querySelectorAll('.in2up-word');
+    const spans = document.querySelectorAll('.in4up-word');
     spans.forEach(span => {
       const text = document.createTextNode(span.textContent);
       span.parentNode.replaceChild(text, span);
@@ -197,8 +197,8 @@ class WebReaderJS {
     const tag = parent.tagName ? parent.tagName.toLowerCase() : '';
     if (['script','style','noscript','code','pre','textarea',
          'input','button','select','option'].includes(tag)) return;
-    // Skip nếu đã là in2up span
-    if (parent.classList && parent.classList.contains('in2up-word')) return;
+    // Skip nếu đã là in4up span
+    if (parent.classList && parent.classList.contains('in4up-word')) return;
 
     // Tokenize: chia thành words + non-words
     const tokenRegex = /[\\w']+|[^\\w\\s]+|\\s+/g;
@@ -221,7 +221,7 @@ class WebReaderJS {
 
       if (color && color !== 'transparent') {
         const span = document.createElement('span');
-        span.className = 'in2up-word';
+        span.className = 'in4up-word';
         span.setAttribute('data-word', token.toLowerCase());
         span.setAttribute('data-type',
           classification.mode === 'cefr'
@@ -255,7 +255,7 @@ class WebReaderJS {
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          window.in2upChannel.postMessage(JSON.stringify({
+          window.in4upChannel.postMessage(JSON.stringify({
             type: 'wordTap',
             word: token,
             wordType: classification.mode === 'cefr'
@@ -274,7 +274,7 @@ class WebReaderJS {
       } else {
         // Non-highlighted word: vẫn gắn click để tra từ
         const span = document.createElement('span');
-        span.className = 'in2up-word in2up-plain';
+        span.className = 'in4up-word in4up-plain';
         span.setAttribute('data-word', token.toLowerCase());
         span.textContent = token;
         span.style.cssText = 'cursor: pointer;';
@@ -282,7 +282,7 @@ class WebReaderJS {
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          window.in2upChannel.postMessage(JSON.stringify({
+          window.in4upChannel.postMessage(JSON.stringify({
             type: 'wordTap',
             word: token,
             wordType: null,
@@ -335,7 +335,7 @@ class WebReaderJS {
     walkDOM(mainContent);
   }
 
-  console.log('[in2up] Highlight applied: mode=' + MODE);
+  console.log('[in4up] Highlight applied: mode=' + MODE);
 })();
 ''';
   }
@@ -343,13 +343,13 @@ class WebReaderJS {
   /// Script để remove highlight
   static const String removeHighlightScript = '''
 (function() {
-  const spans = document.querySelectorAll('.in2up-word');
+  const spans = document.querySelectorAll('.in4up-word');
   spans.forEach(span => {
     const text = document.createTextNode(span.textContent);
     if (span.parentNode) span.parentNode.replaceChild(text, span);
   });
   document.body.normalize();
-  console.log('[in2up] Highlights removed');
+  console.log('[in4up] Highlights removed');
 })();
 ''';
 
@@ -393,8 +393,8 @@ window.getSelection()?.toString() || '';
   /// Script setup text selection listener
   static const String setupSelectionListenerScript = '''
 (function() {
-  if (window.__in2upSelectionReady) return;
-  window.__in2upSelectionReady = true;
+  if (window.__in4upSelectionReady) return;
+  window.__in4upSelectionReady = true;
 
   function getScrollProgress() {
     const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
@@ -438,7 +438,7 @@ window.getSelection()?.toString() || '';
     const sel = window.getSelection();
     if (!sel || sel.toString().trim().length === 0) return;
     const text = sel.toString().trim();
-    window.in2upChannel.postMessage(JSON.stringify({
+    window.in4upChannel.postMessage(JSON.stringify({
       type: 'textSelected',
       text: text,
       contextText: buildContextText(sel),
@@ -453,15 +453,15 @@ window.getSelection()?.toString() || '';
     setTimeout(sendSelection, 100);
   }, { passive: true });
 
-  console.log('[in2up] Selection listener ready');
+  console.log('[in4up] Selection listener ready');
 })();
 ''';
 
   /// Script setup reading progress listener
   static const String setupReadingProgressListenerScript = '''
 (function() {
-  if (window.__in2upReadingProgressReady) return;
-  window.__in2upReadingProgressReady = true;
+  if (window.__in4upReadingProgressReady) return;
+  window.__in4upReadingProgressReady = true;
 
   function getMainContent() {
     return document.querySelector('article') ||
@@ -497,7 +497,7 @@ window.getSelection()?.toString() || '';
     const progress = getProgress();
     if (!force && Math.abs(progress - lastSent) < 0.03) return;
     lastSent = progress;
-    window.in2upChannel.postMessage(JSON.stringify({
+    window.in4upChannel.postMessage(JSON.stringify({
       type: 'readingProgress',
       progress: progress,
       preview: getPreview(),
@@ -516,7 +516,7 @@ window.getSelection()?.toString() || '';
   setTimeout(() => sendProgress(true), 250);
   setTimeout(() => sendProgress(true), 1200);
 
-  console.log('[in2up] Reading progress listener ready');
+  console.log('[in4up] Reading progress listener ready');
 })();
 ''';
 
@@ -566,7 +566,7 @@ window.getSelection()?.toString() || '';
   const scrollProgress = $encodedScroll;
 
   function clearOldCue() {
-    const old = document.getElementById('in2up-focus-cue');
+    const old = document.getElementById('in4up-focus-cue');
     if (!old) return;
     const parent = old.parentNode;
     if (!parent) return;
@@ -633,7 +633,7 @@ window.getSelection()?.toString() || '';
       .filter(Boolean);
     if (!tokens.length) return null;
 
-    const spans = Array.from((scope || document).querySelectorAll('.in2up-word'));
+    const spans = Array.from((scope || document).querySelectorAll('.in4up-word'));
     for (let i = 0; i <= spans.length - tokens.length; i++) {
       let ok = true;
       for (let j = 0; j < tokens.length; j++) {
@@ -727,7 +727,7 @@ window.getSelection()?.toString() || '';
         range.setStart(node, index);
         range.setEnd(node, index + target.length);
         const mark = document.createElement('mark');
-        mark.id = 'in2up-focus-cue';
+        mark.id = 'in4up-focus-cue';
         mark.style.background = 'rgba(100,181,246,0.28)';
         mark.style.outline = '2px solid #64B5F6';
         mark.style.borderRadius = '4px';
@@ -768,14 +768,14 @@ window.getSelection()?.toString() || '';
     return '''
 (function() {
   // Xóa FAB cũ nếu có
-  const old = document.getElementById('in2up-fab');
+  const old = document.getElementById('in4up-fab');
   if (old) old.remove();
 
   const config = $configJson;
   const mode = config.mode;
 
   const fab = document.createElement('div');
-  fab.id = 'in2up-fab';
+  fab.id = 'in4up-fab';
   fab.style.cssText = [
     'position: fixed',
     'bottom: 80px',
@@ -802,7 +802,7 @@ window.getSelection()?.toString() || '';
   });
   fab.addEventListener('mouseup', () => {
     fab.style.transform = 'scale(1)';
-    window.in2upChannel.postMessage(JSON.stringify({ type: 'fabTap' }));
+    window.in4upChannel.postMessage(JSON.stringify({ type: 'fabTap' }));
   });
 
   document.body.appendChild(fab);

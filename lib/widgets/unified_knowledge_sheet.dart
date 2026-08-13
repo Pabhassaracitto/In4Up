@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';

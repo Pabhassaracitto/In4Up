@@ -15,7 +15,7 @@ extern "C"
 
     // Create engine
     JNIEXPORT jlong JNICALL
-    Java_com_yourcompany_in2up_AudioProcessor_nativeCreate(
+    Java_com_yourcompany_in4up_AudioProcessor_nativeCreate(
         JNIEnv *env, jobject obj, jint sampleRate, jint channels, jboolean useV2)
     {
 
@@ -50,7 +50,7 @@ extern "C"
 
     // Destroy engine
     JNIEXPORT void JNICALL
-    Java_com_yourcompany_in2up_AudioProcessor_nativeDestroy(
+    Java_com_yourcompany_in4up_AudioProcessor_nativeDestroy(
         JNIEnv *env, jobject obj, jlong enginePtr, jboolean useV2)
     {
 
@@ -75,7 +75,7 @@ extern "C"
 
     // Set speed
     JNIEXPORT void JNICALL
-    Java_com_yourcompany_in2up_AudioProcessor_nativeSetSpeed(
+    Java_com_yourcompany_in4up_AudioProcessor_nativeSetSpeed(
         JNIEnv *env, jobject obj, jlong enginePtr, jfloat speed, jboolean useV2)
     {
 
@@ -98,7 +98,7 @@ extern "C"
 
     // Process audio
     JNIEXPORT jint JNICALL
-    Java_com_yourcompany_in2up_AudioProcessor_nativeProcess(
+    Java_com_yourcompany_in4up_AudioProcessor_nativeProcess(
         JNIEnv *env, jobject obj, jlong enginePtr,
         jfloatArray inputArray, jint inputFrames,
         jfloatArray outputArray, jint maxOutputFrames,
@@ -132,7 +132,7 @@ extern "C"
 
     // Get latency
     JNIEXPORT jint JNICALL
-    Java_com_yourcompany_in2up_AudioProcessor_nativeGetLatency(
+    Java_com_yourcompany_in4up_AudioProcessor_nativeGetLatency(
         JNIEnv *env, jobject obj, jlong enginePtr, jboolean useV2)
     {
 

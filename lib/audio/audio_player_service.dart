@@ -133,7 +133,7 @@ class AudioPlayerService {
       final srcFile = File(original);
       // Tạo tên an toàn: chỉ giữ ascii alnum + _ -
       final ext = original.split('.').last;
-      final safePrefix = 'in2up_play_${DateTime.now().millisecondsSinceEpoch}_${original.hashCode.abs()}';
+      final safePrefix = 'in4up_play_${DateTime.now().millisecondsSinceEpoch}_${original.hashCode.abs()}';
       final safeName = ('${safePrefix}_$ext').replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
       final tempDir = Directory.systemTemp;
       final destPath = path.join(tempDir.path, safeName);

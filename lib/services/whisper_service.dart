@@ -2,8 +2,8 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:in2up_stt/stt_model_manager.dart';
-import 'package:in2up_stt/in2up_stt.dart';
+import 'package:in4up_stt/stt_model_manager.dart';
+import 'package:in4up_stt/in4up_stt.dart';
 import '../native/whisper_bindings.dart';
 
 /// Service quản lý trực tiếp Native FFI cho Whisper (đặc biệt là Windows)

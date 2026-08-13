@@ -23,7 +23,7 @@ The approved mark is applied to:
 
 ## Compatibility note
 
-The user-facing brand is **In4Up**. Existing technical identifiers such as the Dart package name `in2up`, Android application ID `com.in2up`, Firebase clients, storage keys, and the Windows executable name remain unchanged to avoid breaking imports, updates, authentication, or persisted user data.
+The user-facing brand is **In4Up**. Existing technical identifiers such as the Dart package name `in4up`, Android application ID `com.in4up`, Firebase clients, storage keys, and the Windows executable name remain unchanged to avoid breaking imports, updates, authentication, or persisted user data.
 
 ## Core colors
 

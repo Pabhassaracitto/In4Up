@@ -1,4 +1,4 @@
-// in2up v11.0 — Helper tạo AudioFingerprint tại call site
+// in4up v11.0 — Helper tạo AudioFingerprint tại call site
 
 import 'dart:io';
 import 'dart:convert';

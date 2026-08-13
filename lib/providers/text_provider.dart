@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:in2up_stt/models/stt_result.dart';
+import 'package:in4up_stt/models/stt_result.dart';
 
 import '../features/grammar/models/grammar_category.dart';
 import '../features/grammar/models/grammar_highlight_preset.dart';
@@ -28,7 +28,7 @@ import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 enum ReadSubMode { reading, listening, translation, driving }
 

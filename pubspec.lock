@@ -789,24 +789,24 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
-  in2up_ai:
+  in4up_ai:
     dependency: "direct main"
     description:
-      path: "packages/in2up_ai"
+      path: "packages/in4up_ai"
       relative: true
     source: path
     version: "1.0.0"
-  in2up_core:
+  in4up_core:
     dependency: "direct main"
     description:
-      path: "packages/in2up_core"
+      path: "packages/in4up_core"
       relative: true
     source: path
     version: "0.0.1"
-  in2up_stt:
+  in4up_stt:
     dependency: "direct main"
     description:
-      path: "packages/in2up_stt"
+      path: "packages/in4up_stt"
       relative: true
     source: path
     version: "1.0.0"

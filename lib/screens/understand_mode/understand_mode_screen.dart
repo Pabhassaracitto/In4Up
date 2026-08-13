@@ -1,11 +1,11 @@
 // lib/screens/understand_mode/understand_mode_screen.dart
-// in2up - Chế độ HIỂU (Fixed version)
+// in4up - Chế độ HIỂU (Fixed version)
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/recent_audio.dart';
 
 class RecentAudioService {
-  static const String _key = 'in2up_listen_recent_v1';
+  static const String _key = 'in4up_listen_recent_v1';
   static const int _maxItems = 30;
 
   // Singleton

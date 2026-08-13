@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_ai/in2up_ai.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import '../../core/responsive/app_responsive.dart';
 import '../../models/text_item.dart';
 import '../../providers/text_provider.dart';
@@ -650,7 +650,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     required _DictationResult result,
   }) {
     return '''
-in2up_WRITE_REVIEW
+in4up_WRITE_REVIEW
 EXPECTED: $expected
 ACTUAL: $actual
 TOTAL_SCORE: ${(result.score * 100).round()}
@@ -659,7 +659,7 @@ SPELLING_SCORE: ${(result.spellingScore * 100).round()}
 MISSING: ${result.missingWords.isEmpty ? 'none' : result.missingWords.join(', ')}
 EXTRA: ${result.extraWords.isEmpty ? 'none' : result.extraWords.join(', ')}
 
-Bạn là bộ phản hồi viết offline của in2up.
+Bạn là bộ phản hồi viết offline của in4up.
 Hãy trả về JSON hợp lệ với:
 - summary: nhận xét ngắn bằng tiếng Việt
 - topics: 2-4 nhãn ngắn
@@ -674,7 +674,7 @@ Hãy trả về JSON hợp lệ với:
     required _RewriteResult result,
   }) {
     return '''
-in2up_REWRITE_REVIEW
+in4up_REWRITE_REVIEW
 EXPECTED: $expected
 ACTUAL: $actual
 TOTAL_SCORE: ${(result.overallScore * 100).round()}
@@ -684,7 +684,7 @@ PARAPHRASE_SCORE: ${(result.paraphraseScore * 100).round()}
 MISSING: ${result.missingKeywords.isEmpty ? 'none' : result.missingKeywords.join(', ')}
 KEPT: ${result.usedKeywords.isEmpty ? 'none' : result.usedKeywords.join(', ')}
 
-Bạn là bộ phản hồi viết lại ý offline của in2up.
+Bạn là bộ phản hồi viết lại ý offline của in4up.
 Hãy trả về JSON hợp lệ với:
 - summary: nhận xét ngắn bằng tiếng Việt
 - topics: 2-4 nhãn ngắn
@@ -699,7 +699,7 @@ Hãy trả về JSON hợp lệ với:
     required _SummaryResult result,
   }) {
     return '''
-in2up_SUMMARY_REVIEW
+in4up_SUMMARY_REVIEW
 EXPECTED: $expected
 ACTUAL: $actual
 TOTAL_SCORE: ${(result.overallScore * 100).round()}
@@ -710,7 +710,7 @@ COMPRESSION: ${result.compressionLabel}
 MISSED: ${result.missedKeywords.isEmpty ? 'none' : result.missedKeywords.join(', ')}
 KEPT: ${result.keptKeywords.isEmpty ? 'none' : result.keptKeywords.join(', ')}
 
-Bạn là bộ phản hồi tóm tắt offline của in2up.
+Bạn là bộ phản hồi tóm tắt offline của in4up.
 Hãy trả về JSON hợp lệ với:
 - summary: nhận xét ngắn bằng tiếng Việt
 - topics: 2-4 nhãn ngắn

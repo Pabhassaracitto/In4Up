@@ -6,7 +6,7 @@
 // IMPORTANT: Run `flutterfire configure --project=vipsound-df903 --platforms=android,ios,web,windows`
 // to regenerate accurately with correct appIds for each flavor.
 // For Android flavors, the native google-services.json already contains
-// multiple clients (com.in2up, com.in2up.dev, com.in2up.beta, com.vipsound, etc.)
+// multiple clients (com.in4up, com.in4up.dev, com.in4up.beta, com.vipsound, etc.)
 // so Android can also initialize without options (via google-services.json).
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
@@ -65,7 +65,7 @@ class DefaultFirebaseOptions {
     measurementId: 'G-XXXXXXXXXX',
   );
 
-  // Stable: com.in2up
+  // Stable: com.in4up
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
     appId: '1:342774597309:android:b0bcf08d94b674b21319d4',
@@ -74,7 +74,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'vipsound-df903.firebasestorage.app',
   );
 
-  // Dev: com.in2up.dev
+  // Dev: com.in4up.dev
   static const FirebaseOptions androidDev = FirebaseOptions(
     apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
     appId: '1:342774597309:android:807fbf766789f7dd1319d4',
@@ -83,7 +83,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'vipsound-df903.firebasestorage.app',
   );
 
-  // Beta: com.in2up.beta
+  // Beta: com.in4up.beta
   static const FirebaseOptions androidBeta = FirebaseOptions(
     apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
     appId: '1:342774597309:android:7f7683e09f8781ae1319d4',
@@ -100,7 +100,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'vipsound-df903.firebasestorage.app',
     iosClientId:
         '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com',
-    iosBundleId: 'com.in2up',
+    iosBundleId: 'com.in4up',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -129,6 +129,6 @@ class DefaultFirebaseOptions {
     storageBucket: 'vipsound-df903.firebasestorage.app',
     iosClientId:
         '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com',
-    iosBundleId: 'com.in2up',
+    iosBundleId: 'com.in4up',
   );
 }

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/models/word_entry.dart';
+import 'package:in4up/models/word_entry.dart';
 
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';

@@ -2,14 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
-// XÓA: import 'package:in2up_core/vocab_level_difficulty.dart';
+// XÓA: import 'package:in4up_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
 
 class WordActionsSheet {

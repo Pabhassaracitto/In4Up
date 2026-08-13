@@ -1,7 +1,7 @@
 // lib/screens/understand_mode/understand_provider.dart
 
 import 'package:flutter/material.dart';
-import 'package:in2up_stt/stt_lrc_converter.dart';
+import 'package:in4up_stt/stt_lrc_converter.dart';
 import 'models/understand_line.dart';
 import 'services/understand_service.dart';
 

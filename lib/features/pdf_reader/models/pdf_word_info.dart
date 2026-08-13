@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';

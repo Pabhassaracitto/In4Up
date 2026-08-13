@@ -1,4 +1,4 @@
-Write-Host "=== Fix Windows Build for in2up (ffmpeg_kit C1083) ===" -ForegroundColor Cyan
+Write-Host "=== Fix Windows Build for in4up (ffmpeg_kit C1083) ===" -ForegroundColor Cyan
 
 # 1. Clean
 Write-Host "`n[1/4] flutter clean..." -ForegroundColor Yellow

@@ -109,25 +109,25 @@ jobs:
         run: |
           # Đổi tên 3 bản tách
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
-             build/app/outputs/flutter-apk/in2up-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-             build/app/outputs/flutter-apk/in2up-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
-             build/app/outputs/flutter-apk/in2up-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           # Đổi tên bản gộp (Universal)
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/in2up-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/in2up-Android-*.apk
+          path: build/app/outputs/flutter-apk/in4up-Android-*.apk
 
       - name: Đẩy TẤT CẢ APK lên GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/in2up-Android-*.apk"
+          artifacts: "build/app/outputs/flutter-apk/in4up-Android-*.apk"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -225,18 +225,18 @@ jobs:
           $VERSION_NAME = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           
           # Nén toàn bộ thư mục Release
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in2up-Windows-$VERSION_NAME.zip" -Force
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: in2up-Windows-*.zip
+          path: in4up-Windows-*.zip
 
       - name: Đẩy ZIP Windows lên GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "in2up-Windows-*.zip"
+          artifacts: "in4up-Windows-*.zip"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -305,7 +305,7 @@ jobs:
                 appId: 'mock',
                 messagingSenderId: 'mock',
                 projectId: 'mock',
-                iosBundleId: 'com.in2up',
+                iosBundleId: 'com.in4up',
               );
             }
           }
@@ -346,19 +346,19 @@ jobs:
           VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r "in2up-iOS-${VERSION_NAME}.ipa" Payload
+          zip -r "in4up-iOS-${VERSION_NAME}.ipa" Payload
           rm -rf Payload
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: in2up-iOS-*.ipa
+          path: in4up-iOS-*.ipa
 
       - name: Đẩy IPA lên GitHub Release chung
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "in2up-iOS-*.ipa"
+          artifacts: "in4up-iOS-*.ipa"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true

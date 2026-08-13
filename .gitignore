@@ -146,3 +146,4 @@ google-services.json
 !ios/Runner/GoogleService-Info.plist
 !assets/whisper_models/.gitkeep
 !ios/Runner.xcodeproj/project.pbxproj
+setup-env.ps1

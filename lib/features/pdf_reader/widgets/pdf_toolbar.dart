@@ -10,6 +10,8 @@ class PdfToolbar extends StatelessWidget {
   final VoidCallback? onUserInteraction;
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
+  final bool writingMode;
+  final VoidCallback? onSendToWriting;
 
   const PdfToolbar({
     super.key,
@@ -18,6 +20,8 @@ class PdfToolbar extends StatelessWidget {
     this.onUserInteraction,
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
+    this.writingMode = false,
+    this.onSendToWriting,
   });
 
   @override
@@ -35,74 +39,118 @@ class PdfToolbar extends StatelessWidget {
           bottom: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // ← Back
-          IconButton(
-            onPressed: () {
-              onUserInteraction?.call();
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.arrow_back_ios_new,
-                size: 18, color: Colors.white70),
-          ),
-
-          // Title
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  onUserInteraction?.call();
+                  Navigator.pop(context);
+                },
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 18,
+                  color: Colors.white70,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${controller.currentPage + 1} / ${controller.totalPages}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white60,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              _ColorModeButton(
+                controller: controller,
+                onUserInteraction: onUserInteraction,
+              ),
+              const SizedBox(width: 4),
+              _ViewModeButton(
+                controller: controller,
+                onUserInteraction: onUserInteraction,
+              ),
+              const SizedBox(width: 4),
+              _MoreButton(
+                controller: controller,
+                onUserInteraction: onUserInteraction,
+                onShowAnnotations: onShowAnnotations,
+                onOpenGrammarSettings: onOpenGrammarSettings,
+              ),
+            ],
           ),
-
-          // Page counter
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '${controller.currentPage + 1} / ${controller.totalPages}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.white60,
-                fontFamily: 'monospace',
+          if (writingMode) ...[
+            const SizedBox(height: 7),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(10, 7, 6, 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF26C6DA).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF26C6DA).withValues(alpha: 0.24),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.edit_note_rounded,
+                    color: Color(0xFF80DEEA),
+                    size: 19,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Nguồn cho Viết · chọn một đoạn để viết lại hoặc dùng toàn bộ PDF để tóm tắt.',
+                      style: TextStyle(color: Colors.white70, fontSize: 10.5),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  TextButton.icon(
+                    onPressed: controller.isDocumentLoaded
+                        ? () {
+                            onUserInteraction?.call();
+                            onSendToWriting?.call();
+                          }
+                        : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF80DEEA),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    label: const Text(
+                      'Dùng PDF',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-
-          const SizedBox(width: 6),
-
-          // Color mode cycle button
-          _ColorModeButton(
-            controller: controller,
-            onUserInteraction: onUserInteraction,
-          ),
-
-          const SizedBox(width: 4),
-
-          // View mode toggle
-          _ViewModeButton(
-            controller: controller,
-            onUserInteraction: onUserInteraction,
-          ),
-
-          const SizedBox(width: 4),
-
-          // More options
-          _MoreButton(
-            controller: controller,
-            onUserInteraction: onUserInteraction,
-            onShowAnnotations: onShowAnnotations,
-            onOpenGrammarSettings: onOpenGrammarSettings,
-          ),
+          ],
         ],
       ),
     );

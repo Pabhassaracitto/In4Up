@@ -40,6 +40,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   _WriteExerciseType _exerciseType = _WriteExerciseType.dictation;
   String _sourceKey = '';
   String _lastAiPromptKey = '';
+  int _handledWritingSourceVersion = -1;
   int _lineIndex = 0;
   bool _showAnswer = false;
 
@@ -70,6 +71,18 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   void _ensureExerciseState(TextProvider textProvider) {
+    final writingRequest = textProvider.writingSourceRequest;
+    if (writingRequest != null &&
+        _handledWritingSourceVersion != textProvider.writingSourceVersion) {
+      _exerciseType = switch (writingRequest.task) {
+        WritingTaskType.dictation => _WriteExerciseType.dictation,
+        WritingTaskType.cloze => _WriteExerciseType.clozeInput,
+        WritingTaskType.rewrite => _WriteExerciseType.rewrite,
+        WritingTaskType.summary => _WriteExerciseType.summary,
+      };
+      _handledWritingSourceVersion = textProvider.writingSourceVersion;
+    }
+
     final newKey = [
       textProvider.currentTextPath ?? '',
       textProvider.currentDocument?.title ?? '',
@@ -852,6 +865,7 @@ Hãy trả về JSON hợp lệ với:
           }
 
           final source = textProvider.currentTextPath;
+          final writingRequest = textProvider.writingSourceRequest;
           final currentTitle =
               textProvider.currentDocument?.title ?? 'Văn bản hiện tại';
           final currentLine = hasText ? textProvider.lines[_lineIndex] : null;
@@ -868,6 +882,10 @@ Hãy trả về JSON hợp lệ với:
                     source: source,
                     lineCount: textProvider.lines.length,
                   ),
+                  if (hasText && writingRequest != null) ...[
+                    const SizedBox(height: 12),
+                    _WritingSourceHandoffCard(request: writingRequest),
+                  ],
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
@@ -2435,6 +2453,87 @@ class _HeroCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WritingSourceHandoffCard extends StatelessWidget {
+  final WritingSourceRequest request;
+
+  const _WritingSourceHandoffCard({required this.request});
+
+  @override
+  Widget build(BuildContext context) {
+    final sourceIcon = switch (request.kind) {
+      WritingSourceKind.web => Icons.language_rounded,
+      WritingSourceKind.pdf => Icons.picture_as_pdf_rounded,
+      WritingSourceKind.text => Icons.description_outlined,
+    };
+    final taskLabel = switch (request.task) {
+      WritingTaskType.dictation => 'Chép chính tả',
+      WritingTaskType.cloze => 'Điền từ',
+      WritingTaskType.rewrite => 'Viết lại ý',
+      WritingTaskType.summary => 'Tóm tắt ngắn',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(sourceIcon, color: const Color(0xFF81C784), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  request.isExcerpt
+                      ? 'Đã nhận đoạn chọn để luyện Viết'
+                      : 'Đã nhận nội dung để luyện Viết',
+                  style: const TextStyle(
+                    color: Color(0xFFB9F6CA),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  request.sourceLabel,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  'Đã mở sẵn bài “$taskLabel”. Bạn vẫn có thể đổi dạng bài bên dưới.',
+                  style: const TextStyle(
+                    color: Color(0xFF81C784),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_downward_rounded,
+              color: Color(0xFF81C784), size: 18),
         ],
       ),
     );

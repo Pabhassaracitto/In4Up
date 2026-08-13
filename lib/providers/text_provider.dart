@@ -47,6 +47,36 @@ enum TextSourceType {
   generated,
 }
 
+/// Bài tập mà một nguồn bên ngoài muốn mở sẵn trong tab Viết.
+enum WritingTaskType {
+  dictation,
+  cloze,
+  rewrite,
+  summary,
+}
+
+/// Nơi người học vừa chọn nội dung để luyện viết.
+enum WritingSourceKind {
+  web,
+  pdf,
+  text,
+}
+
+@immutable
+class WritingSourceRequest {
+  final WritingTaskType task;
+  final WritingSourceKind kind;
+  final String sourceLabel;
+  final bool isExcerpt;
+
+  const WritingSourceRequest({
+    required this.task,
+    required this.kind,
+    required this.sourceLabel,
+    required this.isExcerpt,
+  });
+}
+
 class TextProvider extends ChangeNotifier with TranslationMixin {
   final TtsService _ttsService = TtsService();
   final StorageService _storage = StorageService();
@@ -139,6 +169,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? _currentCloudId;
   String? _currentTextCategory;
 
+  // ==================== WRITING HANDOFF ====================
+  WritingSourceRequest? _writingSourceRequest;
+  int _writingSourceVersion = 0;
+
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
@@ -191,6 +225,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextSourceType get currentSourceType => _currentSourceType;
   String? get currentCloudId => _currentCloudId;
   String? get currentTextCategory => _currentTextCategory;
+  WritingSourceRequest? get writingSourceRequest => _writingSourceRequest;
+  int get writingSourceVersion => _writingSourceVersion;
   bool get isCurrentTextFromCloud =>
       _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
   String? get currentContextSourceRef {
@@ -421,6 +457,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TEXT MANAGEMENT ====================
 
   void loadText(String content, {String? title}) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(sourceType: TextSourceType.manual);
   }
@@ -433,6 +470,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     String? cloudId,
     String? category,
   }) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(
       sourceType: sourceType,
@@ -442,8 +480,36 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
   }
 
+  /// Chuyển nội dung từ Web/PDF Reader thẳng sang một nhiệm vụ trong tab Viết.
+  ///
+  /// Reader chỉ chuẩn bị nguồn và ý định. Writing Studio vẫn cho phép người học
+  /// đổi sang bất kỳ dạng bài nào sau khi quay lại.
+  void loadWritingSource(
+    String content, {
+    required String title,
+    required WritingTaskType task,
+    required WritingSourceKind kind,
+    required String sourceLabel,
+    bool isExcerpt = false,
+  }) {
+    loadFromString(
+      content,
+      title: title,
+      sourceType: TextSourceType.generated,
+    );
+    _writingSourceRequest = WritingSourceRequest(
+      task: task,
+      kind: kind,
+      sourceLabel: sourceLabel,
+      isExcerpt: isExcerpt,
+    );
+    _writingSourceVersion++;
+    notifyListeners();
+  }
+
   Future<void> loadTextFile(String path, {String? title}) async {
     try {
+      _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
@@ -504,6 +570,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentCloudId = null;
     _currentTextCategory = null;
     _currentSourceType = TextSourceType.manual;
+    _writingSourceRequest = null;
     notifyListeners();
   }
 
@@ -588,6 +655,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ★ THÊM: Phương thức để load kết quả từ STT
   void loadFromSttResult(SttResult result) {
+    _writingSourceRequest = null;
     _fullText = result.fullText;
     _lines = result.segments.map((seg) {
       return TextItem(

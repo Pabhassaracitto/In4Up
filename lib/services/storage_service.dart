@@ -112,6 +112,18 @@ class StorageService {
     return getSetting<bool>('show_translation', defaultValue: true) ?? true;
   }
 
+  Future<void> saveTranslationTargetLanguage(String code) async {
+    await saveSetting('translation_target_language', code);
+  }
+
+  String getTranslationTargetLanguage() {
+    return getSetting<String>(
+          'translation_target_language',
+          defaultValue: 'VI',
+        ) ??
+        'VI';
+  }
+
   Future<void> saveLastPlaybackSpeed(double speed) async {
     await saveSetting('last_playback_speed', speed);
   }

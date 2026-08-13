@@ -1,10 +1,10 @@
-// lib/features/translation/translation_service.dart
-
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../core/language/app_language.dart';
+import '../tts/language_detector.dart';
 import 'cache/translation_cache.dart';
 import 'engines/deeplx_engine.dart';
 import 'engines/google_free_engine.dart';
@@ -13,115 +13,118 @@ import 'engines/mymemory_engine.dart';
 import 'engines/offline_engine.dart';
 import 'engines/translation_engine.dart';
 
-/// Quản lý dịch thuật với auto-fallback
-///
-/// Thứ tự ưu tiên:
-/// 1. Cache (memory → disk)
-/// 2. DeepLX (nếu user đã cấu hình server)
-/// 3. Google Free (không cần API key)
-/// 4. MyMemory (không cần đăng ký)
-/// 5. Offline Dictionary (luôn sẵn sàng)
+/// Translation orchestration with automatic source detection and engine
+/// fallback. Language metadata comes from the same 26-language catalog used
+/// by app settings and TTS.
 class TranslationService {
-  // ═══════════════════════════════════════════
-  // SINGLETON
-  // ═══════════════════════════════════════════
-
   static final TranslationService _instance = TranslationService._();
   factory TranslationService() => _instance;
+
   TranslationService._() {
     _initEngines();
   }
-
-  // ═══════════════════════════════════════════
-  // STATE
-  // ═══════════════════════════════════════════
 
   final TranslationCache _cache = TranslationCache();
   final List<TranslationEngine> _engines = [];
   final OfflineEngine _offlineEngine = OfflineEngine();
 
-  String _sourceLang = 'auto';
+  String _sourceLang = 'AUTO';
   String _targetLang = 'VI';
   String? _deeplxUrl;
 
-  /// Engine đang được dùng (để hiển thị UI)
   String _lastUsedEngine = '';
-  String get lastUsedEngine => _lastUsedEngine;
-
-  /// Thống kê
   int _cacheHits = 0;
   int _totalRequests = 0;
+
+  static List<AppLanguage> get supportedTargetLanguages =>
+      AppLanguageCatalog.languages;
+
+  String get sourceLang => _sourceLang;
+  String get targetLang => _targetLang;
+  String? get deeplxUrl => _deeplxUrl;
+  String get lastUsedEngine => _lastUsedEngine;
   int get cacheHits => _cacheHits;
   int get totalRequests => _totalRequests;
+  int get cacheSize => _cache.memorySize;
 
-  // ═══════════════════════════════════════════
-  // INIT
-  // ═══════════════════════════════════════════
+  AppLanguage get targetLanguage =>
+      AppLanguageCatalog.fromCode(_targetLang, fallback: AppLanguageCatalog.vietnamese);
+  String get targetLangFlag => targetLanguage.flag;
+  String get targetLangLabel => targetLanguage.translationCode;
+  String get targetLangName => targetLanguage.vietnameseName;
+  String get targetTtsLocale => targetLanguage.ttsLocale;
+
+  List<String> get activeEngines =>
+      [..._engines.map((engine) => engine.name), _offlineEngine.name];
 
   void _initEngines() {
     _engines.clear();
-
-    // Thứ tự ưu tiên online:
-    // 1. DeepLX (nếu user cấu hình)
     if (_deeplxUrl != null && _deeplxUrl!.isNotEmpty) {
       _engines.add(DeepLXEngine(serverUrl: _deeplxUrl!));
     }
-
-    // 2. Google Free (ổn định nhất, chất lượng cao)
-    _engines.add(GoogleFreeEngine());
-
-    // 3. MyMemory (backup tốt, 5000 chars/ngày)
-    _engines.add(MyMemoryEngine());
-
-    // 4. LibreTranslate (mã nguồn mở, nhiều server miễn phí) ★ THÊM
-    _engines.add(LibreEngine());
-    // _engines.add(LibreEngine());
-
-    // 5. Offline xử lý riêng ở cuối (trong translateText)
+    _engines
+      ..add(GoogleFreeEngine())
+      ..add(MyMemoryEngine())
+      ..add(LibreEngine());
 
     debugPrint(
-        '🔧 Engines: ${_engines.map((e) => e.name).join(" → ")} → Offline');
+      '🔧 Translation engines: ${_engines.map((e) => e.name).join(" → ")} → Offline',
+    );
   }
 
-  // ═══════════════════════════════════════════
-  // CONFIGURATION
-  // ═══════════════════════════════════════════
-
-  /// Cấu hình service
   void configure({
     String? sourceLang,
     String? targetLang,
     String? deeplxUrl,
   }) {
-    if (sourceLang != null) _sourceLang = sourceLang;
-    if (targetLang != null) _targetLang = targetLang;
-    if (deeplxUrl != null) {
-      _deeplxUrl = deeplxUrl.trim().isEmpty ? null : deeplxUrl.trim();
+    if (sourceLang != null) {
+      final normalized = sourceLang.trim().replaceAll('_', '-').toUpperCase();
+      _sourceLang = normalized == 'AUTO'
+          ? 'AUTO'
+          : AppLanguageCatalog.normalizeTranslationCode(
+              normalized,
+              fallback: _sourceLang == 'AUTO' ? 'EN' : _sourceLang,
+            );
     }
-    _initEngines(); // Rebuild engine list
-    debugPrint('🔧 TranslationService configured: '
-        'source=$_sourceLang, target=$_targetLang, '
-        'deeplx=${_deeplxUrl ?? "none"}, '
-        'engines=${_engines.map((e) => e.name).join(", ")}');
+
+    if (targetLang != null) {
+      final resolved = AppLanguageCatalog.maybeFromCode(targetLang);
+      if (resolved != null) _targetLang = resolved.translationCode;
+    }
+
+    var rebuildEngines = false;
+    if (deeplxUrl != null) {
+      final normalizedUrl = deeplxUrl.trim().isEmpty ? null : deeplxUrl.trim();
+      rebuildEngines = normalizedUrl != _deeplxUrl;
+      _deeplxUrl = normalizedUrl;
+    }
+    if (rebuildEngines) _initEngines();
+
+    debugPrint(
+      '🔧 Translation configured: source=$_sourceLang, target=$_targetLang, '
+      'deeplx=${_deeplxUrl ?? "none"}',
+    );
   }
 
-  String get sourceLang => _sourceLang;
-  String get targetLang => _targetLang;
-  String? get deeplxUrl => _deeplxUrl;
+  AppLanguage detectSourceLanguage(String text) =>
+      LanguageDetector.detectLanguage(text);
 
-  /// Danh sách engine đang active
-  List<String> get activeEngines =>
-      [..._engines.map((e) => e.name), _offlineEngine.name];
+  bool isAlreadyInTargetLanguage(String text, {String? targetLang}) {
+    if (text.trim().isEmpty) return false;
+    final source = detectSourceLanguage(text);
+    final target = AppLanguageCatalog.fromCode(targetLang ?? _targetLang);
+    return source.translationCode == target.translationCode;
+  }
 
-  // ═══════════════════════════════════════════
-  // 🔥 TRANSLATE - HÀM CHÍNH
-  // ═══════════════════════════════════════════
-
-  /// Dịch text với auto-fallback qua các engine
-  Future<TranslationResult> translateText(String text) async {
+  Future<TranslationResult> translateText(
+    String text, {
+    String? sourceLang,
+    String? targetLang,
+  }) async {
     _totalRequests++;
 
-    if (text.trim().isEmpty) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
       return TranslationResult.success(
         original: text,
         translated: '',
@@ -129,13 +132,32 @@ class TranslationService {
       );
     }
 
-    // ──── 1. CHECK CACHE ────
-    final cached = await _cache.get(
-      text: text,
-      sourceLang: _sourceLang,
-      targetLang: _targetLang,
+    final requestedSource =
+        (sourceLang ?? _sourceLang).trim().replaceAll('_', '-').toUpperCase();
+    final source = requestedSource == 'AUTO'
+        ? detectSourceLanguage(trimmed)
+        : AppLanguageCatalog.fromCode(requestedSource);
+    final target = AppLanguageCatalog.fromCode(
+      targetLang ?? _targetLang,
+      fallback: targetLanguage,
     );
 
+    if (source.translationCode == target.translationCode) {
+      _lastUsedEngine = '↔️ Cùng ngôn ngữ';
+      return TranslationResult.success(
+        original: text,
+        translated: text,
+        engine: 'same-language',
+        detectedLang: source.translationCode,
+        targetLang: target.translationCode,
+      );
+    }
+
+    final cached = await _cache.get(
+      text: text,
+      sourceLang: source.translationCode,
+      targetLang: target.translationCode,
+    );
     if (cached != null) {
       _cacheHits++;
       _lastUsedEngine = '💾 Cache';
@@ -143,121 +165,106 @@ class TranslationService {
         original: text,
         translated: cached,
         engine: 'cache',
+        detectedLang: source.translationCode,
+        targetLang: target.translationCode,
       );
     }
 
-    // ──── 2. CHECK NETWORK ────
     final hasNetwork = await _checkNetwork();
-
     if (hasNetwork) {
-      // ──── 3. THỬ TỪNG ENGINE ONLINE ────
       for (final engine in _engines) {
         try {
-          debugPrint('🔄 Trying ${engine.name}...');
-
           final result = await engine
               .translate(
                 text: text,
-                targetLang: _targetLang,
-                sourceLang: _sourceLang,
+                targetLang: target.translationCode,
+                sourceLang: source.translationCode,
               )
               .timeout(
                 const Duration(seconds: 12),
                 onTimeout: () => TranslationResult.failure(
                   original: text,
-                  error: 'Timeout sau 12s',
+                  error: 'Timeout sau 12 giây',
                   engine: engine.name,
+                  detectedLang: source.translationCode,
+                  targetLang: target.translationCode,
                 ),
               );
 
-          if (result.isSuccess && result.translatedText.isNotEmpty) {
-            debugPrint('✅ ${engine.name} thành công! '
-                '(${result.responseTime.inMilliseconds}ms)');
-
-            // Lưu cache
+          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+            final enriched = result.withLanguages(
+              source: source.translationCode,
+              target: target.translationCode,
+            );
             await _cache.put(
               text: text,
-              sourceLang: _sourceLang,
-              targetLang: _targetLang,
-              translation: result.translatedText,
+              sourceLang: source.translationCode,
+              targetLang: target.translationCode,
+              translation: enriched.translatedText,
             );
-
             _lastUsedEngine = '🌐 ${engine.name}';
-            return result;
-          } else {
-            debugPrint('❌ ${engine.name} thất bại: ${result.error}');
-            // Tiếp tục thử engine tiếp theo
+            return enriched;
           }
-        } catch (e) {
-          debugPrint('❌ ${engine.name} exception: $e');
-          // Tiếp tục thử engine tiếp theo
+          debugPrint('❌ ${engine.name}: ${result.error}');
+        } catch (error) {
+          debugPrint('❌ ${engine.name} exception: $error');
         }
-
-        // Delay nhỏ trước khi thử engine tiếp
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
       }
-    } else {
-      debugPrint('📡 Không có mạng, chuyển sang offline...');
     }
 
-    // ──── 4. OFFLINE FALLBACK ────
-    debugPrint('📖 Dùng Offline Dictionary...');
     final offlineResult = await _offlineEngine.translate(
       text: text,
-      targetLang: _targetLang,
-      sourceLang: _sourceLang,
+      targetLang: target.translationCode,
+      sourceLang: source.translationCode,
+    );
+    _lastUsedEngine = '📖 Offline';
+    final enrichedOffline = offlineResult.withLanguages(
+      source: source.translationCode,
+      target: target.translationCode,
     );
 
-    _lastUsedEngine = '📖 Offline';
-
-    if (offlineResult.isSuccess) {
-      // Cache offline result cũng được
+    if (enrichedOffline.isSuccess &&
+        enrichedOffline.translatedText.trim().isNotEmpty) {
       await _cache.put(
         text: text,
-        sourceLang: _sourceLang,
-        targetLang: _targetLang,
-        translation: offlineResult.translatedText,
+        sourceLang: source.translationCode,
+        targetLang: target.translationCode,
+        translation: enrichedOffline.translatedText,
       );
     }
-
-    return offlineResult;
+    return enrichedOffline;
   }
 
-  // ═══════════════════════════════════════════
-  // BATCH TRANSLATE
-  // ═══════════════════════════════════════════
-
-  /// Dịch nhiều dòng tuần tự
   Future<List<TranslationResult>> translateBatch(
     List<String> texts, {
+    String? sourceLang,
+    String? targetLang,
     void Function(int done, int total)? onProgress,
     Duration? delayBetween,
   }) async {
     final results = <TranslationResult>[];
+    final sourceSnapshot = sourceLang ?? _sourceLang;
+    final targetSnapshot = targetLang ?? _targetLang;
 
-    for (int i = 0; i < texts.length; i++) {
-      final result = await translateText(texts[i]);
-      results.add(result);
-      onProgress?.call(i + 1, texts.length);
-
-      // Delay giữa requests (chỉ cho online)
-      if (i < texts.length - 1) {
-        final delay = delayBetween ?? const Duration(milliseconds: 200);
-        await Future.delayed(delay);
+    for (var index = 0; index < texts.length; index++) {
+      results.add(await translateText(
+        texts[index],
+        sourceLang: sourceSnapshot,
+        targetLang: targetSnapshot,
+      ));
+      onProgress?.call(index + 1, texts.length);
+      if (index < texts.length - 1) {
+        await Future<void>.delayed(
+          delayBetween ?? const Duration(milliseconds: 200),
+        );
       }
     }
-
     return results;
   }
 
-  // ═══════════════════════════════════════════
-  // HEALTH CHECK
-  // ═══════════════════════════════════════════
-
-  /// Kiểm tra trạng thái từng engine
   Future<Map<String, bool>> checkAllEngines() async {
     final results = <String, bool>{};
-
     for (final engine in _engines) {
       try {
         results[engine.name] =
@@ -266,14 +273,9 @@ class TranslationService {
         results[engine.name] = false;
       }
     }
-
     results[_offlineEngine.name] = await _offlineEngine.isAvailable();
     return results;
   }
-
-  // ═══════════════════════════════════════════
-  // CACHE MANAGEMENT
-  // ═══════════════════════════════════════════
 
   Future<void> clearCache() async {
     await _cache.clear();
@@ -281,29 +283,20 @@ class TranslationService {
     _totalRequests = 0;
   }
 
-  int get cacheSize => _cache.memorySize;
-
-  // ═══════════════════════════════════════════
-  // HELPERS
-  // ═══════════════════════════════════════════
-
   Future<bool> _checkNetwork() async {
     try {
       final result = await Connectivity().checkConnectivity();
-      return result.any((r) =>
-          r == ConnectivityResult.wifi ||
-          r == ConnectivityResult.mobile ||
-          r == ConnectivityResult.ethernet);
+      return result.any(
+        (entry) =>
+            entry == ConnectivityResult.wifi ||
+            entry == ConnectivityResult.mobile ||
+            entry == ConnectivityResult.ethernet,
+      );
     } catch (_) {
       return false;
     }
   }
 
-  // ═══════════════════════════════════════════
-  // BACKWARD COMPATIBILITY (cho code cũ)
-  // ═══════════════════════════════════════════
-
-  /// Tương thích ngược với DeepLXService.serverUrl
   static String get serverUrl =>
       TranslationService()._deeplxUrl ?? 'http://localhost:1188/translate';
 

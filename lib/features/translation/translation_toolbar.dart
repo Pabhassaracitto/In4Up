@@ -2,8 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
+import '../../screens/read_mode/services/playback_controller.dart';
 import 'translation_display_mode.dart';
+import 'translation_language_picker.dart';
 import 'translation_service.dart';
 
 class TranslationToolbar extends StatelessWidget {
@@ -22,6 +25,9 @@ class TranslationToolbar extends StatelessWidget {
         final hasTranslations = textProvider.translatedLineCount > 0;
         final displayMode = textProvider.translationDisplayMode;
         final progress = textProvider.translationProgress;
+        final sourceLanguage = textProvider.detectedSourceLanguage;
+        final targetLanguage = textProvider.translationTargetLanguage;
+        final sameLanguage = textProvider.translationPairUsesSameLanguage;
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -37,47 +43,88 @@ class TranslationToolbar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  _TranslateButton(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final translateButton = _TranslateButton(
                     isTranslating: isTranslating,
                     hasTranslations: hasTranslations,
                     primaryColor: primaryColor,
                     progress: progress,
                     totalLines: textProvider.lines.length,
                     translatedLines: textProvider.translatedLineCount,
+                    requiresLanguageChoice: sameLanguage,
                     onTap: () async {
                       if (isTranslating) {
                         textProvider.cancelTranslation();
+                      } else if (sameLanguage) {
+                        await _selectTargetLanguage(context, textProvider);
                       } else {
                         await textProvider.translateAll();
                       }
                     },
                     onLongPress: () =>
                         _showTranslationOptions(context, textProvider),
-                  ),
-                  const SizedBox(width: 8),
-                  if (hasTranslations) ...[
-                    const Spacer(),
-                    _LayoutSelector(
-                      displayMode: displayMode,
-                      primaryColor: primaryColor,
-                      onChanged: (mode) {
-                        textProvider.setTranslationDisplayMode(mode);
-                      },
-                    ),
-                  ],
-                  const SizedBox(width: 4),
-                  IconButton(
+                  );
+                  final languageButton = TranslationLanguagePickerButton(
+                    sourceLanguage: sourceLanguage,
+                    targetLanguage: targetLanguage,
+                    accentColor: primaryColor,
+                    onSelected: (language) =>
+                        _applyTargetLanguage(context, textProvider, language),
+                  );
+                  final settingsButton = IconButton(
                     onPressed: () => _showServerSettings(context),
                     icon: const Icon(Icons.settings_outlined, size: 16),
                     color: Colors.grey[500],
-                    tooltip: 'Cài đặt DeepLX',
+                    tooltip: 'Cài đặt engine dịch',
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
-                  )
-                ],
+                  );
+                  final layoutSelector = _LayoutSelector(
+                    displayMode: displayMode,
+                    primaryColor: primaryColor,
+                    onChanged: textProvider.setTranslationDisplayMode,
+                  );
+
+                  if (constraints.maxWidth < 560) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            translateButton,
+                            const SizedBox(width: 8),
+                            languageButton,
+                            const Spacer(),
+                            settingsButton,
+                          ],
+                        ),
+                        if (hasTranslations) ...[
+                          const SizedBox(height: 7),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: layoutSelector,
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      translateButton,
+                      const SizedBox(width: 8),
+                      languageButton,
+                      if (hasTranslations) ...[
+                        const Spacer(),
+                        layoutSelector,
+                      ] else
+                        const Spacer(),
+                      const SizedBox(width: 4),
+                      settingsButton,
+                    ],
+                  );
+                },
               ),
               if (isTranslating) ...[
                 const SizedBox(height: 4),
@@ -104,6 +151,48 @@ class TranslationToolbar extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _selectTargetLanguage(
+    BuildContext context,
+    TextProvider textProvider,
+  ) async {
+    final selected = await showTranslationLanguagePicker(
+      context,
+      sourceLanguage: textProvider.detectedSourceLanguage,
+      currentTarget: textProvider.translationTargetLanguage,
+      accentColor: primaryColor,
+    );
+    if (selected != null && context.mounted) {
+      await _applyTargetLanguage(context, textProvider, selected);
+    }
+  }
+
+  Future<void> _applyTargetLanguage(
+    BuildContext context,
+    TextProvider textProvider,
+    AppLanguage language,
+  ) async {
+    final playback = context.read<PlaybackController>();
+    if (playback.isRunning) {
+      playback.stop(fileId: textProvider.currentDocument?.id ?? 'unknown');
+    }
+    await textProvider.stopSpeaking();
+    final changed = await textProvider.setTranslationTargetLanguage(
+      language.translationCode,
+      retranslateExisting: true,
+    );
+    if (changed && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${language.flag} Đã đổi bản dịch và giọng đọc sang '
+            '${language.nativeName}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _showTranslationOptions(
@@ -158,10 +247,7 @@ class TranslationToolbar extends StatelessWidget {
     final service = TranslationService();
 
     final urlController = TextEditingController(
-      text: service.deeplxUrl ?? '', // ★ SỬA 2: .deeplxUrl (instance)
-    );
-    final targetController = TextEditingController(
-      text: service.targetLang, // ★ SỬA 2: .targetLang (instance)
+      text: service.deeplxUrl ?? '',
     );
 
     showModalBottomSheet(
@@ -182,7 +268,7 @@ class TranslationToolbar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              '⚙️ Cài đặt Dịch thuật',
+              '⚙️ Engine dịch thuật',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.white,
@@ -201,23 +287,16 @@ class TranslationToolbar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: targetController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Target Lang (e.g. VI)',
-                labelStyle: TextStyle(color: Colors.grey),
-              ),
+            Text(
+              'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // ★ SỬA 3: service.configure (instance) + đúng tên parameter
                 service.configure(
-                  deeplxUrl: urlController.text.trim(), // ★ url → deeplxUrl
-                  targetLang: targetController.text
-                      .trim()
-                      .toUpperCase(), // ★ target → targetLang
+                  deeplxUrl: urlController.text.trim(),
                 );
                 Navigator.pop(ctx);
               },
@@ -238,6 +317,7 @@ class _TranslateButton extends StatelessWidget {
   final double progress;
   final int totalLines;
   final int translatedLines;
+  final bool requiresLanguageChoice;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -248,27 +328,34 @@ class _TranslateButton extends StatelessWidget {
     required this.progress,
     required this.totalLines,
     required this.translatedLines,
+    required this.requiresLanguageChoice,
     required this.onTap,
     required this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
-    String label = isTranslating
-        ? 'Dừng'
-        : (hasTranslations && translatedLines >= totalLines
-            ? 'Đã dịch'
-            : 'Dịch');
-    IconData icon = isTranslating
-        ? Icons.stop_circle_outlined
-        : (hasTranslations && translatedLines >= totalLines
-            ? Icons.check_circle_outline
-            : Icons.translate);
-    Color color = isTranslating
-        ? Colors.orange
-        : (hasTranslations && translatedLines >= totalLines
-            ? Colors.green
-            : primaryColor);
+    final isComplete = hasTranslations && translatedLines >= totalLines;
+    final String label;
+    final IconData icon;
+    final Color color;
+    if (isTranslating) {
+      label = 'Dừng';
+      icon = Icons.stop_circle_outlined;
+      color = Colors.orange;
+    } else if (requiresLanguageChoice) {
+      label = 'Chọn đích';
+      icon = Icons.language_rounded;
+      color = Colors.amber;
+    } else if (isComplete) {
+      label = 'Đã dịch';
+      icon = Icons.check_circle_outline;
+      color = Colors.green;
+    } else {
+      label = 'Dịch';
+      icon = Icons.translate;
+      color = primaryColor;
+    }
 
     return GestureDetector(
       onTap: onTap,
@@ -405,6 +492,7 @@ class TranslationLineDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasTranslation = translatedText != null && translatedText!.isNotEmpty;
+    final targetLanguage = TranslationService().targetLanguage;
 
     if (displayMode == TranslationDisplayMode.hidden) return originalWidget;
 
@@ -417,6 +505,7 @@ class TranslationLineDisplay extends StatelessWidget {
             const SizedBox(height: 6),
             _TranslationText(
               text: translatedText!,
+              language: targetLanguage,
               style: translationStyle,
               textAlign: textAlign,
             ),
@@ -439,6 +528,7 @@ class TranslationLineDisplay extends StatelessWidget {
             child: hasTranslation
                 ? _TranslationText(
                     text: translatedText!,
+                    language: targetLanguage,
                     style: translationStyle,
                     textAlign: textAlign,
                   )
@@ -452,25 +542,48 @@ class TranslationLineDisplay extends StatelessWidget {
 
 class _TranslationText extends StatelessWidget {
   final String text;
+  final AppLanguage language;
   final TextStyle? style;
   final TextAlign? textAlign;
 
-  const _TranslationText({required this.text, this.style, this.textAlign});
+  const _TranslationText({
+    required this.text,
+    required this.language,
+    this.style,
+    this.textAlign,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final isRtl = language.translationCode == 'AR';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(6)),
-      child: Text(text,
-          textAlign: textAlign,
-          style: style ??
-              TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[400],
-                  fontStyle: FontStyle.italic,
-                  height: 1.5)),
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.035)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(language.flag, style: const TextStyle(fontSize: 13)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              textDirection: isRtl ? TextDirection.rtl : null,
+              textAlign: isRtl ? TextAlign.right : textAlign,
+              style: style ??
+                  TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[400],
+                    fontStyle: FontStyle.italic,
+                    height: 1.5,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

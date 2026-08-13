@@ -6,6 +6,8 @@ class TextItem {
   final String id;
   final String content;
   final String? translation;
+  final String? sourceLanguageCode;
+  final String? translationLanguageCode;
   final Duration? startTime;
   final Duration? endTime;
   final List<WordItem> words;
@@ -15,6 +17,8 @@ class TextItem {
     required this.id,
     required this.content,
     this.translation,
+    this.sourceLanguageCode,
+    this.translationLanguageCode,
     this.startTime,
     this.endTime,
     this.words = const [],
@@ -27,11 +31,14 @@ class TextItem {
     String? id,
     String? content,
     Object? translation = _unset,
+    String? sourceLanguageCode,
+    String? translationLanguageCode,
     Duration? startTime,
     Duration? endTime,
     List<WordItem>? words,
     bool? isHighlighted,
     bool clearTranslation = false,
+    bool clearSourceLanguage = false,
   }) {
     String? newTranslation;
     if (clearTranslation) {
@@ -45,6 +52,12 @@ class TextItem {
       id: id ?? this.id,
       content: content ?? this.content,
       translation: newTranslation,
+      sourceLanguageCode: clearSourceLanguage
+          ? null
+          : sourceLanguageCode ?? this.sourceLanguageCode,
+      translationLanguageCode: clearTranslation
+          ? null
+          : translationLanguageCode ?? this.translationLanguageCode,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       words: words ?? this.words,

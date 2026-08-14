@@ -368,7 +368,17 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
-          cache: false
+          cache: true
+
+      # ⚡ CACHE FIREBASE C++ SDK ĐỂ BIÊN DỊCH SIÊU TỐC
+      - name: Cache Firebase C++ SDK
+        id: cache-firebase
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/Users/runneradmin/.firebase_sdk_cache
+            C:/Users/runneradmin/AppData/Local/Temp/firebase_cpp_sdk
+          key: firebase-cpp-sdk-windows-v13.5.0
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
@@ -405,12 +415,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Clean Build Cache and repub
-        shell: bash
-        run: |
-          flutter clean
-          flutter pub get
-
       - name: Build Windows Release
         shell: bash
         run: |
@@ -424,7 +428,13 @@ jobs:
         shell: pwsh
         run: |
           $TAG = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          # Dùng wildcard để tương thích với cấu trúc output của cả Ninja và MSBuild
+          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+          if ($RELEASE_DIR) {
+            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          } else {
+            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          }
           Get-ChildItem "in4up-Windows-*.zip"
 
       - name: Upload Windows artifact

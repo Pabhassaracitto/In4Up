@@ -6,7 +6,14 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
 project(in4up LANGUAGES CXX)
+# Ép CMake sử dụng trực tiếp SDK Firebase ở local ổ E
+set(FIREBASE_CPP_SDK_DIR "E:/LIBRARY/FIREBASE/firebase_cpp_sdk_windows_13.5.0/firebase_cpp_sdk_windows" CACHE PATH "Firebase C++ SDK directory" FORCE)
+set(ENV{FIREBASE_CPP_SDK_DIR} "E:/LIBRARY/FIREBASE/firebase_cpp_sdk_windows_13.5.0/firebase_cpp_sdk_windows")
+# Khóa cache Firebase SDK tại thư mục cố định trong User profile thay vì thư mục Temp
+set(FIREBASE_CPP_SDK_CACHE_DIR "$ENV{USERPROFILE}/.firebase_sdk_cache" CACHE PATH "Directory for Firebase C++ SDK cache")
 
+# Bật cờ ưu tiên dùng local cache, không kiểm tra update remote
+set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL "Prevent FetchContent from downloading during configure")
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "in4up")
@@ -222,17 +229,22 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
-# === Manual Firebase SDK Management ===
+# ==============================================================================
+# === Manual Firebase SDK Management (Cross-Environment Safe) ===
+# ==============================================================================
 set(FIREBASE_SDK_DIR "$ENV{FIREBASE_CPP_SDK_DIR}")
-file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
 
 if(FIREBASE_SDK_DIR)
-  message(STATUS "[in4up] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
+    file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
+    set(firebase_cpp_sdk_DIR "${FIREBASE_SDK_DIR}" CACHE PATH "" FORCE)
+    message(STATUS "[in4up] FIREBASE_CPP_SDK_DIR found from ENV: ${FIREBASE_SDK_DIR}")
 else()
-  message(STATUS "[in4up] FIREBASE_CPP_SDK_DIR is NOT set.")
+    # Fallback cho GitHub Actions / Máy chưa đặt ENV: Dùng cache local tự động
+    set(FIREBASE_CPP_SDK_CACHE_DIR "$ENV{USERPROFILE}/.firebase_sdk_cache" CACHE PATH "Directory for Firebase C++ SDK cache")
+    message(STATUS "[in4up] FIREBASE_CPP_SDK_DIR is NOT set. Using default cache: ${FIREBASE_CPP_SDK_CACHE_DIR}")
 endif()
 
-# === Quản lý Firebase SDK (Manual) ===
+# === Quản lý & Validate Firebase SDK ===
 if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
     file(GLOB_RECURSE FIREBASE_LIBS "${FIREBASE_SDK_DIR}/*.lib")
     if(FIREBASE_LIBS)
@@ -240,7 +252,13 @@ if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
         file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
         if(FIREBASE_DLLS)
             install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-            # Lưu ý: add_custom_command cho Firebase DLLs cũng nên dời vào runner nếu cần chạy debug
+            
+            # Copy DLL vào thư mục Build để chạy ngay ở chế độ Debug/Run trực tiếp
+            add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${FIREBASE_DLLS}
+                $<TARGET_FILE_DIR:${BINARY_NAME}>
+            )
         endif()
     endif()
 endif()

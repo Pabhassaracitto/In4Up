@@ -56,23 +56,26 @@ class DefaultFirebaseOptions {
   // ---------------------------------------------------------------------------
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
-    appId: '1:342774597309:web:7f7683e09f8781ae1319d4',
+    apiKey: 'AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk',
+    appId: '1:342774597309:web:90afbabbcf57e8211319d4',
     messagingSenderId: '342774597309',
     projectId: 'vipsound-df903',
     authDomain: 'vipsound-df903.firebaseapp.com',
+    databaseURL: 'https://vipsound-df903-default-rtdb.firebaseio.com',
     storageBucket: 'vipsound-df903.firebasestorage.app',
-    measurementId: 'G-XXXXXXXXXX',
+    measurementId: 'G-CMJ1PMPHPX',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
+    appId: '1:342774597309:android:e0a919b0fb77dd391319d4',
+    messagingSenderId: '342774597309',
+    projectId: 'vipsound-df903',
+    databaseURL: 'https://vipsound-df903-default-rtdb.firebaseio.com',
+    storageBucket: 'vipsound-df903.firebasestorage.app',
   );
 
   // Stable: com.in4up
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
-    appId: '1:342774597309:android:b0bcf08d94b674b21319d4',
-    messagingSenderId: '342774597309',
-    projectId: 'vipsound-df903',
-    storageBucket: 'vipsound-df903.firebasestorage.app',
-  );
 
   // Dev: com.in4up.dev
   static const FirebaseOptions androidDev = FirebaseOptions(
@@ -93,23 +96,26 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
-    appId: '1:342774597309:ios:40im71rl7k9h99fl1tv77p3oe61hhkg7',
+    apiKey: 'AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig',
+    appId: '1:342774597309:ios:f1643ab0df1208351319d4',
     messagingSenderId: '342774597309',
     projectId: 'vipsound-df903',
+    databaseURL: 'https://vipsound-df903-default-rtdb.firebaseio.com',
     storageBucket: 'vipsound-df903.firebasestorage.app',
-    iosClientId:
-        '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com',
+    androidClientId: '342774597309-276p37a3jequc9hfp3vsrfn1b6jels0b.apps.googleusercontent.com',
+    iosClientId: '342774597309-gk1uua5n5ldohtt4nroc8irie05bed4m.apps.googleusercontent.com',
     iosBundleId: 'com.in4up',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw',
-    appId: '1:342774597309:web:d3c25673d95f0911945ef6',
+    apiKey: 'AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk',
+    appId: '1:342774597309:web:777b459680ec02461319d4',
     messagingSenderId: '342774597309',
     projectId: 'vipsound-df903',
     authDomain: 'vipsound-df903.firebaseapp.com',
+    databaseURL: 'https://vipsound-df903-default-rtdb.firebaseio.com',
     storageBucket: 'vipsound-df903.firebasestorage.app',
+    measurementId: 'G-N72C4S87J8',
   );
 
   static const FirebaseOptions linux = FirebaseOptions(

@@ -194,7 +194,7 @@ class _SkillSlidersState extends State<SkillSliders> {
       runSpacing: 8,
       alignment: WrapAlignment.center,
       children: [
-        _quickBtn('Chưa biết gì', () {
+        _quickBtn('Content', () {
           setState(() {
             _u = 0.1;
             _l = 0.1;
@@ -202,7 +202,7 @@ class _SkillSlidersState extends State<SkillSliders> {
           });
           widget.onChanged(_u, _l, _r);
         }, Colors.grey),
-        _quickBtn('Chỉ Hiểu', () {
+        _quickBtn('Content', () {
           setState(() {
             _u = 0.8;
             _l = 0.2;
@@ -210,7 +210,7 @@ class _SkillSlidersState extends State<SkillSliders> {
           });
           widget.onChanged(_u, _l, _r);
         }, const Color(0xFF42A5F5)),
-        _quickBtn('Chỉ Nghe', () {
+        _quickBtn('Content', () {
           setState(() {
             _u = 0.2;
             _l = 0.8;
@@ -218,7 +218,7 @@ class _SkillSlidersState extends State<SkillSliders> {
           });
           widget.onChanged(_u, _l, _r);
         }, const Color(0xFF66BB6A)),
-        _quickBtn('Chỉ Đọc', () {
+        _quickBtn('Content', () {
           setState(() {
             _u = 0.2;
             _l = 0.2;
@@ -226,7 +226,7 @@ class _SkillSlidersState extends State<SkillSliders> {
           });
           widget.onChanged(_u, _l, _r);
         }, const Color(0xFFEF5350)),
-        _quickBtn('Thành thạo', () {
+        _quickBtn('Content', () {
           setState(() {
             _u = 0.95;
             _l = 0.95;

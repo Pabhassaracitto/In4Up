@@ -32,6 +32,7 @@ import 'widgets/shadowing_button.dart';
 import 'widgets/speed_chip.dart';
 // Import các components mới tách
 import 'widgets/status_circle.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
   const UnderstandModeScreen({super.key});
@@ -264,12 +265,12 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             const SizedBox(height: 32),
             Text(
               hasAudio && hasText
-                  ? 'Sẵn sàng!'
+                  ? 'Content'
                   : hasAudio
-                      ? 'Cần thêm văn bản'
+                      ? 'Add'
                       : hasText
-                          ? 'Cần thêm audio'
-                          : 'Cần cả audio và text',
+                          ? 'Add'
+                          : 'Content',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -277,16 +278,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Chế độ Hiểu kết hợp audio với text để học hiệu quả',
-              style: TextStyle(color: Colors.grey[500]),
+            TrText('Chế độ Hiểu kết hợp audio với text để học hiệu quả', style: TextStyle(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             if (!hasAudio)
               QuickButton(
                 icon: Icons.headphones,
-                label: 'Thêm Audio',
+                label: context.tr('Thêm Audio'),
                 color: const Color(0xFF6C63FF),
                 onTap: () {
                   HapticFeedback.mediumImpact();
@@ -297,7 +296,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               if (!hasAudio) const SizedBox(height: 12),
               QuickButton(
                 icon: Icons.menu_book,
-                label: 'Thêm Text',
+                label: context.tr('Thêm Text'),
                 color: const Color(0xFF2196F3),
                 onTap: () {
                   HapticFeedback.mediumImpact();
@@ -308,9 +307,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 const SizedBox(height: 24),
                 const Divider(color: Colors.white10),
                 const SizedBox(height: 16),
-                const Text(
-                  'Hoặc sử dụng trí tuệ nhân tạo:',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                const TrText('Hoặc sử dụng trí tuệ nhân tạo:', style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 const Padding(
@@ -321,7 +318,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: LrcEditorPanel(
                     initiallyExpanded: true,
-                    title: 'Sửa Lời Thoại (LRC)',
+                    title: context.tr('Sửa Lời Thoại (LRC)'),
                   ),
                 ),
               ],
@@ -349,7 +346,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         unselectedLabelColor: Colors.grey,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         tabs: const [
-          Tab(text: 'Đồng bộ'),
+          Tab(text: context.l10n.understandSync),
           Tab(text: 'Shadowing'),
         ],
       ),
@@ -487,7 +484,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     IconButton(
                       icon: const Icon(Icons.tune,
                           color: Colors.grey, size: 20),
-                      tooltip: 'Tuỳ chỉnh karaoke',
+                      tooltip: context.tr('Tuỳ chỉnh karaoke'),
                       onPressed: () => KaraokeSettingsSheet.show(context),
                     ),
                     AutoScrollButton(
@@ -693,7 +690,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             const SizedBox(height: 12),
             ShadowingButton(
               icon: Icons.play_circle_outline,
-              label: 'Nghe lại bản ghi',
+              label: context.tr('Nghe lại bản ghi'),
               color: Colors.green,
               enabled: true,
               onTap: () => shadowing.playUserRecording(),
@@ -712,9 +709,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 children: [
                   CircularProgressIndicator(color: Color(0xFF9C27B0)),
                   SizedBox(height: 16),
-                  Text(
-                    'Đang phân tích phát âm...',
-                    style: TextStyle(color: Colors.white70),
+                  TrText('Đang phân tích phát âm...', style: TextStyle(color: Colors.white70),
                   ),
                 ],
               ),
@@ -747,7 +742,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   Expanded(
                     child: Text(
                       'Không tìm thấy text cho đoạn loop này.\n'
-                      'Hãy đồng bộ text với audio trong tab Đồng bộ.',
+                      'Please',
                       style: TextStyle(color: Colors.orange, fontSize: 12),
                     ),
                   ),
@@ -789,9 +784,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             children: [
               const Icon(Icons.repeat, color: Color(0xFF9C27B0), size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Đoạn luyện tập',
-                style: TextStyle(
+              const TrText('Đoạn luyện tập', style: TextStyle(
                   color: Color(0xFF9C27B0),
                   fontWeight: FontWeight.bold,
                 ),
@@ -838,7 +831,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             children: [
               Expanded(
                 child: ProgressItem(
-                  label: 'Lần lặp',
+                  label: context.tr('Lần lặp'),
                   current: shadowing.completedRepetitions,
                   target: shadowing.repeatCount,
                   color: const Color(0xFF9C27B0),
@@ -847,7 +840,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: ProgressItem(
-                  label: 'Tốc độ',
+                  label: context.l10n.readSpeed,
                   value: '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
                   color: Colors.orange,
                 ),
@@ -855,7 +848,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: ProgressItem(
-                  label: 'Điểm',
+                  label: context.tr('Điểm'),
                   value: '${(shadowing.similarityScore * 100).toInt()}%',
                   color: Colors.green,
                 ),
@@ -877,7 +870,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         Expanded(
           child: ShadowingButton(
             icon: shadowing.isPlaying ? Icons.stop : Icons.headphones,
-            label: shadowing.isPlaying ? 'Dừng phát' : 'Nghe mẫu',
+            label: shadowing.isPlaying ? 'Content' : 'Content',
             color: Colors.blue,
             enabled: shadowing.state == ShadowingState.idle ||
                 shadowing.state == ShadowingState.showingResults ||
@@ -896,10 +889,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           child: ShadowingButton(
             icon: shadowing.isRecording ? Icons.stop : Icons.mic,
             label: shadowing.isRecording
-                ? 'Dừng (${_formatDuration(shadowing.recordingDuration)})'
+                ? 'Content'
                 : shadowing.state == ShadowingState.countdown
-                    ? 'Đếm: ${shadowing.countdown}'
-                    : 'Ghi âm',
+                    ? 'Content'
+                    : 'Content',
             color: shadowing.isRecording ? Colors.red : const Color(0xFF9C27B0),
             enabled: shadowing.state == ShadowingState.idle ||
                 shadowing.state == ShadowingState.showingResults ||
@@ -937,17 +930,17 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   String _getStateLabel(ShadowingState state) {
     switch (state) {
       case ShadowingState.idle:
-        return 'Sẵn sàng';
+        return 'Content';
       case ShadowingState.playingOriginal:
-        return '▶ Đang phát';
+        return 'Content';
       case ShadowingState.countdown:
-        return '⏱ Đếm ngược';
+        return 'Content';
       case ShadowingState.recording:
-        return '● Ghi âm';
+        return 'Content';
       case ShadowingState.analyzing:
-        return '🔍 Phân tích';
+        return 'Content';
       case ShadowingState.showingResults:
-        return '✅ Kết quả';
+        return 'Content';
     }
   }
 
@@ -971,18 +964,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Chọn đoạn để luyện Shadowing',
-              style: TextStyle(
+            const TrText('Chọn đoạn để luyện Shadowing', style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Long press vào câu trong tab "Đồng bộ"\nhoặc dùng nút Set Loop',
-              style: TextStyle(color: Colors.grey[500]),
+            TrText('Long press vào câu trong tab "Đồng bộ"\nhoặc dùng nút Set Loop', style: TextStyle(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -991,7 +980,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 _tabController.animateTo(0);
               },
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Về tab Đồng bộ'),
+              label: const TrTrText('Về tab Đồng bộ'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF9C27B0),
               ),
@@ -1012,9 +1001,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Cài đặt luyện tập',
-            style: TextStyle(
+          const TrText('Cài đặt luyện tập', style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
@@ -1024,7 +1011,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             children: [
               const Icon(Icons.repeat, size: 18, color: Color(0xFF9C27B0)),
               const SizedBox(width: 8),
-              const Text('Số lần lặp:', style: TextStyle(color: Colors.grey)),
+              const TrText('Số lần lặp:', style: TextStyle(color: Colors.grey)),
               const Spacer(),
               ...List.generate(5, (i) {
                 final count = i + 1;
@@ -1060,7 +1047,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             children: [
               const Icon(Icons.speed, size: 18, color: Colors.orange),
               const SizedBox(width: 8),
-              const Text('Tốc độ:', style: TextStyle(color: Colors.grey)),
+              const TrText('Tốc độ:', style: TextStyle(color: Colors.grey)),
               Expanded(
                 child: Slider(
                   value: shadowing.playbackSpeed,
@@ -1096,11 +1083,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã set loop cho dòng ${lineIndex + 1}'),
+        content: Text('Content'),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'Xóa',
+          label: context.l10n.ttsClear,
           textColor: Colors.white,
           onPressed: () => context.read<PlayerProvider>().clearLoop(),
         ),
@@ -1125,9 +1112,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               children: [
                 Icon(Icons.loop, color: Color(0xFF4CAF50)),
                 SizedBox(width: 8),
-                Text(
-                  'Cách set A-B Loop',
-                  style: TextStyle(
+                TrText('Cách set A-B Loop', style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -1138,19 +1123,19 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             const SizedBox(height: 16),
             const GuideStep(
               number: '1',
-              text: 'Long press vào câu muốn lặp',
+              text: context.tr('Long press vào câu muốn lặp'),
               icon: Icons.touch_app,
             ),
             const SizedBox(height: 12),
             const GuideStep(
               number: '2',
-              text: 'Hoặc dùng nút A-B trong player',
+              text: context.tr('Hoặc dùng nút A-B trong player'),
               icon: Icons.repeat,
             ),
             const SizedBox(height: 12),
             const GuideStep(
               number: '3',
-              text: 'Điều chỉnh vùng loop trên waveform',
+              text: context.tr('Điều chỉnh vùng loop trên waveform'),
               icon: Icons.tune,
             ),
             const SizedBox(height: 20),
@@ -1160,7 +1145,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                 backgroundColor: const Color(0xFF4CAF50),
                 minimumSize: const Size(double.infinity, 44),
               ),
-              child: const Text('Đã hiểu'),
+              child: const TrTrText('Đã hiểu'),
             ),
           ],
         ),

@@ -38,28 +38,28 @@ class WhisperService {
 
       if (bestLevel == null) {
         debugPrint(
-            'ℹ️ WhisperService: Chưa có model offline nào để init native context.');
+            'Content');
         return;
       }
 
       final modelPath = modelManager.getModelPath(bestLevel);
       if (modelPath == null || !await File(modelPath).exists()) {
         debugPrint(
-            '⚠️ WhisperService: File model không tồn tại tại $modelPath');
+            'Content');
         return;
       }
 
       debugPrint(
-          '🚀 WhisperService: Đang nạp model native ($bestLevel) từ: $modelPath');
+          'Content');
 
       // Gọi hàm từ whisper_bindings.dart
       _context = whisperInitFromFile(modelPath);
 
       if (_context != null) {
         debugPrint(
-            '✅ WhisperService: Native context khởi tạo thành công tại $_context');
+            'Content');
       } else {
-        debugPrint('❌ WhisperService: whisper_init_* trả về null (context rỗng)');
+        debugPrint('Content');
       }
     } catch (e) {
       debugPrint('❌ WhisperService Error: $e');

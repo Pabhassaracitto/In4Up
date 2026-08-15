@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class LineEditSheet {
   LineEditSheet._();
@@ -130,8 +131,8 @@ class _LineEditSheetState extends State<_LineEditSheet> {
             const Icon(Icons.check_circle, color: Colors.green, size: 16),
             const SizedBox(width: 8),
             Text(contentLines.length > 1
-                ? 'Đã tách thành ${contentLines.length} dòng'
-                : 'Đã lưu chỉnh sửa'),
+                ? 'Content'
+                : 'Saved'),
           ],
         ),
         backgroundColor: const Color(0xFF2A2A3E),
@@ -179,7 +180,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Dòng ${widget.lineIndex + 1}',
+                      'Content',
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF2196F3),
@@ -222,8 +223,8 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               // ── Field: Văn bản gốc ───────────────────────────
               const _FieldLabel(
                 icon: Icons.article_outlined,
-                label: 'Văn bản gốc',
-                hint: 'Enter để tách dòng mới',
+                label: context.tr('Văn bản gốc'),
+                hint: context.tr('Enter để tách dòng mới'),
                 color: Colors.white70,
               ),
               const SizedBox(height: 6),
@@ -231,7 +232,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                 controller: _contentCtrl,
                 focusNode: _contentFocus,
                 nextFocus: _translationFocus,
-                hintText: 'Nhập nội dung dòng...',
+                hintText: context.tr('Nhập nội dung dòng...'),
                 accentColor: const Color(0xFF2196F3),
               ),
 
@@ -240,15 +241,15 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               // ── Field: Bản dịch ──────────────────────────────
               const _FieldLabel(
                 icon: Icons.translate,
-                label: 'Bản dịch',
-                hint: 'Tuỳ chọn · Enter để tách theo dòng gốc',
+                label: context.tr('Bản dịch'),
+                hint: context.tr('Tuỳ chọn · Enter để tách theo dòng gốc'),
                 color: Color(0xFF4CAF50),
               ),
               const SizedBox(height: 6),
               _EditField(
                 controller: _translationCtrl,
                 focusNode: _translationFocus,
-                hintText: 'Nhập bản dịch... (bỏ trống nếu không cần)',
+                hintText: context.tr('Nhập bản dịch... (bỏ trống nếu không cần)'),
                 accentColor: const Color(0xFF4CAF50),
               ),
 
@@ -268,7 +269,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                     Expanded(
                       child: Text(
                         'Nhấn Enter trong ô để tách thành nhiều dòng. '
-                        'Bản dịch sẽ ghép theo thứ tự dòng tương ứng.',
+                        'Content',
                         style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                       ),
                     ),
@@ -291,7 +292,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text('Huỷ'),
+                      child: const TrTrText('Huỷ'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -300,7 +301,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                     child: FilledButton.icon(
                       onPressed: _isDirty ? _save : null,
                       icon: const Icon(Icons.check, size: 16),
-                      label: const Text('Lưu'),
+                      label: const TrText(context.l10n.commonSave),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF2196F3),
                         disabledBackgroundColor: Colors.grey[800],
@@ -328,8 +329,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Xoá dòng?',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: const TrText('Xoá dòng?', style: TextStyle(color: Colors.white, fontSize: 16)),
         content: Text(
           '"${_contentCtrl.text.substring(0, _contentCtrl.text.length.clamp(0, 60))}..."',
           style: TextStyle(color: Colors.grey[400], fontSize: 13),
@@ -337,7 +337,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Huỷ'),
+            child: const TrTrText('Huỷ'),
           ),
           TextButton(
             onPressed: () {
@@ -345,7 +345,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               context.read<TextProvider>().deleteLine(widget.lineIndex);
               Navigator.pop(context); // đóng sheet
             },
-            child: const Text('Xoá', style: TextStyle(color: Colors.red)),
+            child: const TrText('Xoá', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

@@ -21,6 +21,7 @@ import 'widgets/web_extraction_batch_sheet.dart';
 import 'widgets/web_reader_home_view.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class WebReaderScreen extends StatefulWidget {
   final String? initialUrl;
@@ -417,10 +418,10 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   Future<void> _extractTextToStudio() async {
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
 
-    _showSnack('⏳ Đang trích xuất văn bản...', duration: 1);
+    _showSnack(context.tr('⏳ Đang trích xuất văn bản...'), duration: 1);
     final text = await _extractMainArticleText();
     if (text == null || text.isEmpty) {
-      _showSnack('❌ Không thể extract text từ trang này');
+      _showSnack(context.tr('❌ Không thể extract text từ trang này'));
       return;
     }
 
@@ -430,18 +431,18 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             title: _controller.pageTitle,
           );
       _showSnack(
-        '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng',
+        'Content'\n'Content',
       );
     }
   }
 
   Future<void> _openBatchFromCurrentPage() async {
     if (_controller.state != WebReaderState.ready || _showDashboard) return;
-    _showSnack('⏳ Đang chuẩn bị batch từ bài hiện tại...', duration: 1);
+    _showSnack(context.tr('⏳ Đang chuẩn bị batch từ bài hiện tại...'), duration: 1);
     final text = await _extractMainArticleText();
     if (!mounted) return;
     if (text == null || text.isEmpty) {
-      _showSnack('❌ Không thể lấy nội dung bài để tạo batch');
+      _showSnack(context.tr('❌ Không thể lấy nội dung bài để tạo batch'));
       return;
     }
     await WebExtractionBatchSheet.show(
@@ -459,13 +460,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     if (_showDashboard) return;
     final selection = _selectionText.trim();
     if (selection.isEmpty) {
-      _showSnack('Bạn cần bôi chọn một đoạn trước');
+      _showSnack(context.tr('Bạn cần bôi chọn một đoạn trước'));
       return;
     }
     await WebExtractionBatchSheet.show(
       context,
       controller: _controller,
-      sourceLabel: 'Đoạn đã chọn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+      sourceLabel: 'Content',
       sourceText: selection,
       fromSelection: true,
     );
@@ -475,7 +476,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     await _controller.refreshGrammarPresetLibrary();
     await GrammarQuickSettingsSheet.show(
       context,
-      title: 'Web Reader · Từ loại chuyên sâu',
+      title: context.tr('Web Reader · Từ loại chuyên sâu'),
       settings: _controller.grammarSettings,
       palette: _controller.activeGrammarPalette,
       activePreset: _controller.activeGrammarPreset,
@@ -505,14 +506,14 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
     if (!_controller.hasUserCollections) {
       final newCollectionId = await _showCreateCollectionDialog(
-        suggestedTitle: 'Nguồn đọc của tôi',
+        suggestedTitle: 'Content',
       );
       if (newCollectionId == null) return;
       final added = await _controller.addCurrentPageToUserCollection(newCollectionId);
       _showSnack(
         added
-            ? '✅ Đã tạo nhóm và lưu trang hiện tại'
-            : 'Trang này đã có sẵn trong nhóm vừa tạo',
+            ? 'Create group'
+            : 'Content',
       );
       return;
     }
@@ -530,9 +531,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Lưu trang hiện tại vào nhóm',
-                style: TextStyle(
+              const Text(context.l10n.webReaderSaveToGroup, style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -567,13 +566,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                           child: Icon(Icons.create_new_folder_outlined,
                               color: Colors.white),
                         ),
-                        title: const Text(
-                          'Tạo nhóm mới rồi lưu luôn',
-                          style: TextStyle(color: Colors.white),
+                        title: const TrText('Tạo nhóm mới rồi lưu luôn', style: TextStyle(color: Colors.white),
                         ),
-                        subtitle: Text(
-                          'Dùng khi bạn muốn gom bài đang đọc vào một nhóm mới.',
-                          style: TextStyle(color: Colors.grey[400]),
+                        subtitle: TrText('Dùng khi bạn muốn gom bài đang đọc vào một nhóm mới.', style: TextStyle(color: Colors.grey[400]),
                         ),
                         onTap: () async {
                           final collectionId = await _showCreateCollectionDialog();
@@ -584,8 +579,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                           Navigator.pop(sheetContext);
                           _showSnack(
                             added
-                                ? '✅ Đã tạo nhóm mới và lưu trang hiện tại'
-                                : 'Trang này đã có sẵn trong nhóm đó rồi',
+                                ? 'Create group'
+                                : 'Content',
                           );
                         },
                       );
@@ -608,7 +603,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                       ),
                       subtitle: Text(
                         collection.description.isEmpty
-                            ? '${collection.linkCount} liên kết'
+                            ? 'Content'
                             : collection.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -650,7 +645,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Tạo nhóm mới'),
+          title: const TrTrText('Tạo nhóm mới'),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -665,8 +660,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                   controller: titleCtrl,
                   style: const TextStyle(color: Colors.white),
                   decoration: _dialogInputDecoration(
-                    label: 'Tên nhóm',
-                    hint: 'Ví dụ: Bài đọc hôm nay',
+                    label: context.l10n.webReaderGroupName,
+                    hint: context.tr('Ví dụ: Bài đọc hôm nay'),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -675,8 +670,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                   maxLines: 2,
                   style: const TextStyle(color: Colors.white),
                   decoration: _dialogInputDecoration(
-                    label: 'Mô tả',
-                    hint: 'Ghi chú ngắn cho nhóm này',
+                    label: context.l10n.webReaderGroupDesc,
+                    hint: context.tr('Ghi chú ngắn cho nhóm này'),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -685,7 +680,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                   style: const TextStyle(color: Colors.white),
                   decoration: _dialogInputDecoration(
                     label: 'Emoji',
-                    hint: '📁 hoặc 🪷 hoặc 🇬🇧',
+                    hint: context.tr('📁 hoặc 🪷 hoặc 🇬🇧'),
                   ),
                 ),
               ],
@@ -694,19 +689,19 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () {
                 if (titleCtrl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Tên nhóm không được để trống')),
+                    const SnackBar(content: TrTrText('Tên nhóm không được để trống')),
                   );
                   return;
                 }
                 Navigator.pop(dialogContext, true);
               },
-              child: const Text('Tạo & lưu'),
+              child: const TrText(context.l10n.webReaderCreateAndSave),
             ),
           ],
         );
@@ -753,7 +748,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       title: _controller.pageTitle,
     );
     _showSnack(
-      wasPinned ? 'Đã bỏ ghim bài hiện tại' : 'Đã ghim bài hiện tại',
+      wasPinned ? 'Content' : 'Content',
     );
   }
 
@@ -766,13 +761,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         url,
         title: _controller.pageTitle,
       );
-      _showSnack('Đã chuyển bài hiện tại về trạng thái chưa đọc xong');
+      _showSnack(context.tr('Đã chuyển bài hiện tại về trạng thái chưa đọc xong'));
     } else {
       await _controller.markArticleCompleted(
         url,
         title: _controller.pageTitle,
       );
-      _showSnack('Đã đánh dấu bài hiện tại là đọc xong');
+      _showSnack(context.tr('Đã đánh dấu bài hiện tại là đọc xong'));
     }
   }
 
@@ -786,7 +781,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Ghi chú bài đọc'),
+          title: const TrText(context.l10n.webReaderReadNotes),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -813,8 +808,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                   minLines: 6,
                   style: const TextStyle(color: Colors.white),
                   decoration: _dialogInputDecoration(
-                    label: 'Ghi chú của bạn',
-                    hint: 'Tóm tắt bài, insight, câu hay, hoặc kế hoạch ôn lại...',
+                    label: context.l10n.webReaderYourNote,
+                    hint: context.tr('Tóm tắt bài, insight, câu hay, hoặc kế hoạch ôn lại...'),
                   ),
                 ),
               ],
@@ -824,15 +819,15 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             if (_controller.hasArticleNote(url))
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, 'delete'),
-                child: const Text('Xoá ghi chú'),
+                child: const TrTrText('Xoá ghi chú'),
               ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, 'studio'),
-              child: const Text('Mở trong Text Studio'),
+              child: const TrText(context.l10n.webReaderInTextStudio),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, 'save'),
-              child: const Text('Lưu ghi chú'),
+              child: const TrText(context.l10n.webReaderSaveNoteBtn),
             ),
           ],
         );
@@ -843,7 +838,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
     if (action == 'delete') {
       await _controller.saveArticleNote(url, '', title: _controller.pageTitle);
-      _showSnack('Đã xoá ghi chú bài hiện tại');
+      _showSnack(context.tr('Đã xoá ghi chú bài hiện tại'));
       return;
     }
 
@@ -852,15 +847,15 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           ? _controller.articleNote(url)
           : noteCtrl.text.trim();
       if (noteText.isEmpty) {
-        _showSnack('Bài này chưa có ghi chú để mở');
+        _showSnack(context.tr('Bài này chưa có ghi chú để mở'));
         return;
       }
       context.read<TextProvider>().loadFromString(
             noteText,
             title:
-                'Ghi chú · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+                'Note · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
           );
-      _showSnack('Đã mở ghi chú trong Text Studio');
+      _showSnack(context.tr('Đã mở ghi chú trong Text Studio'));
       return;
     }
 
@@ -871,8 +866,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
     _showSnack(
       noteCtrl.text.trim().isEmpty
-          ? 'Đã xoá ghi chú bài hiện tại'
-          : 'Đã lưu ghi chú cho bài hiện tại',
+          ? 'Note'
+          : 'Note',
     );
   }
 
@@ -886,7 +881,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       title: _controller.pageTitle,
       preview: selection,
     );
-    _showSnack('Đã thêm đoạn chọn vào ghi chú bài đọc');
+    _showSnack(context.tr('Đã thêm đoạn chọn vào ghi chú bài đọc'));
   }
 
   void _saveSelectionToWordList() {
@@ -895,8 +890,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     final added = _controller.saveSelectionToWordList(selection);
     _showSnack(
       added
-          ? '📚 Đã thêm đoạn chọn vào WordList'
-          : '📚 Đã bổ sung ngữ cảnh cho mục này trong WordList',
+          ? 'Add'
+          : 'Content',
     );
   }
 
@@ -906,8 +901,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     final saved = _controller.saveSelectionToMemory(selection);
     _showSnack(
       saved
-          ? '🧠 Đã lưu đoạn chọn vào Vườn Nhớ'
-          : 'Đoạn chọn này chưa thể lưu vào Vườn Nhớ',
+          ? 'Memory Garden'
+          : 'Memory Garden',
     );
   }
 
@@ -917,9 +912,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     context.read<TextProvider>().loadFromString(
           selection,
           title:
-              'Trích đoạn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+              'Content',
         );
-    _showSnack('Đã mở đoạn chọn trong Text Studio');
+    _showSnack(context.tr('Đã mở đoạn chọn trong Text Studio'));
   }
 
   void _handlePageAction(String value) {
@@ -983,7 +978,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           icon: const Icon(Icons.arrow_back_ios_new,
               color: Colors.white, size: 18),
           onPressed: () => Navigator.pop(context),
-          tooltip: 'Quay lại',
+          tooltip: context.l10n.webReaderGoBack,
         ),
         titleSpacing: 0,
         title: !_showDashboard && _controller.state == WebReaderState.loading
@@ -1011,7 +1006,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           if (!_showDashboard && _controller.currentUrl.isNotEmpty)
             PopupMenuButton<String>(
               color: const Color(0xFF151B26),
-              tooltip: 'Tác vụ bài đọc',
+              tooltip: context.tr('Tác vụ bài đọc'),
               onSelected: _handlePageAction,
               itemBuilder: (context) {
                 final isPinned =
@@ -1021,35 +1016,35 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                 return [
                   PopupMenuItem(
                     value: 'pinArticle',
-                    child: Text(isPinned ? 'Bỏ ghim bài này' : 'Ghim bài này'),
+                    child: Text(isPinned ? 'Content' : 'Content'),
                   ),
                   PopupMenuItem(
                     value: 'toggleCompleted',
                     child: Text(
                       isCompleted
-                          ? 'Đánh dấu chưa đọc xong'
-                          : 'Đánh dấu đọc xong',
+                          ? 'Done'
+                          : 'Done',
                     ),
                   ),
                   PopupMenuItem(
                     value: 'editNote',
                     child: Text(
                       _controller.hasArticleNote(_controller.currentUrl)
-                          ? 'Sửa ghi chú bài này'
-                          : 'Thêm ghi chú bài này',
+                          ? 'Note'
+                          : 'Note',
                     ),
                   ),
                   const PopupMenuItem(
                     value: 'batchPage',
-                    child: Text('Tạo batch WordList từ bài này'),
+                    child: TrTrText('Tạo batch WordList từ bài này'),
                   ),
                   const PopupMenuItem(
                     value: 'saveToCollection',
-                    child: Text('Lưu vào nhóm'),
+                    child: TrTrText('Lưu vào nhóm'),
                   ),
                   const PopupMenuItem(
                     value: 'extractText',
-                    child: Text('Mở trong Text Studio'),
+                    child: TrText(context.l10n.webReaderInTextStudio),
                   ),
                 ];
               },
@@ -1112,14 +1107,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           children: [
             Icon(Icons.wifi_off, size: 52, color: Colors.grey[600]),
             const SizedBox(height: 16),
-            Text(
-              'Không thể tải trang',
-              style: TextStyle(color: Colors.grey[400], fontSize: 16),
+            TrText('Không thể tải trang', style: TextStyle(color: Colors.grey[400], fontSize: 16),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
+              label: const TrText(context.l10n.shadowingRetry),
               onPressed: () {
                 final url = _controller.currentUrl;
                 if (url.isNotEmpty) _navigate(url);
@@ -1148,8 +1141,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _controller.colorMode == ColorMode.cefrLevel
               ? 'CEFR: A1 A2 B1 B2 C1 C2'
               : _controller.colorMode == ColorMode.difficulty
-                  ? 'Độ khó: Dễ · TB · Khó · Rất khó'
-                  : 'Loại từ: N V Adj Adv',
+                  ? 'Content'
+                  : 'Content',
           style: const TextStyle(color: Colors.white, fontSize: 11),
         ),
       ),
@@ -1173,19 +1166,19 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           const SizedBox(width: 8),
           _SelectionActionButton(
             icon: Icons.sticky_note_2_outlined,
-            tooltip: 'Thêm vào ghi chú bài này',
+            tooltip: context.tr('Thêm vào ghi chú bài này'),
             onTap: _appendSelectionToNote,
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(
             icon: Icons.text_snippet_outlined,
-            tooltip: 'Mở đoạn chọn trong Text Studio',
+            tooltip: context.tr('Mở đoạn chọn trong Text Studio'),
             onTap: _openSelectionInTextStudio,
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(
             icon: Icons.volume_up,
-            tooltip: 'Đọc đoạn chọn',
+            tooltip: context.tr('Đọc đoạn chọn'),
             onTap: () => _controller.speakText(_selectionText),
           ),
           const SizedBox(width: 6),
@@ -1225,9 +1218,9 @@ class _SelectionMoreButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Thao tác học tập',
+      message: context.tr('Thao tác học tập'),
       child: PopupMenuButton<String>(
-        tooltip: 'Thao tác học tập',
+        tooltip: context.tr('Thao tác học tập'),
         color: const Color(0xFF151B26),
         icon: Container(
           padding: const EdgeInsets.all(6),
@@ -1253,15 +1246,15 @@ class _SelectionMoreButton extends StatelessWidget {
         itemBuilder: (context) => const [
           PopupMenuItem(
             value: 'wordlist',
-            child: Text('Lưu đoạn chọn vào WordList'),
+            child: TrTrText('Lưu đoạn chọn vào WordList'),
           ),
           PopupMenuItem(
             value: 'memory',
-            child: Text('Lưu đoạn chọn vào Vườn Nhớ'),
+            child: TrTrText('Lưu đoạn chọn vào Vườn Nhớ'),
           ),
           PopupMenuItem(
             value: 'batch',
-            child: Text('Tạo batch WordList từ đoạn chọn'),
+            child: TrTrText('Tạo batch WordList từ đoạn chọn'),
           ),
         ],
       ),

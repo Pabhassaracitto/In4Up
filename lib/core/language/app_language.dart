@@ -40,7 +40,7 @@ class AppLanguageCatalog {
       flag: '🇸🇦',
       nativeName: 'العربية',
       englishName: 'Arabic',
-      vietnameseName: 'Ả Rập',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'BN',
@@ -58,7 +58,7 @@ class AppLanguageCatalog {
       flag: '🏔️',
       nativeName: 'བོད་ཡིག',
       englishName: 'Tibetan',
-      vietnameseName: 'Tây Tạng',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'DE',
@@ -67,7 +67,7 @@ class AppLanguageCatalog {
       flag: '🇩🇪',
       nativeName: 'Deutsch',
       englishName: 'German',
-      vietnameseName: 'Đức',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'EN',
@@ -85,7 +85,7 @@ class AppLanguageCatalog {
       flag: '🇪🇸',
       nativeName: 'Español',
       englishName: 'Spanish',
-      vietnameseName: 'Tây Ban Nha',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'FR',
@@ -94,7 +94,7 @@ class AppLanguageCatalog {
       flag: '🇫🇷',
       nativeName: 'Français',
       englishName: 'French',
-      vietnameseName: 'Pháp',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'HI',
@@ -130,7 +130,7 @@ class AppLanguageCatalog {
       flag: '🇯🇵',
       nativeName: '日本語',
       englishName: 'Japanese',
-      vietnameseName: 'Nhật',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'KM',
@@ -148,7 +148,7 @@ class AppLanguageCatalog {
       flag: '🇰🇷',
       nativeName: '한국어',
       englishName: 'Korean',
-      vietnameseName: 'Hàn',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'LO',
@@ -157,7 +157,7 @@ class AppLanguageCatalog {
       flag: '🇱🇦',
       nativeName: 'ພາສາລາວ',
       englishName: 'Lao',
-      vietnameseName: 'Lào',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'MN',
@@ -166,7 +166,7 @@ class AppLanguageCatalog {
       flag: '🇲🇳',
       nativeName: 'Монгол',
       englishName: 'Mongolian',
-      vietnameseName: 'Mông Cổ',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'MR',
@@ -191,9 +191,9 @@ class AppLanguageCatalog {
       appLocaleCode: 'pt',
       ttsLocale: 'pt-PT',
       flag: '🇵🇹',
-      nativeName: 'Português',
+      nativeName: 'Content',
       englishName: 'Portuguese',
-      vietnameseName: 'Bồ Đào Nha',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'RU',
@@ -238,16 +238,16 @@ class AppLanguageCatalog {
       flag: '🇹🇭',
       nativeName: 'ไทย',
       englishName: 'Thai',
-      vietnameseName: 'Thái',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'VI',
       appLocaleCode: 'vi',
       ttsLocale: 'vi-VN',
       flag: '🇻🇳',
-      nativeName: 'Tiếng Việt',
+      nativeName: 'Content',
       englishName: 'Vietnamese',
-      vietnameseName: 'Việt',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'ZH',
@@ -256,7 +256,7 @@ class AppLanguageCatalog {
       flag: '🇨🇳',
       nativeName: '中文（简体）',
       englishName: 'Chinese (Simplified)',
-      vietnameseName: 'Trung giản thể',
+      vietnameseName: 'Content',
     ),
     AppLanguage(
       translationCode: 'ZH-TW',
@@ -265,7 +265,7 @@ class AppLanguageCatalog {
       flag: '🇹🇼',
       nativeName: '中文（繁體）',
       englishName: 'Chinese (Traditional)',
-      vietnameseName: 'Trung phồn thể',
+      vietnameseName: 'Content',
     ),
   ];
 

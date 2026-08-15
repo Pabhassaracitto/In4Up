@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:in4up/providers/player_provider.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 void showSpeedControlSheet(BuildContext context, PlayerProvider player) {
   showModalBottomSheet(
@@ -21,9 +22,7 @@ void showSpeedControlSheet(BuildContext context, PlayerProvider player) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Tốc độ phát',
-              style: TextStyle(
+            const TrText('Tốc độ phát', style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -79,7 +78,7 @@ void showSpeedControlSheet(BuildContext context, PlayerProvider player) {
                 backgroundColor: const Color(0xFFFFB300),
                 minimumSize: const Size(double.infinity, 44),
               ),
-              child: const Text('Đóng'),
+              child: const TrText(context.l10n.commonClose),
             ),
           ],
         ),

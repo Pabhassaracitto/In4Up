@@ -8,6 +8,7 @@ import '../../screens/read_mode/services/playback_controller.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class TranslationToolbar extends StatelessWidget {
   final Color primaryColor;
@@ -76,7 +77,7 @@ class TranslationToolbar extends StatelessWidget {
                     onPressed: () => _showServerSettings(context),
                     icon: const Icon(Icons.settings_outlined, size: 16),
                     color: Colors.grey[500],
-                    tooltip: 'Cài đặt engine dịch',
+                    tooltip: context.l10n.translationEngineSettings,
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
@@ -140,7 +141,7 @@ class TranslationToolbar extends StatelessWidget {
               if (textProvider.translationError != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Lỗi: ${textProvider.translationError}',
+                  'Content',
                   style: const TextStyle(fontSize: 10, color: Colors.redAccent),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -210,8 +211,7 @@ class TranslationToolbar extends StatelessWidget {
           children: [
             ListTile(
               leading: Icon(Icons.translate, color: primaryColor),
-              title: const Text('Dịch tất cả (bỏ qua đã có)',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(context.l10n.translationTranslateAll, style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
                 textProvider.translateAll();
@@ -219,8 +219,7 @@ class TranslationToolbar extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.refresh, color: Colors.orange),
-              title: const Text('Dịch lại tất cả',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(context.l10n.translationRetranslateAll, style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
                 textProvider.translateAll(forceRetranslate: true);
@@ -229,8 +228,7 @@ class TranslationToolbar extends StatelessWidget {
             ListTile(
               leading:
                   const Icon(Icons.delete_outline, color: Colors.redAccent),
-              title: const Text('Xóa tất cả bản dịch',
-                  style: TextStyle(color: Colors.white)),
+              title: const Text(context.l10n.translationClearAll, style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(ctx);
                 textProvider.clearAllTranslations();
@@ -267,9 +265,7 @@ class TranslationToolbar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '⚙️ Engine dịch thuật',
-              style: TextStyle(
+            const TrText('⚙️ Engine dịch thuật', style: TextStyle(
                 fontSize: 18,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -280,16 +276,14 @@ class TranslationToolbar extends StatelessWidget {
               controller: urlController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'DeepLX Server URL (tùy chọn)',
+                labelText: context.l10n.translationDeepLXUrl,
                 labelStyle: const TextStyle(color: Colors.grey),
-                hintText: 'Để trống → dùng Google Free',
+                hintText: context.l10n.translationLeaveEmpty,
                 hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            Text(context.l10n.translationTargetViaFlag, style: TextStyle(color: Colors.grey[500], fontSize: 12),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -301,7 +295,7 @@ class TranslationToolbar extends StatelessWidget {
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-              child: const Text('Lưu'),
+              child: const TrText(context.l10n.commonSave),
             ),
           ],
         ),
@@ -340,19 +334,19 @@ class _TranslateButton extends StatelessWidget {
     final IconData icon;
     final Color color;
     if (isTranslating) {
-      label = 'Dừng';
+      label = 'Content';
       icon = Icons.stop_circle_outlined;
       color = Colors.orange;
     } else if (requiresLanguageChoice) {
-      label = 'Chọn đích';
+      label = 'Content';
       icon = Icons.language_rounded;
       color = Colors.amber;
     } else if (isComplete) {
-      label = 'Đã dịch';
+      label = 'Content';
       icon = Icons.check_circle_outline;
       color = Colors.green;
     } else {
-      label = 'Dịch';
+      label = 'Content';
       icon = Icons.translate;
       color = primaryColor;
     }
@@ -413,14 +407,14 @@ class _LayoutSelector extends StatelessWidget {
         const SizedBox(width: 4),
         _ModeChip(
             icon: Icons.view_agenda_outlined,
-            label: 'Dưới',
+            label: context.l10n.translationBelow,
             isSelected: displayMode == TranslationDisplayMode.stackedBelow,
             color: primaryColor,
             onTap: () => onChanged(TranslationDisplayMode.stackedBelow)),
         const SizedBox(width: 4),
         _ModeChip(
             icon: Icons.view_column_outlined,
-            label: 'Cột',
+            label: context.l10n.translationColumn,
             isSelected: displayMode == TranslationDisplayMode.sideBySide,
             color: primaryColor,
             onTap: () => onChanged(TranslationDisplayMode.sideBySide)),

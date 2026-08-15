@@ -279,11 +279,11 @@ class ShadowingWordBreakdown {
   String get shortStatus {
     switch (status) {
       case 'correct':
-        return 'Đúng';
+        return 'Content';
       case 'substituted':
-        return 'Lệch';
+        return 'Content';
       case 'missed':
-        return 'Bỏ lỡ';
+        return 'Content';
       default:
         return status;
     }

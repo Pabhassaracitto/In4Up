@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/youtube_download_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class YoutubeSheet extends StatefulWidget {
   final bool captionsFirst;
@@ -109,7 +110,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
 
       if (info == null) {
         setState(() {
-          _errorMessage = 'Không tìm thấy video';
+          _errorMessage = 'Search';
           _phase = 'error';
         });
         return;
@@ -127,7 +128,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Lỗi: $e';
+        _errorMessage = 'Content';
         _phase = 'error';
       });
     }
@@ -159,7 +160,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
             );
         Navigator.pop(context, progress.savedPath);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Đã tải và phát audio')),
+          const SnackBar(content: TrTrText('✅ Đã tải và phát audio')),
         );
       } else if (progress.status == DownloadStatus.failed) {
         setState(() {
@@ -183,7 +184,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       if (_availableLangs.isEmpty) {
         final langs = await _svc.getAvailableLanguages(_urlCtrl.text);
         if (langs.isEmpty) {
-          throw Exception('Video không có phụ đề');
+          throw Exception('Content');
         }
         _availableLangs = langs;
         // Pick lang logic
@@ -193,7 +194,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
           await _svc.fetchCaptions(_videoInfo!.id, languageCode: _selectedLang);
 
       if (captions.isEmpty) {
-        throw Exception('Không tải được phụ đề $_selectedLang');
+        throw Exception('Content');
       }
 
       final lrcPath = await _svc.saveCaptionsAsLrc(captions, _videoInfo!);
@@ -202,7 +203,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
         context.read<TextProvider>().loadTextFile(lrcPath!);
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Đã tải và mở phụ đề')),
+          const SnackBar(content: TrTrText('✅ Đã tải và mở phụ đề')),
         );
       }
     } catch (e) {
@@ -261,7 +262,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
           controller: _urlCtrl,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Dán link YouTube (youtu.be, shorts...)',
+            hintText: context.tr('Dán link YouTube (youtu.be, shorts...)'),
             hintStyle: TextStyle(color: Colors.grey[600]),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 12 / 255),
@@ -282,8 +283,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
               backgroundColor: const Color(0xFFFF0000),
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: const Text('Lấy thông tin',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(context.l10n.ytGetInfo, style: TextStyle(color: Colors.white)),
           ),
         ),
       ],
@@ -340,7 +340,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
             Expanded(
               child: _OptionBtn(
                 icon: Icons.headphones,
-                label: 'Tải Audio',
+                label: context.l10n.ytDownloadAudio,
                 color: const Color(0xFF6C63FF),
                 onTap: _downloadAudio,
               ),
@@ -349,7 +349,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
             Expanded(
               child: _OptionBtn(
                 icon: Icons.subtitles,
-                label: 'Tải Lyrics',
+                label: context.l10n.ytDownloadLyrics,
                 color: const Color(0xFF4CAF50),
                 onTap: () {
                   if (_availableLangs.isEmpty) {
@@ -379,7 +379,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
                     ))
                 .toList(),
             onChanged: (v) => setState(() => _selectedLang = v!),
-            decoration: const InputDecoration(labelText: 'Ngôn ngữ phụ đề'),
+            decoration: const InputDecoration(labelText: context.l10n.ytSubtitleLang),
           ),
         ],
       ],
@@ -394,8 +394,8 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
         const SizedBox(height: 16),
         Text(
             p?.status == DownloadStatus.downloading
-                ? 'Đang tải audio...'
-                : 'Đang xử lý...',
+                ? 'Loading audio...'
+                : 'Content',
             style: const TextStyle(color: Colors.white)),
         if (p != null)
           Text(p.progressText,
@@ -409,7 +409,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       children: [
         CircularProgressIndicator(color: Color(0xFF4CAF50)),
         SizedBox(height: 16),
-        Text('Đang tải phụ đề...', style: TextStyle(color: Colors.white)),
+        Text(context.l10n.ytDownloadingSubs, style: TextStyle(color: Colors.white)),
       ],
     );
   }
@@ -419,13 +419,13 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       children: [
         const Icon(Icons.error_outline, color: Colors.red, size: 48),
         const SizedBox(height: 12),
-        Text(_errorMessage ?? 'Lỗi không xác định',
+        Text(_errorMessage ?? 'Content',
             style: const TextStyle(color: Colors.white),
             textAlign: TextAlign.center),
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: () => setState(() => _phase = 'input'),
-          child: const Text('Thử lại'),
+          child: const TrText(context.l10n.shadowingRetry),
         ),
       ],
     );

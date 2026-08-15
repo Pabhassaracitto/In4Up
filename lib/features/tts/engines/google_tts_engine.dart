@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'tts_engine.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Google Translate TTS - MIỄN PHÍ
 ///
@@ -97,7 +98,7 @@ class GoogleTtsEngine extends TtsEngine {
   }) async {
     if (text.trim().isEmpty) {
       return TtsResult.failure(
-        error: 'Text trống',
+        error: context.tr('Text trống'),
         engine: name,
       );
     }
@@ -141,7 +142,7 @@ class GoogleTtsEngine extends TtsEngine {
           allBytes.addAll(response.bodyBytes);
         } else if (response.statusCode == 429) {
           return TtsResult.failure(
-            error: 'Rate limited (429). Thử lại sau.',
+            error: context.tr('Rate limited (429). Thử lại sau.'),
             engine: name,
           );
         } else {
@@ -234,7 +235,7 @@ class GoogleTtsEngine extends TtsEngine {
 
   String _getLanguageName(String code) {
     const names = {
-      'vi': 'Tiếng Việt',
+      'vi': 'Content',
       'en': 'English',
       'ja': 'Japanese',
       'ko': 'Korean',

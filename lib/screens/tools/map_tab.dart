@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/word_detail_sheet.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
@@ -39,14 +40,12 @@ class _MapTabState extends State<MapTab> {
               children: [
                 Icon(Icons.map_rounded, size: 64, color: Colors.grey.shade300),
                 const SizedBox(height: 16),
-                Text('Chưa có từ vựng',
-                    style: Theme.of(context)
+                Text(context.l10n.wordListEmpty, style: Theme.of(context)
                         .textTheme
                         .titleLarge
                         ?.copyWith(color: Colors.grey)),
                 const SizedBox(height: 8),
-                Text('Lưu từ từ tab Read để xem bản đồ',
-                    style: TextStyle(color: Colors.grey.shade500)),
+                TrText('Lưu từ từ tab Read để xem bản đồ', style: TextStyle(color: Colors.grey.shade500)),
               ],
             ),
           );
@@ -88,7 +87,7 @@ class _MapTabState extends State<MapTab> {
         child: Row(
           children: [
             // All filter
-            _filterChip(null, 'Tất cả', Icons.apps, Colors.grey),
+            _filterChip(null, 'Content', Icons.apps, Colors.grey),
             const SizedBox(width: 6),
             // Zone filters
             ...MasteryZone.values.map((z) => Padding(
@@ -281,7 +280,7 @@ class _MapTabState extends State<MapTab> {
                     builder: (_) => WordDetailSheet(word: word),
                   );
                 },
-                child: const Text('Chi tiết'),
+                child: const TrTrText('Chi tiết'),
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 18),
@@ -343,28 +342,28 @@ class _MapAxesPainter extends CustomPainter {
     final tp = TextPainter(textDirection: TextDirection.ltr);
 
     tp.text = const TextSpan(
-      text: '← Cần học',
+      text: context.tr('← Cần học'),
       style: TextStyle(fontSize: 10, color: Color(0x88EF5350)),
     );
     tp.layout();
     tp.paint(canvas, Offset(8, size.height - 18));
 
     tp.text = const TextSpan(
-      text: 'Thành thạo →',
+      text: context.tr('Thành thạo →'),
       style: TextStyle(fontSize: 10, color: Color(0x8866BB6A)),
     );
     tp.layout();
     tp.paint(canvas, Offset(size.width - tp.width - 8, size.height - 18));
 
     tp.text = const TextSpan(
-      text: 'Mất cân bằng ↑',
+      text: context.tr('Mất cân bằng ↑'),
       style: TextStyle(fontSize: 9, color: Color(0x88FFA726)),
     );
     tp.layout();
     tp.paint(canvas, const Offset(4, 4));
 
     tp.text = const TextSpan(
-      text: 'Cân bằng ↓',
+      text: context.tr('Cân bằng ↓'),
       style: TextStyle(fontSize: 9, color: Color(0x8826C6DA)),
     );
     tp.layout();

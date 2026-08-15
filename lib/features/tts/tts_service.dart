@@ -13,6 +13,7 @@ import 'engines/offline_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'language_detector.dart';
 import 'tts_settings.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 // VoidCallback
 
 class TtsService extends ChangeNotifier {
@@ -103,28 +104,28 @@ class TtsService extends ChangeNotifier {
     _engineOrder = [
       const TtsEngineInfo(
         id: 'offline_tts',
-        name: 'Offline (Máy)',
-        description: 'Phát ngay, giọng máy',
+        name: 'Content',
+        description: context.tr('Phát ngay, giọng máy'),
         isOnline: false,
         priority: 0,
       ),
       const TtsEngineInfo(
         id: 'google_tts',
         name: 'Google TTS',
-        description: 'Miễn phí, khá tự nhiên',
+        description: context.tr('Miễn phí, khá tự nhiên'),
         priority: 1,
       ),
       const TtsEngineInfo(
         id: 'zalo_tts',
         name: 'Zalo AI',
-        description: 'Tiếng Việt cực tự nhiên',
+        description: context.tr('Tiếng Việt cực tự nhiên'),
         needsApiKey: true,
         priority: 2,
       ),
       const TtsEngineInfo(
         id: 'fpt_tts',
         name: 'FPT.AI',
-        description: 'Tiếng Việt tự nhiên, nhiều giọng',
+        description: context.tr('Tiếng Việt tự nhiên, nhiều giọng'),
         needsApiKey: true,
         priority: 3,
       ),
@@ -254,7 +255,7 @@ class TtsService extends ChangeNotifier {
         pitch: _pitch,
       );
     } catch (e) {
-      _error = 'Lỗi offline TTS: $e';
+      _error = 'Content';
       debugPrint('OfflineTTS error: $e');
     } finally {
       // ★ FIX: Reset cờ TRƯỚC KHI update state
@@ -624,7 +625,7 @@ class TtsService extends ChangeNotifier {
       _safeNotify();
       await _audioPlayer.play();
     } catch (e) {
-      _error = 'Lỗi phát: $e';
+      _error = 'Content';
       _isSpeaking = false;
       _safeNotify();
     }
@@ -639,7 +640,7 @@ class TtsService extends ChangeNotifier {
       _safeNotify();
       await _audioPlayer.play();
     } catch (e) {
-      _error = 'Lỗi stream: $e';
+      _error = 'Content';
       _isSpeaking = false;
       _safeNotify();
     }

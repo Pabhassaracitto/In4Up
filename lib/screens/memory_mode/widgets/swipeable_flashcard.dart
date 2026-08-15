@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/memory_item.dart';
 import '../models/review_session.dart';
 import 'swipe_card_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Widget flashcard có thể vuốt 4 hướng
 /// Đặt bên trong FlashcardPresenter thay thế GestureDetector cũ
@@ -166,7 +167,7 @@ class _SwipeableFlashcardState extends State<SwipeableFlashcard>
   void _showFlipHint() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('👆 Nhấn để lật thẻ trước khi đánh giá'),
+        content: TrTrText('👆 Nhấn để lật thẻ trước khi đánh giá'),
         duration: Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
       ),
@@ -320,9 +321,7 @@ class _SwipeableFlashcardState extends State<SwipeableFlashcard>
           children: [
             Icon(Icons.touch_app, size: 16, color: Colors.grey[600]),
             const SizedBox(width: 6),
-            Text(
-              'Nhấn để xem nghĩa',
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            TrText('Nhấn để xem nghĩa', style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
           ],
         ),
@@ -384,9 +383,7 @@ class _SwipeableFlashcardState extends State<SwipeableFlashcard>
 
         // Gợi ý swipe
         Center(
-          child: Text(
-            '← Quên  |  Nhớ →',
-            style: TextStyle(
+          child: TrText('← Quên  |  Nhớ →', style: TextStyle(
               color: Colors.grey[600],
               fontSize: 12,
             ),
@@ -481,13 +478,13 @@ class _SwipeHintOverlay extends StatelessWidget {
   String _label() {
     switch (direction) {
       case SwipeDirection.right:
-        return 'Nhớ được!';
+        return 'Content';
       case SwipeDirection.left:
-        return 'Quên rồi';
+        return 'Content';
       case SwipeDirection.up:
-        return 'Thuộc lòng!';
+        return 'Content';
       case SwipeDirection.down:
-        return 'Hoãn học';
+        return 'Content';
     }
   }
 }
@@ -513,7 +510,7 @@ class _SwipeDirectionGuide extends StatelessWidget {
                   child: _GuideArrow(
                     icon: Icons.arrow_back_ios,
                     color: const Color(0xFFF44336),
-                    label: 'Quên',
+                    label: context.tr('Quên'),
                   ),
                 ),
               ),
@@ -526,7 +523,7 @@ class _SwipeDirectionGuide extends StatelessWidget {
                   child: _GuideArrow(
                     icon: Icons.arrow_forward_ios,
                     color: const Color(0xFF4CAF50),
-                    label: 'Nhớ',
+                    label: context.l10n.commonRemembering,
                   ),
                 ),
               ),
@@ -539,7 +536,7 @@ class _SwipeDirectionGuide extends StatelessWidget {
                   child: _GuideArrow(
                     icon: Icons.keyboard_arrow_up,
                     color: const Color(0xFFFFD700),
-                    label: 'Thuộc',
+                    label: context.tr('Thuộc'),
                     isVertical: true,
                   ),
                 ),
@@ -553,7 +550,7 @@ class _SwipeDirectionGuide extends StatelessWidget {
                   child: _GuideArrow(
                     icon: Icons.keyboard_arrow_down,
                     color: const Color(0xFF9E9E9E),
-                    label: 'Hoãn',
+                    label: context.tr('Hoãn'),
                     isVertical: true,
                   ),
                 ),

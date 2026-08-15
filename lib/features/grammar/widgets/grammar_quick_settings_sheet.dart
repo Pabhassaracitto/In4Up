@@ -7,6 +7,7 @@ import '../models/grammar_highlight_style.dart';
 import '../models/grammar_palette.dart';
 import 'grammar_legend_bar.dart';
 import 'grammar_style_preview.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class GrammarQuickSettingsSheet extends StatefulWidget {
   final String title;
@@ -275,9 +276,7 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
               ),
             ],
           ),
-          Text(
-            'Bản điều khiển grammar highlight dùng chung cho Read, Web và PDF. Chế độ mini ưu tiên thao tác nhanh; advanced mở sâu cho preset riêng và palette.',
-            style: TextStyle(color: Colors.grey[400], height: 1.4),
+          TrText('Bản điều khiển grammar highlight dùng chung cho Read, Web và PDF. Chế độ mini ưu tiên thao tác nhanh; advanced mở sâu cho preset riêng và palette.', style: TextStyle(color: Colors.grey[400], height: 1.4),
           ),
           const SizedBox(height: 14),
           Expanded(
@@ -294,7 +293,7 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                   onSaveCurrentPreset: _handleSaveCurrentPreset,
                 ),
                 const SizedBox(height: 14),
-                _sectionLabel('Preset gợi ý'),
+                _sectionLabel('Content'),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,
@@ -311,7 +310,7 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                 ),
                 if (_customPresets.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  _sectionLabel('Preset của bạn'),
+                  _sectionLabel('Content'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
@@ -330,13 +329,13 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                 const SizedBox(height: 16),
                 _sectionLabel(
                   _settings.showAdvancedControls
-                      ? 'Preview & cảm nhận'
+                      ? 'Content'
                       : 'Preview nhanh',
                 ),
                 const SizedBox(height: 8),
                 GrammarStylePreview(settings: _settings, palette: _palette),
                 const SizedBox(height: 14),
-                _sectionLabel('Legend điều khiển'),
+                _sectionLabel('Content'),
                 const SizedBox(height: 8),
                 GrammarLegendBar(
                   settings: _settings,
@@ -346,14 +345,12 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Hiện legend trên vùng đọc',
-                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  title: const TrText('Hiện legend trên vùng đọc', style: TextStyle(color: Colors.white, fontSize: 13),
                   ),
                   subtitle: Text(
                     _settings.showLegend
-                        ? 'Đang bật để đổi nhanh category ngay trên màn đọc.'
-                        : 'Tắt để mặt đọc sạch hơn; phần điều khiển vẫn giữ trong bảng này.',
+                        ? 'Content'
+                        : 'Content',
                     style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
                   ),
                   value: _settings.showLegend,
@@ -373,13 +370,13 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                 if (!_settings.showAdvancedControls) ...[
                   const SizedBox(height: 14),
                   const _HintCard(
-                    title: 'Mini mode đang bật',
+                    title: context.tr('Mini mode đang bật'),
                     message:
-                        'Bạn đang thấy preset, preview, legend và phục hồi nhanh trước. Bật advanced nếu muốn so màu trực quan, chia nhóm content/function words và lưu preset cá nhân.',
+                        'Save',
                   ),
                 ] else ...[
                   const SizedBox(height: 14),
-                  _sectionLabel('So sánh palette trực quan'),
+                  _sectionLabel('Content'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
@@ -395,7 +392,7 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                         .toList(),
                   ),
                   const SizedBox(height: 14),
-                  _sectionLabel('Kiểu tô màu'),
+                  _sectionLabel('Content'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -412,7 +409,7 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                         .toList(),
                   ),
                   const SizedBox(height: 14),
-                  _sectionLabel('Nhóm từ loại'),
+                  _sectionLabel('Content'),
                   const SizedBox(height: 8),
                   ...groupOrder.map((group) {
                     final categories = grammarCategoriesForGroup(group);
@@ -473,7 +470,7 @@ class _SummaryControlCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = settings.isCustomPreset
-        ? 'Đang chỉnh tay từ preset gần nhất: ${previousPreset.name}'
+        ? 'Content'
         : activePreset.description;
 
     return Container(
@@ -508,8 +505,8 @@ class _SummaryControlCard extends StatelessWidget {
                   children: [
                     Text(
                       settings.isCustomPreset
-                          ? 'Preset hiện tại: Tùy chỉnh'
-                          : 'Preset hiện tại: ${activePreset.name}',
+                          ? 'Content'
+                          : 'Content',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -537,16 +534,16 @@ class _SummaryControlCard extends StatelessWidget {
             children: [
               _InfoPill(
                 icon: Icons.visibility_outlined,
-                label: '$visibleCount nhóm đang bật',
+                label: 'Content',
               ),
               _InfoPill(
                 icon: Icons.visibility_off_outlined,
-                label: '$hiddenCount nhóm đang ẩn',
+                label: 'Content',
               ),
               _InfoPill(
                 icon:
                     settings.showLegend ? Icons.drag_handle : Icons.view_day_rounded,
-                label: settings.showLegend ? 'Legend nổi' : 'Legend tắt',
+                label: settings.showLegend ? 'Content' : 'Content',
               ),
             ],
           ),
@@ -596,7 +593,7 @@ class _SummaryControlCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onSaveCurrentPreset,
                 icon: const Icon(Icons.bookmark_add_outlined, size: 16),
-                label: const Text('Lưu preset riêng'),
+                label: const TrText(context.l10n.grammarSavePreset),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -608,7 +605,7 @@ class _SummaryControlCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onRestorePreviousPreset,
                   icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: Text('Khôi phục ${previousPreset.name}'),
+                  label: Text('Content'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB8B5FF),
                     side: BorderSide(
@@ -824,13 +821,13 @@ class _PalettePreviewCard extends StatelessWidget {
   String _paletteHint(String id) {
     switch (id) {
       case 'classic-dark':
-        return 'Màu sâu, nổi rõ trên nền tối.';
+        return 'Content';
       case 'classic-light':
-        return 'Sáng, dễ so màu khi đọc nền trắng.';
+        return 'Content';
       case 'noun-verb-focus':
-        return 'Cực rõ noun/verb để luyện cấu trúc cốt lõi.';
+        return 'Content';
       default:
-        return 'So sánh trực quan các nhóm màu chính.';
+        return 'Content';
     }
   }
 }
@@ -863,7 +860,7 @@ class _HiddenCategoriesCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị mất — bạn có thể bật lại từng nhóm, bật lại tất cả, hoặc quay về preset gần nhất $previousPresetName.',
+            'Content',
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -878,7 +875,7 @@ class _HiddenCategoriesCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onShowAllCategories,
                 icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: const Text('Bật lại tất cả'),
+                label: const TrText(context.l10n.grammarEnableAll),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -1159,7 +1156,7 @@ Future<_PresetDraft?> _showSavePresetDialog(
   String suggestedName,
 ) async {
   final nameCtrl = TextEditingController(
-    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
+    text: suggestedName == 'Content' ? 'Content' : 'Content',
   );
   final descCtrl = TextEditingController();
 
@@ -1168,7 +1165,7 @@ Future<_PresetDraft?> _showSavePresetDialog(
     builder: (dialogContext) {
       return AlertDialog(
         backgroundColor: const Color(0xFF151B26),
-        title: const Text('Lưu preset cá nhân'),
+        title: const TrTrText('Lưu preset cá nhân'),
         titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 18,
@@ -1183,8 +1180,8 @@ Future<_PresetDraft?> _showSavePresetDialog(
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: _dialogInputDecoration(
-                  label: 'Tên preset',
-                  hint: 'Ví dụ: Verb focus riêng',
+                  label: context.tr('Tên preset'),
+                  hint: context.tr('Ví dụ: Verb focus riêng'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1193,8 +1190,8 @@ Future<_PresetDraft?> _showSavePresetDialog(
                 maxLines: 3,
                 style: const TextStyle(color: Colors.white),
                 decoration: _dialogInputDecoration(
-                  label: 'Mô tả ngắn',
-                  hint: 'Ghi chú cách dùng của preset này',
+                  label: context.tr('Mô tả ngắn'),
+                  hint: context.tr('Ghi chú cách dùng của preset này'),
                 ),
               ),
             ],
@@ -1203,14 +1200,14 @@ Future<_PresetDraft?> _showSavePresetDialog(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Huỷ'),
+            child: const TrTrText('Huỷ'),
           ),
           FilledButton(
             onPressed: () {
               if (nameCtrl.text.trim().isEmpty) return;
               Navigator.pop(dialogContext, true);
             },
-            child: const Text('Lưu preset'),
+            child: const TrTrText('Lưu preset'),
           ),
         ],
       );

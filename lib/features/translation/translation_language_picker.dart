@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/language/app_language.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class TranslationLanguagePickerButton extends StatelessWidget {
   final AppLanguage sourceLanguage;
@@ -23,7 +24,7 @@ class TranslationLanguagePickerButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message:
-          'Tự nhận diện ${sourceLanguage.nativeName} → ${targetLanguage.nativeName}',
+          'Content',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -206,9 +207,7 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Ngôn ngữ bản dịch',
-                              style: TextStyle(
+                            const Text(context.l10n.translationLanguage, style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -218,7 +217,7 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                             Text(
                               'Đã nhận diện ${widget.sourceLanguage.flag} '
                               '${widget.sourceLanguage.nativeName} • '
-                              '${AppLanguageCatalog.languages.length} ngôn ngữ đích',
+                              'Content',
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 12,
@@ -239,7 +238,7 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                     onChanged: (value) => setState(() => _query = value),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Tìm ngôn ngữ…',
+                      hintText: context.l10n.translationSearchLang,
                       hintStyle: TextStyle(color: Colors.grey[600]),
                       prefixIcon:
                           const Icon(Icons.search, color: Colors.white38),
@@ -302,7 +301,7 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                     ),
                     subtitle: Text(
                       isSource
-                          ? '${language.vietnameseName} • ngôn ngữ nguồn'
+                          ? 'Content'
                           : '${language.vietnameseName} • ${language.translationCode}',
                       style: TextStyle(
                         color: isSource ? Colors.white24 : Colors.grey[500],

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models/pdf_annotation.dart';
 import '../pdf_reader_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Sheet để xem/sửa/xóa annotation
 class PdfAnnotationSheet {
@@ -115,8 +116,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('Ghi chú',
-                  style: TextStyle(
+              const Text(context.l10n.commonNotes, style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold)),
@@ -170,7 +170,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
               maxLines: 4,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Thêm ghi chú...',
+                hintText: context.tr('Thêm ghi chú...'),
                 hintStyle: const TextStyle(color: Colors.grey),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.07),
@@ -188,7 +188,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
                   child: TextButton(
                     onPressed: () => setState(() => _isEditing = false),
                     child:
-                        const Text('Hủy', style: TextStyle(color: Colors.grey)),
+                        const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.grey)),
                   ),
                 ),
                 Expanded(
@@ -203,7 +203,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text('Lưu'),
+                    child: const TrText(context.l10n.commonSave),
                   ),
                 ),
               ],
@@ -230,8 +230,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
                   children: [
                     Icon(Icons.add, color: Colors.grey[600], size: 18),
                     const SizedBox(width: 8),
-                    Text('Thêm ghi chú...',
-                        style: TextStyle(color: Colors.grey[600])),
+                    TrText('Thêm ghi chú...', style: TextStyle(color: Colors.grey[600])),
                   ],
                 ),
               ),
@@ -244,7 +243,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
             onPressed: () =>
                 widget.controller.speakText(widget.annotation.selectedText),
             icon: const Icon(Icons.volume_up, size: 16),
-            label: const Text('Đọc đoạn này'),
+            label: const TrTrText('Đọc đoạn này'),
             style: TextButton.styleFrom(foregroundColor: Colors.blue),
           ),
         ],
@@ -317,8 +316,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
           ),
           const SizedBox(height: 16),
 
-          const Text('Thêm ghi chú',
-              style: TextStyle(
+          const Text(context.l10n.commonAddNote, style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold)),
@@ -375,7 +373,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
             style: const TextStyle(color: Colors.white),
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'Ghi chú (tùy chọn)...',
+              hintText: context.tr('Ghi chú (tùy chọn)...'),
               hintStyle: const TextStyle(color: Colors.grey),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.07),
@@ -395,7 +393,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
                 child: TextButton(
                   onPressed: () => Navigator.pop(context),
                   child:
-                      const Text('Hủy', style: TextStyle(color: Colors.grey)),
+                      const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.grey)),
                 ),
               ),
               Expanded(
@@ -412,7 +410,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
                     if (context.mounted) Navigator.pop(context);
                   },
                   icon: const Icon(Icons.save, size: 16),
-                  label: const Text('Lưu ghi chú'),
+                  label: const TrText(context.l10n.webReaderSaveNoteBtn),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2196F3),
                     shape: RoundedRectangleBorder(

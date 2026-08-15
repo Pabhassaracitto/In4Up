@@ -8,6 +8,7 @@ import '../../../models/word_analysis.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../web_reader_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Bottom sheet hiện khi tap vào từ trong Web Reader
 class WebWordTapSheet extends StatelessWidget {
@@ -222,14 +223,14 @@ class WebWordTapSheet extends StatelessWidget {
               runSpacing: 6,
               children: [
                 if (analyzed?.isSaved == true)
-                  const _Tag(label: 'Đã lưu', color: Color(0xFF4CAF50)),
+                  const _Tag(label: context.l10n.msgSaved, color: Color(0xFF4CAF50)),
                 if (analyzed?.hasSavedNotes == true)
-                  const _Tag(label: 'Có ghi chú', color: Colors.amber),
+                  const _Tag(label: context.tr('Có ghi chú'), color: Colors.amber),
                 if (analyzed?.hasDueReview == true)
-                  const _Tag(label: 'Đến kỳ ôn', color: Colors.redAccent),
+                  const _Tag(label: context.tr('Đến kỳ ôn'), color: Colors.redAccent),
                 if ((analyzed?.encounterCount ?? 0) > 1)
                   _Tag(
-                    label: '${analyzed!.encounterCount} lần gặp',
+                    label: 'Content',
                     color: const Color(0xFF64B5F6),
                   ),
               ],
@@ -246,7 +247,7 @@ class WebWordTapSheet extends StatelessWidget {
                   UnifiedKnowledgeSheet.show(context, word: existing);
                 },
                 icon: const Icon(Icons.hub_outlined, size: 18),
-                label: const Text('Mở hồ sơ tri thức hợp nhất'),
+                label: const TrTrText('Mở hồ sơ tri thức hợp nhất'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF4CAF50),
                   side: BorderSide(
@@ -262,9 +263,7 @@ class WebWordTapSheet extends StatelessWidget {
           ],
 
           const SizedBox(height: 14),
-          const Text(
-            'Đánh dấu độ khó:',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+          const TrText('Đánh dấu độ khó:', style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
           const SizedBox(height: 8),
           Row(
@@ -357,7 +356,7 @@ class WebWordTapSheet extends StatelessWidget {
                         SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            'Vườn Nhớ',
+                            'Memory Garden',
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Color(0xFF6C63FF),
@@ -539,18 +538,18 @@ Color _cefrColor(CEFRLevel level) {
 String _cefrDescVi(CEFRLevel level) {
   switch (level) {
     case CEFRLevel.a1:
-      return 'Sơ cấp';
+      return 'Content';
     case CEFRLevel.a2:
-      return 'Căn bản';
+      return 'Content';
     case CEFRLevel.b1:
-      return 'Trung cấp';
+      return 'Content';
     case CEFRLevel.b2:
-      return 'Khá';
+      return 'Content';
     case CEFRLevel.c1:
-      return 'Nâng cao';
+      return 'Content';
     case CEFRLevel.c2:
-      return 'Thành thạo';
+      return 'Content';
     case CEFRLevel.unknown:
-      return 'Không rõ';
+      return 'Content';
   }
 }

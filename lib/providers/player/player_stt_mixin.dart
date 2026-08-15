@@ -111,7 +111,7 @@ mixin PlayerSttMixin on ChangeNotifier {
   }) async {
     final path = currentSongPath;
     if (path == null) {
-      _lastSttError = 'Chưa có file audio đang phát';
+      _lastSttError = 'Content';
       notifyListeners();
       return null;
     }
@@ -203,7 +203,7 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// Dừng tạo LRC đang chạy (chunk transcribe). Đặt lại trạng thái để
   /// người dùng không bị "kẹt" ở màn hình đang xử lý.
   Future<void> cancelLrcGeneration() async {
-    debugPrint('⏹️ cancelLrcGeneration() — hủy transcribe');
+    debugPrint('⏹️ cancelLrcGeneration() — Cancel transcribe');
     try {
       _sttService.cancelTranscription();
     } catch (e) {

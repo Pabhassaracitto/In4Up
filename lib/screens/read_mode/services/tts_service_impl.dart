@@ -37,7 +37,7 @@ class FlutterTtsServiceImpl implements TtsService {
     _completer = completer;
     final result = await _tts.speak(text);
     if ((result == 0 || result == false) && !completer.isCompleted) {
-      completer.completeError('TTS không thể phát văn bản');
+      completer.completeError('Cannot');
     }
     try {
       await completer.future;
@@ -72,7 +72,7 @@ class FlutterTtsServiceImpl implements TtsService {
     if (_activeLocale == resolved) return;
     final result = await _tts.setLanguage(resolved);
     if (result == 0 || result == false) {
-      throw StateError('Thiết bị không có giọng đọc cho $requested');
+      throw StateError('Content');
     }
     _activeLocale = resolved;
     debugPrint('[ReadTTS] language=$resolved (requested=$requested)');
@@ -94,7 +94,7 @@ class FlutterTtsServiceImpl implements TtsService {
       if (sameLanguage.isNotEmpty) return sameLanguage.first;
 
       throw StateError(
-        'Thiết bị chưa cài giọng ${AppLanguageCatalog.fromCode(requested).nativeName}',
+        'Content',
       );
     } catch (error) {
       if (error is StateError) rethrow;

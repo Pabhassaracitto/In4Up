@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 // ─── Sort Mode ─────────────────────────────────────────────
 
 enum WordListSortMode {
-  addTime('Thời gian thêm', Icons.access_time),
+  addTime('Add', Icons.access_time),
   alphabetical('A → Z', Icons.sort_by_alpha),
   alphabeticalDesc('Z → A', Icons.sort_by_alpha),
-  rankDescending('Độ thuần thục ↓', Icons.trending_down),
-  familiarity('Quen thuộc', Icons.favorite_outline),
-  random('Ngẫu nhiên', Icons.shuffle),
-  sm2Due('SM-2: Cần ôn hôm nay', Icons.alarm),
-  hardFirst('Khó → Dễ', Icons.keyboard_double_arrow_up),
-  easyFirst('Dễ → Khó', Icons.keyboard_double_arrow_down);
+  rankDescending('Content', Icons.trending_down),
+  familiarity('Content', Icons.favorite_outline),
+  random('Content', Icons.shuffle),
+  sm2Due('Content', Icons.alarm),
+  hardFirst('Content', Icons.keyboard_double_arrow_up),
+  easyFirst('Content', Icons.keyboard_double_arrow_down);
 
   final String label;
   final IconData icon;
@@ -75,13 +75,13 @@ class WordFolder {
 
   static const allWords = WordFolder(
     id: 'all',
-    name: 'Tất cả',
+    name: 'Content',
     icon: Icons.all_inclusive,
   );
 
   static const defaultFolder = WordFolder(
     id: 'default',
-    name: 'Mặc định',
+    name: 'Content',
     icon: Icons.folder,
   );
 }
@@ -112,7 +112,7 @@ class FolderTreeManager {
   final List<FolderNode> _roots = [
     FolderNode(
       id: 'default',
-      name: 'Mặc định',
+      name: 'Content',
       color: const Color(0xFF6C63FF),
       icon: Icons.folder_outlined,
     ),

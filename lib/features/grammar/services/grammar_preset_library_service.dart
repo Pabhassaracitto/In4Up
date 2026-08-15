@@ -55,7 +55,7 @@ class GrammarPresetLibraryService {
       visibleCategories: Set<GrammarCategory>.from(settings.visibleCategories),
       showLegend: settings.showLegend,
       emphasizeContentWords: settings.emphasizeContentWords,
-      audienceLabel: 'Cá nhân',
+      audienceLabel: 'Content',
       focusSummary: _buildFocusSummary(settings.visibleCategories),
       isBuiltIn: false,
     );
@@ -86,7 +86,7 @@ class GrammarPresetLibraryService {
   }
 
   static String _buildFocusSummary(Set<GrammarCategory> categories) {
-    if (categories.isEmpty) return 'Ẩn toàn bộ category';
+    if (categories.isEmpty) return 'Content';
     final sorted = categories.toList()
       ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
     final labels = sorted.take(4).map((category) => category.shortCode).toList();
@@ -96,11 +96,11 @@ class GrammarPresetLibraryService {
 
   static String _buildDefaultDescription(Set<GrammarCategory> categories) {
     if (categories.isEmpty) {
-      return 'Preset cá nhân đang ẩn toàn bộ category để đọc cực sạch.';
+      return 'Content';
     }
     if (categories.length <= 2) {
-      return 'Preset cá nhân tối giản cho vùng đọc tập trung.';
+      return 'Content';
     }
-    return 'Preset cá nhân gồm ${categories.length} nhóm từ loại được chọn thủ công.';
+    return 'Content';
   }
 }

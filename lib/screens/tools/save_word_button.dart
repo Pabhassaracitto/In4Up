@@ -165,21 +165,21 @@
 ///       content: TextField(
 ///         controller: meaningCtrl,
 ///         decoration: const InputDecoration(
-///           labelText: 'Nghĩa (tiếng Việt)',
-///           hintText: 'VD: ngôi nhà',
+///           labelText: context.tr('Nghĩa (tiếng Việt)'),
+///           hintText: context.tr('VD: ngôi nhà'),
 ///         ),
 ///       ),
 ///       actions: [
 ///         TextButton(
 ///           onPressed: () => Navigator.pop(context),
-///           child: const Text('Huỷ'),
+///           child: const TrTrText('Huỷ'),
 ///         ),
 ///         ElevatedButton(
 ///           onPressed: () {
 ///             Navigator.pop(context);
 ///             _saveWord(word, meaningCtrl.text);
 ///           },
-///           child: const Text('Lưu'),
+///           child: const TrText(context.l10n.commonSave),
 ///         ),
 ///       ],
 ///     ),
@@ -229,6 +229,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Widget button để lưu từ vào VocabularyProvider
 /// Dùng trong Read tab: đặt vào Context Menu khi long-press từ
@@ -295,7 +296,7 @@ class _SaveButton extends StatelessWidget {
       key: const ValueKey('save'),
       onPressed: () => _save(context),
       icon: const Icon(Icons.bookmark_add_outlined, size: 16),
-      label: const Text('Lưu từ'),
+      label: const TrTrText('Lưu từ'),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF6C63FF).withAlpha(25),
         foregroundColor: const Color(0xFF6C63FF),
@@ -334,8 +335,8 @@ class _SaveButton extends StatelessWidget {
           controller: ctrl,
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Nghĩa tiếng Việt',
-            hintText: 'VD: ngôi nhà, đẹp đẽ...',
+            labelText: context.tr('Nghĩa tiếng Việt'),
+            hintText: context.tr('VD: ngôi nhà, đẹp đẽ...'),
             prefixIcon: Icon(Icons.translate),
           ),
           onSubmitted: (v) {
@@ -349,7 +350,7 @@ class _SaveButton extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Huỷ'),
+            child: const TrTrText('Huỷ'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -359,7 +360,7 @@ class _SaveButton extends StatelessWidget {
                 if (context.mounted) _doSave(context, ctrl.text.trim());
               });
             },
-            child: const Text('Lưu'),
+            child: const TrText(context.l10n.commonSave),
           ),
         ],
       ),
@@ -509,9 +510,9 @@ class _QuickWordInfo extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _skill('Hiểu', word.understand, const Color(0xFF42A5F5)),
+              _skill('Understand', word.understand, const Color(0xFF42A5F5)),
               _skill('Nghe', word.listen, const Color(0xFF66BB6A)),
-              _skill('Đọc', word.read, const Color(0xFFEF5350)),
+              _skill('Read', word.read, const Color(0xFFEF5350)),
             ],
           ),
           const SizedBox(height: 12),

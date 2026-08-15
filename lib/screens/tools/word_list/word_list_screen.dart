@@ -23,6 +23,7 @@ import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'youglish_mini_sheet.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -185,7 +186,7 @@ class _WordListScreenState extends State<WordListScreen> {
                                     count: sm2Due,
                                     color: const Color(0xFFFF5722),
                                     icon: Icons.alarm,
-                                    label: 'ôn',
+                                    label: context.tr('ôn'),
                                     onTap: () => setState(() => _sortMode = WordListSortMode.sm2Due),
                                   ),
                               ],
@@ -210,7 +211,7 @@ class _WordListScreenState extends State<WordListScreen> {
                                 count: sm2Due,
                                 color: const Color(0xFFFF5722),
                                 icon: Icons.alarm,
-                                label: 'ôn',
+                                label: context.tr('ôn'),
                                 onTap: () => setState(() => _sortMode = WordListSortMode.sm2Due),
                               ),
                             ],
@@ -230,7 +231,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Tìm từ, cụm từ, câu...',
+                        hintText: context.l10n.wordListSearchHint,
                         hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
                         prefixIcon:
                             Icon(Icons.search, color: Colors.grey[600], size: 16),
@@ -302,15 +303,15 @@ class _WordListScreenState extends State<WordListScreen> {
         }
       },
       itemBuilder: (_) => [
-        _menuItem('select', Icons.checklist, 'Chọn'),
-        _menuItem('expand', Icons.unfold_more, 'Mở rộng tất cả'),
+        _menuItem('select', Icons.checklist, 'Content'),
+        _menuItem('expand', Icons.unfold_more, 'Content'),
         const PopupMenuDivider(height: 1),
         _menuItem(
             'toggle_def',
             _settings.showShortDefinition
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            _settings.showShortDefinition ? 'Ẩn nghĩa' : 'Hiện nghĩa'),
+            _settings.showShortDefinition ? 'Content' : 'Content'),
         const PopupMenuDivider(height: 1),
         _menuItem('settings', Icons.tune, 'Options'),
       ],
@@ -398,9 +399,7 @@ class _WordListScreenState extends State<WordListScreen> {
                                 ],
                               ),
                             )
-                          : Text(
-                              'Lọc theo thực thể, trạng thái, ngôn ngữ...',
-                              style: TextStyle(
+                          : TrText('Lọc theo thực thể, trạng thái, ngôn ngữ...', style: TextStyle(
                                   color: Colors.grey[700], fontSize: 11),
                             ),
                     ),
@@ -444,12 +443,12 @@ class _WordListScreenState extends State<WordListScreen> {
                 height: 1,
               ),
               _buildFilterRow(
-                label: 'Thực thể',
+                label: context.tr('Thực thể'),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(children: [
                     _FilterSegmentChip(
-                      label: 'Tất cả',
+                      label: context.tr('Tất cả'),
                       isSelected: p.filterType == null,
                       onTap: () {
                         p.setFilterType(null);
@@ -471,12 +470,12 @@ class _WordListScreenState extends State<WordListScreen> {
                 ),
               ),
               _buildFilterRow(
-                label: 'Trạng thái',
+                label: context.tr('Trạng thái'),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(children: [
                     _FilterSegmentChip(
-                      label: 'Tất cả',
+                      label: context.tr('Tất cả'),
                       isSelected: p.filterLearningStatus == null,
                       onTap: () {
                         p.setFilterLearningStatus(null);
@@ -484,7 +483,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
                     const SizedBox(width: 6),
                     _FilterSegmentChip(
-                      label: 'Cần ôn',
+                      label: context.l10n.wordListDue,
                       color: const Color(0xFFFF5722),
                       isSelected: p.filterLearningStatus == 'due',
                       onTap: () {
@@ -493,7 +492,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
                     const SizedBox(width: 6),
                     _FilterSegmentChip(
-                      label: 'Đang học',
+                      label: context.l10n.wordListLearning,
                       color: const Color(0xFF2196F3),
                       isSelected: p.filterLearningStatus == 'learning',
                       onTap: () {
@@ -502,7 +501,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
                     const SizedBox(width: 6),
                     _FilterSegmentChip(
-                      label: 'Thành thạo',
+                      label: context.l10n.memoryMastered,
                       color: const Color(0xFFFFD54F),
                       isSelected: p.filterLearningStatus == 'mastered',
                       onTap: () {
@@ -511,7 +510,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
                     const SizedBox(width: 6),
                     _FilterSegmentChip(
-                      label: 'Điểm mù',
+                      label: context.l10n.wordListBlindSpot,
                       color: const Color(0xFF616161),
                       isSelected: p.filterLearningStatus == 'blindSpot',
                       onTap: () {
@@ -522,11 +521,11 @@ class _WordListScreenState extends State<WordListScreen> {
                 ),
               ),
               _buildFilterRow(
-                label: 'Ngôn ngữ',
+                label: context.tr('Ngôn ngữ'),
                 child: _buildLanguageRow(p),
               ),
               _buildFilterRow(
-                label: 'Chủ đề',
+                label: context.tr('Chủ đề'),
                 child: _buildTopicRow(p),
               ),
               const SizedBox(height: 6),
@@ -539,10 +538,10 @@ class _WordListScreenState extends State<WordListScreen> {
 
   // ── Helper label/color converters ──
   String _statusLabel(String s) => switch (s) {
-        'due' => 'Cần ôn',
-        'learning' => 'Đang học',
-        'mastered' => 'Thành thạo',
-        'blindSpot' => 'Điểm mù',
+        'due' => 'Content',
+        'learning' => 'Content',
+        'mastered' => 'Content',
+        'blindSpot' => 'Content',
         _ => s,
       };
 
@@ -556,7 +555,7 @@ class _WordListScreenState extends State<WordListScreen> {
 
   String _langLabel(String lang) => switch (lang) {
         'en' => 'Anh',
-        'vi' => 'Việt',
+        'vi' => 'Content',
         'pali' => 'Pali',
         'my' => 'Burmese',
         _ => lang,
@@ -569,7 +568,7 @@ class _WordListScreenState extends State<WordListScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(children: [
         _FilterSegmentChip(
-          label: 'Tất cả',
+          label: context.tr('Tất cả'),
           isSelected: p.filterLanguage == null,
           onTap: () {
             p.setFilterLanguage(null);
@@ -613,7 +612,7 @@ class _WordListScreenState extends State<WordListScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(children: [
         _FilterSegmentChip(
-          label: 'Tất cả',
+          label: context.tr('Tất cả'),
           isSelected: p.filterTopic == null,
           onTap: () {
             p.setFilterTopic(null);
@@ -667,13 +666,13 @@ class _WordListScreenState extends State<WordListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF131D2A),
-        title: const Text('Thêm ngôn ngữ mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const TrText('Thêm ngôn ngữ mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: textC,
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)',
+            hintText: context.tr('Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
@@ -682,7 +681,7 @@ class _WordListScreenState extends State<WordListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -693,7 +692,7 @@ class _WordListScreenState extends State<WordListScreen> {
               if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
-            child: const Text('Tạo & lọc'),
+            child: const TrTrText('Tạo & lọc'),
           ),
         ],
       ),
@@ -706,13 +705,13 @@ class _WordListScreenState extends State<WordListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF131D2A),
-        title: const Text('Thêm chủ đề mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const TrText('Thêm chủ đề mới', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: textC,
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)',
+            hintText: context.tr('Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
@@ -721,7 +720,7 @@ class _WordListScreenState extends State<WordListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -732,7 +731,7 @@ class _WordListScreenState extends State<WordListScreen> {
               if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
-            child: const Text('Tạo & lọc'),
+            child: const TrTrText('Tạo & lọc'),
           ),
         ],
       ),
@@ -879,7 +878,7 @@ class _WordListScreenState extends State<WordListScreen> {
       color: const Color(0xFF1A1A2E),
       child: Row(
         children: [
-          Text('${_selectedIds.length} đã chọn',
+          Text('Content',
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -891,8 +890,7 @@ class _WordListScreenState extends State<WordListScreen> {
                   _getDisplayList(context.read<VocabularyProvider>())
                       .map((e) => e.id));
             }),
-            child: const Text('Tất cả',
-                style: TextStyle(color: Color(0xFF6C63FF), fontSize: 12)),
+            child: const TrText('Tất cả', style: TextStyle(color: Color(0xFF6C63FF), fontSize: 12)),
           ),
           TextButton(
             onPressed: () => setState(() {
@@ -919,7 +917,7 @@ class _WordListScreenState extends State<WordListScreen> {
           Text(
               isSearching
                   ? 'Không tìm thấy "${p.searchQuery}"'
-                  : 'Chưa có từ vựng',
+                  : 'No Vocabulary',
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 15,
@@ -927,15 +925,15 @@ class _WordListScreenState extends State<WordListScreen> {
           const SizedBox(height: 8),
           Text(
               isSearching
-                  ? 'Bạn có muốn lưu từ này vào danh sách?'
-                  : 'Bôi đen từ khi đọc hoặc thêm thủ công',
+                  ? 'Save'
+                  : 'Add',
               style: TextStyle(color: Colors.grey[700], fontSize: 12)),
           if (isSearching) ...[
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () => _addAndSaveNow(p, p.searchQuery),
               icon: const Icon(Icons.add),
-              label: const Text('Lưu ngay từ này'),
+              label: const TrTrText('Lưu ngay từ này'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6C63FF),
                 shape: RoundedRectangleBorder(
@@ -981,10 +979,10 @@ class _WordListScreenState extends State<WordListScreen> {
     });
 
     final typeLabel = entry.vocabType == VocabularyType.word
-        ? 'Từ'
+        ? 'Content'
         : entry.vocabType == VocabularyType.phrase
-            ? 'Cụm từ'
-            : 'Câu';
+            ? 'Content'
+            : 'Content';
 
     ScaffoldMessenger.of(this.context).showSnackBar(
       SnackBar(
@@ -994,7 +992,7 @@ class _WordListScreenState extends State<WordListScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Đã lưu $typeLabel: $text',
+                'Saved $typeLabel: $text',
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
@@ -1042,8 +1040,8 @@ class _WordListScreenState extends State<WordListScreen> {
             ),
             _addMenuItem(
               icon: Icons.add_circle_outline,
-              title: 'Thêm thủ công',
-              subtitle: 'Nhập từ vựng, nghĩa và ví dụ bằng tay',
+              title: context.l10n.wordListAddManual,
+              subtitle: context.tr('Nhập từ vựng, nghĩa và ví dụ bằng tay'),
               color: const Color(0xFF6C63FF),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1053,8 +1051,8 @@ class _WordListScreenState extends State<WordListScreen> {
             const SizedBox(height: 12),
             _addMenuItem(
               icon: Icons.download_outlined,
-              title: 'Nhập hàng loạt',
-              subtitle: 'Import từ Clipboard, Text Provider hoặc File',
+              title: context.l10n.wordListImport,
+              subtitle: context.tr('Import từ Clipboard, Text Provider hoặc File'),
               color: const Color(0xFF4CAF50),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1139,9 +1137,9 @@ class _WordListScreenState extends State<WordListScreen> {
         ? items[_playingIndex]
         : null;
     final listInfo = _listRepeatCount == 0
-        ? 'Vòng $_listRepeatCurrent/∞'
+        ? 'Content'
         : _listRepeatCount > 1
-            ? 'Vòng $_listRepeatCurrent/$_listRepeatCount'
+            ? 'Content'
             : '';
     return Row(
       children: [
@@ -1186,7 +1184,7 @@ class _WordListScreenState extends State<WordListScreen> {
   Widget _buildSelectingPlayBar(List<WordEntry> items) {
     return Row(
       children: [
-        Text('${_selectedIds.length} đã chọn',
+        Text('Content',
             style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -1207,8 +1205,7 @@ class _WordListScreenState extends State<WordListScreen> {
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.play_arrow, color: Colors.white, size: 16),
               SizedBox(width: 4),
-              Text('Phát',
-                  style: TextStyle(
+              Text(context.l10n.listenPlay, style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                       fontSize: 13)),
@@ -1366,8 +1363,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       const Icon(Icons.add_circle,
                           color: Color(0xFF42A5F5), size: 20),
                       const SizedBox(width: 10),
-                      const Text('Thêm từ vựng',
-                          style: TextStyle(
+                      const TrText('Thêm từ vựng', style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
@@ -1391,7 +1387,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       controller: textCtrl,
                       maxLines: 2,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: _inputDeco('Từ / Cụm từ / Câu / Đoạn *',
+                      decoration: _inputDeco('Content',
                           'VD: breakthrough or Pali text', const Color(0xFF42A5F5)),
                       onChanged: (t) => setS(() => detectedType =
                           t.trim().isEmpty ? null : VocabClassifier.classify(t)),
@@ -1400,16 +1396,16 @@ class _WordListScreenState extends State<WordListScreen> {
                     TextField(
                         controller: meaningCtrl,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: _inputDeco('Nghĩa *', 'VD: bước đột phá',
+                        decoration: _inputDeco('Content', 'Content',
                             const Color(0xFFFFB300))),
                     const SizedBox(height: 10),
                     TextField(
                         controller: topicCtrl,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: _inputDeco('Chủ đề / Thư mục', 'VD: Phật Pháp hoặc Phật Pháp/Đời Sống',
+                        decoration: _inputDeco('Content', 'Content',
                             const Color(0xFF9C27B0))),
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const TrText('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1420,7 +1416,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
+                                  lang == 'en' ? 'Content' : lang == 'vi' ? 'Content' : lang == 'pali' ? 'Pali' : 'Burmese',
                                   style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
                                 ),
                                 selected: selectedLang == lang,
@@ -1458,8 +1454,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 13),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12))),
-                          child: const Text('Lưu',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(context.l10n.commonSave, style: TextStyle(fontWeight: FontWeight.bold)),
                         )),
                   ]),
             ),
@@ -1507,8 +1502,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 const Row(children: [
                   Icon(Icons.auto_awesome, color: Color(0xFFFFB300), size: 20),
                   SizedBox(width: 10),
-                  Text('Gợi ý tách thành phần',
-                      style: TextStyle(
+                  TrText('Gợi ý tách thành phần', style: TextStyle(
                           color: Colors.white,
                           fontSize: 15,
                           fontWeight: FontWeight.bold)),
@@ -1518,8 +1512,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                 const SizedBox(height: 16),
                 if (result.words.isNotEmpty) ...[
-                  Text('Từ đơn:',
-                      style: TextStyle(
+                  TrText('Từ đơn:', style: TextStyle(
                           color: VocabularyType.word.color,
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
@@ -1546,8 +1539,7 @@ class _WordListScreenState extends State<WordListScreen> {
                   const SizedBox(height: 12),
                 ],
                 if (result.phrases.isNotEmpty) ...[
-                  Text('Cụm từ:',
-                      style: TextStyle(
+                  TrText('Cụm từ:', style: TextStyle(
                           color: VocabularyType.phrase.color,
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
@@ -1576,8 +1568,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 Row(children: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: Text('Bỏ qua',
-                          style: TextStyle(color: Colors.grey[500]))),
+                      child: TrText('Bỏ qua', style: TextStyle(color: Colors.grey[500]))),
                   const Spacer(),
                   if (selWords.isNotEmpty || selPhrases.isNotEmpty)
                     ElevatedButton(
@@ -1590,7 +1581,7 @@ class _WordListScreenState extends State<WordListScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(
-                                '✅ Đã tạo ${selWords.length + selPhrases.length} entry con'),
+                                '✅ Created ${selWords.length + selPhrases.length} entry con'),
                             backgroundColor: const Color(0xFF4CAF50),
                             behavior: SnackBarBehavior.floating));
                       },
@@ -1635,8 +1626,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     Row(children: [
                       const Icon(Icons.edit, color: Color(0xFF42A5F5), size: 20),
                       const SizedBox(width: 10),
-                      const Text('Sửa chi tiết',
-                          style: TextStyle(
+                      const TrText('Sửa chi tiết', style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
@@ -1650,18 +1640,18 @@ class _WordListScreenState extends State<WordListScreen> {
                           }),
                     ]),
                     const SizedBox(height: 16),
-                    _editField(wordC, 'Từ / Cụm từ / Câu / Đoạn', Icons.text_fields),
+                    _editField(wordC, 'Content', Icons.text_fields),
                     const SizedBox(height: 10),
-                    _editField(meanC, 'Nghĩa', Icons.translate),
+                    _editField(meanC, 'Content', Icons.translate),
                     const SizedBox(height: 10),
-                    _editField(ipaC, 'Phiên âm / IPA', Icons.record_voice_over_outlined),
+                    _editField(ipaC, 'Content', Icons.record_voice_over_outlined),
                     const SizedBox(height: 10),
-                    _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
+                    _editField(noteC, 'Note', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
-                    _editField(topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
+                    _editField(topicC, 'Content', Icons.folder_outlined),
                     
                     const SizedBox(height: 12),
-                    const Text('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const TrText('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1688,7 +1678,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
 
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const TrText('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1699,7 +1689,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
+                                  lang == 'en' ? 'Content' : lang == 'vi' ? 'Content' : lang == 'pali' ? 'Pali' : 'Burmese',
                                   style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
                                 ),
                                 selected: selectedLang == lang,
@@ -1738,8 +1728,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 13),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12))),
-                          child: const Text('Lưu',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(context.l10n.commonSave, style: TextStyle(fontWeight: FontWeight.bold)),
                         )),
                   ],
                 ),
@@ -1982,7 +1971,7 @@ class _CompactListItem extends StatelessWidget {
                       word: entry.word,
                       meaning: entry.meaning.isNotEmpty
                           ? entry.meaning
-                          : 'Chưa có nghĩa',
+                          : 'Content',
                       phonetic: entry.phonetic,
                       example: entry.example,
                     );
@@ -2110,7 +2099,7 @@ class _CompactListItem extends StatelessWidget {
         if (entry.contexts.isNotEmpty) ...[
           _SectionHeader(
               icon: Icons.menu_book,
-              label: 'Ngữ cảnh (${entry.contexts.length})'),
+              label: 'Content'),
           const SizedBox(height: 6),
           ...entry.contexts.take(3).map((c) => Container(
                 margin: const EdgeInsets.only(bottom: 6),
@@ -2145,11 +2134,10 @@ class _CompactListItem extends StatelessWidget {
 
         // Relationships
         if (parents.isNotEmpty || children.isNotEmpty) ...[
-          const _SectionHeader(icon: Icons.link, label: 'Liên kết'),
+          const _SectionHeader(icon: Icons.link, label: context.tr('Liên kết')),
           const SizedBox(height: 6),
           if (parents.isNotEmpty) ...[
-            Text('Xuất hiện trong:',
-                style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+            TrText('Xuất hiện trong:', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             const SizedBox(height: 4),
             Wrap(
                 spacing: 6,
@@ -2160,8 +2148,7 @@ class _CompactListItem extends StatelessWidget {
           ],
           if (children.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('Chứa:',
-                style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+            TrText('Chứa:', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             const SizedBox(height: 4),
             Wrap(
                 spacing: 6,
@@ -2175,7 +2162,7 @@ class _CompactListItem extends StatelessWidget {
 
         // Notes
         if (entry.personalNotes != null && entry.personalNotes!.isNotEmpty) ...[
-          const _SectionHeader(icon: Icons.note_alt_outlined, label: 'Ghi chú'),
+          const _SectionHeader(icon: Icons.note_alt_outlined, label: context.l10n.commonNotes),
           const SizedBox(height: 4),
           Text(entry.personalNotes!,
               style: TextStyle(
@@ -2184,11 +2171,11 @@ class _CompactListItem extends StatelessWidget {
         ],
 
         // SM-2 Skills
-        const _SectionHeader(icon: Icons.bar_chart, label: 'Ôn tập'),
+        const _SectionHeader(icon: Icons.bar_chart, label: context.l10n.commonReview),
         const SizedBox(height: 6),
         Row(children: [
           _SkillBar(
-              label: 'Hiểu',
+              label: context.l10n.commonUnderstanding,
               value: entry.understand,
               color: const Color(0xFF42A5F5)),
           const SizedBox(width: 8),
@@ -2198,14 +2185,14 @@ class _CompactListItem extends StatelessWidget {
               color: const Color(0xFF66BB6A)),
           const SizedBox(width: 8),
           _SkillBar(
-              label: 'Đọc', value: entry.read, color: const Color(0xFFEF5350)),
+              label: context.tr('Đọc'), value: entry.read, color: const Color(0xFFEF5350)),
         ]),
         if (entry.nextReview != null) ...[
           const SizedBox(height: 4),
           Text(
               entry.isDue
-                  ? '⏰ Cần ôn tập!'
-                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa',
+                  ? 'Content'
+                  : 'Content',
               style: TextStyle(
                   color:
                       entry.isDue ? const Color(0xFFFF5722) : Colors.grey[600],
@@ -2217,7 +2204,7 @@ class _CompactListItem extends StatelessWidget {
         Row(children: [
           _ActionBtn(
               icon: Icons.edit_outlined,
-              label: 'Sửa',
+              label: context.l10n.commonEdit,
               color: const Color(0xFF42A5F5),
               onTap: onEdit),
           const SizedBox(width: 8),
@@ -2230,7 +2217,7 @@ class _CompactListItem extends StatelessWidget {
           const Spacer(),
           _ActionBtn(
               icon: Icons.delete_outline,
-              label: 'Xóa',
+              label: context.l10n.ttsClear,
               color: const Color(0xFFEF5350),
               onTap: () => provider.removeWord(entry.id)),
         ]),
@@ -2311,8 +2298,7 @@ class _AddChip extends StatelessWidget {
             children: [
               Icon(Icons.add, size: 12, color: Colors.grey),
               SizedBox(width: 2),
-              Text('Thêm',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+              Text(context.l10n.commonAdd, style: TextStyle(color: Colors.grey, fontSize: 11)),
             ],
           ),
         ),
@@ -2349,23 +2335,23 @@ class _SmartGroupsSheet extends StatelessWidget {
                   fontSize: 16,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-          _gSection('📊 Trạng thái', [
-            _gItem(Icons.alarm, 'Cần ôn', provider.dueCount,
+          _gSection('Content', [
+            _gItem(Icons.alarm, 'Content', provider.dueCount,
                 const Color(0xFFFF5722), () {}),
-            _gItem(Icons.star, 'Thành thạo', provider.masteredCount,
+            _gItem(Icons.star, 'Content', provider.masteredCount,
                 const Color(0xFFFFD54F), () {}),
             _gItem(
                 Icons.repeat,
-                'Gặp nhiều lần',
+                'Content',
                 provider.frequentlyEncountered.length,
                 const Color(0xFFFFB300),
                 () {}),
-            _gItem(Icons.visibility_off, 'Điểm mù', provider.blindSpots,
+            _gItem(Icons.visibility_off, 'Content', provider.blindSpots,
                 const Color(0xFF616161), () {}),
           ]),
           const SizedBox(height: 16),
           _gSection(
-              '🏷️ Loại',
+              'Content',
               VocabularyType.values
                   .map((t) => _gItem(t.icon, t.label(context),
                           provider.wordsByType[t]?.length ?? 0, t.color, () {
@@ -2376,7 +2362,7 @@ class _SmartGroupsSheet extends StatelessWidget {
           if (provider.allSources.isNotEmpty) ...[
             const SizedBox(height: 16),
             _gSection(
-                '📁 Nguồn',
+                'Content',
                 provider.allSources
                     .take(10)
                     .map((s) => _gItem(
@@ -2392,7 +2378,7 @@ class _SmartGroupsSheet extends StatelessWidget {
           if (provider.wordsByDate.isNotEmpty) ...[
             const SizedBox(height: 16),
             _gSection(
-                '📅 Thời gian',
+                'Content',
                 provider.wordsByDate.entries
                     .take(7)
                     .map((e) => _gItem(
@@ -2482,8 +2468,7 @@ class _SortSheet extends StatelessWidget {
                         color: Colors.grey[700],
                         borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
-            const Text('Sắp xếp',
-                style: TextStyle(
+            const Text(context.l10n.wordListSort, style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
@@ -2572,31 +2557,29 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                         color: Colors.grey[700],
                         borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
-            const Text('Hiển thị',
-                style: TextStyle(
+            const Text(context.l10n.grammarDisplay, style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            _toggle('Từ', Icons.text_fields, _s.showWord,
+            _toggle('Content', Icons.text_fields, _s.showWord,
                 (v) => _update(_s.copyWith(showWord: v))),
-            _toggle('Phiên âm', Icons.record_voice_over_outlined,
+            _toggle('Content', Icons.record_voice_over_outlined,
                 _s.showPhonetic, (v) => _update(_s.copyWith(showPhonetic: v))),
-            _toggle('Số thứ tự', Icons.format_list_numbered, _s.showNumber,
+            _toggle('Content', Icons.format_list_numbered, _s.showNumber,
                 (v) => _update(_s.copyWith(showNumber: v))),
             const Divider(color: Color(0xFF1E2A3A), height: 20),
-            _toggle('Nghĩa ngắn', Icons.short_text, _s.showShortDefinition,
+            _toggle('Content', Icons.short_text, _s.showShortDefinition,
                 (v) => _update(_s.copyWith(showShortDefinition: v))),
             _toggle(
-                'Nghĩa đầy đủ',
+                'Content',
                 Icons.article_outlined,
                 _s.showFullDefinition,
                 (v) => _update(_s.copyWith(showFullDefinition: v))),
-            _toggle('Ví dụ', Icons.format_quote_outlined, _s.showExample,
+            _toggle('Example', Icons.format_quote_outlined, _s.showExample,
                 (v) => _update(_s.copyWith(showExample: v))),
             const Divider(color: Color(0xFF1E2A3A), height: 32),
-            const Text('Đồng bộ dữ liệu',
-                style: TextStyle(
+            const TrText('Đồng bộ dữ liệu', style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.bold)),
@@ -2610,8 +2593,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   context.read<VocabularyProvider>().syncNow(forceAll: true);
                 },
                 icon: const Icon(Icons.sync, size: 18),
-                label: const Text('Đồng bộ ngay bây giờ',
-                    style: TextStyle(fontSize: 13)),
+                label: const TrText('Đồng bộ ngay bây giờ', style: TextStyle(fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF6C63FF),
                   side: const BorderSide(color: Color(0xFF6C63FF), width: 1.2),
@@ -2742,7 +2724,7 @@ class _PlayAllButton extends StatelessWidget {
               Icon(isPlaying ? Icons.stop : Icons.play_arrow,
                   color: Colors.white, size: 16),
               const SizedBox(width: 5),
-              Text(isPlaying ? 'Dừng' : 'Phát tất cả',
+              Text(isPlaying ? 'Content' : 'Content',
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -2778,21 +2760,21 @@ Future<void> _showRepeatCountMenu(
       if (allowInfinite)
         PopupMenuItem<int>(
           value: 0,
-          child: _RepeatMenuItem(label: '∞', subtitle: 'Lặp mãi', selected: current == 0),
+          child: _RepeatMenuItem(label: '∞', subtitle: context.tr('Lặp mãi'), selected: current == 0),
         ),
       for (final value in [1, 2, 3, 4, 5, 7, 10])
         PopupMenuItem<int>(
           value: value,
           child: _RepeatMenuItem(
             label: '$value×',
-            subtitle: value == 1 ? 'Một lần' : '$value lần',
+            subtitle: value == 1 ? 'Content' : 'Content',
             selected: current == value,
           ),
         ),
       const PopupMenuDivider(height: 1),
       const PopupMenuItem<int>(
         value: -1,
-        child: _RepeatMenuItem(label: 'Tùy chỉnh...', subtitle: 'Nhập số khác'),
+        child: _RepeatMenuItem(label: context.tr('Tùy chỉnh...'), subtitle: context.tr('Nhập số khác')),
       ),
     ],
   );
@@ -2804,7 +2786,7 @@ Future<void> _showRepeatCountMenu(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A2235),
-        title: const Text('Nhập số lần lặp', style: TextStyle(color: Colors.white)),
+        title: const TrText('Nhập số lần lặp', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -2819,7 +2801,7 @@ Future<void> _showRepeatCountMenu(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
+            child: const TrText(context.l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {

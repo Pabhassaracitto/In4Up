@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class HebbianInputCard extends StatelessWidget {
   const HebbianInputCard({super.key});
@@ -30,7 +31,7 @@ class HebbianInputCard extends StatelessWidget {
               Expanded(
                 child: _QuickInputButton(
                   icon: Icons.mic,
-                  label: 'Ghi chú nói',
+                  label: context.tr('Ghi chú nói'),
                   color: const Color(0xFFFF4848),
                   onTap: () {
                     // Start STT flow
@@ -41,7 +42,7 @@ class HebbianInputCard extends StatelessWidget {
               Expanded(
                 child: _QuickInputButton(
                   icon: Icons.auto_awesome,
-                  label: 'Gợi ý',
+                  label: context.tr('Gợi ý'),
                   color: const Color(0xFF00D1FF),
                   onTap: () {
                     // Show random word with image

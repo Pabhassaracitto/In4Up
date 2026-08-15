@@ -37,6 +37,7 @@ import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/whisper_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -421,9 +422,7 @@ class _AppLoadingScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Đang khởi động...',
-                  style: TextStyle(
+                TrText('Đang khởi động...', style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 14,
                   ),

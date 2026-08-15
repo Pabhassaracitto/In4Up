@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/storage_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class ShellUiSettingsScreen extends StatefulWidget {
   const ShellUiSettingsScreen({super.key});
@@ -58,9 +59,7 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Tùy chỉnh giao diện shell',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            TrText('Tùy chỉnh giao diện shell', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             Text(
               'Compact mode · Auto-hide · Mode switch',
@@ -73,16 +72,14 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _SectionCard(
-            title: 'Ưu tiên cho người dùng nâng cao',
-            subtitle:
-                'Mặc định app ưu tiên dễ thấy. Các tùy chọn dưới đây giúp tiết kiệm không gian và thao tác nhanh hơn.',
+            title: context.tr('Ưu tiên cho người dùng nâng cao'),
+            subtitle: context.tr('Mặc định app ưu tiên dễ thấy. Các tùy chọn dưới đây giúp tiết kiệm không gian và thao tác nhanh hơn.'),
             child: const SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
           _ToggleCard(
             title: 'Compact mode cho switch mode',
-            subtitle:
-                'Ẩn thanh Nghe | Nói hoặc Đọc | Viết thành dạng gọn. Chạm vào chip mode ở app bar để hiện lại khi cần.',
+            subtitle: context.tr('Ẩn thanh Nghe | Nói hoặc Đọc | Viết thành dạng gọn. Chạm vào chip mode ở app bar để hiện lại khi cần.'),
             value: _compactMode,
             onChanged: _updateCompactMode,
             icon: Icons.compress,
@@ -91,8 +88,7 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           const SizedBox(height: 12),
           _ToggleCard(
             title: 'Auto-hide switch mode',
-            subtitle:
-                'Khi đang ở tab có mode phụ, thanh switch sẽ tự thu gọn sau vài giây và có thể gọi lại bằng chip mode trên app bar.',
+            subtitle: context.tr('Khi đang ở tab có mode phụ, thanh switch sẽ tự thu gọn sau vài giây và có thể gọi lại bằng chip mode trên app bar.'),
             value: _autoHideModeSwitch,
             onChanged: _updateAutoHideModeSwitch,
             icon: Icons.visibility_off_outlined,
@@ -100,9 +96,8 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           ),
           const SizedBox(height: 12),
           _ToggleCard(
-            title: 'Long-press tab chính để vào mode phụ',
-            subtitle:
-                'Giữ tab Nghe để vào Nói, giữ tab Đọc để vào Viết. Chip mode trên app bar vẫn hỗ trợ đổi nhanh khi cần.',
+            title: context.tr('Long-press tab chính để vào mode phụ'),
+            subtitle: context.tr('Giữ tab Nghe để vào Nói, giữ tab Đọc để vào Viết. Chip mode trên app bar vẫn hỗ trợ đổi nhanh khi cần.'),
             value: _longPressModeSwitch,
             onChanged: _updateLongPressModeSwitch,
             icon: Icons.touch_app_outlined,
@@ -110,9 +105,8 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           ),
           const SizedBox(height: 12),
           _ToggleCard(
-            title: 'Nhớ mode phụ gần nhất',
-            subtitle:
-                'Khi quay lại tab Nghe hoặc Đọc, app sẽ mở đúng submode bạn dùng lần cuối thay vì luôn quay về mode chính.',
+            title: context.tr('Nhớ mode phụ gần nhất'),
+            subtitle: context.tr('Khi quay lại tab Nghe hoặc Đọc, app sẽ mở đúng submode bạn dùng lần cuối thay vì luôn quay về mode chính.'),
             value: _rememberLastSubMode,
             onChanged: _updateRememberLastSubMode,
             icon: Icons.history_toggle_off,
@@ -120,11 +114,10 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           ),
           const SizedBox(height: 16),
           const _SectionCard(
-            title: 'Gợi ý sử dụng',
-            subtitle:
-                '• Người mới: tắt compact mode và auto-hide để dễ khám phá.\n'
+            title: context.tr('Gợi ý sử dụng'),
+            subtitle: context.tr('• Người mới: tắt compact mode và auto-hide để dễ khám phá.\n')
                 '• Người dùng quen tay: bật compact mode + nhớ mode gần nhất.\n'
-                '• Muốn thao tác cực nhanh: bật thêm long-press đổi mode.',
+                'Add',
             child: SizedBox.shrink(),
           ),
         ],

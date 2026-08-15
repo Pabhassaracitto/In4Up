@@ -21,26 +21,26 @@ extension TtsPriorityExt on TtsPriority {
   String get label {
     switch (this) {
       case TtsPriority.offlineFirst:
-        return 'Offline trước (nhanh)';
+        return 'Content';
       case TtsPriority.onlineFirst:
-        return 'Online trước (tự nhiên)';
+        return 'Content';
       case TtsPriority.offlineOnly:
-        return 'Chỉ Offline';
+        return 'Content';
       case TtsPriority.onlineOnly:
-        return 'Chỉ Online';
+        return 'Content';
     }
   }
 
   String get description {
     switch (this) {
       case TtsPriority.offlineFirst:
-        return 'Phát ngay bằng giọng máy, tải giọng đẹp nền';
+        return 'Content';
       case TtsPriority.onlineFirst:
-        return 'Chờ tải giọng tự nhiên, chậm hơn 1-2s';
+        return 'Content';
       case TtsPriority.offlineOnly:
-        return 'Không dùng mạng, phát ngay';
+        return 'Content';
       case TtsPriority.onlineOnly:
-        return 'Luôn dùng giọng online, cần mạng';
+        return 'Content';
     }
   }
 

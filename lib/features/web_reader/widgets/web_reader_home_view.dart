@@ -7,6 +7,7 @@ import '../models/web_collection.dart';
 import '../models/web_extraction_candidate.dart';
 import '../web_reader_controller.dart';
 import 'web_extraction_batch_sheet.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 enum _ReadingFeedFilter { all, inProgress, completed, recent, pinned, notes }
 
@@ -98,26 +99,24 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   const SizedBox(height: 18),
                   _buildEmptyState(
                     icon: Icons.search_off_rounded,
-                    title: 'Không thấy kết quả phù hợp',
-                    description:
-                        'Thử từ khoá ngắn hơn, tên miền, hoặc tên bộ sưu tập / link.',
+                    title: context.l10n.webReaderNoResult,
+                    description: context.tr('Thử từ khoá ngắn hơn, tên miền, hoặc tên bộ sưu tập / link.'),
                   ),
                 ] else ...[
                   const SizedBox(height: 24),
                   _SectionHeader(
                     icon: Icons.play_circle_outline,
                     title: hasQuery
-                        ? 'Tiếp tục đọc · ${resumeEntries.length}'
-                        : 'Tiếp tục đọc',
-                    subtitle:
-                        'Nhớ trang mở gần nhất và những bài bạn đang đọc dở theo tiến độ.',
+                        ? 'Continue Read · ${resumeEntries.length}'
+                        : 'Continue Read',
+                    subtitle: context.tr('Nhớ trang mở gần nhất và những bài bạn đang đọc dở theo tiến độ.'),
                   ),
                   const SizedBox(height: 14),
                   if (resumeEntries.isEmpty)
                     _buildCompactEmpty(
                       hasQuery
-                          ? 'Không có trang tiếp tục đọc nào khớp với từ khoá này.'
-                          : 'Khi bạn cuộn đọc trong Web Reader, app sẽ nhớ tiến độ để quay lại đúng chỗ gần nhất.',
+                          ? 'Continue reading'
+                          : 'Back',
                     )
                   else
                     _buildResumeGrid(resumeEntries),
@@ -126,10 +125,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     _SectionHeader(
                       icon: Icons.bookmarks_outlined,
                       title: hasQuery
-                          ? 'Bài đã ghim · ${pinnedArticles.length}'
-                          : 'Bài đã ghim',
-                      subtitle:
-                          'Ghim từng bài cụ thể để giữ những trang quan trọng ngoài collection.',
+                          ? 'Pinned article'
+                          : 'Pinned article',
+                      subtitle: context.tr('Ghim từng bài cụ thể để giữ những trang quan trọng ngoài collection.'),
                     ),
                     const SizedBox(height: 14),
                     _buildArticleGrid(pinnedArticles),
@@ -140,9 +138,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                       icon: Icons.sticky_note_2_outlined,
                       title: hasQuery
                           ? 'Bài có ghi chú · ${notedArticles.length}'
-                          : 'Bài có ghi chú',
-                      subtitle:
-                          'Những bài bạn đã đính kèm ghi chú hoặc lưu trích đoạn khi đọc.',
+                          : 'Note',
+                      subtitle: context.tr('Những bài bạn đã đính kèm ghi chú hoặc lưu trích đoạn khi đọc.'),
                     ),
                     const SizedBox(height: 14),
                     _buildArticleGrid(notedArticles),
@@ -152,10 +149,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     _SectionHeader(
                       icon: Icons.inventory_2_outlined,
                       title: hasQuery
-                          ? 'Batch nháp · ${draftBatches.length}'
-                          : 'Batch nháp',
-                      subtitle:
-                          'Lưu lại batch để mở tiếp sau, chỉnh thêm rồi mới import.',
+                          ? 'Content'
+                          : 'Content',
+                      subtitle: context.tr('Lưu lại batch để mở tiếp sau, chỉnh thêm rồi mới import.'),
                     ),
                     const SizedBox(height: 14),
                     _buildDraftGrid(draftBatches),
@@ -164,9 +160,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     const SizedBox(height: 28),
                     _SectionHeader(
                       icon: Icons.push_pin_outlined,
-                      title: 'Collection đã ghim',
-                      subtitle:
-                          'Các bộ sưu tập quan trọng được kéo lên đầu để mở nhanh.',
+                      title: context.tr('Collection đã ghim'),
+                      subtitle: context.tr('Các bộ sưu tập quan trọng được kéo lên đầu để mở nhanh.'),
                     ),
                     const SizedBox(height: 14),
                     _buildCollectionGrid(pinnedCollections, allowManage: true),
@@ -175,80 +170,76 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   _SectionHeader(
                     icon: Icons.dashboard_customize_outlined,
                     title: hasQuery
-                        ? 'Bộ sưu tập có sẵn · ${presetCollections.length}'
-                        : 'Bộ sưu tập có sẵn',
-                    subtitle:
-                        'Preset của app, luôn giữ lại khi bạn thêm nhóm riêng.',
+                        ? 'Content'
+                        : 'Content',
+                    subtitle: context.tr('Preset của app, luôn giữ lại khi bạn thêm nhóm riêng.'),
                   ),
                   const SizedBox(height: 14),
                   if (presetCollections.isEmpty && hasQuery)
-                    _buildCompactEmpty('Không có preset nào khớp với từ khoá này.')
+                    _buildCompactEmpty('Content')
                   else
                     _buildCollectionGrid(presetCollections, allowManage: false),
                   const SizedBox(height: 28),
                   _SectionHeader(
                     icon: Icons.folder_copy_outlined,
                     title: hasQuery
-                        ? 'Nhóm của tôi · ${userCollections.length}'
-                        : 'Nhóm của tôi',
-                    subtitle: 'Tự tạo nhóm link để gom nguồn học cá nhân.',
+                        ? 'Content'
+                        : 'Content',
+                    subtitle: context.tr('Tự tạo nhóm link để gom nguồn học cá nhân.'),
                     action: TextButton.icon(
                       onPressed: () => _showCollectionEditor(),
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Tạo nhóm'),
+                      label: const TrText(context.l10n.webReaderCreateGroup),
                     ),
                   ),
                   const SizedBox(height: 14),
                   if (widget.controller.userCollections.isEmpty)
                     _buildEmptyState(
                       icon: Icons.folder_open,
-                      title: 'Chưa có nhóm riêng',
-                      description:
-                          'Hãy tạo nhóm đầu tiên như “IELTS Reading”, “Pháp thoại buổi sáng”, hoặc “Nguồn nghiên cứu”.',
+                      title: context.tr('Chưa có nhóm riêng'),
+                      description: context.tr('Hãy tạo nhóm đầu tiên như “IELTS Reading”, “Pháp thoại buổi sáng”, hoặc “Nguồn nghiên cứu”.'),
                       action: FilledButton.icon(
                         onPressed: () => _showCollectionEditor(),
                         icon: const Icon(Icons.add),
-                        label: const Text('Tạo nhóm đầu tiên'),
+                        label: const TrTrText('Tạo nhóm đầu tiên'),
                       ),
                     )
                   else if (userCollections.isEmpty && hasQuery)
-                    _buildCompactEmpty('Không có nhóm riêng nào khớp với từ khoá này.')
+                    _buildCompactEmpty('Content')
                   else
                     _buildCollectionGrid(userCollections, allowManage: true),
                   const SizedBox(height: 28),
                   _SectionHeader(
                     icon: Icons.bookmark_rounded,
                     title: hasQuery
-                        ? 'Đã lưu nhanh · ${bookmarks.length}'
-                        : 'Đã lưu nhanh',
-                    subtitle:
-                        'Bookmark từ khi bạn đang đọc trong Web Reader.',
+                        ? 'Saved nhanh · ${bookmarks.length}'
+                        : 'Saved nhanh',
+                    subtitle: context.tr('Bookmark từ khi bạn đang đọc trong Web Reader.'),
                   ),
                   const SizedBox(height: 14),
                   _buildHistoryBlock(
                     items: bookmarks,
                     emptyIcon: Icons.bookmark_border,
                     emptyTitle: hasQuery
-                        ? 'Không có bookmark khớp tìm kiếm'
-                        : 'Chưa có bookmark',
+                        ? 'Search'
+                        : 'No bookmark',
                     emptyDescription: hasQuery
-                        ? 'Thử tên trang, tên miền, hoặc xoá bộ lọc tìm kiếm.'
-                        : 'Khi đang mở một trang, bấm biểu tượng bookmark trên toolbar để lưu lại.',
+                        ? 'Search'
+                        : 'Save',
                   ),
                   const SizedBox(height: 28),
                   _SectionHeader(
                     icon: Icons.filter_list_rounded,
                     title: hasQuery
                         ? '${_feedFilterLabel(_feedFilter)} · ${statusEntries.length}'
-                        : 'Bộ lọc trạng thái bài đọc',
-                    subtitle:
-                        'Lọc nhanh bài đang đọc dở, mới mở gần đây, đã đọc xong, hoặc bài đã ghim.',
+                        : 'Content',
+                    subtitle: context.tr('Lọc nhanh bài đang đọc dở, mới mở gần đây, đã đọc xong, hoặc bài đã ghim.'),
                     action: widget.controller.history.isEmpty || hasQuery
                         ? null
                         : TextButton.icon(
                             onPressed: _confirmClearHistory,
                             icon: const Icon(Icons.delete_outline, size: 18),
-                            label: const Text('Xoá lịch sử'),
+                            label: const TrTrText('Xoá lịch sử'),
                           ),
                   ),
                   const SizedBox(height: 14),
@@ -258,11 +249,11 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     items: statusEntries,
                     emptyIcon: Icons.history_toggle_off,
                     emptyTitle: hasQuery
-                        ? 'Không có bài nào khớp bộ lọc hiện tại'
-                        : 'Chưa có bài nào trong bộ lọc này',
+                        ? 'Content'
+                        : 'Content',
                     emptyDescription: hasQuery
-                        ? 'Thử tên miền, tiêu đề trang, hoặc đổi bộ lọc trạng thái.'
-                        : 'Hãy mở vài trang và cuộn đọc để hệ thống phân loại bài theo trạng thái.',
+                        ? 'Content'
+                        : 'Please',
                   ),
                 ],
               ],
@@ -321,17 +312,17 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
   String _feedFilterLabel(_ReadingFeedFilter filter) {
     switch (filter) {
       case _ReadingFeedFilter.all:
-        return 'Tất cả bài đọc';
+        return 'Content';
       case _ReadingFeedFilter.inProgress:
-        return 'Đang đọc dở';
+        return 'Content';
       case _ReadingFeedFilter.completed:
-        return 'Đã đọc xong';
+        return 'Done';
       case _ReadingFeedFilter.recent:
-        return 'Mới mở gần đây';
+        return 'Content';
       case _ReadingFeedFilter.pinned:
-        return 'Bài đã ghim';
+        return 'Pinned article';
       case _ReadingFeedFilter.notes:
-        return 'Bài có ghi chú';
+        return 'Note';
     }
   }
 
@@ -395,9 +386,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Đọc tiếp đúng bài, đúng chỗ, đúng tiến độ',
-            style: TextStyle(
+          const TrText('Đọc tiếp đúng bài, đúng chỗ, đúng tiến độ', style: TextStyle(
               color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -405,9 +394,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            'Phase 3 đi sâu vào mạch học thật: nhớ bài vừa mở, theo dõi tiến độ cuộn đọc, và tạo lối quay lại nhanh cho những trang bạn đang đọc dở.',
-            style: TextStyle(
+          TrText('Phase 3 đi sâu vào mạch học thật: nhớ bài vừa mở, theo dõi tiến độ cuộn đọc, và tạo lối quay lại nhanh cho những trang bạn đang đọc dở.', style: TextStyle(
               color: Colors.grey[300],
               fontSize: 13,
               height: 1.55,
@@ -421,12 +408,12 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               FilledButton.icon(
                 onPressed: () => _showCollectionEditor(),
                 icon: const Icon(Icons.create_new_folder_outlined),
-                label: const Text('Tạo nhóm của tôi'),
+                label: const TrText(context.l10n.webReaderCreateMyGroup),
               ),
               OutlinedButton.icon(
                 onPressed: () => _showLinkEditorForQuickCollection(),
                 icon: const Icon(Icons.add_link_outlined),
-                label: const Text('Thêm link vào nhóm'),
+                label: const TrText(context.l10n.webReaderAddLinkToGroup),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: BorderSide(
@@ -447,13 +434,13 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       onChanged: (value) => setState(() => _searchQuery = value),
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: 'Tìm bộ sưu tập, link, bookmark, lịch sử, tên miền...',
+        hintText: context.tr('Tìm bộ sưu tập, link, bookmark, lịch sử, tên miền...'),
         hintStyle: TextStyle(color: Colors.grey[500]),
         prefixIcon: const Icon(Icons.search, color: Colors.white70),
         suffixIcon: _searchQuery.trim().isEmpty
             ? null
             : IconButton(
-                tooltip: 'Xoá tìm kiếm',
+                tooltip: context.tr('Xoá tìm kiếm'),
                 onPressed: () {
                   _searchCtrl.clear();
                   setState(() => _searchQuery = '');
@@ -490,17 +477,17 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
         ? '${_searchQuery.trim().substring(0, 24)}…'
         : _searchQuery.trim();
     final chips = <Widget>[
-      _InfoChip(icon: Icons.play_circle_outline, label: '$resumeCount tiếp tục'),
-      _InfoChip(icon: Icons.bookmarks_outlined, label: '$pinnedArticleCount bài ghim'),
-      _InfoChip(icon: Icons.sticky_note_2_outlined, label: '$noteCount ghi chú'),
-      _InfoChip(icon: Icons.inventory_2_outlined, label: '$draftCount batch nháp'),
+      _InfoChip(icon: Icons.play_circle_outline, label: '$resumeCount Continue'),
+      _InfoChip(icon: Icons.bookmarks_outlined, label: 'Content'),
+      _InfoChip(icon: Icons.sticky_note_2_outlined, label: '$noteCount Note'),
+      _InfoChip(icon: Icons.inventory_2_outlined, label: 'Content'),
       _InfoChip(icon: Icons.push_pin_outlined, label: '$pinnedCount collection ghim'),
       _InfoChip(
           icon: Icons.dashboard_customize_outlined,
           label: '$presetCount preset'),
-      _InfoChip(icon: Icons.folder_copy_outlined, label: '$userCount nhóm riêng'),
+      _InfoChip(icon: Icons.folder_copy_outlined, label: 'Content'),
       _InfoChip(icon: Icons.bookmark_outline, label: '$bookmarkCount bookmark'),
-      _InfoChip(icon: Icons.filter_list_rounded, label: '$statusCount theo bộ lọc'),
+      _InfoChip(icon: Icons.filter_list_rounded, label: 'Content'),
     ];
 
     return Wrap(
@@ -510,7 +497,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
         if (hasQuery)
           _InfoChip(
             icon: Icons.tune,
-            label: 'Đang lọc: “$queryLabel”',
+            label: 'Content',
           ),
         ...chips,
       ],
@@ -627,39 +614,39 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       child: Row(
         children: [
           _FeedChip(
-            label: 'Tất cả',
+            label: context.tr('Tất cả'),
             selected: _feedFilter == _ReadingFeedFilter.all,
             onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.all),
           ),
           const SizedBox(width: 8),
           _FeedChip(
-            label: 'Đang đọc dở',
+            label: context.tr('Đang đọc dở'),
             selected: _feedFilter == _ReadingFeedFilter.inProgress,
             onTap: () =>
                 setState(() => _feedFilter = _ReadingFeedFilter.inProgress),
           ),
           const SizedBox(width: 8),
           _FeedChip(
-            label: 'Đã đọc xong',
+            label: context.tr('Đã đọc xong'),
             selected: _feedFilter == _ReadingFeedFilter.completed,
             onTap: () =>
                 setState(() => _feedFilter = _ReadingFeedFilter.completed),
           ),
           const SizedBox(width: 8),
           _FeedChip(
-            label: 'Mới mở',
+            label: context.tr('Mới mở'),
             selected: _feedFilter == _ReadingFeedFilter.recent,
             onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.recent),
           ),
           const SizedBox(width: 8),
           _FeedChip(
-            label: 'Bài đã ghim',
+            label: context.l10n.webReaderPinnedArticle,
             selected: _feedFilter == _ReadingFeedFilter.pinned,
             onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.pinned),
           ),
           const SizedBox(width: 8),
           _FeedChip(
-            label: 'Có ghi chú',
+            label: context.tr('Có ghi chú'),
             selected: _feedFilter == _ReadingFeedFilter.notes,
             onTap: () => setState(() => _feedFilter = _ReadingFeedFilter.notes),
           ),
@@ -859,7 +846,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: Text(existing == null ? 'Tạo nhóm mới' : 'Sửa nhóm'),
+          title: Text(existing == null ? 'Create group' : 'Edit group'),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -872,21 +859,21 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               children: [
                 _dialogField(
                   controller: titleCtrl,
-                  label: 'Tên nhóm',
-                  hint: 'Ví dụ: IELTS Reading',
+                  label: context.l10n.webReaderGroupName,
+                  hint: context.tr('Ví dụ: IELTS Reading'),
                 ),
                 const SizedBox(height: 12),
                 _dialogField(
                   controller: descCtrl,
-                  label: 'Mô tả',
-                  hint: 'Mục đích của nhóm này',
+                  label: context.l10n.webReaderGroupDesc,
+                  hint: context.tr('Mục đích của nhóm này'),
                   maxLines: 3,
                 ),
                 const SizedBox(height: 12),
                 _dialogField(
                   controller: emojiCtrl,
                   label: 'Emoji',
-                  hint: '📁 hoặc 🪷 hoặc 🇬🇧',
+                  hint: context.tr('📁 hoặc 🪷 hoặc 🇬🇧'),
                 ),
               ],
             ),
@@ -894,19 +881,19 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () {
                 if (titleCtrl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Tên nhóm không được để trống')),
+                    const SnackBar(content: TrTrText('Tên nhóm không được để trống')),
                   );
                   return;
                 }
                 Navigator.pop(dialogContext, true);
               },
-              child: Text(existing == null ? 'Tạo' : 'Lưu'),
+              child: Text(existing == null ? 'Create' : 'Save'),
             ),
           ],
         );
@@ -928,7 +915,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     final collections = widget.controller.userCollections;
     if (collections.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hãy tạo ít nhất 1 nhóm trước đã')),
+        const SnackBar(content: TrTrText('Hãy tạo ít nhất 1 nhóm trước đã')),
       );
       return;
     }
@@ -945,7 +932,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF151B26),
-              title: const Text('Thêm link vào nhóm'),
+              title: const TrText(context.l10n.webReaderAddLinkToGroup),
               titleTextStyle: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -960,7 +947,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                       value: selectedId,
                       dropdownColor: const Color(0xFF151B26),
                       style: const TextStyle(color: Colors.white),
-                      decoration: _inputDecoration('Nhóm đích'),
+                      decoration: _inputDecoration('Content'),
                       items: collections
                           .map(
                             (c) => DropdownMenuItem(
@@ -978,8 +965,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     const SizedBox(height: 12),
                     _dialogField(
                       controller: titleCtrl,
-                      label: 'Tên link',
-                      hint: 'Ví dụ: Bài đọc 01',
+                      label: context.l10n.webReaderLinkName,
+                      hint: context.tr('Ví dụ: Bài đọc 01'),
                     ),
                     const SizedBox(height: 12),
                     _dialogField(
@@ -990,8 +977,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                     const SizedBox(height: 12),
                     _dialogField(
                       controller: noteCtrl,
-                      label: 'Ghi chú',
-                      hint: 'Nếu cần',
+                      label: context.l10n.commonNotes,
+                      hint: context.tr('Nếu cần'),
                       maxLines: 2,
                     ),
                   ],
@@ -1000,19 +987,19 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Huỷ'),
+                  child: const TrTrText('Huỷ'),
                 ),
                 FilledButton(
                   onPressed: () {
                     if (urlCtrl.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Bạn cần nhập URL')),
+                        const SnackBar(content: TrTrText('Bạn cần nhập URL')),
                       );
                       return;
                     }
                     Navigator.pop(dialogContext, true);
                   },
-                  child: const Text('Thêm link'),
+                  child: const TrText(context.l10n.webReaderAddLink),
                 ),
               ],
             );
@@ -1030,7 +1017,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       );
       if (mounted && !added) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Link này đã có trong nhóm rồi')),
+          const SnackBar(content: TrTrText('Link này đã có trong nhóm rồi')),
         );
       }
     }
@@ -1048,7 +1035,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Thêm link vào nhóm'),
+          title: const TrText(context.l10n.webReaderAddLinkToGroup),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -1061,8 +1048,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
               children: [
                 _dialogField(
                   controller: titleCtrl,
-                  label: 'Tên link',
-                  hint: 'Ví dụ: Lesson 12',
+                  label: context.l10n.webReaderLinkName,
+                  hint: context.tr('Ví dụ: Lesson 12'),
                 ),
                 const SizedBox(height: 12),
                 _dialogField(
@@ -1073,8 +1060,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                 const SizedBox(height: 12),
                 _dialogField(
                   controller: noteCtrl,
-                  label: 'Ghi chú',
-                  hint: 'Nếu cần',
+                  label: context.l10n.commonNotes,
+                  hint: context.tr('Nếu cần'),
                   maxLines: 2,
                 ),
               ],
@@ -1083,19 +1070,19 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () {
                 if (urlCtrl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bạn cần nhập URL')),
+                    const SnackBar(content: TrTrText('Bạn cần nhập URL')),
                   );
                   return;
                 }
                 Navigator.pop(dialogContext, true);
               },
-              child: const Text('Thêm'),
+              child: const TrText(context.l10n.commonAdd),
             ),
           ],
         );
@@ -1111,7 +1098,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       );
       if (mounted && !added) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Link này đã có trong nhóm rồi')),
+          const SnackBar(content: TrTrText('Link này đã có trong nhóm rồi')),
         );
       }
     }
@@ -1177,7 +1164,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                           ),
                         ),
                         IconButton(
-                          tooltip: isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                          tooltip: isPinned ? 'Unpin' : 'Pin Collection',
                           onPressed: () async {
                             await widget.controller
                                 .toggleCollectionPin(currentCollection.id);
@@ -1193,7 +1180,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                tooltip: 'Thêm link',
+                                tooltip: context.l10n.webReaderAddLink,
                                 onPressed: () async {
                                   await _showLinkEditor(
                                       collectionId: currentCollection.id);
@@ -1203,7 +1190,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                                     color: Colors.white),
                               ),
                               IconButton(
-                                tooltip: 'Sửa nhóm',
+                                tooltip: context.l10n.webReaderEditGroup,
                                 onPressed: () async {
                                   await _showCollectionEditor(
                                       existing: currentCollection);
@@ -1232,7 +1219,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                               size: 18, color: Colors.blue[200]),
                           const SizedBox(width: 8),
                           Text(
-                            '${currentCollection.linkCount} liên kết',
+                            'Content',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -1241,8 +1228,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                           const Spacer(),
                           Text(
                             currentCollection.isPreset
-                                ? 'Preset của app'
-                                : 'Link do bạn thêm sẽ được lưu lại',
+                                ? 'Content'
+                                : 'Add',
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 12,
@@ -1273,7 +1260,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             setModalState(() {});
                           },
                           icon: const Icon(Icons.playlist_add),
-                          label: const Text('Lưu trang hiện tại vào nhóm này'),
+                          label: const TrTrText('Lưu trang hiện tại vào nhóm này'),
                         ),
                       ),
                     ],
@@ -1282,9 +1269,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                       child: currentCollection.links.isEmpty
                           ? _buildEmptyState(
                               icon: Icons.link_off,
-                              title: 'Nhóm này chưa có liên kết',
-                              description:
-                                  'Thêm URL đầu tiên để dùng nhóm này như lối vào nhanh cho Web Reader.',
+                              title: context.tr('Nhóm này chưa có liên kết'),
+                              description: context.tr('Thêm URL đầu tiên để dùng nhóm này như lối vào nhanh cho Web Reader.'),
                               action: currentCollection.isPreset
                                   ? null
                                   : FilledButton.icon(
@@ -1294,7 +1280,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                                         if (mounted) setModalState(() {});
                                       },
                                       icon: const Icon(Icons.add_link),
-                                      label: const Text('Thêm liên kết'),
+                                      label: const TrTrText('Thêm liên kết'),
                                     ),
                             )
                           : ListView.separated(
@@ -1352,7 +1338,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                                       ? const Icon(Icons.open_in_new,
                                           color: Colors.white54, size: 18)
                                       : IconButton(
-                                          tooltip: 'Xoá link',
+                                          tooltip: context.tr('Xoá link'),
                                           onPressed: () async {
                                             await widget.controller
                                                 .removeLinkFromUserCollection(
@@ -1390,7 +1376,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Xoá nhóm này?'),
+          title: const TrTrText('Xoá nhóm này?'),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -1403,12 +1389,12 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text('Xoá'),
+              child: const TrTrText('Xoá'),
             ),
           ],
         );
@@ -1426,25 +1412,23 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Xoá lịch sử duyệt?'),
+          title: const TrTrText('Xoá lịch sử duyệt?'),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
-          content: Text(
-            'Chỉ xoá lịch sử duyệt Web Reader. Bookmark và các bộ sưu tập của bạn vẫn được giữ nguyên.',
-            style: TextStyle(color: Colors.grey[300], height: 1.5),
+          content: TrText('Chỉ xoá lịch sử duyệt Web Reader. Bookmark và các bộ sưu tập của bạn vẫn được giữ nguyên.', style: TextStyle(color: Colors.grey[300], height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text('Xoá lịch sử'),
+              child: const TrTrText('Xoá lịch sử'),
             ),
           ],
         );
@@ -1466,7 +1450,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Ghi chú bài đọc'),
+          title: const TrText(context.l10n.webReaderReadNotes),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -1491,8 +1475,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                   minLines: 6,
                   style: const TextStyle(color: Colors.white),
                   decoration: _inputDecoration(
-                    'Ghi chú của bạn',
-                    hint: 'Lưu tóm tắt, nhận xét, từ khoá, hoặc trích đoạn quan trọng...',
+                    'Note',
+                    hint: context.tr('Lưu tóm tắt, nhận xét, từ khoá, hoặc trích đoạn quan trọng...'),
                   ),
                 ),
               ],
@@ -1502,15 +1486,15 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
             if (widget.controller.hasArticleNote(entry.url))
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, 'delete'),
-                child: const Text('Xoá ghi chú'),
+                child: const TrTrText('Xoá ghi chú'),
               ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, 'studio'),
-              child: const Text('Mở trong Text Studio'),
+              child: const TrText(context.l10n.webReaderInTextStudio),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, 'save'),
-              child: const Text('Lưu ghi chú'),
+              child: const TrText(context.l10n.webReaderSaveNoteBtn),
             ),
           ],
         );
@@ -1522,7 +1506,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
     if (action == 'delete') {
       await widget.controller.saveArticleNote(entry.url, '', title: entry.title);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã xoá ghi chú bài đọc')),
+        const SnackBar(content: TrTrText('Đã xoá ghi chú bài đọc')),
       );
       return;
     }
@@ -1533,16 +1517,16 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           : noteCtrl.text.trim();
       if (noteText.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bài này chưa có ghi chú để mở')),
+          const SnackBar(content: TrTrText('Bài này chưa có ghi chú để mở')),
         );
         return;
       }
       context.read<TextProvider>().loadFromString(
             noteText,
-            title: 'Ghi chú · ${entry.title.isEmpty ? entry.url : entry.title}',
+            title: 'Note · ${entry.title.isEmpty ? entry.url : entry.title}',
           );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã mở ghi chú trong Text Studio')),
+        const SnackBar(content: TrTrText('Đã mở ghi chú trong Text Studio')),
       );
       return;
     }
@@ -1557,8 +1541,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       SnackBar(
         content: Text(
           noteCtrl.text.trim().isEmpty
-              ? 'Đã xoá ghi chú bài đọc'
-              : 'Đã lưu ghi chú cho bài đọc này',
+              ? 'Note'
+              : 'Note',
         ),
       ),
     );
@@ -1706,7 +1690,7 @@ class _DraftCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Xoá nháp',
+                tooltip: context.tr('Xoá nháp'),
                 visualDensity: VisualDensity.compact,
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline,
@@ -1716,7 +1700,7 @@ class _DraftCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            draft.fromSelection ? 'Nguồn: đoạn đã chọn' : 'Nguồn: cả bài web',
+            draft.fromSelection ? 'Content' : 'Content',
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
           ),
           const SizedBox(height: 10),
@@ -1724,8 +1708,8 @@ class _DraftCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _InfoChip(icon: Icons.inventory_2_outlined, label: '${draft.candidates.length} mục'),
-              _InfoChip(icon: Icons.done_all, label: '$selectedCount đã chọn'),
+              _InfoChip(icon: Icons.inventory_2_outlined, label: 'Content'),
+              _InfoChip(icon: Icons.done_all, label: 'Content'),
               _InfoChip(icon: Icons.verified_outlined, label: '$readyCount ready'),
               _InfoChip(icon: Icons.short_text, label: '$phraseCount phrase'),
             ],
@@ -1733,7 +1717,7 @@ class _DraftCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             draft.candidates.isEmpty
-                ? 'Nháp này chưa có dữ liệu.'
+                ? 'Content'
                 : draft.candidates.first.sampleContext,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -1748,14 +1732,14 @@ class _DraftCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Cập nhật ${_HistoryTile._formatVisitedAt(draft.updatedAt)}',
+                  'Content',
                   style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
                 ),
               ),
               TextButton.icon(
                 onPressed: onOpen,
                 icon: const Icon(Icons.folder_open, size: 18),
-                label: const Text('Mở nháp'),
+                label: const TrTrText('Mở nháp'),
               ),
             ],
           ),
@@ -1817,8 +1801,8 @@ class _ResumeCard extends StatelessWidget {
                       ? Icons.history_toggle_off
                       : (isCompleted ? Icons.check_circle_outline : Icons.menu_book),
                   label: isLastOpened
-                      ? 'Lần mở gần nhất'
-                      : (isCompleted ? 'Đã đọc xong' : 'Đang đọc dở'),
+                      ? 'Content'
+                      : (isCompleted ? 'Done' : 'Content'),
                 ),
                 _InfoChip(
                   icon: Icons.language,
@@ -1827,12 +1811,12 @@ class _ResumeCard extends StatelessWidget {
                 if (isPinned)
                   const _InfoChip(
                     icon: Icons.push_pin,
-                    label: 'Đã ghim',
+                    label: context.tr('Đã ghim'),
                   ),
                 if (hasNote)
                   const _InfoChip(
                     icon: Icons.sticky_note_2_outlined,
-                    label: 'Có ghi chú',
+                    label: context.tr('Có ghi chú'),
                   ),
               ],
             ),
@@ -1900,7 +1884,7 @@ class _ResumeCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    'Tiến độ ~ ${entry.progressPercent}%',
+                    'Content',
                     style: TextStyle(
                       color: Colors.blue[200],
                       fontSize: 12,
@@ -1916,7 +1900,7 @@ class _ResumeCard extends StatelessWidget {
               ),
             ] else ...[
               Text(
-                'Mới mở · ${_HistoryTile._formatVisitedAt(entry.effectiveReadAt)}',
+                'Content',
                 style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
               ),
             ],
@@ -1928,7 +1912,7 @@ class _ResumeCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onTap,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: Text(isCompleted ? 'Mở lại bài' : 'Tiếp tục đọc'),
+                  label: Text(isCompleted ? 'Content' : 'Continue Read'),
                 ),
                 OutlinedButton.icon(
                   onPressed: onTogglePin,
@@ -1936,7 +1920,7 @@ class _ResumeCard extends StatelessWidget {
                     isPinned ? Icons.push_pin : Icons.push_pin_outlined,
                     size: 18,
                   ),
-                  label: Text(isPinned ? 'Bỏ ghim' : 'Ghim bài'),
+                  label: Text(isPinned ? 'Unpin' : 'Content'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white70,
                     side: BorderSide(
@@ -1950,7 +1934,7 @@ class _ResumeCard extends StatelessWidget {
                     isCompleted ? Icons.restart_alt : Icons.check_circle_outline,
                     size: 18,
                   ),
-                  label: Text(isCompleted ? 'Đọc lại' : 'Đọc xong'),
+                  label: Text(isCompleted ? 'Content' : 'Read Done'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: isCompleted
                         ? (Colors.orange[200] ?? Colors.orangeAccent)
@@ -1963,7 +1947,7 @@ class _ResumeCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onEditNote,
                   icon: const Icon(Icons.sticky_note_2_outlined, size: 18),
-                  label: Text(hasNote ? 'Sửa ghi chú' : 'Thêm ghi chú'),
+                  label: Text(hasNote ? 'Edit Note' : 'Add Note'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.blue[100],
                     side: BorderSide(
@@ -2058,7 +2042,7 @@ class _CollectionCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                tooltip: isPinned ? 'Unpin' : 'Pin Collection',
                 visualDensity: VisualDensity.compact,
                 onPressed: onTogglePin,
                 icon: Icon(
@@ -2084,9 +2068,9 @@ class _CollectionCard extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'add', child: Text('Thêm link')),
-                    PopupMenuItem(value: 'edit', child: Text('Sửa nhóm')),
-                    PopupMenuItem(value: 'delete', child: Text('Xoá nhóm')),
+                    PopupMenuItem(value: 'add', child: TrText(context.l10n.webReaderAddLink)),
+                    PopupMenuItem(value: 'edit', child: TrText(context.l10n.webReaderEditGroup)),
+                    PopupMenuItem(value: 'delete', child: TrTrText('Xoá nhóm')),
                   ],
                 ),
             ],
@@ -2102,20 +2086,18 @@ class _CollectionCard extends StatelessWidget {
               ),
               _InfoChip(
                 icon: collection.isPreset ? Icons.lock_outline : Icons.edit,
-                label: collection.isPreset ? 'Preset' : 'Tuỳ biến',
+                label: collection.isPreset ? 'Preset' : 'Content',
               ),
               if (isPinned)
                 const _InfoChip(
                   icon: Icons.push_pin,
-                  label: 'Đã ghim',
+                  label: context.tr('Đã ghim'),
                 ),
             ],
           ),
           const SizedBox(height: 14),
           if (previewLinks.isEmpty)
-            Text(
-              'Chưa có link nào trong nhóm này.',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12.5),
+            TrText('Chưa có link nào trong nhóm này.', style: TextStyle(color: Colors.grey[500], fontSize: 12.5),
             )
           else
             ...previewLinks.map(
@@ -2177,8 +2159,8 @@ class _CollectionCard extends StatelessWidget {
               icon: const Icon(Icons.view_list_rounded, size: 18),
               label: Text(
                 collection.linkCount > previewLinks.length
-                    ? 'Xem tất cả ${collection.linkCount} link'
-                    : 'Mở chi tiết nhóm',
+                    ? 'Content'
+                    : 'Content',
               ),
             ),
           ),
@@ -2349,23 +2331,23 @@ class _HistoryTile extends StatelessWidget {
               runSpacing: 6,
               children: [
                 if (isPinned)
-                  const _InfoChip(icon: Icons.push_pin, label: 'Đã ghim'),
+                  const _InfoChip(icon: Icons.push_pin, label: context.tr('Đã ghim')),
                 if (hasNote)
                   const _InfoChip(
                     icon: Icons.sticky_note_2_outlined,
-                    label: 'Có ghi chú',
+                    label: context.tr('Có ghi chú'),
                   ),
                 if (isCompleted)
                   const _InfoChip(
-                      icon: Icons.check_circle_outline, label: 'Đã xong')
+                      icon: Icons.check_circle_outline, label: context.tr('Đã xong'))
                 else if (showProgress)
                   _InfoChip(
                     icon: Icons.menu_book,
-                    label: 'Đang đọc ${entry.progressPercent}%',
+                    label: 'Content',
                   )
                 else if (isRecent)
                   const _InfoChip(
-                      icon: Icons.history_toggle_off, label: 'Mới mở'),
+                      icon: Icons.history_toggle_off, label: context.tr('Mới mở')),
               ],
             ),
             const SizedBox(height: 4),
@@ -2421,17 +2403,17 @@ class _HistoryTile extends StatelessWidget {
         itemBuilder: (context) => [
           PopupMenuItem(
             value: 'pin',
-            child: Text(isPinned ? 'Bỏ ghim bài này' : 'Ghim bài này'),
+            child: Text(isPinned ? 'Content' : 'Content'),
           ),
           PopupMenuItem(
             value: 'complete',
             child: Text(
-              isCompleted ? 'Đánh dấu chưa đọc xong' : 'Đánh dấu đọc xong',
+              isCompleted ? 'Done' : 'Done',
             ),
           ),
           PopupMenuItem(
             value: 'note',
-            child: Text(hasNote ? 'Sửa ghi chú bài này' : 'Thêm ghi chú bài này'),
+            child: Text(hasNote ? 'Note' : 'Note'),
           ),
         ],
       ),
@@ -2450,10 +2432,10 @@ class _HistoryTile extends StatelessWidget {
   static String _formatVisitedAt(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
-    if (diff.inMinutes < 1) return 'Vừa xong';
-    if (diff.inHours < 1) return '${diff.inMinutes} phút trước';
-    if (diff.inDays < 1) return '${diff.inHours} giờ trước';
-    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
+    if (diff.inMinutes < 1) return 'Done';
+    if (diff.inHours < 1) return 'Content';
+    if (diff.inDays < 1) return 'Content';
+    if (diff.inDays < 7) return 'Content';
     final day = time.day.toString().padLeft(2, '0');
     final month = time.month.toString().padLeft(2, '0');
     return '$day/$month/${time.year}';

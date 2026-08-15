@@ -13,17 +13,17 @@ extension ReviewGradeExtension on ReviewGrade {
   String get label {
     switch (this) {
       case ReviewGrade.forgot:
-        return 'Quên';
+        return 'Content';
       case ReviewGrade.hard:
-        return 'Khó';
+        return 'Content';
       case ReviewGrade.good:
-        return 'Nhớ';
+        return 'Remember';
       case ReviewGrade.easy:
-        return 'Dễ';
+        return 'Content';
       case ReviewGrade.retired:
-        return 'Thuộc lòng'; // ← THÊM
+        return 'Content'; // ← THÊM
       case ReviewGrade.snoozed:
-        return 'Hoãn học'; // ← THÊM
+        return 'Content'; // ← THÊM
     }
   }
 

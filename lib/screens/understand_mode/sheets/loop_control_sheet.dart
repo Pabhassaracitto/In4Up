@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:in4up/providers/player_provider.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 void showLoopControlSheet(BuildContext context, PlayerProvider player) {
   showModalBottomSheet(
@@ -15,9 +16,7 @@ void showLoopControlSheet(BuildContext context, PlayerProvider player) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Điều khiển Loop',
-            style: TextStyle(
+          const TrText('Điều khiển Loop', style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -67,7 +66,7 @@ void showLoopControlSheet(BuildContext context, PlayerProvider player) {
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
                   ),
-                  child: const Text('Xóa Loop'),
+                  child: const TrTrText('Xóa Loop'),
                 ),
               ),
               const SizedBox(width: 12),

@@ -7,6 +7,7 @@ import '../../../services/syntax_highlighter_service.dart';
 import '../../../services/text_library_service.dart';
 import '../models/web_extraction_candidate.dart';
 import '../web_reader_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class WebExtractionBatchSheet extends StatefulWidget {
   final WebReaderController controller;
@@ -242,8 +243,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       SnackBar(
         content: Text(
           facade.hasModel
-              ? '✨ Đã làm giàu ${targets.length} mục bằng AI/local'
-              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic',
+              ? 'Content'
+              : 'Content',
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -265,7 +266,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF151B26),
-              title: const Text('Bulk apply cho mục đã chọn'),
+              title: const TrTrText('Bulk apply cho mục đã chọn'),
               titleTextStyle: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -278,14 +279,14 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   children: [
                     _editorField(
                       controller: topicCtrl,
-                      label: 'Topic áp cho tất cả',
-                      hint: 'Ví dụ: dharma, english_learning, news',
+                      label: context.tr('Topic áp cho tất cả'),
+                      hint: context.tr('Ví dụ: dharma, english_learning, news'),
                     ),
                     const SizedBox(height: 12),
                     _editorField(
                       controller: exampleCtrl,
-                      label: 'Example chung (tuỳ chọn)',
-                      hint: 'Nếu nhập, sẽ áp cho tất cả mục đã chọn',
+                      label: context.tr('Example chung (tuỳ chọn)'),
+                      hint: context.tr('Nếu nhập, sẽ áp cho tất cả mục đã chọn'),
                       maxLines: 3,
                     ),
                     const SizedBox(height: 12),
@@ -295,9 +296,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                         () => useSampleContextIfEmpty = value ?? true,
                       ),
                       activeColor: const Color(0xFF64B5F6),
-                      title: const Text(
-                        'Dùng sample context làm example nếu còn trống',
-                        style: TextStyle(color: Colors.white),
+                      title: const TrText('Dùng sample context làm example nếu còn trống', style: TextStyle(color: Colors.white),
                       ),
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
@@ -308,11 +307,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Huỷ'),
+                  child: const TrTrText('Huỷ'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Áp dụng'),
+                  child: const TrText(context.l10n.commonApply),
                 ),
               ],
             );
@@ -343,7 +342,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🛠️ Đã áp dụng bulk fields cho ${targets.length} mục'),
+        content: Text('Content'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -379,7 +378,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   _editorField(
                     controller: meaningCtrl,
                     label: 'Meaning',
-                    hint: 'Nghĩa / giải thích ngắn',
+                    hint: context.tr('Nghĩa / giải thích ngắn'),
                     maxLines: 2,
                   ),
                   const SizedBox(height: 12),
@@ -398,7 +397,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   _editorField(
                     controller: exampleCtrl,
                     label: 'Example',
-                    hint: 'Câu ví dụ',
+                    hint: context.tr('Câu ví dụ'),
                     maxLines: 4,
                   ),
                 ],
@@ -408,11 +407,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Lưu'),
+              child: const TrText(context.l10n.commonSave),
             ),
           ],
         );
@@ -470,13 +469,13 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
 
   String _candidateStatusText(WebExtractionCandidate candidate) {
     if (candidate.isImportReady) {
-      return 'Sẵn sàng nhập: đã có nghĩa + topic + example';
+      return 'Enter';
     }
     final missing = <String>[];
     if (!candidate.hasMeaning) missing.add('meaning');
     if (!candidate.hasTopic) missing.add('topic');
     if (!candidate.hasExample) missing.add('example');
-    return 'Thiếu: ${missing.join(', ')}';
+    return 'Content', ')}';
   }
 
   Future<void> _saveDraft() async {
@@ -491,7 +490,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     _draftId = draft.id;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('💾 Đã lưu batch nháp'),
+        content: TrTrText('💾 Đã lưu batch nháp'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -528,7 +527,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     final payload = _buildExportPayload(onlySelected: true);
     if (payload.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa có mục nào để export')),
+        const SnackBar(content: TrTrText('Chưa có mục nào để export')),
       );
       return;
     }
@@ -538,7 +537,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
         );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('📝 Đã mở batch trong Text Studio'),
+        content: TrTrText('📝 Đã mở batch trong Text Studio'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -548,7 +547,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     final payload = _buildExportPayload(onlySelected: true);
     if (payload.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chưa có mục nào để lưu')),
+        const SnackBar(content: TrTrText('Chưa có mục nào để lưu')),
       );
       return;
     }
@@ -561,7 +560,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: const Text('Lưu batch sang Text Library'),
+          title: const TrTrText('Lưu batch sang Text Library'),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -574,8 +573,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               children: [
                 _editorField(
                   controller: titleCtrl,
-                  label: 'Tiêu đề',
-                  hint: 'Ví dụ: Web batch bài Dharma 01',
+                  label: context.tr('Tiêu đề'),
+                  hint: context.tr('Ví dụ: Web batch bài Dharma 01'),
                 ),
                 const SizedBox(height: 12),
                 _editorField(
@@ -589,11 +588,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
+              child: const TrTrText('Huỷ'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Lưu'),
+              child: const TrText(context.l10n.commonSave),
             ),
           ],
         );
@@ -614,8 +613,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(entry == null
-            ? 'Không thể lưu sang Text Library (có thể chưa đăng nhập)'
-            : '☁️ Đã lưu batch sang Text Library'),
+            ? 'Cannot'
+            : '☁️ Saved batch sang Text Library'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -632,7 +631,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       SnackBar(
         content: Text(
           result.processedCount == 0
-              ? 'Chưa có mục nào được nhập vào WordList'
+              ? 'Enter'
               : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}, bỏ qua ${result.skippedCount}',
         ),
         backgroundColor: const Color(0xFF1E5F3A),
@@ -665,8 +664,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
             const SizedBox(height: 16),
             Text(
               widget.fromSelection
-                  ? 'Tạo batch WordList từ đoạn chọn'
-                  : 'Tạo batch WordList từ bài này',
+                  ? 'Content'
+                  : 'Content',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -685,14 +684,14 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _MetaChip(label: '${_candidates.length} ứng viên'),
-                _MetaChip(label: 'Mới $_newCount'),
+                _MetaChip(label: 'Content'),
+                _MetaChip(label: 'Content'),
                 _MetaChip(label: 'Phrase $_phraseCount'),
-                _MetaChip(label: 'Ưu tiên $_priorityCount'),
-                _MetaChip(label: 'Đã enrich $_enrichedCount'),
-                _MetaChip(label: 'Sẵn sàng $_readyCount'),
-                _MetaChip(label: 'Đã có $_existingCount'),
-                _MetaChip(label: 'Đã chọn $_selectedCount'),
+                _MetaChip(label: 'Content'),
+                _MetaChip(label: 'Content'),
+                _MetaChip(label: 'Content'),
+                _MetaChip(label: 'Content'),
+                _MetaChip(label: 'Content'),
               ],
             ),
             if (_isEnriching) ...[
@@ -712,7 +711,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               onChanged: (value) => setState(() => _searchQuery = value),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Tìm trong danh sách ứng viên...',
+                hintText: context.tr('Tìm trong danh sách ứng viên...'),
                 hintStyle: TextStyle(color: Colors.grey[500]),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70),
                 suffixIcon: _searchQuery.trim().isEmpty
@@ -744,17 +743,17 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 ChoiceChip(
-                  label: const Text('Chỉ mục mới'),
+                  label: const TrTrText('Chỉ mục mới'),
                   selected: _onlyNew,
                   onSelected: (value) => setState(() => _onlyNew = value),
                 ),
                 ChoiceChip(
-                  label: const Text('Chỉ phrase'),
+                  label: const TrTrText('Chỉ phrase'),
                   selected: _onlyPhrases,
                   onSelected: (value) => setState(() => _onlyPhrases = value),
                 ),
                 ChoiceChip(
-                  label: const Text('Chỉ sẵn sàng'),
+                  label: const TrTrText('Chỉ sẵn sàng'),
                   selected: _onlyReady,
                   onSelected: (value) => setState(() => _onlyReady = value),
                 ),
@@ -772,12 +771,12 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 TextButton.icon(
                   onPressed: () => _setAllVisible(true),
                   icon: const Icon(Icons.done_all, size: 18),
-                  label: const Text('Chọn tất cả'),
+                  label: const TrText(context.l10n.commonSelectAll),
                 ),
                 TextButton.icon(
                   onPressed: () => _setAllVisible(false),
                   icon: const Icon(Icons.remove_done, size: 18),
-                  label: const Text('Bỏ chọn'),
+                  label: const TrText(context.l10n.commonDeselect),
                 ),
                 FilledButton.tonalIcon(
                   onPressed:
@@ -790,8 +789,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                         )
                       : const Icon(Icons.auto_awesome, size: 18),
                   label: Text(_isEnriching
-                      ? 'Đang làm giàu...'
-                      : 'Làm giàu AI/local'),
+                      ? 'Content'
+                      : 'Content'),
                 ),
                 OutlinedButton.icon(
                   onPressed: _selectedCount == 0 ? null : _bulkApplyToSelected,
@@ -801,7 +800,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 OutlinedButton.icon(
                   onPressed: _saveDraft,
                   icon: const Icon(Icons.save_outlined, size: 18),
-                  label: Text(_draftId == null ? 'Lưu nháp' : 'Cập nhật nháp'),
+                  label: Text(_draftId == null ? 'Save' : 'Content'),
                 ),
                 OutlinedButton.icon(
                   onPressed: _selectedCount == 0 ? null : _exportSelectedToTextStudio,
@@ -819,10 +818,10 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
             Expanded(
               child: visible.isEmpty
                   ? _EmptyState(
-                      title: 'Không có ứng viên phù hợp',
+                      title: context.tr('Không có ứng viên phù hợp'),
                       description: _candidates.isEmpty
-                          ? 'Bài/đoạn này chưa đủ dữ liệu để trích từ học tập với bộ lọc hiện tại.'
-                          : 'Thử tắt bộ lọc “Chỉ phrase / Chỉ mục mới”, giảm min length, hoặc đổi sort.',
+                          ? 'Content'
+                          : 'Content',
                     )
                   : ListView.separated(
                       itemCount: visible.length,
@@ -870,7 +869,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                   ),
                                   const SizedBox(width: 2),
                                   IconButton(
-                                    tooltip: 'Sửa mục này',
+                                    tooltip: context.tr('Sửa mục này'),
                                     visualDensity: VisualDensity.compact,
                                     onPressed: () => _editCandidate(candidate),
                                     icon: const Icon(
@@ -888,7 +887,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                 children: [
                                   if (candidate.isPriority)
                                     const _MiniBadge(
-                                      label: 'Ưu tiên',
+                                      label: context.tr('Ưu tiên'),
                                       color: Colors.amber,
                                     ),
                                   if (candidate.isPhrase)
@@ -898,11 +897,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                     ),
                                   if (candidate.appearsInTitle)
                                     const _MiniBadge(
-                                      label: 'Trong tiêu đề',
+                                      label: context.tr('Trong tiêu đề'),
                                       color: Colors.purpleAccent,
                                     ),
                                   _MiniBadge(
-                                    label: candidate.existed ? 'Đã có' : 'Mới',
+                                    label: candidate.existed ? 'Content' : 'Content',
                                     color: candidate.existed
                                         ? Colors.orangeAccent
                                         : Colors.greenAccent,
@@ -914,7 +913,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                     )
                                   else
                                     const _MiniBadge(
-                                      label: 'Thiếu dữ liệu',
+                                      label: context.tr('Thiếu dữ liệu'),
                                       color: Colors.redAccent,
                                     ),
                                   _MiniBadge(
@@ -1011,15 +1010,15 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
             Row(
               children: [
                 FilterChip(
-                  label: const Text('Chỉ nhập mục sẵn sàng'),
+                  label: const TrTrText('Chỉ nhập mục sẵn sàng'),
                   selected: _importReadyOnly,
                   onSelected: (value) => setState(() => _importReadyOnly = value),
                 ),
                 const Spacer(),
                 Text(
                   _importReadyOnly
-                      ? 'Ready đã chọn: $_selectedReadyCount'
-                      : 'Đã chọn: $_selectedCount',
+                      ? 'Content'
+                      : 'Content',
                   style: TextStyle(color: Colors.grey[400], fontSize: 12),
                 ),
               ],
@@ -1037,7 +1036,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Đóng'),
+                    child: const TrText(context.l10n.commonClose),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1053,8 +1052,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                     icon: const Icon(Icons.library_add_check),
                     label: Text(
                       _importReadyOnly
-                          ? 'Nhập $_selectedReadyCount mục sẵn sàng'
-                          : 'Nhập $_selectedCount mục vào WordList',
+                          ? 'Enter'
+                          : 'Enter',
                     ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1168,15 +1167,15 @@ class _SortChip extends StatelessWidget {
       itemBuilder: (context) => const [
         PopupMenuItem(
           value: WebExtractionSort.priority,
-          child: Text('Sort: Quan trọng nhất'),
+          child: TrTrText('Sort: Quan trọng nhất'),
         ),
         PopupMenuItem(
           value: WebExtractionSort.frequency,
-          child: Text('Sort: Tần suất'),
+          child: TrTrText('Sort: Tần suất'),
         ),
         PopupMenuItem(
           value: WebExtractionSort.length,
-          child: Text('Sort: Độ dài'),
+          child: TrTrText('Sort: Độ dài'),
         ),
         PopupMenuItem(
           value: WebExtractionSort.alphabetic,
@@ -1201,11 +1200,11 @@ class _SortChip extends StatelessWidget {
   static String _label(WebExtractionSort sort) {
     switch (sort) {
       case WebExtractionSort.priority:
-        return 'Quan trọng nhất';
+        return 'Content';
       case WebExtractionSort.frequency:
-        return 'Theo tần suất';
+        return 'Content';
       case WebExtractionSort.length:
-        return 'Theo độ dài';
+        return 'Content';
       case WebExtractionSort.alphabetic:
         return 'Theo alphabet';
     }

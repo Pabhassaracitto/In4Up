@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../models/text_segment.dart';
 import '../../../providers/text_provider.dart';
 import 'create_segment_sheet.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class SegmentsListSheet {
   SegmentsListSheet._();
@@ -103,7 +104,7 @@ class _SegmentsListContent extends StatelessWidget {
                     },
                     icon: const Icon(Icons.add_circle_outline),
                     color: const Color(0xFF4CAF50),
-                    tooltip: 'Tạo segment mới',
+                    tooltip: context.tr('Tạo segment mới'),
                   ),
                 ],
               ),
@@ -146,14 +147,10 @@ class _SegmentsListContent extends StatelessWidget {
         children: [
           Icon(Icons.bookmark_border, size: 48, color: Colors.grey[700]),
           const SizedBox(height: 12),
-          Text(
-            'Chưa có segment nào',
-            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+          TrText('Chưa có segment nào', style: TextStyle(color: Colors.grey[500], fontSize: 16),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Long-press một dòng để tạo segment',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          TrText('Long-press một dòng để tạo segment', style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
         ],
       ),
@@ -231,8 +228,7 @@ class _SegmentTile extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Text('Xóa segment?',
-                style: TextStyle(color: Colors.white)),
+            title: const TrText('Xóa segment?', style: TextStyle(color: Colors.white)),
             content: Text(
               'Bạn có muốn xóa "${segment.name}"?',
               style: TextStyle(color: Colors.grey[400]),
@@ -240,14 +236,14 @@ class _SegmentTile extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy'),
+                child: const TrText(context.l10n.commonCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red[400],
                 ),
-                child: const Text('Xóa'),
+                child: const TrText(context.l10n.ttsClear),
               ),
             ],
           ),
@@ -309,7 +305,7 @@ class _SegmentTile extends StatelessWidget {
                             size: 12, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          'Dòng ${segment.startLine + 1} → ${segment.endLine + 1} (${segment.lineCount} dòng)',
+                          'Content',
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,

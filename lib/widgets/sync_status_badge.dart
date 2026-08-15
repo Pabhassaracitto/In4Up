@@ -39,24 +39,24 @@ class SyncStatusBadge extends StatelessWidget {
       case SyncStatus.syncing:
         color = Colors.blue;
         icon = Icons.sync;
-        label = 'Đang đồng bộ...';
+        label = 'Content';
         break;
       case SyncStatus.error:
         color = Colors.red;
         icon = Icons.sync_problem;
-        label = 'Lỗi đồng bộ';
+        label = 'Content';
         break;
       case SyncStatus.success:
         color = Colors.green;
         icon = Icons.cloud_done;
-        label = 'Đã đồng bộ';
+        label = 'Content';
         break;
       case SyncStatus.idle:
       default:
         color = Colors.grey;
         icon = Icons.cloud_queue;
         label =
-            lastSync != null ? 'Đã lưu ${_formatTime(lastSync)}' : 'Sẵn sàng';
+            lastSync != null ? 'Saved ${_formatTime(lastSync)}' : 'Content';
     }
 
     return Container(
@@ -101,9 +101,9 @@ class SyncStatusBadge extends StatelessWidget {
   String _formatTime(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'vừa xong';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}p trước';
-    if (diff.inHours < 24) return '${diff.inHours}h trước';
+    if (diff.inMinutes < 1) return 'Done';
+    if (diff.inMinutes < 60) return 'Content';
+    if (diff.inHours < 24) return 'Content';
     return '${dt.day}/${dt.month}';
   }
 }

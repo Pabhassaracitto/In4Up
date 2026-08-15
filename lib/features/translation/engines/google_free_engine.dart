@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'translation_engine.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class GoogleFreeEngine extends TranslationEngine {
   @override
@@ -133,7 +134,7 @@ class GoogleFreeEngine extends TranslationEngine {
       } else if (response.statusCode == 429) {
         return TranslationResult.failure(
           original: text,
-          error: 'Rate limited (429). Thử lại sau 30s.',
+          error: context.tr('Rate limited (429). Thử lại sau 30s.'),
           engine: name,
         );
       } else {

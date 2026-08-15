@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/memory_stage.dart';
 import '../models/memory_stats.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Thống kê chi tiết vườn trí nhớ
 class MemoryStatsSheet extends StatelessWidget {
@@ -58,9 +59,7 @@ class MemoryStatsSheet extends StatelessWidget {
                     children: [
                       Text('📊', style: TextStyle(fontSize: 24)),
                       SizedBox(width: 8),
-                      Text(
-                        'Thống kê Vườn Nhớ',
-                        style: TextStyle(
+                      TrText('Thống kê Vườn Nhớ', style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -74,14 +73,14 @@ class MemoryStatsSheet extends StatelessWidget {
                   Row(
                     children: [
                       _OverviewCard(
-                        label: 'Tổng từ',
+                        label: context.l10n.memoryTotalWords,
                         value: '${stats.totalItems}',
                         icon: Icons.local_florist,
                         color: const Color(0xFF4CAF50),
                       ),
                       const SizedBox(width: 12),
                       _OverviewCard(
-                        label: 'Cần ôn',
+                        label: context.l10n.wordListDue,
                         value: '${stats.dueToday}',
                         icon: Icons.water_drop,
                         color: const Color(0xFFFF9800),
@@ -92,14 +91,14 @@ class MemoryStatsSheet extends StatelessWidget {
                   Row(
                     children: [
                       _OverviewCard(
-                        label: 'Đã ôn hôm nay',
+                        label: context.tr('Đã ôn hôm nay'),
                         value: '${stats.reviewedToday}',
                         icon: Icons.done_all,
                         color: const Color(0xFF2196F3),
                       ),
                       const SizedBox(width: 12),
                       _OverviewCard(
-                        label: 'Chính xác',
+                        label: context.tr('Chính xác'),
                         value: '${(stats.averageAccuracy * 100).round()}%',
                         icon: Icons.trending_up,
                         color: const Color(0xFF9C27B0),
@@ -110,9 +109,7 @@ class MemoryStatsSheet extends StatelessWidget {
                   const SizedBox(height: 28),
 
                   // ===== STAGE DISTRIBUTION =====
-                  Text(
-                    'Phân bổ giai đoạn',
-                    style: TextStyle(
+                  TrText('Phân bổ giai đoạn', style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -216,9 +213,7 @@ class MemoryStatsSheet extends StatelessWidget {
                               color: Color(0xFF2196F3),
                             ),
                             SizedBox(width: 6),
-                            Text(
-                              'Khoa học trí nhớ',
-                              style: TextStyle(
+                            TrText('Khoa học trí nhớ', style: TextStyle(
                                 color: Color(0xFF2196F3),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -234,7 +229,7 @@ class MemoryStatsSheet extends StatelessWidget {
                           '• 1 tháng sau: quên 79%\n\n'
                           'Ôn tập đúng lúc sắp quên giúp củng cố\n'
                           'kết nối thần kinh, chuyển từ hippocampus\n'
-                          'sang neocortex → nhớ lâu dài.',
+                          'Content',
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,
@@ -319,9 +314,7 @@ class _CompletionCircle extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-          Text(
-            'Tiến độ hôm nay',
-            style: TextStyle(color: Colors.grey[400], fontSize: 13),
+          TrText('Tiến độ hôm nay', style: TextStyle(color: Colors.grey[400], fontSize: 13),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -364,9 +357,7 @@ class _CompletionCircle extends StatelessWidget {
           ),
           if (rate >= 1.0) ...[
             const SizedBox(height: 8),
-            const Text(
-              '🎉 Hoàn thành!',
-              style: TextStyle(color: Color(0xFF4CAF50), fontSize: 13),
+            const TrText('🎉 Hoàn thành!', style: TextStyle(color: Color(0xFF4CAF50), fontSize: 13),
             ),
           ],
         ],

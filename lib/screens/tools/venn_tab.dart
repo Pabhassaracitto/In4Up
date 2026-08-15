@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/word_detail_sheet.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class VennTab extends StatefulWidget {
   const VennTab({super.key});
@@ -59,14 +60,12 @@ class _VennTabState extends State<VennTab> {
         children: [
           Icon(Icons.hub_rounded, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text('Chưa có từ vựng',
-              style: Theme.of(context)
+          Text(context.l10n.wordListEmpty, style: Theme.of(context)
                   .textTheme
                   .titleLarge
                   ?.copyWith(color: Colors.grey)),
           const SizedBox(height: 8),
-          Text('Lưu từ từ tab Read để phân tích',
-              style: TextStyle(color: Colors.grey.shade500)),
+          TrText('Lưu từ từ tab Read để phân tích', style: TextStyle(color: Colors.grey.shade500)),
         ],
       ),
     );
@@ -147,9 +146,7 @@ class _VennTabState extends State<VennTab> {
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Text(
-                      '👆 Tap vùng để xem từ  ·  ↕️ Kéo từ để phân loại',
-                      style: TextStyle(color: Colors.white, fontSize: 11),
+                    child: const TrText('👆 Tap vùng để xem từ  ·  ↕️ Kéo từ để phân loại', style: TextStyle(color: Colors.white, fontSize: 11),
                     ),
                   ),
                 ),
@@ -377,8 +374,7 @@ class _VennTabState extends State<VennTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.visibility_off, color: Colors.white, size: 16),
-              const Text('Điểm mù',
-                  style: TextStyle(color: Colors.white, fontSize: 9)),
+              const Text(context.l10n.wordListBlindSpot, style: TextStyle(color: Colors.white, fontSize: 9)),
               Text('$count',
                   style: const TextStyle(
                       color: Colors.white,
@@ -405,10 +401,9 @@ class _VennTabState extends State<VennTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('📍 Vùng Venn:',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-          Text('• Tap để xem từ', style: TextStyle(fontSize: 9)),
-          Text('• Kéo từ để phân loại', style: TextStyle(fontSize: 9)),
+          TrText('📍 Vùng Venn:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          TrText('• Tap để xem từ', style: TextStyle(fontSize: 9)),
+          TrText('• Kéo từ để phân loại', style: TextStyle(fontSize: 9)),
         ],
       ),
     );
@@ -441,18 +436,18 @@ class _VennTabState extends State<VennTab> {
                       fontWeight: FontWeight.bold, color: _selectedZone!.color),
                 ),
                 const SizedBox(width: 4),
-                Text('(${displayWords.length} từ)',
+                Text('Content',
                     style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () => setState(() => _selectedZone = null),
                   icon: const Icon(Icons.clear, size: 14),
-                  label: const Text('Tất cả', style: TextStyle(fontSize: 12)),
+                  label: const TrText('Tất cả', style: TextStyle(fontSize: 12)),
                 ),
               ] else ...[
                 const Icon(Icons.drag_indicator, size: 16, color: Colors.grey),
                 const SizedBox(width: 6),
-                Text('Tất cả (${displayWords.length} từ)',
+                Text('Content',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 13)),
               ],
@@ -464,8 +459,7 @@ class _VennTabState extends State<VennTab> {
         Expanded(
           child: displayWords.isEmpty
               ? const Center(
-                  child: Text('Không có từ trong vùng này',
-                      style: TextStyle(color: Colors.grey)))
+                  child: TrText('Không có từ trong vùng này', style: TextStyle(color: Colors.grey)))
               : SingleChildScrollView(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

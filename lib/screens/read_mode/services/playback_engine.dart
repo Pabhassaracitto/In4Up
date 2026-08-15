@@ -165,7 +165,7 @@ class PlaybackEngine {
       debugPrint('[PlaybackEngine] error: $error\n$stackTrace');
       onError((
         message:
-            'Không thể phát ${sourceLanguage.nativeName} → ${targetLanguage.nativeName}',
+            'Cannot',
         cause: error,
       ));
     }

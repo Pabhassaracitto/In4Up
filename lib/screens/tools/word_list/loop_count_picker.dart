@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Sheet chọn số lần phát mỗi từ
 /// [allowInfinite]: false = chỉ 1-N (per-word), true = có ∞ (list-level)
@@ -48,16 +49,15 @@ class _LoopCountPickerSheetState extends State<LoopCountPickerSheet> {
                   borderRadius: BorderRadius.circular(2)),
             ),
           ),
-          const Text('Số lần phát',
-              style: TextStyle(
+          const TrText('Số lần phát', style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
             widget.allowInfinite
-                ? 'Từ khó phát nhiều lần  •  ∞ = lặp mãi'
-                : 'Từ khó phát nhiều lần để ghi nhớ',
+                ? 'Content'
+                : 'Content',
             style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
           const SizedBox(height: 20),
@@ -68,7 +68,7 @@ class _LoopCountPickerSheetState extends State<LoopCountPickerSheet> {
               if (widget.allowInfinite) ...[
                 _PresetItem(
                   label: '∞',
-                  sublabel: 'mãi',
+                  sublabel: context.tr('mãi'),
                   value: 0,
                   current: widget.current,
                   color: const Color(0xFFEF5350),
@@ -82,7 +82,7 @@ class _LoopCountPickerSheetState extends State<LoopCountPickerSheet> {
                   padding: EdgeInsets.only(right: i < 4 ? 8 : 0),
                   child: _PresetItem(
                     label: '$v',
-                    sublabel: 'lần',
+                    sublabel: context.tr('lần'),
                     value: v,
                     current: widget.current,
                     color: const Color(0xFFFFB300),
@@ -107,7 +107,7 @@ class _LoopCountPickerSheetState extends State<LoopCountPickerSheet> {
                   size: 15),
               const SizedBox(width: 6),
               Text(
-                  _showCustomInput ? 'Ẩn' : 'Nhập số khác...',
+                  _showCustomInput ? 'Ẩn' : 'Enter',
                   style: TextStyle(color: Colors.grey[500], fontSize: 13)),
             ]),
           ),
@@ -174,7 +174,7 @@ class _LoopCountPickerSheetState extends State<LoopCountPickerSheet> {
     if (value == null || value < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng nhập số hợp lệ'),
+          content: TrTrText('Vui lòng nhập số hợp lệ'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red,
         ),

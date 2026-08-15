@@ -8,6 +8,7 @@ import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
 import '../models/review_session.dart'; // ← SwipeDirection lấy từ đây
+import 'package:in4up/core/language/tr_extension.dart';
 
 // ══════════════════════════════════════════════════════
 //  SWIPE CONTROLLER - Logic timer ngầm
@@ -157,9 +158,7 @@ class _FlashcardPresenterState extends State<FlashcardPresenter> {
               child: const Text('🌺', style: TextStyle(fontSize: 72)),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Hoàn thành!',
-              style: TextStyle(
+            const TrText('Hoàn thành!', style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -168,7 +167,7 @@ class _FlashcardPresenterState extends State<FlashcardPresenter> {
             const SizedBox(height: 12),
             Text(
               'Đã ôn ${stats.reviewedToday} từ\n'
-              'Đúng ${stats.correctToday}/${stats.reviewedToday}',
+              'Content',
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 16,
@@ -208,7 +207,7 @@ class _FlashcardPresenterState extends State<FlashcardPresenter> {
             ElevatedButton.icon(
               onPressed: controller.exitReview,
               icon: const Icon(Icons.park),
-              label: const Text('Về vườn'),
+              label: const TrTrText('Về vườn'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4CAF50),
                 padding: const EdgeInsets.symmetric(
@@ -317,7 +316,7 @@ class _SwipeCardAreaState extends State<_SwipeCardArea>
       HapticFeedback.selectionClick();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('👆 Nhấn lật thẻ trước khi đánh giá'),
+          content: TrTrText('👆 Nhấn lật thẻ trước khi đánh giá'),
           duration: Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
         ),
@@ -417,13 +416,13 @@ class _SwipeOverlay extends StatelessWidget {
   String get _label {
     switch (direction) {
       case SwipeDirection.right:
-        return 'Nhớ được!';
+        return 'Content';
       case SwipeDirection.left:
-        return 'Quên rồi';
+        return 'Content';
       case SwipeDirection.up:
-        return 'Thuộc lòng!';
+        return 'Content';
       case SwipeDirection.down:
-        return 'Hoãn học';
+        return 'Content';
     }
   }
 
@@ -501,7 +500,7 @@ class _DirectionHints extends StatelessWidget {
                 child: _HintArrow(
                   icon: Icons.arrow_back_ios,
                   color: const Color(0xFFF44336),
-                  label: 'Quên',
+                  label: context.tr('Quên'),
                 ),
               ),
             ),
@@ -514,7 +513,7 @@ class _DirectionHints extends StatelessWidget {
                 child: _HintArrow(
                   icon: Icons.arrow_forward_ios,
                   color: const Color(0xFF4CAF50),
-                  label: 'Nhớ',
+                  label: context.l10n.commonRemembering,
                 ),
               ),
             ),
@@ -680,9 +679,7 @@ class _FrontFace extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 32),
-          Text(
-            'Tap để lật',
-            style: TextStyle(color: Colors.grey[700], fontSize: 12),
+          TrText('Tap để lật', style: TextStyle(color: Colors.grey[700], fontSize: 12),
           ),
         ],
       ),
@@ -778,7 +775,7 @@ class _BackFace extends StatelessWidget {
               ],
               const SizedBox(width: 8),
               _MetaBadge(
-                label: '${item.totalReviews}x ôn',
+                label: 'Content',
                 color: Colors.grey,
               ),
             ],
@@ -883,9 +880,7 @@ class _FlipHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Text(
-        '🤔 Cố nhớ nghĩa rồi tap để lật',
-        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+      child: TrText('🤔 Cố nhớ nghĩa rồi tap để lật', style: TextStyle(color: Colors.grey[600], fontSize: 13),
       ),
     );
   }

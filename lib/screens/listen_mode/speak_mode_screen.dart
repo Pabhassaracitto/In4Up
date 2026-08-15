@@ -8,6 +8,7 @@ import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/shadowing_widget.dart';
 import '../../providers/player_provider.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class SpeakModeScreen extends StatelessWidget {
   final VoidCallback onOpenYouGlish;
@@ -49,13 +50,13 @@ class SpeakModeScreen extends StatelessWidget {
                       ),
                       _QuickActionChip(
                         icon: Icons.auto_awesome,
-                        label: 'Công cụ nhanh',
+                        label: context.tr('Công cụ nhanh'),
                         color: const Color(0xFF7C4DFF),
                         onTap: onOpenQuickActions,
                       ),
                       _QuickActionChip(
                         icon: Icons.lightbulb_outline,
-                        label: 'Qua tab Hiểu',
+                        label: context.tr('Qua tab Hiểu'),
                         color: const Color(0xFFFFB300),
                         onTap: onOpenUnderstand,
                       ),
@@ -75,21 +76,21 @@ class SpeakModeScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 20),
                   const _TipCard(
-                    title: 'Luồng luyện nói đề xuất',
+                    title: context.tr('Luồng luyện nói đề xuất'),
                     bullets: [
-                      '1. Chọn audio ở tab Nghe hoặc mở nhanh từ Công cụ nhanh.',
-                      '2. Tạo A-B loop cho câu muốn luyện.',
-                      '3. Chuyển sang tab Nói để shadowing và nghe lại bản ghi.',
-                      '4. Dùng YouGlish để đối chiếu phát âm tự nhiên.',
+                      'Content',
+                      'Content',
+                      'Content',
+                      'Content',
                     ],
                   ),
                   const SizedBox(height: 16),
                   const _TipCard(
-                    title: 'Thiết kế hiện tại',
+                    title: context.tr('Thiết kế hiện tại'),
                     bullets: [
-                      'Nói là không gian thực hành phát âm và lặp lại có chủ đích.',
-                      'Preset nhanh giúp đổi nhịp luyện tập mà không cần chui sâu vào cài đặt.',
-                      'Các chức năng sâu hơn như AI chấm phát âm sẽ tiếp tục gom về đây.',
+                      'Content',
+                      'Content',
+                      'Continue',
                     ],
                   ),
                 ],
@@ -148,18 +149,14 @@ class _HeroCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Nói · Speaking Studio',
-                      style: TextStyle(
+                    TrText('Nói · Speaking Studio', style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     SizedBox(height: 4),
-                    Text(
-                      'Luyện shadowing, phát âm và phản xạ đầu ra.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    TrText('Luyện shadowing, phát âm và phản xạ đầu ra.', style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
@@ -185,9 +182,9 @@ class _HeroCard extends StatelessWidget {
                   child: Text(
                     hasAudio
                         ? (title?.trim().isNotEmpty == true
-                            ? 'Nguồn đang dùng: $title'
-                            : 'Đã có audio, có thể bắt đầu luyện nói.')
-                        : 'Chưa có audio hoạt động. Hãy mở nguồn từ tab Nghe hoặc Công cụ nhanh.',
+                            ? 'Content'
+                            : 'Content')
+                        : 'Please',
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
@@ -221,7 +218,7 @@ class _EmptyAudioCard extends StatelessWidget {
               size: 42, color: Colors.white54),
           const SizedBox(height: 12),
           const Text(
-            'Cần một nguồn audio để bắt đầu luyện nói',
+            'Content',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -231,7 +228,7 @@ class _EmptyAudioCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Bạn có thể mở YouTube, thư viện âm thanh hoặc nguồn gần đây từ nút công cụ nhanh.',
+            'Content',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
@@ -239,7 +236,7 @@ class _EmptyAudioCard extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: onOpenQuickActions,
             icon: const Icon(Icons.auto_awesome),
-            label: const Text('Mở Công cụ nhanh'),
+            label: const TrTrText('Mở Công cụ nhanh'),
           ),
         ],
       ),
@@ -305,7 +302,7 @@ class _SpeakingStatsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _MiniStatCard(
-            label: 'Lượt luyện',
+            label: context.tr('Lượt luyện'),
             value: '${shadowing.totalPracticeCount}',
             color: const Color(0xFFB388FF),
           ),
@@ -313,7 +310,7 @@ class _SpeakingStatsRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _MiniStatCard(
-            label: 'Điểm gần nhất',
+            label: context.tr('Điểm gần nhất'),
             value: lastScore == null ? '--' : '$lastScore%',
             color: const Color(0xFF42A5F5),
           ),
@@ -321,7 +318,7 @@ class _SpeakingStatsRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _MiniStatCard(
-            label: 'Điểm tốt nhất',
+            label: context.tr('Điểm tốt nhất'),
             value: bestScore == null ? '--' : '$bestScore%',
             color: const Color(0xFF66BB6A),
           ),
@@ -352,9 +349,7 @@ class _SpeakingPresetCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text(
-                  'Preset luyện nói nâng cao',
-                  style: TextStyle(
+                child: TrText('Preset luyện nói nâng cao', style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -364,14 +359,12 @@ class _SpeakingPresetCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: () => _showSavePresetDialog(context, shadowing),
                 icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                label: const Text('Lưu preset'),
+                label: const TrTrText('Lưu preset'),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Chọn nhanh preset theo mục tiêu, hoặc lưu cấu hình hiện tại thành preset cá nhân.',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
+          const TrText('Chọn nhanh preset theo mục tiêu, hoặc lưu cấu hình hiện tại thành preset cá nhân.', style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
           const SizedBox(height: 12),
           Container(
@@ -384,9 +377,7 @@ class _SpeakingPresetCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Preset đang dùng',
-                  style: TextStyle(color: Colors.white60, fontSize: 11),
+                const TrText('Preset đang dùng', style: TextStyle(color: Colors.white60, fontSize: 11),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -401,9 +392,7 @@ class _SpeakingPresetCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Preset hệ thống',
-            style: TextStyle(
+          const TrText('Preset hệ thống', style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 13,
@@ -420,9 +409,7 @@ class _SpeakingPresetCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text(
-                  'Preset cá nhân',
-                  style: TextStyle(
+                child: TrText('Preset cá nhân', style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -445,9 +432,7 @@ class _SpeakingPresetCard extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Text(
-                'Chưa có preset cá nhân. Hãy chỉnh repeat/speed theo ý bạn rồi bấm “Lưu preset”.',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+              child: const TrText('Chưa có preset cá nhân. Hãy chỉnh repeat/speed theo ý bạn rồi bấm “Lưu preset”.', style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
             )
           else
@@ -477,23 +462,23 @@ class _SpeakingPresetCard extends StatelessWidget {
     final saved = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Lưu preset cá nhân'),
+        title: const TrTrText('Lưu preset cá nhân'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
               decoration: const InputDecoration(
-                labelText: 'Tên preset',
-                hintText: 'Ví dụ: Fluency sáng',
+                labelText: context.tr('Tên preset'),
+                hintText: context.tr('Ví dụ: Fluency sáng'),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: noteController,
               decoration: const InputDecoration(
-                labelText: 'Ghi chú ngắn',
-                hintText: 'Mục tiêu của preset này',
+                labelText: context.tr('Ghi chú ngắn'),
+                hintText: context.tr('Mục tiêu của preset này'),
               ),
             ),
           ],
@@ -501,7 +486,7 @@ class _SpeakingPresetCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: const TrText(context.l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -513,7 +498,7 @@ class _SpeakingPresetCard extends StatelessWidget {
                 Navigator.pop(context, true);
               }
             },
-            child: const Text('Lưu'),
+            child: const TrText(context.l10n.commonSave),
           ),
         ],
       ),
@@ -524,7 +509,7 @@ class _SpeakingPresetCard extends StatelessWidget {
 
     if (saved == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã lưu preset cá nhân')),
+        const SnackBar(content: TrTrText('Đã lưu preset cá nhân')),
       );
     }
   }
@@ -537,16 +522,16 @@ class _SpeakingPresetCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Xóa preset'),
+        title: const TrTrText('Xóa preset'),
         content: Text('Bạn có chắc muốn xóa preset "${preset.name}" không?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: const TrText(context.l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa'),
+            child: const TrText(context.l10n.ttsClear),
           ),
         ],
       ),
@@ -611,7 +596,7 @@ class _PresetTile extends StatelessWidget {
           const SizedBox(width: 10),
           TextButton(
             onPressed: onApply,
-            child: const Text('Áp dụng'),
+            child: const TrText(context.l10n.commonApply),
           ),
           if (onDelete != null)
             IconButton(
@@ -647,9 +632,7 @@ class _SpeakingHistoryCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text(
-                  'Lịch sử luyện nói',
-                  style: TextStyle(
+                child: TrText('Lịch sử luyện nói', style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -660,15 +643,15 @@ class _SpeakingHistoryCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => _confirmClear(context),
                   icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Xóa'),
+                  label: const TrText(context.l10n.ttsClear),
                 ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             shadowing.savedHistory.isEmpty
-                ? 'Chưa có phiên shadowing nào được lưu. Sau khi luyện xong, kết quả sẽ xuất hiện ở đây.'
-                : 'Xem nhanh các phiên gần đây để theo dõi tiến bộ phát âm và độ bám câu.',
+                ? 'Save'
+                : 'Content',
             style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
           if (shadowing.savedHistory.isNotEmpty) ...[
@@ -686,17 +669,16 @@ class _SpeakingHistoryCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Xóa lịch sử luyện nói'),
-        content: const Text(
-            'Bạn có chắc muốn xóa toàn bộ lịch sử shadowing đã lưu không?'),
+        title: const TrTrText('Xóa lịch sử luyện nói'),
+        content: const TrTrText('Bạn có chắc muốn xóa toàn bộ lịch sử shadowing đã lưu không?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: const TrText(context.l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa'),
+            child: const TrText(context.l10n.ttsClear),
           ),
         ],
       ),
@@ -719,7 +701,7 @@ class _HistoryOverviewRow extends StatelessWidget {
       children: [
         Expanded(
           child: _MiniStatCard(
-            label: 'TB gần đây',
+            label: context.tr('TB gần đây'),
             value: '${shadowing.averageScorePercent.toStringAsFixed(0)}%',
             color: const Color(0xFF7C4DFF),
           ),
@@ -727,7 +709,7 @@ class _HistoryOverviewRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _MiniStatCard(
-            label: 'Preset hiện tại',
+            label: context.tr('Preset hiện tại'),
             value:
                 '${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
             color: const Color(0xFFFFB300),
@@ -803,7 +785,7 @@ class _HistoryTile extends StatelessWidget {
                 entry.recognizedText!.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Bạn nói: ${entry.recognizedText}',
+                'Content',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
@@ -815,9 +797,9 @@ class _HistoryTile extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _metaChip(
-                    '${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                    'Content'),
                 _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
-                _metaChip('Xem chi tiết'),
+                _metaChip('Content'),
               ],
             ),
           ],
@@ -868,9 +850,7 @@ class _HistoryTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'Review phiên luyện nói',
-                          style: TextStyle(
+                        child: TrText('Review phiên luyện nói', style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -891,19 +871,19 @@ class _HistoryTile extends StatelessWidget {
                       _metaChip(
                           '${entry.overallScorePercent}% · ${entry.gradeLabel}'),
                       _metaChip(
-                          '${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                          'Content'),
                       _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
                       _metaChip(_formatTimestamp(entry.timestamp)),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _detailSection('Câu gốc', entry.originalText),
+                  _detailSection('Content', entry.originalText),
                   if (entry.recognizedText != null &&
                       entry.recognizedText!.trim().isNotEmpty)
-                    _detailSection('Câu nhận diện', entry.recognizedText!),
+                    _detailSection('Content', entry.recognizedText!),
                   if ((entry.feedbackMessage ?? '').trim().isNotEmpty)
                     _detailSection(
-                        'Nhận xét tổng quát', entry.feedbackMessage!),
+                        'Content', entry.feedbackMessage!),
                   if (entry.acoustic != null) ...[
                     const SizedBox(height: 14),
                     Text(
@@ -941,9 +921,7 @@ class _HistoryTile extends StatelessWidget {
                   ],
                   if (entry.wordBreakdown.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      'Từng từ / điểm rơi',
-                      style: TextStyle(
+                    TrText('Từng từ / điểm rơi', style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -984,7 +962,7 @@ class _HistoryTile extends StatelessWidget {
                             if (word.phonemeIssues.isNotEmpty) ...[
                               const SizedBox(height: 6),
                               Text(
-                                'Âm cần chú ý: ${word.phonemeIssues.join(', ')}',
+                                'Content', ')}',
                                 style: const TextStyle(
                                     color: Colors.white70, fontSize: 12),
                               ),
@@ -1006,12 +984,12 @@ class _HistoryTile extends StatelessWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     content:
-                                        Text('Đã copy phản hồi vào clipboard')),
+                                        TrTrText('Đã copy phản hồi vào clipboard')),
                               );
                             }
                           },
                           icon: const Icon(Icons.copy_all_outlined),
-                          label: const Text('Copy phản hồi'),
+                          label: const TrTrText('Copy phản hồi'),
                         ),
                       ),
                     ],
@@ -1082,23 +1060,23 @@ class _HistoryTile extends StatelessWidget {
   static String _buildExportText(ShadowingHistoryEntry entry) {
     final buffer = StringBuffer();
     buffer.writeln('in4up · Shadowing Review');
-    buffer.writeln('Thời gian: ${_formatTimestamp(entry.timestamp)}');
-    buffer.writeln('Điểm: ${entry.overallScorePercent}% · ${entry.gradeLabel}');
+    buffer.writeln('Content');
+    buffer.writeln('Content');
     buffer
-        .writeln('Từ đúng: ${entry.correctWordCount}/${entry.totalWordCount}');
+        .writeln('Content');
     buffer.writeln('Tempo: ${(entry.tempoRatio * 100).round()}%');
     buffer.writeln();
-    buffer.writeln('Câu gốc: ${entry.originalText}');
+    buffer.writeln('Content');
     if (entry.recognizedText != null &&
         entry.recognizedText!.trim().isNotEmpty) {
-      buffer.writeln('Câu nhận diện: ${entry.recognizedText}');
+      buffer.writeln('Content');
     }
     if ((entry.feedbackMessage ?? '').trim().isNotEmpty) {
-      buffer.writeln('Nhận xét: ${entry.feedbackMessage}');
+      buffer.writeln('Content');
     }
     if (entry.wordBreakdown.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('Chi tiết từ:');
+      buffer.writeln('Content');
       for (final word in entry.wordBreakdown) {
         buffer.writeln(
             '- ${word.expectedWord} → ${word.recognizedWord ?? '∅'} | ${word.scorePercent}% | ${word.shortStatus}');

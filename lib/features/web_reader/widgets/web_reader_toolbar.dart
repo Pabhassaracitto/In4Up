@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
 import '../web_reader_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class WebReaderToolbar extends StatefulWidget {
   final WebReaderController controller;
@@ -95,7 +96,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 enabled: true,
                 isActive: widget.showingDashboard,
                 onTap: () => widget.onNavigate(''),
-                tooltip: 'Trang chủ Dashboard',
+                tooltip: context.l10n.webReaderDashboard,
               ),
               const SizedBox(width: 2),
               _ToolbarBtn(
@@ -103,7 +104,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 16,
                 enabled: !widget.showingDashboard && ctrl.canGoBack,
                 onTap: () => widget.onNavigate('__back__'),
-                tooltip: 'Trang trước',
+                tooltip: context.l10n.webReaderGoForward,
               ),
               _ToolbarBtn(
                 icon: Icons.arrow_forward_ios,
@@ -155,8 +156,8 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                                 color: Colors.white, fontSize: 12),
                             decoration: InputDecoration(
                               hintText: widget.showingDashboard
-                                  ? 'URL hoặc tìm kiếm để mở nhanh...'
-                                  : 'URL hoặc tìm kiếm...',
+                                  ? 'Search'
+                                  : 'Search',
                               hintStyle: const TextStyle(
                                   color: Colors.grey, fontSize: 12),
                               border: InputBorder.none,
@@ -192,7 +193,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   enabled: true,
                   isActive: ctrl.grammarSettings.enabled,
                   onTap: widget.onOpenGrammarSettings,
-                  tooltip: 'Cài đặt từ loại chuyên sâu',
+                  tooltip: context.tr('Cài đặt từ loại chuyên sâu'),
                   activeThumbColor: const Color(0xFF6C63FF),
                 ),
               _ToolbarBtn(
@@ -200,7 +201,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 18,
                 enabled: pageActionsEnabled,
                 onTap: widget.onExtractText,
-                tooltip: 'Mở trong Text Studio',
+                tooltip: context.l10n.webReaderInTextStudio,
                 activeThumbColor: const Color(0xFF2196F3),
               ),
               _ToolbarBtn(
@@ -208,7 +209,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 18,
                 enabled: pageActionsEnabled,
                 onTap: widget.onSavePageToCollection,
-                tooltip: 'Lưu trang hiện tại vào nhóm',
+                tooltip: context.l10n.webReaderSaveToGroup,
                 activeThumbColor: const Color(0xFF66BB6A),
               ),
               _ToolbarBtn(
@@ -221,7 +222,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 activeThumbColor: Colors.amber,
                 isActive:
                     pageActionsEnabled && ctrl.isBookmarked(ctrl.currentUrl),
-                tooltip: 'Bookmark trang hiện tại',
+                tooltip: context.l10n.webReaderBookmark,
               ),
             ],
           ),

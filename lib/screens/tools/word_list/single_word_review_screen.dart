@@ -10,6 +10,7 @@ import '../../../models/sm2_algorithm.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/skill_triangle.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class SingleWordReviewScreen extends StatefulWidget {
   // ← FIX: bỏ dấu _
@@ -163,7 +164,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
                   ElevatedButton.icon(
                     onPressed: () => setState(() => _showAnswer = true),
                     icon: const Icon(Icons.visibility),
-                    label: const Text('Hiện đáp án'),
+                    label: const TrTrText('Hiện đáp án'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(200, 48),
                       backgroundColor: skillColor.withValues(alpha: 0.15),
@@ -217,9 +218,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Tap để nghe phát âm',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            TrText('Tap để nghe phát âm', style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ],
         );
@@ -236,9 +235,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Bạn có thể phát âm từ này không?',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            TrText('Bạn có thể phát âm từ này không?', style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ],
         );
@@ -304,7 +301,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Đánh giá: ${_skillName(skill)}',
+            'Content',
             style: TextStyle(color: Colors.grey[600], fontSize: 11),
           ),
           const SizedBox(height: 10),
@@ -399,7 +396,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              allGood ? 'Xuất sắc!' : 'Tiếp tục cố gắng!',
+              allGood ? 'Content' : 'Continue',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -471,8 +468,8 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
       };
 
   String _skillName(Skill s) => switch (s) {
-        Skill.understand => 'Hiểu',
+        Skill.understand => 'Understand',
         Skill.listen => 'Nghe',
-        Skill.read => 'Đọc',
+        Skill.read => 'Read',
       };
 }

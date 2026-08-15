@@ -37,20 +37,20 @@ extension GrammarCategoryGroupInfo on GrammarCategoryGroup {
       case GrammarCategoryGroup.symbols:
         return 'Symbols';
       case GrammarCategoryGroup.structural:
-        return 'Khác';
+        return 'Content';
     }
   }
 
   String get helperVi {
     switch (this) {
       case GrammarCategoryGroup.contentWord:
-        return 'Các từ mang nghĩa chính như noun, verb, adjective, adverb.';
+        return 'Content';
       case GrammarCategoryGroup.functionWord:
-        return 'Các từ làm khung ngữ pháp như pronoun, determiner, preposition...';
+        return 'Content';
       case GrammarCategoryGroup.symbols:
-        return 'Dấu câu và ký hiệu giúp chia nhịp câu.';
+        return 'Content';
       case GrammarCategoryGroup.structural:
-        return 'Nhóm dự phòng cho các mục chưa phân loại rõ.';
+        return 'Content';
     }
   }
 
@@ -72,35 +72,35 @@ extension GrammarCategoryInfo on GrammarCategory {
   String get labelVi {
     switch (this) {
       case GrammarCategory.noun:
-        return 'Danh từ';
+        return 'Content';
       case GrammarCategory.verb:
-        return 'Động từ';
+        return 'Content';
       case GrammarCategory.adjective:
-        return 'Tính từ';
+        return 'Content';
       case GrammarCategory.adverb:
-        return 'Trạng từ';
+        return 'Content';
       case GrammarCategory.pronoun:
-        return 'Đại từ';
+        return 'Content';
       case GrammarCategory.determiner:
-        return 'Từ hạn định';
+        return 'Content';
       case GrammarCategory.preposition:
-        return 'Giới từ';
+        return 'Content';
       case GrammarCategory.conjunction:
-        return 'Liên từ';
+        return 'Content';
       case GrammarCategory.auxiliary:
-        return 'Trợ động từ';
+        return 'Content';
       case GrammarCategory.modal:
-        return 'Động từ khuyết thiếu';
+        return 'Content';
       case GrammarCategory.particle:
-        return 'Tiểu từ';
+        return 'Content';
       case GrammarCategory.interjection:
-        return 'Thán từ';
+        return 'Content';
       case GrammarCategory.number:
-        return 'Số';
+        return 'Content';
       case GrammarCategory.punctuation:
-        return 'Dấu câu';
+        return 'Content';
       case GrammarCategory.unknown:
-        return 'Chưa rõ';
+        return 'Content';
     }
   }
 

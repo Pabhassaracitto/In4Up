@@ -125,7 +125,7 @@ mixin TranslationMixin on ChangeNotifier {
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
-          'Ngôn ngữ nguồn và ngôn ngữ đích đang giống nhau.';
+          'Content';
       notifyListeners();
       return;
     }
@@ -167,7 +167,7 @@ mixin TranslationMixin on ChangeNotifier {
     if (source.translationCode == target.translationCode) {
       _translationError =
           '${source.flag} ${source.nativeName} đã là ngôn ngữ đích. '
-          'Hãy chọn một ngôn ngữ khác.';
+          'Please';
       notifyListeners();
       return;
     }
@@ -243,7 +243,7 @@ mixin TranslationMixin on ChangeNotifier {
             consecutiveErrors++;
             if (consecutiveErrors >= 5) {
               _translationError =
-                  'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
+                  'Content';
               break;
             }
           }

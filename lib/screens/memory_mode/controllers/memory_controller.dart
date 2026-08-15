@@ -401,14 +401,14 @@ class MemoryController extends ChangeNotifier {
   /// Debug: thêm từ test
   void addTestWords() {
     final testWords = [
-      {'word': 'hello', 'meaning': 'xin chào'},
-      {'word': 'world', 'meaning': 'thế giới'},
-      {'word': 'beautiful', 'meaning': 'đẹp'},
-      {'word': 'knowledge', 'meaning': 'kiến thức'},
-      {'word': 'remember', 'meaning': 'nhớ'},
-      {'word': 'practice', 'meaning': 'thực hành'},
-      {'word': 'language', 'meaning': 'ngôn ngữ'},
-      {'word': 'science', 'meaning': 'khoa học'},
+      {'word': 'hello', 'meaning': 'Content'},
+      {'word': 'world', 'meaning': 'Content'},
+      {'word': 'beautiful', 'meaning': 'Content'},
+      {'word': 'knowledge', 'meaning': 'Content'},
+      {'word': 'remember', 'meaning': 'Remember'},
+      {'word': 'practice', 'meaning': 'Content'},
+      {'word': 'language', 'meaning': 'Language'},
+      {'word': 'science', 'meaning': 'Content'},
     ];
     importWords(testWords);
   }

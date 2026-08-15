@@ -50,7 +50,7 @@ class TextLibraryEntry {
     final data = doc.data() as Map<String, dynamic>;
     return TextLibraryEntry(
       id: doc.id,
-      title: data['title'] as String? ?? 'Không có tiêu đề',
+      title: data['title'] as String? ?? 'Content',
       content: data['content'] as String? ?? '',
       category: data['category'] as String?,
       wordCount: data['wordCount'] as int? ?? 0,

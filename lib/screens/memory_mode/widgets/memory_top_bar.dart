@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../tools/word_list/word_list_screen.dart';
 import '../controllers/memory_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryTopBar extends StatelessWidget {
   const MemoryTopBar({super.key});
@@ -27,9 +28,7 @@ class MemoryTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text(
-            '🌱 Vườn Nhớ',
-            style: TextStyle(
+          const TrText('🌱 Vườn Nhớ', style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -44,7 +43,7 @@ class MemoryTopBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${stats.dueToday} cần ôn',
+                'Content',
                 style: const TextStyle(
                   color: Color(0xFFFF5252),
                   fontSize: 10,
@@ -114,9 +113,7 @@ class MemoryTopBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Sắp xếp',
-              style: TextStyle(
+            const Text(context.l10n.wordListSort, style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -171,15 +168,15 @@ class MemoryTopBar extends StatelessWidget {
   String _sortLabel(MemorySortMode mode) {
     switch (mode) {
       case MemorySortMode.urgency:
-        return 'Khẩn cấp nhất';
+        return 'Content';
       case MemorySortMode.alphabetical:
         return 'A-Z';
       case MemorySortMode.stage:
-        return 'Theo giai đoạn';
+        return 'Content';
       case MemorySortMode.newest:
-        return 'Mới nhất';
+        return 'Content';
       case MemorySortMode.accuracy:
-        return 'Độ chính xác';
+        return 'Content';
     }
   }
 }

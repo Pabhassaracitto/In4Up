@@ -7,7 +7,7 @@ class VocabContext {
   final String id;
   final String sourceType; // 'pdf', 'web', 'youtube', 'manual', 'clipboard', 'story'
   final String? sourceName; // "ML_101.pdf", "https://...", "YouTube: TED Talk"
-  final String? pageOrPosition; // "trang 42", "02:15", "dòng 3"
+  final String? pageOrPosition; // "trang 42", "02:15", "Content"
   final String? sourceRef; // reopenable ref: path / url / cloud id if available
   final String? sourceRefType; // pdfPath | webUrl | localText | cloudText
   final String surroundingText; // Câu/đoạn văn chứa từ
@@ -81,14 +81,14 @@ class VocabContext {
   String get reopenActionLabel {
     switch (sourceRefType) {
       case 'pdfPath':
-        return 'Mở PDF';
+        return 'Open PDF';
       case 'webUrl':
-        return 'Mở Web';
+        return 'Open Web';
       case 'localText':
       case 'cloudText':
-        return 'Mở vào Đọc';
+        return 'Content';
       default:
-        return 'Mở lại';
+        return 'Content';
     }
   }
 
@@ -117,15 +117,15 @@ class VocabContext {
   String get precisionSummary {
     final parts = <String>[];
     if (pageIndexHint != null) parts.add('trang ${pageIndexHint! + 1}');
-    if (lineIndexHint != null) parts.add('dòng ${lineIndexHint! + 1}');
+    if (lineIndexHint != null) parts.add('Content');
     if (hasTextRangeHint) {
       parts.add('offset $textStartOffset-$textEndOffset');
     }
     if (scrollProgressHint != null) {
-      parts.add('cuộn ${(scrollProgressHint! * 100).round()}%');
+      parts.add('Content');
     }
     if (hasRectHint) {
-      parts.add('tọa độ neo');
+      parts.add('Content');
     }
     final anchor = (anchorText ?? '').trim();
     if (anchor.isNotEmpty) {
@@ -384,7 +384,7 @@ class VocabContext {
         id: 'ctx_${DateTime.now().millisecondsSinceEpoch}',
         sourceType: 'story',
         sourceName: storyTitle,
-        pageOrPosition: 'dòng ${lineIndex + 1}',
+        pageOrPosition: 'Content',
         sourceRef: sourceRef,
         sourceRefType: sourceRefType,
         surroundingText: surroundingText,

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
 import '../pdf_reader_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class PdfToolbar extends StatelessWidget {
   final PdfReaderController controller;
@@ -306,8 +307,7 @@ class _PdfOptionsSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          const Text('Tùy chọn',
-              style: TextStyle(
+          const TrText('Tùy chọn', style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold)),
@@ -315,16 +315,14 @@ class _PdfOptionsSheet extends StatelessWidget {
           const SizedBox(height: 16),
 
           // TTS Language
-          const Text('Giọng đọc',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text(context.l10n.ttsVoice, style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 8),
           _TtsLanguageSelector(controller: controller),
 
           const SizedBox(height: 16),
 
           // TTS Speed
-          const Text('Tốc độ đọc',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text(context.l10n.ttsReadingSpeed, style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 4),
           _TtsSpeedSlider(controller: controller),
 
@@ -333,9 +331,7 @@ class _PdfOptionsSheet extends StatelessWidget {
           if (controller.colorMode == ColorMode.wordType) ...[
             ListTile(
               leading: const Icon(Icons.auto_awesome_motion, color: Color(0xFF6C63FF)),
-              title: const Text(
-                'Từ loại chuyên sâu',
-                style: TextStyle(color: Colors.white),
+              title: const TrText('Từ loại chuyên sâu', style: TextStyle(color: Colors.white),
               ),
               subtitle: Text(
                 controller.activeGrammarPreset.name,
@@ -354,12 +350,10 @@ class _PdfOptionsSheet extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.note_alt_outlined, color: Colors.amber),
             title: Text(
-              '${controller.annotations.length} ghi chú',
+              '${controller.annotations.length} Note',
               style: const TextStyle(color: Colors.white),
             ),
-            subtitle: const Text(
-              'Mở danh sách để xem, sửa hoặc xoá ghi chú đã lưu',
-              style: TextStyle(color: Colors.white54, fontSize: 11),
+            subtitle: const TrText('Mở danh sách để xem, sửa hoặc xoá ghi chú đã lưu', style: TextStyle(color: Colors.white54, fontSize: 11),
             ),
             trailing: controller.annotations.isEmpty
                 ? null
@@ -392,9 +386,9 @@ class _TtsLanguageSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = [
-      ('en-US', '🇺🇸 Tiếng Anh'),
-      ('vi-VN', '🇻🇳 Tiếng Việt'),
-      ('bilingual', '🔀 Song ngữ'),
+      ('en-US', 'Content'),
+      ('vi-VN', 'Content'),
+      ('bilingual', 'Content'),
     ];
 
     return Wrap(

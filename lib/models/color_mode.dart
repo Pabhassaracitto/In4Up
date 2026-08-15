@@ -11,13 +11,13 @@ enum ColorMode {
   String get label {
     switch (this) {
       case ColorMode.none:
-        return 'Không màu';
+        return 'Content';
       case ColorMode.wordType:
-        return 'Loại từ';
+        return 'Content';
       case ColorMode.cefrLevel:
         return 'CEFR';
       case ColorMode.difficulty:
-        return 'Độ khó';
+        return 'Content';
     }
   }
 

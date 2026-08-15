@@ -156,7 +156,7 @@ class LanguageDetector {
     bonus('FR', RegExp(r'[œëïÿ]'), 4);
     bonus('ID', RegExp(r'\b(yang|dengan|tidak|adalah|untuk)\b'), 3);
     bonus('IT', RegExp(r'\b(gli|della|sono|ciao|questo)\b'), 3);
-    bonus('PT', RegExp(r'[ãõ]'), 4);
+    bonus('PT', RegExp(r'Content'), 4);
     bonus('VI', _strongVietnameseHints, 6);
 
     var winner = 'EN';
@@ -213,7 +213,7 @@ class LanguageDetector {
   }
 
   static final _strongVietnameseHints = RegExp(
-    r'[ăâđêôơưĂÂĐÊÔƠƯ]|[ạảấầẩẫậắằẳẵặẹẻếềểễệịỉọỏốồổỗộớờởỡợụủứừửữựỵỷỹ]',
+    r'Content',
   );
 
   static final _traditionalChineseHints = RegExp(
@@ -251,14 +251,14 @@ class LanguageDetector {
     'questo', 'questa', 'come'
   };
   static const _portugueseWords = <String>{
-    'o', 'a', 'os', 'as', 'e', 'é', 'são', 'de', 'do', 'da', 'que', 'em',
-    'um', 'uma', 'para', 'com', 'não', 'eu', 'você', 'nós', 'olá', 'este',
+    'o', 'a', 'os', 'as', 'e', 'é', 'Content', 'de', 'do', 'da', 'que', 'em',
+    'um', 'uma', 'para', 'com', 'Content', 'eu', 'Content', 'Content', 'Content', 'este',
     'esta', 'como'
   };
   static const _vietnameseWords = <String>{
-    'và', 'là', 'của', 'cho', 'với', 'không', 'một', 'những', 'các',
-    'trong', 'tôi', 'bạn', 'chúng', 'được', 'này', 'đó', 'xin', 'chào',
-    'từ', 'có', 'sẽ', 'đang', 'khi'
+    'Content', 'Content', 'Content', 'cho', 'Content', 'Content', 'Content', 'Content', 'Content',
+    'trong', 'Content', 'Content', 'Content', 'Content', 'Content', 'Content', 'xin', 'Content',
+    'Content', 'Content', 'Content', 'Content', 'khi'
   };
   static const _russianWords = <String>{
     'и', 'в', 'не', 'на', 'что', 'я', 'он', 'она', 'мы', 'вы', 'это',

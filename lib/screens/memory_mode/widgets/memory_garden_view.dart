@@ -10,6 +10,7 @@ import '../models/memory_stage.dart';
 import 'memory_card_widget.dart';
 import 'memory_garden_background.dart';
 import 'stage_progress_bar.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryGardenView extends StatelessWidget {
   const MemoryGardenView({super.key});
@@ -149,7 +150,7 @@ class MemoryGardenView extends StatelessWidget {
           Text(
             stage != null
                 ? 'Chưa có từ nào ở giai đoạn "${stage.label}"'
-                : 'Chưa có từ nào',
+                : 'Content',
             style: TextStyle(color: Colors.grey[500]),
           ),
         ],
@@ -178,7 +179,7 @@ class _StageFilterBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         children: [
           _FilterChip(
-            label: 'Tất cả',
+            label: context.tr('Tất cả'),
             emoji: '🌍',
             count: distribution.values.fold(0, (a, b) => a + b),
             isSelected: selectedStage == null,
@@ -294,7 +295,7 @@ class _DueIndicator extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '$dueCount từ cần tưới hôm nay',
+                'Content',
                 style: const TextStyle(
                   color: Color(0xFF4CAF50),
                   fontWeight: FontWeight.w600,
@@ -308,9 +309,7 @@ class _DueIndicator extends StatelessWidget {
                 color: const Color(0xFF4CAF50),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Tưới ngay',
-                style: TextStyle(
+              child: const TrText('Tưới ngay', style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,

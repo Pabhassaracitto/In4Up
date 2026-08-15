@@ -38,9 +38,9 @@ class RecentAudio {
   bool get isInProgress => !isNew && !isCompleted;
 
   String get progressText {
-    if (totalDuration == Duration.zero) return 'Chưa nghe';
-    if (lastPosition == Duration.zero) return 'Mới thêm';
-    if (isCompleted) return 'Đã nghe xong ✓';
+    if (totalDuration == Duration.zero) return 'Content';
+    if (lastPosition == Duration.zero) return 'Add';
+    if (isCompleted) return 'Done';
     return '${_fmt(lastPosition)} / ${_fmt(totalDuration)}';
   }
 

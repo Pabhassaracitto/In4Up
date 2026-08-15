@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/skill_triangle.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class StatsTab extends StatelessWidget {
   const StatsTab({super.key});
@@ -46,16 +47,12 @@ class StatsTab extends StatelessWidget {
         children: [
           Icon(Icons.bar_chart_rounded, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text(
-            'Chưa có từ vựng',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          Text(context.l10n.wordListEmpty, style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.grey,
                 ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Lưu từ từ tab Read để xem thống kê',
-            style: TextStyle(color: Colors.grey.shade500),
+          TrText('Lưu từ từ tab Read để xem thống kê', style: TextStyle(color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -87,9 +84,7 @@ class _ProgressCard extends StatelessWidget {
                       size: 24, color: Color(0xFF6C63FF)),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'Tiến độ tổng thể',
-                  style: Theme.of(context).textTheme.titleMedium,
+                TrText('Tiến độ tổng thể', style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
                 Text(
@@ -115,17 +110,17 @@ class _ProgressCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _stat(context, 'Tổng từ', '${prov.total}', Icons.library_books),
+                _stat(context, 'Content', '${prov.total}', Icons.library_books),
                 _divider(),
-                _stat(context, 'Điểm mù', '${prov.blindSpots}',
+                _stat(context, 'Content', '${prov.blindSpots}',
                     Icons.visibility_off,
                     color: Colors.red),
                 _divider(),
                 _stat(
-                    context, 'Thành thạo', '${prov.masteredCount}', Icons.star,
+                    context, 'Content', '${prov.masteredCount}', Icons.star,
                     color: Colors.amber),
                 _divider(),
-                _stat(context, 'Cần ôn', '${prov.dueCount}', Icons.alarm,
+                _stat(context, 'Content', '${prov.dueCount}', Icons.alarm,
                     color: Colors.orange),
               ],
             ),
@@ -171,8 +166,7 @@ class _SkillBarsCard extends StatelessWidget {
                 const Icon(Icons.account_tree_outlined,
                     size: 20, color: Color(0xFF26C6DA)),
                 const SizedBox(width: 8),
-                Text('Liên kết 3 chiều',
-                    style: Theme.of(context).textTheme.titleMedium),
+                TrText('Liên kết 3 chiều', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 16),
@@ -231,8 +225,7 @@ class _ReviewStatsCard extends StatelessWidget {
                 const Icon(Icons.school_outlined,
                     size: 20, color: Color(0xFFEF5350)),
                 const SizedBox(width: 8),
-                Text('Thống kê ôn tập',
-                    style: Theme.of(context).textTheme.titleMedium),
+                TrText('Thống kê ôn tập', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 14),
@@ -241,7 +234,7 @@ class _ReviewStatsCard extends StatelessWidget {
                 Expanded(
                   child: _reviewStat(
                     context,
-                    label: 'Tổng lượt',
+                    label: context.tr('Tổng lượt'),
                     value: '${prov.totalReviewsAllTime}',
                     icon: Icons.repeat_rounded,
                     color: const Color(0xFF6C63FF),
@@ -250,7 +243,7 @@ class _ReviewStatsCard extends StatelessWidget {
                 Expanded(
                   child: _reviewStat(
                     context,
-                    label: 'Độ chính xác',
+                    label: context.tr('Độ chính xác'),
                     value: '${(prov.avgAccuracy * 100).toInt()}%',
                     icon: Icons.check_circle_outline,
                     color: const Color(0xFF66BB6A),
@@ -259,7 +252,7 @@ class _ReviewStatsCard extends StatelessWidget {
                 Expanded(
                   child: _reviewStat(
                     context,
-                    label: 'Đang học',
+                    label: context.l10n.wordListLearning,
                     value: '${prov.learningWords.length}',
                     icon: Icons.trending_up,
                     color: const Color(0xFFFFA726),
@@ -319,8 +312,7 @@ class _ZoneDistribution extends StatelessWidget {
                 const Icon(Icons.hub_outlined,
                     size: 20, color: Color(0xFF26C6DA)),
                 const SizedBox(width: 8),
-                Text('Phân bổ 8 vùng',
-                    style: Theme.of(context).textTheme.titleMedium),
+                TrText('Phân bổ 8 vùng', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),
@@ -391,10 +383,9 @@ class _AttentionWords extends StatelessWidget {
               children: [
                 const Icon(Icons.warning_amber_rounded, color: Colors.orange),
                 const SizedBox(width: 8),
-                Text('Từ cần luyện nhất',
-                    style: Theme.of(context).textTheme.titleMedium),
+                TrText('Từ cần luyện nhất', style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                Text('${top5.length} từ',
+                Text('Content',
                     style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),

@@ -15,6 +15,7 @@ import '../services/recent_files_service.dart';
 import 'cloud_picker_sheet.dart';
 import 'library_add_sheet.dart';
 import 'recent_file_card.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 // ═══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -154,7 +155,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       // ── Cloud: load trực tiếp từ Firestore ────────────────
       case RecentFileType.cloud:
         if (file.cloudId == null) return;
-        _showLoadingSnack('Đang tải từ Cloud...');
+        _showLoadingSnack('Loading...');
 
         final svc = TextLibraryService();
         final entry = await svc.getById(file.cloudId!);
@@ -338,9 +339,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 Icons.open_in_new,
                 color: Color(0xFF2196F3),
               ),
-              title: const Text(
-                'Mở tài liệu',
-                style: TextStyle(color: Colors.white),
+              title: const TrText('Mở tài liệu', style: TextStyle(color: Colors.white),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -352,9 +351,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 Icons.delete_outline,
                 color: Colors.red,
               ),
-              title: const Text(
-                'Xóa khỏi danh sách',
-                style: TextStyle(color: Colors.red),
+              title: const TrText('Xóa khỏi danh sách', style: TextStyle(color: Colors.red),
               ),
               onTap: () async {
                 Navigator.pop(context);
@@ -408,9 +405,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                   size: 20,
                 ),
                 SizedBox(width: 8),
-                Text(
-                  'Nhập văn bản',
-                  style: TextStyle(
+                TrText('Nhập văn bản', style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -429,8 +424,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 fontSize: 14,
               ),
               decoration: InputDecoration(
-                hintText:
-                    'Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.',
+                hintText: context.tr('Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.'),
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.28),
                   fontSize: 13,
@@ -453,9 +447,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text(
-                      'Hủy',
-                      style: TextStyle(color: Colors.white54),
+                    child: const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.white54),
                     ),
                   ),
                 ),
@@ -481,7 +473,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                           ? (lines.first.length > 45
                               ? '${lines.first.substring(0, 45)}...'
                               : lines.first)
-                          : 'Văn bản mới';
+                          : 'Content';
 
                       final file = RecentFile(
                         id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
@@ -500,9 +492,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                       size: 18,
                       color: Colors.white,
                     ),
-                    label: const Text(
-                      'Xác nhận',
-                      style: TextStyle(
+                    label: const Text(context.l10n.commonConfirm, style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                       ),
@@ -600,9 +590,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           backgroundColor: const Color(0xFF1565C0),
           elevation: 4,
           icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: const Text(
-            'Thêm tài liệu',
-            style: TextStyle(
+          label: const Text(context.l10n.readAddDocument, style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 14,
@@ -635,9 +623,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '📚 Thư viện đọc',
-                  style: TextStyle(
+                const TrText('📚 Thư viện đọc', style: TextStyle(
                     color: Colors.white,
                     fontSize: 21,
                     fontWeight: FontWeight.bold,
@@ -647,10 +633,10 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 const SizedBox(height: 3),
                 Text(
                   _isLoading
-                      ? 'Đang tải...'
+                      ? 'Loading...'
                       : _files.isEmpty
-                          ? 'Chưa có tài liệu nào'
-                          : '${_files.length} tài liệu',
+                          ? 'Content'
+                          : 'Content',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.42),
                     fontSize: 12,
@@ -727,7 +713,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
             tabs: [
               _libraryTab(
                 icon: Icons.history_rounded,
-                label: 'Gần đây',
+                label: context.tr('Gần đây'),
                 compact: compact,
                 trailing: !compact && _files.isNotEmpty ? _TabBadge(count: _files.length) : null,
               ),
@@ -738,7 +724,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
               ),
               _libraryTab(
                 icon: Icons.folder_rounded,
-                label: 'Thiết bị',
+                label: context.tr('Thiết bị'),
                 compact: compact,
               ),
             ],
@@ -781,9 +767,9 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   Widget _buildSearchBar() {
     final hints = [
-      'Tìm file gần đây...', // tab 0
-      'Tìm trong Cloud...', // tab 1
-      'Tìm file trên thiết bị...', // tab 2
+      'Search', // tab 0
+      'Search trong Cloud...', // tab 1
+      'Search', // tab 2
     ];
     final hint = hints[_tabCtrl.index.clamp(0, 2)];
 
@@ -878,7 +864,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           if (inProgress.isNotEmpty) ...[
             _SectionHeader(
               emoji: '📖',
-              title: 'Đang đọc',
+              title: context.l10n.commonReading,
               count: inProgress.length,
             ),
             ...inProgress.map(
@@ -894,7 +880,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           if (newFiles.isNotEmpty) ...[
             _SectionHeader(
               emoji: '🆕',
-              title: 'Chưa đọc',
+              title: context.tr('Chưa đọc'),
               count: newFiles.length,
             ),
             ...newFiles.map(
@@ -910,7 +896,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           if (completed.isNotEmpty) ...[
             _SectionHeader(
               emoji: '✅',
-              title: 'Đã hoàn thành',
+              title: context.tr('Đã hoàn thành'),
               count: completed.length,
             ),
             ...completed.map(
@@ -937,8 +923,8 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     if (!svc.isAvailable) {
       return _buildInfoEmpty(
         icon: Icons.cloud_off_outlined,
-        title: 'Chưa đăng nhập',
-        subtitle: 'Đăng nhập Google để xem thư viện Cloud',
+        title: context.l10n.msgNotLoggedIn,
+        subtitle: context.tr('Đăng nhập Google để xem thư viện Cloud'),
       );
     }
 
@@ -968,8 +954,8 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
         if (all.isEmpty) {
           return _buildInfoEmpty(
             icon: Icons.library_books_outlined,
-            title: 'Cloud trống',
-            subtitle: 'Vuốt trái để mở TextLibraryDrawer\nvà thêm văn bản',
+            title: context.tr('Cloud trống'),
+            subtitle: context.tr('Vuốt trái để mở TextLibraryDrawer\nvà thêm văn bản'),
           );
         }
 
@@ -1052,9 +1038,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Thư viện đang trống',
-              style: TextStyle(
+            const TrText('Thư viện đang trống', style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -1062,7 +1046,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Nhấn "Thêm tài liệu" bên dưới\nhoặc chọn tab Cloud / Thiết bị',
+              'Nhấn "Add" bên dưới\nhoặc chọn tab Cloud / Thiết bị',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.42),
@@ -1074,9 +1058,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
             ElevatedButton.icon(
               onPressed: _showAddSheet,
               icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: const Text(
-                'Thêm tài liệu đầu tiên',
-                style: TextStyle(
+              label: const TrText('Thêm tài liệu đầu tiên', style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -1120,9 +1102,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Thử từ khóa khác',
-            style: TextStyle(
+          TrText('Thử từ khóa khác', style: TextStyle(
               color: Colors.white.withValues(alpha: 0.35),
               fontSize: 12,
             ),
@@ -1247,9 +1227,7 @@ class _DeviceTabState extends State<_DeviceTab> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  'Chọn file từ thiết bị để thêm vào thư viện\nvà tự động mở',
-                  style: TextStyle(
+                child: TrText('Chọn file từ thiết bị để thêm vào thư viện\nvà tự động mở', style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 12,
                     height: 1.5,
@@ -1264,8 +1242,8 @@ class _DeviceTabState extends State<_DeviceTab> {
         // ── Pick PDF ─────────────────────────────────────────
         _DevicePickButton(
           icon: Icons.picture_as_pdf_rounded,
-          label: 'Mở file PDF',
-          subtitle: 'Định dạng .pdf',
+          label: context.tr('Mở file PDF'),
+          subtitle: context.tr('Định dạng .pdf'),
           color: const Color(0xFFEF5350),
           loading: _picking,
           onTap: () => _pickFile(isPdf: true),
@@ -1275,8 +1253,8 @@ class _DeviceTabState extends State<_DeviceTab> {
         // ── Pick Text ─────────────────────────────────────────
         _DevicePickButton(
           icon: Icons.text_snippet_rounded,
-          label: 'Mở file văn bản',
-          subtitle: 'Định dạng .txt · .lrc · .srt',
+          label: context.tr('Mở file văn bản'),
+          subtitle: context.tr('Định dạng .txt · .lrc · .srt'),
           color: const Color(0xFF4CAF50),
           loading: _picking,
           onTap: () => _pickFile(isPdf: false),
@@ -1322,9 +1300,7 @@ class _SwipeableCard extends StatelessWidget {
           children: [
             Icon(Icons.delete_outline, color: Colors.red, size: 20),
             SizedBox(width: 6),
-            Text(
-              'Xóa',
-              style: TextStyle(
+            Text(context.l10n.ttsClear, style: TextStyle(
                 color: Colors.red,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -1431,7 +1407,7 @@ class _CloudEntryTile extends StatelessWidget {
                         const SizedBox(width: 6),
                       ],
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        'Content',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

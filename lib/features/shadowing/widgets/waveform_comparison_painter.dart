@@ -2,6 +2,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Vẽ 2 sóng âm chồng lên nhau để so sánh
 class WaveformComparisonPainter extends CustomPainter {
@@ -199,7 +200,7 @@ class WaveformComparisonPainter extends CustomPainter {
 
     final originalText = TextPainter(
       text: const TextSpan(
-        text: 'Mẫu',
+        text: context.tr('Mẫu'),
         style: TextStyle(color: Colors.white54, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
@@ -219,7 +220,7 @@ class WaveformComparisonPainter extends CustomPainter {
 
     final recordedText = TextPainter(
       text: const TextSpan(
-        text: 'Bạn',
+        text: context.tr('Bạn'),
         style: TextStyle(color: Colors.white70, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,

@@ -16,15 +16,15 @@ extension MemoryStageExtension on MemoryStage {
   String get label {
     switch (this) {
       case MemoryStage.seed:
-        return 'Hột giống';
+        return 'Content';
       case MemoryStage.sprout:
-        return 'Cây non';
+        return 'Content';
       case MemoryStage.tree:
-        return 'Cây lớn';
+        return 'Content';
       case MemoryStage.branch:
-        return 'Nhánh';
+        return 'Content';
       case MemoryStage.bud:
-        return 'Nụ';
+        return 'Content';
       case MemoryStage.bloom:
         return 'Hoa';
     }
@@ -50,17 +50,17 @@ extension MemoryStageExtension on MemoryStage {
   String get description {
     switch (this) {
       case MemoryStage.seed:
-        return 'Vừa học, cần ôn ngay';
+        return 'Content';
       case MemoryStage.sprout:
-        return 'Bắt đầu nhớ, dễ quên';
+        return 'Content';
       case MemoryStage.tree:
-        return 'Đang củng cố';
+        return 'Content';
       case MemoryStage.branch:
-        return 'Mở rộng liên kết';
+        return 'Content';
       case MemoryStage.bud:
-        return 'Gần thuộc';
+        return 'Content';
       case MemoryStage.bloom:
-        return 'Đã thuộc!';
+        return 'Content';
     }
   }
 

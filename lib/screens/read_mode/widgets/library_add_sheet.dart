@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class LibraryAddSheet extends StatelessWidget {
   final VoidCallback onAddManualText;
@@ -72,9 +73,7 @@ class LibraryAddSheet extends StatelessWidget {
               Icon(Icons.add_circle_outline,
                   color: Color(0xFF2196F3), size: 20),
               SizedBox(width: 8),
-              Text(
-                'Thêm tài liệu',
-                style: TextStyle(
+              Text(context.l10n.readAddDocument, style: TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -87,8 +86,8 @@ class LibraryAddSheet extends StatelessWidget {
           // ── Option 1: Nhập tay ──────────────────────────────
           _OptionTile(
             icon: Icons.cloud_download_rounded,
-            label: 'Thư viện Cloud',
-            description: 'Chọn từ văn bản đã lưu', // ← sửa text
+            label: context.tr('Thư viện Cloud'),
+            description: context.tr('Chọn từ văn bản đã lưu'), // ← sửa text
             color: const Color(0xFF2196F3),
             onTap: () {
               Navigator.pop(context);
@@ -100,7 +99,7 @@ class LibraryAddSheet extends StatelessWidget {
           // ── Option 2: File TXT/LRC/SRT ──────────────────────
           _OptionTile(
             icon: Icons.upload_file_rounded,
-            label: 'File từ thiết bị',
+            label: context.tr('File từ thiết bị'),
             description: 'TXT · LRC · SRT',
             color: const Color(0xFF4CAF50),
             onTap: () {
@@ -114,7 +113,7 @@ class LibraryAddSheet extends StatelessWidget {
           _OptionTile(
             icon: Icons.picture_as_pdf_rounded,
             label: 'File PDF',
-            description: 'Sách · Bài giảng · Tài liệu',
+            description: context.tr('Sách · Bài giảng · Tài liệu'),
             color: const Color(0xFFEF5350),
             onTap: () {
               Navigator.pop(context);
@@ -126,8 +125,8 @@ class LibraryAddSheet extends StatelessWidget {
           // ── Option 4: Cloud ──────────────────────────────────
           _OptionTile(
             icon: Icons.cloud_download_rounded,
-            label: 'Thư viện Cloud',
-            description: 'Văn bản đã lưu trên Firebase',
+            label: context.tr('Thư viện Cloud'),
+            description: context.tr('Văn bản đã lưu trên Firebase'),
             color: const Color(0xFF2196F3),
             onTap: () {
               Navigator.pop(context);

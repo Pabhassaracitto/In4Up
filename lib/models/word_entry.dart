@@ -23,21 +23,21 @@ extension MasteryZoneInfo on MasteryZone {
   String get label {
     switch (this) {
       case MasteryZone.blindSpot:
-        return 'Điểm mù';
+        return 'Content';
       case MasteryZone.understandOnly:
-        return 'Chỉ Hiểu';
+        return 'Content';
       case MasteryZone.listenOnly:
-        return 'Chỉ Nghe';
+        return 'Content';
       case MasteryZone.readOnly:
-        return 'Chỉ Đọc';
+        return 'Content';
       case MasteryZone.understandListen:
-        return 'Hiểu + Nghe';
+        return 'Understand + Listen';
       case MasteryZone.understandRead:
-        return 'Hiểu + Đọc';
+        return 'Understand + Read';
       case MasteryZone.listenRead:
-        return 'Nghe + Đọc';
+        return 'Listen + Read';
       case MasteryZone.mastered:
-        return 'Thành thạo';
+        return 'Content';
     }
   }
 
@@ -86,21 +86,21 @@ extension MasteryZoneInfo on MasteryZone {
   String get tip {
     switch (this) {
       case MasteryZone.blindSpot:
-        return 'Cần học cả 3 chiều: hiểu, nghe, đọc';
+        return 'Content';
       case MasteryZone.understandOnly:
-        return 'Biết nghĩa nhưng chưa nghe/đọc được';
+        return 'Content';
       case MasteryZone.listenOnly:
-        return 'Nghe được nhưng chưa hiểu nghĩa/đọc được';
+        return 'Content';
       case MasteryZone.readOnly:
-        return 'Đọc được nhưng chưa hiểu nghĩa/nghe được';
+        return 'Content';
       case MasteryZone.understandListen:
-        return 'Cần luyện ĐỌC thêm';
+        return 'Add';
       case MasteryZone.understandRead:
-        return 'Cần luyện NGHE thêm';
+        return 'Add';
       case MasteryZone.listenRead:
-        return 'Cần luyện HIỂU NGHĨA thêm';
+        return 'Add';
       case MasteryZone.mastered:
-        return 'Tuyệt vời! Đã thông thạo cả 3 chiều';
+        return 'Content';
     }
   }
 }

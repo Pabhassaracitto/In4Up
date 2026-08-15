@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/auto_hide_banner.dart';
 import 'memory_tab_connector.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class RememberWorkspaceScreen extends StatelessWidget {
   final VoidCallback onOpenReview;
@@ -103,18 +104,14 @@ class _RememberWorkspaceHeader extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Nhớ · Retention Workspace',
-                            style: TextStyle(
+                          const TrText('Nhớ · Retention Workspace', style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
                               fontSize: 15,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'Tập trung vào ôn tập, duy trì ký ức dài hạn và nhìn lại tiến độ từ vựng.',
-                            style: TextStyle(
+                          const TrText('Tập trung vào ôn tập, duy trì ký ức dài hạn và nhìn lại tiến độ từ vựng.', style: TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
                               height: 1.4,
@@ -129,13 +126,13 @@ class _RememberWorkspaceHeader extends StatelessWidget {
                       children: [
                         _StatPill(
                           value: '${vocab.dueCount}',
-                          label: 'Đến hạn',
+                          label: context.l10n.memoryDue,
                           color: const Color(0xFF81C784),
                         ),
                         const SizedBox(height: 8),
                         _StatPill(
                           value: '${vocab.wordCount}',
-                          label: 'Tổng từ',
+                          label: context.l10n.memoryTotalWords,
                           color: const Color(0xFFA5D6A7),
                         ),
                       ],
@@ -150,7 +147,7 @@ class _RememberWorkspaceHeader extends StatelessWidget {
                   children: [
                     _WorkspaceChip(
                       icon: Icons.school,
-                      label: 'Ôn tập',
+                      label: context.l10n.commonReview,
                       color: const Color(0xFF66BB6A),
                       onTap: onOpenReview,
                     ),
@@ -171,7 +168,7 @@ class _RememberWorkspaceHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     _WorkspaceChip(
                       icon: Icons.bar_chart_rounded,
-                      label: 'Thống kê',
+                      label: context.tr('Thống kê'),
                       color: const Color(0xFF42A5F5),
                       onTap: onOpenStats,
                     ),
@@ -185,7 +182,7 @@ class _RememberWorkspaceHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     _WorkspaceChip(
                       icon: Icons.auto_awesome,
-                      label: 'Công cụ nhanh',
+                      label: context.tr('Công cụ nhanh'),
                       color: const Color(0xFF81C784),
                       onTap: onOpenQuickActions,
                     ),

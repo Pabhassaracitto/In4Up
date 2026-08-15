@@ -12,6 +12,7 @@ import '../../../providers/text_provider.dart';
 import '../../../services/text_library_service.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class CloudPickerSheet extends StatefulWidget {
   const CloudPickerSheet({super.key});
@@ -132,17 +133,13 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Thư viện Cloud',
-                  style: TextStyle(
+                TrText('Thư viện Cloud', style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  'Chọn văn bản để đọc',
-                  style: TextStyle(
+                TrText('Chọn văn bản để đọc', style: TextStyle(
                     color: Colors.white54,
                     fontSize: 11,
                   ),
@@ -187,7 +184,7 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
           controller: _searchCtrl,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Tìm theo tiêu đề, chủ đề...',
+            hintText: context.tr('Tìm theo tiêu đề, chủ đề...'),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -225,8 +222,8 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
     if (!_svc.isAvailable) {
       return _buildEmpty(
         icon: Icons.cloud_off_outlined,
-        title: 'Chưa đăng nhập',
-        subtitle: 'Đăng nhập Google để dùng thư viện Cloud',
+        title: context.l10n.msgNotLoggedIn,
+        subtitle: context.tr('Đăng nhập Google để dùng thư viện Cloud'),
       );
     }
 
@@ -254,15 +251,15 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
         if (all.isEmpty) {
           return _buildEmpty(
             icon: Icons.library_books_outlined,
-            title: 'Thư viện Cloud trống',
-            subtitle: 'Thêm văn bản từ tab Đọc → Thư viện',
+            title: context.tr('Thư viện Cloud trống'),
+            subtitle: context.tr('Thêm văn bản từ tab Đọc → Thư viện'),
           );
         }
 
         if (items.isEmpty) {
           return _buildEmpty(
             icon: Icons.search_off,
-            title: 'Không tìm thấy',
+            title: context.tr('Không tìm thấy'),
             subtitle: '"$_search"',
           );
         }
@@ -405,7 +402,7 @@ class _CloudEntryTile extends StatelessWidget {
                       ],
                       // Stats
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        'Content',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

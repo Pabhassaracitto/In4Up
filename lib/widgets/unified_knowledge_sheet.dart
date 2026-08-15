@@ -11,6 +11,7 @@ import '../providers/vocabulary_provider.dart';
 import '../screens/read_mode/models/recent_file.dart';
 import '../screens/read_mode/read_mode_screen.dart';
 import '../services/text_library_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class UnifiedKnowledgeSheet extends StatefulWidget {
   final WordEntry word;
@@ -160,13 +161,13 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     _chip(word.userDifficulty!.label, word.userDifficulty!.color),
                   if (word.hasAnyDue)
                     const _StatusChip(
-                      label: 'Đến kỳ ôn',
+                      label: context.tr('Đến kỳ ôn'),
                       color: Colors.redAccent,
                       icon: Icons.notifications_active_outlined,
                     ),
                   if ((word.personalNotes ?? '').trim().isNotEmpty)
                     const _StatusChip(
-                      label: 'Có ghi chú',
+                      label: context.tr('Có ghi chú'),
                       color: Colors.amber,
                       icon: Icons.sticky_note_2_outlined,
                     ),
@@ -191,10 +192,10 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(icon: Icons.lightbulb_outline, title: 'Tri thức hiện tại'),
+          const _SectionTitle(icon: Icons.lightbulb_outline, title: context.tr('Tri thức hiện tại')),
           const SizedBox(height: 10),
           Text(
-            word.meaning.trim().isEmpty ? 'Chưa có nghĩa chi tiết' : word.meaning,
+            word.meaning.trim().isEmpty ? 'Content' : word.meaning,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
@@ -205,7 +206,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           if ((word.example ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              'Ví dụ: ${word.example!.trim()}',
+              'Example: ${word.example!.trim()}',
               style: TextStyle(
                 color: Colors.grey[300],
                 height: 1.45,
@@ -230,7 +231,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(icon: Icons.flag_outlined, title: 'Độ khó dùng chung toàn hệ'),
+          const _SectionTitle(icon: Icons.flag_outlined, title: context.tr('Độ khó dùng chung toàn hệ')),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -280,15 +281,15 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(icon: Icons.insights_outlined, title: 'Tín hiệu ghi nhớ'),
+          const _SectionTitle(icon: Icons.insights_outlined, title: context.tr('Tín hiệu ghi nhớ')),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _metric('Lần gặp', '${word.encounterCount}'),
-              _metric('Nguồn', '${word.sourceFiles.length}'),
-              _metric('Đúng', '${(word.accuracy * 100).round()}%'),
+              _metric('Content', '${word.encounterCount}'),
+              _metric('Content', '${word.sourceFiles.length}'),
+              _metric('Content', '${(word.accuracy * 100).round()}%'),
               _metric('Ôn', '${word.totalReviews}'),
               _metric('Mastery', '${(word.mastery * 100).round()}%'),
             ],
@@ -297,8 +298,8 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
             const SizedBox(height: 10),
             Text(
               word.hasAnyDue
-                  ? 'Cần ôn lại ngay'
-                  : 'Ôn tiếp sau ${word.daysUntilDue} ngày',
+                  ? 'Content'
+                  : 'Content',
               style: TextStyle(
                 color: word.hasAnyDue ? Colors.redAccent : Colors.grey[300],
                 fontWeight: FontWeight.w600,
@@ -324,14 +325,14 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         children: [
           const _SectionTitle(
             icon: Icons.bolt_outlined,
-            title: 'Ôn nhanh 3 chiều',
+            title: context.tr('Ôn nhanh 3 chiều'),
           ),
           const SizedBox(height: 10),
           _quickSkillRow(
             provider,
             word,
             Skill.understand,
-            'Hiểu',
+            'Understand',
             const Color(0xFF42A5F5),
             word.understand,
           ),
@@ -349,7 +350,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
             provider,
             word,
             Skill.read,
-            'Đọc',
+            'Read',
             const Color(0xFFEF5350),
             word.read,
           ),
@@ -412,12 +413,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: '$label chưa chắc',
+            tooltip: 'Content',
             onPressed: () => provider.quickAnswerWord(word.id, skill, false),
             icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
           ),
           IconButton(
-            tooltip: '$label ổn',
+            tooltip: 'Content',
             onPressed: () => provider.quickAnswerWord(word.id, skill, true),
             icon: const Icon(Icons.check_rounded, color: Colors.greenAccent),
           ),
@@ -462,13 +463,11 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         children: [
           const _SectionTitle(
             icon: Icons.route_outlined,
-            title: 'Bản đồ nguồn đã gặp',
+            title: context.tr('Bản đồ nguồn đã gặp'),
           ),
           const SizedBox(height: 10),
           if (grouped.isEmpty)
-            Text(
-              'Chưa có dữ liệu nguồn.',
-              style: TextStyle(color: Colors.grey[500]),
+            TrText('Chưa có dữ liệu nguồn.', style: TextStyle(color: Colors.grey[500]),
             )
           else
             Wrap(
@@ -505,7 +504,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
               const Expanded(
                 child: _SectionTitle(
                   icon: Icons.sticky_note_2_outlined,
-                  title: 'Ghi chú hợp nhất',
+                  title: context.tr('Ghi chú hợp nhất'),
                 ),
               ),
               TextButton.icon(
@@ -516,7 +515,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                   });
                 },
                 icon: Icon(_editingNotes ? Icons.check : Icons.edit_note, size: 18),
-                label: Text(_editingNotes ? 'Xong' : 'Sửa'),
+                label: Text(_editingNotes ? 'Xong' : 'Edit'),
               ),
             ],
           ),
@@ -527,7 +526,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
               maxLines: 6,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Nhập ghi chú tổng hợp cho từ này...',
+                hintText: context.tr('Nhập ghi chú tổng hợp cho từ này...'),
                 hintStyle: TextStyle(color: Colors.grey[500]),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),
@@ -546,12 +545,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                   setState(() => _editingNotes = false);
                 },
                 icon: const Icon(Icons.save_outlined, size: 18),
-                label: const Text('Lưu ghi chú'),
+                label: const TrText(context.l10n.webReaderSaveNoteBtn),
               ),
             ),
           ] else
             Text(
-              notes.isEmpty ? 'Chưa có ghi chú cá nhân' : notes,
+              notes.isEmpty ? 'Note' : notes,
               style: TextStyle(
                 color: notes.isEmpty ? Colors.grey[500] : Colors.white,
                 height: 1.45,
@@ -578,13 +577,11 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         children: [
           const _SectionTitle(
             icon: Icons.timeline_outlined,
-            title: 'Timeline gặp lại & mở nguồn',
+            title: context.tr('Timeline gặp lại & mở nguồn'),
           ),
           const SizedBox(height: 10),
           if (contexts.isEmpty)
-            Text(
-              'Chưa có ngữ cảnh nào được ghi lại.',
-              style: TextStyle(color: Colors.grey[500]),
+            TrText('Chưa có ngữ cảnh nào được ghi lại.', style: TextStyle(color: Colors.grey[500]),
             )
           else
             ...contexts.take(12).map(
@@ -756,7 +753,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       );
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('✅ Đã mở nguồn local vào tab Đọc'),
+          content: TrTrText('✅ Đã mở nguồn local vào tab Đọc'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -770,7 +767,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       if (entry == null) {
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Không tìm thấy nguồn cloud để mở lại'),
+            content: TrTrText('Không tìm thấy nguồn cloud để mở lại'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -807,7 +804,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       );
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('☁️ Đã mở nguồn cloud vào tab Đọc'),
+          content: TrTrText('☁️ Đã mở nguồn cloud vào tab Đọc'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -817,10 +814,10 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
   String _formatEncounterAt(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
-    if (diff.inMinutes < 1) return 'Vừa xong';
+    if (diff.inMinutes < 1) return 'Done';
     if (diff.inHours < 1) return '${diff.inMinutes}p';
     if (diff.inDays < 1) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays} ngày';
+    if (diff.inDays < 7) return 'Content';
     return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}';
   }
 

@@ -250,34 +250,34 @@ extension SplitModeExt on SplitMode {
   String get label {
     switch (this) {
       case SplitMode.none:
-        return 'Không tách';
+        return 'Content';
       case SplitMode.line:
-        return 'Theo dòng';
+        return 'Content';
       case SplitMode.sentence:
-        return 'Theo câu (. ! ?)';
+        return 'Content';
       case SplitMode.clause:
-        return 'Theo mệnh đề (, ;)';
+        return 'Content';
       case SplitMode.smart:
-        return 'Thông minh';
+        return 'Content';
       case SplitMode.paragraph:
-        return 'Theo đoạn';
+        return 'Content';
     }
   }
 
   String get description {
     switch (this) {
       case SplitMode.none:
-        return 'Giữ nguyên text';
+        return 'Content';
       case SplitMode.line:
-        return 'Mỗi dòng = 1 line';
+        return 'Content';
       case SplitMode.sentence:
-        return 'Tách tại dấu chấm, hỏi, than';
+        return 'Content';
       case SplitMode.clause:
-        return 'Tách tại dấu phẩy nếu đủ 4+ từ';
+        return 'Content';
       case SplitMode.smart:
-        return 'Tự động tối ưu độ dài';
+        return 'Content';
       case SplitMode.paragraph:
-        return 'Mỗi đoạn = 1 line';
+        return 'Content';
     }
   }
 }

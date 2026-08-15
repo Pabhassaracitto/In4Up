@@ -120,11 +120,11 @@ class AuthService {
       if (googleAuth.idToken == null) {
         debugPrint('❌ Auth Mobile: idToken is null! Check SHA1/SHA256 in Firebase Console and serverClientId');
         throw AuthException(
-          'Không lấy được ID token từ Google. '
-          'Kiểm tra:\n'
-          '1. SHA-1/SHA-256 đã thêm vào Firebase Console chưa? (Project Settings > Your apps)\n'
-          '2. Google Sign-In provider đã bật trong Firebase Console > Authentication > Sign-in method chưa?\n'
-          '3. serverClientId=$_webClientId có đúng Web client không?',
+          'Failed to get ID token from Google. '
+          'Check:\n'
+          '1. Have you added SHA-1/SHA-256 to Firebase Console? (Project Settings > Your apps)\n'
+          '2. Is Google Sign-In provider enabled in Firebase Console > Authentication > Sign-in method?\n'
+          'Content',
         );
       }
 
@@ -138,21 +138,21 @@ class AuthService {
       debugPrint('❌ Auth Mobile: FirebaseAuthException ${e.code} ${e.message}\n$st');
       if (e.code == 'account-exists-with-different-credential') {
         throw AuthException(
-          'Email này đã được đăng ký bằng phương thức khác. '
-          'Hãy đăng nhập bằng phương thức cũ trước, rồi liên kết Google.',
+          'This email is already registered with another method. '
+          'Please',
         );
       }
       if (e.code == 'invalid-credential' || e.code == 'ERROR_INVALID_CREDENTIAL') {
         throw AuthException(
-          'Credential không hợp lệ. Có thể do SHA-1 chưa khớp hoặc OAuth client sai.\n'
-          'Chi tiết: ${e.message}',
+          'Invalid credential. Possibly SHA-1 mismatch or wrong OAuth client.\n'
+          'Content',
         );
       }
-      throw AuthException('Lỗi Firebase Auth (${e.code}): ${e.message}');
+      throw AuthException('Content');
     } catch (e, st) {
       debugPrint('❌ Auth: mobile Google error: $e\n$st');
       if (e is AuthException) rethrow;
-      throw AuthException('Lỗi đăng nhập Google: $e');
+      throw AuthException('Enter');
     }
   }
 
@@ -162,21 +162,21 @@ class AuthService {
     final clientSecret = _desktopClientSecretEnv;
 
     if (clientId.isEmpty || clientId.startsWith('YOUR_')) {
-      debugPrint('❌ Auth: Chưa cấu hình Desktop OAuth Client ID');
+      debugPrint('Content');
       throw AuthException(
-        'Chưa cấu hình Google Sign In cho Desktop.\n'
-        'Tạo OAuth client ID loại Desktop app trong Google Cloud Console > APIs & Services > Credentials.\n'
-        'Truyền qua --dart-define=GOOGLE_DESKTOP_CLIENT_ID=xxx --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=yyy '
-        'hoặc đặt env var GOOGLE_DESKTOP_CLIENT_ID/SECRET.',
+        'Google Sign-In not configured for Desktop.\n'
+        'Create OAuth client ID of type Desktop app in Google Cloud Console > APIs & Services > Credentials.\n'
+        'Pass via --dart-define=GOOGLE_DESKTOP_CLIENT_ID=xxx --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=yyy '
+        'Content',
       );
     }
 
     if (clientSecret.isEmpty) {
-      debugPrint('❌ Auth: Chưa cấu hình Desktop OAuth Client Secret');
+      debugPrint('Content');
       throw AuthException(
-        'Chưa cấu hình GOOGLE_DESKTOP_CLIENT_SECRET.\n'
-        'Lấy secret từ Google Cloud Console và truyền qua --dart-define hoặc env.\n'
-        'Ví dụ: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=GOCSPX-...',
+        'GOOGLE_DESKTOP_CLIENT_SECRET not configured.\n'
+        'Get secret from Google Cloud Console and pass via --dart-define or env.\n'
+        'Example: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=GOCSPX-...',
       );
     }
 
@@ -201,17 +201,17 @@ class AuthService {
 
       debugPrint('🔥 Auth Desktop: opening browser $authUrl');
       if (!await launchUrl(authUrl, mode: LaunchMode.externalApplication)) {
-        throw AuthException('Không thể mở trình duyệt. Hãy thử copy URL: $authUrl');
+        throw AuthException('Cannot');
       }
 
       debugPrint('🔥 Auth Desktop: waiting for redirect (3 min timeout)...');
       final code = await _waitForCode(server).timeout(
         const Duration(minutes: 3),
-        onTimeout: () => throw AuthException('Hết giờ đăng nhập (3 phút) - bạn chưa hoàn tất trong browser'),
+        onTimeout: () => throw AuthException('Enter'),
       );
 
       if (code == null) {
-        throw AuthException('Không nhận được authorization code từ Google. Bạn có bấm Deny không?');
+        throw AuthException('Content');
       }
 
       debugPrint('🔥 Auth Desktop: got code, exchanging for token...');
@@ -232,8 +232,8 @@ class AuthService {
 
       if (tokenResponse.statusCode != 200) {
         throw AuthException(
-            'Token exchange thất bại (${tokenResponse.statusCode}): ${tokenResponse.body}\n'
-            'Kiểm tra clientSecret và redirectUri.');
+            'Token exchange failed (${tokenResponse.statusCode}): ${tokenResponse.body}\n'
+            'Content');
       }
 
       final tokenData = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
@@ -241,7 +241,7 @@ class AuthService {
       final accessToken = tokenData['access_token'] as String?;
 
       if (idToken == null) {
-        throw AuthException('Không nhận được ID token từ Google. Response: ${tokenResponse.body}');
+        throw AuthException('Content');
       }
 
       final credential = GoogleAuthProvider.credential(
@@ -254,7 +254,7 @@ class AuthService {
       rethrow;
     } catch (e, st) {
       debugPrint('❌ Auth Desktop: error: $e\n$st');
-      throw AuthException('Lỗi đăng nhập Desktop: $e');
+      throw AuthException('Enter');
     } finally {
       await server?.close(force: true);
     }
@@ -270,7 +270,7 @@ class AuthService {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VipSound - Đăng nhập</title>
+  <title>VipSound - Login</title>
   <style>
     body { font-family: sans-serif; display: flex; justify-content: center;
            align-items: center; height: 100vh; margin: 0;
@@ -283,12 +283,12 @@ class AuthService {
 <body>
   ${error != null ? '''
     <div class="icon">❌</div>
-    <h2>Đăng nhập thất bại</h2>
+    <h2>Login failed</h2>
     <p>$error</p>
   ''' : '''
     <div class="icon">✅</div>
-    <h2>Đăng nhập thành công!</h2>
-    <p>Bạn có thể đóng tab này và quay lại VipSound.</p>
+    <h2>Login successful!</h2>
+    <p>You can close this tab and return to VipSound.</p>
     <script>setTimeout(() => window.close(), 2000);</script>
   '''}
 </body>
@@ -341,15 +341,15 @@ class AuthService {
       debugPrint('❌ Auth _signInToFirebase FirebaseException ${e.code}: ${e.message}\n$st');
       if (e.code == 'unknown' || e.code == 'unknown-error') {
         throw AuthException(
-          'Firebase Auth lỗi không xác định (unknown-error).\n'
-          'Nguyên nhân thường gặp:\n'
-          '1. FirebaseOptions sai project (gen-lang vs vipsound-df903) - ĐÃ FIX bằng firebase_options.dart mới\n'
-          '2. google-services.json thiếu SHA-1/SHA-256 cho flavor $_flavor\n'
-          '   → Vào Firebase Console > Project Settings > Your apps > SHA certificate fingerprints > thêm SHA-1 và SHA-256 từ keystore\n'
-          '   Debug keystore SHA-1 hiện tại thường là: lấy bằng `gradlew signingReport`\n'
-          '3. Google provider chưa bật: Firebase Console > Authentication > Sign-in method > Google > Enable\n'
-          '4. API key bị hạn chế: Google Cloud Console > APIs & Services > Credentials > API key > Application restrictions\n'
-          'Chi tiết gốc: ${e.message}',
+          'Firebase Auth unknown error (unknown-error).\n'
+          'Common causes:\n'
+          '1. FirebaseOptions wrong project (gen-lang vs vipsound-df903) - FIXED with new firebase_options.dart\n'
+          '2. google-services.json missing SHA-1/SHA-256 for flavor $_flavor\n'
+          '   → Go to Firebase Console > Project Settings > Your apps > SHA certificate fingerprints > add SHA-1 and SHA-256 from keystore\n'
+          '   Current debug keystore SHA-1 usually is: get via `gradlew signingReport`\n'
+          '3. Google provider not enabled: Firebase Console > Authentication > Sign-in method > Google > Enable\n'
+          '4. API key restricted: Google Cloud Console > APIs & Services > Credentials > API key > Application restrictions\n'
+          'Content',
         );
       }
       rethrow;

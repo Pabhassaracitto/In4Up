@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../widgets/auto_hide_banner.dart';
 import 'understand_tab_connector.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class UnderstandWorkspaceScreen extends StatelessWidget {
   final VoidCallback onOpenSpeakMode;
@@ -86,18 +87,14 @@ class _UnderstandWorkspaceHeader extends StatelessWidget {
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Hiểu · Comprehension Workspace',
-                  style: TextStyle(
+                TrText('Hiểu · Comprehension Workspace', style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
                   ),
                 ),
                 SizedBox(height: 6),
-                Text(
-                  'Đây là nơi ghép audio với text, đồng bộ dòng, phân tích ngữ cảnh và nối sang luyện nói hoặc ôn nhớ.',
-                  style: TextStyle(
+                TrText('Đây là nơi ghép audio với text, đồng bộ dòng, phân tích ngữ cảnh và nối sang luyện nói hoặc ôn nhớ.', style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
                     height: 1.4,
@@ -113,7 +110,7 @@ class _UnderstandWorkspaceHeader extends StatelessWidget {
               children: [
                 _WorkspaceChip(
                   icon: Icons.mic_rounded,
-                  label: 'Qua Nói',
+                  label: context.tr('Qua Nói'),
                   color: const Color(0xFFB388FF),
                   onTap: onOpenSpeakMode,
                 ),
@@ -127,14 +124,14 @@ class _UnderstandWorkspaceHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 _WorkspaceChip(
                   icon: Icons.school,
-                  label: 'Ôn tập',
+                  label: context.l10n.commonReview,
                   color: const Color(0xFF66BB6A),
                   onTap: onOpenReview,
                 ),
                 const SizedBox(width: 8),
                 _WorkspaceChip(
                   icon: Icons.auto_awesome,
-                  label: 'Công cụ nhanh',
+                  label: context.tr('Công cụ nhanh'),
                   color: const Color(0xFFFFB300),
                   onTap: onOpenQuickActions,
                 ),

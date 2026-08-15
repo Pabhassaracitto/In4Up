@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'translation_engine.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// LibreTranslate - Mã nguồn mở, có nhiều instance public MIỄN PHÍ
 ///
@@ -171,7 +172,7 @@ class LibreEngine extends TranslationEngine {
     if (server == null) {
       return TranslationResult.failure(
         original: text,
-        error: 'Không tìm thấy server LibreTranslate nào hoạt động',
+        error: context.tr('Không tìm thấy server LibreTranslate nào hoạt động'),
         engine: name,
       );
     }
@@ -232,7 +233,7 @@ class LibreEngine extends TranslationEngine {
         _activeServer = null;
         return TranslationResult.failure(
           original: text,
-          error: 'Rate limited (429) tại $server',
+          error: 'Content',
           engine: name,
         );
       } else if (response.statusCode == 403) {
@@ -240,7 +241,7 @@ class LibreEngine extends TranslationEngine {
         _activeServer = null;
         return TranslationResult.failure(
           original: text,
-          error: 'Server $server yêu cầu API key',
+          error: 'Content',
           engine: name,
         );
       } else {

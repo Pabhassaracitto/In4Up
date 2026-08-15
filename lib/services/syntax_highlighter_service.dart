@@ -438,12 +438,12 @@ class SyntaxHighlighterService {
   };
 
   static const _basicDict = <String, String>{
-    'the': 'mạo từ xác định',
-    'is': 'là/thì',
-    'are': 'là/thì (số nhiều)',
-    'have': 'có',
-    'do': 'làm',
-    'go': 'đi',
-    'think': 'nghĩ',
+    'the': 'Content',
+    'is': 'Content',
+    'are': 'Content',
+    'have': 'Content',
+    'do': 'Content',
+    'go': 'Content',
+    'think': 'Content',
   };
 }

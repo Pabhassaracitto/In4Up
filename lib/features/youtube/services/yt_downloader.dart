@@ -15,9 +15,9 @@ import '../models/yt_video.dart';
 // ─── Audio Quality ────────────────────────────────────────
 
 enum YtAudioQuality {
-  highest('Cao nhất', null),
-  medium('Trung bình', 128000),
-  low('Thấp / Nhỏ', 64000);
+  highest('Content', null),
+  medium('Content', 128000),
+  low('Content', 64000);
 
   final String label;
   final int? maxBitrateBps;
@@ -103,24 +103,24 @@ class YtDownloader {
     }
 
     try {
-      emit(YtDownloadProgress(0.03, 'Đang lấy thông tin video...'));
+      emit(YtDownloadProgress(0.03, 'Content'));
 
       // ── Step 1: Video info ──────────────────────────────
       final videoObj = await yt.videos.get(video.id);
       if (_cancelled) {
         yt.close();
-        fail('Đã hủy');
+        fail('Cancel');
         return;
       }
 
-      emit(YtDownloadProgress(0.07, 'Đang phân tích stream...'));
+      emit(YtDownloadProgress(0.07, 'Content'));
 
       // ── Step 2: Manifest ───────────────────────────────
       final manifest =
           await yt.videos.streamsClient.getManifest(video.id);
       if (_cancelled) {
         yt.close();
-        fail('Đã hủy');
+        fail('Cancel');
         return;
       }
 
@@ -130,7 +130,7 @@ class YtDownloader {
 
       if (allAudio.isEmpty) {
         yt.close();
-        fail('Không tìm thấy stream audio');
+        fail('Search');
         return;
       }
 
@@ -142,7 +142,7 @@ class YtDownloader {
       final kbps = streamInfo.bitrate.bitsPerSecond ~/ 1000;
 
       emit(YtDownloadProgress(
-          0.10, 'Chuẩn bị · ${kbps}kbps · ${_sizeLabel(totalBytes)}'));
+          0.10, 'Content'));
 
       // ── Step 4: Chuẩn bị file ─────────────────────────
       final dir = await getApplicationDocumentsDirectory();
@@ -187,14 +187,14 @@ class YtDownloader {
       // ── Step 6: Kết quả ───────────────────────────────
       if (_cancelled) {
         if (await file.exists()) await file.delete();
-        fail('Đã hủy');
+        fail('Cancel');
         return;
       }
 
       final finalSize = await file.length();
       if (finalSize < 1000) {
         if (await file.exists()) await file.delete();
-        fail('File tải về quá nhỏ, thử lại');
+        fail('Retry');
         return;
       }
 
@@ -249,14 +249,14 @@ class YtDownloader {
 
   String _friendlyError(String raw) {
     if (raw.contains('unplayable') || raw.contains('Unplayable')) {
-      return 'Video bị giới hạn tải xuống';
+      return 'Content';
     }
-    if (raw.contains('unavailable')) return 'Video không khả dụng';
+    if (raw.contains('unavailable')) return 'Content';
     if (raw.contains('SocketException') || raw.contains('Network')) {
-      return 'Lỗi mạng — kiểm tra kết nối';
+      return 'Content';
     }
-    if (raw.contains('403')) return 'Truy cập bị từ chối (403)';
-    if (raw.contains('429')) return 'Rate limit, thử lại sau';
-    return 'Lỗi: ${raw.substring(0, raw.length.clamp(0, 100))}';
+    if (raw.contains('403')) return 'Content';
+    if (raw.contains('429')) return 'Rate limit, Retry sau';
+    return 'Content';
   }
 }

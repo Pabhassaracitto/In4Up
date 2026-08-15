@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'yt_player_screen.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 const _kYtApi = 'https://www.googleapis.com/youtube/v3';
 const _kDefaultApiKey = '';
@@ -55,18 +56,18 @@ class YtExVideo {
 
   String get viewLabel {
     final v = viewCount ?? 0;
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M lượt xem';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K lượt xem';
-    return '$v lượt xem';
+    if (v >= 1000000) return 'Content';
+    if (v >= 1000) return 'Content';
+    return 'Content';
   }
 
   String get dateLabel {
     if (publishedAt == null) return '';
     final d = DateTime.now().difference(publishedAt!);
-    if (d.inDays > 365) return '${d.inDays ~/ 365} năm trước';
-    if (d.inDays > 30) return '${d.inDays ~/ 30} tháng trước';
-    if (d.inDays > 0) return '${d.inDays} ngày trước';
-    return 'Hôm nay';
+    if (d.inDays > 365) return 'Content';
+    if (d.inDays > 30) return 'Content';
+    if (d.inDays > 0) return 'Content';
+    return 'Content';
   }
 
   String get durationLabel {
@@ -380,8 +381,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Cấp độ từ vựng',
-                      style: TextStyle(
+                  Text(context.l10n.ytVocabLevel, style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 10,
                           fontWeight: FontWeight.w500)),
@@ -407,14 +407,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         .toList(),
                   ),
                   const SizedBox(height: 8),
-                  Text('Sắp xếp theo',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                  Text(context.l10n.ytSortBy, style: TextStyle(color: Colors.grey[500], fontSize: 10)),
                   const SizedBox(height: 4),
                   Row(children: [
-                    _sortBtn(YtSortMode.date, Icons.calendar_today, 'Ngày'),
+                    _sortBtn(YtSortMode.date, Icons.calendar_today, 'Content'),
                     const SizedBox(width: 6),
                     _sortBtn(YtSortMode.viewCount, Icons.visibility_outlined,
-                        'Lượt xem'),
+                        'Content'),
                   ]),
                 ],
               ),
@@ -424,8 +423,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Row(
                 children: [
-                  Text('Kênh',
-                      style: TextStyle(
+                  Text(context.l10n.ytChannel, style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -440,7 +438,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             ),
             _chanTile(
               null,
-              'Tất cả các kênh',
+              'Content',
               null,
               null,
               _selChannelId == null,
@@ -787,8 +785,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Icon(Icons.video_library_outlined,
                 size: 44, color: Colors.grey[700]),
             const SizedBox(height: 10),
-            Text('Không có video',
-                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+            Text(context.l10n.ytNoVideos, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
             if (widget.apiKey.isEmpty) ...[
               const SizedBox(height: 10),
               Container(
@@ -800,9 +797,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   border:
                       Border.all(color: Colors.amber.withValues(alpha: 0.25)),
                 ),
-                child: Text(
-                  'Đang dùng dữ liệu mẫu.\nĐặt YouTube Data API v3 key để lấy video thật.',
-                  style: TextStyle(color: Colors.amber[300], fontSize: 11),
+                child: TrText('Đang dùng dữ liệu mẫu.\nĐặt YouTube Data API v3 key để lấy video thật.', style: TextStyle(color: Colors.amber[300], fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -817,14 +812,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF1A2235),
-        title: const Text('Thêm kênh',
-            style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: const Text(context.l10n.ytAddChannel, style: TextStyle(color: Colors.white, fontSize: 14)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Channel ID hoặc URL...',
+            hintText: context.l10n.ytChannelIdHint,
             hintStyle: TextStyle(color: Colors.grey[600]),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.05),
@@ -836,7 +830,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Huỷ', style: TextStyle(color: Colors.grey[500]))),
+              child: TrText('Huỷ', style: TextStyle(color: Colors.grey[500]))),
           ElevatedButton(
             onPressed: () {
               final input = ctrl.text.trim();
@@ -851,7 +845,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF0000)),
-            child: const Text('Thêm'),
+            child: const TrText(context.l10n.commonAdd),
           ),
         ],
       ),

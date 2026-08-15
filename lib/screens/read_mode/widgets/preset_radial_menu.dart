@@ -4,17 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/screens/read_mode/models/playback_recipe.dart';
 import 'package:in4up/screens/read_mode/services/playback_controller.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class PresetRadialMenu extends StatelessWidget {
   final PlaybackController controller;
   final VoidCallback onDismiss;
 
   static const _presets = [
-    (icon: '👂', label: 'Thụ động', recipe: PlaybackRecipe.enOnly),
+    (icon: '👂', label: context.tr('Thụ động'), recipe: PlaybackRecipe.enOnly),
     (icon: '🔊', label: 'Shadowing', recipe: PlaybackRecipe.shadowing),
-    (icon: '📖', label: 'Song ngữ', recipe: PlaybackRecipe.bilingual),
-    (icon: '⚡', label: 'Luyện nhanh', recipe: PlaybackRecipe.intensive),
-    (icon: '🎯', label: 'Tự kiểm tra', recipe: PlaybackRecipe.quiz),
+    (icon: '📖', label: context.tr('Song ngữ'), recipe: PlaybackRecipe.bilingual),
+    (icon: '⚡', label: context.tr('Luyện nhanh'), recipe: PlaybackRecipe.intensive),
+    (icon: '🎯', label: context.tr('Tự kiểm tra'), recipe: PlaybackRecipe.quiz),
   ];
 
   const PresetRadialMenu({
@@ -98,7 +99,7 @@ class _PresetChip extends StatelessWidget {
       onTap: onTap,
       child: Semantics(
         button: true,
-        label: 'Chọn chế độ $label',
+        label: 'Content',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

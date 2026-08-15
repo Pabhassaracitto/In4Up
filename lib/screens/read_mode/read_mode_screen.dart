@@ -19,6 +19,7 @@ import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/smart_playback_bar.dart'; // ← THÊM
 import 'widgets/text_line_widget.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class ReadModeScreen extends StatefulWidget {
   // ★ THÊM: Nhận RecentFile để biết đang đọc file nào
@@ -260,7 +261,7 @@ class _GrammarLegendStrip extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: textProvider.restorePreviousGrammarPreset,
                 icon: const Icon(Icons.undo_rounded, size: 16),
-                label: Text('Khôi phục ${previousPreset.name}'),
+                label: Text('Content'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -273,7 +274,7 @@ class _GrammarLegendStrip extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: textProvider.showAllGrammarCategories,
                 icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: const Text('Bật lại tất cả'),
+                label: const TrText(context.l10n.grammarEnableAll),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -293,7 +294,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                       : Icons.unfold_less_rounded,
                   size: 16,
                 ),
-                label: Text(settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn'),
+                label: Text(settings.legendCollapsed ? 'Content' : 'Content'),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF9FA8DA),
                   visualDensity: VisualDensity.compact,
@@ -324,7 +325,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         children: [
                           Text(
                             settings.isCustomPreset
-                                ? 'Grammar Highlight · Tùy chỉnh'
+                                ? 'Content'
                                 : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
                             style: const TextStyle(
                               color: Colors.white,
@@ -336,8 +337,8 @@ class _GrammarLegendStrip extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về ${previousPreset.name}.'
-                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.',
+                                  ? 'Content'
+                                  : 'Content',
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,
@@ -368,7 +369,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         children: [
                           Text(
                             settings.isCustomPreset
-                                ? 'Grammar Highlight · Tùy chỉnh'
+                                ? 'Content'
                                 : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
                             style: const TextStyle(
                               color: Colors.white,
@@ -380,8 +381,8 @@ class _GrammarLegendStrip extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về ${previousPreset.name}.'
-                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.',
+                                  ? 'Content'
+                                  : 'Content',
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,

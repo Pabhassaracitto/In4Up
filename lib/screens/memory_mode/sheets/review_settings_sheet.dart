@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/review_session.dart';
 import '../models/memory_stage.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 /// Cài đặt trước khi bắt đầu ôn tập
 class ReviewSettingsSheet extends StatefulWidget {
@@ -84,9 +85,7 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                   children: [
                     Text('💧', style: TextStyle(fontSize: 24)),
                     SizedBox(width: 8),
-                    Text(
-                      'Cài đặt ôn tập',
-                      style: TextStyle(
+                    TrText('Cài đặt ôn tập', style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -97,9 +96,7 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                 const SizedBox(height: 20),
 
                 // ===== MODE SELECTION =====
-                Text(
-                  'Chế độ',
-                  style: TextStyle(
+                TrText('Chế độ', style: TextStyle(
                     color: Colors.grey[400],
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -114,31 +111,31 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                       mode: ReviewMode.spaced,
                       label: 'SRS',
                       emoji: '💧',
-                      desc: '${widget.totalDue} cần ôn',
+                      desc: 'Content',
                       isSelected: _mode == ReviewMode.spaced,
                       onTap: () => setState(() => _mode = ReviewMode.spaced),
                     ),
                     _ModeChip(
                       mode: ReviewMode.cram,
-                      label: 'Nhồi nhét',
+                      label: context.tr('Nhồi nhét'),
                       emoji: '🔥',
-                      desc: 'Tất cả ${widget.totalItems} từ',
+                      desc: 'Content',
                       isSelected: _mode == ReviewMode.cram,
                       onTap: () => setState(() => _mode = ReviewMode.cram),
                     ),
                     _ModeChip(
                       mode: ReviewMode.difficult,
-                      label: 'Từ khó',
+                      label: context.tr('Từ khó'),
                       emoji: '⚡',
-                      desc: 'Seed + Sprout + accuracy thấp',
+                      desc: 'Content',
                       isSelected: _mode == ReviewMode.difficult,
                       onTap: () => setState(() => _mode = ReviewMode.difficult),
                     ),
                     _ModeChip(
                       mode: ReviewMode.random,
-                      label: 'Ngẫu nhiên',
+                      label: context.tr('Ngẫu nhiên'),
                       emoji: '🎲',
-                      desc: 'Xáo trộn tất cả',
+                      desc: 'Content',
                       isSelected: _mode == ReviewMode.random,
                       onTap: () => setState(() => _mode = ReviewMode.random),
                     ),
@@ -150,9 +147,7 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                 // ===== MAX CARDS =====
                 Row(
                   children: [
-                    Text(
-                      'Số thẻ tối đa',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                    TrText('Số thẻ tối đa', style: TextStyle(color: Colors.grey[400], fontSize: 13),
                     ),
                     const Spacer(),
                     Text(
@@ -179,12 +174,12 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
 
                 // ===== OPTIONS =====
                 _OptionSwitch(
-                  label: 'Xáo trộn thứ tự',
+                  label: context.tr('Xáo trộn thứ tự'),
                   value: _shuffleOrder,
                   onChanged: (v) => setState(() => _shuffleOrder = v),
                 ),
                 _OptionSwitch(
-                  label: 'Hiện nghĩa trước (đảo thẻ)',
+                  label: context.tr('Hiện nghĩa trước (đảo thẻ)'),
                   value: _showMeaningFirst,
                   onChanged: (v) => setState(() => _showMeaningFirst = v),
                 ),
@@ -207,9 +202,7 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                       ));
                     },
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text(
-                      'Bắt đầu ôn tập',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: const TrText('Bắt đầu ôn tập', style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),

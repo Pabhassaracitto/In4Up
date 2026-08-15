@@ -16,6 +16,7 @@ import '../services/offline_stt_service.dart';
 import '../services/phoneme_analyzer.dart';
 import '../services/pronunciation_service.dart';
 import '../../../services/storage_service.dart';
+import 'package:in4up/core/language/tr_extension.dart';
 
 class ShadowingSettings {
   final int repeatCount;
@@ -38,7 +39,7 @@ class ShadowingProvider extends ChangeNotifier {
       name: 'Slow Mimic',
       repeatCount: 5,
       playbackSpeed: 0.75,
-      description: 'Chậm và nhiều vòng để bắt chước kỹ từng âm.',
+      description: context.tr('Chậm và nhiều vòng để bắt chước kỹ từng âm.'),
       isBuiltIn: true,
     ),
     ShadowingPreset(
@@ -46,7 +47,7 @@ class ShadowingProvider extends ChangeNotifier {
       name: 'Pronunciation',
       repeatCount: 4,
       playbackSpeed: 0.8,
-      description: 'Tập trung vào độ rõ âm và độ chính xác phát âm.',
+      description: context.tr('Tập trung vào độ rõ âm và độ chính xác phát âm.'),
       isBuiltIn: true,
     ),
     ShadowingPreset(
@@ -54,7 +55,7 @@ class ShadowingProvider extends ChangeNotifier {
       name: 'Balanced',
       repeatCount: 3,
       playbackSpeed: 0.9,
-      description: 'Cân bằng giữa phát âm, trí nhớ và nhịp phản xạ.',
+      description: context.tr('Cân bằng giữa phát âm, trí nhớ và nhịp phản xạ.'),
       isBuiltIn: true,
     ),
     ShadowingPreset(
@@ -62,7 +63,7 @@ class ShadowingProvider extends ChangeNotifier {
       name: 'Fluency',
       repeatCount: 2,
       playbackSpeed: 1.0,
-      description: 'Ưu tiên nhịp nói tự nhiên và giữ mạch câu.',
+      description: context.tr('Ưu tiên nhịp nói tự nhiên và giữ mạch câu.'),
       isBuiltIn: true,
     ),
   ];
@@ -79,7 +80,7 @@ class ShadowingProvider extends ChangeNotifier {
   double get playbackSpeed => _playbackSpeed;
 
   String? _activePresetLabel;
-  String get activePresetLabel => _activePresetLabel ?? 'Tùy chỉnh';
+  String get activePresetLabel => _activePresetLabel ?? 'Content';
 
   final List<ShadowingPreset> _customPresets = [];
   List<ShadowingPreset> get customPresets => List.unmodifiable(_customPresets);

@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../youglish/youglish_config.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class YouGlishMiniSheet extends StatefulWidget {
   final String word;
@@ -161,7 +160,7 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                         Clipboard.setData(ClipboardData(text: widget.word));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: TrTrText('Đã copy'),
+                            content: Text('Đã copy'),
                             duration: Duration(seconds: 1),
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -220,7 +219,9 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                                     strokeWidth: 2,
                                   ),
                                   SizedBox(height: 12),
-                                  TrText('Đang tải YouGlish...', style: TextStyle(
+                                  Text(
+                                    'Đang tải YouGlish...',
+                                    style: TextStyle(
                                         color: Colors.grey, fontSize: 13),
                                   ),
                                 ],

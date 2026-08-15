@@ -15,7 +15,6 @@ import '../models/playback_run_token.dart';
 import '../models/playback_snapshot.dart';
 import 'playback_engine.dart';
 import 'tts_notification_service.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   final PlaybackEngine _engine;
@@ -88,10 +87,10 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _activeToken = token;
 
     unawaited(_notification.activate(
-      title: context.tr('In4Up đang phát'),
+      title: 'In4Up đang phát',
       subtitle: anchor != null
           ? 'Tiếp tục từ câu ${anchor.lineIndex + 1}'
-          : 'Content',
+          : 'Bắt đầu từ đầu',
     ));
 
     _safeNotify();
@@ -211,7 +210,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
         activeLineNotifier.value = event.snapshot.line;
         isSourceNotifier.value = event.snapshot.isSource;
         unawaited(_notification.updateNotification(
-          title: 'Content',
+          title: 'Câu ${event.snapshot.line + 1}/${event.snapshot.totalLines}',
           subtitle: event.snapshot.statusText,
         ));
         break;

@@ -15,7 +15,6 @@ import 'widgets/focus_streak_card.dart';
 import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
 import 'widgets/memory_garden_card.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToListen;
@@ -229,7 +228,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TrText('Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.', style: TextStyle(
+        Text(
+          'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
+          style: TextStyle(
             color: Colors.grey[400],
             fontSize: 12,
             height: 1.4,
@@ -284,28 +285,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 _BentoCard(
                   icon: Icons.headphones,
                   title: l10n.listen,
-                  subtitle: context.tr('Nghe · Nói'),
+                  subtitle: 'Nghe · Nói',
                   color: const Color(0xFF6C63FF),
                   onTap: widget.onNavigateToListen,
                 ),
                 _BentoCard(
                   icon: Icons.menu_book,
                   title: l10n.read,
-                  subtitle: context.tr('Đọc · Viết'),
+                  subtitle: 'Đọc · Viết',
                   color: const Color(0xFF2196F3),
                   onTap: widget.onNavigateToRead,
                 ),
                 _BentoCard(
                   icon: Icons.lightbulb,
                   title: l10n.understand,
-                  subtitle: context.tr('Đồng bộ · Hiểu sâu'),
+                  subtitle: 'Đồng bộ · Hiểu sâu',
                   color: const Color(0xFFFFB300),
                   onTap: widget.onNavigateToUnderstand,
                 ),
                 _BentoCard(
                   icon: Icons.psychology,
                   title: l10n.remember,
-                  subtitle: context.tr('Ôn tập · SRS'),
+                  subtitle: 'Ôn tập · SRS',
                   color: const Color(0xFF4CAF50),
                   onTap: widget.onNavigateToMemory,
                 ),

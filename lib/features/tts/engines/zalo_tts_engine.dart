@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'tts_engine.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Zalo AI Text-to-Speech
 ///
@@ -53,7 +52,7 @@ class ZaloTtsEngine extends TtsEngine {
   static const List<TtsVoice> _voices = [
     TtsVoice(
       id: '1',
-      name: 'Content',
+      name: 'Nữ miền Bắc (chuẩn)',
       language: 'vi-VN',
       gender: 'female',
       engine: 'Zalo AI',
@@ -61,7 +60,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '2',
-      name: 'Content',
+      name: 'Nam miền Bắc',
       language: 'vi-VN',
       gender: 'male',
       engine: 'Zalo AI',
@@ -69,7 +68,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '3',
-      name: 'Content',
+      name: 'Nữ miền Trung',
       language: 'vi-VN',
       gender: 'female',
       engine: 'Zalo AI',
@@ -77,7 +76,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '4',
-      name: 'Content',
+      name: 'Nam miền Trung',
       language: 'vi-VN',
       gender: 'male',
       engine: 'Zalo AI',
@@ -85,7 +84,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '5',
-      name: 'Content',
+      name: 'Nữ miền Nam',
       language: 'vi-VN',
       gender: 'female',
       engine: 'Zalo AI',
@@ -93,7 +92,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '6',
-      name: 'Content',
+      name: 'Nam miền Nam',
       language: 'vi-VN',
       gender: 'male',
       engine: 'Zalo AI',
@@ -101,7 +100,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '7',
-      name: 'Content',
+      name: 'Nữ miền Bắc (trẻ)',
       language: 'vi-VN',
       gender: 'female',
       engine: 'Zalo AI',
@@ -109,7 +108,7 @@ class ZaloTtsEngine extends TtsEngine {
     ),
     TtsVoice(
       id: '8',
-      name: 'Content',
+      name: 'Nam miền Bắc (trầm)',
       language: 'vi-VN',
       gender: 'male',
       engine: 'Zalo AI',
@@ -143,7 +142,7 @@ class ZaloTtsEngine extends TtsEngine {
   }) async {
     if (apiKey == null || apiKey!.isEmpty) {
       return TtsResult.failure(
-        error: context.tr('Chưa có Zalo API key. Đăng ký miễn phí tại zalo.ai'),
+        error: 'Chưa có Zalo API key. Đăng ký miễn phí tại zalo.ai',
         engine: name,
       );
     }
@@ -151,13 +150,13 @@ class ZaloTtsEngine extends TtsEngine {
     // Zalo chỉ hỗ trợ tiếng Việt
     if (!language.toLowerCase().startsWith('vi')) {
       return TtsResult.failure(
-        error: context.tr('Zalo AI chỉ hỗ trợ tiếng Việt'),
+        error: 'Zalo AI chỉ hỗ trợ tiếng Việt',
         engine: name,
       );
     }
 
     if (text.trim().isEmpty) {
-      return TtsResult.failure(error: context.tr('Text trống'), engine: name);
+      return TtsResult.failure(error: 'Text trống', engine: name);
     }
 
     final stopwatch = Stopwatch()..start();
@@ -219,18 +218,18 @@ class ZaloTtsEngine extends TtsEngine {
               }
             } else {
               return TtsResult.failure(
-                error: context.tr('Không có audio URL trong response'),
+                error: 'Không có audio URL trong response',
                 engine: name,
               );
             }
           } else if (errorCode == 107) {
             return TtsResult.failure(
-              error: context.tr('Hết quota Zalo (50 req/giờ). Thử lại sau.'),
+              error: 'Hết quota Zalo (50 req/giờ). Thử lại sau.',
               engine: name,
             );
           } else if (errorCode == 104) {
             return TtsResult.failure(
-              error: context.tr('API key Zalo không hợp lệ'),
+              error: 'API key Zalo không hợp lệ',
               engine: name,
             );
           } else {
@@ -261,7 +260,7 @@ class ZaloTtsEngine extends TtsEngine {
       }
 
       return TtsResult.failure(
-        error: context.tr('Không nhận được audio data'),
+        error: 'Không nhận được audio data',
         engine: name,
       );
     } catch (e) {

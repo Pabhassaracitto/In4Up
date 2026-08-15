@@ -11,7 +11,6 @@ import '../../../providers/text_provider.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
 import '../services/playback_controller.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SMART PLAYBACK BAR — Entry point
@@ -189,7 +188,7 @@ class _MainRow extends StatelessWidget {
           children: [
             _ModeBtn(
               label: sourceLanguage.flag,
-              tooltip: 'Content',
+              tooltip: 'Chỉ ${sourceLanguage.nativeName}',
               active: recipe.mode == PlaybackMode.enOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -201,7 +200,7 @@ class _MainRow extends StatelessWidget {
             const SizedBox(width: 4),
             _ModeBtn(
               label: '🔄',
-              tooltip: context.tr('Song ngữ / Xen kẽ'),
+              tooltip: 'Song ngữ / Xen kẽ',
               active: recipe.mode == PlaybackMode.interleaved ||
                   recipe.mode == PlaybackMode.custom,
               onTap: () {
@@ -233,14 +232,14 @@ class _MainRow extends StatelessWidget {
             const SizedBox(width: 4),
             _ModeBtn(
               label: targetLanguage.flag,
-              tooltip: 'Content',
+              tooltip: 'Chỉ ${targetLanguage.nativeName}',
               active: recipe.mode == PlaybackMode.viOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
                 if (tp.translationPairUsesSameLanguage) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: TrTrText('Hãy chọn ngôn ngữ đích khác nguồn.'),
+                      content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
                     ),
                   );
                   return;
@@ -328,14 +327,14 @@ class _MainRow extends StatelessWidget {
     if (needsTranslation && tp.translationPairUsesSameLanguage) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: TrTrText('Hãy chọn ngôn ngữ đích khác nguồn trước khi phát.'),
+          content: Text('Hãy chọn ngôn ngữ đích khác nguồn trước khi phát.'),
         ),
       );
       return;
     }
     if (needsTranslation && tp.isTranslating) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: TrTrText('Đang dịch, vui lòng chờ hoàn tất…')),
+        const SnackBar(content: Text('Đang dịch, vui lòng chờ hoàn tất…')),
       );
       return;
     }
@@ -346,7 +345,7 @@ class _MainRow extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                tp.translationError ?? 'Content',
+                tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
               ),
             ),
           );
@@ -454,22 +453,22 @@ class _PatternBuilder extends StatelessWidget {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _Label('Content'),
+              _Label('Lặp câu'),
               _Stepper(
                 value: recipe.lineRepeats,
                 min: 1,
                 max: 5,
-                suffix: 'Content',
+                suffix: 'lần',
                 onChanged: (v) => controller.updateRecipe(
                   recipe.copyWith(lineRepeats: v),
                 ),
               ),
-              _Label('Content'),
+              _Label('Vòng bài'),
               _Stepper(
                 value: recipe.totalPasses == 0 ? 1 : recipe.totalPasses,
                 min: 1,
                 max: 10,
-                suffix: recipe.totalPasses == 0 ? '∞' : 'Content',
+                suffix: recipe.totalPasses == 0 ? '∞' : 'lần',
                 onChanged: (v) => controller.updateRecipe(
                   recipe.copyWith(totalPasses: v),
                 ),
@@ -554,7 +553,7 @@ class _PatternBuilder extends StatelessWidget {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _Label('Content'),
+                _Label('Khoảng lặng'),
                 ...SilenceGap.values.map((gap) => _ToggleChip(
                       label: gap.label,
                       active: recipe.silenceGap == gap,
@@ -622,10 +621,10 @@ class _PatternVisual extends StatelessWidget {
     String label;
     switch (recipe.mode) {
       case PlaybackMode.enOnly:
-        label = 'Content';
+        label = 'Chỉ ${sourceLanguage.nativeName}';
         break;
       case PlaybackMode.viOnly:
-        label = 'Content';
+        label = 'Chỉ ${targetLanguage.nativeName}';
         break;
       case PlaybackMode.interleaved:
         label = 'Song ngữ ${sourceLanguage.translationCode} → '
@@ -800,13 +799,13 @@ class _PresetSheet extends StatelessWidget {
       get _presets => [
             (
               icon: sourceLanguage.flag,
-              label: 'Content',
-              sub: 'Content',
+              label: 'Chỉ ${sourceLanguage.translationCode}',
+              sub: 'Luyện nghe thuần ${sourceLanguage.nativeName}',
               recipe: PlaybackRecipe.enOnly,
             ),
             (
               icon: '🔄',
-              label: context.tr('Song ngữ'),
+              label: 'Song ngữ',
               sub: '${sourceLanguage.translationCode} → nghĩ → '
                   '${targetLanguage.translationCode} (1:1)',
               recipe: PlaybackRecipe.bilingual,
@@ -815,12 +814,12 @@ class _PresetSheet extends StatelessWidget {
               icon: '⚡',
               label: '${sourceLanguage.translationCode}×2 → '
                   '${targetLanguage.translationCode}×1',
-              sub: 'Content',
+              sub: 'Nghe kỹ nguồn rồi xác nhận bản dịch',
               recipe: PlaybackRecipe.intensive,
             ),
             (
               icon: '🎯',
-              label: context.tr('Tự kiểm tra'),
+              label: 'Tự kiểm tra',
               sub: '${sourceLanguage.translationCode} → 3 giây → '
                   '${targetLanguage.translationCode}',
               recipe: PlaybackRecipe.quiz,
@@ -828,13 +827,13 @@ class _PresetSheet extends StatelessWidget {
             (
               icon: '🔊',
               label: 'Shadowing',
-              sub: 'Content',
+              sub: '${sourceLanguage.translationCode}×3 chậm 0.75x',
               recipe: PlaybackRecipe.shadowing,
             ),
             (
               icon: targetLanguage.flag,
-              label: 'Content',
-              sub: 'Content',
+              label: 'Chỉ ${targetLanguage.translationCode}',
+              sub: 'Nghe bản dịch ${targetLanguage.nativeName}',
               recipe: PlaybackRecipe.viOnly,
             ),
           ];
@@ -851,7 +850,9 @@ class _PresetSheet extends StatelessWidget {
         children: [
           Row(
             children: [
-              const TrText('Chọn chế độ học', style: TextStyle(
+              const Text(
+                'Chọn chế độ học',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -865,7 +866,9 @@ class _PresetSheet extends StatelessWidget {
                   color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const TrText('Giữ 🔄 để tuỳ chỉnh', style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10),
+                child: const Text(
+                  'Giữ 🔄 để tuỳ chỉnh',
+                  style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10),
                 ),
               ),
             ],
@@ -948,7 +951,8 @@ class _ResumeDialog extends StatelessWidget {
     return AlertDialog(
       backgroundColor: const Color(0xFF1A1F35),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const TrText('▶ Tiếp tục phát?', style: TextStyle(color: Colors.white, fontSize: 16)),
+      title: const Text('▶ Tiếp tục phát?',
+          style: TextStyle(color: Colors.white, fontSize: 16)),
       content: Text(
         anchor.displayText,
         style: const TextStyle(color: Colors.grey, fontSize: 13),
@@ -959,14 +963,15 @@ class _ResumeDialog extends StatelessWidget {
             Navigator.pop(context);
             onFromStart();
           },
-          child: const Text(context.l10n.listenFromStart, style: TextStyle(color: Colors.grey)),
+          child: const Text('Từ đầu', style: TextStyle(color: Colors.grey)),
         ),
         TextButton(
           onPressed: () {
             Navigator.pop(context);
             onResume();
           },
-          child: const TrText('Tiếp tục', style: TextStyle(color: Color(0xFF6C63FF))),
+          child: const Text('Tiếp tục',
+              style: TextStyle(color: Color(0xFF6C63FF))),
         ),
       ],
     );

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class TimelineView extends StatelessWidget {
   const TimelineView({super.key});
@@ -33,7 +32,7 @@ class TimelineView extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Center(
-                  child: Text('Content',
+                  child: Text('${provider.total} từ',
                       style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                 ),
               ),
@@ -71,7 +70,8 @@ class TimelineView extends StatelessWidget {
           children: [
             Icon(Icons.timeline, size: 52, color: Colors.grey[800]),
             const SizedBox(height: 16),
-            Text(context.l10n.ytNoHistory, style: TextStyle(color: Colors.grey[500], fontSize: 15)),
+            Text('Chưa có lịch sử',
+                style: TextStyle(color: Colors.grey[500], fontSize: 15)),
           ],
         ),
       ),
@@ -99,8 +99,8 @@ class _DateGroup extends StatelessWidget {
     final y = int.parse(parts[0]);
     final m = int.parse(parts[1]);
     final d = int.parse(parts[2]);
-    if (y == now.year && m == now.month && d == now.day) return 'Content';
-    if (y == now.year && m == now.month && d == now.day - 1) return 'Content';
+    if (y == now.year && m == now.month && d == now.day) return 'Hôm nay';
+    if (y == now.year && m == now.month && d == now.day - 1) return 'Hôm qua';
     return '$d/$m/$y';
   }
 
@@ -291,7 +291,7 @@ class _TimelineEntry extends StatelessWidget {
                 color: Color(0xFFFFB300).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text('Content',
+              child: Text('Gặp lần $encounterCount!',
                   style: const TextStyle(
                       color: Color(0xFFFFB300),
                       fontSize: 9,

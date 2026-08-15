@@ -10,7 +10,6 @@ import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
 import 'package:in4up_stt/in4up_stt.dart';
 
 import '../../core/language/app_language.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class SttModelSettingsScreen extends StatelessWidget {
   const SttModelSettingsScreen({super.key});
@@ -23,7 +22,9 @@ class SttModelSettingsScreen extends StatelessWidget {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.l10n.manageAIModels, style: TextStyle(
+            Text(
+              'Quản lý Model AI',
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -69,11 +70,13 @@ class _SourceInfoCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const TrText('Nguồn tải: Hugging Face', style: TextStyle(fontWeight: FontWeight.bold),
+                  const Text(
+                    'Nguồn tải: Hugging Face',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
                     'Miễn phí · Không cần tài khoản · '
-                    'Content',
+                    'Tự động chuyển sang GitHub nếu chậm',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -179,7 +182,7 @@ class _ModelCard extends StatelessWidget {
                       // Nút Huỷ download
                       TextButton.icon(
                         icon: const Icon(Icons.cancel, size: 16),
-                        label: const TrTrText('Huỷ'),
+                        label: const Text('Huỷ'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
@@ -197,7 +200,7 @@ class _ModelCard extends StatelessWidget {
                       // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
-                        label: Text('Delete (${level.sizeInMB}MB)'),
+                        label: Text('Xoá (${level.sizeInMB}MB)'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
@@ -221,7 +224,7 @@ class _ModelCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.download, size: 16),
-                        label: const TrTrText('Tải về'),
+                        label: const Text('Tải về'),
                         onPressed: () =>
                             _handleDownload(context, manager, level),
                       ),
@@ -245,21 +248,21 @@ class _ModelCard extends StatelessWidget {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const TrTrText('Xác nhận tải model Small'),
+          title: const Text('Xác nhận tải model Small'),
           content: const Text(
             'Model Small có dung lượng ~466MB.\n\n'
             'Nguồn tải: Hugging Face (miễn phí)\n'
             'Thời gian ước tính: 5-15 phút tùy mạng\n\n'
-            'Continue',
+            'Bạn có muốn tiếp tục không?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const TrTrText('Huỷ'),
+              child: const Text('Huỷ'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const TrTrText('Tải về'),
+              child: const Text('Tải về'),
             ),
           ],
         ),
@@ -295,8 +298,8 @@ class _ModelCard extends StatelessWidget {
       SnackBar(
         content: Text(
           success
-              ? 'Content'
-              : 'Content',
+              ? '✅ Import ${level.name.toUpperCase()} thành công!'
+              : '❌ Import thất bại — sai file hoặc file bị lỗi',
         ),
       ),
     );
@@ -310,22 +313,22 @@ class _ModelCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Delete model ${level.name.toUpperCase()}?'),
+        title: Text('Xoá model ${level.name.toUpperCase()}?'),
         content: Text(
           'Sẽ giải phóng ${level.sizeInMB}MB. '
-          'Content',
+          'Bạn cần tải lại để dùng tính năng này.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const TrTrText('Huỷ'),
+            child: const Text('Huỷ'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
-            child: const TrTrText('Xoá'),
+            child: const Text('Xoá'),
           ),
         ],
       ),
@@ -375,11 +378,11 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      ModelStatus.downloaded => ('Content', Colors.green),
-      ModelStatus.downloading => ('Loading', Colors.blue),
-      ModelStatus.corrupted => ('Content', Colors.orange),
-      ModelStatus.insufficientSpace => ('Content', Colors.red),
-      _ => ('Content', Colors.grey),
+      ModelStatus.downloaded => ('Sẵn sàng', Colors.green),
+      ModelStatus.downloading => ('Đang tải', Colors.blue),
+      ModelStatus.corrupted => ('Lỗi file', Colors.orange),
+      ModelStatus.insufficientSpace => ('Hết bộ nhớ', Colors.red),
+      _ => ('Chưa tải', Colors.grey),
     };
 
     return Container(
@@ -414,7 +417,9 @@ class _LanguageSettingCard extends StatelessWidget {
             const Icon(Icons.language, color: Colors.teal),
             const SizedBox(width: 12),
             const Expanded(
-              child: TrText('Ngôn ngữ ứng dụng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              child: Text(
+                'Ngôn ngữ ứng dụng',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
             DropdownButton<String>(
@@ -425,7 +430,7 @@ class _LanguageSettingCard extends StatelessWidget {
               items: [
                 const DropdownMenuItem(
                   value: 'system',
-                  child: TrTrText('🌐 Hệ thống'),
+                  child: Text('🌐 Hệ thống'),
                 ),
                 ...AppLanguageCatalog.languages.map(
                   (language) => DropdownMenuItem(

@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/text_splitter_service.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Widget tách dòng tự động - nhúng vào Settings
 class AutoSplitSection extends StatefulWidget {
@@ -55,7 +54,9 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
           children: [
             Icon(Icons.auto_fix_high, size: 18, color: widget.primaryColor),
             const SizedBox(width: 8),
-            Text(context.l10n.ttsAutoSplit, style: TextStyle(
+            Text(
+              'Tách dòng tự động',
+              style: TextStyle(
                 fontSize: 16,
                 color: widget.primaryColor,
                 fontWeight: FontWeight.bold,
@@ -66,7 +67,9 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
         const SizedBox(height: 12),
 
         // Mode selector
-        Text(context.l10n.ttsSplitMode, style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+        Text(
+          'Chế độ tách',
+          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
         ),
         const SizedBox(height: 6),
         Wrap(
@@ -125,7 +128,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
         // Sliders
         if (_mode == SplitMode.smart || _mode == SplitMode.clause) ...[
           _SliderRow(
-            label: 'Content',
+            label: 'Tối thiểu $_minWords từ trước khi tách',
             value: _minWords.toDouble(),
             min: 2,
             max: 10,
@@ -138,7 +141,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
         ],
         if (_mode == SplitMode.smart) ...[
           _SliderRow(
-            label: 'Content',
+            label: 'Tối đa $_maxWords từ/dòng',
             value: _maxWords.toDouble(),
             min: 8,
             max: 30,
@@ -167,7 +170,9 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
               children: [
                 Row(
                   children: [
-                    Text(context.l10n.ttsPreview, style: TextStyle(
+                    Text(
+                      'Xem trước',
+                      style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[400],
                         fontWeight: FontWeight.w600,
@@ -176,7 +181,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                     const Spacer(),
                     Text(
                       '${_preview!.originalLineCount} dòng → ${_preview!.totalLines} dòng '
-                      'Content',
+                      '(~${_preview!.avgWordsPerLine.toStringAsFixed(1)} từ/dòng)',
                       style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                     ),
                   ],
@@ -224,7 +229,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'Content',
+                      '... và ${_preview!.lines.length - 20} dòng nữa',
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.grey[600],
@@ -248,7 +253,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
               },
               icon: const Icon(Icons.check, size: 18),
               label: Text(
-                'Content',
+                'Áp dụng (${_preview!.totalLines} dòng)',
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.primaryColor,

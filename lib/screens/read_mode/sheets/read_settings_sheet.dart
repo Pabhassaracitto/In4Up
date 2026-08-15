@@ -12,7 +12,6 @@ import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../services/playback_controller.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();
@@ -69,7 +68,9 @@ class _SettingsContent extends StatelessWidget {
                       const Icon(Icons.tune, color: Color(0xFF2196F3)),
                       const SizedBox(width: 8),
                       const Expanded(
-                        child: TrText('Cài đặt Text Studio', style: TextStyle(
+                        child: Text(
+                          'Cài đặt Text Studio',
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -86,20 +87,20 @@ class _SettingsContent extends StatelessWidget {
 
                   // ===== EXPERIENCE MODE =====
                   const _SectionTitle(
-                      title: context.l10n.grammarExperienceMode, icon: Icons.auto_awesome),
+                      title: 'Chế độ trải nghiệm', icon: Icons.auto_awesome),
                   const SizedBox(height: 12),
                   _SubModeSelector(tp: tp),
                   const SizedBox(height: 24),
 
                   // ===== ALIGNMENT =====
                   const _SectionTitle(
-                      title: context.l10n.grammarTextAlign, icon: Icons.format_align_center),
+                      title: 'Căn lề văn bản', icon: Icons.format_align_center),
                   const SizedBox(height: 12),
                   _AlignmentSelector(tp: tp),
                   const SizedBox(height: 24),
 
                   // ===== FONT SIZE =====
-                  const _SectionTitle(title: context.l10n.grammarFontSize, icon: Icons.text_fields),
+                  const _SectionTitle(title: 'Cỡ chữ', icon: Icons.text_fields),
                   const SizedBox(height: 12),
                   _FontSizeControl(tp: tp),
                   const SizedBox(height: 24),
@@ -113,7 +114,7 @@ class _SettingsContent extends StatelessWidget {
 
                   // ===== TRANSLATION + BILINGUAL TTS =====
                   const _SectionTitle(
-                    title: context.l10n.grammarTranslationBilingual,
+                    title: 'Dịch & đọc song ngữ',
                     icon: Icons.compare_arrows_rounded,
                   ),
                   const SizedBox(height: 12),
@@ -121,7 +122,7 @@ class _SettingsContent extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // ===== COLOR MODE =====
-                  const _SectionTitle(title: context.l10n.grammarColorMode, icon: Icons.palette),
+                  const _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
                   const SizedBox(height: 12),
                   _ColorModeSelector(tp: tp),
 
@@ -139,7 +140,7 @@ class _SettingsContent extends StatelessWidget {
 
                   // ===== DISPLAY OPTIONS =====
                   const _SectionTitle(
-                      title: context.l10n.grammarDisplay, icon: Icons.visibility),
+                      title: 'Hiển thị', icon: Icons.visibility),
                   const SizedBox(height: 12),
                   _DisplayOptions(tp: tp),
 
@@ -166,7 +167,7 @@ class _SettingsContent extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content:
-                                Text('Content')),
+                                Text('Đã tách thành ${lines.length} dòng')),
                       );
                     },
                   ),
@@ -196,9 +197,9 @@ class _AlignmentSelector extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _buildAlignBtn(Icons.format_align_left, 'Content', TextAlign.left),
+          _buildAlignBtn(Icons.format_align_left, 'Trái', TextAlign.left),
           const SizedBox(width: 8),
-          _buildAlignBtn(Icons.format_align_center, 'Content', TextAlign.center),
+          _buildAlignBtn(Icons.format_align_center, 'Giữa', TextAlign.center),
         ],
       ),
     );
@@ -344,7 +345,8 @@ class _TtsControls extends StatelessWidget {
             children: [
               const Icon(Icons.speed, size: 18, color: Colors.white70),
               const SizedBox(width: 8),
-              const TrText('Tốc độ:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Text('Tốc độ:',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
               Expanded(
                 child: Slider(
                   value: tp.ttsSpeed,
@@ -380,7 +382,7 @@ class _TtsControls extends StatelessWidget {
               Expanded(
                 child: _TtsButton(
                   icon: Icons.play_arrow,
-                  label: context.tr('Đọc dòng'),
+                  label: 'Đọc dòng',
                   color: const Color(0xFF4CAF50),
                   enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
                   onTap: () {
@@ -393,7 +395,7 @@ class _TtsControls extends StatelessWidget {
               Expanded(
                 child: _TtsButton(
                   icon: Icons.playlist_play,
-                  label: context.tr('Đọc tất cả'),
+                  label: 'Đọc tất cả',
                   color: const Color(0xFF2196F3),
                   enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
                   onTap: () {
@@ -406,7 +408,7 @@ class _TtsControls extends StatelessWidget {
               Expanded(
                 child: _TtsButton(
                   icon: Icons.stop,
-                  label: context.l10n.translationStop,
+                  label: 'Dừng',
                   color: Colors.red,
                   enabled: tp.isSpeaking,
                   onTap: () => tp.stopSpeaking(),
@@ -461,7 +463,7 @@ class _TranslationLanguageSection extends StatelessWidget {
           Text(
             'Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ '
             'chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước '
-            'Content',
+            'từng lượt đọc.',
             style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11,
@@ -470,7 +472,9 @@ class _TranslationLanguageSection extends StatelessWidget {
           ),
           if (tp.translationPairUsesSameLanguage) ...[
             const SizedBox(height: 8),
-            const TrText('Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.', style: TextStyle(
+            const Text(
+              'Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.',
+              style: TextStyle(
                 color: Colors.amber,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -621,11 +625,11 @@ class _LegendPanel extends StatelessWidget {
       case ColorMode.none:
         return '';
       case ColorMode.wordType:
-        return 'Content';
+        return 'Loại từ (Syntax Highlighting):';
       case ColorMode.cefrLevel:
-        return 'Content';
+        return 'Cấp độ CEFR:';
       case ColorMode.difficulty:
-        return 'Content';
+        return 'Độ khó (bạn đánh dấu):';
     }
   }
 
@@ -728,7 +732,7 @@ class _GrammarHighlightSection extends StatelessWidget {
             children: [
               const Expanded(
                 child: _SectionTitle(
-                  title: context.tr('Phase A · Từ loại chuyên sâu'),
+                  title: 'Phase A · Từ loại chuyên sâu',
                   icon: Icons.auto_awesome_motion,
                 ),
               ),
@@ -739,7 +743,9 @@ class _GrammarHighlightSection extends StatelessWidget {
               ),
             ],
           ),
-          TrText('Panel này đã được làm lại theo hướng control panel: preset đẹp hơn, so sánh palette trực quan hơn, có mini/advanced và cho phép lưu preset cá nhân.', style: TextStyle(
+          Text(
+            'Panel này đã được làm lại theo hướng control panel: preset đẹp hơn, so sánh palette trực quan hơn, có mini/advanced và cho phép lưu preset cá nhân.',
+            style: TextStyle(
               color: Colors.grey[400],
               fontSize: 12,
               height: 1.4,
@@ -767,7 +773,9 @@ class _GrammarHighlightSection extends StatelessWidget {
             },
           ),
           const SizedBox(height: 14),
-          Text(context.l10n.grammarPresetSuggestions, style: TextStyle(
+          Text(
+            'Preset gợi ý',
+            style: TextStyle(
               color: Colors.grey[300],
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -788,7 +796,9 @@ class _GrammarHighlightSection extends StatelessWidget {
           ),
           if (customPresets.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text(context.l10n.grammarYourPresets, style: TextStyle(
+            Text(
+              'Preset của bạn',
+              style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -842,12 +852,14 @@ class _GrammarHighlightSection extends StatelessWidget {
           SwitchListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title: const Text(context.l10n.grammarShowMiniLegend, style: TextStyle(color: Colors.white, fontSize: 13),
+            title: const Text(
+              'Hiện legend mini trong vùng đọc',
+              style: TextStyle(color: Colors.white, fontSize: 13),
             ),
             subtitle: Text(
               settings.showLegend
-                  ? 'Content'
-                  : 'Content',
+                  ? 'Đang bật để bạn lọc category trực tiếp trên màn đọc.'
+                  : 'Tắt để vùng đọc sạch hơn; phần điều khiển vẫn nằm ở đây.',
               style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
             ),
             value: settings.showLegend,
@@ -856,7 +868,9 @@ class _GrammarHighlightSection extends StatelessWidget {
           ),
           if (settings.showAdvancedControls) ...[
             const SizedBox(height: 14),
-            Text(context.l10n.grammarComparePalette, style: TextStyle(
+            Text(
+              'So sánh palette trực quan',
+              style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -876,7 +890,9 @@ class _GrammarHighlightSection extends StatelessWidget {
               }).toList(),
             ),
             const SizedBox(height: 14),
-            Text(context.l10n.grammarColorStyle, style: TextStyle(
+            Text(
+              'Kiểu tô màu',
+              style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -897,7 +913,9 @@ class _GrammarHighlightSection extends StatelessWidget {
               }).toList(),
             ),
             const SizedBox(height: 14),
-            Text(context.l10n.grammarPosGroups, style: TextStyle(
+            Text(
+              'Nhóm từ loại',
+              style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -929,7 +947,9 @@ class _GrammarHighlightSection extends StatelessWidget {
                   color: const Color(0xFF6C63FF).withValues(alpha: 0.22),
                 ),
               ),
-              child: const TrText('Mini mode đang ưu tiên thao tác cốt lõi: chọn preset, xem preview, bật tắt legend, lưu preset riêng và khôi phục nhanh. Bật advanced để chia category theo content / function / symbols và so màu trực quan hơn.', style: TextStyle(
+              child: const Text(
+                'Mini mode đang ưu tiên thao tác cốt lõi: chọn preset, xem preview, bật tắt legend, lưu preset riêng và khôi phục nhanh. Bật advanced để chia category theo content / function / symbols và so màu trực quan hơn.',
+                style: TextStyle(
                   color: Color(0xFFB8B5FF),
                   height: 1.45,
                   fontSize: 12,
@@ -978,8 +998,8 @@ class _GrammarControlSummary extends StatelessWidget {
         children: [
           Text(
             settings.isCustomPreset
-                ? 'Content'
-                : 'Content',
+                ? 'Đang dùng preset: Tùy chỉnh'
+                : 'Đang dùng preset: $activePresetName',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -988,8 +1008,8 @@ class _GrammarControlSummary extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             settings.isCustomPreset
-                ? 'Content'
-                : 'Content',
+                ? 'Bạn đang chỉnh tay từ preset gần nhất: $previousPresetName'
+                : 'Có thể chuyển sang tùy chỉnh nếu cần ẩn/hiện thủ công từng nhóm từ loại.',
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -1001,10 +1021,10 @@ class _GrammarControlSummary extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _TinyStatChip(label: 'Content'),
-              _TinyStatChip(label: 'Content'),
+              _TinyStatChip(label: '$visibleCount bật'),
+              _TinyStatChip(label: '$hiddenCount ẩn'),
               _TinyStatChip(
-                label: settings.showLegend ? 'Content' : 'Content',
+                label: settings.showLegend ? 'Legend nổi' : 'Legend tắt',
               ),
             ],
           ),
@@ -1054,7 +1074,7 @@ class _GrammarControlSummary extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onSaveCurrentPreset,
                 icon: const Icon(Icons.bookmark_add_outlined, size: 16),
-                label: const TrText(context.l10n.grammarSavePreset),
+                label: const Text('Lưu preset riêng'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -1066,7 +1086,7 @@ class _GrammarControlSummary extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onRestorePreviousPreset,
                   icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: Text('Content'),
+                  label: Text('Khôi phục $previousPresetName'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB8B5FF),
                     side: BorderSide(
@@ -1125,7 +1145,7 @@ class _ReadSettingsHiddenGrammarCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onShowAllCategories,
                 icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: const TrText(context.l10n.grammarEnableAll),
+                label: const Text('Bật lại tất cả'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -1451,13 +1471,13 @@ class _PaletteChoiceCard extends StatelessWidget {
   String _paletteHint(String id) {
     switch (id) {
       case 'classic-dark':
-        return 'Content';
+        return 'Màu sâu, nổi rõ trên nền tối.';
       case 'classic-light':
-        return 'Content';
+        return 'Sáng, dễ so màu khi đọc nền trắng.';
       case 'noun-verb-focus':
-        return 'Content';
+        return 'Rất rõ noun/verb để luyện cấu trúc cốt lõi.';
       default:
-        return 'Content';
+        return 'So sánh trực quan các nhóm màu chính.';
     }
   }
 }
@@ -1567,7 +1587,7 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
   String suggestedName,
 ) async {
   final nameCtrl = TextEditingController(
-    text: suggestedName == 'Content' ? 'Content' : 'Content',
+    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
   );
   final descCtrl = TextEditingController();
 
@@ -1576,7 +1596,7 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
     builder: (dialogContext) {
       return AlertDialog(
         backgroundColor: const Color(0xFF151B26),
-        title: const TrTrText('Lưu preset cá nhân'),
+        title: const Text('Lưu preset cá nhân'),
         titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 18,
@@ -1591,8 +1611,8 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: _readDialogInputDecoration(
-                  label: context.tr('Tên preset'),
-                  hint: context.tr('Ví dụ: Verb focus riêng'),
+                  label: 'Tên preset',
+                  hint: 'Ví dụ: Verb focus riêng',
                 ),
               ),
               const SizedBox(height: 12),
@@ -1601,8 +1621,8 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
                 maxLines: 3,
                 style: const TextStyle(color: Colors.white),
                 decoration: _readDialogInputDecoration(
-                  label: context.tr('Mô tả ngắn'),
-                  hint: context.tr('Ghi chú cách dùng của preset này'),
+                  label: 'Mô tả ngắn',
+                  hint: 'Ghi chú cách dùng của preset này',
                 ),
               ),
             ],
@@ -1611,14 +1631,14 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const TrTrText('Huỷ'),
+            child: const Text('Huỷ'),
           ),
           FilledButton(
             onPressed: () {
               if (nameCtrl.text.trim().isEmpty) return;
               Navigator.pop(dialogContext, true);
             },
-            child: const TrTrText('Lưu preset'),
+            child: const Text('Lưu preset'),
           ),
         ],
       );
@@ -1670,11 +1690,12 @@ class _DisplayOptions extends StatelessWidget {
       child: Column(
         children: [
           SwitchListTile(
-            title: const Text(context.l10n.grammarShowTranslation, style: TextStyle(color: Colors.white, fontSize: 14)),
+            title: const Text('Hiện bản dịch',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
             subtitle: Text(
                 tp.translatedLineCount > 0
-                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để ${tp.showTranslation ? 'ẩn' : 'Content'}'
-                    : 'Content',
+                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để ${tp.showTranslation ? 'ẩn' : 'hiện'}'
+                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             value: tp.showTranslation,
             activeThumbColor: const Color(0xFF4CAF50),
@@ -1690,16 +1711,20 @@ class _DisplayOptions extends StatelessWidget {
           ),
           Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
           SwitchListTile(
-            title: const Text(context.l10n.grammarShowLineNumbers, style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: TrText('Hiện số thứ tự và timestamp', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            title: const Text('Hiện số dòng',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text('Hiện số thứ tự và timestamp',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             value: tp.showLineNumbers,
             activeThumbColor: const Color(0xFF2196F3),
             onChanged: (_) => tp.toggleLineNumbers(),
           ),
           Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
           SwitchListTile(
-            title: const Text(context.l10n.grammarSmartSplit, style: TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: TrText('Tự động tối ưu độ dài câu để dễ đọc', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            title: const Text('Tách dòng thông minh',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text('Tự động tối ưu độ dài câu để dễ đọc',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             value: tp.useAutoSplit,
             activeThumbColor: const Color(0xFF9C27B0),
             onChanged: (v) => tp.toggleAutoSplit(v),
@@ -1726,25 +1751,25 @@ class _SubModeSelector extends StatelessWidget {
         children: [
           _SubModeItem(
             icon: Icons.menu_book,
-            label: context.l10n.grammarReadingMode,
+            label: 'Chế độ Đọc',
             isSelected: tp.subMode == ReadSubMode.reading,
             onTap: () => tp.setSubMode(ReadSubMode.reading),
           ),
           _SubModeItem(
             icon: Icons.record_voice_over,
-            label: context.l10n.grammarListeningMode,
+            label: 'Chế độ Nghe (TTS)',
             isSelected: tp.subMode == ReadSubMode.listening,
             onTap: () => tp.setSubMode(ReadSubMode.listening),
           ),
           _SubModeItem(
             icon: Icons.translate,
-            label: context.l10n.grammarTranslationMode,
+            label: 'Chế độ Dịch',
             isSelected: tp.subMode == ReadSubMode.translation,
             onTap: () => tp.setSubMode(ReadSubMode.translation),
           ),
           _SubModeItem(
             icon: Icons.directions_car,
-            label: context.l10n.grammarDrivingMode,
+            label: 'Chế độ Lái xe',
             isSelected: tp.subMode == ReadSubMode.driving,
             onTap: () => tp.setSubMode(ReadSubMode.driving),
           ),

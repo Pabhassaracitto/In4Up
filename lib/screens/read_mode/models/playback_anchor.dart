@@ -14,9 +14,9 @@ class PlaybackAnchor {
   String get displayText {
     final age = DateTime.now().difference(savedAt);
     final t = age.inMinutes < 60
-        ? 'Content'
-        : 'Content';
-    return 'Content';
+        ? '${age.inMinutes}p trước'
+        : '${age.inHours}g trước';
+    return 'Câu ${lineIndex + 1}  •  $t';
   }
 
   Map<String, dynamic> toJson() => {

@@ -14,7 +14,6 @@ import '../../../services/text_library_service.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
 import 'cloud_picker_sheet.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class QuickLibrarySheet extends StatefulWidget {
   const QuickLibrarySheet({super.key});
@@ -185,13 +184,17 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TrText('Đổi tài liệu', style: TextStyle(
+                Text(
+                  'Đổi tài liệu',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TrText('Gần đây nhất', style: TextStyle(
+                Text(
+                  'Gần đây nhất',
+                  style: TextStyle(
                     color: Colors.white54,
                     fontSize: 11,
                   ),
@@ -245,7 +248,9 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
               size: 40,
             ),
             const SizedBox(height: 10),
-            TrText('Chưa có tài liệu nào', style: TextStyle(
+            Text(
+              'Chưa có tài liệu nào',
+              style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 13,
               ),
@@ -301,7 +306,9 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
                         size: 16,
                       ),
                       SizedBox(width: 6),
-                      TrText('Xem tất cả', style: TextStyle(
+                      Text(
+                        'Xem tất cả',
+                        style: TextStyle(
                           color: Color(0xFF2196F3),
                           fontWeight: FontWeight.w700,
                           fontSize: 13,

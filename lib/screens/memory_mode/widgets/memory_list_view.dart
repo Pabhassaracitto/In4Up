@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryListView extends StatelessWidget {
   const MemoryListView({super.key});
@@ -124,7 +123,9 @@ class _MemoryListTile extends StatelessWidget {
                     ),
                   ),
                   if (item.needsReview)
-                    const Text(context.l10n.wordListDue, style: TextStyle(
+                    const Text(
+                      'Cần ôn',
+                      style: TextStyle(
                         fontSize: 9,
                         color: Color(0xFFFF5252),
                         fontWeight: FontWeight.bold,

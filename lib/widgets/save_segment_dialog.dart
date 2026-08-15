@@ -5,7 +5,6 @@ import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../models/segment.dart';
 import '../providers/player_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class SaveSegmentDialog extends StatefulWidget {
   const SaveSegmentDialog({super.key});
@@ -65,7 +64,9 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               children: [
                 Icon(Icons.bookmark_add, color: Colors.amber, size: 28),
                 SizedBox(width: 12),
-                TrText('Lưu đoạn này', style: TextStyle(
+                Text(
+                  'Lưu đoạn này',
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -85,9 +86,9 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildTimeInfo('Content', player.loopStart),
+                  _buildTimeInfo('Bắt đầu', player.loopStart),
                   const Icon(Icons.arrow_forward, color: Colors.white54),
-                  _buildTimeInfo('Content', player.loopEnd),
+                  _buildTimeInfo('Kết thúc', player.loopEnd),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -114,8 +115,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               autofocus: true,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: context.tr('Tên đoạn *'),
-                hintText: context.tr('Ví dụ: Tứ Diệu Đế, Câu khó số 1...'),
+                labelText: 'Tên đoạn *',
+                hintText: 'Ví dụ: Tứ Diệu Đế, Câu khó số 1...',
                 hintStyle:
                     TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 labelStyle: const TextStyle(color: Colors.grey),
@@ -135,7 +136,10 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             const SizedBox(height: 20),
 
             // Type Selection
-            const TrText('Phân loại:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            const Text(
+              'Phân loại:',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -186,7 +190,10 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             const SizedBox(height: 20),
 
             // Difficulty Selection
-            const TrText('Độ khó (Số lần lặp khi ôn tập):', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            const Text(
+              'Độ khó (Số lần lặp khi ôn tập):',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -226,7 +233,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                             ),
                           ),
                           Text(
-                            'Content',
+                            '${_getRepeatCount(level)}x lặp',
                             style: TextStyle(
                               color: isSelected
                                   ? Colors.white.withValues(alpha: 0.8)
@@ -249,8 +256,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               style: const TextStyle(color: Colors.white),
               maxLines: 2,
               decoration: InputDecoration(
-                labelText: context.tr('Ghi chú (Tùy chọn)'),
-                hintText: context.tr('Ví dụ: Chú ý phát âm "th"...'),
+                labelText: 'Ghi chú (Tùy chọn)',
+                hintText: 'Ví dụ: Chú ý phát âm "th"...',
                 hintStyle:
                     TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 labelStyle: const TextStyle(color: Colors.grey),
@@ -274,7 +281,9 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.grey, fontSize: 16),
+                    child: const Text(
+                      'Hủy',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
                   ),
                 ),
@@ -285,7 +294,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                     onPressed: _saveSegment,
                     icon: const Icon(Icons.save),
                     label:
-                        const TrText('Lưu đoạn', style: TextStyle(fontSize: 16)),
+                        const Text('Lưu đoạn', style: TextStyle(fontSize: 16)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6C63FF),
                       foregroundColor: Colors.white,
@@ -347,13 +356,13 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
   String _getTypeLabel(SegmentType type) {
     switch (type) {
       case SegmentType.dharma:
-        return 'Content';
+        return 'Pháp thoại';
       case SegmentType.english:
-        return 'Content';
+        return 'Tiếng Anh';
       case SegmentType.practice:
-        return 'Content';
+        return 'Luyện tập';
       case SegmentType.favorite:
-        return 'Content';
+        return 'Yêu thích';
     }
   }
 
@@ -386,13 +395,13 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
   String _getDifficultyLabel(DifficultyLevel level) {
     switch (level) {
       case DifficultyLevel.easy:
-        return 'Content';
+        return 'Dễ';
       case DifficultyLevel.medium:
-        return 'Content';
+        return 'Trung bình';
       case DifficultyLevel.hard:
-        return 'Content';
+        return 'Khó';
       case DifficultyLevel.veryHard:
-        return 'Content'; // ← THÊM
+        return 'Rất khó'; // ← THÊM
     }
   }
 
@@ -427,7 +436,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: TrTrText('Vui lòng nhập tên đoạn!'),
+          content: Text('Vui lòng nhập tên đoạn!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -453,7 +462,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text('Saved: ${segment.title}')),
+              Expanded(child: Text('Đã lưu: ${segment.title}')),
             ],
           ),
           backgroundColor: Colors.green,

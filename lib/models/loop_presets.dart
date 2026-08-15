@@ -3,7 +3,7 @@ class LoopPresets {
 
   /// Badge cycle trên Listen Screen: tap để chuyển mode
   static const List<int> badgeModes = [0, 1, 3, 5, -1];
-  static const List<String> badgeLabels = ['Content', '1×', '3×', '5×', '∞'];
+  static const List<String> badgeLabels = ['Lặp', '1×', '3×', '5×', '∞'];
 
   /// Dropdown trong AB Loop sheet
   static const List<int> dropdownValues = [-1, 0, 1, 3, 5, 7, 10, 15, 20];

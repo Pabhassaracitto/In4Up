@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import '../../../providers/player_provider.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class QuickAudioSheet extends StatefulWidget {
   const QuickAudioSheet({super.key});
@@ -126,13 +125,17 @@ class _QuickAudioSheetState extends State<QuickAudioSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TrText('Đổi audio', style: TextStyle(
+                Text(
+                  'Đổi audio',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TrText('Gần đây nhất', style: TextStyle(color: Colors.white54, fontSize: 11),
+                Text(
+                  'Gần đây nhất',
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -174,7 +177,9 @@ class _QuickAudioSheetState extends State<QuickAudioSheet> {
             Icon(Icons.music_off,
                 color: Colors.white.withValues(alpha: 0.2), size: 36),
             const SizedBox(height: 8),
-            Text(context.l10n.listenNoAudio, style: TextStyle(
+            Text(
+              'Chưa có audio nào',
+              style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 13,
               ),
@@ -223,7 +228,9 @@ class _QuickAudioSheetState extends State<QuickAudioSheet> {
                 Icon(Icons.grid_view_rounded,
                     color: Color(0xFF6C63FF), size: 16),
                 SizedBox(width: 6),
-                TrText('Xem tất cả', style: TextStyle(
+                Text(
+                  'Xem tất cả',
+                  style: TextStyle(
                     color: Color(0xFF6C63FF),
                     fontWeight: FontWeight.w700,
                     fontSize: 13,

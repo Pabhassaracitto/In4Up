@@ -92,12 +92,12 @@ enum MarkerType {
 extension MarkerTypeExtension on MarkerType {
   String get displayName {
     switch (this) {
-      case MarkerType.point: return 'Content';
-      case MarkerType.region: return 'Content';
-      case MarkerType.word: return 'Content';
-      case MarkerType.sentence: return 'Content';
-      case MarkerType.difficult: return 'Content';
-      case MarkerType.important: return 'Content';
+      case MarkerType.point: return 'Điểm';
+      case MarkerType.region: return 'Đoạn';
+      case MarkerType.word: return 'Từ';
+      case MarkerType.sentence: return 'Câu';
+      case MarkerType.difficult: return 'Khó';
+      case MarkerType.important: return 'Quan trọng';
     }
   }
 

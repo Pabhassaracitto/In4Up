@@ -15,7 +15,6 @@ import '../../../features/tts/tts_service.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class KnowledgeGraphScreen extends StatefulWidget {
   const KnowledgeGraphScreen({super.key});
@@ -210,7 +209,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
         child: Row(
           children: [
             _FilterChip(
-              label: context.tr('Tất cả'),
+              label: 'Tất cả',
               color: const Color(0xFF9E9E9E),
               isSelected: _filterType == null,
               onTap: () {
@@ -288,7 +287,9 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                 ),
               )),
           const Spacer(),
-          TrText('Tap node để xem chi tiết', style: TextStyle(color: Colors.grey[700], fontSize: 10),
+          Text(
+            'Tap node để xem chi tiết',
+            style: TextStyle(color: Colors.grey[700], fontSize: 10),
           ),
         ],
       ),
@@ -374,14 +375,18 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
         children: [
           Icon(Icons.hub_outlined, size: 64, color: Colors.grey[800]),
           const SizedBox(height: 16),
-          TrText('Chưa có từ vựng nào', style: TextStyle(
+          Text(
+            'Chưa có từ vựng nào',
+            style: TextStyle(
               color: Colors.grey[500],
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
-          TrText('Thêm từ vựng và tạo liên kết để xem graph', style: TextStyle(color: Colors.grey[700], fontSize: 12),
+          Text(
+            'Thêm từ vựng và tạo liên kết để xem graph',
+            style: TextStyle(color: Colors.grey[700], fontSize: 12),
           ),
         ],
       ),
@@ -652,7 +657,7 @@ class _WordDetailSheet extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Content',
+                'Thuần thục: ${(word.mastery * 100).toInt()}%',
                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
               const SizedBox(width: 12),
@@ -674,7 +679,7 @@ class _WordDetailSheet extends StatelessWidget {
           // Contexts
           if (word.contexts.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _sectionHeader(Icons.menu_book, 'Content'),
+            _sectionHeader(Icons.menu_book, 'Ngữ cảnh'),
             const SizedBox(height: 8),
             ...word.contexts.take(2).map((c) => Container(
                   margin: const EdgeInsets.only(bottom: 6),
@@ -715,10 +720,11 @@ class _WordDetailSheet extends StatelessWidget {
           // Related nodes — navigate trong graph
           if (parents.isNotEmpty || children.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _sectionHeader(Icons.account_tree_outlined, 'Content'),
+            _sectionHeader(Icons.account_tree_outlined, 'Liên kết trong Graph'),
             const SizedBox(height: 8),
             if (parents.isNotEmpty) ...[
-              TrText('Thuộc về:', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+              Text('Thuộc về:',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11)),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -734,7 +740,8 @@ class _WordDetailSheet extends StatelessWidget {
             ],
             if (children.isNotEmpty) ...[
               const SizedBox(height: 8),
-              TrText('Chứa:', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+              Text('Chứa:',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11)),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -758,7 +765,7 @@ class _WordDetailSheet extends StatelessWidget {
               Expanded(
                 child: _ActionButton(
                   icon: Icons.school,
-                  label: context.l10n.commonReview,
+                  label: 'Ôn tập',
                   color: const Color(0xFF4CAF50),
                   onTap: () {
                     Navigator.pop(context);
@@ -856,7 +863,7 @@ class _LayoutToggle extends StatelessWidget {
       icon: const Icon(Icons.account_tree, color: Colors.white54, size: 18),
       onSelected: onChanged,
       itemBuilder: (_) => [
-        _item('tree', Icons.account_tree_outlined, 'Content'),
+        _item('tree', Icons.account_tree_outlined, 'Cây phân cấp'),
         _item('force', Icons.bubble_chart_outlined, 'Force Layout'),
         _item('layered', Icons.layers_outlined, 'Layered'),
       ],

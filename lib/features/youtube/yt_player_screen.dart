@@ -14,7 +14,6 @@ import '../word_lookup/word_analysis_sheet.dart';
 
 import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 // ─── Word knowledge state ─────────────────────────────────
 enum WordState { unknown, known, learning, ignored }
@@ -55,21 +54,21 @@ class LrWord {
   String get typeLabel {
     switch (type) {
       case 'verb':
-        return 'Content';
+        return 'động từ';
       case 'noun':
-        return 'Content';
+        return 'danh từ';
       case 'proper':
-        return 'Content';
+        return 'tên riêng';
       case 'adj':
-        return 'Content';
+        return 'tính từ';
       case 'adv':
-        return 'Content';
+        return 'trạng từ';
       case 'prep':
-        return 'Content';
+        return 'giới từ';
       case 'conj':
-        return 'Content';
+        return 'liên từ';
       default:
-        return 'Content';
+        return 'từ';
     }
   }
 }
@@ -471,7 +470,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         height: 120,
         alignment: Alignment.center,
         child:
-            const Text(context.l10n.ytNoSubs, style: TextStyle(color: Colors.grey)),
+            const Text('Không có phụ đề', style: TextStyle(color: Colors.grey)),
       );
     }
     final line = _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
@@ -491,7 +490,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             children: [
               _ActionBtn(
                 icon: Icons.check,
-                label: context.l10n.ytKnownAll,
+                label: 'Biết hết',
                 color: const Color(0xFF4CAF50),
                 onTap: () {
                   for (final w in line.words) {
@@ -502,7 +501,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               const SizedBox(width: 8),
               _ActionBtn(
                 icon: Icons.menu_book,
-                label: context.l10n.ytLearnSentence,
+                label: 'Học cả câu',
                 color: const Color(0xFF9C27B0),
                 onTap: () {
                   for (final w in line.words) {
@@ -961,7 +960,7 @@ class _WordPopup extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _PopupBtn(
-                      label: context.l10n.ytIknow,
+                      label: '✓ Đã biết',
                       color: const Color(0xFF4CAF50),
                       onTap: () => onSetState(WordState.known),
                     ),
@@ -969,7 +968,7 @@ class _WordPopup extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _PopupBtn(
-                      label: context.l10n.ytLearning,
+                      label: '📖 Đang học',
                       color: const Color(0xFF9C27B0),
                       onTap: () => onSetState(WordState.learning),
                     ),
@@ -977,7 +976,7 @@ class _WordPopup extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _PopupBtn(
-                      label: context.l10n.ytSkip,
+                      label: '⊘ Bỏ qua',
                       color: Colors.grey,
                       onTap: () => onSetState(WordState.ignored),
                     ),
@@ -994,19 +993,19 @@ class _WordPopup extends StatelessWidget {
   List<String> _getMeanings(String word) {
     // Mock meanings — thực tế gọi dictionary API
     const dict = {
-      'need': ['Content', 'Content'],
-      'grab': ['Content', 'Content'],
-      'working': ['Content', 'Content'],
-      'double': ['Content', 'Content', 'Content'],
-      'shift': ['Content', 'Content'],
-      'school': ['Content', 'Content'],
-      'verb': ['Content'],
-      'noun': ['Content'],
-      'proper': ['Content', 'Content'],
-      'little': ['Content', 'Content'],
+      'need': ['cần, cần thiết', 'nhu cầu (danh từ)'],
+      'grab': ['nắm lấy, túm lấy', 'lấy nhanh, đón'],
+      'working': ['đang làm việc', 'hoạt động'],
+      'double': ['gấp đôi', 'ca kép (2 ca liên tiếp)', 'đồng dạng'],
+      'shift': ['ca làm việc', 'thay đổi, dịch chuyển'],
+      'school': ['trường học', 'sau giờ học'],
+      'verb': ['động từ'],
+      'noun': ['danh từ'],
+      'proper': ['đúng đắn, phù hợp', 'tên riêng (proper noun)'],
+      'little': ['nhỏ, ít', 'một chút'],
       'after': ['sau, sau khi'],
     };
-    return dict[word] ?? ['Content'];
+    return dict[word] ?? ['(không có trong từ điển)'];
   }
 }
 

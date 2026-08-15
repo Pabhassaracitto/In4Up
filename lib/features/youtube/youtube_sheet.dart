@@ -18,7 +18,6 @@ import 'services/yt_service.dart';
 import 'widgets/yt_tab_audio.dart';
 import 'widgets/yt_tab_captions.dart';
 import 'widgets/yt_video_card.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class YoutubeSheet extends StatefulWidget {
   final bool captionsFirst;
@@ -94,7 +93,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
 
     final id = YtVideo.extractId(input);
     if (id == null) {
-      setState(() => _urlError = 'Content');
+      setState(() => _urlError = 'URL không hợp lệ');
       return;
     }
 
@@ -111,7 +110,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
 
     if (video == null) {
       setState(() {
-        _urlError = 'Search';
+        _urlError = 'Không tìm thấy video — kiểm tra URL và mạng';
         _isFetchingVideo = false;
       });
       return;
@@ -219,7 +218,8 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold)),
-                  Text(context.l10n.ytAudioCaptionsHistory, style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text('Tải audio · Captions · Lịch sử',
+                      style: TextStyle(color: Colors.grey, fontSize: 11)),
                 ],
               ),
             ),
@@ -259,7 +259,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                         style:
                             const TextStyle(color: Colors.white, fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: context.l10n.ytPasteUrl,
+                          hintText: 'Dán URL YouTube...',
                           hintStyle:
                               const TextStyle(color: Colors.grey, fontSize: 13),
                           border: InputBorder.none,
@@ -328,7 +328,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
         tabs: const [
           Tab(icon: Icon(Icons.audio_file, size: 15), text: 'Audio'),
           Tab(icon: Icon(Icons.subtitles, size: 15), text: 'Captions'),
-          Tab(icon: Icon(Icons.history, size: 15), text: context.l10n.ytHistory),
+          Tab(icon: Icon(Icons.history, size: 15), text: 'Lịch sử'),
         ],
       );
 
@@ -340,7 +340,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
           children: [
             Icon(Icons.history, size: 48, color: Colors.grey[700]),
             const SizedBox(height: 12),
-            Text(context.l10n.ytNoHistory, style: TextStyle(color: Colors.grey[500])),
+            Text('Chưa có lịch sử', style: TextStyle(color: Colors.grey[500])),
           ],
         ),
       );

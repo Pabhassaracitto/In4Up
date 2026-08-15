@@ -304,7 +304,7 @@ class VocabularyProvider extends ChangeNotifier {
       final pulledCount = await _sync.pullFromFirestore(forceAll: isLocalEmpty);
 
       if (isLocalEmpty && pulledCount > 0) {
-        debugPrint('Content');
+        debugPrint('🔄 Local rỗng, đã kéo $pulledCount từ vựng từ Firebase.');
       }
 
       _isSyncEnabled = true;

@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class CreateSegmentSheet {
   CreateSegmentSheet._();
@@ -150,12 +149,13 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const TrText('Tạo Segment mới', style: TextStyle(
+                      const Text('Tạo Segment mới',
+                          style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold)),
                       Text(
-                          'Content',
+                          '$lineCount dòng (${_startLine + 1} → ${_endLine + 1})',
                           style:
                               TextStyle(color: Colors.grey[400], fontSize: 13)),
                     ],
@@ -167,20 +167,20 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             const SizedBox(height: 20),
 
             // Tên
-            _label('Content'),
+            _label('Tên segment'),
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
               style: const TextStyle(color: Colors.white, fontSize: 15),
               decoration: _deco(
-                  hint: context.tr('Nhập tên cho segment...'), icon: Icons.label_outline),
+                  hint: 'Nhập tên cho segment...', icon: Icons.label_outline),
               maxLength: 50,
             ),
 
             const SizedBox(height: 12),
 
             // ★ IPA
-            _label('Content'),
+            _label('Phiên âm IPA (tùy chọn)'),
             const SizedBox(height: 8),
             TextField(
               controller: _ipaController,
@@ -201,13 +201,13 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             const SizedBox(height: 12),
 
             // ★ Nghĩa
-            _label('Content'),
+            _label('Nghĩa tiếng Việt (tùy chọn)'),
             const SizedBox(height: 8),
             TextField(
               controller: _translationController,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: _deco(
-                hint: context.tr('Nhập nghĩa của từ / cụm từ...'),
+                hint: 'Nhập nghĩa của từ / cụm từ...',
                 icon: Icons.translate,
               ).copyWith(
                 focusedBorder: OutlineInputBorder(
@@ -223,13 +223,13 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             const SizedBox(height: 12),
 
             // Phạm vi dòng
-            _label('Content'),
+            _label('Phạm vi dòng'),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                     child: _lineSelector(
-                  label: context.tr('Từ dòng'),
+                  label: 'Từ dòng',
                   value: _startLine + 1,
                   onChanged: (v) => setState(() {
                     _startLine = v - 1;
@@ -245,7 +245,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                 ),
                 Expanded(
                     child: _lineSelector(
-                  label: context.tr('Đến dòng'),
+                  label: 'Đến dòng',
                   value: _endLine + 1,
                   onChanged: (v) => setState(() {
                     _endLine = v - 1;
@@ -296,7 +296,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             const SizedBox(height: 16),
 
             // Màu
-            _label('Content'),
+            _label('Màu đánh dấu'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 10,
@@ -339,13 +339,13 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
             const SizedBox(height: 16),
 
             // Ghi chú
-            _label('Note'),
+            _label('Ghi chú (tùy chọn)'),
             const SizedBox(height: 8),
             TextField(
               controller: _noteController,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: _deco(
-                  hint: context.tr('Ghi chú về segment này...'),
+                  hint: 'Ghi chú về segment này...',
                   icon: Icons.note_alt_outlined),
               maxLines: 2,
               maxLength: 200,
@@ -365,7 +365,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.bookmark_add, size: 20),
-                label: Text(_isCreating ? 'Content' : 'Create Segment'),
+                label: Text(_isCreating ? 'Đang tạo...' : 'Tạo Segment'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _selectedColor,
                   foregroundColor: Colors.white,
@@ -463,7 +463,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: TrTrText('Vui lòng nhập tên segment'),
+        content: Text('Vui lòng nhập tên segment'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.orange,
       ));
@@ -512,7 +512,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
       setState(() => _isCreating = false);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Content'),
+          content: Text('Lỗi: $e'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red[900],
         ));

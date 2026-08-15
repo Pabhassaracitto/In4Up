@@ -48,7 +48,7 @@ class PlaybackSnapshot {
         ? '${pass + 1}/∞'
         : '${pass + 1}/$totalPasses';
     return '${language.flag} ${language.translationCode} ×$repeats  •  '
-        'Content';
+        'Câu $lineText  •  Vòng $passText';
   }
 
   double get lineProgress =>

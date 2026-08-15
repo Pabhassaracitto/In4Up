@@ -35,7 +35,6 @@ import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_workspace_screen.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 enum _PrimaryTab { home, listen, read, understand, remember }
 
@@ -94,20 +93,20 @@ class _MainShellState extends State<MainShell> {
 
   String get _currentModeLabel {
     if (_showListenModes) {
-      return _listenModeIndex == 0 ? 'Nghe' : 'Speak';
+      return _listenModeIndex == 0 ? 'Nghe' : 'Nói';
     }
     if (_showReadModes) {
-      return _readModeIndex == 0 ? 'Read' : 'Write';
+      return _readModeIndex == 0 ? 'Đọc' : 'Viết';
     }
     return '';
   }
 
   String get _alternateModeLabel {
     if (_showListenModes) {
-      return _listenModeIndex == 0 ? 'Speak' : 'Nghe';
+      return _listenModeIndex == 0 ? 'Nói' : 'Nghe';
     }
     if (_showReadModes) {
-      return _readModeIndex == 0 ? 'Write' : 'Read';
+      return _readModeIndex == 0 ? 'Viết' : 'Đọc';
     }
     return '';
   }
@@ -176,12 +175,12 @@ class _MainShellState extends State<MainShell> {
       final parts = <String>[];
       if (shouldShowLongPressHint) {
         parts.add(_showListenModes
-            ? 'Content'
-            : 'Content');
+            ? 'Giữ tab Nghe để vào Nói.'
+            : 'Giữ tab Đọc để vào Viết.');
       }
       if (shouldShowModeChipHint) {
         parts.add(
-            'Content');
+            'Chạm chip mode dưới tiêu đề để hiện hoặc ẩn nhanh thanh mode.');
       }
 
       if (parts.isEmpty) return;
@@ -261,13 +260,13 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return 'In4Up';
       case _PrimaryTab.listen:
-        return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Speak';
+        return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
       case _PrimaryTab.read:
-        return _readModeIndex == 0 ? '📖 Read' : '✍️ Write';
+        return _readModeIndex == 0 ? '📖 Đọc' : '✍️ Viết';
       case _PrimaryTab.understand:
-        return '💡 Understand';
+        return '💡 Hiểu';
       case _PrimaryTab.remember:
-        return '🧠 Remember';
+        return '🧠 Nhớ';
     }
   }
 
@@ -296,9 +295,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   String get _leadingTooltip {
-    if (_currentTab == _PrimaryTab.home) return 'Content';
-    if (_currentTab == _PrimaryTab.remember) return 'Content';
-    return 'Content';
+    if (_currentTab == _PrimaryTab.home) return 'Quản lý Model AI';
+    if (_currentTab == _PrimaryTab.remember) return 'Danh sách từ';
+    return 'Thư viện văn bản';
   }
 
   void _setPrimaryTab(_PrimaryTab tab) {
@@ -396,8 +395,8 @@ class _MainShellState extends State<MainShell> {
 
     final shellSettingsTool = tools.ToolItem(
       id: 'shell_ui_settings',
-      title: context.tr('Giao diện shell'),
-      subtitle: context.tr('Compact mode, auto-hide, long-press đổi mode'),
+      title: 'Giao diện shell',
+      subtitle: 'Compact mode, auto-hide, long-press đổi mode',
       icon: Icons.tune_rounded,
       color: const Color(0xFF90CAF9),
     );
@@ -465,15 +464,15 @@ class _MainShellState extends State<MainShell> {
       _PrimaryTab.home => [
           tools.ToolItem(
             id: 'speak_mode',
-            title: context.l10n.commonSpeaking,
-            subtitle: context.tr('Luyện shadowing và phát âm'),
+            title: 'Nói',
+            subtitle: 'Luyện shadowing và phát âm',
             icon: Icons.mic_rounded,
             color: const Color(0xFFB388FF),
           ),
           tools.ToolItem(
             id: 'write_mode',
-            title: context.l10n.commonWriting,
-            subtitle: context.tr('Bài tập chép và recall theo nội dung'),
+            title: 'Viết',
+            subtitle: 'Bài tập chép và recall theo nội dung',
             icon: Icons.edit_square,
             color: const Color(0xFF26C6DA),
           ),
@@ -484,15 +483,15 @@ class _MainShellState extends State<MainShell> {
       _PrimaryTab.listen => [
           tools.ToolItem(
             id: 'speak_mode',
-            title: context.l10n.commonSpeaking,
-            subtitle: context.tr('Nhảy nhanh sang speaking studio'),
+            title: 'Nói',
+            subtitle: 'Nhảy nhanh sang speaking studio',
             icon: Icons.mic_rounded,
             color: const Color(0xFFB388FF),
           ),
           tools.ToolItem(
             id: 'understand_tab',
-            title: context.l10n.commonUnderstanding,
-            subtitle: context.tr('Qua không gian đồng bộ audio-text'),
+            title: 'Hiểu',
+            subtitle: 'Qua không gian đồng bộ audio-text',
             icon: Icons.lightbulb,
             color: const Color(0xFFFFB300),
           ),
@@ -503,8 +502,8 @@ class _MainShellState extends State<MainShell> {
       _PrimaryTab.read => [
           tools.ToolItem(
             id: 'write_mode',
-            title: context.l10n.commonWriting,
-            subtitle: context.tr('Nhảy nhanh sang writing studio'),
+            title: 'Viết',
+            subtitle: 'Nhảy nhanh sang writing studio',
             icon: Icons.edit_square,
             color: const Color(0xFF26C6DA),
           ),
@@ -516,8 +515,8 @@ class _MainShellState extends State<MainShell> {
       _PrimaryTab.understand => [
           tools.ToolItem(
             id: 'speak_mode',
-            title: context.l10n.commonSpeaking,
-            subtitle: context.tr('Qua speaking studio để luyện shadowing'),
+            title: 'Nói',
+            subtitle: 'Qua speaking studio để luyện shadowing',
             icon: Icons.mic_rounded,
             color: const Color(0xFFB388FF),
           ),
@@ -807,7 +806,8 @@ class _MainShellState extends State<MainShell> {
                         children: [
                           Icon(Icons.close, color: Colors.redAccent, size: 18),
                           SizedBox(width: 6),
-                          TrText('Vuốt để ẩn', style: TextStyle(
+                          Text('Vuốt để ẩn',
+                              style: TextStyle(
                                   color: Colors.redAccent, fontSize: 12)),
                         ],
                       ),
@@ -823,7 +823,8 @@ class _MainShellState extends State<MainShell> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          TrText('Vuốt để ẩn', style: TextStyle(
+                          Text('Vuốt để ẩn',
+                              style: TextStyle(
                                   color: Colors.redAccent, fontSize: 12)),
                           SizedBox(width: 6),
                           Icon(Icons.close, color: Colors.redAccent, size: 18),
@@ -890,14 +891,14 @@ class _MainShellState extends State<MainShell> {
           _ShellActionButton(
             icon: Icons.bolt_rounded,
             color: const Color(0xFFB388FF),
-            tooltip: context.tr('Công cụ nhanh'),
+            tooltip: 'Công cụ nhanh',
             onTap: _openQuickActions,
           ),
           const SizedBox(width: 8),
           _ShellActionButton(
             icon: Icons.library_music_rounded,
             color: const Color(0xFF6C63FF),
-            tooltip: context.l10n.audioLibrary,
+            tooltip: 'Thư viện âm thanh',
             onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
@@ -983,7 +984,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildModeSwitch(BuildContext context) {
     final isListen = _showListenModes;
-    final labels = isListen ? const ['Nghe', 'Speak'] : const ['Read', 'Write'];
+    final labels = isListen ? const ['Nghe', 'Nói'] : const ['Đọc', 'Viết'];
     final selectedIndex = isListen ? _listenModeIndex : _readModeIndex;
     final accent = _currentAccent;
 
@@ -1251,9 +1252,9 @@ class _ModeHintChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final suffix = compactEnabled
-        ? (expanded ? 'Content' : 'Content')
+        ? (expanded ? 'Chạm để ẩn' : 'Chạm để hiện')
         : longPressEnabled
-            ? 'Content'
+            ? 'Giữ để đổi'
             : altLabel;
 
     return Container(

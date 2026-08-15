@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/grammar_category.dart';
 import '../models/grammar_highlight_settings.dart';
 import '../models/grammar_palette.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class GrammarLegendBar extends StatelessWidget {
   final GrammarHighlightSettings settings;
@@ -32,7 +31,9 @@ class GrammarLegendBar extends StatelessWidget {
     final categories = settings.visibleCategories.toList()
       ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
 
-    final emptyText = TrText('Chưa có nhóm từ loại nào đang bật.', style: TextStyle(
+    final emptyText = Text(
+      'Chưa có nhóm từ loại nào đang bật.',
+      style: TextStyle(
         color: Colors.grey[400],
         fontSize: compact ? 11 : 11.5,
         height: 1.4,

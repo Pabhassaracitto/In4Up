@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import '../../../features/youtube/youtube_sheet.dart';
 import '../../../providers/player_provider.dart';
 import 'google_drive_browser.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class AudioLibraryDrawer extends StatefulWidget {
   const AudioLibraryDrawer({super.key});
@@ -90,13 +89,17 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.l10n.audioLibrary, style: TextStyle(
+                Text(
+                  'Thư viện âm thanh',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TrText('Thiết bị · Drive · YouTube', style: TextStyle(color: Colors.grey, fontSize: 11),
+                Text(
+                  'Thiết bị · Drive · YouTube',
+                  style: TextStyle(color: Colors.grey, fontSize: 11),
                 ),
               ],
             ),
@@ -139,7 +142,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
             unselectedLabelStyle: const TextStyle(fontSize: 11),
             labelPadding: EdgeInsets.symmetric(horizontal: compact ? 8 : 0),
             tabs: [
-              _drawerTab(compact, const Icon(Icons.phone_android, size: 13), 'Content'),
+              _drawerTab(compact, const Icon(Icons.phone_android, size: 13), 'Thiết bị'),
               _drawerTab(compact, const Text('📂', style: TextStyle(fontSize: 13)), 'Drive'),
               _drawerTab(compact, const Text('▶️', style: TextStyle(fontSize: 13)), 'YouTube'),
             ],
@@ -246,7 +249,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
             children: [
               _ActionTile(
                 icon: Icons.audio_file_outlined,
-                label: context.tr('Chọn file âm thanh'),
+                label: 'Chọn file âm thanh',
                 subtitle: 'MP3, M4A, WAV, FLAC...',
                 color: const Color(0xFF6C63FF),
                 onTap: _pickSingleFile,
@@ -254,8 +257,8 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
               const SizedBox(height: 8),
               _ActionTile(
                 icon: Icons.playlist_add,
-                label: context.tr('Chọn nhiều file'),
-                subtitle: context.tr('Tạo playlist từ nhiều file'),
+                label: 'Chọn nhiều file',
+                subtitle: 'Tạo playlist từ nhiều file',
                 color: const Color(0xFF4CAF50),
                 onTap: _pickMultipleFiles,
               ),
@@ -278,9 +281,13 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                     children: [
                       Icon(Icons.music_off, size: 44, color: Colors.grey[700]),
                       const SizedBox(height: 12),
-                      TrText('Chưa có bài nào đang phát', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                      Text('Chưa có bài nào đang phát',
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 13)),
                       const SizedBox(height: 6),
-                      TrText('Chọn file để bắt đầu', style: TextStyle(color: Colors.grey[700], fontSize: 11)),
+                      Text('Chọn file để bắt đầu',
+                          style:
+                              TextStyle(color: Colors.grey[700], fontSize: 11)),
                     ],
                   ),
                 );
@@ -291,7 +298,8 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                 children: [
                   // ── Đang phát ──
                   if (player.currentSongPath != null) ...[
-                    Text(context.l10n.listenNowPlaying, style: TextStyle(
+                    Text('Đang phát',
+                        style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -310,7 +318,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                   if (_playlist.isNotEmpty) ...[
                     Row(
                       children: [
-                        Text('Content',
+                        Text('Playlist — ${_playlist.length} bài',
                             style: TextStyle(
                                 color: Colors.grey[500],
                                 fontSize: 11,
@@ -319,7 +327,8 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                         const Spacer(),
                         GestureDetector(
                           onTap: () => setState(() => _playlist = []),
-                          child: Text(context.l10n.ttsClear, style: TextStyle(
+                          child: Text('Xóa',
+                              style: TextStyle(
                                   color: Colors.grey[700], fontSize: 11)),
                         ),
                       ],
@@ -396,7 +405,8 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                       player.getSegmentsForCurrentSong().isNotEmpty) ...[
                     Row(
                       children: [
-                        TrText('Đoạn đã lưu', style: TextStyle(
+                        Text('Đoạn đã lưu',
+                            style: TextStyle(
                                 color: Colors.grey[500],
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -443,7 +453,9 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
             children: [
               Icon(Icons.info_outline, size: 12, color: Colors.grey[700]),
               const SizedBox(width: 6),
-              TrText('Vuốt từ cạnh phải để mở', style: TextStyle(color: Colors.grey[700], fontSize: 11),
+              Text(
+                'Vuốt từ cạnh phải để mở',
+                style: TextStyle(color: Colors.grey[700], fontSize: 11),
               ),
             ],
           ),
@@ -511,7 +523,9 @@ class _YouTubeTab extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               fontSize: 15)),
                       SizedBox(height: 2),
-                      TrText('Tải audio · Captions · Khám phá kênh', style: TextStyle(color: Colors.white60, fontSize: 11),
+                      Text(
+                        'Tải audio · Captions · Khám phá kênh',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
                       ),
                     ],
                   ),
@@ -526,7 +540,7 @@ class _YouTubeTab extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: () => _openYoutube(context),
             icon: const Icon(Icons.download, size: 18),
-            label: const TrTrText('Tải Audio từ YouTube'),
+            label: const Text('Tải Audio từ YouTube'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF0000),
               foregroundColor: Colors.white,
@@ -542,7 +556,7 @@ class _YouTubeTab extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: () => _openYoutube(context, captionsFirst: true),
             icon: const Icon(Icons.subtitles_outlined, size: 18),
-            label: const TrTrText('Tải Lyrics / Captions'),
+            label: const Text('Tải Lyrics / Captions'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF4CAF50),
               side: BorderSide(color: Color(0xFF4CAF50).withValues(alpha: 0.5)),
@@ -557,17 +571,17 @@ class _YouTubeTab extends StatelessWidget {
           // Tips
           const _TipRow(
             icon: Icons.music_note,
-            text: context.tr('Dán URL YouTube → tải audio M4A chất lượng cao'),
+            text: 'Dán URL YouTube → tải audio M4A chất lượng cao',
           ),
           const SizedBox(height: 8),
           const _TipRow(
             icon: Icons.subtitles,
-            text: context.tr('Tải captions → mở trong Understand Mode để học đồng bộ'),
+            text: 'Tải captions → mở trong Understand Mode để học đồng bộ',
           ),
           const SizedBox(height: 8),
           const _TipRow(
             icon: Icons.link,
-            text: context.tr('Tải cả audio + captions → link lại để phát đồng bộ'),
+            text: 'Tải cả audio + captions → link lại để phát đồng bộ',
           ),
         ],
       ),
@@ -710,7 +724,7 @@ class _CurrentTrackCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isPlaying ? 'Content' : 'Content',
+                    isPlaying ? '▶ Đang phát' : 'Đã tải',
                     style: TextStyle(
                         color: isPlaying
                             ? const Color(0xFF6C63FF)
@@ -760,7 +774,7 @@ class _SegmentTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(segment.title ?? 'Content',
+                Text(segment.title ?? 'Đoạn',
                     style:
                         const TextStyle(color: Colors.white70, fontSize: 12)),
                 Text(

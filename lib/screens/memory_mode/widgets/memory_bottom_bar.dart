@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../controllers/memory_controller.dart';
 import '../models/review_session.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryBottomBar extends StatelessWidget {
   const MemoryBottomBar({super.key});
@@ -35,12 +34,12 @@ class MemoryBottomBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Content',
+                    '${stats.reviewedToday}/${stats.dueToday} hôm nay',
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                   if (stats.totalItems > 0)
                     Text(
-                      'Content',
+                      '${(stats.averageAccuracy * 100).round()}% chính xác',
                       style: TextStyle(color: Colors.grey[600], fontSize: 10),
                     ),
                 ],
@@ -59,7 +58,7 @@ class MemoryBottomBar extends StatelessWidget {
               const SizedBox(width: 8),
               _ReviewModeButton(
                 icon: Icons.local_fire_department,
-                label: context.tr('Nhồi'),
+                label: 'Nhồi',
                 color: const Color(0xFFFF9800),
                 onTap: () {
                   HapticFeedback.mediumImpact();
@@ -69,7 +68,7 @@ class MemoryBottomBar extends StatelessWidget {
               const SizedBox(width: 8),
               _ReviewModeButton(
                 icon: Icons.warning_amber,
-                label: context.l10n.diffHard,
+                label: 'Khó',
                 color: const Color(0xFFF44336),
                 onTap: () {
                   HapticFeedback.mediumImpact();

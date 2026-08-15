@@ -9,7 +9,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 // ─── Model ───────────────────────────────────────────────
 class ToolItem {
@@ -251,7 +250,9 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(context.l10n.toolsTitle, style: TextStyle(
+                const Text(
+                  'Công Cụ',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -259,7 +260,7 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
                   ),
                 ),
                 Text(
-                  '${widget.tools.where((t) => t.isAvailable).length} Feature',
+                  '${widget.tools.where((t) => t.isAvailable).length} tính năng',
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ],
@@ -352,7 +353,9 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
           children: [
             Icon(Icons.extension, size: 12, color: Colors.grey[700]),
             const SizedBox(width: 6),
-            Text(context.l10n.toolsMoreComing, style: TextStyle(color: Colors.grey[700], fontSize: 11),
+            Text(
+              'Tính năng sẽ tiếp tục được thêm vào',
+              style: TextStyle(color: Colors.grey[700], fontSize: 11),
             ),
           ],
         ),
@@ -467,7 +470,7 @@ class _ToolCardState extends State<_ToolCard> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isAvailable ? tool.subtitle: context.l10n.commonComingSoon,
+                    isAvailable ? tool.subtitle : 'Sắp có',
                     style: TextStyle(
                       color: isAvailable
                           ? tool.color.withValues(alpha: 0.7)

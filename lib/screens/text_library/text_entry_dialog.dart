@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 
 import '../../providers/text_provider.dart';
 import '../../services/text_library_service.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class TextEntryDialog extends StatefulWidget {
   final TextLibraryEntry? entry; // null = thêm mới
@@ -95,7 +94,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
           final firstLine = text
               .split('\n')
               .map((e) => e.trim())
-              .firstWhere((e) => e.isNotEmpty, orElse: () => 'Content');
+              .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
           final clipped = firstLine.length > 48
               ? '${firstLine.substring(0, 48).trim()}...'
               : firstLine;
@@ -146,7 +145,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: TrTrText('Lưu thất bại. Kiểm tra kết nối mạng.'),
+            content: Text('Lưu thất bại. Kiểm tra kết nối mạng.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -176,30 +175,30 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Tiêu đề
-                    const _FieldLabel(label: context.tr('Tiêu đề *')),
+                    const _FieldLabel(label: 'Tiêu đề *'),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _titleCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration(
-                        hint: context.tr('VD: Hội thoại tại quầy Check-in'),
+                        hint: 'VD: Hội thoại tại quầy Check-in',
                         icon: Icons.title,
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Enter'
+                          ? 'Nhập tiêu đề'
                           : null,
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
 
                     // Chủ đề / Category (tuỳ chọn)
-                    const _FieldLabel(label: context.tr('Chủ đề (tuỳ chọn)')),
+                    const _FieldLabel(label: 'Chủ đề (tuỳ chọn)'),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _categoryCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration(
-                        hint: context.tr('VD: Du lịch, Kinh doanh, Hội thoại...'),
+                        hint: 'VD: Du lịch, Kinh doanh, Hội thoại...',
                         icon: Icons.label_outline,
                       ),
                       textInputAction: TextInputAction.next,
@@ -212,16 +211,16 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const _FieldLabel(label: context.tr('Nội dung *')),
+                        const _FieldLabel(label: 'Nội dung *'),
                         TextButton.icon(
                           onPressed: _pasteFromClipboard,
                           icon: const Icon(Icons.content_paste_go_outlined, size: 16),
-                          label: const TrTrText('Dán clipboard'),
+                          label: const Text('Dán clipboard'),
                         ),
                         TextButton.icon(
                           onPressed: _fillFromCurrentText,
                           icon: const Icon(Icons.copy_all_outlined, size: 16),
-                          label: const TrTrText('Lấy văn bản hiện tại'),
+                          label: const Text('Lấy văn bản hiện tại'),
                         ),
                       ],
                     ),
@@ -234,7 +233,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         height: 1.6,
                       ),
                       decoration: _inputDecoration(
-                        hint: context.tr('Dán nội dung văn bản vào đây...'),
+                        hint: 'Dán nội dung văn bản vào đây...',
                         icon: Icons.article_outlined,
                       ).copyWith(
                         alignLabelWithHint: true,
@@ -242,7 +241,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                       maxLines: 12,
                       minLines: 6,
                       validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Enter'
+                          ? 'Nhập nội dung'
                           : null,
                     ),
 
@@ -261,7 +260,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            'Content',
+                            '$wc từ · $lc dòng',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 11,
@@ -307,7 +306,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
           ),
           const SizedBox(width: 12),
           Text(
-            _isEditing ? 'Edit' : 'Add',
+            _isEditing ? 'Chỉnh sửa văn bản' : 'Thêm văn bản mới',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -347,7 +346,9 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Center(
-                  child: Text(context.l10n.commonCancel, style: TextStyle(
+                  child: Text(
+                    'Hủy',
+                    style: TextStyle(
                         color: Colors.white70, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -399,7 +400,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              _isEditing ? 'Save' : 'Save',
+                              _isEditing ? 'Lưu' : 'Lưu lên Cloud',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,

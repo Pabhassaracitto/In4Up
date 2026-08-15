@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/focus_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class FocusStreakCard extends StatelessWidget {
   const FocusStreakCard({super.key});
@@ -45,7 +44,7 @@ class FocusStreakCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Content',
+                    '${focus.streak} ngày liên tiếp',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -58,7 +57,9 @@ class FocusStreakCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           if (!focus.hasAssessedToday) ...[
-            const TrText('Hôm nay bạn nỗ lực bao nhiêu? (1-10)', style: TextStyle(color: Colors.white70, fontSize: 13),
+            const Text(
+              'Hôm nay bạn nỗ lực bao nhiêu? (1-10)',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 8),
             _EffortSlider(
@@ -70,7 +71,9 @@ class FocusStreakCard extends StatelessWidget {
               children: [
                 Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
                 SizedBox(width: 8),
-                TrText('Đánh giá nỗ lực hoàn tất', style: TextStyle(
+                Text(
+                  'Đánh giá nỗ lực hoàn tất',
+                  style: TextStyle(
                       color: Colors.green, fontWeight: FontWeight.w500),
                 ),
               ],
@@ -135,7 +138,7 @@ class _EffortSliderState extends State<_EffortSlider> {
                   borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
-            child: const TrTrText('Xác nhận nỗ lực'),
+            child: const Text('Xác nhận nỗ lực'),
           ),
         ),
       ],

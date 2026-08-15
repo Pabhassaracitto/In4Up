@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../controllers/rolling_waveform_controller.dart';
 import '../../../models/waveform_data.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 const kSpeakerColors = <int, Color>{
   0: Color(0xFFECEFF1),
@@ -272,7 +271,7 @@ class RollingWaveformPainter extends CustomPainter {
   void _paintEmpty(Canvas canvas, Size size) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: context.tr('Đang phân tích âm thanh...'),
+        text: 'Đang phân tích âm thanh...',
         style: TextStyle(color: Colors.white24, fontSize: 12),
       ),
       textDirection: TextDirection.ltr,

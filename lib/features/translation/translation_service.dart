@@ -12,7 +12,6 @@ import 'engines/libre_engine.dart';
 import 'engines/mymemory_engine.dart';
 import 'engines/offline_engine.dart';
 import 'engines/translation_engine.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Translation orchestration with automatic source detection and engine
 /// fallback. Language metadata comes from the same 26-language catalog used
@@ -144,7 +143,7 @@ class TranslationService {
     );
 
     if (source.translationCode == target.translationCode) {
-      _lastUsedEngine = 'Content';
+      _lastUsedEngine = '↔️ Cùng ngôn ngữ';
       return TranslationResult.success(
         original: text,
         translated: text,
@@ -185,7 +184,7 @@ class TranslationService {
                 const Duration(seconds: 12),
                 onTimeout: () => TranslationResult.failure(
                   original: text,
-                  error: context.tr('Timeout sau 12 giây'),
+                  error: 'Timeout sau 12 giây',
                   engine: engine.name,
                   detectedLang: source.translationCode,
                   targetLang: target.translationCode,

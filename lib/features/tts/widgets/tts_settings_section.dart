@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../tts_service.dart';
 import '../tts_settings.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Widget cài đặt TTS - nhúng vào Settings sheet hiện có
 class TtsSettingsSection extends StatefulWidget {
@@ -108,7 +107,9 @@ class _PrioritySelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l10n.ttsMode, style: TextStyle(
+        Text(
+          'Chế độ phát',
+          style: TextStyle(
             fontSize: 13,
             color: Colors.grey[400],
             fontWeight: FontWeight.w600,
@@ -203,14 +204,18 @@ class _EngineOrderSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(context.l10n.ttsOrder, style: TextStyle(
+            Text(
+              'Thứ tự nguồn phát',
+              style: TextStyle(
                 fontSize: 13,
                 color: Colors.grey[400],
                 fontWeight: FontWeight.w600,
               ),
             ),
             const Spacer(),
-            Text(context.l10n.ttsDragToSort, style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            Text(
+              'Kéo để sắp xếp',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -337,7 +342,9 @@ class _ApiKeySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l10n.ttsApiKeys, style: TextStyle(
+        Text(
+          'API Keys (tùy chọn, miễn phí)',
+          style: TextStyle(
             fontSize: 13,
             color: Colors.grey[400],
             fontWeight: FontWeight.w600,
@@ -346,7 +353,7 @@ class _ApiKeySection extends StatelessWidget {
         const SizedBox(height: 8),
         _ApiKeyField(
           label: 'FPT.AI API Key',
-          hint: context.tr('Đăng ký miễn phí tại fpt.ai'),
+          hint: 'Đăng ký miễn phí tại fpt.ai',
           value: fptKey,
           onChanged: onFptKeyChanged,
           color: color,
@@ -354,7 +361,7 @@ class _ApiKeySection extends StatelessWidget {
         const SizedBox(height: 8),
         _ApiKeyField(
           label: 'Zalo AI API Key',
-          hint: context.tr('Đăng ký miễn phí tại zalo.ai'),
+          hint: 'Đăng ký miễn phí tại zalo.ai',
           value: zaloKey,
           onChanged: onZaloKeyChanged,
           color: color,
@@ -551,10 +558,12 @@ class _CacheSection extends StatelessWidget {
                 onTap: () async {
                   await service.clearCache();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: TrText(context.l10n.ttsClearCache)),
+                    const SnackBar(content: Text('Đã xóa cache TTS!')),
                   );
                 },
-                child: Text(context.l10n.ttsClear, style: TextStyle(fontSize: 11, color: Colors.red[300]),
+                child: Text(
+                  'Xóa',
+                  style: TextStyle(fontSize: 11, color: Colors.red[300]),
                 ),
               ),
           ],

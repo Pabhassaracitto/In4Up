@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import '../models/loop_presets.dart';
 import '../providers/player_provider.dart';
 import 'save_segment_dialog.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class ABLoopControls extends StatelessWidget {
   final bool showModeIndicator;
@@ -161,11 +160,11 @@ class _ModeIndicator extends StatelessWidget {
   String _getModeName() {
     switch (player.currentMode) {
       case VipMode.buddhism:
-        return 'Content';
+        return 'Phật Pháp';
       case VipMode.english:
-        return 'Content';
+        return 'Tiếng Anh';
       case VipMode.music:
-        return 'Content';
+        return 'Âm Nhạc';
     }
   }
 }
@@ -280,12 +279,12 @@ class _LoopHeader extends StatelessWidget {
 
   String _getStatusText() {
     if (player.isWaitingGap) {
-      return 'Content';
+      return 'Đang chờ... ${player.gapDuration.toStringAsFixed(1)}s';
     }
     if (player.isLooping) {
-      return 'Content';
+      return 'Đang lặp đoạn';
     }
-    return 'Content';
+    return 'Lặp A-B';
   }
 
   Color _getStatusColor() {
@@ -475,7 +474,7 @@ class _CenterContent extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            player.loopStart != null ? 'Content' : 'Content',
+            player.loopStart != null ? 'Bấm B để lặp' : 'Bấm A để bắt đầu',
             style: TextStyle(
               color: Colors.grey.withValues(alpha: 0.7),
               fontSize: 11,
@@ -587,14 +586,14 @@ class _ExtendedControls extends StatelessWidget {
         if (player.isWaitingGap)
           _ActionButton(
             icon: Icons.skip_next,
-            label: context.tr('Bỏ qua'),
+            label: 'Bỏ qua',
             color: const Color(0xFFFF9800),
             onTap: () => player.toggleLoopPause(),
           )
         else
           _ActionButton(
             icon: Icons.fast_forward,
-            label: context.tr('Loop tiếp'),
+            label: 'Loop tiếp',
             color: const Color(0xFF6C63FF),
             onTap: () => player.skipToNextLoop(),
           ),
@@ -602,7 +601,7 @@ class _ExtendedControls extends StatelessWidget {
         // Save button
         _ActionButton(
           icon: Icons.bookmark_add,
-          label: context.l10n.commonSave,
+          label: 'Lưu',
           color: const Color(0xFFFFB300),
           onTap: () {
             showModalBottomSheet(
@@ -620,7 +619,7 @@ class _ExtendedControls extends StatelessWidget {
         // Clear button
         _ActionButton(
           icon: Icons.close,
-          label: context.l10n.ttsClear,
+          label: 'Xóa',
           color: const Color(0xFFF44336),
           onTap: () => player.clearLoop(),
         ),
@@ -700,7 +699,9 @@ class _GapDurationSlider extends StatelessWidget {
                     : Colors.grey,
               ),
               const SizedBox(width: 8),
-              TrText('Khoảng lặng:', style: TextStyle(
+              Text(
+                'Khoảng lặng:',
+                style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 12,
                 ),
@@ -718,7 +719,7 @@ class _GapDurationSlider extends StatelessWidget {
                 child: Text(
                   player.gapDuration > 0
                       ? '${player.gapDuration.toStringAsFixed(1)}s'
-                      : 'Content',
+                      : 'Tắt',
                   style: TextStyle(
                     color: player.gapDuration > 0
                         ? const Color(0xFFFF9800)
@@ -774,7 +775,7 @@ class _GapDurationSlider extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    seconds == 0 ? 'Content' : '${seconds.toInt()}s',
+                    seconds == 0 ? 'Tắt' : '${seconds.toInt()}s',
                     style: TextStyle(
                       color: isActive ? const Color(0xFFFF9800) : Colors.grey,
                       fontSize: 11,
@@ -809,17 +810,17 @@ class _ModeTip extends StatelessWidget {
 
     switch (player.currentMode) {
       case VipMode.buddhism:
-        tip = 'Content';
+        tip = '💡 Khoảng lặng giúp suy ngẫm, thấm nhuần lời dạy';
         icon = Icons.self_improvement;
         color = const Color(0xFFFFB300);
         break;
       case VipMode.english:
-        tip = 'Content';
+        tip = '💡 Khoảng lặng để bạn lặp lại theo (Shadowing)';
         icon = Icons.record_voice_over;
         color = const Color(0xFF2196F3);
         break;
       case VipMode.music:
-        tip = 'Content';
+        tip = '💡 Khoảng lặng tạo nhịp thở giữa các đoạn';
         icon = Icons.music_note;
         color = const Color(0xFF9C27B0);
         break;

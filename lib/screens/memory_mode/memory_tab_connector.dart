@@ -23,7 +23,7 @@ class MemoryTabConnector extends StatelessWidget {
   static const IconData tabIconActive = Icons.psychology;
 
   /// Label
-  static const String tabLabel = 'Remember';
+  static const String tabLabel = 'Nhớ';
 
   /// Badge count (số từ cần ôn)
   /// Gọi từ main screen để hiện notification badge

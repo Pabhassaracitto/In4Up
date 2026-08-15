@@ -12,7 +12,6 @@ import 'widgets/memory_top_bar.dart';
 import 'widgets/memory_bottom_bar.dart';
 import 'widgets/flashcard_presenter.dart';
 import 'widgets/memory_list_view.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryModeScreen extends StatelessWidget {
   const MemoryModeScreen({super.key});
@@ -32,7 +31,9 @@ class MemoryModeScreen extends StatelessWidget {
                 children: [
                   CircularProgressIndicator(color: Color(0xFF4CAF50)),
                   SizedBox(height: 16),
-                  TrText('Đang tải vườn nhớ...', style: TextStyle(color: Colors.grey),
+                  Text(
+                    'Đang tải vườn nhớ...',
+                    style: TextStyle(color: Colors.grey),
                   ),
                 ],
               ),
@@ -106,7 +107,9 @@ class MemoryModeScreen extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            const TrText('Vườn Trí Nhớ', style: TextStyle(
+            const Text(
+              'Vườn Trí Nhớ',
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -117,7 +120,7 @@ class MemoryModeScreen extends StatelessWidget {
 
             Text(
               'Lưu từ vựng từ tab Đọc\n'
-              'Content',
+              'để bắt đầu trồng vườn kiến thức',
               style: TextStyle(
                 color: Colors.grey[500],
                 fontSize: 14,
@@ -147,7 +150,7 @@ class MemoryModeScreen extends StatelessWidget {
                       },
                       icon: const Icon(Icons.format_list_bulleted, size: 18, color: Colors.white),
                       label: Text(
-                        hasWordsInWorklist ? 'Content' : 'Add',
+                        hasWordsInWorklist ? 'Mở Wordlist để gieo mầm' : 'Mở Wordlist để thêm từ mới',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -169,7 +172,7 @@ class MemoryModeScreen extends StatelessWidget {
                         HapticFeedback.mediumImpact();
                       },
                       icon: const Icon(Icons.science, size: 18),
-                      label: const TrTrText('Thêm từ mẫu để thử'),
+                      label: const Text('Thêm từ mẫu để thử'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.grey[400],
                         side: BorderSide(
@@ -194,28 +197,30 @@ class MemoryModeScreen extends StatelessWidget {
             // Guide
             const _GuideCard(
               emoji: '🌰',
-              title: context.l10n.memorySeed,
-              desc: 'Save',
+              title: 'Hột giống',
+              desc: 'Từ mới vừa lưu, cần tưới ngay',
               color: Color(0xFFFF5252),
             ),
             const SizedBox(height: 8),
             const _GuideCard(
               emoji: '🌱',
-              title: context.tr('Cây non → 🌺 Hoa'),
-              desc: 'Content',
+              title: 'Cây non → 🌺 Hoa',
+              desc: 'Ôn tập đều để từ trưởng thành',
               color: Color(0xFF4CAF50),
             ),
             const SizedBox(height: 8),
             const _GuideCard(
               emoji: '🧠',
               title: 'Spaced Repetition',
-              desc: 'Content',
+              desc: 'Ôn đúng lúc sắp quên = nhớ lâu nhất',
               color: Color(0xFF2196F3),
             ),
 
             const SizedBox(height: 24),
 
-            TrText('💡 Long-press từ trong tab Đọc để lưu', style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            Text(
+              '💡 Long-press từ trong tab Đọc để lưu',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ],
         ),

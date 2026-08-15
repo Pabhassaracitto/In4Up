@@ -14,7 +14,6 @@ import '../../../services/vocab_classifier.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Bottom sheet hiện ra khi user tap vào một từ trong PDF
 class PdfWordTapSheet {
@@ -189,7 +188,7 @@ class _WordSheet extends StatelessWidget {
                 controller.refreshVocabularySignals();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: TrTrText('Đã thêm ngữ cảnh PDF mới cho từ này'),
+                    content: Text('Đã thêm ngữ cảnh PDF mới cho từ này'),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -212,7 +211,7 @@ class _WordSheet extends StatelessWidget {
               Expanded(
                 child: _ActionBtn(
                   icon: Icons.psychology,
-                  label: context.l10n.pdfSaveToMemory,
+                  label: 'Lưu vào Vườn Nhớ',
                   color: const Color(0xFF6C63FF),
                   onTap: () {
                     controller.saveWordToMemory(wordInfo);
@@ -238,7 +237,7 @@ class _WordSheet extends StatelessWidget {
               // Tra từ điển online
               _IconActionBtn(
                 icon: Icons.open_in_new,
-                tooltip: context.tr('Tra từ điển'),
+                tooltip: 'Tra từ điển',
                 onTap: () {
                   final url =
                       'https://www.oxfordlearnersdictionaries.com/definition/english/$displayWord';
@@ -263,7 +262,9 @@ class _WordSheet extends StatelessWidget {
 
           // Difficulty markers
           const SizedBox(height: 12),
-          const TrText('Đánh dấu độ khó:', style: TextStyle(color: Colors.grey, fontSize: 12),
+          const Text(
+            'Đánh dấu độ khó:',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
           const SizedBox(height: 8),
           Row(
@@ -346,7 +347,7 @@ Future<void> _showEditSavedNotesDialog(
     builder: (dialogContext) {
       return AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const TrTrText('Ghi chú từ đã lưu'),
+        title: const Text('Ghi chú từ đã lưu'),
         titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 18,
@@ -359,7 +360,7 @@ Future<void> _showEditSavedNotesDialog(
             maxLines: 6,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: context.tr('Nhập ghi chú cá nhân cho từ này...'),
+              hintText: 'Nhập ghi chú cá nhân cho từ này...',
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
@@ -373,11 +374,11 @@ Future<void> _showEditSavedNotesDialog(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const TrTrText('Huỷ'),
+            child: const Text('Huỷ'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const TrText(context.l10n.commonSave),
+            child: const Text('Lưu'),
           ),
         ],
       );
@@ -427,7 +428,9 @@ class _SavedRecallCard extends StatelessWidget {
               const Icon(Icons.auto_awesome, color: Color(0xFF4CAF50), size: 16),
               const SizedBox(width: 8),
               const Expanded(
-                child: TrText('Tri thức đã lưu trước đó', style: TextStyle(
+                child: Text(
+                  'Tri thức đã lưu trước đó',
+                  style: TextStyle(
                     color: Color(0xFFB9F6CA),
                     fontWeight: FontWeight.w700,
                   ),
@@ -443,11 +446,11 @@ class _SavedRecallCard extends StatelessWidget {
             children: [
               _RecallChip(
                 icon: Icons.repeat,
-                label: 'Content',
+                label: '${entry.encounterCount} lần gặp',
               ),
               _RecallChip(
                 icon: Icons.source_outlined,
-                label: 'Content',
+                label: '${entry.sourceFiles.length} nguồn',
               ),
               _RecallChip(
                 icon: Icons.picture_as_pdf_outlined,
@@ -469,7 +472,7 @@ class _SavedRecallCard extends StatelessWidget {
           if (latestContext != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Content',
+              'Ngữ cảnh gần nhất: ${latestContext.displaySource}',
               style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
@@ -497,7 +500,7 @@ class _SavedRecallCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: onAddContext,
                 icon: const Icon(Icons.add_link, size: 16),
-                label: const TrTrText('Thêm ngữ cảnh PDF'),
+                label: const Text('Thêm ngữ cảnh PDF'),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFB9F6CA),
                 ),
@@ -505,7 +508,7 @@ class _SavedRecallCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: onEditNotes,
                 icon: const Icon(Icons.edit_note, size: 16),
-                label: Text(note.isEmpty ? 'Add Note' : 'Edit Note'),
+                label: Text(note.isEmpty ? 'Thêm ghi chú' : 'Sửa ghi chú'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white70,
                 ),
@@ -513,7 +516,7 @@ class _SavedRecallCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: () => UnifiedKnowledgeSheet.show(context, word: entry),
                 icon: const Icon(Icons.hub_outlined, size: 16),
-                label: const TrTrText('Hồ sơ tri thức'),
+                label: const Text('Hồ sơ tri thức'),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF64B5F6),
                 ),
@@ -645,7 +648,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
           children: [
             Expanded(
               child: _QuickSaveButton(
-                label: context.tr('Lưu nhanh'),
+                label: 'Lưu nhanh',
                 icon: Icons.bolt,
                 color: const Color(0xFF4CAF50),
                 onTap: () => _saveQuick(provider),
@@ -655,7 +658,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
             // ── Cấp 2: Lưu có xác nhận ──
             Expanded(
               child: _QuickSaveButton(
-                label: context.tr('Lưu + nghĩa'),
+                label: 'Lưu + nghĩa',
                 icon: Icons.edit_note,
                 color: const Color(0xFF2196F3),
                 onTap: () => setState(() => _showForm = !_showForm),
@@ -728,7 +731,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
             autofocus: true,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: context.tr('Nhập nghĩa...'),
+              hintText: 'Nhập nghĩa...',
               hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
@@ -758,7 +761,8 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
               ),
-              child: const TrText('✓ Lưu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              child: const Text('✓ Lưu',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
         ],
@@ -794,7 +798,8 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
           const Icon(Icons.check_circle, color: Color(0xFFFFB300), size: 16),
           const SizedBox(width: 8),
           const Expanded(
-            child: TrText('Đã có trong Wordlist', style: TextStyle(color: Color(0xFFFFB300), fontSize: 12)),
+            child: Text('Đã có trong Wordlist',
+                style: TextStyle(color: Color(0xFFFFB300), fontSize: 12)),
           ),
           GestureDetector(
             onTap: () {
@@ -813,7 +818,8 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
                 color: Color(0xFFFFB300).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const TrText('+ Thêm ngữ cảnh', style: TextStyle(
+              child: const Text('+ Thêm ngữ cảnh',
+                  style: TextStyle(
                       color: Color(0xFFFFB300),
                       fontSize: 10,
                       fontWeight: FontWeight.w600)),
@@ -836,7 +842,8 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
         children: [
           Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 16),
           SizedBox(width: 8),
-          TrText('✅ Đã lưu vào Wordlist', style: TextStyle(color: Color(0xFF4CAF50), fontSize: 12)),
+          Text('✅ Đã lưu vào Wordlist',
+              style: TextStyle(color: Color(0xFF4CAF50), fontSize: 12)),
         ],
       ),
     );

@@ -7,7 +7,6 @@ import '../../../providers/player_provider.dart';
 import '../../shadowing/models/shadowing_result.dart';
 import '../providers/shadowing_provider.dart';
 import 'waveform_comparison_painter.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Widget chính cho Shadowing Mode
 class ShadowingWidget extends StatefulWidget {
@@ -142,7 +141,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Content',
+              '${shadowing.sessionResults.length} lần',
               style: const TextStyle(
                 color: Colors.green,
                 fontSize: 12,
@@ -188,8 +187,8 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           const SizedBox(height: 16),
           Text(
             hasLoop
-                ? 'Content'
-                : 'Content',
+                ? 'Sẵn sàng luyện shadowing'
+                : 'Chọn một đoạn A-B Loop để bắt đầu',
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 14,
@@ -228,7 +227,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                 shadowing.playOriginal();
               },
               icon: const Icon(Icons.play_arrow),
-              label: const TrText(context.l10n.shadowingStartPractice),
+              label: const Text('Bắt đầu Luyện tập'),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2196F3)),
             ),
@@ -249,12 +248,14 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             color: Color(0xFF2196F3),
           ),
           const SizedBox(height: 16),
-          const TrText('1. Nghe đoạn mẫu\n2. Nhấn nút ghi âm\n3. Lặp lại theo mẫu', style: TextStyle(color: Colors.white70),
+          const Text(
+            '1. Nghe đoạn mẫu\n2. Nhấn nút ghi âm\n3. Lặp lại theo mẫu',
+            style: TextStyle(color: Colors.white70),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
-            'Content',
+            'Đoạn: ${_formatDuration(shadowing.segmentStart ?? Duration.zero)} - ${_formatDuration(shadowing.segmentEnd ?? Duration.zero)}',
             style: const TextStyle(
               color: Color(0xFF2196F3),
               fontWeight: FontWeight.bold,
@@ -270,7 +271,9 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Text(context.l10n.shadowingListeningSample, style: TextStyle(
+          const Text(
+            'Đang nghe mẫu...',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -300,7 +303,9 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             ),
           ),
           const SizedBox(height: 16),
-          Text(context.l10n.shadowingListenCarefully, style: TextStyle(color: Colors.grey[400]),
+          Text(
+            'Lắng nghe kỹ...',
+            style: TextStyle(color: Colors.grey[400]),
           ),
         ],
       ),
@@ -312,7 +317,9 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Text(context.l10n.shadowingReadyEx, style: TextStyle(
+          const Text(
+            'Sẵn sàng!',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 16,
             ),
@@ -363,7 +370,9 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             children: [
               _RecordingDot(),
               SizedBox(width: 8),
-              Text(context.l10n.shadowingRecording, style: TextStyle(
+              Text(
+                'Đang ghi âm...',
+                style: TextStyle(
                   color: Colors.red,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -405,7 +414,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           const SizedBox(height: 8),
 
           Text(
-            'Content',
+            'Tối đa: ${shadowing.settings.maxRecordDuration.inSeconds}s',
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
         ],
@@ -422,7 +431,9 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2196F3)),
           ),
           SizedBox(height: 20),
-          Text(context.l10n.shadowingAnalyzing, style: TextStyle(color: Colors.white70),
+          Text(
+            'Đang phân tích...',
+            style: TextStyle(color: Colors.white70),
           ),
         ],
       ),
@@ -535,7 +546,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
       children: [
         Expanded(
           child: _ScoreItem(
-            label: context.l10n.shadowingRhythm,
+            label: 'Nhịp điệu',
             score: acoustic?.rhythmScore ?? 0.0,
             icon: Icons.music_note,
             color: Colors.purple,
@@ -544,7 +555,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         const SizedBox(width: 8),
         Expanded(
           child: _ScoreItem(
-            label: context.l10n.shadowingPitch,
+            label: 'Cao độ',
             score: acoustic?.pitchScore ?? 0.0,
             icon: Icons.timer,
             color: Colors.blue,
@@ -553,7 +564,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         const SizedBox(width: 8),
         Expanded(
           child: _ScoreItem(
-            label: context.l10n.shadowingEnergy,
+            label: 'Năng lượng',
             score: acoustic?.energyScore ?? 0.0,
             icon: Icons.graphic_eq,
             color: Colors.green,
@@ -582,7 +593,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                 }
               : null,
           icon: const Icon(Icons.play_arrow),
-          label: const TrText(context.l10n.shadowingPlaySample),
+          label: const Text('Nghe mẫu'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2196F3),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -596,7 +607,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             shadowing.stopPlayback();
           },
           icon: const Icon(Icons.stop_circle_outlined),
-          label: const TrText(context.l10n.shadowingStopSample),
+          label: const Text('Dừng nghe mẫu'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -610,7 +621,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             shadowing.reset();
           },
           icon: const Icon(Icons.close),
-          label: const TrText(context.l10n.shadowingCancelCountdown),
+          label: const Text('Hủy đếm ngược'),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white70,
           ),
@@ -623,7 +634,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
             shadowing.stopRecording();
           },
           icon: const Icon(Icons.stop),
-          label: const TrText(context.l10n.shadowingStopRecording),
+          label: const Text('Dừng ghi âm'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
@@ -640,7 +651,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   shadowing.retry();
                 },
                 icon: const Icon(Icons.refresh),
-                label: const TrText(context.l10n.shadowingRetry),
+                label: const Text('Thử lại'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white70,
                 ),
@@ -653,7 +664,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   shadowing.reset();
                 },
                 icon: const Icon(Icons.check),
-                label: const TrText(context.l10n.shadowingFinish),
+                label: const Text('Hoàn tất'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                 ),
@@ -670,17 +681,17 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
   String _getStateDescription(ShadowingState state) {
     switch (state) {
       case ShadowingState.idle:
-        return 'Content';
+        return 'Chọn đoạn để luyện tập';
       case ShadowingState.playingOriginal:
-        return 'Content';
+        return 'Đang nghe mẫu...';
       case ShadowingState.countdown:
-        return 'Content';
+        return 'Đếm ngược';
       case ShadowingState.recording:
-        return 'Content';
+        return 'Đang ghi âm';
       case ShadowingState.analyzing:
-        return 'Content';
+        return 'Đang phân tích...';
       case ShadowingState.showingResults:
-        return 'Content';
+        return 'Kết quả';
       //default:
       //return '';
     }

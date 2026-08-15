@@ -2,7 +2,6 @@
 
 import 'translation_engine.dart';
 import '../data/offline_dictionary.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Offline translation - dịch từng từ bằng từ điển local
 /// Fallback cuối cùng khi không có internet
@@ -43,7 +42,7 @@ class OfflineEngine extends TranslationEngine {
     if (source != 'EN' || target != 'VI') {
       return TranslationResult.failure(
         original: text,
-        error: context.tr('Từ điển offline hiện chỉ hỗ trợ EN → VI'),
+        error: 'Từ điển offline hiện chỉ hỗ trợ EN → VI',
         engine: name,
         detectedLang: source,
         targetLang: target,

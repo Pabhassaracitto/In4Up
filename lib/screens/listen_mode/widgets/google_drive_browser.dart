@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
 import '../../../services/google_drive_service.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class GoogleDriveBrowser extends StatefulWidget {
   const GoogleDriveBrowser({super.key});
@@ -165,16 +164,16 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
             // Options
             _PlayOption(
               icon: Icons.stream,
-              title: context.tr('Stream trực tiếp'),
-              subtitle: context.tr('Phát ngay, cần mạng'),
+              title: 'Stream trực tiếp',
+              subtitle: 'Phát ngay, cần mạng',
               color: const Color(0xFF2196F3),
               onTap: () => Navigator.pop(context, 'stream'),
             ),
             const SizedBox(height: 10),
             _PlayOption(
               icon: Icons.download_for_offline,
-              title: context.tr('Tải về & phát'),
-              subtitle: context.tr('Chất lượng tốt hơn, cần thời gian tải'),
+              title: 'Tải về & phát',
+              subtitle: 'Chất lượng tốt hơn, cần thời gian tải',
               color: const Color(0xFF6C63FF),
               onTap: () => Navigator.pop(context, 'download'),
             ),
@@ -188,7 +187,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
   Future<void> _streamFile(DriveItem item, PlayerProvider player) async {
     final info = await _driveService.getStreamInfo(item.id);
     if (info == null) {
-      _showSnack(context.tr('❌ Không thể stream file này'));
+      _showSnack('❌ Không thể stream file này');
       return;
     }
 
@@ -227,7 +226,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
     setState(() => _downloadingId = null);
 
     if (path == null) {
-      _showSnack(context.tr('❌ Tải thất bại'));
+      _showSnack('❌ Tải thất bại');
       return;
     }
 
@@ -240,7 +239,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
 
     if (context.mounted) {
       Navigator.pop(context);
-      _showSnack('Content');
+      _showSnack('✅ Đang phát: ${item.name}');
     }
   }
 
@@ -313,7 +312,9 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                   fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            TrText('Kết nối Drive để duyệt\nvà phát file âm thanh của bạn', style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            Text(
+              'Kết nối Drive để duyệt\nvà phát file âm thanh của bạn',
+              style: TextStyle(color: Colors.grey[400], fontSize: 13),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -346,7 +347,9 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
             ],
 
             const SizedBox(height: 20),
-            TrText('Chỉ đọc file — không chỉnh sửa hay xóa', style: TextStyle(color: Colors.grey[700], fontSize: 11),
+            Text(
+              'Chỉ đọc file — không chỉnh sửa hay xóa',
+              style: TextStyle(color: Colors.grey[700], fontSize: 11),
             ),
           ],
         ),
@@ -375,7 +378,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                 controller: _searchCtrl,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: context.tr('Tìm file âm thanh trên Drive...'),
+                  hintText: 'Tìm file âm thanh trên Drive...',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   isDense: true,
@@ -469,8 +472,8 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
           const SizedBox(height: 12),
           Text(
             _searchCtrl.text.isNotEmpty
-                ? 'Search'
-                : 'Content',
+                ? 'Không tìm thấy file âm thanh'
+                : 'Không có file âm thanh trong thư mục này',
             style: TextStyle(color: Colors.grey[500], fontSize: 13),
             textAlign: TextAlign.center,
           ),
@@ -482,7 +485,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                 await _loadItems();
               },
               icon: const Icon(Icons.arrow_back, size: 16),
-              label: const TrText(context.l10n.webReaderGoBack),
+              label: const Text('Quay lại'),
               style: TextButton.styleFrom(foregroundColor: Colors.grey),
             ),
           ],
@@ -664,7 +667,7 @@ class _DriveItemTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Loading ${(downloadProgress * 100).toInt()}%...',
+                'Đang tải ${(downloadProgress * 100).toInt()}%...',
                 style: const TextStyle(color: Color(0xFF9C8FFF), fontSize: 10),
               ),
             ],
@@ -735,7 +738,9 @@ class _GoogleSignInButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const TrText('Đăng nhập với Google', style: TextStyle(
+            const Text(
+              'Đăng nhập với Google',
+              style: TextStyle(
                 color: Color(0xFF333333),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

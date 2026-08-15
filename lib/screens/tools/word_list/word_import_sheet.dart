@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../utils/text_parser.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class WordImportSheet extends StatefulWidget {
   const WordImportSheet({super.key});
@@ -183,10 +182,10 @@ class _WordImportSheetState extends State<WordImportSheet>
         exampleParts.add(data['example']!.trim());
       }
       if ((data['exampleSimple'] ?? '').trim().isNotEmpty) {
-        exampleParts.add('Content'exampleSimple']!.trim()}');
+        exampleParts.add('Ví dụ đơn: ${data['exampleSimple']!.trim()}');
       }
       if ((data['exampleComplex'] ?? '').trim().isNotEmpty) {
-        exampleParts.add('Content'exampleComplex']!.trim()}');
+        exampleParts.add('Ví dụ phức: ${data['exampleComplex']!.trim()}');
       }
 
       candidates.add(
@@ -280,7 +279,7 @@ class _WordImportSheetState extends State<WordImportSheet>
       setState(() => _isLoadingFile = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Content')),
+          SnackBar(content: Text('Lỗi đọc file: $e')),
         );
       }
     }
@@ -343,7 +342,7 @@ class _WordImportSheetState extends State<WordImportSheet>
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Content'),
+        content: Text('✅ Đã import $count từ'),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
       ),
@@ -371,14 +370,14 @@ class _WordImportSheetState extends State<WordImportSheet>
           PopupMenuItem<int>(
             value: value,
             child: _MinLengthMenuItem(
-              label: 'Content',
+              label: '$value ký tự',
               selected: _minLength == value,
             ),
           ),
         const PopupMenuDivider(height: 1),
         const PopupMenuItem<int>(
           value: -1,
-          child: _MinLengthMenuItem(label: context.tr('Tùy chỉnh...')),
+          child: _MinLengthMenuItem(label: 'Tùy chỉnh...'),
         ),
       ],
     );
@@ -390,7 +389,8 @@ class _WordImportSheetState extends State<WordImportSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1A2235),
-          title: const TrText('Tối thiểu bao nhiêu ký tự?', style: TextStyle(color: Colors.white)),
+          title: const Text('Tối thiểu bao nhiêu ký tự?',
+              style: TextStyle(color: Colors.white)),
           content: TextField(
             controller: ctrl,
             autofocus: true,
@@ -401,7 +401,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const TrText(context.l10n.commonCancel),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text.trim())),
@@ -465,7 +465,9 @@ class _WordImportSheetState extends State<WordImportSheet>
                         color: Color(0xFF6C63FF), size: 18),
                   ),
                   const SizedBox(width: 12),
-                  const TrText('Import từ vựng', style: TextStyle(
+                  const Text(
+                    'Import từ vựng',
+                    style: TextStyle(
                         color: Colors.white,
                         fontSize: 17,
                         fontWeight: FontWeight.bold),
@@ -504,7 +506,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                       text: 'Clipboard'),
                   Tab(
                       icon: Icon(Icons.article_outlined, size: 15),
-                      text: context.tr('Văn bản')),
+                      text: 'Văn bản'),
                   Tab(
                       icon: Icon(Icons.folder_outlined, size: 15),
                       text: 'File'),
@@ -538,13 +540,13 @@ class _WordImportSheetState extends State<WordImportSheet>
         child: Row(
           children: [
             _OptionChip(
-              label: 'Content',
+              label: 'Tối thiểu $_minLength ký tự',
               icon: Icons.text_fields,
               onTap: () => _pickMinLength(context),
             ),
             const SizedBox(width: 8),
             _OptionChip(
-              label: context.tr('Bỏ stop words'),
+              label: 'Bỏ stop words',
               icon: Icons.filter_list,
               isActive: _excludeStopWords,
               onTap: () {
@@ -554,7 +556,7 @@ class _WordImportSheetState extends State<WordImportSheet>
             ),
             const SizedBox(width: 8),
             _OptionChip(
-              label: context.tr('Chỉ từ mới'),
+              label: 'Chỉ từ mới',
               icon: Icons.new_releases_outlined,
               isActive: _onlyNewWords,
               onTap: () {
@@ -601,7 +603,9 @@ class _WordImportSheetState extends State<WordImportSheet>
                   TextButton.icon(
                     icon: const Icon(Icons.content_paste,
                         size: 14, color: Color(0xFF6C63FF)),
-                    label: const TrText('Paste từ clipboard', style: TextStyle(color: Color(0xFF6C63FF), fontSize: 12)),
+                    label: const Text('Paste từ clipboard',
+                        style:
+                            TextStyle(color: Color(0xFF6C63FF), fontSize: 12)),
                     onPressed: () async {
                       final data = await Clipboard.getData('text/plain');
                       if (data?.text != null) {
@@ -613,7 +617,9 @@ class _WordImportSheetState extends State<WordImportSheet>
                   const Spacer(),
                   TextButton.icon(
                     icon: Icon(Icons.clear, size: 14, color: Colors.grey[600]),
-                    label: Text(context.l10n.ttsClear, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    label: Text('Xóa',
+                        style:
+                            TextStyle(color: Colors.grey[600], fontSize: 12)),
                     onPressed: () {
                       _pasteCtrl.clear();
                       setState(() => _parsedWords = []);
@@ -636,7 +642,9 @@ class _WordImportSheetState extends State<WordImportSheet>
           _buildImportButton(_parsedWords),
         ] else if (_pasteCtrl.text.isNotEmpty) ...[
           Center(
-            child: TrText('Không tìm thấy từ nào phù hợp\n(thử giảm độ dài tối thiểu)', style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            child: Text(
+              'Không tìm thấy từ nào phù hợp\n(thử giảm độ dài tối thiểu)',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
               textAlign: TextAlign.center,
             ),
           ),
@@ -657,9 +665,11 @@ class _WordImportSheetState extends State<WordImportSheet>
               children: [
                 Icon(Icons.article_outlined, size: 48, color: Colors.grey[700]),
                 const SizedBox(height: 12),
-                TrText('Chưa có văn bản nào được mở', style: TextStyle(color: Colors.grey[500])),
+                Text('Chưa có văn bản nào được mở',
+                    style: TextStyle(color: Colors.grey[500])),
                 const SizedBox(height: 4),
-                TrText('Mở văn bản trong tab "Đọc" trước', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                Text('Mở văn bản trong tab "Đọc" trước',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12)),
               ],
             ),
           );
@@ -687,7 +697,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '"${tp.currentDocument?.title ?? 'Content'}" — ${tp.lines.length} dòng',
+                      '"${tp.currentDocument?.title ?? 'Văn bản hiện tại'}" — ${tp.lines.length} dòng',
                       style: const TextStyle(
                           color: Color(0xFF2196F3), fontSize: 12),
                     ),
@@ -698,7 +708,8 @@ class _WordImportSheetState extends State<WordImportSheet>
             const SizedBox(height: 12),
             if (words.isEmpty)
               Center(
-                child: TrText('Tất cả từ đã có trong danh sách', style: TextStyle(color: Colors.grey[500])),
+                child: Text('Tất cả từ đã có trong danh sách',
+                    style: TextStyle(color: Colors.grey[500])),
               )
             else ...[
               _buildWordList(words, (idx) {
@@ -733,7 +744,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 const Icon(Icons.help_outline,
                     color: Color(0xFFFFB300), size: 15),
                 const SizedBox(width: 6),
-                TrText('Định dạng hỗ trợ', style: TextStyle(
+                Text('Định dạng hỗ trợ',
+                    style: TextStyle(
                         color: Colors.grey[300],
                         fontWeight: FontWeight.bold,
                         fontSize: 12)),
@@ -742,7 +754,7 @@ class _WordImportSheetState extends State<WordImportSheet>
               Text(
                 '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
                 '.csv/.txt bảng cột: word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
-                'Content',
+                'Có thể dùng dấu phẩy, chấm phẩy, tab hoặc | để ngăn cột',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
@@ -768,7 +780,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                 Text(
                   _filePath != null
                       ? _filePath!.split('/').last
-                      : 'Content',
+                      : 'Chọn file .txt hoặc .csv',
                   style: const TextStyle(
                       color: Color(0xFF4CAF50),
                       fontWeight: FontWeight.w600,
@@ -822,7 +834,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 }
               }),
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
-              child: const TrText('Chọn tất', style: TextStyle(fontSize: 11, color: Color(0xFF6C63FF))),
+              child: const Text('Chọn tất',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF6C63FF))),
             ),
             TextButton(
               onPressed: () => setState(() {
@@ -831,7 +844,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 }
               }),
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
-              child: Text(context.l10n.commonDeselect, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              child: Text('Bỏ chọn',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600])),
             ),
           ],
         ),
@@ -909,7 +923,7 @@ class _WordImportSheetState extends State<WordImportSheet>
               ),
               label: Text(
                 expanded
-                    ? 'Content'
+                    ? 'Thu gọn danh sách'
                     : 'Mở rộng thêm ${words.length - _previewLimit} từ',
                 style: const TextStyle(
                   fontSize: 11,
@@ -931,7 +945,7 @@ class _WordImportSheetState extends State<WordImportSheet>
         onPressed: count > 0 ? () => _doImport(candidates) : null,
         icon: const Icon(Icons.download_done, size: 18),
         label: Text(
-          'Content',
+          'Import $count từ vào danh sách',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(

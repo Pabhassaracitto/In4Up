@@ -1499,9 +1499,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
           cefrLevel: updatedWord.cefrLevel.name,
           sourceFile: _currentTextPath?.split('/').last ?? 'Read Mode',
         );
-        debugPrint('Done');
+        debugPrint('✅ Đã gửi xong!');
       } catch (e) {
-        debugPrint('Content');
+        debugPrint('⚠️ Lỗi gửi sang Memory (không ảnh hưởng app): $e');
       }
     });
 

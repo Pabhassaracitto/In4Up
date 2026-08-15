@@ -9,7 +9,6 @@ import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 // XÓA: import 'package:in4up_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
 
@@ -240,7 +239,7 @@ class _WordActionsContent extends StatelessWidget {
                   UnifiedKnowledgeSheet.show(context, word: existingWord);
                 },
                 icon: const Icon(Icons.hub_outlined, size: 18),
-                label: const TrTrText('Mở hồ sơ tri thức hợp nhất'),
+                label: const Text('Mở hồ sơ tri thức hợp nhất'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF4CAF50),
                   side: BorderSide(
@@ -259,7 +258,9 @@ class _WordActionsContent extends StatelessWidget {
           // ===== DIFFICULTY MARKING =====
           const Align(
             alignment: Alignment.centerLeft,
-            child: TrText('Đánh dấu độ khó:', style: TextStyle(
+            child: Text(
+              'Đánh dấu độ khó:',
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -326,7 +327,7 @@ class _WordActionsContent extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Content',
+                        '${level.repeatCount}x lặp',
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white70
@@ -353,14 +354,14 @@ class _WordActionsContent extends StatelessWidget {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: TrText(context.l10n.msgCopied),
+                        content: Text('📋 Đã sao chép!'),
                         behavior: SnackBarBehavior.floating,
                         duration: Duration(seconds: 1),
                       ),
                     );
                   },
                   icon: const Icon(Icons.copy, size: 18),
-                  label: const TrText(context.l10n.commonCopy),
+                  label: const Text('Sao chép'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.grey[300],
                     side: BorderSide(
@@ -405,7 +406,7 @@ class _WordActionsContent extends StatelessWidget {
                     }
                   },
                   icon: const Icon(Icons.playlist_add, size: 18),
-                  label: const TrTrText('Lưu từ'),
+                  label: const Text('Lưu từ'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF4CAF50),
                     side: const BorderSide(
@@ -435,7 +436,7 @@ class _WordActionsContent extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _StatItem(
-                  label: context.tr('Xuất hiện'),
+                  label: 'Xuất hiện',
                   value: '${word.frequency ?? 1}x',
                   icon: Icons.repeat,
                 ),
@@ -445,7 +446,7 @@ class _WordActionsContent extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.08),
                 ),
                 _StatItem(
-                  label: context.l10n.readLine,
+                  label: 'Dòng',
                   value: '${lineIndex + 1}',
                   icon: Icons.format_list_numbered,
                 ),
@@ -455,7 +456,7 @@ class _WordActionsContent extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.08),
                 ),
                 _StatItem(
-                  label: context.tr('Ký tự'),
+                  label: 'Ký tự',
                   value: '${word.word.length}',
                   icon: Icons.text_fields,
                 ),
@@ -594,7 +595,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
           child: OutlinedButton.icon(
             onPressed: () => _saveQuick(vocabProvider),
             icon: const Icon(Icons.bolt, size: 16),
-            label: const TrTrText('Lưu nhanh'),
+            label: const Text('Lưu nhanh'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF4CAF50),
               side: const BorderSide(color: Color(0xFF4CAF50), width: 0.8),
@@ -610,7 +611,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
           child: OutlinedButton.icon(
             onPressed: () => setState(() => _showMeaningInput = true),
             icon: const Icon(Icons.edit_note, size: 16),
-            label: const TrTrText('+ Nghĩa'),
+            label: const Text('+ Nghĩa'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF2196F3),
               side: const BorderSide(color: Color(0xFF2196F3), width: 0.8),
@@ -664,7 +665,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
                 autofocus: true,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: context.tr('Nhập nghĩa tiếng Việt...'),
+                  hintText: 'Nhập nghĩa tiếng Việt...',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
@@ -701,7 +702,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: context.tr('Nhập nghĩa tiếng Việt...'),
+                        hintText: 'Nhập nghĩa tiếng Việt...',
                         hintStyle:
                             TextStyle(color: Colors.grey[600], fontSize: 12),
                         filled: true,
@@ -740,7 +741,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     return OutlinedButton.icon(
       onPressed: () => _addContextOnly(vocabProvider),
       icon: const Icon(Icons.add_location_alt, size: 16),
-      label: const TrTrText('+ Thêm ngữ cảnh'),
+      label: const Text('+ Thêm ngữ cảnh'),
       style: OutlinedButton.styleFrom(
         foregroundColor: const Color(0xFFFFB300),
         side: const BorderSide(color: Color(0xFFFFB300), width: 0.8),

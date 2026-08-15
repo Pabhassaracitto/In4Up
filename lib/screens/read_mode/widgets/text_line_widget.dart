@@ -18,7 +18,6 @@ import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class TextLineWidget extends StatelessWidget {
   final int index;
@@ -277,7 +276,7 @@ class TextLineWidget extends StatelessWidget {
           children: [
             Icon(Icons.bookmark_added, color: Colors.amber, size: 18),
             SizedBox(width: 8),
-            TrTrText('Đã đánh dấu dòng!'),
+            Text('Đã đánh dấu dòng!'),
           ],
         ),
         behavior: SnackBarBehavior.floating,

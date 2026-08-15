@@ -6,7 +6,6 @@ import 'package:in4up/providers/player_provider.dart';
 import 'package:in4up/providers/text_provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import 'package:in4up_stt/stt_lrc_converter.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class LrcEditorPanel extends StatefulWidget {
   final bool initiallyExpanded;
@@ -82,7 +81,9 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                         color: Colors.redAccent, size: 18),
                     const SizedBox(width: 8),
                     const Expanded(
-                      child: TrText('Lỗi tạo LRC', style: TextStyle(
+                      child: Text(
+                        'Lỗi tạo LRC',
+                        style: TextStyle(
                           color: Colors.redAccent,
                           fontWeight: FontWeight.w700,
                         ),
@@ -91,7 +92,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                     IconButton(
                       icon: const Icon(Icons.close,
                           size: 16, color: Colors.redAccent),
-                      tooltip: context.tr('Đóng lỗi'),
+                      tooltip: 'Đóng lỗi',
                       onPressed: () {
                         // Xóa lỗi để không hiện lại
                         context.read<PlayerProvider>().clearSttError();
@@ -116,7 +117,8 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                           child:
                               CircularProgressIndicator(strokeWidth: 2)),
                       SizedBox(width: 8),
-                      TrText('Đang tạo lại...', style: TextStyle(
+                      Text('Đang tạo lại...',
+                          style: TextStyle(
                               color: Colors.redAccent, fontSize: 11)),
                     ],
                   ),
@@ -157,7 +159,8 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2)),
                   SizedBox(width: 8),
-                  TrText('Đang tải LRC...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text('Đang tải LRC...',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
             );
@@ -187,7 +190,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Content',
+                        '${widget.title} (${_lines!.length} dòng)',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -254,7 +257,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                     OutlinedButton.icon(
                       onPressed: _saveEdits,
                       icon: const Icon(Icons.save_outlined, size: 16),
-                      label: const TrTrText('Lưu chỉnh sửa'),
+                      label: const Text('Lưu chỉnh sửa'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white70,
                         side: BorderSide(
@@ -269,7 +272,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                         widget.onLrcApplied?.call();
                       },
                       icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const TrTrText('Nạp vào Đọc & Hiểu'),
+                      label: const Text('Nạp vào Đọc & Hiểu'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6C63FF),
                         foregroundColor: Colors.white,
@@ -283,7 +286,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Content',
+                    '${_lines!.length} dòng · Nhấn để mở rộng',
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),
@@ -344,7 +347,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: TrTrText('✅ Đã lưu chỉnh sửa LRC'),
+        content: Text('✅ Đã lưu chỉnh sửa LRC'),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
       ),
@@ -373,7 +376,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: TrTrText('✅ Đã tích hợp vào Tab Đọc và Tab Hiểu'),
+        content: Text('✅ Đã tích hợp vào Tab Đọc và Tab Hiểu'),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
       ),

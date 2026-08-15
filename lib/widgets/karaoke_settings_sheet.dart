@@ -6,7 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class KaraokeSettingsSheet extends StatefulWidget {
   const KaraokeSettingsSheet({super.key});
@@ -50,14 +49,15 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const TrText('Tuỳ chỉnh karaoke', style: TextStyle(
+            const Text('Tuỳ chỉnh karaoke',
+                style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 16)),
             const SizedBox(height: 16),
 
             // Cỡ chữ dòng đang phát
-            _label('Content'),
+            _label('Cỡ chữ (dòng đang phát)'),
             Slider(
               value: _draft.fontSize,
               min: 12,
@@ -67,7 +67,7 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
               onChanged: (v) => setState(() => _draft =
                   _draft.copyWith(fontSize: v)),
             ),
-            _label('Content'),
+            _label('Cỡ chữ (dòng không phát)'),
             Slider(
               value: _draft.inactiveFontSize,
               min: 10,
@@ -79,18 +79,18 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
             ),
 
             // Căn lề
-            _label('Content'),
+            _label('Căn lề'),
             SegmentedButton<TextAlign>(
               segments: const [
                 ButtonSegment(
                     value: TextAlign.left,
-                    label: TrText('Trái', style: TextStyle(fontSize: 12))),
+                    label: Text('Trái', style: TextStyle(fontSize: 12))),
                 ButtonSegment(
                     value: TextAlign.center,
-                    label: TrText('Giữa', style: TextStyle(fontSize: 12))),
+                    label: Text('Giữa', style: TextStyle(fontSize: 12))),
                 ButtonSegment(
                     value: TextAlign.right,
-                    label: TrText('Phải', style: TextStyle(fontSize: 12))),
+                    label: Text('Phải', style: TextStyle(fontSize: 12))),
               ],
               selected: {_draft.textAlign},
               onSelectionChanged: (s) =>
@@ -100,7 +100,8 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
             // Bản dịch
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const TrText('Hiện bản dịch (nếu có)', style: TextStyle(color: Colors.white)),
+              title: const Text('Hiện bản dịch (nếu có)',
+                  style: TextStyle(color: Colors.white)),
               value: _draft.showTranslation,
               onChanged: (v) => setState(
                   () => _draft = _draft.copyWith(showTranslation: v)),
@@ -110,7 +111,7 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
             ElevatedButton.icon(
               onPressed: _save,
               icon: const Icon(Icons.check),
-              label: const TrText(context.l10n.commonApply),
+              label: const Text('Áp dụng'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6C63FF),
                 foregroundColor: Colors.white,

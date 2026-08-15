@@ -7,7 +7,6 @@ import '../../../providers/player_provider.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
 import 'recent_audio_card.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class ListenLibraryScreen extends StatefulWidget {
   const ListenLibraryScreen({super.key});
@@ -110,7 +109,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               ),
               duration: const Duration(seconds: 2),
               action: SnackBarAction(
-                label: context.l10n.listenFromStart,
+                label: 'Từ đầu',
                 textColor: Colors.white70,
                 onPressed: () => player.seek(Duration.zero),
               ),
@@ -135,7 +134,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
         if (!mounted) return;
         _showSnack(
           icon: Icons.swipe_left_alt,
-          message: context.tr('Vuốt từ phải → để mở Thư viện âm thanh / YouTube'),
+          message: 'Vuốt từ phải → để mở Thư viện âm thanh / YouTube',
           color: const Color(0xFFCC0000),
         );
         break;
@@ -245,7 +244,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ListTile(
               leading: const Icon(Icons.play_circle_outline,
                   color: Color(0xFF6C63FF)),
-              title: const TrText('Phát audio', style: TextStyle(color: Colors.white)),
+              title: const Text('Phát audio',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 _openAudio(audio);
@@ -253,7 +253,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const TrText('Xóa khỏi danh sách', style: TextStyle(color: Colors.red)),
+              title: const Text('Xóa khỏi danh sách',
+                  style: TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(context);
                 HapticFeedback.heavyImpact();
@@ -312,7 +313,9 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           backgroundColor: const Color(0xFF6C63FF),
           elevation: 4,
           icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: const Text(context.l10n.listenAddAudio, style: TextStyle(
+          label: const Text(
+            'Thêm audio',
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 14,
@@ -341,7 +344,9 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const TrText('🎧 Thư viện nghe', style: TextStyle(
+                const Text(
+                  '🎧 Thư viện nghe',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 21,
                     fontWeight: FontWeight.bold,
@@ -351,9 +356,9 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
                 const SizedBox(height: 3),
                 Text(
                   _isLoading
-                      ? 'Loading...'
+                      ? 'Đang tải...'
                       : _files.isEmpty
-                          ? 'Content'
+                          ? 'Chưa có audio nào'
                           : '${_files.length} audio',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.42),
@@ -367,7 +372,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           GestureDetector(
             onTap: () => _showSnack(
               icon: Icons.swipe_left_alt,
-              message: context.tr('Vuốt từ phải → Thư viện · Drive · YouTube'),
+              message: 'Vuốt từ phải → Thư viện · Drive · YouTube',
               color: const Color(0xFF6C63FF),
             ),
             child: Container(
@@ -430,7 +435,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_newFiles.isNotEmpty) ...[
             _SectionHeader(
               emoji: '🆕',
-              title: context.tr('Chưa nghe'),
+              title: 'Chưa nghe',
               count: _newFiles.length,
             ),
             ..._newFiles.map((a) => RecentAudioCard(
@@ -445,7 +450,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_completed.isNotEmpty) ...[
             _SectionHeader(
               emoji: '✅',
-              title: context.tr('Đã nghe xong'),
+              title: 'Đã nghe xong',
               count: _completed.length,
             ),
             ..._completed.map((a) => RecentAudioCard(
@@ -478,7 +483,9 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               ),
             ),
             const SizedBox(height: 20),
-            const TrText('Thư viện nghe trống', style: TextStyle(
+            const Text(
+              'Thư viện nghe trống',
+              style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -486,7 +493,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Nhấn "Add audio" để bắt đầu\nhoặc vuốt từ phải để mở Thư viện',
+              'Nhấn "Thêm audio" để bắt đầu\nhoặc vuốt từ phải để mở Thư viện',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.42),
@@ -498,7 +505,9 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ElevatedButton.icon(
               onPressed: _pickAudioFile,
               icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: const TrText('Thêm audio đầu tiên', style: TextStyle(
+              label: const Text(
+                'Thêm audio đầu tiên',
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 15,

@@ -14,7 +14,6 @@ import '../../../providers/player_provider.dart';
 import '../models/yt_video.dart';
 import '../services/yt_downloader.dart';
 import 'yt_video_card.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 enum _DlState { idle, fetchingQualities, fetching, downloading, done, failed }
 
@@ -89,7 +88,7 @@ class _YtTabAudioState extends State<YtTabAudio>
     if (streams.isEmpty) {
       setState(() {
         _dlState = _DlState.idle;
-        _dlError = 'Content';
+        _dlError = 'Không lấy được danh sách chất lượng';
       });
       return;
     }
@@ -147,7 +146,7 @@ class _YtTabAudioState extends State<YtTabAudio>
     setState(() {
       _dlState = _DlState.fetching;
       _dlProgress = 0;
-      _dlProgressText = 'Content';
+      _dlProgressText = 'Đang chuẩn bị...';
       _dlError = null;
     });
 
@@ -247,7 +246,8 @@ class _YtTabAudioState extends State<YtTabAudio>
       children: [
         Row(
           children: [
-            const TrText('📥 Tải Audio', style: TextStyle(
+            const Text('📥 Tải Audio',
+                style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.bold)),
@@ -278,17 +278,17 @@ class _YtTabAudioState extends State<YtTabAudio>
     if (_selectedStream != null) {
       final kbps = _selectedStream!.bitrate.bitsPerSecond ~/ 1000;
       final ext = _selectedStream!.container.name.toUpperCase();
-      label = 'Content';
+      label = '$ext · ${kbps}kbps (chọn thủ công)';
     } else {
       switch (_selectedQuality) {
         case YtAudioQuality.highest:
-          label = 'Content';
+          label = 'M4A · Chất lượng cao nhất';
           break;
         case YtAudioQuality.medium:
           label = 'MP4 · ~128kbps';
           break;
         case YtAudioQuality.low:
-          label = 'Content';
+          label = 'MP4 · ~64kbps (nhỏ nhất)';
           break;
       }
     }
@@ -329,8 +329,8 @@ class _YtTabAudioState extends State<YtTabAudio>
                     onPressed: () => _startDownload(skipQualityPick: true),
                     icon: const Icon(Icons.download, size: 16),
                     label: Text(_dlState == _DlState.failed
-                        ? 'Retry'
-                        : 'Content'),
+                        ? 'Thử lại'
+                        : 'Tải nhanh'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.grey,
                       side: BorderSide(color: Colors.grey.shade700),
@@ -345,7 +345,7 @@ class _YtTabAudioState extends State<YtTabAudio>
                   child: ElevatedButton.icon(
                     onPressed: _fetchQualities,
                     icon: const Icon(Icons.high_quality, size: 16),
-                    label: const TrTrText('Chọn chất lượng'),
+                    label: const Text('Chọn chất lượng'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6C63FF),
                       padding: const EdgeInsets.symmetric(vertical: 13),
@@ -369,7 +369,8 @@ class _YtTabAudioState extends State<YtTabAudio>
                     valueColor:
                         AlwaysStoppedAnimation(Color(0xFF6C63FF))),
                 SizedBox(height: 8),
-                Text(context.l10n.ytQualityList, style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text('Đang lấy danh sách chất lượng...',
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ),
@@ -385,7 +386,8 @@ class _YtTabAudioState extends State<YtTabAudio>
                     valueColor:
                         AlwaysStoppedAnimation(Color(0xFF6C63FF))),
                 SizedBox(height: 8),
-                TrText('Đang chuẩn bị...', style: TextStyle(color: Colors.grey)),
+                Text('Đang chuẩn bị...',
+                    style: TextStyle(color: Colors.grey)),
               ],
             ),
           ),
@@ -423,7 +425,7 @@ class _YtTabAudioState extends State<YtTabAudio>
               onPressed: _cancelDownload,
               icon: const Icon(Icons.cancel_outlined,
                   size: 16, color: Colors.red),
-              label: const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.red)),
+              label: const Text('Hủy', style: TextStyle(color: Colors.red)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.red),
                 shape: RoundedRectangleBorder(
@@ -453,11 +455,12 @@ class _YtTabAudioState extends State<YtTabAudio>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(context.l10n.ytDownloadedPlaying, style: TextStyle(
+                        const Text('Tải xong! Đang phát...',
+                            style: TextStyle(
                                 color: Color(0xFF4CAF50),
                                 fontWeight: FontWeight.bold)),
                         if (_savedQuality.isNotEmpty)
-                          Text('Content',
+                          Text('Chất lượng: $_savedQuality',
                               style: const TextStyle(
                                   color: Colors.white54, fontSize: 11)),
                         if (_savedPath != null)
@@ -486,7 +489,8 @@ class _YtTabAudioState extends State<YtTabAudio>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text(context.l10n.ytDownloadAnother, style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    child: const Text('Tải video khác',
+                        style: TextStyle(color: Colors.grey, fontSize: 12)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -498,7 +502,7 @@ class _YtTabAudioState extends State<YtTabAudio>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const TrText(context.l10n.commonClose),
+                    child: const Text('Đóng'),
                   ),
                 ),
               ],
@@ -515,7 +519,8 @@ class _YtTabAudioState extends State<YtTabAudio>
             CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation(Color(0xFFFF0000))),
             SizedBox(height: 12),
-            Text(context.l10n.ytFetchingInfo, style: TextStyle(color: Colors.white70)),
+            Text('Đang lấy thông tin...',
+                style: TextStyle(color: Colors.white70)),
           ],
         ),
       );
@@ -526,7 +531,8 @@ class _YtTabAudioState extends State<YtTabAudio>
           children: [
             Icon(Icons.music_video_outlined, size: 56, color: Colors.grey[700]),
             const SizedBox(height: 12),
-            const Text(context.l10n.ytPasteToStart, style: TextStyle(color: Colors.white70, fontSize: 14),
+            const Text('Dán URL YouTube ở trên để bắt đầu',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
                 textAlign: TextAlign.center),
           ],
         ),
@@ -555,7 +561,7 @@ class _QualityBadge extends StatelessWidget {
     }
     switch (quality) {
       case YtAudioQuality.highest:
-        return 'Content';
+        return 'Cao nhất ▾';
       case YtAudioQuality.medium:
         return '~128kbps ▾';
       case YtAudioQuality.low:
@@ -623,12 +629,14 @@ class _QualitySheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(context.l10n.ytSelectQuality, style: TextStyle(
+          const Text('Chọn chất lượng audio',
+              style: TextStyle(
                   color: Colors.white,
                   fontSize: 15,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(context.l10n.ytHigherBigger, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          Text('Chất lượng cao hơn = file lớn hơn',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12)),
           const SizedBox(height: 16),
 
           // ── Presets ──────────────────────────────────
@@ -683,10 +691,10 @@ class _QualitySheet extends StatelessWidget {
                                   fontSize: 13)),
                           Text(
                             q == YtAudioQuality.highest
-                                ? 'Content'
+                                ? 'Bitrate cao nhất, ưu tiên mp4/aac'
                                 : q == YtAudioQuality.medium
-                                    ? 'Content'
-                                    : 'Content',
+                                    ? '~128kbps – cân bằng chất lượng/dung lượng'
+                                    : '~64kbps – nhỏ nhất, phù hợp mạng chậm',
                             style: TextStyle(
                                 color: Colors.grey[600], fontSize: 10),
                           ),
@@ -710,7 +718,9 @@ class _QualitySheet extends StatelessWidget {
                 Expanded(child: Divider(color: Colors.grey[800])),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(context.l10n.ytChooseSpecific, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                  child: Text('Chọn cụ thể',
+                      style:
+                          TextStyle(color: Colors.grey[600], fontSize: 11)),
                 ),
                 Expanded(child: Divider(color: Colors.grey[800])),
               ]),

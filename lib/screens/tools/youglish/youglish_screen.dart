@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 
 import 'youglish_config.dart';
 import 'youglish_widget.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class YouGlishScreen extends StatefulWidget {
   const YouGlishScreen({Key? key}) : super(key: key);
@@ -112,7 +111,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: context.tr('Nhập từ...'),
+                  hintText: 'Nhập từ...',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
                   prefixIcon: const Icon(Icons.search,
                       color: Color(0xFF6C63FF), size: 18),

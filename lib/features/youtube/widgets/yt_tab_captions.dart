@@ -8,7 +8,6 @@ import '../services/yt_service.dart';
 import '../youtube_explorer_screen.dart';
 import '../yt_player_screen.dart';
 import 'yt_video_card.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class YtTabCaptions extends StatefulWidget {
   final YtVideo? video;
@@ -143,7 +142,8 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
             CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation(Color(0xFFFF0000))),
             SizedBox(height: 12),
-            Text(context.l10n.ytFetchingInfo, style: TextStyle(color: Colors.white70)),
+            Text('Đang lấy thông tin...',
+                style: TextStyle(color: Colors.white70)),
           ],
         ),
       );
@@ -154,7 +154,8 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
           children: [
             Icon(Icons.subtitles_outlined, size: 56, color: Colors.grey[700]),
             const SizedBox(height: 12),
-            const Text(context.l10n.ytPasteToStart, style: TextStyle(color: Colors.white70, fontSize: 14),
+            const Text('Dán URL YouTube ở trên để bắt đầu',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
                 textAlign: TextAlign.center),
           ],
         ),
@@ -162,7 +163,8 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
 
   Widget _buildLangSelector() => Row(
         children: [
-          const Text(context.l10n.ytLang, style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text('Ngôn ngữ:',
+              style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(width: 8),
           ..._langs.map((l) {
             final sel = _lang == l.$1;
@@ -222,7 +224,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                       valueColor: AlwaysStoppedAnimation(Colors.white)),
                 )
               : const Icon(Icons.download, size: 16),
-          label: Text(_isFetching ? 'Loading...' : 'Content'),
+          label: Text(_isFetching ? 'Đang tải...' : 'Lấy captions ($_lang)'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -250,7 +252,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                 const Icon(Icons.subtitles_outlined,
                     size: 14, color: Color(0xFF4CAF50)),
                 const SizedBox(width: 6),
-                Text('Content',
+                Text('${_captions.length} dòng',
                     style: const TextStyle(
                         color: Color(0xFF4CAF50),
                         fontSize: 12,
@@ -292,7 +294,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
           if (_captions.length > 6)
             Padding(
               padding: const EdgeInsets.all(10),
-              child: Text('Content',
+              child: Text('... và ${_captions.length - 6} dòng nữa',
                   style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   textAlign: TextAlign.center),
             ),
@@ -317,7 +319,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                       .read<TextProvider>()
                       .loadText(plain, title: widget.video!.title);
                   Navigator.pop(context);
-                  _snack('Content');
+                  _snack('✅ Loaded vào Text Studio');
                 },
               ),
             ),
@@ -369,8 +371,8 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
               child: YtActionBtn(
                 icon: Icons.link,
                 label: widget.downloadedAudioPath != null
-                    ? 'Content'
-                    : 'Content',
+                    ? 'Link + Phát ✅'
+                    : 'Link + Phát',
                 color: const Color(0xFFFF9800),
                 onTap: () async {
                   if (widget.downloadedAudioPath == null) {
@@ -389,7 +391,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                   }
                   if (context.mounted) {
                     Navigator.pop(context);
-                    _snack('Content');
+                    _snack('🎵 Audio + Lyrics đã link!');
                   }
                 },
               ),

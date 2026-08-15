@@ -1,9 +1,9 @@
 enum PlaybackMode { enOnly, viOnly, interleaved, custom }
 
 enum SilenceGap {
-  relax(500, 'Content'),
-  think(1500, 'Content'),
-  quiz(3000, 'Content');
+  relax(500, 'Thư giãn'),
+  think(1500, 'Suy nghĩ'),
+  quiz(3000, 'Tự kiểm tra');
 
   final int ms;
   final String label;

@@ -40,10 +40,10 @@ class RecentFile {
   bool get isInProgress => !isNew && !isCompleted;
 
   String get progressText {
-    if (totalLines == 0) return 'Content';
-    if (lastReadLine == 0) return 'Add';
-    if (isCompleted) return 'Done';
-    return 'Content';
+    if (totalLines == 0) return 'Chưa đọc';
+    if (lastReadLine == 0) return 'Mới thêm';
+    if (isCompleted) return 'Đã đọc xong ✓';
+    return 'Dòng $lastReadLine / $totalLines';
   }
 
   String get typeLabel {
@@ -53,7 +53,7 @@ class RecentFile {
       case RecentFileType.cloud:
         return 'Cloud';
       case RecentFileType.localText:
-        return 'Content';
+        return 'Văn bản';
     }
   }
 
@@ -86,7 +86,7 @@ class RecentFile {
   factory RecentFile.fromJson(Map<String, dynamic> json) {
     return RecentFile(
       id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'Content',
+      title: json['title'] as String? ?? 'Không có tên',
       subtitle: json['subtitle'] as String?,
       type: RecentFileType.values.firstWhere(
         (e) => e.name == (json['type'] as String? ?? ''),

@@ -5,7 +5,6 @@ import '../models/sm2_algorithm.dart';
 import '../providers/vocabulary_provider.dart';
 import 'skill_triangle.dart';
 import 'skill_sliders.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 ///  WORD DETAIL SHEET
@@ -97,9 +96,9 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
                 Expanded(
                   child: Column(
                     children: [
-                      _skillBar('Understand', word.understand, const Color(0xFF42A5F5)),
+                      _skillBar('Hiểu', word.understand, const Color(0xFF42A5F5)),
                       _skillBar('Nghe', word.listen, const Color(0xFF66BB6A)),
-                      _skillBar('Read', word.read, const Color(0xFFEF5350)),
+                      _skillBar('Đọc', word.read, const Color(0xFFEF5350)),
                     ],
                   ),
                 ),
@@ -114,7 +113,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
                 TextButton.icon(
                   onPressed: () => setState(() => _editing = !_editing),
                   icon: Icon(_editing ? Icons.check : Icons.edit, size: 18),
-                  label: Text(_editing ? 'Xong' : 'Edit'),
+                  label: Text(_editing ? 'Xong' : 'Chỉnh sửa %'),
                 ),
               ],
             ),
@@ -306,7 +305,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
           child: OutlinedButton.icon(
             onPressed: () => _quickAssess(context, Skill.understand, word, prov),
             icon: const Icon(Icons.lightbulb_outline, size: 16),
-            label: const Text(context.l10n.commonUnderstanding, style: TextStyle(fontSize: 12)),
+            label: const Text('Hiểu', style: TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(width: 8),
@@ -322,7 +321,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
           child: OutlinedButton.icon(
             onPressed: () => _quickAssess(context, Skill.read, word, prov),
             icon: const Icon(Icons.auto_stories, size: 16),
-            label: const TrText('Đọc', style: TextStyle(fontSize: 12)),
+            label: const Text('Đọc', style: TextStyle(fontSize: 12)),
           ),
         ),
       ],
@@ -337,7 +336,9 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const TrText('⏰ Đánh giá SM-2 (Spaced Repetition)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        const Text(
+          '⏰ Đánh giá SM-2 (Spaced Repetition)',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         ),
         const SizedBox(height: 8),
         Row(
@@ -412,14 +413,14 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
               prov.quickAnswerWord(word.id, skill, false);
               Navigator.pop(context);
             },
-            child: const TrText('❌ Chưa', style: TextStyle(color: Colors.red)),
+            child: const Text('❌ Chưa', style: TextStyle(color: Colors.red)),
           ),
           ElevatedButton(
             onPressed: () {
               prov.quickAnswerWord(word.id, skill, true);
               Navigator.pop(context);
             },
-            child: const TrTrText('✅ Biết rồi'),
+            child: const Text('✅ Biết rồi'),
           ),
         ],
       ),
@@ -428,17 +429,17 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
 
   String _skillName(Skill s) {
     switch (s) {
-      case Skill.understand: return 'Understand';
+      case Skill.understand: return 'Hiểu';
       case Skill.listen: return 'Nghe';
-      case Skill.read: return 'Read';
+      case Skill.read: return 'Đọc';
     }
   }
 
   String _skillQuestion(Skill s) {
     switch (s) {
-      case Skill.understand: return 'Content';
-      case Skill.listen: return 'Content';
-      case Skill.read: return 'Content';
+      case Skill.understand: return 'Bạn hiểu nghĩa từ này không?';
+      case Skill.listen: return 'Bạn nghe được từ này không?';
+      case Skill.read: return 'Bạn đọc được từ này không?';
     }
   }
 }

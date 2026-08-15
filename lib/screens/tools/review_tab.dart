@@ -16,7 +16,6 @@ import '../../models/word_entry.dart';
 import '../../models/sm2_algorithm.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/skill_triangle.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class ReviewTab extends StatefulWidget {
   const ReviewTab({super.key});
@@ -105,12 +104,12 @@ class _ReviewTabState extends State<ReviewTab>
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               tabs: [
-                Tab(child: _tabLabel('Content', _countDue(prov, null))),
+                Tab(child: _tabLabel('Tất cả', _countDue(prov, null))),
                 Tab(
                     child:
-                        _tabLabel('Understand', _countDue(prov, Skill.understand))),
+                        _tabLabel('Hiểu', _countDue(prov, Skill.understand))),
                 Tab(child: _tabLabel('Nghe', _countDue(prov, Skill.listen))),
-                Tab(child: _tabLabel('Read', _countDue(prov, Skill.read))),
+                Tab(child: _tabLabel('Đọc', _countDue(prov, Skill.read))),
               ],
             ),
             Expanded(
@@ -158,18 +157,19 @@ class _ReviewTabState extends State<ReviewTab>
             const SizedBox(height: 16),
             Text(
               _currentSkill == null
-                  ? 'Content'
-                  : 'Content',
+                  ? '🎉 Không có từ nào cần ôn tập!'
+                  : 'Không có từ nào cần ôn ${_skillName(_currentSkill!)}!',
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            TrText('Quay lại sau nhé!', style: TextStyle(color: Colors.grey.shade600)),
+            Text('Quay lại sau nhé!',
+                style: TextStyle(color: Colors.grey.shade600)),
             const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: _loadQueue,
               icon: const Icon(Icons.refresh),
-              label: const TrTrText('Kiểm tra lại'),
+              label: const Text('Kiểm tra lại'),
             ),
           ],
         ),
@@ -200,7 +200,7 @@ class _ReviewTabState extends State<ReviewTab>
               Icon(_skillIcon(skill), color: _skillColor(skill), size: 18),
               const SizedBox(width: 8),
               Text(
-                'Content',
+                'Ôn tập: ${_skillName(skill).toUpperCase()}',
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: _skillColor(skill)),
               ),
@@ -224,7 +224,7 @@ class _ReviewTabState extends State<ReviewTab>
                   ElevatedButton.icon(
                     onPressed: () => setState(() => _showAnswer = true),
                     icon: const Icon(Icons.visibility),
-                    label: const TrTrText('Hiện đáp án'),
+                    label: const Text('Hiện đáp án'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(200, 50),
                       backgroundColor: _skillColor(skill).withAlpha(30),
@@ -278,7 +278,9 @@ class _ReviewTabState extends State<ReviewTab>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TrText('Đánh giá độ khó:', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text('Đánh giá độ khó:',
+                    style:
+                        TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -367,7 +369,8 @@ class _ReviewTabState extends State<ReviewTab>
             Text(word.phonetic ?? '/${word.word}/',
                 style: TextStyle(fontSize: 22, color: color)),
             const SizedBox(height: 4),
-            TrText('Tưởng tượng bạn NGHE từ này', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            Text('Tưởng tượng bạn NGHE từ này',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           ],
         );
       case Skill.read:
@@ -380,7 +383,8 @@ class _ReviewTabState extends State<ReviewTab>
                     color: color,
                     letterSpacing: 3)),
             const SizedBox(height: 8),
-            TrText('Bạn có thể ĐỌC/PHÁT ÂM từ này không?', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            Text('Bạn có thể ĐỌC/PHÁT ÂM từ này không?',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           ],
         );
     }
@@ -445,7 +449,8 @@ class _ReviewTabState extends State<ReviewTab>
                         : '📚',
                 style: const TextStyle(fontSize: 72)),
             const SizedBox(height: 16),
-            TrText('Phiên ôn tập hoàn thành!', style: Theme.of(context).textTheme.titleLarge),
+            Text('Phiên ôn tập hoàn thành!',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 24),
 
             // Skill breakdown
@@ -481,7 +486,7 @@ class _ReviewTabState extends State<ReviewTab>
             ElevatedButton.icon(
               onPressed: _loadQueue,
               icon: const Icon(Icons.refresh),
-              label: const TrTrText('Ôn tiếp'),
+              label: const Text('Ôn tiếp'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(200, 50),
               ),
@@ -517,11 +522,11 @@ class _ReviewTabState extends State<ReviewTab>
   String _skillName(Skill s) {
     switch (s) {
       case Skill.understand:
-        return 'Understand';
+        return 'Hiểu';
       case Skill.listen:
         return 'Nghe';
       case Skill.read:
-        return 'Read';
+        return 'Đọc';
     }
   }
 }

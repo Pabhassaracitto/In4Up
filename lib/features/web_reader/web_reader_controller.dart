@@ -22,7 +22,6 @@ import '../../screens/memory_mode/memory_provider.dart';
 import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
 import 'models/web_extraction_candidate.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 enum WebReaderState { idle, loading, ready, error }
 
@@ -1839,8 +1838,9 @@ class WebReaderController extends ChangeNotifier {
     return const [
       WebCollection(
         id: 'preset-dharma',
-        title: context.tr('Pháp thoại & Dharma'),
-        description: context.tr('Nguồn đọc cố định cho Phật học, thiền và pháp thoại tiếng Anh.'),
+        title: 'Pháp thoại & Dharma',
+        description:
+            'Nguồn đọc cố định cho Phật học, thiền và pháp thoại tiếng Anh.',
         emoji: '🪷',
         isPreset: true,
         links: [
@@ -1848,32 +1848,33 @@ class WebReaderController extends ChangeNotifier {
             id: 'dharma-1',
             title: 'SuttaCentral',
             url: 'https://suttacentral.net/',
-            note: context.tr('Kinh tạng và bản dịch đa ngôn ngữ.'),
+            note: 'Kinh tạng và bản dịch đa ngôn ngữ.',
           ),
           WebCollectionLink(
             id: 'dharma-2',
             title: 'Dhammatalks',
             url: 'https://www.dhammatalks.org/',
-            note: context.tr('Bài đọc và pháp thoại của Thanissaro Bhikkhu.'),
+            note: 'Bài đọc và pháp thoại của Thanissaro Bhikkhu.',
           ),
           WebCollectionLink(
             id: 'dharma-3',
             title: 'Access to Insight',
             url: 'https://www.accesstoinsight.org/',
-            note: context.tr('Kho bài đọc Phật pháp tiếng Anh lâu năm.'),
+            note: 'Kho bài đọc Phật pháp tiếng Anh lâu năm.',
           ),
           WebCollectionLink(
             id: 'dharma-4',
             title: 'Tricycle',
             url: 'https://tricycle.org/',
-            note: context.tr('Tạp chí Phật học và thực hành hiện đại.'),
+            note: 'Tạp chí Phật học và thực hành hiện đại.',
           ),
         ],
       ),
       WebCollection(
         id: 'preset-english',
         title: 'English Learning',
-        description: context.tr('Nguồn đọc chậm, rõ, phù hợp để luyện từ vựng và đọc hiểu.'),
+        description:
+            'Nguồn đọc chậm, rõ, phù hợp để luyện từ vựng và đọc hiểu.',
         emoji: '🇬🇧',
         isPreset: true,
         links: [
@@ -1881,32 +1882,33 @@ class WebReaderController extends ChangeNotifier {
             id: 'english-1',
             title: 'BBC Learning English',
             url: 'https://www.bbc.co.uk/learningenglish/',
-            note: context.tr('Bài học và tin tức dành cho người học tiếng Anh.'),
+            note: 'Bài học và tin tức dành cho người học tiếng Anh.',
           ),
           WebCollectionLink(
             id: 'english-2',
             title: 'VOA Learning English',
             url: 'https://learningenglish.voanews.com/',
-            note: context.tr('Tin tức tốc độ chậm, dễ học.'),
+            note: 'Tin tức tốc độ chậm, dễ học.',
           ),
           WebCollectionLink(
             id: 'english-3',
             title: 'British Council',
             url: 'https://learnenglish.britishcouncil.org/',
-            note: context.tr('Bài đọc và hoạt động ngôn ngữ theo cấp độ.'),
+            note: 'Bài đọc và hoạt động ngôn ngữ theo cấp độ.',
           ),
           WebCollectionLink(
             id: 'english-4',
             title: 'Simple English Wikipedia',
             url: 'https://simple.wikipedia.org/',
-            note: context.tr('Kiến thức phổ thông với từ vựng đơn giản hơn.'),
+            note: 'Kiến thức phổ thông với từ vựng đơn giản hơn.',
           ),
         ],
       ),
       WebCollection(
         id: 'preset-news-knowledge',
-        title: context.tr('Tin tức & Kiến thức'),
-        description: context.tr('Giữ lại các nguồn preset cũ và mở rộng thêm nơi đọc chung.'),
+        title: 'Tin tức & Kiến thức',
+        description:
+            'Giữ lại các nguồn preset cũ và mở rộng thêm nơi đọc chung.',
         emoji: '📰',
         isPreset: true,
         links: [

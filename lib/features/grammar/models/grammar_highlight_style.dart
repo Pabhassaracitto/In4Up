@@ -10,15 +10,15 @@ extension GrammarHighlightStyleInfo on GrammarHighlightStyle {
   String get labelVi {
     switch (this) {
       case GrammarHighlightStyle.subtleBackground:
-        return 'Content';
+        return 'Nền nhẹ';
       case GrammarHighlightStyle.underline:
-        return 'Content';
+        return 'Gạch dưới';
       case GrammarHighlightStyle.outline:
-        return 'Content';
+        return 'Viền';
       case GrammarHighlightStyle.bold:
-        return 'Content';
+        return 'Đậm';
       case GrammarHighlightStyle.mixed:
-        return 'Content';
+        return 'Hỗn hợp';
     }
   }
 }

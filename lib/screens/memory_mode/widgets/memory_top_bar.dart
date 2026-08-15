@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../tools/word_list/word_list_screen.dart';
 import '../controllers/memory_controller.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryTopBar extends StatelessWidget {
   const MemoryTopBar({super.key});
@@ -28,7 +27,9 @@ class MemoryTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const TrText('🌱 Vườn Nhớ', style: TextStyle(
+          const Text(
+            '🌱 Vườn Nhớ',
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -43,7 +44,7 @@ class MemoryTopBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'Content',
+                '${stats.dueToday} cần ôn',
                 style: const TextStyle(
                   color: Color(0xFFFF5252),
                   fontSize: 10,
@@ -113,7 +114,9 @@ class MemoryTopBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(context.l10n.wordListSort, style: TextStyle(
+            const Text(
+              'Sắp xếp',
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -168,15 +171,15 @@ class MemoryTopBar extends StatelessWidget {
   String _sortLabel(MemorySortMode mode) {
     switch (mode) {
       case MemorySortMode.urgency:
-        return 'Content';
+        return 'Khẩn cấp nhất';
       case MemorySortMode.alphabetical:
         return 'A-Z';
       case MemorySortMode.stage:
-        return 'Content';
+        return 'Theo giai đoạn';
       case MemorySortMode.newest:
-        return 'Content';
+        return 'Mới nhất';
       case MemorySortMode.accuracy:
-        return 'Content';
+        return 'Độ chính xác';
     }
   }
 }

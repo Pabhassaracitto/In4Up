@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Banner thông minh: hiện vài giây rồi tự ẩn, có thể vuốt để tắt,
 /// và có tùy chọn tắt luôn (lưu vào SharedPreferences).
@@ -124,7 +123,9 @@ class _AutoHideInfoBannerState extends State<AutoHideInfoBanner>
                               color: Colors.white70,
                             ),
                             const SizedBox(width: 3),
-                            const TrText('Không hiện lại', style: TextStyle(
+                            const Text(
+                              'Không hiện lại',
+                              style: TextStyle(
                                   color: Colors.white70, fontSize: 9),
                             ),
                           ],

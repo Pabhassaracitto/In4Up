@@ -41,7 +41,7 @@ class StageProgressBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Content',
+              '${stats.totalItems} từ',
               style: TextStyle(color: Colors.grey[500], fontSize: 10),
             ),
             Row(
@@ -53,7 +53,7 @@ class StageProgressBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 _LegendDot(
                   color: MemoryStage.bloom.primaryColor,
-                  label: 'Content',
+                  label: '${stats.getStageCount(MemoryStage.bloom)} thuộc',
                 ),
               ],
             ),

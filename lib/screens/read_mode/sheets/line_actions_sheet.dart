@@ -8,7 +8,6 @@ import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import 'create_segment_sheet.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class LineActionsSheet {
   LineActionsSheet._();
@@ -56,7 +55,7 @@ class LineActionsSheet {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Content',
+                    'Dòng ${lineIndex + 1}',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -78,8 +77,8 @@ class LineActionsSheet {
             // Actions
             _ActionTile(
               icon: Icons.volume_up,
-              label: context.l10n.readTts,
-              subtitle: context.tr('Text-to-Speech đọc dòng này'),
+              label: 'Đọc TTS',
+              subtitle: 'Text-to-Speech đọc dòng này',
               color: const Color(0xFF2196F3),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -91,9 +90,9 @@ class LineActionsSheet {
             if (line.startTime != null && player.currentSongPath != null)
               _ActionTile(
                 icon: Icons.play_circle_outline,
-                label: context.tr('Phát audio tại vị trí này'),
+                label: 'Phát audio tại vị trí này',
                 subtitle:
-                    'Content',
+                    'Nhảy tới ${_formatDuration(line.startTime!)} trong audio',
                 color: const Color(0xFF4CAF50),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -104,8 +103,8 @@ class LineActionsSheet {
 
             _ActionTile(
               icon: Icons.bookmark_add,
-              label: context.tr('Lưu vào bộ sưu tập'),
-              subtitle: context.tr('Đánh dấu để ôn tập sau'),
+              label: 'Lưu vào bộ sưu tập',
+              subtitle: 'Đánh dấu để ôn tập sau',
               color: Colors.amber,
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -117,15 +116,15 @@ class LineActionsSheet {
 
             _ActionTile(
               icon: Icons.copy,
-              label: context.tr('Sao chép dòng'),
-              subtitle: context.tr('Copy nội dung vào clipboard'),
+              label: 'Sao chép dòng',
+              subtitle: 'Copy nội dung vào clipboard',
               color: Colors.grey,
               onTap: () {
                 Clipboard.setData(ClipboardData(text: line.content));
                 Navigator.pop(sheetContext);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: TrText(context.l10n.msgCopied),
+                    content: Text('📋 Đã sao chép!'),
                     behavior: SnackBarBehavior.floating,
                     duration: Duration(seconds: 1),
                   ),
@@ -136,7 +135,7 @@ class LineActionsSheet {
             if (line.translation != null)
               _ActionTile(
                 icon: Icons.translate,
-                label: context.tr('Sao chép bản dịch'),
+                label: 'Sao chép bản dịch',
                 subtitle: line.translation!,
                 color: const Color(0xFF9C27B0),
                 onTap: () {
@@ -144,7 +143,7 @@ class LineActionsSheet {
                   Navigator.pop(sheetContext);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: TrTrText('📋 Đã sao chép bản dịch!'),
+                      content: Text('📋 Đã sao chép bản dịch!'),
                       behavior: SnackBarBehavior.floating,
                       duration: Duration(seconds: 1),
                     ),

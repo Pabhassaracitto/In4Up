@@ -11,7 +11,6 @@ import 'package:provider/provider.dart';
 import '../../../features/tts/tts_service.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class PdfWordlistPanel extends StatefulWidget {
   final String pdfFileName;
@@ -95,7 +94,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Saved',
+              'Từ đã lưu',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -141,7 +140,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
         child: Row(
           children: [
             _SortBtn(
-              label: context.tr('Mới'),
+              label: 'Mới',
               isSelected: _sortMode == 'added',
               onTap: () => setState(() => _sortMode = 'added'),
             ),
@@ -151,7 +150,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
               onTap: () => setState(() => _sortMode = 'alpha'),
             ),
             _SortBtn(
-              label: context.tr('Thuần thục'),
+              label: 'Thuần thục',
               isSelected: _sortMode == 'mastery',
               onTap: () => setState(() => _sortMode = 'mastery'),
             ),

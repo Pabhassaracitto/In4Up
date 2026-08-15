@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../pdf_reader_controller.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class PdfTtsBar extends StatelessWidget {
   final PdfReaderController controller;
@@ -165,9 +164,9 @@ class PdfTtsBar extends StatelessWidget {
       case 'en-US':
         return '🇺🇸 English';
       case 'vi-VN':
-        return 'Content';
+        return '🇻🇳 Tiếng Việt';
       case 'bilingual':
-        return 'Content';
+        return '🔀 Song ngữ EN → VN';
       default:
         return lang;
     }
@@ -185,7 +184,8 @@ class PdfTtsBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(context.l10n.ttsReadingSpeed, style: TextStyle(
+            const Text('Tốc độ đọc',
+                style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 14)),

@@ -1,5 +1,4 @@
 import 'grammar_category.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class GrammarHighlightPreset {
   final String id;
@@ -19,7 +18,7 @@ class GrammarHighlightPreset {
     required this.visibleCategories,
     this.showLegend = true,
     this.emphasizeContentWords = false,
-    this.audienceLabel = 'Content',
+    this.audienceLabel = 'Cá nhân',
     this.focusSummary = '',
     this.isBuiltIn = false,
   });
@@ -51,7 +50,7 @@ class GrammarHighlightPreset {
       visibleCategories: visible,
       showLegend: json['showLegend'] != false,
       emphasizeContentWords: json['emphasizeContentWords'] == true,
-      audienceLabel: (json['audienceLabel'] ?? 'Content').toString(),
+      audienceLabel: (json['audienceLabel'] ?? 'Cá nhân').toString(),
       focusSummary: (json['focusSummary'] ?? '').toString(),
       isBuiltIn: json['isBuiltIn'] == true,
     );
@@ -66,7 +65,7 @@ class GrammarHighlightPresets {
       GrammarHighlightPreset(
         id: 'basic-pos',
         name: 'Basic POS',
-        description: context.tr('Hiển thị các nhóm từ loại phổ biến nhất để đọc và học nhanh.'),
+        description: 'Hiển thị các nhóm từ loại phổ biến nhất để đọc và học nhanh.',
         visibleCategories: {
           GrammarCategory.noun,
           GrammarCategory.verb,
@@ -74,14 +73,14 @@ class GrammarHighlightPresets {
           GrammarCategory.adverb,
         },
         showLegend: true,
-        audienceLabel: 'Content',
+        audienceLabel: 'Học nhanh',
         focusSummary: 'Noun · Verb · Adj · Adv',
         isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'content-words',
         name: 'Content Words',
-        description: context.tr('Tập trung vào từ mang nghĩa chính: noun, verb, adjective, adverb.'),
+        description: 'Tập trung vào từ mang nghĩa chính: noun, verb, adjective, adverb.',
         visibleCategories: {
           GrammarCategory.noun,
           GrammarCategory.verb,
@@ -92,14 +91,14 @@ class GrammarHighlightPresets {
         },
         showLegend: true,
         emphasizeContentWords: true,
-        audienceLabel: 'Content',
-        focusSummary: 'Content',
+        audienceLabel: 'Đọc sâu',
+        focusSummary: 'Nhấn nghĩa chính trong câu',
         isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'function-words',
         name: 'Function Words',
-        description: context.tr('Tập trung vào cấu trúc: pronoun, determiner, auxiliary, preposition...'),
+        description: 'Tập trung vào cấu trúc: pronoun, determiner, auxiliary, preposition...',
         visibleCategories: {
           GrammarCategory.pronoun,
           GrammarCategory.determiner,
@@ -110,14 +109,14 @@ class GrammarHighlightPresets {
           GrammarCategory.particle,
         },
         showLegend: true,
-        audienceLabel: 'Content',
-        focusSummary: 'Content',
+        audienceLabel: 'Ngữ pháp',
+        focusSummary: 'Khung câu · liên kết · trợ từ',
         isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'verb-focus',
         name: 'Verb Focus',
-        description: context.tr('Nhấn mạnh động từ, trợ động từ và modal để luyện verb chain.'),
+        description: 'Nhấn mạnh động từ, trợ động từ và modal để luyện verb chain.',
         visibleCategories: {
           GrammarCategory.verb,
           GrammarCategory.auxiliary,
@@ -126,20 +125,20 @@ class GrammarHighlightPresets {
         },
         showLegend: true,
         audienceLabel: 'Verb chain',
-        focusSummary: 'Content',
+        focusSummary: 'Động từ chính · trợ động · modal',
         isBuiltIn: true,
       ),
       GrammarHighlightPreset(
         id: 'minimal',
         name: 'Minimal',
-        description: context.tr('Chỉ hiển thị noun + verb để giữ bề mặt đọc tối giản.'),
+        description: 'Chỉ hiển thị noun + verb để giữ bề mặt đọc tối giản.',
         visibleCategories: {
           GrammarCategory.noun,
           GrammarCategory.verb,
         },
         showLegend: false,
-        audienceLabel: 'Content',
-        focusSummary: 'Content',
+        audienceLabel: 'Tối giản',
+        focusSummary: 'Chỉ giữ noun + verb',
         isBuiltIn: true,
       ),
     ];
@@ -153,12 +152,12 @@ class GrammarHighlightPresets {
     if ((id ?? '').trim().toLowerCase() == 'custom') {
       return const GrammarHighlightPreset(
         id: 'custom',
-        name: 'Content',
-        description: context.tr('Preset tùy chỉnh — bật/tắt thủ công từng nhóm từ loại.'),
+        name: 'Tùy chỉnh',
+        description: 'Preset tùy chỉnh — bật/tắt thủ công từng nhóm từ loại.',
         visibleCategories: <GrammarCategory>{},
         showLegend: true,
-        audienceLabel: 'Content',
-        focusSummary: 'Content',
+        audienceLabel: 'Cá nhân',
+        focusSummary: 'Tùy biến thủ công',
       );
     }
     return presets.first;

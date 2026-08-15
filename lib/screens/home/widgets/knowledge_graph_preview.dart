@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class KnowledgeGraphPreview extends StatelessWidget {
   const KnowledgeGraphPreview({super.key});
@@ -47,12 +46,16 @@ class KnowledgeGraphPreview extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                const TrText('124 liên kết nơ-ron', style: TextStyle(
+                const Text(
+                  '124 liên kết nơ-ron',
+                  style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold),
                 ),
-                const TrText('Khám phá thế giới từ vựng của bạn', style: TextStyle(color: Colors.grey, fontSize: 12),
+                const Text(
+                  'Khám phá thế giới từ vựng của bạn',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 Container(

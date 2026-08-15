@@ -187,7 +187,7 @@ class YoutubeDownloadService {
       // ── Step 1: Fetch video info ──────────────────────────
       ctrl.add(DownloadProgress(
         videoId: videoId,
-        title: customTitle ?? 'Loading...',
+        title: customTitle ?? 'Đang tải thông tin...',
         status: DownloadStatus.fetchingInfo,
       ));
 
@@ -439,19 +439,19 @@ class YoutubeDownloadService {
   String _friendlyError(String raw) {
     if (raw.contains('VideoUnplayableException') ||
         raw.contains('unplayable')) {
-      return 'Cannot';
+      return 'Video không thể tải (bị giới hạn hoặc riêng tư)';
     }
     if (raw.contains('VideoUnavailableException') ||
         raw.contains('unavailable')) {
-      return 'Delete';
+      return 'Video không tồn tại hoặc đã bị xóa';
     }
     if (raw.contains('SocketException') || raw.contains('NetworkException')) {
-      return 'Content';
+      return 'Lỗi mạng — kiểm tra kết nối internet';
     }
     if (raw.contains('403') || raw.contains('forbidden')) {
-      return 'Retry';
+      return 'Truy cập bị từ chối (403) — thử lại sau';
     }
-    return 'Content';
+    return 'Lỗi: ${raw.substring(0, raw.length.clamp(0, 80))}';
   }
 
   void _cleanup(String videoId) {

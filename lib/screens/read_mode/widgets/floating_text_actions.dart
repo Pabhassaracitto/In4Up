@@ -9,7 +9,6 @@ import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/create_segment_sheet.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class FloatingTextActions {
   FloatingTextActions._();
@@ -152,7 +151,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.volume_up,
                 color: const Color(0xFF2196F3),
-                tooltip: context.l10n.commonPronunciation,
+                tooltip: 'Phát âm',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.read<TextProvider>().speakSelected();
@@ -165,7 +164,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.bookmark_add,
                 color: Colors.amber,
-                tooltip: context.tr('Lưu học'),
+                tooltip: 'Lưu học',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   onDismiss();
@@ -176,7 +175,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.library_add,
                 color: const Color(0xFF4CAF50),
-                tooltip: context.tr('Lưu Wordlist'),
+                tooltip: 'Lưu Wordlist',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   _saveSelectionToWordlist(context);
@@ -187,14 +186,14 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.copy,
                 color: Colors.grey,
-                tooltip: context.l10n.commonCopy,
+                tooltip: 'Sao chép',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   Clipboard.setData(ClipboardData(text: selectedText));
                   onDismiss();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: TrText(context.l10n.msgCopied),
+                      content: Text('📋 Đã sao chép!'),
                       behavior: SnackBarBehavior.floating,
                       duration: Duration(seconds: 1),
                     ),
@@ -207,7 +206,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.close,
                 color: Colors.grey[600]!,
-                tooltip: context.l10n.commonClose,
+                tooltip: 'Đóng',
                 onTap: () {
                   context.read<TextProvider>().clearSelection();
                   onDismiss();

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/text_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class LocalTextDraft {
   final String title;
@@ -35,8 +34,8 @@ class LocalTextEntryDialog extends StatefulWidget {
     this.initialCategory,
     this.allowUploadToCloud = false,
     this.initialUploadToCloud = false,
-    this.titleText = 'Enter',
-    this.confirmText = 'Content',
+    this.titleText = 'Nhập văn bản thủ công',
+    this.confirmText = 'Nạp vào Đọc',
   });
 
   @override
@@ -105,7 +104,7 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
           final firstLine = text
               .split('\n')
               .map((e) => e.trim())
-              .firstWhere((e) => e.isNotEmpty, orElse: () => 'Content');
+              .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
           final clipped = firstLine.length > 48
               ? '${firstLine.substring(0, 48).trim()}...'
               : firstLine;
@@ -191,27 +190,27 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _FieldLabel(label: context.tr('Tiêu đề *')),
+                      const _FieldLabel(label: 'Tiêu đề *'),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _titleCtrl,
                         style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration(
-                          hint: context.tr('VD: Nội dung từ AI / ghi chú web'),
+                          hint: 'VD: Nội dung từ AI / ghi chú web',
                           icon: Icons.title,
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Enter'
+                            ? 'Nhập tiêu đề'
                             : null,
                       ),
                       const SizedBox(height: 16),
-                      const _FieldLabel(label: context.tr('Chủ đề / Thuộc tính')),
+                      const _FieldLabel(label: 'Chủ đề / Thuộc tính'),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _categoryCtrl,
                         style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration(
-                          hint: context.tr('VD: AI, Du lịch, Hội thoại, Ghi chú...'),
+                          hint: 'VD: AI, Du lịch, Hội thoại, Ghi chú...',
                           icon: Icons.label_outline,
                         ),
                       ),
@@ -221,16 +220,16 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const _FieldLabel(label: context.tr('Nội dung *')),
+                          const _FieldLabel(label: 'Nội dung *'),
                           TextButton.icon(
                             onPressed: _pasteFromClipboard,
                             icon: const Icon(Icons.content_paste_go_outlined, size: 16),
-                            label: const TrTrText('Dán clipboard'),
+                            label: const Text('Dán clipboard'),
                           ),
                           TextButton.icon(
                             onPressed: _fillFromCurrentText,
                             icon: const Icon(Icons.copy_all_outlined, size: 16),
-                            label: const TrTrText('Lấy văn bản hiện tại'),
+                            label: const Text('Lấy văn bản hiện tại'),
                           ),
                         ],
                       ),
@@ -245,11 +244,11 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                         maxLines: 12,
                         minLines: 6,
                         decoration: _inputDecoration(
-                          hint: context.tr('Dán hoặc gõ nội dung vào đây...'),
+                          hint: 'Dán hoặc gõ nội dung vào đây...',
                           icon: Icons.article_outlined,
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Enter'
+                            ? 'Nhập nội dung'
                             : null,
                       ),
                       ValueListenableBuilder<TextEditingValue>(
@@ -266,7 +265,7 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              'Content',
+                              '$words từ · $lines dòng',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 11,
@@ -282,13 +281,17 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                           onChanged: (value) => setState(() => _uploadToCloud = value),
                           activeColor: const Color(0xFF2196F3),
                           contentPadding: EdgeInsets.zero,
-                          title: const TrText('Đồng thời lưu lên cloud', style: TextStyle(
+                          title: const Text(
+                            'Đồng thời lưu lên cloud',
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          subtitle: const TrText('Giữ nội dung để đọc ngay trên máy và đồng bộ vào thư viện cloud.', style: TextStyle(color: Colors.white70, fontSize: 12),
+                          subtitle: const Text(
+                            'Giữ nội dung để đọc ngay trên máy và đồng bộ vào thư viện cloud.',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ),
                       ],
@@ -308,7 +311,7 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const TrText(context.l10n.commonCancel),
+                        child: const Text('Hủy'),
                       ),
                     ),
                     const SizedBox(width: 12),

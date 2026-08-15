@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'translation_engine.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// MyMemory Translation API
 /// ✅ Miễn phí 5000 chars/ngày (anonymous)
@@ -128,7 +127,7 @@ class MyMemoryEngine extends TranslationEngine {
             translated.contains('PLEASE CONTACT')) {
           return TranslationResult.failure(
             original: text,
-            error: context.tr('MyMemory: Hết quota hôm nay (5000 chars/ngày)'),
+            error: 'MyMemory: Hết quota hôm nay (5000 chars/ngày)',
             engine: name,
           );
         }

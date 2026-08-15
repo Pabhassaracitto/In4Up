@@ -22,29 +22,29 @@ enum WordType {
   String get labelVi {
     switch (this) {
       case WordType.noun:
-        return 'Content';
+        return 'Danh từ';
       case WordType.verb:
-        return 'Content';
+        return 'Động từ';
       case WordType.adjective:
-        return 'Content';
+        return 'Tính từ';
       case WordType.adverb:
-        return 'Content';
+        return 'Trạng từ';
       case WordType.preposition:
-        return 'Content';
+        return 'Giới từ';
       case WordType.conjunction:
-        return 'Content';
+        return 'Liên từ';
       case WordType.pronoun:
-        return 'Content';
+        return 'Đại từ';
       case WordType.determiner:
-        return 'Content';
+        return 'Mạo từ';
       case WordType.interjection:
-        return 'Content';
+        return 'Thán từ';
       case WordType.number:
-        return 'Content';
+        return 'Số';
       case WordType.punctuation:
-        return 'Content';
+        return 'Dấu câu';
       case WordType.unknown:
-        return 'Content';
+        return 'Khác';
     }
   }
 
@@ -182,19 +182,19 @@ extension CEFRLevelExtra on CEFRLevel {
   String get descriptionVi {
     switch (this) {
       case CEFRLevel.a1:
-        return 'Content';
+        return 'Sơ cấp';
       case CEFRLevel.a2:
-        return 'Content';
+        return 'Căn bản';
       case CEFRLevel.b1:
-        return 'Content';
+        return 'Trung cấp';
       case CEFRLevel.b2:
-        return 'Content';
+        return 'Khá';
       case CEFRLevel.c1:
-        return 'Content';
+        return 'Nâng cao';
       case CEFRLevel.c2:
-        return 'Content';
+        return 'Thành thạo';
       case CEFRLevel.unknown:
-        return 'Content';
+        return 'Không rõ';
     }
   }
 }

@@ -71,7 +71,7 @@ class YtService {
     try {
       final lines = await _fetchWithExplode(videoId, lang: lang);
       if (lines.isNotEmpty) {
-        debugPrint('Content');
+        debugPrint('✅ Captions explode: ${lines.length} dòng (lang=$lang)');
         return lines;
       }
     } catch (e) {
@@ -83,7 +83,7 @@ class YtService {
       try {
         final lines = await _fetchTimedtext(videoId, code);
         if (lines.isNotEmpty) {
-          debugPrint('Content');
+          debugPrint('✅ Captions timedtext ($code): ${lines.length} dòng');
           return lines;
         }
       } catch (e) {
@@ -95,14 +95,14 @@ class YtService {
     try {
       final lines = await _fetchFromPageHtml(videoId, lang);
       if (lines.isNotEmpty) {
-        debugPrint('Content');
+        debugPrint('✅ Captions page HTML: ${lines.length} dòng');
         return lines;
       }
     } catch (e) {
       debugPrint('page HTML captions failed: $e');
     }
 
-    debugPrint('Search');
+    debugPrint('❌ Không tìm thấy captions cho lang=$lang');
     return [];
   }
 
@@ -124,7 +124,7 @@ class YtService {
       return _mergeCaptions(l1Lines, l2Lines);
     } else if (useAiFallback) {
       // Dùng máy dịch (batch dịch cho nhanh)
-      debugPrint('Content');
+      debugPrint('🔄 Lang2 ($lang2) không có trên YT, dùng AI translate...');
       final texts = l1Lines.map((e) => e.text).toList();
 
       // Config translation service

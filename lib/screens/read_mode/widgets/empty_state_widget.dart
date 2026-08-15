@@ -26,7 +26,6 @@ import 'package:file_picker/file_picker.dart';
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
 import 'library_screen.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class ReadEmptyState extends StatelessWidget {
   const ReadEmptyState({super.key});
@@ -75,7 +74,9 @@ class ReadEmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            TrText('Thêm văn bản để bắt đầu đọc\nHỗ trợ TXT, LRC, SRT', style: TextStyle(
+            Text(
+              'Thêm văn bản để bắt đầu đọc\nHỗ trợ TXT, LRC, SRT',
+              style: TextStyle(
                 color: Colors.grey[500],
                 fontSize: 14,
                 height: 1.5,
@@ -99,7 +100,7 @@ class ReadEmptyState extends StatelessWidget {
                 _ImportCard(
                   icon: Icons.music_note,
                   label: 'File LRC',
-                  subtitle: context.tr('Có sync thời gian'),
+                  subtitle: 'Có sync thời gian',
                   color: const Color(0xFF4CAF50),
                   onTap: () => _importFile(context, ['lrc', 'srt']),
                 ),
@@ -107,15 +108,15 @@ class ReadEmptyState extends StatelessWidget {
                 _ImportCard(
                   icon: Icons.picture_as_pdf,
                   label: 'File PDF',
-                  subtitle: context.tr('Sách, bài giảng'),
+                  subtitle: 'Sách, bài giảng',
                   color: const Color(0xFFEF5350),
                   onTap: () => _importFile(context, ['pdf']),
                 ),
                 const SizedBox(width: 12),
                 _ImportCard(
                   icon: Icons.edit_note,
-                  label: context.tr('Nhập tay'),
-                  subtitle: context.tr('Paste văn bản'),
+                  label: 'Nhập tay',
+                  subtitle: 'Paste văn bản',
                   color: const Color(0xFFFF9800),
                   onTap: () => _showManualInput(context),
                 ),
@@ -133,7 +134,9 @@ class ReadEmptyState extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  TrText('Hoặc vuốt từ trái → để mở Thư viện Text', style: TextStyle(
+                  Text(
+                    'Hoặc vuốt từ trái → để mở Thư viện Text',
+                    style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 12,
                     ),
@@ -145,7 +148,9 @@ class ReadEmptyState extends StatelessWidget {
                       Icon(Icons.swipe_right,
                           color: Colors.grey[700], size: 18),
                       const SizedBox(width: 8),
-                      TrText('Swipe → mở Text Library', style: TextStyle(
+                      Text(
+                        'Swipe → mở Text Library',
+                        style: TextStyle(
                           color: Colors.grey[700],
                           fontSize: 11,
                         ),
@@ -216,7 +221,9 @@ class ReadEmptyState extends StatelessWidget {
               children: [
                 const Icon(Icons.edit_note, color: Color(0xFFFF9800)),
                 const SizedBox(width: 8),
-                const TrText('Nhập văn bản', style: TextStyle(
+                const Text(
+                  'Nhập văn bản',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -236,9 +243,9 @@ class ReadEmptyState extends StatelessWidget {
               autofocus: true,
               style: const TextStyle(color: Colors.white, height: 1.6),
               decoration: InputDecoration(
-                hintText: context.tr('Paste hoặc nhập văn bản...\n\n')
+                hintText: 'Paste hoặc nhập văn bản...\n\n'
                     'Mỗi dòng sẽ là 1 đơn vị đọc.\n'
-                    'Content',
+                    'Hỗ trợ tiếng Anh, tiếng Việt, Pali...',
                 hintStyle: TextStyle(color: Colors.grey[600]),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),
@@ -254,7 +261,7 @@ class ReadEmptyState extends StatelessWidget {
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const TrText(context.l10n.commonCancel),
+                    child: const Text('Hủy'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -270,7 +277,7 @@ class ReadEmptyState extends StatelessWidget {
                       }
                     },
                     icon: const Icon(Icons.check),
-                    label: const TrText(context.l10n.commonConfirm),
+                    label: const Text('Xác nhận'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2196F3),
                       padding: const EdgeInsets.symmetric(vertical: 14),

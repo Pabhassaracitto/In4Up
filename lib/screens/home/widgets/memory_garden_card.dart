@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
 import '../../memory_mode/models/memory_stage.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class MemoryGardenCard extends StatelessWidget {
   final VoidCallback onStartReview;
@@ -47,7 +46,9 @@ class MemoryGardenCard extends StatelessWidget {
                           letterSpacing: 1.2,
                         ),
                       ),
-                      TrText('Trạng thái sinh trưởng', style: TextStyle(
+                      Text(
+                        'Trạng thái sinh trưởng',
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -63,7 +64,7 @@ class MemoryGardenCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _SimpleStat(
-                      label: context.tr('Cần ôn ngay'),
+                      label: 'Cần ôn ngay',
                       value: '${stats.dueToday}',
                       icon: Icons.water_drop,
                       color: Colors.blueAccent,
@@ -72,7 +73,7 @@ class MemoryGardenCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _SimpleStat(
-                      label: context.l10n.wordListBlindSpot,
+                      label: 'Điểm mù',
                       value: '${_calculateBlindSpots(controller)}',
                       icon: Icons.visibility_off,
                       color: Colors.orangeAccent,

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class WordAnalysisSheet extends StatefulWidget {
   final String selectedWord;
@@ -107,7 +106,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
           if (facade.currentAnalysis?.isPartial == false)
             IconButton(
               icon: const Icon(Icons.flag_outlined, size: 18),
-              tooltip: context.tr('Báo kết quả sai'),
+              tooltip: 'Báo kết quả sai',
               onPressed: () => _reportError(context, facade),
             ),
 
@@ -115,7 +114,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
           if (!facade.hasModel)
             TextButton.icon(
               icon: const Icon(Icons.download, size: 16),
-              label: const TrTrText('Cài AI'),
+              label: const Text('Cài AI'),
               onPressed: () => _showModelSetupDialog(context, facade),
             ),
         ],
@@ -166,13 +165,15 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              analysis?.wordDetail?.meaning ?? 'Search',
+              analysis?.wordDetail?.meaning ?? 'Đang tìm kiếm...',
               style: const TextStyle(fontSize: 18),
             ),
 
             // Source indicator
             if (analysis?.source == AiAnalysisSource.localDict)
-              const TrText('📖 Từ điển cơ bản', style: TextStyle(fontSize: 12, color: Colors.grey),
+              const Text(
+                '📖 Từ điển cơ bản',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
           ],
         ),
@@ -192,7 +193,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             letterSpacing: 2,
           ),
         ),
-        subtitle: const TrTrText('Phiên âm IPA'),
+        subtitle: const Text('Phiên âm IPA'),
       ),
     );
   }
@@ -208,7 +209,9 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           SizedBox(width: 8),
-          TrText('AI đang phân tích sâu...', style: TextStyle(color: Colors.grey),
+          Text(
+            'AI đang phân tích sâu...',
+            style: TextStyle(color: Colors.grey),
           ),
         ],
       ),
@@ -223,7 +226,8 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TrText('🎨 Hình ảnh gợi nhớ', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('🎨 Hình ảnh gợi nhớ',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(visualPrompt),
           ],
@@ -239,7 +243,8 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TrText('🧠 Câu chuyện PAO (chọn 1)', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('🧠 Câu chuyện PAO (chọn 1)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ...paoSuggestions.asMap().entries.map((entry) => ListTile(
                   leading: CircleAvatar(child: Text('${entry.key + 1}')),
@@ -261,7 +266,8 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TrText('📝 Ví dụ trong ngữ cảnh', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('📝 Ví dụ trong ngữ cảnh',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ...examples.map((e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -277,12 +283,12 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const TrTrText('Báo lỗi AI'),
-        content: const TrTrText('Kết quả AI không chính xác?'),
+        title: const Text('Báo lỗi AI'),
+        content: const Text('Kết quả AI không chính xác?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const TrText(context.l10n.commonCancel),
+            child: const Text('Hủy'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -292,10 +298,10 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
               // context.read<StorageService>().saveErrorLog(log);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: TrTrText('Đã ghi nhận. Cảm ơn bạn!')),
+                const SnackBar(content: Text('Đã ghi nhận. Cảm ơn bạn!')),
               );
             },
-            child: const TrTrText('Báo lỗi'),
+            child: const Text('Báo lỗi'),
           ),
         ],
       ),
@@ -306,24 +312,26 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const TrTrText('Cài đặt AI Model'),
+        title: const Text('Cài đặt AI Model'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TrTrText('Chọn cách lấy AI model:'),
+            const Text('Chọn cách lấy AI model:'),
             const SizedBox(height: 8),
-            const TrTrText('• assets/models/: Tự động nếu đã bundle'),
-            const TrTrText('• Import file: Chọn file .gguf từ thiết bị'),
+            const Text('• assets/models/: Tự động nếu đã bundle'),
+            const Text('• Import file: Chọn file .gguf từ thiết bị'),
             const SizedBox(height: 8),
-            const TrText('Khuyến nghị: gemma-2b-it-q4_k_m.gguf (~1.5GB)', style: TextStyle(fontSize: 12, color: Colors.grey),
+            const Text(
+              'Khuyến nghị: gemma-2b-it-q4_k_m.gguf (~1.5GB)',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const TrTrText('Để sau'),
+            child: const Text('Để sau'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -333,13 +341,13 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      success ? 'Content' : 'Content',
+                      success ? '✅ Model đã sẵn sàng!' : '❌ Import thất bại',
                     ),
                   ),
                 );
               }
             },
-            child: const TrTrText('Chọn file .gguf'),
+            child: const Text('Chọn file .gguf'),
           ),
         ],
       ),

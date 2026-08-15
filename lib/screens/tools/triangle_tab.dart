@@ -15,7 +15,6 @@ import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/skill_triangle.dart';
 import '../../widgets/word_detail_sheet.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class TriangleTab extends StatefulWidget {
   const TriangleTab({super.key});
@@ -52,8 +51,8 @@ class _TriangleTabState extends State<TriangleTab>
           tabs: const [
             Tab(
                 icon: Icon(Icons.change_history_rounded),
-                text: context.tr('Bản đồ tam giác')),
-            Tab(icon: Icon(Icons.quiz_outlined), text: context.tr('Đánh giá nhanh')),
+                text: 'Bản đồ tam giác'),
+            Tab(icon: Icon(Icons.quiz_outlined), text: 'Đánh giá nhanh'),
           ],
         ),
         Expanded(
@@ -89,7 +88,8 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
       builder: (context, prov, _) {
         if (prov.total == 0) {
           return const Center(
-              child: Text(context.l10n.wordListEmpty, style: TextStyle(color: Colors.grey)));
+              child: Text('Chưa có từ vựng',
+                  style: TextStyle(color: Colors.grey)));
         }
 
         return Column(
@@ -183,15 +183,21 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          TrText('📍 Vị trí:', style: TextStyle(
+                          Text('📍 Vị trí:',
+                              style: TextStyle(
                                   fontSize: 10, fontWeight: FontWeight.bold)),
-                          TrText('• Gần đỉnh = mạnh skill đó', style: TextStyle(fontSize: 9)),
-                          TrText('• Tâm = cân bằng', style: TextStyle(fontSize: 9)),
+                          Text('• Gần đỉnh = mạnh skill đó',
+                              style: TextStyle(fontSize: 9)),
+                          Text('• Tâm = cân bằng',
+                              style: TextStyle(fontSize: 9)),
                           SizedBox(height: 4),
-                          TrText('📏 Khoảng cách:', style: TextStyle(
+                          Text('📏 Khoảng cách:',
+                              style: TextStyle(
                                   fontSize: 10, fontWeight: FontWeight.bold)),
-                          TrText('• Xa tâm = mastery cao', style: TextStyle(fontSize: 9)),
-                          TrText('• Gần tâm = mastery thấp', style: TextStyle(fontSize: 9)),
+                          Text('• Xa tâm = mastery cao',
+                              style: TextStyle(fontSize: 9)),
+                          Text('• Gần tâm = mastery thấp',
+                              style: TextStyle(fontSize: 9)),
                         ],
                       ),
                     ),
@@ -301,16 +307,16 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _skillChip('Understand', word.understand, const Color(0xFF42A5F5)),
+              _skillChip('Hiểu', word.understand, const Color(0xFF42A5F5)),
               const SizedBox(width: 8),
               _skillChip('Nghe', word.listen, const Color(0xFF66BB6A)),
               const SizedBox(width: 8),
-              _skillChip('Read', word.read, const Color(0xFFEF5350)),
+              _skillChip('Đọc', word.read, const Color(0xFFEF5350)),
               const Spacer(),
               TextButton.icon(
                 onPressed: () => _showDetail(context, word),
                 icon: const Icon(Icons.open_in_new, size: 16),
-                label: const TrTrText('Chi tiết'),
+                label: const Text('Chi tiết'),
               ),
             ],
           ),
@@ -444,7 +450,7 @@ class _AssessmentViewState extends State<_AssessmentView>
               child: _isComplete
                   ? _buildResults(prov)
                   : _queue.isEmpty
-                      ? const Center(child: TrTrText('Chưa có từ vựng để đánh giá'))
+                      ? const Center(child: Text('Chưa có từ vựng để đánh giá'))
                       : _buildCard(prov),
             ),
           ],
@@ -467,11 +473,11 @@ class _AssessmentViewState extends State<_AssessmentView>
   String get _questionText {
     switch (_currentSkill) {
       case Skill.understand:
-        return 'Content';
+        return '🔵 Bạn có HIỂU NGHĨA từ này không?';
       case Skill.listen:
-        return 'Content';
+        return '🟢 Bạn có NGHE HIỂU từ này không?';
       case Skill.read:
-        return 'Content';
+        return '🔴 Bạn có ĐỌC ĐƯỢC từ này không?';
     }
   }
 
@@ -525,7 +531,7 @@ class _AssessmentViewState extends State<_AssessmentView>
             ElevatedButton.icon(
               onPressed: () => setState(() => _showAnswer = true),
               icon: const Icon(Icons.visibility),
-              label: const TrTrText('Xem đáp án'),
+              label: const Text('Xem đáp án'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _skillColor.withAlpha(25),
                 foregroundColor: _skillColor,
@@ -539,7 +545,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                   child: ElevatedButton.icon(
                     onPressed: () => _answer(prov, false),
                     icon: const Icon(Icons.close, size: 20),
-                    label: const TrTrText('Chưa biết'),
+                    label: const Text('Chưa biết'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade50,
                       foregroundColor: Colors.red,
@@ -552,7 +558,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                   child: ElevatedButton.icon(
                     onPressed: () => _answer(prov, true),
                     icon: const Icon(Icons.check, size: 20),
-                    label: const TrTrText('Đã biết'),
+                    label: const Text('Đã biết'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green.shade50,
                       foregroundColor: Colors.green,
@@ -580,7 +586,8 @@ class _AssessmentViewState extends State<_AssessmentView>
             const SizedBox(height: 8),
             Text(word.phonetic ?? '/${word.word}/',
                 style: TextStyle(fontSize: 20, color: _skillColor)),
-            TrText('(Hãy tưởng tượng bạn NGHE từ này)', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            Text('(Hãy tưởng tượng bạn NGHE từ này)',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
           ],
         );
       case Skill.read:
@@ -592,7 +599,8 @@ class _AssessmentViewState extends State<_AssessmentView>
                     fontWeight: FontWeight.bold,
                     color: _skillColor,
                     letterSpacing: 2)),
-            TrText('Bạn có đọc/phát âm được không?', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            Text('Bạn có đọc/phát âm được không?',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           ],
         );
     }
@@ -631,7 +639,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
                   color: _skillColor)),
-          Text('Content',
+          Text('$_correct / $_total đúng',
               style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -646,7 +654,7 @@ class _AssessmentViewState extends State<_AssessmentView>
               });
             },
             icon: const Icon(Icons.refresh),
-            label: const TrText(context.l10n.shadowingRetry),
+            label: const Text('Thử lại'),
           ),
         ],
       ),

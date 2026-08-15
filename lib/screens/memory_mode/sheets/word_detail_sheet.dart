@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// Chi tiết một từ trong vườn nhớ
 /// Hiện: word, meaning, phonetic, example, context, stats, history
@@ -89,7 +88,7 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== MEANING =====
                   if (item.meaning != null) ...[
-                    const _SectionTitle(label: context.l10n.commonMeaning, icon: Icons.translate),
+                    const _SectionTitle(label: 'Nghĩa', icon: Icons.translate),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -117,7 +116,7 @@ class WordDetailSheet extends StatelessWidget {
                   // ===== EXAMPLE =====
                   if (item.example != null) ...[
                     const _SectionTitle(
-                        label: context.l10n.commonExample, icon: Icons.format_quote),
+                        label: 'Ví dụ', icon: Icons.format_quote),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -148,7 +147,7 @@ class WordDetailSheet extends StatelessWidget {
                   // ===== CONTEXT (dòng gốc) =====
                   if (item.context != null) ...[
                     const _SectionTitle(
-                        label: context.tr('Ngữ cảnh gốc'), icon: Icons.article),
+                        label: 'Ngữ cảnh gốc', icon: Icons.article),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -171,14 +170,14 @@ class WordDetailSheet extends StatelessWidget {
 
                   // ===== MEMORY STATS =====
                   const _SectionTitle(
-                      label: context.tr('Trạng thái trí nhớ'), icon: Icons.psychology),
+                      label: 'Trạng thái trí nhớ', icon: Icons.psychology),
                   const SizedBox(height: 12),
                   _buildMemoryStats(stage),
                   const SizedBox(height: 20),
 
                   // ===== STAGE JOURNEY =====
                   const _SectionTitle(
-                      label: context.tr('Hành trình'), icon: Icons.timeline),
+                      label: 'Hành trình', icon: Icons.timeline),
                   const SizedBox(height: 12),
                   _buildStageJourney(stage),
                   const SizedBox(height: 24),
@@ -190,7 +189,7 @@ class WordDetailSheet extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onPlayAudio,
                         icon: const Icon(Icons.volume_up, size: 18),
-                        label: const TrTrText('Nghe phát âm'),
+                        label: const Text('Nghe phát âm'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF2196F3),
                           side: BorderSide(
@@ -216,7 +215,7 @@ class WordDetailSheet extends StatelessWidget {
                           _confirmDelete(context);
                         },
                         icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const TrTrText('Xóa khỏi vườn'),
+                        label: const Text('Xóa khỏi vườn'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red.withValues(alpha: 0.7),
                         ),
@@ -324,7 +323,9 @@ class WordDetailSheet extends StatelessWidget {
           // Strength bar
           Row(
             children: [
-              TrText('Sức nhớ', style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              Text(
+                'Sức nhớ',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
               const Spacer(),
               Text(
@@ -354,12 +355,12 @@ class WordDetailSheet extends StatelessWidget {
           Row(
             children: [
               _StatCell(
-                label: context.tr('Tổng ôn'),
+                label: 'Tổng ôn',
                 value: '${item.totalReviews}',
                 icon: Icons.replay,
               ),
               _StatCell(
-                label: context.tr('Đúng'),
+                label: 'Đúng',
                 value: '${(item.accuracy * 100).round()}%',
                 icon: Icons.check_circle_outline,
                 color: const Color(0xFF4CAF50),
@@ -371,7 +372,7 @@ class WordDetailSheet extends StatelessWidget {
                 color: const Color(0xFFF44336),
               ),
               _StatCell(
-                label: context.tr('Hệ số'),
+                label: 'Hệ số',
                 value: item.easeFactor.toStringAsFixed(1),
                 icon: Icons.speed,
                 color: const Color(0xFF2196F3),
@@ -383,21 +384,21 @@ class WordDetailSheet extends StatelessWidget {
 
           // Timing info
           _TimingRow(
-            label: context.tr('Thêm vào'),
+            label: 'Thêm vào',
             value: _formatDate(item.createdAt),
             icon: Icons.add_circle_outline,
           ),
           if (item.lastReviewedAt != null)
             _TimingRow(
-              label: context.tr('Ôn lần cuối'),
+              label: 'Ôn lần cuối',
               value: _formatRelative(item.lastReviewedAt!),
               icon: Icons.history,
             ),
           if (item.nextReviewAt != null)
             _TimingRow(
-              label: item.needsReview ? 'Content' : 'Content',
+              label: item.needsReview ? 'Quá hạn' : 'Ôn tiếp',
               value: item.needsReview
-                  ? 'Content'
+                  ? '${item.overdueHours.toStringAsFixed(1)}h trước'
                   : _formatRelative(item.nextReviewAt!),
               icon: Icons.schedule,
               valueColor: item.needsReview ? const Color(0xFFFF5252) : null,
@@ -494,7 +495,9 @@ class WordDetailSheet extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const TrText('Xóa từ này?', style: TextStyle(color: Colors.white),
+        title: const Text(
+          'Xóa từ này?',
+          style: TextStyle(color: Colors.white),
         ),
         content: Text(
           'Xóa "${item.word}" khỏi vườn nhớ?\nDữ liệu ôn tập sẽ mất.',
@@ -503,7 +506,7 @@ class WordDetailSheet extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const TrText(context.l10n.commonCancel),
+            child: const Text('Hủy'),
           ),
           TextButton(
             onPressed: () {
@@ -511,7 +514,7 @@ class WordDetailSheet extends StatelessWidget {
               Navigator.pop(context); // Close sheet
               onDelete?.call();
             },
-            child: const Text(context.l10n.ttsClear, style: TextStyle(color: Colors.red)),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -526,13 +529,13 @@ class WordDetailSheet extends StatelessWidget {
     final diff = dt.difference(DateTime.now());
     if (diff.isNegative) {
       final absDiff = diff.abs();
-      if (absDiff.inDays > 0) return 'Content';
-      if (absDiff.inHours > 0) return 'Content';
-      return 'Content';
+      if (absDiff.inDays > 0) return '${absDiff.inDays} ngày trước';
+      if (absDiff.inHours > 0) return '${absDiff.inHours} giờ trước';
+      return '${absDiff.inMinutes} phút trước';
     } else {
-      if (diff.inDays > 0) return 'Content';
-      if (diff.inHours > 0) return 'Content';
-      return 'Content';
+      if (diff.inDays > 0) return 'sau ${diff.inDays} ngày';
+      if (diff.inHours > 0) return 'sau ${diff.inHours} giờ';
+      return 'sau ${diff.inMinutes} phút';
     }
   }
 }

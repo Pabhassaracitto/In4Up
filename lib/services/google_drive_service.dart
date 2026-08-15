@@ -178,7 +178,7 @@ class GoogleDriveService extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _error = 'Enter';
+      _error = 'Lỗi đăng nhập: $e';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -266,7 +266,7 @@ class GoogleDriveService extends ChangeNotifier {
         return listItems(
             folderId: folderId, audioOnly: audioOnly, nameFilter: nameFilter);
       }
-      _error = 'Content';
+      _error = 'Lỗi tải danh sách: $e';
       notifyListeners();
       return [];
     }

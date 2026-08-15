@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../screens/listen_mode/listen_mode_screen.dart'; // Correct path
 import '../screens/listen_mode/widgets/mini_player.dart'; // Correct path
 import 'player_provider.dart'; // Correct path
-import 'package:in4up/core/language/tr_extension.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -21,12 +20,12 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildTabContent(int index) {
     switch (index) {
       case 0:
-        return const Center(child: TrTrText('Home Screen (Nhẹ)'));
+        return const Center(child: Text('Home Screen (Nhẹ)'));
       case 1:
         // Khi chuyển sang Tab khác, ListenModeScreen sẽ bị dispose hoàn toàn
         return const ListenModeScreen();
       case 2:
-        return const Center(child: TrTrText('Read Mode (PDF - Nặng)'));
+        return const Center(child: Text('Read Mode (PDF - Nặng)'));
       default:
         return const SizedBox.shrink();
     }
@@ -77,7 +76,7 @@ class _MainScreenState extends State<MainScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.headphones), label: 'Nghe'),
-          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: context.tr('Đọc')),
+          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Đọc'),
         ],
       ),
     );

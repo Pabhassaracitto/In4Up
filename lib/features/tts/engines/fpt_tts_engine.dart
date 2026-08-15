@@ -3,7 +3,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'tts_engine.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 /// FPT.AI Text-to-Speech
 ///
@@ -60,7 +59,7 @@ class FptTtsEngine extends TtsEngine {
     ),
     'leminh': TtsVoice(
       id: 'leminh',
-      name: 'Content',
+      name: 'Lê Minh',
       language: 'vi-VN',
       gender: 'male',
       engine: 'FPT.AI',
@@ -68,7 +67,7 @@ class FptTtsEngine extends TtsEngine {
     ),
     'myan': TtsVoice(
       id: 'myan',
-      name: 'Content',
+      name: 'Mỹ An (miền Trung)',
       language: 'vi-VN',
       gender: 'female',
       engine: 'FPT.AI',
@@ -76,7 +75,7 @@ class FptTtsEngine extends TtsEngine {
     ),
     'thuminh': TtsVoice(
       id: 'thuminh',
-      name: 'Content',
+      name: 'Thu Minh (miền Nam)',
       language: 'vi-VN',
       gender: 'female',
       engine: 'FPT.AI',
@@ -84,7 +83,7 @@ class FptTtsEngine extends TtsEngine {
     ),
     'giahuy': TtsVoice(
       id: 'giahuy',
-      name: 'Content',
+      name: 'Gia Huy (miền Trung)',
       language: 'vi-VN',
       gender: 'male',
       engine: 'FPT.AI',
@@ -117,7 +116,7 @@ class FptTtsEngine extends TtsEngine {
   }) async {
     if (apiKey == null || apiKey!.isEmpty) {
       return TtsResult.failure(
-        error: context.tr('Chưa có FPT API key. Đăng ký miễn phí tại fpt.ai'),
+        error: 'Chưa có FPT API key. Đăng ký miễn phí tại fpt.ai',
         engine: name,
       );
     }
@@ -125,14 +124,14 @@ class FptTtsEngine extends TtsEngine {
     // FPT chỉ hỗ trợ tiếng Việt
     if (!language.toLowerCase().startsWith('vi')) {
       return TtsResult.failure(
-        error: context.tr('FPT.AI chỉ hỗ trợ tiếng Việt'),
+        error: 'FPT.AI chỉ hỗ trợ tiếng Việt',
         engine: name,
       );
     }
 
     if (text.trim().isEmpty) {
       return TtsResult.failure(
-        error: context.tr('Text trống'),
+        error: 'Text trống',
         engine: name,
       );
     }
@@ -216,12 +215,12 @@ class FptTtsEngine extends TtsEngine {
         }
       } else if (response.statusCode == 401) {
         return TtsResult.failure(
-          error: context.tr('API key không hợp lệ'),
+          error: 'API key không hợp lệ',
           engine: name,
         );
       } else if (response.statusCode == 429) {
         return TtsResult.failure(
-          error: context.tr('Hết quota tháng này'),
+          error: 'Hết quota tháng này',
           engine: name,
         );
       } else {

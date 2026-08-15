@@ -32,7 +32,6 @@ import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 enum _InlinePanel { repeat, speed, sleep, ab, ai }
 
@@ -449,7 +448,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             child: Row(children: [
               const Text('📍', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text('Content',
+              Text('Tại ${_fmtDuration(position)}',
                   style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -460,30 +459,33 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           ListTile(
             dense: true,
             leading: const Text('🅰️', style: TextStyle(fontSize: 18)),
-            title: const TrText('Đặt điểm A', style: TextStyle(color: Colors.white, fontSize: 14)),
+            title: const Text('Đặt điểm A',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
             onTap: () {
               Navigator.pop(ctx);
               player.setLoopPointA(position);
               HapticFeedback.selectionClick();
-              _showSnack('Content');
+              _showSnack('✅ Điểm A tại ${_fmtDuration(position)}');
             },
           ),
           ListTile(
             dense: true,
             leading: const Text('🅱️', style: TextStyle(fontSize: 18)),
-            title: TrText('Đặt điểm B', style: TextStyle(
+            title: Text('Đặt điểm B',
+                style: TextStyle(
                     color: hasA ? Colors.white : Colors.grey[600],
                     fontSize: 14)),
             subtitle: hasA
                 ? null
-                : TrText('Cần đặt điểm A trước', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                : Text('Cần đặt điểm A trước',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[700])),
             enabled: hasA,
             onTap: hasA
                 ? () {
                     Navigator.pop(ctx);
                     player.setLoopPointB(position);
                     HapticFeedback.mediumImpact();
-                    _showSnack(context.tr('✅ Vùng lặp A→B đã tạo'));
+                    _showSnack('✅ Vùng lặp A→B đã tạo');
                   }
                 : null,
           ),
@@ -491,7 +493,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             dense: true,
             leading:
                 Icon(Icons.my_location, color: Colors.blue.shade300, size: 20),
-            title: const TrText('Nhảy đến đây', style: TextStyle(color: Colors.white, fontSize: 14)),
+            title: const Text('Nhảy đến đây',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
             onTap: () {
               Navigator.pop(ctx);
               player.seek(position);
@@ -689,7 +692,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            "Kéo để ${ _lrcHeight > maxH * 0.8 ? 'Content' : 'Content'} • chạm để ${_lrcHeight < maxH * 0.9 ? 'full' : 'Content'}",
+                                            "Kéo để ${ _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng'} • chạm để ${_lrcHeight < maxH * 0.9 ? 'full' : 'thu gọn'}",
                                             style: TextStyle(
                                               color: Colors.grey[600],
                                               fontSize: 10,
@@ -727,7 +730,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 5),
                                     Flexible(
                                       child: Text(
-                                        "Content",
+                                        "LRC ${understand.lrcLines.length} dòng",
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
@@ -788,13 +791,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 4),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
-                                      tooltip: context.tr('Tuỳ chỉnh'),
+                                      tooltip: 'Tuỳ chỉnh',
                                       onTap: () =>
                                           KaraokeSettingsSheet.show(context),
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close_fullscreen_rounded,
-                                      tooltip: context.tr('Thu nhỏ'),
+                                      tooltip: 'Thu nhỏ',
                                       onTap: () {
                                         setState(() {
                                           if (_lrcHeight > 140) {
@@ -903,7 +906,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
                                             const SnackBar(
-                                                content: TrTrText("Đã copy lời thoại"),
+                                                content: Text(
+                                                    "Đã copy lời thoại"),
                                                 duration:
                                                     Duration(seconds: 1)),
                                           );
@@ -959,7 +963,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                               Container(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 4),
-                                child: TrText("Vuốt xuống để ẩn • Nhấn dòng để nhảy tới", style: TextStyle(
+                                child: Text(
+                                  "Vuốt xuống để ẩn • Nhấn dòng để nhảy tới",
+                                  style: TextStyle(
                                     color: Colors.grey[600],
                                     fontSize: 9,
                                   ),
@@ -1011,7 +1017,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     size: 16, color: Color(0xFF8B83FF)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "Content",
+                                  "Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở",
                                   style: const TextStyle(
                                     color: Color(0xFF8B83FF),
                                     fontSize: 12,
@@ -1102,7 +1108,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 CircularProgressIndicator(
                     color: Color(0xFF6C63FF), strokeWidth: 2),
                 SizedBox(height: 12),
-                TrText('Đang phân tích âm thanh...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text('Đang phân tích âm thanh...',
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           );
@@ -1115,13 +1122,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
               children: [
                 Icon(Icons.graphic_eq, color: Colors.grey[700], size: 36),
                 const SizedBox(height: 8),
-                TrText('Không hiển thị được sóng âm', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text('Không hiển thị được sóng âm',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: () => waveform.loadWaveform(
                       p.currentSongPath!, p.state.duration),
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: const TrText(context.l10n.shadowingRetry),
+                  label: const Text('Thử lại'),
                 ),
               ],
             ),
@@ -1189,7 +1197,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                           color: Color(0xFF6C63FF), strokeWidth: 1.5),
                     ),
                     const SizedBox(width: 6),
-                    Text(context.l10n.shadowingAnalyzing, style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                    Text('Đang phân tích...',
+                        style:
+                            TextStyle(color: Colors.grey[400], fontSize: 10)),
                   ]),
                 ),
               ),
@@ -1426,7 +1436,7 @@ class _SongInfoBar extends StatelessWidget {
                       ]),
                       const SizedBox(height: 2),
                       Text(
-                        player.currentSongArtist ?? 'Content',
+                        player.currentSongArtist ?? 'Nhấn để đổi audio',
                         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1569,10 +1579,11 @@ class _RepeatPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const TrText('Lặp lại', style: TextStyle(color: Colors.white70, fontSize: 14)),
+        const Text('Lặp lại',
+            style: TextStyle(color: Colors.white70, fontSize: 14)),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 4, children: [
-          _LoopOptionChip(label: context.tr('Tắt'), value: 0, player: player),
+          _LoopOptionChip(label: 'Tắt', value: 0, player: player),
           _LoopOptionChip(label: '1×', value: 1, player: player),
           _LoopOptionChip(label: '3×', value: 3, player: player),
           _LoopOptionChip(label: '5×', value: 5, player: player),
@@ -1630,14 +1641,15 @@ class _SleepPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const TrText('Hẹn giờ ngủ', style: TextStyle(color: Colors.white70, fontSize: 14)),
+        const Text('Hẹn giờ ngủ',
+            style: TextStyle(color: Colors.white70, fontSize: 14)),
         const SizedBox(height: 4),
         Slider(
           value: minutes.toDouble(),
           min: 5,
           max: 120,
           divisions: 23,
-          label: 'Content',
+          label: '$minutes phút',
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
         ),
@@ -1649,13 +1661,14 @@ class _SleepPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child:
-                Text('Content', style: const TextStyle(fontSize: 12)),
+                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
             TextButton(
               onPressed: () => player.cancelSleepTimer(),
-              child: const Text(context.l10n.commonCancel, style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+              child: const Text('Hủy',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 12)),
             ),
         ]),
       ],
@@ -1710,7 +1723,8 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
                     : Colors.grey[500],
               ),
               const SizedBox(width: 6),
-              TrText('Khoảng lặng', style: TextStyle(
+              Text('Khoảng lặng',
+                  style: TextStyle(
                     fontSize: 11,
                     color: _showSilenceOptions
                         ? const Color(0xFFFF9800)
@@ -1759,7 +1773,8 @@ class _SilenceOptionsBox extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TrText('Thêm khoảng lặng giữa các lần lặp', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+              Text('Thêm khoảng lặng giữa các lần lặp',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 11)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
@@ -1767,7 +1782,7 @@ class _SilenceOptionsBox extends StatelessWidget {
                 children: [0, 1, 2, 3, 5, 10].map((sec) {
                   final isSelected = silenceSec == sec;
                   return ChoiceChip(
-                    label: Text(sec == 0 ? 'Content' : '${sec}s'),
+                    label: Text(sec == 0 ? 'Tắt' : '${sec}s'),
                     selected: isSelected,
                     onSelected: (_) =>
                         player.setSilenceDuration(Duration(seconds: sec)),
@@ -1933,13 +1948,13 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                   const SizedBox(width: 6),
                   _ActionTile(
                     icon: Icons.bookmark_add_outlined,
-                    label: context.tr('Dấu'),
+                    label: 'Dấu',
                     color: const Color(0xFFFFB300),
                     isActive: false,
                     onTap: () {
                       HapticFeedback.lightImpact();
                       _showSnack(
-                          '📌 Marked ${_fmt(player.state.position)}');
+                          '📌 Đã đánh dấu ${_fmt(player.state.position)}');
                     },
                   ),
                   const SizedBox(width: 6),
@@ -1947,7 +1962,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     icon: player.hasSleepTimer
                         ? Icons.bedtime
                         : Icons.bedtime_outlined,
-                    label: player.hasSleepTimer ? 'Cancel' : '💤',
+                    label: player.hasSleepTimer ? 'Huỷ' : '💤',
                     color: const Color(0xFF9C27B0),
                     isActive: player.hasSleepTimer ||
                         _openPanel == _InlinePanel.sleep,
@@ -1964,7 +1979,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                   const SizedBox(width: 6),
                   _ActionTile(
                     icon: Icons.tune,
-                    label: context.l10n.commonAdd,
+                    label: 'Thêm',
                     color: Colors.grey,
                     isActive: false,
                     onTap: () {
@@ -2025,11 +2040,11 @@ class _SmartActionBarState extends State<_SmartActionBar> {
     if (!player.hasCompletedLoop && player.pendingLoopA == null) {
       player.setLoopPointA(pos);
       HapticFeedback.selectionClick();
-      _showSnack('Content');
+      _showSnack('🅰️ Điểm A: ${_fmt(pos)}');
     } else if (player.pendingLoopA != null && !player.hasCompletedLoop) {
       player.setLoopPointB(pos);
       HapticFeedback.mediumImpact();
-      _showSnack(context.tr('✅ Vùng A→B đã tạo – giữ để xem chi tiết'));
+      _showSnack('✅ Vùng A→B đã tạo – giữ để xem chi tiết');
     } else {
       _togglePanel(_InlinePanel.ab);
     }
@@ -2038,7 +2053,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   String _repeatLabel(PlayerProvider player) {
     if (player.hasCompletedLoop || player.pendingLoopA != null) return 'A→B';
     return switch (player.maxLoopCount) {
-      0 => 'Content',
+      0 => 'Lặp',
       1 => '1×',
       3 => '3×',
       5 => '5×',
@@ -2218,6 +2233,20 @@ class _PlayButton extends StatelessWidget {
 class GenerateLrcButton extends StatelessWidget {
   const GenerateLrcButton({super.key});
 
+  String _formatEta(int chunkIndex, int chunkCount, double progress) {
+    if (chunkCount <= 0 || chunkIndex < 0) return '';
+    // progress is 0..1 overall, but chunk progress gives better ETA
+    final done = chunkIndex + 1;
+    if (done <= 0) return '';
+    // We don't have per-chunk time here, but we can estimate from progress value
+    // For simple UI, show "Chunk X/Y" and percent
+    final percent = (done / chunkCount * 100).toStringAsFixed(1);
+    final remaining = chunkCount - done;
+    // Assume avg 20s per chunk (whisper base on mid device) -> ETA rough
+    // If progress has message with ETA from engine, prefer that
+    return 'Chunk $done/$chunkCount ($percent%) - Con $remaining doan';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
@@ -2228,6 +2257,7 @@ class GenerateLrcButton extends StatelessWidget {
           builder: (context, snapshot) {
             final progress = snapshot.data ?? SttProgress.idle;
             final isActive = progress.isActive;
+            final hasChunkInfo = progress.chunkCount > 0;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -2237,24 +2267,86 @@ class GenerateLrcButton extends StatelessWidget {
                   firstChild: const SizedBox(height: 4),
                   secondChild: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LinearProgressIndicator(
-                        value: progress.progress,
-                        backgroundColor: Colors.grey.shade800,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progress.status == SttFacadeStatus.error
-                              ? Colors.red
-                              : Colors.blue.shade400,
-                        ),
+                      // Progress bar with chunk info
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: hasChunkInfo
+                                  ? (progress.chunkIndex + 1) / progress.chunkCount
+                                  : progress.progress,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                progress.status == SttFacadeStatus.error
+                                    ? Colors.red
+                                    : Colors.blue.shade400,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (hasChunkInfo)
+                            Text(
+                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: Colors.blue.shade300,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(progress.message,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey[400]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      // Main message
+                      Text(
+                        progress.message,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[300], fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasChunkInfo) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.hourglass_top, size: 14, color: Colors.blue),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _formatEta(progress.chunkIndex, progress.chunkCount, progress.progress),
+                                  style: TextStyle(
+                                    color: Colors.blue.shade300,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.memory, size: 12, color: Colors.orange),
+                              const SizedBox(width: 2),
+                              Text(
+                                'RAM safe: lazy chunk',
+                                style: TextStyle(color: Colors.orange.shade300, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Dang hoat dong... File dai toi 1h van xu ly on. Dung lo!',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 10, fontStyle: FontStyle.italic),
+                        ),
+                      ],
                     ],
                   ),
                   crossFadeState: isActive
@@ -2347,11 +2439,13 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
             segments: const [
               ButtonSegment(
                 value: SttSegmentGrouping.sentence,
-                label: TrText('Theo câu', style: TextStyle(fontSize: 12)),
+                label: Text('Theo câu',
+                    style: TextStyle(fontSize: 12)),
               ),
               ButtonSegment(
                 value: SttSegmentGrouping.phrase,
-                label: TrText('Theo cụm', style: TextStyle(fontSize: 12)),
+                label: Text('Theo cụm',
+                    style: TextStyle(fontSize: 12)),
               ),
             ],
             selected: {_grouping},
@@ -2369,13 +2463,13 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: 10),
-              const TrText(context.l10n.ytProcessing),
+              const Text('Đang xử lý...'),
               const SizedBox(width: 12),
               TextButton.icon(
                 onPressed: () =>
                     context.read<PlayerProvider>().cancelLrcGeneration(),
                 icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                label: const TrText(context.l10n.commonCancel),
+                label: const Text('Hủy'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.redAccent,
                 ),
@@ -2386,7 +2480,7 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
           ElevatedButton.icon(
             onPressed: () => widget.onGenerate(_selectedLevel, _grouping),
             icon: const Icon(Icons.subtitles_outlined),
-            label: const TrTrText('Tạo lời thoại (LRC)'),
+            label: const Text('Tạo lời thoại (LRC)'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade700,
               padding:
@@ -2481,7 +2575,7 @@ class _AdvancedSheet extends StatelessWidget {
                   ),
                   const _SheetDivider(),
                   _SheetSection(
-                    title: context.l10n.readSpeed,
+                    title: 'Tốc độ',
                     icon: Icons.speed,
                     iconColor: Colors.orange,
                     child: ConstrainedBox(
@@ -2494,7 +2588,7 @@ class _AdvancedSheet extends StatelessWidget {
                   ),
                   const _SheetDivider(),
                   const _SheetSection(
-                    title: context.tr('Trí tuệ nhân tạo'),
+                    title: 'Trí tuệ nhân tạo',
                     icon: Icons.auto_awesome,
                     iconColor: Colors.blue,
                     child: GenerateLrcButton(),

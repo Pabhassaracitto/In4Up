@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../../models/vocabulary_type.dart';
 import '../../../providers/vocabulary_provider.dart';
-import 'package:in4up/core/language/tr_extension.dart';
 
 class StatsDashboard extends StatelessWidget {
   const StatsDashboard({super.key});
@@ -65,22 +64,22 @@ class _SummaryRow extends StatelessWidget {
       children: [
         _SummaryCard(
             value: '${provider.total}',
-            label: context.tr('Tổng'),
+            label: 'Tổng',
             color: const Color(0xFF6C63FF)),
         const SizedBox(width: 8),
         _SummaryCard(
             value: '${provider.wordCount}',
-            label: context.l10n.vocabWord,
+            label: 'Từ',
             color: VocabularyType.word.color),
         const SizedBox(width: 8),
         _SummaryCard(
             value: '${provider.phraseCount}',
-            label: context.tr('Cụm'),
+            label: 'Cụm',
             color: VocabularyType.phrase.color),
         const SizedBox(width: 8),
         _SummaryCard(
             value: '${provider.sentenceCount}',
-            label: context.l10n.vocabSentence,
+            label: 'Câu',
             color: VocabularyType.sentence.color),
       ],
     );
@@ -130,18 +129,18 @@ class _ProgressSection extends StatelessWidget {
     final reviewed = provider.totalReviewsAllTime;
 
     return _Card(
-      title: context.tr('Tiến độ'),
+      title: 'Tiến độ',
       child: Column(
         children: [
           Row(
             children: [
-              Text('Content',
+              Text('$pct% đã ôn tập',
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w600)),
               const Spacer(),
-              Text('Content',
+              Text('$reviewed lượt ôn',
                   style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
@@ -160,17 +159,17 @@ class _ProgressSection extends StatelessWidget {
             children: [
               _MiniStat(
                   icon: Icons.alarm,
-                  label: 'Content',
+                  label: '${provider.dueCount} cần ôn',
                   color: const Color(0xFFFF5722)),
               const SizedBox(width: 16),
               _MiniStat(
                   icon: Icons.star,
-                  label: 'Content',
+                  label: '${provider.masteredCount} thành thạo',
                   color: const Color(0xFFFFD54F)),
               const SizedBox(width: 16),
               _MiniStat(
                   icon: Icons.visibility_off,
-                  label: 'Content',
+                  label: '${provider.blindSpots} điểm mù',
                   color: const Color(0xFF616161)),
             ],
           ),
@@ -191,7 +190,7 @@ class _ActivitySection extends StatelessWidget {
     final thisWeekReviewed = provider.reviewsInLastDays(7);
 
     return _Card(
-      title: context.tr('Tuần này'),
+      title: 'Tuần này',
       child: Row(
         children: [
           Expanded(
@@ -208,7 +207,8 @@ class _ActivitySection extends StatelessWidget {
                           color: Color(0xFF4CAF50),
                           fontSize: 20,
                           fontWeight: FontWeight.w800)),
-                  const TrText('từ mới', style: TextStyle(color: Color(0xFF4CAF50), fontSize: 11)),
+                  const Text('từ mới',
+                      style: TextStyle(color: Color(0xFF4CAF50), fontSize: 11)),
                 ],
               ),
             ),
@@ -228,7 +228,8 @@ class _ActivitySection extends StatelessWidget {
                           color: Color(0xFF2196F3),
                           fontSize: 20,
                           fontWeight: FontWeight.w800)),
-                  const TrText('lượt ôn', style: TextStyle(color: Color(0xFF2196F3), fontSize: 11)),
+                  const Text('lượt ôn',
+                      style: TextStyle(color: Color(0xFF2196F3), fontSize: 11)),
                 ],
               ),
             ),
@@ -248,7 +249,8 @@ class _ActivitySection extends StatelessWidget {
                           color: Color(0xFFFF9800),
                           fontSize: 20,
                           fontWeight: FontWeight.w800)),
-                  const TrText('chính xác', style: TextStyle(color: Color(0xFFFF9800), fontSize: 11)),
+                  const Text('chính xác',
+                      style: TextStyle(color: Color(0xFFFF9800), fontSize: 11)),
                 ],
               ),
             ),
@@ -267,11 +269,11 @@ class _SkillBreakdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Card(
-      title: context.tr('3 Chiều Kỹ Năng'),
+      title: '3 Chiều Kỹ Năng',
       child: Row(
         children: [
           _SkillGauge(
-              label: context.l10n.commonUnderstanding,
+              label: 'Hiểu',
               value: provider.avgUnderstand,
               color: const Color(0xFF42A5F5)),
           const SizedBox(width: 16),
@@ -281,7 +283,7 @@ class _SkillBreakdown extends StatelessWidget {
               color: const Color(0xFF66BB6A)),
           const SizedBox(width: 16),
           _SkillGauge(
-              label: context.tr('Đọc'),
+              label: 'Đọc',
               value: provider.avgRead,
               color: const Color(0xFFEF5350)),
         ],
@@ -347,7 +349,7 @@ class _MostForgotten extends StatelessWidget {
     if (forgotten.isEmpty) return const SizedBox.shrink();
 
     return _Card(
-      title: context.tr('Từ hay quên nhất'),
+      title: 'Từ hay quên nhất',
       child: Column(
         children: forgotten.take(5).toList().asMap().entries.map((e) {
           final i = e.key;
@@ -379,7 +381,7 @@ class _MostForgotten extends StatelessWidget {
                           fontSize: 13,
                           fontWeight: FontWeight.w600)),
                 ),
-                Text('Content',
+                Text('sai $wrong/${w.totalReviews} lần',
                     style: TextStyle(color: Colors.grey[500], fontSize: 11)),
               ],
             ),
@@ -401,7 +403,7 @@ class _FrequentSection extends StatelessWidget {
     if (frequent.isEmpty) return const SizedBox.shrink();
 
     return _Card(
-      title: 'Content',
+      title: '📌 Gặp nhiều lần (${frequent.length})',
       child: Column(
         children: frequent
             .take(5)
@@ -441,7 +443,7 @@ class _FrequentSection extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Text('Content',
+                      Text('${w.sourceFiles.length} nguồn',
                           style:
                               TextStyle(color: Colors.grey[600], fontSize: 10)),
                     ],

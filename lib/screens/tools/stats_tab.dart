@@ -5,7 +5,7 @@
 //  Vị trí: Tools → Tab "Thống kê"
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -356,7 +356,7 @@ class _ZoneDistribution extends StatelessWidget {
                     radius: 8,
                     child: Icon(z.icon, size: 10, color: Colors.white),
                   ),
-                  label: Text('${z.label}: $count',
+                  label: Text('${context.uiText(z.label)}: $count',
                       style: const TextStyle(fontSize: 11)),
                   visualDensity: VisualDensity.compact,
                   backgroundColor: count > 0 ? z.color.withAlpha(15) : null,
@@ -394,7 +394,7 @@ class _AttentionWords extends StatelessWidget {
                 Text('Từ cần luyện nhất',
                     style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                Text('${top5.length} từ',
+                Text(context.uiText('${top5.length} từ'),
                     style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),

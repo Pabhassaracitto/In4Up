@@ -7,7 +7,7 @@
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -463,7 +463,7 @@ class _LocalTab extends StatelessWidget {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã lưu "${entry.title}" lên cloud')),
+        SnackBar(content: Text(context.uiText('Đã lưu "${entry.title}" lên cloud'))),
       );
     }
   }
@@ -521,7 +521,7 @@ class _LocalTab extends StatelessWidget {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã cập nhật trực tiếp file cloud "${updated.title}"')),
+        SnackBar(content: Text(context.uiText('Đã cập nhật trực tiếp file cloud "${updated.title}"'))),
       );
     }
   }
@@ -593,7 +593,10 @@ class _LocalTab extends StatelessWidget {
                       title: Text(entry.title,
                           style: const TextStyle(color: Colors.white)),
                       subtitle: Text(
-                        entry.category ?? '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        entry.category ??
+                            context.uiText(
+                              '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                            ),
                         style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                       onTap: () => Navigator.pop(sheetCtx, entry),
@@ -630,7 +633,7 @@ class _LocalTab extends StatelessWidget {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã cập nhật file cloud "${updatedEntry.title}"')),
+        SnackBar(content: Text(context.uiText('Đã cập nhật file cloud "${updatedEntry.title}"'))),
       );
     }
   }
@@ -762,7 +765,7 @@ class _CloudTabState extends State<_CloudTab> {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã cập nhật "${updated.title}" từ văn bản hiện tại')),
+        SnackBar(content: Text(context.uiText('Đã cập nhật "${updated.title}" từ văn bản hiện tại'))),
       );
     }
   }
@@ -778,7 +781,7 @@ class _CloudTabState extends State<_CloudTab> {
         title: const Text('Xoá văn bản?',
             style: TextStyle(color: Colors.white, fontSize: 16)),
         content: Text(
-          '"${entry.title}" sẽ bị xoá khỏi thư viện cloud.',
+          context.uiText('"${entry.title}" sẽ bị xoá khỏi thư viện cloud.'),
           style: const TextStyle(color: Colors.grey, fontSize: 13),
         ),
         actions: [
@@ -816,7 +819,7 @@ class _CloudTabState extends State<_CloudTab> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         action: SnackBarAction(
-          label: 'Đăng nhập',
+          label: context.uiText('Đăng nhập'),
           textColor: const Color(0xFF82B1FF),
           onPressed: () {
             // AuthService().signInWithGoogle(context) nếu muốn trigger thẳng
@@ -968,7 +971,7 @@ class _CloudTabState extends State<_CloudTab> {
         controller: _searchCtrl,
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Tìm theo tiêu đề, chủ đề...',
+          hintText: context.uiText('Tìm theo tiêu đề, chủ đề...'),
           hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
           prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 16),
           suffixIcon: _searchCtrl.text.isNotEmpty
@@ -1097,7 +1100,7 @@ class _CloudEntryCard extends StatelessWidget {
                               ),
                             ),
                           Text(
-                            '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                            context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 11,
@@ -1113,7 +1116,7 @@ class _CloudEntryCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: 'Sửa thông tin file cloud',
+                      tooltip: context.uiText('Sửa thông tin file cloud'),
                       onPressed: onEdit,
                       icon: Icon(
                         Icons.edit_outlined,
@@ -1122,7 +1125,7 @@ class _CloudEntryCard extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Cập nhật file cloud bằng văn bản hiện tại',
+                      tooltip: context.uiText('Cập nhật file cloud bằng văn bản hiện tại'),
                       onPressed: onSyncFromCurrent,
                       icon: const Icon(
                         Icons.cloud_sync_outlined,
@@ -1298,7 +1301,7 @@ class _TextCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    subtitle,
+                    context.uiText(subtitle),
                     style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
                 ],

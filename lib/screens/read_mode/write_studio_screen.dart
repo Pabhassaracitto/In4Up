@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import '../../core/responsive/app_responsive.dart';
@@ -983,7 +983,7 @@ Hãy trả về JSON hợp lệ với:
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'Dòng ${_lineIndex + 1}/$totalLines',
+                  context.uiText('Dòng ${_lineIndex + 1}/$totalLines'),
                   style: const TextStyle(
                     color: Color(0xFF26C6DA),
                     fontSize: 11,
@@ -1008,7 +1008,7 @@ Hãy trả về JSON hợp lệ với:
               onPressed: onJumpToActive,
               icon: const Icon(Icons.sync_alt, size: 18),
               label: Text(
-                  'Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})'),
+                  context.uiText('Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})')),
             ),
           ],
         ],
@@ -1223,7 +1223,7 @@ Hãy trả về JSON hợp lệ với:
             maxLines: 6,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Nhập lại câu bạn nghe hoặc nhớ được...',
+              hintText: context.uiText('Nhập lại câu bạn nghe hoặc nhớ được...'),
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.04),
@@ -1367,10 +1367,26 @@ Hãy trả về JSON hợp lệ với:
             title: 'Tầng 1 · Huấn luyện cục bộ',
             color: coach.color,
             children: [
-              _MetricRow(label: 'Kết luận', value: coach.summary),
-              _MetricRow(label: 'Thế mạnh', value: coach.strength),
-              _MetricRow(label: 'Điểm cần sửa', value: coach.primaryIssue),
-              _MetricRow(label: 'Lượt tiếp theo', value: coach.nextStep),
+              _MetricRow(
+                label: 'Kết luận',
+                value: coach.summary,
+                localizeValue: true,
+              ),
+              _MetricRow(
+                label: 'Thế mạnh',
+                value: coach.strength,
+                localizeValue: true,
+              ),
+              _MetricRow(
+                label: 'Điểm cần sửa',
+                value: coach.primaryIssue,
+                localizeValue: true,
+              ),
+              _MetricRow(
+                label: 'Lượt tiếp theo',
+                value: coach.nextStep,
+                localizeValue: true,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1470,7 +1486,7 @@ Hãy trả về JSON hợp lệ với:
               analysis == null) ...[
             const SizedBox(height: 12),
             Text(
-              'Lỗi AI: ${facade.lastError}',
+              context.uiText('Lỗi AI: ${facade.lastError}'),
               style: const TextStyle(color: Colors.orange, fontSize: 12),
             ),
           ],
@@ -1548,7 +1564,7 @@ Hãy trả về JSON hợp lệ với:
             maxLines: 6,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Viết lại cùng ý, không cần chép y nguyên câu gốc...',
+              hintText: context.uiText('Viết lại cùng ý, không cần chép y nguyên câu gốc...'),
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.04),
@@ -1615,10 +1631,26 @@ Hãy trả về JSON hợp lệ với:
                     value: result.missingKeywords.isEmpty
                         ? 'Không có'
                         : result.missingKeywords.join(', ')),
-                _MetricRow(label: 'Nhận xét', value: result.summary),
-                _MetricRow(label: 'Điểm mạnh', value: result.strength),
-                _MetricRow(label: 'Điểm cần sửa', value: result.primaryIssue),
-                _MetricRow(label: 'Bước tiếp theo', value: result.nextStep),
+                _MetricRow(
+                  label: 'Nhận xét',
+                  value: result.summary,
+                  localizeValue: true,
+                ),
+                _MetricRow(
+                  label: 'Điểm mạnh',
+                  value: result.strength,
+                  localizeValue: true,
+                ),
+                _MetricRow(
+                  label: 'Điểm cần sửa',
+                  value: result.primaryIssue,
+                  localizeValue: true,
+                ),
+                _MetricRow(
+                  label: 'Bước tiếp theo',
+                  value: result.nextStep,
+                  localizeValue: true,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1860,7 +1892,7 @@ Hãy trả về JSON hợp lệ với:
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               hintText:
-                  'Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...',
+                  context.uiText('Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...'),
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.04),
@@ -1918,7 +1950,9 @@ Hãy trả về JSON hợp lệ với:
                     label: 'Hình dáng câu',
                     value: '${(result.grammarScore * 100).round()}%'),
                 _MetricRow(
-                    label: 'Tỉ lệ độ dài', value: result.compressionLabel),
+                  label: 'Tỉ lệ độ dài',
+                  value: context.uiText(result.compressionLabel),
+                ),
                 _MetricRow(
                     label: 'Từ khóa đã giữ',
                     value: result.keptKeywords.isEmpty
@@ -1929,8 +1963,16 @@ Hãy trả về JSON hợp lệ với:
                     value: result.missedKeywords.isEmpty
                         ? 'Không có'
                         : result.missedKeywords.join(', ')),
-                _MetricRow(label: 'Nhận xét', value: result.summary),
-                _MetricRow(label: 'Bước tiếp theo', value: result.nextStep),
+                _MetricRow(
+                  label: 'Nhận xét',
+                  value: result.summary,
+                  localizeValue: true,
+                ),
+                _MetricRow(
+                  label: 'Bước tiếp theo',
+                  value: result.nextStep,
+                  localizeValue: true,
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -2168,7 +2210,7 @@ Hãy trả về JSON hợp lệ với:
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Đáp án: ${_blankPrompts.map((e) => '${e.number}. ${e.answer}').join('   •   ')}',
+                context.uiText('Đáp án: ${_blankPrompts.map((e) => '${e.number}. ${e.answer}').join('   •   ')}'),
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
             ),
@@ -2247,8 +2289,8 @@ Hãy trả về JSON hợp lệ với:
             controller: _blankControllers[index],
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: 'Ô ${prompt.number}',
-              hintText: 'Nhập từ cần điền',
+              labelText: context.uiText('Ô ${prompt.number}'),
+              hintText: context.uiText('Nhập từ cần điền'),
               labelStyle: TextStyle(color: Colors.grey[400]),
               hintStyle: TextStyle(color: Colors.grey[600]),
               suffixIcon: result == null
@@ -2292,7 +2334,7 @@ Hãy trả về JSON hợp lệ với:
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Ô ${prompt.number}',
+                context.uiText('Ô ${prompt.number}'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -2353,6 +2395,7 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentSource = source ?? context.uiText('văn bản đang mở');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -2426,9 +2469,9 @@ class _HeroCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    hasText
-                        ? 'Nguồn hiện tại: ${source ?? 'văn bản đang mở'} · $lineCount dòng.'
-                        : 'Chưa có văn bản hoạt động. Hãy mở PDF hoặc Web Reader để chuẩn bị bài viết.',
+                    context.uiText(hasText
+                        ? 'Nguồn hiện tại: $currentSource · $lineCount dòng.'
+                        : 'Chưa có văn bản hoạt động. Hãy mở PDF hoặc Web Reader để chuẩn bị bài viết.'),
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
@@ -2682,7 +2725,7 @@ class _FeedbackCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            context.uiText(title),
             style: TextStyle(
               color: color,
               fontSize: 14,
@@ -2700,8 +2743,13 @@ class _FeedbackCard extends StatelessWidget {
 class _MetricRow extends StatelessWidget {
   final String label;
   final String value;
+  final bool localizeValue;
 
-  const _MetricRow({required this.label, required this.value});
+  const _MetricRow({
+    required this.label,
+    required this.value,
+    this.localizeValue = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2713,14 +2761,14 @@ class _MetricRow extends StatelessWidget {
           SizedBox(
             width: 96,
             child: Text(
-              label,
+              context.uiText(label),
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              value,
+              localizeValue ? context.uiText(value) : value,
               style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ),

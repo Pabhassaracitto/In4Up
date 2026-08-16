@@ -4,7 +4,7 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -245,7 +245,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
+      content: Text(context.uiText(msg)),
       behavior: SnackBarBehavior.floating,
       backgroundColor: const Color(0xFF1A237E),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -378,7 +378,7 @@ class _GoogleDriveBrowserState extends State<GoogleDriveBrowser>
                 controller: _searchCtrl,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: 'Tìm file âm thanh trên Drive...',
+                  hintText: context.uiText('Tìm file âm thanh trên Drive...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   isDense: true,
@@ -667,7 +667,7 @@ class _DriveItemTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Đang tải ${(downloadProgress * 100).toInt()}%...',
+                context.uiText('Đang tải ${(downloadProgress * 100).toInt()}%...'),
                 style: const TextStyle(color: Color(0xFF9C8FFF), fontSize: 10),
               ),
             ],

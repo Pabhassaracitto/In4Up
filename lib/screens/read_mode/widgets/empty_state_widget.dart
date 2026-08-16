@@ -1,7 +1,7 @@
 // lib/screens/read_mode/widgets/empty_state_widget.dart
 // Thay toàn bộ nội dung cũ bằng redirect sang ReadLibraryScreen
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import 'library_screen.dart';
 
@@ -18,7 +18,7 @@ class ReadEmptyState extends StatelessWidget {
 
 // lib/screens/read_mode/widgets/empty_state_widget.dart
 /*
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -243,9 +243,9 @@ class ReadEmptyState extends StatelessWidget {
               autofocus: true,
               style: const TextStyle(color: Colors.white, height: 1.6),
               decoration: InputDecoration(
-                hintText: 'Paste hoặc nhập văn bản...\n\n'
-                    'Mỗi dòng sẽ là 1 đơn vị đọc.\n'
-                    'Hỗ trợ tiếng Anh, tiếng Việt, Pali...',
+                hintText: context.uiText(
+                  'Paste hoặc nhập văn bản...\n\nMỗi dòng sẽ là 1 đơn vị đọc.\nHỗ trợ tiếng Anh, tiếng Việt, Pali...',
+                ),
                 hintStyle: TextStyle(color: Colors.grey[600]),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),

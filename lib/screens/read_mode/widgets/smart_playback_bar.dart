@@ -2,12 +2,13 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/language/app_language.dart';
 import '../../../providers/text_provider.dart';
+import '../models/playback_anchor.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
 import '../services/playback_controller.dart';
@@ -80,7 +81,7 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
-                    controller.lastError!,
+                    context.uiText(controller.lastError!),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -188,7 +189,7 @@ class _MainRow extends StatelessWidget {
           children: [
             _ModeBtn(
               label: sourceLanguage.flag,
-              tooltip: 'Chỉ ${sourceLanguage.nativeName}',
+              tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
               active: recipe.mode == PlaybackMode.enOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -200,7 +201,7 @@ class _MainRow extends StatelessWidget {
             const SizedBox(width: 4),
             _ModeBtn(
               label: '🔄',
-              tooltip: 'Song ngữ / Xen kẽ',
+              tooltip: context.uiText('Song ngữ / Xen kẽ'),
               active: recipe.mode == PlaybackMode.interleaved ||
                   recipe.mode == PlaybackMode.custom,
               onTap: () {
@@ -232,7 +233,7 @@ class _MainRow extends StatelessWidget {
             const SizedBox(width: 4),
             _ModeBtn(
               label: targetLanguage.flag,
-              tooltip: 'Chỉ ${targetLanguage.nativeName}',
+              tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
               active: recipe.mode == PlaybackMode.viOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -345,7 +346,9 @@ class _MainRow extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
+                context.uiText(
+                  tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
+                ),
               ),
             ),
           );
@@ -641,7 +644,7 @@ class _PatternVisual extends StatelessWidget {
         ...dots,
         const SizedBox(width: 8),
         Text(
-          label,
+          context.uiText(label),
           style: const TextStyle(
             color: Color(0xFFA5B4FC),
             fontSize: 11,
@@ -727,7 +730,7 @@ class _LiveStatusBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    snapshot.statusText,
+                    context.uiText(snapshot.statusText),
                     style: const TextStyle(color: Colors.grey, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -903,17 +906,21 @@ class _PresetSheet extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.label,
-                              style: TextStyle(
-                                color: isActive ? Colors.white : Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          Text(p.sub,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 11,
-                              )),
+                          Text(
+                            context.uiText(p.label),
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            context.uiText(p.sub),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -936,7 +943,7 @@ class _PresetSheet extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 
 class _ResumeDialog extends StatelessWidget {
-  final dynamic anchor;
+  final PlaybackAnchor anchor;
   final VoidCallback onFromStart;
   final VoidCallback onResume;
 
@@ -954,7 +961,9 @@ class _ResumeDialog extends StatelessWidget {
       title: const Text('▶ Tiếp tục phát?',
           style: TextStyle(color: Colors.white, fontSize: 16)),
       content: Text(
-        anchor.displayText,
+        context.uiText(
+          'Câu ${anchor.lineIndex + 1}  •  ${context.uiText(anchor.ageText)}',
+        ),
         style: const TextStyle(color: Colors.grey, fontSize: 13),
       ),
       actions: [
@@ -1044,7 +1053,7 @@ class _ModeBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         onLongPress: onLongPress,

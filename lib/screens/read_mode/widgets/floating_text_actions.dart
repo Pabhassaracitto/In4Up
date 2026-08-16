@@ -1,6 +1,6 @@
 // lib/screens/read_mode/widgets/floating_text_actions.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -151,7 +151,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.volume_up,
                 color: const Color(0xFF2196F3),
-                tooltip: 'Phát âm',
+                tooltip: context.uiText('Phát âm'),
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.read<TextProvider>().speakSelected();
@@ -164,7 +164,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.bookmark_add,
                 color: Colors.amber,
-                tooltip: 'Lưu học',
+                tooltip: context.uiText('Lưu học'),
                 onTap: () {
                   HapticFeedback.lightImpact();
                   onDismiss();
@@ -175,7 +175,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.library_add,
                 color: const Color(0xFF4CAF50),
-                tooltip: 'Lưu Wordlist',
+                tooltip: context.uiText('Lưu Wordlist'),
                 onTap: () {
                   HapticFeedback.lightImpact();
                   _saveSelectionToWordlist(context);
@@ -186,7 +186,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.copy,
                 color: Colors.grey,
-                tooltip: 'Sao chép',
+                tooltip: context.uiText('Sao chép'),
                 onTap: () {
                   HapticFeedback.lightImpact();
                   Clipboard.setData(ClipboardData(text: selectedText));
@@ -206,7 +206,7 @@ class _FloatingBar extends StatelessWidget {
               _ActionBtn(
                 icon: Icons.close,
                 color: Colors.grey[600]!,
-                tooltip: 'Đóng',
+                tooltip: context.uiText('Đóng'),
                 onTap: () {
                   context.read<TextProvider>().clearSelection();
                   onDismiss();
@@ -236,7 +236,7 @@ class _ActionBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         child: Container(

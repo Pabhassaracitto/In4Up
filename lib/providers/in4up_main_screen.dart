@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../screens/listen_mode/listen_mode_screen.dart'; // Correct path
@@ -73,10 +73,16 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: const Color(0xFF16162A),
         selectedItemColor: const Color(0xFF6C63FF),
         unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.headphones), label: 'Nghe'),
-          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Đọc'),
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.headphones),
+            label: context.uiText('Nghe'),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.menu_book),
+            label: context.uiText('Đọc'),
+          ),
         ],
       ),
     );

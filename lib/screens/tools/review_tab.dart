@@ -10,7 +10,7 @@
 //  ✅ Tabs: Tất cả / Hiểu / Nghe / Đọc
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../models/sm2_algorithm.dart';
@@ -156,9 +156,9 @@ class _ReviewTabState extends State<ReviewTab>
             const Icon(Icons.celebration, size: 64, color: Colors.green),
             const SizedBox(height: 16),
             Text(
-              _currentSkill == null
+              context.uiText(_currentSkill == null
                   ? '🎉 Không có từ nào cần ôn tập!'
-                  : 'Không có từ nào cần ôn ${_skillName(_currentSkill!)}!',
+                  : 'Không có từ nào cần ôn ${context.uiText(_skillName(_currentSkill!))}!'),
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
@@ -200,7 +200,9 @@ class _ReviewTabState extends State<ReviewTab>
               Icon(_skillIcon(skill), color: _skillColor(skill), size: 18),
               const SizedBox(width: 8),
               Text(
-                'Ôn tập: ${_skillName(skill).toUpperCase()}',
+                context.uiText(
+                  'Ôn tập: ${context.uiText(_skillName(skill)).toUpperCase()}',
+                ),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: _skillColor(skill)),
               ),

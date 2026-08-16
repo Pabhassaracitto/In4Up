@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/word_entry.dart';
 
@@ -20,6 +20,11 @@ class SkillTriangle extends StatelessWidget {
     this.onScoreChanged,
   });
 
+  String _localizedInitial(BuildContext context, String source) {
+    final translated = context.uiText(source).trim();
+    return translated.isEmpty ? '' : String.fromCharCode(translated.runes.first);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -31,6 +36,11 @@ class SkillTriangle extends StatelessWidget {
           listen: word.listen,
           read: word.read,
           showLabels: showLabels,
+          labels: [
+            _localizedInitial(context, 'HIỂU'),
+            _localizedInitial(context, 'NGHE'),
+            _localizedInitial(context, 'ĐỌC'),
+          ],
         ),
       ),
     );
@@ -40,11 +50,13 @@ class SkillTriangle extends StatelessWidget {
 class _TrianglePainter extends CustomPainter {
   final double understand, listen, read;
   final bool showLabels;
+  final List<String> labels;
 
   _TrianglePainter({
     required this.understand,
     required this.listen,
     required this.read,
+    required this.labels,
     this.showLabels = true,
   });
 
@@ -109,7 +121,6 @@ class _TrianglePainter extends CustomPainter {
 
     // Labels
     if (showLabels) {
-      final labels = ['H', 'N', 'Đ'];
       final labelOffsets = [
         Offset(cx - 4, cy - r - 16),
         Offset(cx - r * cos(pi / 6) - 14, cy + r * sin(pi / 6) + 4),
@@ -142,5 +153,11 @@ class _TrianglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TrianglePainter old) =>
-      old.understand != understand || old.listen != listen || old.read != read;
+      old.understand != understand ||
+      old.listen != listen ||
+      old.read != read ||
+      old.showLabels != showLabels ||
+      old.labels[0] != labels[0] ||
+      old.labels[1] != labels[1] ||
+      old.labels[2] != labels[2];
 }

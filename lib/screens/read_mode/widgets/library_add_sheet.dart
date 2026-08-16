@@ -1,6 +1,6 @@
 // lib/screens/read_mode/widgets/library_add_sheet.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 class LibraryAddSheet extends StatelessWidget {

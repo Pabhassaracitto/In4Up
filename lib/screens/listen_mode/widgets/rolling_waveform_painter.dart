@@ -19,9 +19,11 @@ class RollingWaveformPainter extends CustomPainter {
   /// Key = joinKey hoặc segmentUid → speakerId
   /// Rỗng = mono-color (backward compatible)
   final Map<String, int> speakerColorMap;
+  final String emptyStateLabel;
 
   RollingWaveformPainter({
     required this.controller,
+    required this.emptyStateLabel,
     this.speakerColorMap = const {},
   }) : super(repaint: controller);
 
@@ -270,9 +272,9 @@ class RollingWaveformPainter extends CustomPainter {
 
   void _paintEmpty(Canvas canvas, Size size) {
     final tp = TextPainter(
-      text: const TextSpan(
-        text: 'Đang phân tích âm thanh...',
-        style: TextStyle(color: Colors.white24, fontSize: 12),
+      text: TextSpan(
+        text: emptyStateLabel,
+        style: const TextStyle(color: Colors.white24, fontSize: 12),
       ),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: size.width);
@@ -288,5 +290,7 @@ class RollingWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(RollingWaveformPainter old) =>
-      old.controller != controller || old.speakerColorMap != speakerColorMap;
+      old.controller != controller ||
+      old.speakerColorMap != speakerColorMap ||
+      old.emptyStateLabel != emptyStateLabel;
 }

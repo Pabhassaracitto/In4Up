@@ -1,5 +1,5 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -97,7 +97,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Tiếp tục từ ${_fmtDuration(audio.lastPosition)}',
+                    context.uiText('Tiếp tục từ ${_fmtDuration(audio.lastPosition)}'),
                     style: const TextStyle(color: Colors.white),
                   ),
                 ],
@@ -109,7 +109,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               ),
               duration: const Duration(seconds: 2),
               action: SnackBarAction(
-                label: 'Từ đầu',
+                label: context.uiText('Từ đầu'),
                 textColor: Colors.white70,
                 onPressed: () => player.seek(Duration.zero),
               ),
@@ -283,7 +283,10 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             Icon(icon, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(message, style: const TextStyle(color: Colors.white)),
+              child: Text(
+                context.uiText(message),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),

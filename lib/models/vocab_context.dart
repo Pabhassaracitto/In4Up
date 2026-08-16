@@ -40,18 +40,32 @@ class VocabContext {
     this.rectHint,
   });
 
-  /// Nhãn hiển thị ngắn gọn cho UI
-  String get displaySource {
+  /// Source name remains user/document content; generated position labels are
+  /// exposed separately so presentation code can localize only that UI value.
+  String get displaySourceName {
     if (sourceName != null && sourceName!.isNotEmpty) {
-      final short = sourceName!.length > 30
+      return sourceName!.length > 30
           ? '${sourceName!.substring(0, 27)}...'
           : sourceName!;
-      if (pageOrPosition != null && pageOrPosition!.isNotEmpty) {
-        return '$short, $pageOrPosition';
-      }
-      return short;
     }
     return sourceType;
+  }
+
+  bool get hasGeneratedPositionLabel =>
+      sourceType == 'pdf' || sourceType == 'story';
+
+  /// Backward-compatible unlocalized summary. New UI should localize a
+  /// generated [pageOrPosition] before passing it to [composeDisplaySource].
+  String get displaySource => composeDisplaySource(pageOrPosition);
+
+  String composeDisplaySource(String? displayPosition) {
+    if (sourceName != null &&
+        sourceName!.isNotEmpty &&
+        displayPosition != null &&
+        displayPosition.isNotEmpty) {
+      return '$displaySourceName, $displayPosition';
+    }
+    return displaySourceName;
   }
 
   /// Icon theo loại nguồn
@@ -114,7 +128,7 @@ class VocabContext {
       scrollProgressHint != null ||
       (anchorText ?? '').trim().isNotEmpty;
 
-  String get precisionSummary {
+  List<String> get precisionSummaryParts {
     final parts = <String>[];
     if (pageIndexHint != null) parts.add('trang ${pageIndexHint! + 1}');
     if (lineIndexHint != null) parts.add('dòng ${lineIndexHint! + 1}');
@@ -131,8 +145,10 @@ class VocabContext {
     if (anchor.isNotEmpty) {
       parts.add('neo "${_shortText(anchor, 36)}"');
     }
-    return parts.join(' · ');
+    return parts;
   }
+
+  String get precisionSummary => precisionSummaryParts.join(' · ');
 
   VocabContext copyWith({
     String? id,

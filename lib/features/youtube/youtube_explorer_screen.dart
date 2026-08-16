@@ -3,7 +3,7 @@
 
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -454,7 +454,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 3, 12, 2),
               child: Text(
-                'ĐƯỢC KHUYẾN NGHỊ: 1 - ${_channels.length}',
+                context.uiText('ĐƯỢC KHUYẾN NGHỊ: 1 - ${_channels.length}'),
                 style: TextStyle(
                     color: Colors.grey[700], fontSize: 8, letterSpacing: 0.4),
               ),
@@ -745,10 +745,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 3),
-                    Text(v.viewLabel,
+                    Text(context.uiText(v.viewLabel),
                         style:
                             TextStyle(color: Colors.grey[500], fontSize: 11)),
-                    Text(v.dateLabel,
+                    Text(context.uiText(v.dateLabel),
                         style:
                             TextStyle(color: Colors.grey[500], fontSize: 10)),
                     if (v.langRank != null) ...[
@@ -824,7 +824,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Channel ID hoặc URL...',
+            hintText: context.uiText('Channel ID hoặc URL...'),
             hintStyle: TextStyle(color: Colors.grey[600]),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.05),

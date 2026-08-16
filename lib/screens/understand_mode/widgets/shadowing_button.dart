@@ -1,6 +1,6 @@
 // lib/screens/understand_mode/widgets/shadowing_button.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class ShadowingButton extends StatelessWidget {
   final IconData icon;

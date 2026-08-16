@@ -2,7 +2,7 @@
 // PATCH: Thêm IPA + Translation vào sheet hiện có
 // Chỉ thay đổi: thêm 2 controller, 2 field trong UI, truyền vào addSegment()
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -155,7 +155,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                               fontSize: 18,
                               fontWeight: FontWeight.bold)),
                       Text(
-                          '$lineCount dòng (${_startLine + 1} → ${_endLine + 1})',
+                          context.uiText('$lineCount dòng (${_startLine + 1} → ${_endLine + 1})'),
                           style:
                               TextStyle(color: Colors.grey[400], fontSize: 13)),
                     ],
@@ -388,7 +388,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
 
   InputDecoration _deco({required String hint, required IconData icon}) {
     return InputDecoration(
-      hintText: hint,
+      hintText: context.uiText(hint),
       hintStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
       prefixIcon: Icon(icon, color: Colors.grey[500], size: 20),
       filled: true,
@@ -501,7 +501,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
           content: Row(children: [
             Icon(Icons.bookmark_added, color: _selectedColor, size: 18),
             const SizedBox(width: 8),
-            Text('Đã tạo segment "$name"'),
+            Text(context.uiText('Đã tạo segment "$name"')),
           ]),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF2A2A3E),
@@ -512,7 +512,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
       setState(() => _isCreating = false);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Lỗi: $e'),
+          content: Text(context.uiText('Lỗi: $e')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red[900],
         ));

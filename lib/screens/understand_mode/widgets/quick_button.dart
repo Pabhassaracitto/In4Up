@@ -1,6 +1,6 @@
 // lib/screens/understand_mode/widgets/quick_button.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class QuickButton extends StatelessWidget {
   final IconData icon;

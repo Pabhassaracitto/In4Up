@@ -7,7 +7,7 @@
 // Gọi: YoutubeSheet.show(context)
 //      YoutubeSheet.show(context, captionsFirst: true)
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -259,14 +259,16 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                         style:
                             const TextStyle(color: Colors.white, fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: 'Dán URL YouTube...',
+                          hintText: context.uiText('Dán URL YouTube...'),
                           hintStyle:
                               const TextStyle(color: Colors.grey, fontSize: 13),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding:
                               const EdgeInsets.symmetric(vertical: 12),
-                          errorText: _urlError,
+                          errorText: _urlError == null
+                              ? null
+                              : context.uiText(_urlError!),
                           errorStyle:
                               const TextStyle(color: Colors.red, fontSize: 10),
                         ),
@@ -325,10 +327,13 @@ class _YoutubeSheetState extends State<YoutubeSheet>
         indicatorColor: const Color(0xFFFF0000),
         indicatorSize: TabBarIndicatorSize.label,
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        tabs: const [
-          Tab(icon: Icon(Icons.audio_file, size: 15), text: 'Audio'),
-          Tab(icon: Icon(Icons.subtitles, size: 15), text: 'Captions'),
-          Tab(icon: Icon(Icons.history, size: 15), text: 'Lịch sử'),
+        tabs: [
+          const Tab(icon: Icon(Icons.audio_file, size: 15), text: 'Audio'),
+          const Tab(icon: Icon(Icons.subtitles, size: 15), text: 'Captions'),
+          Tab(
+            icon: const Icon(Icons.history, size: 15),
+            text: context.uiText('Lịch sử'),
+          ),
         ],
       );
 

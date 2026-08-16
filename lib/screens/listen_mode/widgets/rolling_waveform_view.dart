@@ -1,7 +1,7 @@
 // in4up1.0 — View với speakerColorMap parameter
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import '../controllers/rolling_waveform_controller.dart';
 import 'rolling_waveform_painter.dart';
 
@@ -128,6 +128,8 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
                       painter: RollingWaveformPainter(
                         controller: widget.controller,
                         speakerColorMap: widget.speakerColorMap,
+                        emptyStateLabel:
+                            context.uiText('Đang phân tích âm thanh...'),
                       ),
                     ),
                   ),

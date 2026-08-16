@@ -10,6 +10,7 @@ class GrammarHighlightPreset {
   final String audienceLabel;
   final String focusSummary;
   final bool isBuiltIn;
+  final bool descriptionIsGenerated;
 
   const GrammarHighlightPreset({
     required this.id,
@@ -21,6 +22,7 @@ class GrammarHighlightPreset {
     this.audienceLabel = 'Cá nhân',
     this.focusSummary = '',
     this.isBuiltIn = false,
+    this.descriptionIsGenerated = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -33,6 +35,7 @@ class GrammarHighlightPreset {
         'audienceLabel': audienceLabel,
         'focusSummary': focusSummary,
         'isBuiltIn': isBuiltIn,
+        'descriptionIsGenerated': descriptionIsGenerated,
       };
 
   factory GrammarHighlightPreset.fromJson(Map<String, dynamic> json) {
@@ -43,17 +46,31 @@ class GrammarHighlightPreset {
               orElse: () => GrammarCategory.unknown,
             ))
         .toSet();
+    final description = (json['description'] ?? '').toString();
+    final descriptionIsGenerated = json['descriptionIsGenerated'] is bool
+        ? json['descriptionIsGenerated'] == true
+        : _isLegacyGeneratedDescription(description);
     return GrammarHighlightPreset(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
-      description: (json['description'] ?? '').toString(),
+      description: description,
       visibleCategories: visible,
       showLegend: json['showLegend'] != false,
       emphasizeContentWords: json['emphasizeContentWords'] == true,
       audienceLabel: (json['audienceLabel'] ?? 'Cá nhân').toString(),
       focusSummary: (json['focusSummary'] ?? '').toString(),
       isBuiltIn: json['isBuiltIn'] == true,
+      descriptionIsGenerated: descriptionIsGenerated,
     );
+  }
+
+  static bool _isLegacyGeneratedDescription(String description) {
+    return description ==
+            'Preset cá nhân đang ẩn toàn bộ category để đọc cực sạch.' ||
+        description == 'Preset cá nhân tối giản cho vùng đọc tập trung.' ||
+        RegExp(
+          r'^Preset cá nhân gồm \d+ nhóm từ loại được chọn thủ công\.$',
+        ).hasMatch(description);
   }
 }
 
@@ -158,6 +175,7 @@ class GrammarHighlightPresets {
         showLegend: true,
         audienceLabel: 'Cá nhân',
         focusSummary: 'Tùy biến thủ công',
+        descriptionIsGenerated: true,
       );
     }
     return presets.first;

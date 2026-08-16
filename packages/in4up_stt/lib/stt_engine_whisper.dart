@@ -740,12 +740,19 @@ class SttEngineWhisper {
         debugPrint('🎙️ Chunk $i/$effectiveTotal: $chunkPath (bat dau transcribe)');
 
         try {
+          // FIX OOM v4: tren Android tat splitOnWord (word timestamps) de giam RAM, van du LRC sentence
+          bool effectiveWordTimestamps = wordTimestamps;
+          try {
+            if (Platform.isAndroid) {
+              effectiveWordTimestamps = false;
+            }
+          } catch (_) {}
           final chunkResult = await whisper.transcribe(
             transcribeRequest: TranscribeRequest(
               audio: chunkPath,
               isTranslate: false,
               isNoTimestamps: false,
-              splitOnWord: wordTimestamps,
+              splitOnWord: effectiveWordTimestamps,
               diarize: false,
               language: language,
             ),

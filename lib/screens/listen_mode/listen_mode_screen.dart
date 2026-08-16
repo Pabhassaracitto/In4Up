@@ -139,6 +139,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
 
+    // FIX OOM v4: neu dang transcribe thi KHONG reload waveform de tranh double FFmpeg + ExoPlayer ton RAM
+    try {
+      if (player.isGeneratingLrc) {
+        debugPrint('⏭️ Skip waveform reload during transcription to save RAM');
+        return;
+      }
+    } catch (_) {}
+
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
 
@@ -267,6 +275,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;

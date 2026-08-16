@@ -675,10 +675,10 @@ class SttEngineWhisper {
           }
         }
         if (tinyExists) {
-          debugPrint('[Whisper] File dai ${originalDurationMs ~/ 1000}s + model $level -> tu dong fallback tiny de tranh OOM');
+          debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s + model $level -> tu dong fallback tiny de tranh OOM');
           effectiveLevel = WhisperModelLevel.tiny;
         } else {
-          debugPrint('[Whisper] File dai ${originalDurationMs ~/ 1000}s + model $level nhung khong co tiny, van dung $level nhung giam chunk $effectiveChunkDuration s');
+          debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s + model $level nhung khong co tiny, van dung $level nhung giam chunk $effectiveChunkDuration s');
         }
       } catch (_) {}
     }

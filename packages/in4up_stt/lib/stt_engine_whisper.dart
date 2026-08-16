@@ -647,7 +647,7 @@ class SttEngineWhisper {
     var effectiveLevel = level;
     if (originalDurationMs != null && originalDurationMs > 60 * 1000 && level != WhisperModelLevel.tiny) {
       try {
-        final tinyNames = WhisperModelLevel.tiny.fileNames; // ['ggml-tiny.bin']
+        final tinyNames = WhisperModelLevel.tiny.candidateFileNames; // ['ggml-tiny.bin']
         var tinyExists = false;
         for (final n in tinyNames) {
           if (File(path.join(modelDir, n)).existsSync()) {

@@ -639,14 +639,32 @@ class SttEngineWhisper {
     var effectiveChunkDuration = chunkDurationSeconds;
 
     // File dai >60s -> giam chunk xuong 15s de giam RAM (base 140MB + 30s PCM ~2MB -> OOM, tiny van OOM 62s)
-    // Log moi: 62s van OOM voi 30s chunk tiny, ha xuong 15s
+    // FIX v4: Tren Android luon dung 15s chunk cho Tat ca file de tranh OOM, ke ca file 38s van crash o commit cu
+    // Log moi: 62s van OOM voi 30s chunk tiny, ha xuong 15s. 38s file cung crash o fa09893 -> can 15s cho moi file tren Android
     if (originalDurationMs != null && originalDurationMs > 60 * 1000) {
       effectiveChunkDuration = effectiveChunkDuration > 15 ? 15 : effectiveChunkDuration;
     }
+    // Tren Android, ep chunk max 15s cho moi file de dam bao RAM safe (ke ca file ngan 38s)
+    try {
+      if (Platform.isAndroid) {
+        if (effectiveChunkDuration > 15) {
+          debugPrint('[Whisper] Android ep chunk 15s (goc $effectiveChunkDuration)s de tranh OOM');
+          effectiveChunkDuration = 15;
+        }
+      }
+    } catch (_) {}
 
     // Fix OOM: neu file >60s ma model >= base, uu tien dung tiny neu co san (tiny 75MB vs base 142MB)
+    // FIX v4: Tren Android, neu co tiny thi luon uu tien tiny cho moi file (ke ca 38s) de dam bao on dinh, vi tiny van OOM tren S9FE
     var effectiveLevel = level;
-    if (originalDurationMs != null && originalDurationMs > 60 * 1000 && level != WhisperModelLevel.tiny) {
+    final shouldForceTiny = () {
+      if (level == WhisperModelLevel.tiny) return false;
+      try {
+        if (Platform.isAndroid) return true; // Android luon uu tien tiny
+      } catch (_) {}
+      return originalDurationMs != null && originalDurationMs > 60 * 1000;
+    }();
+    if (shouldForceTiny) {
       try {
         final tinyNames = WhisperModelLevel.tiny.candidateFileNames; // ['ggml-tiny.bin']
         var tinyExists = false;

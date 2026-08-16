@@ -558,10 +558,12 @@ class SttEngineWhisper {
   /// bằng FFI-in-isolate chỉ chạy trên desktop, làm Android mất đường
   /// transcription từ file. Path này khôi phục lại cho mobile.
   ///
-  /// UPDATE v6: Tren Android, plugin MethodChannel gay OOM Scudo ngay ca 38s tiny.
-  /// Thu chuyen Android sang FFI-in-isolate de tiet kiem RAM, giu karaoke.
+  /// UPDATE v6: Thu test Android sang FFI isolate de tiet kiem RAM nhung FFI
+  /// libwhisper.so khong tim thay tren Android -> fallback CLI gay loi
+  /// "Khong tim thay whisper binary: whisper-cli.exe" tren Android.
+  /// => Quay lai MethodChannel cho Android, giu cac fix OOM: 15s chunk, tiny fallback, pause player, skip waveform reload.
   static bool get isMobilePluginSupported =>
-      !kIsWeb && (Platform.isIOS || Platform.isMacOS);
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
   /// Transcribe file trên Mobile (Main Thread) bằng plugin whisper_flutter_new.
   static Future<SttResult> transcribeMobile({

@@ -557,8 +557,11 @@ class SttEngineWhisper {
   /// v11 (xem commit gốc trong packages/vipsound_stt). Refactor đã thay nó
   /// bằng FFI-in-isolate chỉ chạy trên desktop, làm Android mất đường
   /// transcription từ file. Path này khôi phục lại cho mobile.
+  ///
+  /// UPDATE v6: Tren Android, plugin MethodChannel gay OOM Scudo ngay ca 38s tiny.
+  /// Thu chuyen Android sang FFI-in-isolate de tiet kiem RAM, giu karaoke.
   static bool get isMobilePluginSupported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
+      !kIsWeb && (Platform.isIOS || Platform.isMacOS);
 
   /// Transcribe file trên Mobile (Main Thread) bằng plugin whisper_flutter_new.
   static Future<SttResult> transcribeMobile({
@@ -740,19 +743,12 @@ class SttEngineWhisper {
         debugPrint('🎙️ Chunk $i/$effectiveTotal: $chunkPath (bat dau transcribe)');
 
         try {
-          // FIX OOM v4: tren Android tat splitOnWord (word timestamps) de giam RAM, van du LRC sentence
-          bool effectiveWordTimestamps = wordTimestamps;
-          try {
-            if (Platform.isAndroid) {
-              effectiveWordTimestamps = false;
-            }
-          } catch (_) {}
           final chunkResult = await whisper.transcribe(
             transcribeRequest: TranscribeRequest(
               audio: chunkPath,
               isTranslate: false,
               isNoTimestamps: false,
-              splitOnWord: effectiveWordTimestamps,
+              splitOnWord: wordTimestamps,
               diarize: false,
               language: language,
             ),

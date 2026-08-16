@@ -464,10 +464,11 @@ class SttServiceFacade extends ChangeNotifier {
     // ── A1. Pre-convert audio if needed (Main Thread) ─────────────────────
     // FIX OOM v3: tren mobile, file >60s thi KHONG pre-convert full WAV 16k
     // de tranh 2 lan FFmpeg (full + chunk) gay ton RAM. De engine cat truc tiep tu goc.
+    // UPDATE v6: Android gio dung FFI isolate nen van can check Platform.isAndroid
     String? convertedPath;
     try {
       final dur = await AudioConverter.probeDurationMs(audioPath);
-      final isLongForMobile = SttEngineWhisper.isMobilePluginSupported &&
+      final isLongForMobile = (SttEngineWhisper.isMobilePluginSupported || Platform.isAndroid) &&
           dur != null &&
           dur > 60 * 1000;
       if (isLongForMobile) {

@@ -411,8 +411,8 @@ class SttServiceFacade extends ChangeNotifier {
 
     final localLevel = _modelManager.getBestAvailableLocalModel(
       preferredOrder: const [
-        WhisperModelLevel.base,
         WhisperModelLevel.tiny,
+        WhisperModelLevel.base,
         WhisperModelLevel.small,
         WhisperModelLevel.medium,
         WhisperModelLevel.large,

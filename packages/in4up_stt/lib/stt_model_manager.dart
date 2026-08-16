@@ -758,10 +758,12 @@ class SttModelManager {
   WhisperModelLevel? getBestAvailableLocalModel({
     List<WhisperModelLevel>? preferredOrder,
   }) {
+    // FIX OOM Android: uu tien tiny truoc base de tiet kiem RAM (tiny 75MB vs base 142MB)
+    // Tren device RAM thap (gts9fe SM-X516B) base model 3phut da gay Scudo OOM
     final order = preferredOrder ??
         const [
-          WhisperModelLevel.base,
           WhisperModelLevel.tiny,
+          WhisperModelLevel.base,
           WhisperModelLevel.small,
           WhisperModelLevel.medium,
           WhisperModelLevel.large,

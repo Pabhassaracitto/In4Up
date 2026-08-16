@@ -622,10 +622,6 @@ class SttEngineWhisper {
     final sw = Stopwatch()..start();
     final chunkSw = Stopwatch();
 
-    // FIX OOM: voi file dai >5 phut, KHONG convert ca file ra WAV 115MB truoc
-    // Ma se cat truc tiep tu file goc va resample tung chunk (16k mono) trong 1 buoc FFmpeg
-    // - File ngan <5 phut: van convert full de dam bao chat luong + toc do
-    // - File dai: skip full convert -> tiet kiem 115MB RAM + tranh Scudo OOM
     String wavPath;
     String baseName;
     bool isFullConverted = false;
@@ -637,29 +633,58 @@ class SttEngineWhisper {
       originalDurationMs = null;
     }
 
-    final isLongFile = originalDurationMs != null && originalDurationMs > 5 * 60 * 1000; // >5 phut
+    // FIX OOM v2: ha nguong long-file xuong 60s (truoc 5phut) de tranh crash 3phut+base model tren low-RAM device
+    // File dai 60s+ se KHONG convert full WAV 16k mono truoc, ma cat truc tiep tu file goc va resample tung chunk
+    final isLongFile = originalDurationMs != null && originalDurationMs > 60 * 1000; // >60s
+    var effectiveChunkDuration = chunkDurationSeconds;
+
+    // File dai >90s -> giam chunk xuong 15s de giam RAM per chunk (base model 140MB + 30s PCM ~2MB -> OOM)
+    if (originalDurationMs != null && originalDurationMs > 90 * 1000) {
+      effectiveChunkDuration = effectiveChunkDuration > 15 ? 15 : effectiveChunkDuration;
+    }
+
+    // Fix OOM: neu file >60s ma model >= base, uu tien dung tiny neu co san (tiny 75MB vs base 142MB)
+    var effectiveLevel = level;
+    if (originalDurationMs != null && originalDurationMs > 60 * 1000 && level != WhisperModelLevel.tiny) {
+      try {
+        final tinyNames = WhisperModelLevel.tiny.fileNames; // ['ggml-tiny.bin']
+        var tinyExists = false;
+        for (final n in tinyNames) {
+          if (File(path.join(modelDir, n)).existsSync()) {
+            tinyExists = true;
+            break;
+          }
+        }
+        if (tinyExists) {
+          debugPrint('[Whisper] File dai ${originalDurationMs ~/ 1000}s + model $level -> tu dong fallback tiny de tranh OOM');
+          effectiveLevel = WhisperModelLevel.tiny;
+        } else {
+          debugPrint('[Whisper] File dai ${originalDurationMs ~/ 1000}s + model $level nhung khong co tiny, van dung $level nhung giam chunk $effectiveChunkDuration s');
+        }
+      } catch (_) {}
+    }
 
     if (isLongFile) {
-      debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s >5phut, SE CAT TRUC TIEP TU FILE GOC de tranh OOM (khong convert full WAV)');
-      wavPath = audioPath; // dung file goc, cutSingleChunk se resample tung chunk
+      debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s >60s, CAT TRUC TIEP TU FILE GOC (skip full WAV) chunk=${effectiveChunkDuration}s level=$effectiveLevel');
+      wavPath = audioPath;
       baseName = path.basenameWithoutExtension(audioPath);
       isFullConverted = false;
     } else {
-      debugPrint('[Whisper] File ngan, bat dau convert sang WAV 16k mono...');
+      debugPrint('[Whisper] File ngan ${originalDurationMs ?? 0}ms, convert sang WAV 16k mono... chunk=${effectiveChunkDuration}s');
       final converted = await AudioConverter.convertToWhisperCompatible(audioPath);
       wavPath = converted ?? audioPath;
       baseName = path.basenameWithoutExtension(wavPath);
       isFullConverted = converted != null && converted != audioPath;
     }
 
-    // Tinh so chunk can thiet - khong cat san, chi tinh so luong
-    final totalChunks = await AudioConverter.getChunkCount(wavPath, chunkDurationSeconds: chunkDurationSeconds);
+    // Tinh so chunk - dung effectiveChunkDuration
+    final totalChunks = await AudioConverter.getChunkCount(wavPath, chunkDurationSeconds: effectiveChunkDuration);
     final effectiveTotal = (maxChunks > 0 && totalChunks > maxChunks) ? maxChunks : totalChunks;
-    
-    debugPrint('[Whisper] File dai ~${totalChunks * chunkDurationSeconds}s, chia $effectiveTotal chunks x ${chunkDurationSeconds}s - isLongFile=$isLongFile');
+
+    debugPrint('[Whisper] File dai ~${totalChunks * effectiveChunkDuration}s, chia $effectiveTotal chunks x ${effectiveChunkDuration}s - isLongFile=$isLongFile level=$effectiveLevel origLevel=$level');
 
     final whisper = Whisper(
-      model: _mapToPluginModel(level),
+      model: _mapToPluginModel(effectiveLevel),
       modelDir: modelDir,
     );
 
@@ -679,17 +704,17 @@ class SttEngineWhisper {
         chunkSw.start();
 
         // LAZY: cat 1 chunk tai day, khong cat san truoc
-        debugPrint('[Whisper] Dang cat chunk $i/$effectiveTotal... isLongFile=$isLongFile');
+        debugPrint('[Whisper] Dang cat chunk $i/$effectiveTotal... isLongFile=$isLongFile dur=${effectiveChunkDuration}s level=$effectiveLevel');
         final chunkPath = await AudioConverter.cutSingleChunk(
           inputWavPath: wavPath,
           chunkIndex: i,
-          chunkDurationSeconds: chunkDurationSeconds,
+          chunkDurationSeconds: effectiveChunkDuration,
           customBaseName: baseName,
         );
 
         if (chunkPath == null) {
           debugPrint('[Whisper] Khong cat duoc chunk $i, bo qua');
-          chunkMsOffset += chunkDurationSeconds * 1000;
+          chunkMsOffset += effectiveChunkDuration * 1000;
           continue;
         }
 
@@ -724,7 +749,7 @@ class SttEngineWhisper {
             allWords.addAll(shifted.words);
           }
 
-          chunkMsOffset += chunkDurationSeconds * 1000;
+          chunkMsOffset += effectiveChunkDuration * 1000;
           chunkSw.stop();
           chunkTimes.add(chunkSw.elapsedMilliseconds);
 

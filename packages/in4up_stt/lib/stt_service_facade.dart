@@ -462,8 +462,24 @@ class SttServiceFacade extends ChangeNotifier {
     );
 
     // ── A1. Pre-convert audio if needed (Main Thread) ─────────────────────
-    final convertedPath =
-        await AudioConverter.convertToWhisperCompatible(audioPath);
+    // FIX OOM v3: tren mobile, file >60s thi KHONG pre-convert full WAV 16k
+    // de tranh 2 lan FFmpeg (full + chunk) gay ton RAM. De engine cat truc tiep tu goc.
+    String? convertedPath;
+    try {
+      final dur = await AudioConverter.probeDurationMs(audioPath);
+      final isLongForMobile = SttEngineWhisper.isMobilePluginSupported &&
+          dur != null &&
+          dur > 60 * 1000;
+      if (isLongForMobile) {
+        debugPrint('[Facade] File dai ${dur! ~/ 1000}s >60s tren mobile, SKIP pre-convert de tiet kiem RAM');
+        convertedPath = null;
+      } else {
+        convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+      }
+    } catch (_) {
+      // neu probe fail thi van convert nhu cu
+      convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+    }
 
     // ── A2. Resolve modelPath (cần SttModelManager Singleton — Main only) ──
     final modelPath = _modelManager.getModelPath(config.whisperModel);

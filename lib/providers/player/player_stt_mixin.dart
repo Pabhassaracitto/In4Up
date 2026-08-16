@@ -13,6 +13,7 @@ mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
   String? get currentSongPath;
   UnderstandProvider? get understandProvider;
+  Future<void> pause();
 
   final SttServiceFacade _sttService = SttServiceFacade();
   SttServiceFacade get sttService => _sttService;
@@ -118,6 +119,12 @@ mixin PlayerSttMixin on ChangeNotifier {
 
     _isGeneratingLrc = true;
     _lastSttError = null;
+
+    // FIX OOM v3: dung player truoc khi transcribe de giai phong ExoPlayer (BufferPoolAccessor) + FFmpeg native RAM
+    try {
+      await pause();
+      debugPrint('[SttMixin] Paused player before transcription to free RAM');
+    } catch (_) {}
 
     // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
     //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").

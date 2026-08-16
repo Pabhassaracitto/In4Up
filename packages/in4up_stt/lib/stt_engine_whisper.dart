@@ -638,8 +638,9 @@ class SttEngineWhisper {
     final isLongFile = originalDurationMs != null && originalDurationMs > 60 * 1000; // >60s
     var effectiveChunkDuration = chunkDurationSeconds;
 
-    // File dai >90s -> giam chunk xuong 15s de giam RAM per chunk (base model 140MB + 30s PCM ~2MB -> OOM)
-    if (originalDurationMs != null && originalDurationMs > 90 * 1000) {
+    // File dai >60s -> giam chunk xuong 15s de giam RAM (base 140MB + 30s PCM ~2MB -> OOM, tiny van OOM 62s)
+    // Log moi: 62s van OOM voi 30s chunk tiny, ha xuong 15s
+    if (originalDurationMs != null && originalDurationMs > 60 * 1000) {
       effectiveChunkDuration = effectiveChunkDuration > 15 ? 15 : effectiveChunkDuration;
     }
 

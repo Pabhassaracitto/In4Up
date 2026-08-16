@@ -290,19 +290,26 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev libwebkit2gtk-4.1-dev
           sudo apt-get install -y libayatana-appindicator3-dev libsecret-1-dev 2>/dev/null || sudo apt-get install -y libappindicator3-dev libsecret-1-dev || true
-          sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev curl wget || true
-          echo "Linux deps installed with json-glib for ffmpeg_kit_flutter_new"
+          sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libwebkit2gtk-4.0-dev curl wget || true
+          echo "Linux deps installed with json-glib + webkit2gtk for ffmpeg_kit + webview_win_floating"
 
       - name: Pre-download PDFium for Linux (fix network flaky download in CMake)
         shell: bash
         run: |
-          mkdir -p /tmp/pdfium_test
+          set -e
           PDFIUM_URL="https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7520/pdfium-linux-x64.tgz"
           echo "Downloading PDFium from $PDFIUM_URL with retry"
-          curl -L --retry 5 --retry-delay 2 -o /tmp/pdfium-linux-x64.tgz "$PDFIUM_URL" || wget -O /tmp/pdfium-linux-x64.tgz "$PDFIUM_URL" || echo "curl/wget failed, will let CMake try"
-          ls -lh /tmp/pdfium-linux-x64.tgz || true
+          mkdir -p build/linux/x64/release/pdfium/chromium%2F7520
+          curl -L --retry 5 --retry-delay 2 -o build/linux/x64/release/pdfium/chromium%2F7520/pdfium-linux-x64.tgz "$PDFIUM_URL" || wget -O build/linux/x64/release/pdfium/chromium%2F7520/pdfium-linux-x64.tgz "$PDFIUM_URL" || echo "pre-download to build dir failed"
+          curl -L --retry 3 -o /tmp/pdfium-linux-x64.tgz "$PDFIUM_URL" || true
+          ls -lh build/linux/x64/release/pdfium/chromium%2F7520/ /tmp/pdfium-linux-x64.tgz || true
+          if [ -f build/linux/x64/release/pdfium/chromium%2F7520/pdfium-linux-x64.tgz ]; then
+            echo "Extracting PDFium for faster CMake"
+            tar -xzf build/linux/x64/release/pdfium/chromium%2F7520/pdfium-linux-x64.tgz -C build/linux/x64/release/pdfium/chromium%2F7520/ || true
+            ls -R build/linux/x64/release/pdfium/ | head -n 50 || true
+          fi
 
       - name: Setup Flutter 3.44.1
         uses: subosito/flutter-action@v2

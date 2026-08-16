@@ -292,8 +292,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
           sudo apt-get install -y libayatana-appindicator3-dev libsecret-1-dev 2>/dev/null || sudo apt-get install -y libappindicator3-dev libsecret-1-dev || true
-          sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev || true
+          sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev curl wget || true
           echo "Linux deps installed with json-glib for ffmpeg_kit_flutter_new"
+
+      - name: Pre-download PDFium for Linux (fix network flaky download in CMake)
+        shell: bash
+        run: |
+          mkdir -p /tmp/pdfium_test
+          PDFIUM_URL="https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7520/pdfium-linux-x64.tgz"
+          echo "Downloading PDFium from $PDFIUM_URL with retry"
+          curl -L --retry 5 --retry-delay 2 -o /tmp/pdfium-linux-x64.tgz "$PDFIUM_URL" || wget -O /tmp/pdfium-linux-x64.tgz "$PDFIUM_URL" || echo "curl/wget failed, will let CMake try"
+          ls -lh /tmp/pdfium-linux-x64.tgz || true
 
       - name: Setup Flutter 3.44.1
         uses: subosito/flutter-action@v2
@@ -371,6 +380,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Enable Windows Developer Mode (required for pdfium_flutter symlink)
+        shell: pwsh
+        run: |
+          try {
+            $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+            if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+            Set-ItemProperty -Path $regPath -Name AllowDevelopmentWithoutDevLicense -Value 1 -Force
+            Write-Host "Developer Mode enabled via registry"
+          } catch { Write-Host "Failed to enable dev mode via registry: $_" }
+          # Also try via settings app method
+          try { cmd /c "reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock /t REG_DWORD /f /v AllowDevelopmentWithoutDevLicense /d 1" } catch {}
+          Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -ErrorAction SilentlyContinue | Format-List
+
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
@@ -393,6 +415,15 @@ jobs:
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
+
+      - name: Pre-download PDFium for Windows
+        shell: pwsh
+        run: |
+          $url = "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7520/pdfium-win-x64.tgz"
+          $dest = "$env:TEMP\pdfium-win-x64.tgz"
+          Write-Host "Downloading $url to $dest"
+          try { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing } catch { Write-Host "Download failed: $_" }
+          Get-ChildItem $env:TEMP\pdfium* -ErrorAction SilentlyContinue | Format-List
 
       - name: Clean up old DeepLX folders
         shell: bash

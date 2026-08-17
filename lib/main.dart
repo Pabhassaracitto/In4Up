@@ -258,15 +258,23 @@ class _MyAppState extends State<MyApp> {
             final prov = VocabularyProvider();
             prov.loadData(); // Nạp danh sách từ cục bộ từ Hive
 
-            // Tự động kích hoạt sync khi có User đăng nhập
-            FirebaseAuth.instance.authStateChanges().listen((user) {
-              if (user != null) {
-                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
-                unawaited(prov.enableSync(user.uid));
-              } else {
-                prov.disableSync();
+            // Tự động kích hoạt sync khi có User đăng nhập - chỉ khi Firebase sẵn sàng (fix Linux no-app)
+            if (isFirebaseAvailable) {
+              try {
+                FirebaseAuth.instance.authStateChanges().listen((user) {
+                  if (user != null) {
+                    debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                    unawaited(prov.enableSync(user.uid));
+                  } else {
+                    prov.disableSync();
+                  }
+                });
+              } catch (e) {
+                debugPrint('⚠️ FirebaseAuth listener failed (Linux no-app expected): $e');
               }
-            });
+            } else {
+              debugPrint('ℹ️ Firebase not available (Linux), skip auth sync listener');
+            }
 
             return prov;
           },

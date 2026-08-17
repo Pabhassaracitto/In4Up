@@ -582,6 +582,14 @@ class _BackgroundPainter extends CustomPainter {
 class _FirebaseAuthButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    try {
+      // Guard for Linux where Firebase may not be initialized
+      if (Firebase.apps.isEmpty) {
+        return const Icon(Icons.offline_bolt, color: Colors.grey, size: 24);
+      }
+    } catch (_) {
+      return const Icon(Icons.offline_bolt, color: Colors.grey, size: 24);
+    }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

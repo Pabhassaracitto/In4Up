@@ -91,14 +91,24 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void bindAuthState() {
+    try {
+      if (FirebaseAuth.instance.app.name.isEmpty) return;
+    } catch (_) {
+      debugPrint('⚠️ bindAuthState: Firebase not available, skip');
+      return;
+    }
     _authSub?.cancel();
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
-      if (user == null) {
-        disableSync();
-        return;
-      }
-      await enableSync(user.uid);
-    });
+    try {
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+        if (user == null) {
+          disableSync();
+          return;
+        }
+        await enableSync(user.uid);
+      });
+    } catch (e) {
+      debugPrint('⚠️ bindAuthState failed: $e');
+    }
   }
 
   List<WordEntry> get displayedWords {

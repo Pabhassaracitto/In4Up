@@ -4,7 +4,9 @@
 >
 > **Mốc mã nguồn:** trạng thái nhánh `arena/019ffcbe-in4up` ngày 17/08/2026, đã gồm luồng handoff Web/PDF → Viết.
 >
-> **Cách đọc:** phần 1–12 mô tả sản phẩm hiện có; phần 13–16 nêu constraint, câu hỏi cần chuyên gia phản biện, mẫu yêu cầu đầu ra và kết luận.
+> **Cách đọc:** phần 1–12 mô tả baseline trước addendum; phần 13–16 nêu constraint, câu hỏi cần chuyên gia phản biện, mẫu yêu cầu đầu ra và kết luận.
+>
+> **Cập nhật triển khai D14:** nhánh hiện tại đã bắt đầu áp dụng `WritingAssignment`, tách `AssignmentOrigin` khỏi `ScoringProfile`, giữ `contextText` đầy đủ cho excerpt fallback, dùng document signals không giả lập semantic score, và autosave draft Workspace theo `(sourceKey, task, assignmentId)`. Các mục “chưa có” bên dưới được giữ lại như lịch sử baseline để đối chiếu quyết định đa AI.
 
 ---
 

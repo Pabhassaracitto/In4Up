@@ -14,6 +14,7 @@ import '../features/grammar/models/grammar_highlight_style.dart';
 import '../features/grammar/models/grammar_palette.dart';
 import '../features/grammar/services/grammar_preset_library_service.dart';
 import '../features/grammar/services/grammar_settings_service.dart';
+import '../features/writing/models/writing_source_request.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
@@ -45,36 +46,6 @@ enum TextSourceType {
   localFile,
   cloud,
   generated,
-}
-
-/// Bài tập mà một nguồn bên ngoài muốn mở sẵn trong tab Viết.
-enum WritingTaskType {
-  dictation,
-  cloze,
-  rewrite,
-  summary,
-}
-
-/// Nơi người học vừa chọn nội dung để luyện viết.
-enum WritingSourceKind {
-  web,
-  pdf,
-  text,
-}
-
-@immutable
-class WritingSourceRequest {
-  final WritingTaskType task;
-  final WritingSourceKind kind;
-  final String sourceLabel;
-  final bool isExcerpt;
-
-  const WritingSourceRequest({
-    required this.task,
-    required this.kind,
-    required this.sourceLabel,
-    required this.isExcerpt,
-  });
 }
 
 class TextProvider extends ChangeNotifier with TranslationMixin {

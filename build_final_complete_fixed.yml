@@ -342,8 +342,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-<<<<<<< HEAD
-=======
       - name: Patch webview_win_floating Linux - skip webkit if not found (CI fix)
         shell: bash
         run: |
@@ -351,17 +349,22 @@ jobs:
           if [ -f "$FILE" ]; then
             echo "Before patch:"
             cat "$FILE" | head -n 60
-            # Comment out the failing pkg_search_module and make webkit optional
             sed -i 's/pkg_search_module(WEBKIT2GTK/# pkg_search_module(WEBKIT2GTK/' "$FILE" || true
-            # Alternative: make it not fatal by adding REQUIRED false?
             echo "After patch:"
             cat "$FILE" | head -n 60
           else
             echo "File not found: $FILE, checking alternative paths"
             find flutter/ephemeral -name CMakeLists.txt | xargs grep -l webkit2gtk || true
           fi
+          echo "Overriding webview_win_floating Linux CMakeLists to avoid webkit"
+          mkdir -p flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux
+          cat > flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt << 'EOF'
+          cmake_minimum_required(VERSION 3.10)
+          project(webview_win_floating LANGUAGES CXX)
+          message(STATUS "Skipping webview_win_floating on Linux CI - webkit not needed")
+          EOF
+          cat flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt
 
->>>>>>> 8be9719 (feat(read): no-color mode phrase save with quick+full save and related suggestions)
       - name: Build Linux Release
         shell: bash
         run: |

@@ -13,11 +13,38 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseAuth? _authInstance;
+  FirebaseAuth get _auth {
+    try {
+      _authInstance ??= FirebaseAuth.instance;
+      return _authInstance!;
+    } catch (e) {
+      debugPrint('⚠️ AuthService: FirebaseAuth not available (Linux offline): $e');
+      // Return a dummy that will throw later but we guard usages
+      throw StateError('Firebase not initialized');
+    }
+  }
+
+  bool get _hasAuth {
+    try {
+      FirebaseAuth.instance;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   GoogleSignIn? _googleSignIn;
 
   // ─── Getters ──────────────────────────────────────────────
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser {
+    try {
+      return _auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool get isSignedIn => currentUser != null;
   bool get isAnonymous => currentUser?.isAnonymous ?? true;
   String? get userId => currentUser?.uid;
@@ -25,7 +52,13 @@ class AuthService {
   String? get email => currentUser?.email;
   String? get photoUrl => currentUser?.photoURL;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges {
+    try {
+      return _auth.authStateChanges();
+    } catch (_) {
+      return const Stream.empty();
+    }
+  }
 
   // ─── Flavor & Platform detection ──────────────────────────
   bool get _isDesktop =>

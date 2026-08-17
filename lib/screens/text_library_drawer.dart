@@ -7,6 +7,7 @@
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +21,15 @@ import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
 import 'text_library/local_text_entry_dialog.dart';
 import 'text_library/text_entry_dialog.dart';
+
+bool _isFirebaseLoggedInSafe() {
+  try {
+    if (Firebase.apps.isEmpty) return false;
+    return FirebaseAuth.instance.currentUser != null;
+  } catch (_) {
+    return false;
+  }
+}
 
 class TextLibraryDrawer extends StatefulWidget {
   const TextLibraryDrawer({super.key});
@@ -371,8 +381,17 @@ class _LocalTab extends StatelessWidget {
     onClose();
   }
 
+  bool _isFirebaseLoggedInSafe() {
+    try {
+      if (Firebase.apps.isEmpty) return false;
+      return FirebaseAuth.instance.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _openManualEntryDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final isLoggedIn = _isFirebaseLoggedInSafe();
     final draft = await showDialog<LocalTextDraft>(
       context: context,
       builder: (_) => LocalTextEntryDialog(
@@ -437,7 +456,7 @@ class _LocalTab extends StatelessWidget {
       return;
     }
 
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!_isFirebaseLoggedInSafe()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cần đăng nhập Google để lưu thư viện cloud')),
       );
@@ -479,7 +498,7 @@ class _LocalTab extends StatelessWidget {
       );
       return;
     }
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!_isFirebaseLoggedInSafe()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cần đăng nhập Google để cập nhật file cloud hiện tại')),
       );
@@ -538,7 +557,7 @@ class _LocalTab extends StatelessWidget {
       return;
     }
 
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!_isFirebaseLoggedInSafe()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cần đăng nhập Google để cập nhật thư viện cloud')),
       );
@@ -692,7 +711,7 @@ class _CloudTabState extends State<_CloudTab> {
 
   // ── Mở dialog thêm mới ────────────────────────────────────
   Future<void> _openAddDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final isLoggedIn = _isFirebaseLoggedInSafe();
 
     if (!isLoggedIn) {
       _showLoginRequired(context);

@@ -345,26 +345,38 @@ jobs:
       - name: Patch webview_win_floating Linux - skip webkit if not found (CI fix)
         shell: bash
         run: |
-          FILE="flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt"
-          if [ -f "$FILE" ]; then
-            echo "Before patch:"
-            cat "$FILE" | head -n 60
-            sed -i 's/pkg_search_module(WEBKIT2GTK/# pkg_search_module(WEBKIT2GTK/' "$FILE" || true
-            echo "After patch:"
-            cat "$FILE" | head -n 60
-          else
-            echo "File not found: $FILE, checking alternative paths"
-            find flutter/ephemeral -name CMakeLists.txt | xargs grep -l webkit2gtk || true
-          fi
-          echo "Overriding webview_win_floating Linux CMakeLists to avoid webkit"
-          mkdir -p flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux
-          cat > flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt << 'EOF'
+          echo "=== DEBUG webkit pkg-config ==="
+          pkg-config --list-all | grep -i webkit || echo "no webkit found in pkg-config"
+          find /usr -name "*webkit*.pc" 2>/dev/null | head -n 20 || true
+          dpkg -l | grep -i webkit || true
+          for FILE in "flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt" "linux/flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt"; do
+            echo "Processing $FILE"
+            if [ -f "$FILE" ]; then
+              echo "Before patch $FILE:"
+              cat "$FILE" | head -n 80 || true
+              sed -i 's/pkg_search_module(WEBKIT2GTK/# pkg_search_module(WEBKIT2GTK/' "$FILE" || true
+              echo "After sed $FILE:"
+              cat "$FILE" | head -n 80 || true
+            else
+              echo "File not found: $FILE, will create dir"
+            fi
+            DIR=$(dirname "$FILE")
+            mkdir -p "$DIR"
+            echo "Overriding $FILE with minimal CMakeLists to avoid webkit"
+            cat > "$FILE" << 'ENDOFFILE'
           cmake_minimum_required(VERSION 3.10)
           project(webview_win_floating LANGUAGES CXX)
-          message(STATUS "Skipping webview_win_floating on Linux CI - webkit not needed")
-          EOF
-          cat flutter/ephemeral/.plugin_symlinks/webview_win_floating/linux/CMakeLists.txt
+          message(STATUS "Skipping webview_win_floating on Linux CI - webkit not needed for In4Up")
+          ENDOFFILE
+            cat "$FILE"
+            chmod -w "$FILE" || true
+          done
+          echo "Final check for webkit in ephemeral:"
+          find flutter/ephemeral -name CMakeLists.txt 2>/dev/null | xargs grep -l webkit2gtk 2>/dev/null || echo "no webkit left in ephemeral after override"
 
+      - name: Build Linux Release
+        shell: bash
+        run: |
       - name: Build Linux Release
         shell: bash
         run: |

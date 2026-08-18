@@ -951,13 +951,14 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   void _addAndSaveNow(VocabularyProvider p, String text) {
-    VocabContext? context;
+    final ui = context;
+    VocabContext? vocabContext;
     try {
-      final textProvider = this.context.read<TextProvider>();
+      final textProvider = ui.read<TextProvider>();
       if (textProvider.currentDocument != null &&
           textProvider.currentLineIndex >= 0) {
         final line = textProvider.lines[textProvider.currentLineIndex].content;
-        context = VocabContext.fromStory(
+        vocabContext = VocabContext.fromStory(
           storyTitle: textProvider.currentDocument!.title,
           lineIndex: textProvider.currentLineIndex,
           surroundingText: line,
@@ -969,7 +970,7 @@ class _WordListScreenState extends State<WordListScreen> {
 
     final entry = p.addWithAutoClassify(
       text: text,
-      context: context,
+      context: vocabContext,
     );
 
     HapticFeedback.mediumImpact();
@@ -986,7 +987,7 @@ class _WordListScreenState extends State<WordListScreen> {
             ? 'Cụm từ'
             : 'Câu';
 
-    ScaffoldMessenger.of(this.context).showSnackBar(
+    ScaffoldMessenger.of(ui).showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -994,8 +995,8 @@ class _WordListScreenState extends State<WordListScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                context.uiText(
-                  'Đã lưu ${context.uiText(typeLabel)}: $text',
+                ui.uiText(
+                  'Đã lưu ${ui.uiText(typeLabel)}: $text',
                 ),
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
@@ -1005,7 +1006,7 @@ class _WordListScreenState extends State<WordListScreen> {
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: context.uiText('SỬA'),
+          label: ui.uiText('SỬA'),
           textColor: Colors.white,
           onPressed: () => _showEditSheet(entry, p),
         ),

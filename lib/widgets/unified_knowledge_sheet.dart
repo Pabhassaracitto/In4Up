@@ -589,7 +589,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
             )
           else
             ...contexts.take(12).map(
-              (context) => Container(
+              (entry) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -602,15 +602,15 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                   children: [
                     Row(
                       children: [
-                        Text(context.sourceIcon, style: const TextStyle(fontSize: 14)),
+                        Text(entry.sourceIcon, style: const TextStyle(fontSize: 14)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            context.composeDisplaySource(
-                              context.hasGeneratedPositionLabel &&
-                                      context.pageOrPosition != null
-                                  ? this.context.uiText(context.pageOrPosition!)
-                                  : context.pageOrPosition,
+                            entry.composeDisplaySource(
+                              entry.hasGeneratedPositionLabel &&
+                                      entry.pageOrPosition != null
+                                  ? context.uiText(entry.pageOrPosition!)
+                                  : entry.pageOrPosition,
                             ),
                             style: const TextStyle(
                               color: Colors.white,
@@ -620,8 +620,8 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                           ),
                         ),
                         Text(
-                          this.context.uiText(
-                            _formatEncounterAt(context.encounteredAt),
+                          context.uiText(
+                            _formatEncounterAt(entry.encounteredAt),
                           ),
                           style: TextStyle(
                             color: Colors.grey[500],
@@ -632,14 +632,14 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      context.surroundingText,
+                      entry.surroundingText,
                       style: TextStyle(
                         color: Colors.grey[300],
                         height: 1.45,
                         fontSize: 12,
                       ),
                     ),
-                    if (context.hasPreciseAnchor) ...[
+                    if (entry.hasPreciseAnchor) ...[
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -664,8 +664,8 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                context.precisionSummaryParts
-                                    .map((part) => this.context.uiText(part))
+                                entry.precisionSummaryParts
+                                    .map((part) => context.uiText(part))
                                     .join(' · '),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -684,12 +684,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
-                        onPressed: context.canReopenSource
-                            ? () => _openContextSource(context, word)
+                        onPressed: entry.canReopenSource
+                            ? () => _openContextSource(entry, word)
                             : null,
                         icon: const Icon(Icons.open_in_new, size: 16),
                         label: Text(
-                          this.context.uiText(context.reopenActionLabel),
+                          context.uiText(entry.reopenActionLabel),
                         ),
                       ),
                     ),

@@ -41,7 +41,8 @@ class GrammarLegendBar extends StatelessWidget {
       ),
     );
 
-    final chipWidgets = categories.map(_buildChip).toList();
+    final chipWidgets =
+        categories.map((category) => _buildChip(context, category)).toList();
     final content = categories.isEmpty
         ? emptyText
         : horizontalScroll
@@ -105,7 +106,7 @@ class GrammarLegendBar extends StatelessWidget {
     );
   }
 
-  Widget _buildChip(GrammarCategory category) {
+  Widget _buildChip(BuildContext context, GrammarCategory category) {
     final style = palette.styleFor(category);
     final showLabel = !compact;
     final child = Container(

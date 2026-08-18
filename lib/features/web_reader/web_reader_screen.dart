@@ -12,6 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
 import '../../features/grammar/grammar.dart';
+import '../../features/writing/models/writing_source_request.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../providers/text_provider.dart';
@@ -27,11 +28,16 @@ class WebReaderScreen extends StatefulWidget {
   final String? initialFocusTerm;
   final VocabContext? initialFocusContext;
 
+  /// Khi true, reader trở thành màn hình chọn nguồn cho Writing Studio thay vì
+  /// chỉ là một trình đọc độc lập.
+  final bool writingMode;
+
   const WebReaderScreen({
     super.key,
     this.initialUrl,
     this.initialFocusTerm,
     this.initialFocusContext,
+    this.writingMode = false,
   });
 
   @override
@@ -433,6 +439,48 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         '✅ Đã load vào Text Studio — ${text.split('\n').length} dòng',
       );
     }
+  }
+
+  Future<void> _sendArticleToWriting() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+
+    _showSnack('⏳ Đang chuẩn bị nguồn luyện viết...', duration: 1);
+    final text = await _extractMainArticleText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack('❌ Không thể trích xuất nội dung từ trang này');
+      return;
+    }
+
+    final sourceLabel = _controller.pageTitle.trim().isEmpty
+        ? _controller.currentUrl
+        : _controller.pageTitle.trim();
+    context.read<TextProvider>().loadWritingSource(
+          text,
+          title: sourceLabel,
+          task: WritingTaskType.summary,
+          kind: WritingSourceKind.web,
+          sourceLabel: sourceLabel,
+        );
+    Navigator.of(context).pop();
+  }
+
+  void _sendSelectionToWriting() {
+    final selection = _selectionText.trim();
+    if (selection.isEmpty) return;
+
+    final sourceLabel = _controller.pageTitle.trim().isEmpty
+        ? _controller.currentUrl
+        : _controller.pageTitle.trim();
+    context.read<TextProvider>().loadWritingSource(
+          selection,
+          title: 'Trích đoạn · $sourceLabel',
+          task: WritingTaskType.rewrite,
+          kind: WritingSourceKind.web,
+          sourceLabel: sourceLabel,
+          isExcerpt: true,
+        );
+    Navigator.of(context).pop();
   }
 
   Future<void> _openBatchFromCurrentPage() async {
@@ -917,6 +965,11 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   }
 
   void _openSelectionInTextStudio() {
+    if (widget.writingMode) {
+      _sendSelectionToWriting();
+      return;
+    }
+
     final selection = _selectionText.trim();
     if (selection.isEmpty) return;
     context.read<TextProvider>().loadFromString(
@@ -946,7 +999,11 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         _saveCurrentPageToCollection();
         break;
       case 'extractText':
-        _extractTextToStudio();
+        if (widget.writingMode) {
+          _sendArticleToWriting();
+        } else {
+          _extractTextToStudio();
+        }
         break;
     }
   }
@@ -1001,7 +1058,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                 valueColor: const AlwaysStoppedAnimation(Color(0xFF2196F3)),
                 minHeight: 2,
               )
-            : null,
+            : widget.writingMode
+                ? const _WritingModeTitle()
+                : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
@@ -1053,9 +1112,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                     value: 'saveToCollection',
                     child: Text('Lưu vào nhóm'),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'extractText',
-                    child: Text('Mở trong Text Studio'),
+                    child: Text(
+                      widget.writingMode
+                          ? 'Dùng cả bài để luyện Viết'
+                          : 'Mở trong Text Studio',
+                    ),
                   ),
                 ];
               },
@@ -1067,11 +1130,20 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           WebReaderToolbar(
             controller: _controller,
             onNavigate: _navigate,
-            onExtractText: _extractTextToStudio,
+            onExtractText: widget.writingMode
+                ? _sendArticleToWriting
+                : _extractTextToStudio,
             onSavePageToCollection: _saveCurrentPageToCollection,
             onOpenGrammarSettings: _openGrammarSettings,
             showingDashboard: _showDashboard,
+            writingMode: widget.writingMode,
           ),
+          if (widget.writingMode)
+            _WritingSourceBanner(
+              canUseArticle: !_showDashboard &&
+                  _controller.state == WebReaderState.ready,
+              onUseArticle: _sendArticleToWriting,
+            ),
           Expanded(
             child: _showDashboard
                 ? WebReaderHomeView(
@@ -1186,8 +1258,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(
-            icon: Icons.text_snippet_outlined,
-            tooltip: context.uiText('Mở đoạn chọn trong Text Studio'),
+            icon: widget.writingMode
+                ? Icons.edit_square
+                : Icons.text_snippet_outlined,
+            tooltip: widget.writingMode
+                ? 'Dùng đoạn này cho bài Viết lại ý'
+                : 'Mở đoạn chọn trong Text Studio',
             onTap: _openSelectionInTextStudio,
           ),
           const SizedBox(width: 6),
@@ -1212,6 +1288,94 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               });
             },
             child: const Icon(Icons.close, color: Colors.white, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WritingModeTitle extends StatelessWidget {
+  const _WritingModeTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF26C6DA).withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: const Color(0xFF26C6DA).withValues(alpha: 0.32),
+            ),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.edit_square, color: Color(0xFF80DEEA), size: 14),
+              SizedBox(width: 6),
+              Text(
+                'Nguồn cho Viết',
+                style: TextStyle(
+                  color: Color(0xFF80DEEA),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WritingSourceBanner extends StatelessWidget {
+  final bool canUseArticle;
+  final VoidCallback onUseArticle;
+
+  const _WritingSourceBanner({
+    required this.canUseArticle,
+    required this.onUseArticle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF26C6DA).withValues(alpha: 0.1),
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFF26C6DA).withValues(alpha: 0.24),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.edit_note_rounded,
+              color: Color(0xFF80DEEA), size: 20),
+          const SizedBox(width: 9),
+          const Expanded(
+            child: Text(
+              'Mở một bài rồi dùng toàn bài để tóm tắt, hoặc bôi chọn một đoạn để viết lại.',
+              style: TextStyle(color: Colors.white70, fontSize: 11.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: canUseArticle ? onUseArticle : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF00838F),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+            label: Text(canUseArticle ? 'Dùng cả bài' : 'Chọn bài web'),
           ),
         ],
       ),

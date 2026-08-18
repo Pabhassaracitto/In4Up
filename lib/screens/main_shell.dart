@@ -638,7 +638,13 @@ class _MainShellState extends State<MainShell> {
         nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
         return;
       case 'web_reader':
-        nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
+        final openForWriting =
+            _currentTab == _PrimaryTab.read && _readModeIndex == 1;
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => WebReaderScreen(writingMode: openForWriting),
+          ),
+        );
         return;
       case 'youtube_downloader':
         nav.push(
@@ -656,10 +662,14 @@ class _MainShellState extends State<MainShell> {
         );
         if (!mounted) return;
         if (result != null && result.files.single.path != null) {
+          final openForWriting =
+              _currentTab == _PrimaryTab.read && _readModeIndex == 1;
           nav.push(
             MaterialPageRoute(
-              builder: (_) =>
-                  PdfReaderScreen(pdfPath: result.files.single.path!),
+              builder: (_) => PdfReaderScreen(
+                pdfPath: result.files.single.path!,
+                writingMode: openForWriting,
+              ),
             ),
           );
         }

@@ -16,6 +16,7 @@ import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
 import '../../features/grammar/grammar.dart';
+import '../../features/writing/models/writing_source_request.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../models/word_entry.dart';
@@ -39,12 +40,16 @@ class PdfReaderScreen extends StatefulWidget {
   final String? initialFocusWord;
   final VocabContext? initialFocusContext;
 
+  /// Biến PDF Reader thành màn hình chọn nguồn cho Writing Studio.
+  final bool writingMode;
+
   const PdfReaderScreen({
     super.key,
     required this.pdfPath,
     this.initialPageIndex,
     this.initialFocusWord,
     this.initialFocusContext,
+    this.writingMode = false,
   });
 
   @override
@@ -182,6 +187,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     onUserInteraction: () => _showChrome(),
                     onShowAnnotations: _showAnnotationManager,
                     onOpenGrammarSettings: _openGrammarSettings,
+                    writingMode: widget.writingMode,
+                    onSendToWriting: _sendPdfToWriting,
                   ),
                 ),
               ),
@@ -217,6 +224,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 controller: _controller,
                 onSaveNote: _saveSelectionAsAnnotation,
                 onOpenTextStudio: _openSelectedInTextStudio,
+                writingMode: widget.writingMode,
               ),
             ),
         ],
@@ -440,7 +448,12 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 64, bottom: 84),
+      padding: EdgeInsets.only(
+        top: widget.writingMode
+            ? MediaQuery.of(context).padding.top + 116
+            : 64,
+        bottom: 84,
+      ),
       child: Column(
         children: [
           // Banner thông báo Text Mode
@@ -449,19 +462,36 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             color: const Color(0xFF1A237E),
             child: Row(
               children: [
-                const Icon(Icons.text_fields, color: Colors.blue, size: 16),
+                Icon(
+                  widget.writingMode ? Icons.edit_square : Icons.text_fields,
+                  color: widget.writingMode
+                      ? const Color(0xFF80DEEA)
+                      : Colors.blue,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Chế độ văn bản — toàn bộ tính năng highlight & TTS',
-                    style: TextStyle(color: Colors.blue, fontSize: 12),
+                    widget.writingMode
+                        ? 'Nguồn cho Viết — bôi chọn một đoạn hoặc dùng toàn bộ PDF'
+                        : 'Chế độ văn bản — toàn bộ tính năng highlight & TTS',
+                    style: TextStyle(
+                      color: widget.writingMode
+                          ? const Color(0xFF80DEEA)
+                          : Colors.blue,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 TextButton(
-                  onPressed: _loadIntoReadMode,
-                  child: const Text(
-                    'Mở trong Read Mode →',
-                    style: TextStyle(fontSize: 11),
+                  onPressed: widget.writingMode
+                      ? _sendExtractedPdfToWriting
+                      : _loadIntoReadMode,
+                  child: Text(
+                    widget.writingMode
+                        ? 'Đưa toàn bộ vào Viết →'
+                        : 'Mở trong Read Mode →',
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
               ],
@@ -579,6 +609,20 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   void _openSelectedInTextStudio() {
     final selectedText = _controller.selectedText?.trim() ?? '';
     if (selectedText.isEmpty) return;
+
+    if (widget.writingMode) {
+      context.read<TextProvider>().loadWritingSource(
+            selectedText,
+            title: 'PDF đoạn chọn · ${_title.replaceAll('.pdf', '')}',
+            task: WritingTaskType.rewrite,
+            kind: WritingSourceKind.pdf,
+            sourceLabel: _title,
+            isExcerpt: true,
+          );
+      Navigator.of(context).pop();
+      return;
+    }
+
     context.read<TextProvider>().loadFromString(
           selectedText,
           title: context.uiText(
@@ -591,6 +635,37 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _sendPdfToWriting() async {
+    _showChrome(autoHide: false);
+    await _controller.switchToTextMode();
+    if (!mounted) return;
+    _sendExtractedPdfToWriting();
+  }
+
+  void _sendExtractedPdfToWriting() {
+    final text = _controller.extractedFullText.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể lấy chữ từ PDF này. File có thể chỉ chứa ảnh scan.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    context.read<TextProvider>().loadWritingSource(
+          text,
+          title: _title.replaceAll('.pdf', ''),
+          task: WritingTaskType.summary,
+          kind: WritingSourceKind.pdf,
+          sourceLabel: _title,
+        );
+    Navigator.of(context).pop();
   }
 
   void _showAnnotationManager() {
@@ -785,11 +860,13 @@ class _SelectionBar extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback onSaveNote;
   final VoidCallback onOpenTextStudio;
+  final bool writingMode;
 
   const _SelectionBar({
     required this.controller,
     required this.onSaveNote,
     required this.onOpenTextStudio,
+    required this.writingMode,
   });
 
   @override
@@ -827,9 +904,11 @@ class _SelectionBar extends StatelessWidget {
             onTap: onSaveNote,
           ),
           _SelectionIconButton(
-            icon: Icons.text_snippet_outlined,
+            icon: writingMode ? Icons.edit_square : Icons.text_snippet_outlined,
             color: Colors.cyan,
-            tooltip: context.uiText('Mở trong Text Studio'),
+            tooltip: writingMode
+                ? 'Dùng đoạn này cho bài Viết lại ý'
+                : 'Mở trong Text Studio',
             onTap: onOpenTextStudio,
           ),
           _SelectionIconButton(

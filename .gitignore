@@ -337,3 +337,6 @@ project/
 lib/l10n/app_localizations*.dart
 .dart_tool/
 .guide/
+.agent_arena/Link.md
+setup-env.ps1
+.agent_arena/brand_in4up.md

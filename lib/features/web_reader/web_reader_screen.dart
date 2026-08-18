@@ -1151,11 +1151,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
-          _controller.colorMode == ColorMode.cefrLevel
-              ? 'CEFR: A1 A2 B1 B2 C1 C2'
-              : _controller.colorMode == ColorMode.difficulty
-                  ? 'Độ khó: Dễ · TB · Khó · Rất khó'
-                  : 'Loại từ: N V Adj Adv',
+          context.uiText(
+            _controller.colorMode == ColorMode.cefrLevel
+                ? 'CEFR: A1 A2 B1 B2 C1 C2'
+                : _controller.colorMode == ColorMode.difficulty
+                    ? 'Độ khó: Dễ · TB · Khó · Rất khó'
+                    : 'Loại từ: N V Adj Adv',
+          ),
           style: const TextStyle(color: Colors.white, fontSize: 11),
         ),
       ),

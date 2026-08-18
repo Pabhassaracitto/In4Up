@@ -93,7 +93,7 @@ class _MapTabState extends State<MapTab> {
             // Zone filters
             ...MasteryZone.values.map((z) => Padding(
                   padding: const EdgeInsets.only(right: 6),
-                  child: _filterChip(z, z.label, z.icon, z.color),
+                  child: _filterChip(z, context.uiText(z.label), z.icon, z.color),
                 )),
           ],
         ),

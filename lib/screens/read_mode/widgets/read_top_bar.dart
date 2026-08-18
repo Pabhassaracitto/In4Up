@@ -261,7 +261,7 @@ class _ColorModeChip extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              textProvider.colorMode.label,
+              context.uiText(textProvider.colorMode.label),
               style: TextStyle(
                 fontSize: 11,
                 color: isActive ? const Color(0xFF2196F3) : Colors.grey,

@@ -571,7 +571,7 @@ class _ColorModeSelector extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  mode.label,
+                  context.uiText(mode.label),
                   style: TextStyle(
                     fontSize: 12,
                     color: isSelected ? Colors.white : Colors.grey,

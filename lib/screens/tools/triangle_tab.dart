@@ -254,7 +254,7 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
             color: labels[i].$2,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(labels[i].$1,
+          child: Text(context.uiText(labels[i].$1),
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

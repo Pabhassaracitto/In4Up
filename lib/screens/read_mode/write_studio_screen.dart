@@ -3578,6 +3578,3 @@ class _ClozeResult {
     return chunks.join('   •   ');
   }
 }
-');
-  }
-}

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'app_ui_translations.dart';
 
@@ -8,8 +8,7 @@ extension TrBuildContext on BuildContext {
   /// If translation not found, falls back to original but will be logged.
   String tr(String vietnameseText) {
     final locale = Localizations.localeOf(this);
-    final code = locale.languageCode;
-    return AppUITranslations.translate(vietnameseText, code);
+    return AppUITranslations.translate(vietnameseText, locale.toLanguageTag());
   }
 
   AppLocalizations get l10n => AppLocalizations.of(this)!;

@@ -1,7 +1,7 @@
 // lib/screens/memory_mode/widgets/flashcard_presenter.dart
 
 import 'dart:math';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../controllers/memory_controller.dart';
@@ -167,8 +167,7 @@ class _FlashcardPresenterState extends State<FlashcardPresenter> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Đã ôn ${stats.reviewedToday} từ\n'
-              'Đúng ${stats.correctToday}/${stats.reviewedToday}',
+              context.uiText('Đã ôn ${stats.reviewedToday} từ\nĐúng ${stats.correctToday}/${stats.reviewedToday}'),
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 16,
@@ -778,7 +777,7 @@ class _BackFace extends StatelessWidget {
               ],
               const SizedBox(width: 8),
               _MetaBadge(
-                label: '${item.totalReviews}x ôn',
+                label: context.uiText('${item.totalReviews}x ôn'),
                 color: Colors.grey,
               ),
             ],

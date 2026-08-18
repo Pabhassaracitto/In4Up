@@ -5,7 +5,7 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' show AudioOnlyStreamInfo;
@@ -303,8 +303,10 @@ class _YtTabAudioState extends State<YtTabAudio>
         children: [
           const Icon(Icons.info_outline, size: 13, color: Color(0xFF2196F3)),
           const SizedBox(width: 6),
-          Text(label,
-              style: const TextStyle(color: Colors.blue, fontSize: 11)),
+          Text(
+            context.uiText(label),
+            style: const TextStyle(color: Colors.blue, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -410,7 +412,7 @@ class _YtTabAudioState extends State<YtTabAudio>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(_dlProgressText,
+                Text(context.uiText(_dlProgressText),
                     style:
                         const TextStyle(color: Colors.grey, fontSize: 12)),
                 Text('${(_dlProgress * 100).toStringAsFixed(0)}%',
@@ -460,7 +462,7 @@ class _YtTabAudioState extends State<YtTabAudio>
                                 color: Color(0xFF4CAF50),
                                 fontWeight: FontWeight.bold)),
                         if (_savedQuality.isNotEmpty)
-                          Text('Chất lượng: $_savedQuality',
+                          Text(context.uiText('Chất lượng: $_savedQuality'),
                               style: const TextStyle(
                                   color: Colors.white54, fontSize: 11)),
                         if (_savedPath != null)
@@ -788,7 +790,9 @@ class _ErrorBox extends StatelessWidget {
           color: Colors.red.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
-        child:
-            Text(msg, style: const TextStyle(color: Colors.red, fontSize: 12)),
+        child: Text(
+          context.uiText(msg),
+          style: const TextStyle(color: Colors.red, fontSize: 12),
+        ),
       );
 }

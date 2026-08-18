@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/widgets/memory_card_widget.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';

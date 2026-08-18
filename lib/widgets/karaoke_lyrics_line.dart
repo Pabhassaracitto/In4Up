@@ -5,7 +5,7 @@
 // Hỗ trợ tuỳ chỉnh: cỡ chữ, màu, căn lề, hiện bản dịch (KaraokeStyle).
 // Fix audit: thêm hỗ trợ hiện bản dịch nếu có (từ TextProvider hoặc LRC translation).
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
 import 'package:in4up_stt/stt_lrc_converter.dart';
 

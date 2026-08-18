@@ -3,7 +3,7 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -430,7 +430,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
               ),
               decoration: InputDecoration(
                 hintText:
-                    'Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.',
+                    context.uiText('Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.'),
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.28),
                   fontSize: 13,
@@ -646,11 +646,11 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _isLoading
+                  context.uiText(_isLoading
                       ? 'Đang tải...'
                       : _files.isEmpty
                           ? 'Chưa có tài liệu nào'
-                          : '${_files.length} tài liệu',
+                          : '${_files.length} tài liệu'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.42),
                     fontSize: 12,
@@ -803,7 +803,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: context.uiText(hint),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -1112,7 +1112,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'Không tìm thấy "$query"',
+            context.uiText('Không tìm thấy "$query"'),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.6),
               fontSize: 15,
@@ -1431,7 +1431,7 @@ class _CloudEntryTile extends StatelessWidget {
                         const SizedBox(width: 6),
                       ],
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
@@ -891,14 +891,14 @@ class _MainShellState extends State<MainShell> {
           _ShellActionButton(
             icon: Icons.bolt_rounded,
             color: const Color(0xFFB388FF),
-            tooltip: 'Công cụ nhanh',
+            tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
           const SizedBox(width: 8),
           _ShellActionButton(
             icon: Icons.library_music_rounded,
             color: const Color(0xFF6C63FF),
-            tooltip: 'Thư viện âm thanh',
+            tooltip: context.uiText('Thư viện âm thanh'),
             onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
@@ -1213,7 +1213,7 @@ class _ShellActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -1265,7 +1265,7 @@ class _ModeHintChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Text(
-        '$label · $suffix',
+        '${context.uiText(label)} · ${context.uiText(suffix)}',
         style: TextStyle(
           color: color,
           fontSize: 10,

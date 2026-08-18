@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
@@ -95,7 +95,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 enabled: true,
                 isActive: widget.showingDashboard,
                 onTap: () => widget.onNavigate(''),
-                tooltip: 'Trang chủ Dashboard',
+                tooltip: context.uiText('Trang chủ Dashboard'),
               ),
               const SizedBox(width: 2),
               _ToolbarBtn(
@@ -103,14 +103,14 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 16,
                 enabled: !widget.showingDashboard && ctrl.canGoBack,
                 onTap: () => widget.onNavigate('__back__'),
-                tooltip: 'Trang trước',
+                tooltip: context.uiText('Trang trước'),
               ),
               _ToolbarBtn(
                 icon: Icons.arrow_forward_ios,
                 size: 16,
                 enabled: !widget.showingDashboard && ctrl.canGoForward,
                 onTap: () => widget.onNavigate('__forward__'),
-                tooltip: 'Trang sau',
+                tooltip: context.uiText('Trang sau'),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -154,9 +154,11 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 12),
                             decoration: InputDecoration(
-                              hintText: widget.showingDashboard
-                                  ? 'URL hoặc tìm kiếm để mở nhanh...'
-                                  : 'URL hoặc tìm kiếm...',
+                              hintText: context.uiText(
+                                widget.showingDashboard
+                                    ? 'URL hoặc tìm kiếm để mở nhanh...'
+                                    : 'URL hoặc tìm kiếm...',
+                              ),
                               hintStyle: const TextStyle(
                                   color: Colors.grey, fontSize: 12),
                               border: InputBorder.none,
@@ -192,7 +194,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   enabled: true,
                   isActive: ctrl.grammarSettings.enabled,
                   onTap: widget.onOpenGrammarSettings,
-                  tooltip: 'Cài đặt từ loại chuyên sâu',
+                  tooltip: context.uiText('Cài đặt từ loại chuyên sâu'),
                   activeThumbColor: const Color(0xFF6C63FF),
                 ),
               _ToolbarBtn(
@@ -200,7 +202,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 18,
                 enabled: pageActionsEnabled,
                 onTap: widget.onExtractText,
-                tooltip: 'Mở trong Text Studio',
+                tooltip: context.uiText('Mở trong Text Studio'),
                 activeThumbColor: const Color(0xFF2196F3),
               ),
               _ToolbarBtn(
@@ -208,7 +210,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 size: 18,
                 enabled: pageActionsEnabled,
                 onTap: widget.onSavePageToCollection,
-                tooltip: 'Lưu trang hiện tại vào nhóm',
+                tooltip: context.uiText('Lưu trang hiện tại vào nhóm'),
                 activeThumbColor: const Color(0xFF66BB6A),
               ),
               _ToolbarBtn(
@@ -221,7 +223,7 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                 activeThumbColor: Colors.amber,
                 isActive:
                     pageActionsEnabled && ctrl.isBookmarked(ctrl.currentUrl),
-                tooltip: 'Bookmark trang hiện tại',
+                tooltip: context.uiText('Bookmark trang hiện tại'),
               ),
             ],
           ),
@@ -354,7 +356,7 @@ class _ToolbarBtn extends StatelessWidget {
             : Colors.white70;
 
     return Tooltip(
-      message: tooltip ?? '',
+      message: context.uiText(tooltip ?? ''),
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: Container(

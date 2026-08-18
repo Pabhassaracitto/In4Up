@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 ///  SKILL SLIDERS

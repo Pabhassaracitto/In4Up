@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/vocabulary_provider.dart';
@@ -265,7 +265,7 @@ class _StatPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '$label: $value',
+        '${context.uiText(label)}: $value',
         style: TextStyle(
           color: color,
           fontSize: 11,

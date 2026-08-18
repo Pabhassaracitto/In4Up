@@ -5,7 +5,7 @@ import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/l10n/app_localizations.dart';
@@ -312,6 +312,8 @@ class _MyAppState extends State<MyApp> {
             ctx.read<PlaybackEngine>(),
             ctx.read<SharedPreferences>(),
             ctx.read<TtsNotificationService>(),
+            () => ctx.read<LocaleProvider>().locale?.toLanguageTag() ??
+                WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
           ),
         ),
 

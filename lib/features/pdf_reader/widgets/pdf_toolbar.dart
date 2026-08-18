@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
@@ -354,7 +354,7 @@ class _PdfOptionsSheet extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.note_alt_outlined, color: Colors.amber),
             title: Text(
-              '${controller.annotations.length} ghi chú',
+              context.uiText('${controller.annotations.length} ghi chú'),
               style: const TextStyle(color: Colors.white),
             ),
             subtitle: const Text(

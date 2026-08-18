@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/widgets/memory_top_bar.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../widgets/sync_status_badge.dart';
@@ -44,7 +44,7 @@ class MemoryTopBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${stats.dueToday} cần ôn',
+                context.uiText('${stats.dueToday} cần ôn'),
                 style: const TextStyle(
                   color: Color(0xFFFF5252),
                   fontSize: 10,

@@ -1,5 +1,5 @@
 // lib/features/translation/translation_toolbar.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/language/app_language.dart';
@@ -76,7 +76,7 @@ class TranslationToolbar extends StatelessWidget {
                     onPressed: () => _showServerSettings(context),
                     icon: const Icon(Icons.settings_outlined, size: 16),
                     color: Colors.grey[500],
-                    tooltip: 'Cài đặt engine dịch',
+                    tooltip: context.uiText('Cài đặt engine dịch'),
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
@@ -140,7 +140,7 @@ class TranslationToolbar extends StatelessWidget {
               if (textProvider.translationError != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Lỗi: ${textProvider.translationError}',
+                  context.uiText('Lỗi: ${textProvider.translationError}'),
                   style: const TextStyle(fontSize: 10, color: Colors.redAccent),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -186,8 +186,7 @@ class TranslationToolbar extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${language.flag} Đã đổi bản dịch và giọng đọc sang '
-            '${language.nativeName}',
+            context.uiText('${language.flag} Đã đổi bản dịch và giọng đọc sang ${language.nativeName}'),
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -280,9 +279,9 @@ class TranslationToolbar extends StatelessWidget {
               controller: urlController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'DeepLX Server URL (tùy chọn)',
+                labelText: context.uiText('DeepLX Server URL (tùy chọn)'),
                 labelStyle: const TextStyle(color: Colors.grey),
-                hintText: 'Để trống → dùng Google Free',
+                hintText: context.uiText('Để trống → dùng Google Free'),
                 hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
               ),
             ),

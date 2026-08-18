@@ -1,6 +1,6 @@
 // lib/screens/read_mode/read_mode_screen.dart
 // Thêm tracking tiến độ đọc vào code hiện tại
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/models/word_entry.dart';
@@ -241,6 +241,16 @@ class _GrammarLegendStrip extends StatelessWidget {
       (preset) => preset.id == settings.lastNonCustomPresetId,
       orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
     );
+    final activePreset = textProvider.activeGrammarPreset;
+    final activePresetName = activePreset.isBuiltIn
+        ? context.uiText(activePreset.name)
+        : activePreset.name;
+    final previousPresetName = previousPreset.isBuiltIn
+        ? context.uiText(previousPreset.name)
+        : previousPreset.name;
+    final grammarTitle = settings.isCustomPreset
+        ? context.uiText('Grammar Highlight · Tùy chỉnh')
+        : 'Grammar Highlight · $activePresetName';
     final canCollapse = visibleCategories.length > 4;
     final displaySettings = settings.legendCollapsed && canCollapse
         ? settings.copyWith(
@@ -260,7 +270,7 @@ class _GrammarLegendStrip extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: textProvider.restorePreviousGrammarPreset,
                 icon: const Icon(Icons.undo_rounded, size: 16),
-                label: Text('Khôi phục ${previousPreset.name}'),
+                label: Text(context.uiText('Khôi phục $previousPresetName')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -323,9 +333,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            settings.isCustomPreset
-                                ? 'Grammar Highlight · Tùy chỉnh'
-                                : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                            grammarTitle,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12.5,
@@ -335,9 +343,9 @@ class _GrammarLegendStrip extends StatelessWidget {
                           if (hiddenCount > 0) ...[
                             const SizedBox(height: 4),
                             Text(
-                              settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về ${previousPreset.name}.'
-                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.',
+                              context.uiText(settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về $previousPresetName.'
+                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.'),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,
@@ -367,9 +375,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            settings.isCustomPreset
-                                ? 'Grammar Highlight · Tùy chỉnh'
-                                : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                            grammarTitle,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12.5,
@@ -379,9 +385,9 @@ class _GrammarLegendStrip extends StatelessWidget {
                           if (hiddenCount > 0) ...[
                             const SizedBox(height: 4),
                             Text(
-                              settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về ${previousPreset.name}.'
-                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.',
+                              context.uiText(settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về $previousPresetName.'
+                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.'),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,
@@ -453,7 +459,7 @@ class _StoryWordlistPanel extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Từ đã lưu (${words.length})',
+                        context.uiText('Từ đã lưu (${words.length})'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,

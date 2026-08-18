@@ -4,7 +4,7 @@
 // New: Hierarchy, type filter, contexts, relationships, decompose
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -230,7 +230,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Tìm từ, cụm từ, câu...',
+                        hintText: context.uiText('Tìm từ, cụm từ, câu...'),
                         hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
                         prefixIcon:
                             Icon(Icons.search, color: Colors.grey[600], size: 16),
@@ -673,7 +673,7 @@ class _WordListScreenState extends State<WordListScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)',
+            hintText: context.uiText('Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
@@ -712,7 +712,7 @@ class _WordListScreenState extends State<WordListScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)',
+            hintText: context.uiText('Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
@@ -879,7 +879,7 @@ class _WordListScreenState extends State<WordListScreen> {
       color: const Color(0xFF1A1A2E),
       child: Row(
         children: [
-          Text('${_selectedIds.length} đã chọn',
+          Text(context.uiText('${_selectedIds.length} đã chọn'),
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -917,9 +917,9 @@ class _WordListScreenState extends State<WordListScreen> {
               size: 52, color: Colors.grey[800]),
           const SizedBox(height: 16),
           Text(
-              isSearching
+              context.uiText(isSearching
                   ? 'Không tìm thấy "${p.searchQuery}"'
-                  : 'Chưa có từ vựng',
+                  : 'Chưa có từ vựng'),
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 15,
@@ -951,13 +951,14 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   void _addAndSaveNow(VocabularyProvider p, String text) {
-    VocabContext? context;
+    final ui = context;
+    VocabContext? vocabContext;
     try {
-      final textProvider = this.context.read<TextProvider>();
+      final textProvider = ui.read<TextProvider>();
       if (textProvider.currentDocument != null &&
           textProvider.currentLineIndex >= 0) {
         final line = textProvider.lines[textProvider.currentLineIndex].content;
-        context = VocabContext.fromStory(
+        vocabContext = VocabContext.fromStory(
           storyTitle: textProvider.currentDocument!.title,
           lineIndex: textProvider.currentLineIndex,
           surroundingText: line,
@@ -969,7 +970,7 @@ class _WordListScreenState extends State<WordListScreen> {
 
     final entry = p.addWithAutoClassify(
       text: text,
-      context: context,
+      context: vocabContext,
     );
 
     HapticFeedback.mediumImpact();
@@ -986,7 +987,7 @@ class _WordListScreenState extends State<WordListScreen> {
             ? 'Cụm từ'
             : 'Câu';
 
-    ScaffoldMessenger.of(this.context).showSnackBar(
+    ScaffoldMessenger.of(ui).showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -994,7 +995,9 @@ class _WordListScreenState extends State<WordListScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Đã lưu $typeLabel: $text',
+                ui.uiText(
+                  'Đã lưu ${ui.uiText(typeLabel)}: $text',
+                ),
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
@@ -1003,7 +1006,7 @@ class _WordListScreenState extends State<WordListScreen> {
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'SỬA',
+          label: ui.uiText('SỬA'),
           textColor: Colors.white,
           onPressed: () => _showEditSheet(entry, p),
         ),
@@ -1139,9 +1142,9 @@ class _WordListScreenState extends State<WordListScreen> {
         ? items[_playingIndex]
         : null;
     final listInfo = _listRepeatCount == 0
-        ? 'Vòng $_listRepeatCurrent/∞'
+        ? context.uiText('Vòng $_listRepeatCurrent/∞')
         : _listRepeatCount > 1
-            ? 'Vòng $_listRepeatCurrent/$_listRepeatCount'
+            ? context.uiText('Vòng $_listRepeatCurrent/$_listRepeatCount')
             : '';
     return Row(
       children: [
@@ -1166,7 +1169,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       fontWeight: FontWeight.w700)),
               Text(
                   '${_playingIndex + 1}/${items.length}'
-                  '${_playingRepeatCurrent > 1 ? ' · lần $_playingRepeatCurrent' : ''}'
+                  '${_playingRepeatCurrent > 1 ? context.uiText(' · lần $_playingRepeatCurrent') : ''}'
                   '${listInfo.isNotEmpty ? '  $listInfo' : ''}',
                   style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             ])),
@@ -1186,7 +1189,7 @@ class _WordListScreenState extends State<WordListScreen> {
   Widget _buildSelectingPlayBar(List<WordEntry> items) {
     return Row(
       children: [
-        Text('${_selectedIds.length} đã chọn',
+        Text(context.uiText('${_selectedIds.length} đã chọn'),
             style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -1471,8 +1474,8 @@ class _WordListScreenState extends State<WordListScreen> {
 
   InputDecoration _inputDeco(String label, String hint, Color color) =>
       InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: context.uiText(label),
+        hintText: context.uiText(hint),
         hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
         labelStyle: TextStyle(color: color, fontSize: 12),
         filled: true,
@@ -1514,7 +1517,7 @@ class _WordListScreenState extends State<WordListScreen> {
                           fontWeight: FontWeight.bold)),
                 ]),
                 const SizedBox(height: 6),
-                Text('Chọn từ/cụm muốn lưu riêng từ "${parent.word}"',
+                Text(context.uiText('Chọn từ/cụm muốn lưu riêng từ "${parent.word}"'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                 const SizedBox(height: 16),
                 if (result.words.isNotEmpty) ...[
@@ -1590,14 +1593,14 @@ class _WordListScreenState extends State<WordListScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(
-                                '✅ Đã tạo ${selWords.length + selPhrases.length} entry con'),
+                                context.uiText('✅ Đã tạo ${selWords.length + selPhrases.length} entry con')),
                             backgroundColor: const Color(0xFF4CAF50),
                             behavior: SnackBarBehavior.floating));
                       },
                       style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6C63FF)),
                       child: Text(
-                          'Lưu ${selWords.length + selPhrases.length} mục'),
+                          context.uiText('Lưu ${selWords.length + selPhrases.length} mục')),
                     ),
                 ]),
               ]),
@@ -1758,7 +1761,7 @@ class _WordListScreenState extends State<WordListScreen> {
         maxLines: maxLines,
         style: const TextStyle(color: Colors.white, fontSize: 14),
         decoration: InputDecoration(
-            labelText: label,
+            labelText: context.uiText(label),
             labelStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
             prefixIcon: Icon(icon, color: Colors.grey[500], size: 16),
             filled: true,
@@ -1971,7 +1974,7 @@ class _CompactListItem extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                            '🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!'),
+                            context.uiText('🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!')),
                         backgroundColor: const Color(0xFF4CAF50),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -1990,7 +1993,7 @@ class _CompactListItem extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                              '🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!'),
+                              context.uiText('🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!')),
                           backgroundColor: const Color(0xFF4CAF50),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
@@ -2134,7 +2137,13 @@ class _CompactListItem extends StatelessWidget {
                                 height: 1.4)),
                       if (c.sourceName != null) ...[
                         const SizedBox(height: 4),
-                        Text('${c.sourceIcon} ${c.displaySource}',
+                        Text(
+                            '${c.sourceIcon} ${c.composeDisplaySource(
+                              c.hasGeneratedPositionLabel &&
+                                      c.pageOrPosition != null
+                                  ? ctx.uiText(c.pageOrPosition!)
+                                  : c.pageOrPosition,
+                            )}',
                             style: TextStyle(
                                 color: Colors.grey[600], fontSize: 10))
                       ],
@@ -2203,9 +2212,9 @@ class _CompactListItem extends StatelessWidget {
         if (entry.nextReview != null) ...[
           const SizedBox(height: 4),
           Text(
-              entry.isDue
+              ctx.uiText(entry.isDue
                   ? '⏰ Cần ôn tập!'
-                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa',
+                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa'),
               style: TextStyle(
                   color:
                       entry.isDue ? const Color(0xFFFF5722) : Colors.grey[600],
@@ -2812,7 +2821,7 @@ Future<void> _showRepeatCountMenu(
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'VD: 12',
+              hintText: context.uiText('VD: 12'),
             hintStyle: TextStyle(color: Colors.grey[600]),
           ),
         ),
@@ -2868,8 +2877,18 @@ class _RepeatMenuItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-              Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              Text(
+                context.uiText(label),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                context.uiText(subtitle),
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              ),
             ],
           ),
         ),
@@ -2976,7 +2995,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Icon(icon, size: 13, color: Colors.grey[500]),
         const SizedBox(width: 6),
-        Text(label,
+        Text(context.uiText(label),
             style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 11,

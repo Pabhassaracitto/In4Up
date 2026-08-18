@@ -10,7 +10,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
@@ -458,7 +458,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             child: Row(children: [
               const Text('📍', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text('Tại ${_fmtDuration(position)}',
+              Text(context.uiText('Tại ${_fmtDuration(position)}'),
                   style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -523,7 +523,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(context.uiText(message)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -579,6 +579,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         // Tính max height responsive: 45% màn nhỏ, 62% màn lớn, tránh overflow 1100-1140
                         final screenH = MediaQuery.of(context).size.height;
                         final maxH = (screenH * (screenH < 700 ? 0.45 : 0.55)).clamp(180.0, 420.0);
+                        final dragAction = context.uiText(
+                          _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
+                        );
+                        final tapAction = context.uiText(
+                          _lrcHeight < maxH * 0.9 ? 'mở toàn màn hình' : 'thu gọn',
+                        );
 
                         // Clamp current height
                         if (_lrcHeight > maxH) _lrcHeight = maxH;
@@ -702,7 +708,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            "Kéo để ${ _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng'} • chạm để ${_lrcHeight < maxH * 0.9 ? 'full' : 'thu gọn'}",
+                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
                                             style: TextStyle(
                                               color: Colors.grey[600],
                                               fontSize: 10,
@@ -740,7 +746,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 5),
                                     Flexible(
                                       child: Text(
-                                        "LRC ${understand.lrcLines.length} dòng",
+                                        context.uiText("LRC ${understand.lrcLines.length} dòng"),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
@@ -801,13 +807,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 4),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
-                                      tooltip: 'Tuỳ chỉnh',
+                                      tooltip: context.uiText('Tuỳ chỉnh'),
                                       onTap: () =>
                                           KaraokeSettingsSheet.show(context),
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close_fullscreen_rounded,
-                                      tooltip: 'Thu nhỏ',
+                                      tooltip: context.uiText('Thu nhỏ'),
                                       onTap: () {
                                         setState(() {
                                           if (_lrcHeight > 140) {
@@ -821,7 +827,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close,
-                                      tooltip: 'Ẩn',
+                                      tooltip: context.uiText('Ẩn'),
                                       onTap: () => setState(() {
                                         _showLrcOnMain = false;
                                         _lrcHeight = _lrcDefaultHeight;
@@ -1027,7 +1033,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     size: 16, color: Color(0xFF8B83FF)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở",
+                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
                                   style: const TextStyle(
                                     color: Color(0xFF8B83FF),
                                     fontSize: 12,
@@ -1659,7 +1665,7 @@ class _SleepPanel extends StatelessWidget {
           min: 5,
           max: 120,
           divisions: 23,
-          label: '$minutes phút',
+          label: context.uiText('$minutes phút'),
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
         ),
@@ -1671,7 +1677,7 @@ class _SleepPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child:
-                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
+                Text(context.uiText('Đặt $minutes phút'), style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
@@ -2084,7 +2090,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(msg),
+          content: Text(context.uiText(msg)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),

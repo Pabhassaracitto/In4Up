@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -248,7 +248,7 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                           icon: Icons.article_outlined,
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Nhập nội dung'
+                            ? context.uiText('Nhập nội dung')
                             : null,
                       ),
                       ValueListenableBuilder<TextEditingValue>(
@@ -265,7 +265,7 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              '$words từ · $lines dòng',
+                              context.uiText('$words từ · $lines dòng'),
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 11,
@@ -335,7 +335,7 @@ class _LocalTextEntryDialogState extends State<LocalTextEntryDialog> {
 
   InputDecoration _inputDecoration({required String hint, required IconData icon}) {
     return InputDecoration(
-      hintText: hint,
+      hintText: context.uiText(hint),
       hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
       prefixIcon: Icon(icon, color: Colors.grey[600], size: 18),
       filled: true,

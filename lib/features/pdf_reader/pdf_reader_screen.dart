@@ -10,7 +10,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
@@ -537,7 +537,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   maxLines: 4,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: 'Nhập ghi chú / bản dịch / insight...',
+                    hintText: context.uiText('Nhập ghi chú / bản dịch / insight...'),
                     hintStyle: TextStyle(color: Colors.grey[500]),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.05),
@@ -581,7 +581,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     if (selectedText.isEmpty) return;
     context.read<TextProvider>().loadFromString(
           selectedText,
-          title: 'PDF đoạn chọn · ${_title.replaceAll('.pdf', '')}',
+          title: context.uiText(
+            'PDF đoạn chọn · ${_title.replaceAll('.pdf', '')}',
+          ),
         );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -645,7 +647,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✅ Đã load "$_title" vào Text Studio'),
+        content: Text(context.uiText('✅ Đã load "$_title" vào Text Studio')),
         backgroundColor: const Color(0xFF2196F3),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -814,26 +816,26 @@ class _SelectionBar extends StatelessWidget {
             _SelectionIconButton(
               icon: Icons.history_edu_outlined,
               color: const Color(0xFFB9F6CA),
-              tooltip: 'Xem ghi chú đã lưu trước đó',
+              tooltip: context.uiText('Xem ghi chú đã lưu trước đó'),
               onTap: () => _showSelectionRecallSheet(context, existing),
             ),
           if (existing != null) const SizedBox(width: 2),
           _SelectionIconButton(
             icon: Icons.note_add_outlined,
             color: Colors.amber,
-            tooltip: 'Ghi chú đoạn chọn',
+            tooltip: context.uiText('Ghi chú đoạn chọn'),
             onTap: onSaveNote,
           ),
           _SelectionIconButton(
             icon: Icons.text_snippet_outlined,
             color: Colors.cyan,
-            tooltip: 'Mở trong Text Studio',
+            tooltip: context.uiText('Mở trong Text Studio'),
             onTap: onOpenTextStudio,
           ),
           _SelectionIconButton(
             icon: Icons.bookmark_add,
             color: const Color(0xFF4CAF50),
-            tooltip: 'Lưu vào WordList',
+            tooltip: context.uiText('Lưu vào WordList'),
             onTap: () {
               final added = controller.saveSelectedTextToWordList();
               controller.clearSelection();
@@ -852,13 +854,13 @@ class _SelectionBar extends StatelessWidget {
           _SelectionIconButton(
             icon: Icons.volume_up,
             color: Colors.blue,
-            tooltip: 'Đọc',
+            tooltip: context.uiText('Đọc'),
             onTap: controller.speakSelectedText,
           ),
           _SelectionIconButton(
             icon: Icons.psychology,
             color: Colors.purple,
-            tooltip: 'Lưu vào Vườn Nhớ',
+            tooltip: context.uiText('Lưu vào Vườn Nhớ'),
             onTap: () {
               controller.saveSelectedTextToMemory();
               controller.clearSelection();
@@ -874,7 +876,7 @@ class _SelectionBar extends StatelessWidget {
           _SelectionIconButton(
             icon: Icons.close,
             color: Colors.grey,
-            tooltip: 'Đóng',
+            tooltip: context.uiText('Đóng'),
             onTap: controller.clearSelection,
             size: 18,
           ),
@@ -904,7 +906,7 @@ class _SelectionIconButton extends StatelessWidget {
     return IconButton(
       icon: Icon(icon, color: color, size: size),
       onPressed: onTap,
-      tooltip: tooltip,
+      tooltip: context.uiText(tooltip),
       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       padding: EdgeInsets.zero,
     );
@@ -984,7 +986,14 @@ void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
           if (latestContext != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Ngữ cảnh gần nhất: ${latestContext.displaySource}',
+              context.uiText(
+                'Ngữ cảnh gần nhất: ${latestContext.composeDisplaySource(
+                  latestContext.hasGeneratedPositionLabel &&
+                          latestContext.pageOrPosition != null
+                      ? context.uiText(latestContext.pageOrPosition!)
+                      : latestContext.pageOrPosition,
+                )}',
+              ),
               style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
@@ -1042,7 +1051,7 @@ class _MiniRecallBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: const TextStyle(
           color: Colors.white70,
           fontSize: 11,
@@ -1102,7 +1111,7 @@ class _PdfAnnotationManager extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '${annotations.length} ghi chú đã lưu',
+              context.uiText('${annotations.length} ghi chú đã lưu'),
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -1156,7 +1165,7 @@ class _PdfAnnotationManager extends StatelessWidget {
                             ),
                           ),
                           title: Text(
-                            'Trang ${ann.pageIndex + 1}',
+                            context.uiText('Trang ${ann.pageIndex + 1}'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,

@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/widgets/stage_progress_bar.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import '../models/memory_stage.dart';
 import '../models/memory_stats.dart';
 
@@ -41,7 +41,7 @@ class StageProgressBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              '${stats.totalItems} từ',
+              context.uiText('${stats.totalItems} từ'),
               style: TextStyle(color: Colors.grey[500], fontSize: 10),
             ),
             Row(
@@ -80,7 +80,10 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 3),
-        Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+        Text(
+          context.uiText(label),
+          style: TextStyle(color: Colors.grey[500], fontSize: 10),
+        ),
       ],
     );
   }

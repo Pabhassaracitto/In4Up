@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show Color;
+import 'package:in4up/core/language/localized_material.dart' show Color;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 

@@ -1,6 +1,6 @@
 // lib/screens/read_mode/widgets/floating_text_actions.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -166,51 +166,44 @@ class _FloatingBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
 
-              // Actions scrollable to prevent 49px overflow for 17-word phrase
-              Flexible(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // TTS
-                      _ActionBtn(
-                        icon: Icons.volume_up,
-                        color: const Color(0xFF2196F3),
-                        tooltip: 'Phát âm',
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          context.read<TextProvider>().speakSelected();
-                          onDismiss();
-                        },
-                      ),
-                      const SizedBox(width: 6),
+              // TTS
+              _ActionBtn(
+                icon: Icons.volume_up,
+                color: const Color(0xFF2196F3),
+                tooltip: context.uiText('Phát âm'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.read<TextProvider>().speakSelected();
+                  onDismiss();
+                },
+              ),
+              const SizedBox(width: 6),
 
-                      // Bookmark
-                      _ActionBtn(
-                        icon: Icons.bookmark_add,
-                        color: Colors.amber,
-                        tooltip: 'Lưu học',
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          onDismiss();
-                          CreateSegmentSheet.show(context, lineIndex);
-                        },
-                      ),
-                      const SizedBox(width: 6),
+              // Bookmark
+              _ActionBtn(
+                icon: Icons.bookmark_add,
+                color: Colors.amber,
+                tooltip: context.uiText('Lưu học'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onDismiss();
+                  CreateSegmentSheet.show(context, lineIndex);
+                },
+              ),
+              const SizedBox(width: 6),
 
-                      // Quick save (bolt) - luu nhanh
-                      _ActionBtn(
-                        icon: Icons.bolt,
-                        color: const Color(0xFF4CAF50),
-                        tooltip: 'Lưu nhanh',
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _saveQuick(context);
-                          onDismiss();
-                        },
-                      ),
-                      const SizedBox(width: 6),
+              // Quick save (bolt) - luu nhanh
+              _ActionBtn(
+                icon: Icons.bolt,
+                color: const Color(0xFF4CAF50),
+                tooltip: context.uiText('Lưu nhanh'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _saveQuick(context);
+                  onDismiss();
+                },
+              ),
+              const SizedBox(width: 6),
 
                       // Full save (+ nghĩa + gợi ý) - luu day du
                       _ActionBtn(
@@ -224,39 +217,35 @@ class _FloatingBar extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
 
-                      // Copy
-                      _ActionBtn(
-                        icon: Icons.copy,
-                        color: Colors.grey,
-                        tooltip: 'Sao chép',
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Clipboard.setData(ClipboardData(text: selectedText));
-                          onDismiss();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('📋 Đã sao chép!'),
-                              behavior: SnackBarBehavior.floating,
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 6),
+              // Copy
+              _ActionBtn(
+                icon: Icons.copy,
+                color: Colors.grey,
+                tooltip: context.uiText('Sao chép'),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Clipboard.setData(ClipboardData(text: selectedText));
+                  onDismiss();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('📋 Đã sao chép!'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
 
-                      // Close
-                      _ActionBtn(
-                        icon: Icons.close,
-                        color: Colors.grey[600]!,
-                        tooltip: 'Đóng',
-                        onTap: () {
-                          context.read<TextProvider>().clearSelection();
-                          onDismiss();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+              // Close
+              _ActionBtn(
+                icon: Icons.close,
+                color: Colors.grey[600]!,
+                tooltip: context.uiText('Đóng'),
+                onTap: () {
+                  context.read<TextProvider>().clearSelection();
+                  onDismiss();
+                },
               ),
             ],
           ),
@@ -599,7 +588,7 @@ class _ActionBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         child: Container(

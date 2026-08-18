@@ -2,7 +2,7 @@
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
@@ -200,7 +200,7 @@ class _ModelCard extends StatelessWidget {
                       // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
-                        label: Text('Xoá (${level.sizeInMB}MB)'),
+                        label: Text(context.uiText('Xoá (${level.sizeInMB}MB)')),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
@@ -297,9 +297,9 @@ class _ModelCard extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success
+          context.uiText(success
               ? '✅ Import ${level.name.toUpperCase()} thành công!'
-              : '❌ Import thất bại — sai file hoặc file bị lỗi',
+              : '❌ Import thất bại — sai file hoặc file bị lỗi'),
         ),
       ),
     );
@@ -313,10 +313,9 @@ class _ModelCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Xoá model ${level.name.toUpperCase()}?'),
+        title: Text(context.uiText('Xoá model ${level.name.toUpperCase()}?')),
         content: Text(
-          'Sẽ giải phóng ${level.sizeInMB}MB. '
-          'Bạn cần tải lại để dùng tính năng này.',
+          context.uiText('Sẽ giải phóng ${level.sizeInMB}MB. Bạn cần tải lại để dùng tính năng này.'),
         ),
         actions: [
           TextButton(

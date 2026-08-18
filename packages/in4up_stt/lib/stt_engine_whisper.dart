@@ -646,15 +646,16 @@ class SttEngineWhisper {
     // File dai >60s -> giam chunk xuong 15s de giam RAM (base 140MB + 30s PCM ~2MB -> OOM, tiny van OOM 62s)
     // FIX v4: Tren Android luon dung 15s chunk cho Tat ca file de tranh OOM, ke ca file 38s van crash o commit cu
     // Log moi: 62s van OOM voi 30s chunk tiny, ha xuong 15s. 38s file cung crash o fa09893 -> can 15s cho moi file tren Android
+    // UPDATE v7: 38s file van OOM voi 15s chunk tiny tren S9FE gts9fe (log b38a0b0) -> ha xuong 10s
     if (originalDurationMs != null && originalDurationMs > 60 * 1000) {
-      effectiveChunkDuration = effectiveChunkDuration > 15 ? 15 : effectiveChunkDuration;
+      effectiveChunkDuration = effectiveChunkDuration > 10 ? 10 : effectiveChunkDuration;
     }
-    // Tren Android, ep chunk max 15s cho moi file de dam bao RAM safe (ke ca file ngan 38s)
+    // Tren Android, ep chunk max 10s cho moi file de dam bao RAM safe (ke ca file ngan 38s) - truoc 15s van OOM
     try {
       if (Platform.isAndroid) {
-        if (effectiveChunkDuration > 15) {
-          debugPrint('[Whisper] Android ep chunk 15s (goc $effectiveChunkDuration)s de tranh OOM');
-          effectiveChunkDuration = 15;
+        if (effectiveChunkDuration > 10) {
+          debugPrint('[Whisper] Android ep chunk 10s (goc $effectiveChunkDuration)s de tranh OOM - fix 38s crash b38a0b0');
+          effectiveChunkDuration = 10;
         }
       }
     } catch (_) {}
@@ -805,14 +806,14 @@ class SttEngineWhisper {
             debugPrint('[Whisper] Khong xoa duoc chunk $chunkPath: $e');
           }
 
-          // Nhường event loop + delay de GC thu hoi native memory (Scudo)
-          await Future<void>.delayed(const Duration(milliseconds: 150));
+          // Nhường event loop + delay de GC thu hoi native memory (Scudo) - tang len de fix 38s OOM
+          await Future<void>.delayed(const Duration(milliseconds: 500));
         }
 
-        // Moi 3 chunk, delay dai hon de he thong thu hoi RAM native
+        // Moi 3 chunk, delay dai hon de he thong thu hoi RAM native - tang tu 500ms len 1000ms
         if (i % 3 == 2) {
-          debugPrint('[Whisper] Nghi 500ms de giai phong RAM native sau 3 chunks...');
-          await Future<void>.delayed(const Duration(milliseconds: 500));
+          debugPrint('[Whisper] Nghi 1000ms de giai phong RAM native sau 3 chunks... fix 38s OOM');
+          await Future<void>.delayed(const Duration(milliseconds: 1000));
         }
       }
     } finally {

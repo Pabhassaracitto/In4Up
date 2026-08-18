@@ -121,9 +121,11 @@ mixin PlayerSttMixin on ChangeNotifier {
     _lastSttError = null;
 
     // FIX OOM v3: dung player truoc khi transcribe de giai phong ExoPlayer (BufferPoolAccessor) + FFmpeg native RAM
+    // v7: them delay 1s sau pause de ExoPlayer giai phong buffer pool truoc khi Whisper chiem RAM
     try {
       await pause();
-      debugPrint('[SttMixin] Paused player before transcription to free RAM');
+      debugPrint('[SttMixin] Paused player before transcription to free RAM, delay 1s for BufferPool release');
+      await Future.delayed(const Duration(milliseconds: 1000));
     } catch (_) {}
 
     // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ

@@ -92,11 +92,11 @@ class _VennTabState extends State<VennTab> {
           color: Colors.grey.shade50,
           child: Stack(
             children: [
-              _vennCircle(cU, radius, const Color(0xFF42A5F5), 'HIỂU',
+              _vennCircle(cU, radius, const Color(0xFF42A5F5), context.uiText('HIỂU'),
                   MasteryZone.understandOnly, prov, counts),
-              _vennCircle(cL, radius, const Color(0xFF66BB6A), 'NGHE',
+              _vennCircle(cL, radius, const Color(0xFF66BB6A), context.uiText('NGHE'),
                   MasteryZone.listenOnly, prov, counts),
-              _vennCircle(cR, radius, const Color(0xFFEF5350), 'ĐỌC',
+              _vennCircle(cR, radius, const Color(0xFFEF5350), context.uiText('ĐỌC'),
                   MasteryZone.readOnly, prov, counts),
 
               // Intersection zones
@@ -436,7 +436,7 @@ class _VennTabState extends State<VennTab> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _selectedZone!.label,
+                  context.uiText(_selectedZone!.label),
                   style: TextStyle(
                       fontWeight: FontWeight.bold, color: _selectedZone!.color),
                 ),

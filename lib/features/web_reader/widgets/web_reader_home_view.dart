@@ -1157,7 +1157,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                currentCollection.title,
+                                context.uiText(currentCollection.title),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -1166,7 +1166,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                currentCollection.description,
+                                context.uiText(currentCollection.description),
                                 style: TextStyle(
                                   color: Colors.grey[400],
                                   fontSize: 13,

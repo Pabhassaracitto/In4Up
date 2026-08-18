@@ -41,6 +41,7 @@ CURATED_UI_VALUE_FILES = {
     "features/grammar/models/grammar_category.dart",
     "features/grammar/models/grammar_highlight_preset.dart",
     "features/grammar/services/grammar_preset_library_service.dart",
+    "core/language/reviewed_runtime_ui_labels.dart",
 }
 
 

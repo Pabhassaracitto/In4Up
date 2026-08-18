@@ -61,7 +61,7 @@ class _SkillSlidersState extends State<SkillSliders> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _slider(
-          label: '🔵 HIỂU',
+          label: context.uiText('🔵 HIỂU'),
           value: _u,
           color: const Color(0xFF42A5F5),
           onChanged: (v) {
@@ -71,7 +71,7 @@ class _SkillSlidersState extends State<SkillSliders> {
         ),
         const SizedBox(height: 8),
         _slider(
-          label: '🟢 NGHE',
+          label: context.uiText('🟢 NGHE'),
           value: _l,
           color: const Color(0xFF66BB6A),
           onChanged: (v) {
@@ -81,7 +81,7 @@ class _SkillSlidersState extends State<SkillSliders> {
         ),
         const SizedBox(height: 8),
         _slider(
-          label: '🔴 ĐỌC',
+          label: context.uiText('🔴 ĐỌC'),
           value: _r,
           color: const Color(0xFFEF5350),
           onChanged: (v) {

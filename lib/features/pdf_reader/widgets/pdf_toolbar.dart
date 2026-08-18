@@ -153,7 +153,7 @@ class _ColorModeButton extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              controller.colorMode.label,
+              context.uiText(controller.colorMode.label),
               style: TextStyle(
                 fontSize: 10,
                 color: isActive ? const Color(0xFF2196F3) : Colors.grey,

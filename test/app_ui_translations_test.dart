@@ -155,6 +155,40 @@ void main() {
       expect(AppUITranslations.containsSource(userText), isFalse);
     });
 
+    test('falls back to English for listen/pdf/web/memory QA labels', () {
+      const cases = {
+        'Chậm và nhiều vòng để bắt chước kỹ từng âm.':
+            'Slow, many loops to copy each sound carefully.',
+        'Tập trung vào độ rõ âm và độ chính xác phát âm.':
+            'Focus on sound clarity and pronunciation accuracy.',
+        'Cân bằng giữa phát âm, trí nhớ và nhịp phản xạ.':
+            'Balance pronunciation, memory, and reaction rhythm.',
+        'Ưu tiên nhịp nói tự nhiên và giữ mạch câu.':
+            'Prioritize natural speaking rhythm and keep the sentence flow.',
+        'Không màu': 'No color',
+        'Loại từ': 'Part of speech',
+        'Độ khó': 'Difficulty',
+        'Pháp thoại & Dharma': 'Dharma talks',
+        'Nguồn đọc cố định cho Phật học, thiền và pháp thoại tiếng Anh.':
+            'Fixed reading sources for Buddhism, meditation, and English dharma talks.',
+        'Nguồn đọc chậm, rõ, phù hợp để luyện từ vựng và đọc hiểu.':
+            'Slow, clear reading sources for vocabulary and comprehension practice.',
+        'Tin tức & Kiến thức': 'News and Knowledge',
+        'Tin tức &amp; Kiến thức': 'News and Knowledge',
+        'Giữ lại các nguồn preset cũ và mở rộng thêm nơi đọc chung.':
+            'Keep the previous preset sources and add more general reading sites.',
+        'NGHE': 'LISTEN',
+        'Hiểu + Nghe': 'Understand + Listen',
+        'Hiểu + Đọc': 'Understand + Read',
+        'Nghe + Đọc': 'Listen + Read',
+        '🟢 NGHE': '🟢 LISTEN',
+      };
+      cases.forEach((source, english) {
+        expect(AppUITranslations.translate(source, 'en'), english);
+        expect(AppUITranslations.translate(source, 'ja'), isNot(source));
+      });
+    });
+
     test('does not use the old generic Content substitution', () {
       const knownSources = [
         'Đang khởi động...',

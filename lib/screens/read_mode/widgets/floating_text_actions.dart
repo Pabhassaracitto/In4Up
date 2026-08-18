@@ -149,8 +149,8 @@ class _FloatingBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Preview text
-              Expanded(
+              // Preview text - flexible, not expanded to allow actions to scroll
+              Flexible(
                 child: Text(
                   selectedText.length > 30
                       ? '\"${selectedText.substring(0, 30)}...\"'
@@ -166,86 +166,97 @@ class _FloatingBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
 
-              // TTS
-              _ActionBtn(
-                icon: Icons.volume_up,
-                color: const Color(0xFF2196F3),
-                tooltip: 'Phát âm',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  context.read<TextProvider>().speakSelected();
-                  onDismiss();
-                },
-              ),
-              const SizedBox(width: 6),
+              // Actions scrollable to prevent 49px overflow for 17-word phrase
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // TTS
+                      _ActionBtn(
+                        icon: Icons.volume_up,
+                        color: const Color(0xFF2196F3),
+                        tooltip: 'Phát âm',
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          context.read<TextProvider>().speakSelected();
+                          onDismiss();
+                        },
+                      ),
+                      const SizedBox(width: 6),
 
-              // Bookmark
-              _ActionBtn(
-                icon: Icons.bookmark_add,
-                color: Colors.amber,
-                tooltip: 'Lưu học',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  onDismiss();
-                  CreateSegmentSheet.show(context, lineIndex);
-                },
-              ),
-              const SizedBox(width: 6),
+                      // Bookmark
+                      _ActionBtn(
+                        icon: Icons.bookmark_add,
+                        color: Colors.amber,
+                        tooltip: 'Lưu học',
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          onDismiss();
+                          CreateSegmentSheet.show(context, lineIndex);
+                        },
+                      ),
+                      const SizedBox(width: 6),
 
-              // Quick save (bolt) - luu nhanh
-              _ActionBtn(
-                icon: Icons.bolt,
-                color: const Color(0xFF4CAF50),
-                tooltip: 'Lưu nhanh',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  _saveQuick(context);
-                  onDismiss();
-                },
-              ),
-              const SizedBox(width: 6),
+                      // Quick save (bolt) - luu nhanh
+                      _ActionBtn(
+                        icon: Icons.bolt,
+                        color: const Color(0xFF4CAF50),
+                        tooltip: 'Lưu nhanh',
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _saveQuick(context);
+                          onDismiss();
+                        },
+                      ),
+                      const SizedBox(width: 6),
 
-              // Full save (+ nghĩa + gợi ý) - luu day du
-              _ActionBtn(
-                icon: Icons.edit_note,
-                color: const Color(0xFF9C27B0),
-                tooltip: isPhrase ? 'Lưu đủ (cụm/câu + gợi ý)' : 'Lưu đủ + nghĩa',
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  _saveFull(context);
-                },
-              ),
-              const SizedBox(width: 6),
+                      // Full save (+ nghĩa + gợi ý) - luu day du
+                      _ActionBtn(
+                        icon: Icons.edit_note,
+                        color: const Color(0xFF9C27B0),
+                        tooltip: isPhrase ? 'Lưu đủ (cụm/câu + gợi ý)' : 'Lưu đủ + nghĩa',
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          _saveFull(context);
+                        },
+                      ),
+                      const SizedBox(width: 6),
 
-              // Copy
-              _ActionBtn(
-                icon: Icons.copy,
-                color: Colors.grey,
-                tooltip: 'Sao chép',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Clipboard.setData(ClipboardData(text: selectedText));
-                  onDismiss();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('📋 Đã sao chép!'),
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 6),
+                      // Copy
+                      _ActionBtn(
+                        icon: Icons.copy,
+                        color: Colors.grey,
+                        tooltip: 'Sao chép',
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Clipboard.setData(ClipboardData(text: selectedText));
+                          onDismiss();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('📋 Đã sao chép!'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 6),
 
-              // Close
-              _ActionBtn(
-                icon: Icons.close,
-                color: Colors.grey[600]!,
-                tooltip: 'Đóng',
-                onTap: () {
-                  context.read<TextProvider>().clearSelection();
-                  onDismiss();
-                },
+                      // Close
+                      _ActionBtn(
+                        icon: Icons.close,
+                        color: Colors.grey[600]!,
+                        tooltip: 'Đóng',
+                        onTap: () {
+                          context.read<TextProvider>().clearSelection();
+                          onDismiss();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

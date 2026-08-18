@@ -1,414 +1,92 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
 
+/// The translations for Arabic (`ar`).
 class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
-
-  @override
-  String get audioLibrary => 'مكتبة الصوت';
 
   @override
   String get commandCenter => 'مركز القيادة';
 
   @override
-  String get commonAdd => 'إضافة';
-
-  @override
-  String get commonAddNote => 'إضافة ملاحظة';
-
-  @override
-  String get commonAntonym => 'Antonym';
-
-  @override
-  String get commonApply => 'تطبيق';
-
-  @override
-  String get commonBack => 'رجوع';
-
-  @override
-  String get commonCancel => 'إلغاء';
-
-  @override
-  String get commonClear => 'Clear';
-
-  @override
-  String get commonClose => 'إغلاق';
-
-  @override
-  String get commonComingSoon => 'Coming soon';
-
-  @override
-  String get commonConfirm => 'Confirm';
-
-  @override
-  String get commonCopied => 'Copied';
-
-  @override
-  String get commonCopy => 'Copy';
-
-  @override
-  String get commonDefinition => 'Definition';
-
-  @override
-  String get commonDelete => 'حذف';
-
-  @override
-  String get commonDeleteNote => 'حذف ملاحظة';
-
-  @override
-  String get commonDeselect => 'Deselect';
-
-  @override
-  String get commonDone => 'تم';
-
-  @override
-  String get commonEdit => 'تعديل';
-
-  @override
-  String get commonEditNote => 'تعديل ملاحظة';
-
-  @override
-  String get commonError => 'خطأ';
-
-  @override
-  String get commonExample => 'مثال';
-
-  @override
-  String get commonFailed => 'Failed';
-
-  @override
-  String get commonFilter => 'تصفية';
-
-  @override
-  String get commonGrammar => 'قواعد';
-
-  @override
-  String get commonLearn => 'تعلم';
-
-  @override
-  String get commonListening => 'استماع';
-
-  @override
-  String get commonLoading => 'جار التحميل...';
-
-  @override
-  String get commonMeaning => 'معنى';
-
-  @override
-  String get commonNext => 'التالي';
-
-  @override
-  String get commonNoData => 'لا توجد بيانات';
-
-  @override
-  String get commonNote => 'ملاحظة';
-
-  @override
-  String get commonNotes => 'ملاحظات';
-
-  @override
-  String get commonPractice => 'ممارسة';
-
-  @override
-  String get commonPrevious => 'السابق';
-
-  @override
-  String get commonPronunciation => 'نطق';
-
-  @override
-  String get commonReading => 'قراءة';
-
-  @override
-  String get commonRedo => 'Redo';
-
-  @override
-  String get commonRemembering => 'تذكر';
-
-  @override
-  String get commonRemove => 'Remove';
-
-  @override
-  String get commonReset => 'Reset';
-
-  @override
-  String get commonRetry => 'إعادة المحاولة';
-
-  @override
-  String get commonReview => 'مراجعة';
-
-  @override
-  String get commonSave => 'حفظ';
-
-  @override
-  String get commonSaveNote => 'حفظ ملاحظة';
-
-  @override
-  String get commonSearch => 'بحث';
-
-  @override
-  String get commonSelectAll => 'Select all';
-
-  @override
-  String get commonSettings => 'الإعدادات';
-
-  @override
-  String get commonShare => 'Share';
-
-  @override
-  String get commonSort => 'ترتيب';
-
-  @override
-  String get commonSpeaking => 'تحدث';
-
-  @override
-  String get commonStudy => 'دراسة';
-
-  @override
-  String get commonSuccess => 'نجاح';
-
-  @override
-  String get commonSynonym => 'Synonym';
-
-  @override
-  String get commonTranslate => 'ترجمة';
-
-  @override
-  String get commonUnderstanding => 'فهم';
-
-  @override
-  String get commonUndo => 'Undo';
-
-  @override
-  String get commonVocabulary => 'مفردات';
-
-  @override
-  String get commonWriting => 'كتابة';
-
-  @override
-  String get demoWordHello => 'hello';
-
-  @override
-  String get demoWordWorld => 'world';
-
-  @override
-  String get dictation => 'إملاء';
-
-  @override
-  String get dictationSubtitle => 'استمع واكتب';
-
-  @override
-  String get diffEasy => 'سهل';
-
-  @override
-  String get diffHard => 'صعب';
-
-  @override
-  String get diffMedium => 'متوسط';
-
-  @override
-  String get done => 'تم';
-
-  @override
-  String get grammarCefr => 'CEFR level';
-
-  @override
-  String get grammarColorMode => 'Color mode';
-
-  @override
-  String get grammarColorStyle => 'Color style';
-
-  @override
-  String get grammarComparePalette => 'Compare palettes visually';
-
-  @override
-  String grammarCustomizingFrom(String name) => 'Customizing from nearest preset: $name';
-
-  @override
-  String get grammarDifficultyUser => 'Difficulty (your tags)';
-
-  @override
-  String get grammarDisplay => 'Display';
-
-  @override
-  String get grammarDrivingMode => 'Driving Mode';
-
-  @override
-  String get grammarEnableAll => 'Enable all';
-
-  @override
-  String get grammarExperienceMode => 'Experience mode';
-
-  @override
-  String get grammarFontSize => 'Font size';
-
-  @override
-  String grammarHiddenDesc(String count) => '$count POS groups hidden. You can re-enable them.';
-
-  @override
-  String grammarHiddenGroups(String count) => '$count groups hidden';
-
-  @override
-  String get grammarListeningMode => 'استماع mode (tts)';
-
-  @override
-  String get grammarPos => 'Part of speech';
-
-  @override
-  String get grammarPosGroups => 'POS groups';
-
-  @override
-  String get grammarPresetSuggestions => 'Suggested presets';
-
-  @override
-  String get grammarReadingMode => 'قراءة mode';
-
-  @override
-  String grammarRestore(String name) => 'Restore $name';
-
-  @override
-  String get grammarSavePreset => 'حفظ custom preset';
-
-  @override
-  String get grammarShowLineNumbers => 'Show line numbers';
-
-  @override
-  String get grammarShowMiniLegend => 'Show mini legend in قراءة area';
-
-  @override
-  String get grammarShowTranslation => 'Show translation';
-
-  @override
-  String get grammarSmartSplit => 'Smart line split';
-
-  @override
-  String get grammarTextAlign => 'Text alignment';
-
-  @override
-  String get grammarTranslationBilingual => 'Translation & bilingual';
-
-  @override
-  String get grammarTranslationMode => 'Translation Mode';
-
-  @override
-  String grammarUsingPreset(String name) => 'Using preset: $name';
-
-  @override
-  String get grammarYourPresets => 'Your presets';
-
-  @override
-  String get home => 'الرئيسية';
-
-  @override
   String get knowledgeOS => 'نظام تشغيل المعرفة';
-
-  @override
-  String get listen => 'استمع';
-
-  @override
-  String get listenAddAudio => 'إضافة audio';
-
-  @override
-  String listenContinue(String time) => 'Continue from $time';
-
-  @override
-  String get listenFromStart => 'From start';
-
-  @override
-  String get listenLibrary => 'Audio Library';
-
-  @override
-  String get listenLoop => 'Loop';
-
-  @override
-  String get listenMode => 'Listen Mode';
-
-  @override
-  String get listenNoAudio => 'No audio yet';
-
-  @override
-  String get listenNoContent => 'No content\nCreate LRC from STT';
-
-  @override
-  String get listenNowPlaying => 'Now Playing';
-
-  @override
-  String get listenPause => 'Pause';
-
-  @override
-  String get listenPlay => 'Play';
-
-  @override
-  String get listenStop => 'Stop';
-
-  @override
-  String get listening => 'يستمع...';
-
-  @override
-  String loginFailed(String error) => 'فشل تسجيل الدخول: $error';
 
   @override
   String get manageAIModels => 'إدارة نماذج الذكاء الاصطناعي';
 
   @override
-  String get memoryBloom => 'Bloom';
+  String loginFailed(String error) {
+    return 'فشل تسجيل الدخول: $error';
+  }
 
   @override
-  String get memoryDue => 'Due';
+  String get studioRoom => 'غرفة الاستوديو';
 
   @override
-  String get memoryEmptyDesc => 'حفظ مفردات from read tab to start growing your knowledge garden';
+  String get listen => 'استمع';
 
   @override
-  String get memoryGarden => 'Memory Garden';
+  String get read => 'اقرأ';
 
   @override
-  String get memoryMastered => 'Mastered';
+  String get understand => 'افهم';
 
   @override
-  String get memoryNeedReview => 'Need مراجعة';
+  String get remember => 'تذكر';
 
   @override
-  String get memoryOpenWordlist => 'Open wordlist to إضافة new words';
+  String get quickNote => 'ملاحظة سريعة';
 
   @override
-  String get memorySeed => 'Seed';
+  String get listening => 'يستمع...';
 
   @override
-  String get memorySprout => 'Sprout';
+  String get done => 'تم';
 
   @override
-  String get memoryTotalWords => 'Total words';
+  String get wordList => 'قائمة الكلمات';
 
   @override
-  String get msgCopied => '📋 Copied!';
+  String get wordListSubtitle => 'قائمة المفردات';
 
   @override
-  String get msgDeleted => 'Deleted';
+  String get timeline => 'الجدول الزمني';
 
   @override
-  String msgError(String error) => 'خطأ $error';
+  String get timelineSubtitle => 'الجدول الزمني للتعلم';
 
   @override
-  String get msgInvalidInput => 'Invalid input';
+  String get wordListStats => 'إحصائيات الكلمات';
 
   @override
-  String get msgLoginNeeded => 'Please login';
+  String get wordListStatsSubtitle => 'إحصائيات مفصلة';
 
   @override
-  String get msgNetworkError => 'Network خطأ please check connection';
+  String get webReader => 'قارئ الويب';
 
   @override
-  String get msgNotLoggedIn => 'Not logged in';
+  String get webReaderSubtitle => 'قراءة الويب + تمييز CEFR';
 
   @override
-  String msgPleaseEnter(String field) => 'Please enter $field';
+  String get youtube => 'يوتيوب';
 
   @override
-  String get msgSaved => 'Saved';
+  String get youtubeSubtitle => 'استكشاف القنوات الإنجليزية';
 
   @override
-  String get nowPlaying => 'يشتغل الآن';
+  String get pdfReader => 'قارئ PDF';
+
+  @override
+  String get pdfReaderSubtitle => 'فتح وقراءة ملفات PDF';
+
+  @override
+  String get youglish => 'YouGlish';
+
+  @override
+  String get youglishSubtitle => 'النطق الأصلي';
 
   @override
   String get overview => 'نظرة عامة';
@@ -417,127 +95,22 @@ class AppLocalizationsAr extends AppLocalizations {
   String get overviewSubtitle => 'تقدم التعلم';
 
   @override
-  String get pdfCannotExtract => 'Cannot extract text from this PDF.\nIt may be a scanned PDF (image).';
+  String get wordMap => 'خريطة الكلمات';
 
   @override
-  String get pdfCannotOpen => 'Cannot open PDF';
+  String get wordMapSubtitle => 'معروف → صغير · غير معروف → كبير';
 
   @override
-  String get pdfContextAdded => 'Context added to WordList';
+  String get triangle => 'مثلث';
 
   @override
-  String get pdfEnterNote => 'Enter ملاحظة / translation / insight...';
+  String get triangleSubtitle => 'خريطة + تقييم سريع';
 
   @override
-  String get pdfExtracting => 'Extracting text...';
+  String get vennDiagram => 'مخطط فين';
 
   @override
-  String get pdfLoadedToStudio => 'Loaded into Text Studio';
-
-  @override
-  String get pdfLongPressHint => 'Long-press a word on pdf or إضافة ملاحظة from selection in text mode.';
-
-  @override
-  String get pdfNoNotes => 'No ملاحظات yet';
-
-  @override
-  String get pdfNoteForSelection => 'ملاحظة for selection';
-
-  @override
-  String get pdfNoteSelection => 'ملاحظة selection';
-
-  @override
-  String get pdfOpenInReadMode => 'Open in Read Mode →';
-
-  @override
-  String get pdfOpening => 'Opening PDF...';
-
-  @override
-  String get pdfReader => 'قارئ PDF';
-
-  @override
-  String get pdfReaderDeepPos => 'PDF Reader · Deep POS';
-
-  @override
-  String get pdfReaderSubtitle => 'فتح وقراءة ملفات PDF';
-
-  @override
-  String get pdfSaveToMemory => 'حفظ to memory garden';
-
-  @override
-  String get pdfSavedSelectionNote => '📝 saved ملاحظة for selection';
-
-  @override
-  String get pdfSavedToMemory => 'Saved to Memory Garden';
-
-  @override
-  String get pdfSavedToWordlist => 'Saved to WordList';
-
-  @override
-  String get pdfSelectionOpened => '✅ Opened selection in Text Studio';
-
-  @override
-  String get pdfTextMode => 'Text mode — full highlighting & TTS features';
-
-  @override
-  String get pdfViewSavedNotes => 'View saved ملاحظات';
-
-  @override
-  String get quickNote => 'ملاحظة سريعة';
-
-  @override
-  String get read => 'اقرأ';
-
-  @override
-  String get readAddDocument => 'إضافة document';
-
-  @override
-  String get readAutoScroll => 'Auto scroll';
-
-  @override
-  String get readEmpty => 'إضافة text to start قراءة supports txt, lrc, srt';
-
-  @override
-  String get readFontSize => 'Font size';
-
-  @override
-  String get readHideTranslation => 'Hide translation';
-
-  @override
-  String get readLibrary => 'قراءة library';
-
-  @override
-  String get readLine => 'Line';
-
-  @override
-  String get readMode => 'Read Mode';
-
-  @override
-  String get readNoDocument => 'No document';
-
-  @override
-  String get readOpenFile => 'Open file';
-
-  @override
-  String get readPasteText => 'Paste text';
-
-  @override
-  String get readSpeed => 'Speed';
-
-  @override
-  String get readTextStudio => 'Text Studio';
-
-  @override
-  String get readTranslate => 'Show translation';
-
-  @override
-  String get readTts => 'Text-to-Speech';
-
-  @override
-  String get readVoice => 'Voice';
-
-  @override
-  String get remember => 'تذكر';
+  String get vennDiagramSubtitle => 'مناطق المهارات';
 
   @override
   String get review => 'مراجعة';
@@ -549,217 +122,28 @@ class AppLocalizationsAr extends AppLocalizations {
   String get shadowing => 'التظليل';
 
   @override
-  String get shadowingAnalyzing => 'Analyzing...';
-
-  @override
-  String get shadowingCancelCountdown => 'إلغاء countdown';
-
-  @override
-  String get shadowingEnergy => 'Energy';
-
-  @override
-  String get shadowingFinish => 'Finish';
-
-  @override
-  String get shadowingListenCarefully => 'Listen carefully...';
-
-  @override
-  String get shadowingListeningSample => 'استماع to sample...';
-
-  @override
-  String shadowingMax(String seconds) => 'Max: $secondss';
-
-  @override
-  String get shadowingPitch => 'Pitch';
-
-  @override
-  String get shadowingPlaySample => 'Play sample';
-
-  @override
-  String get shadowingReady => 'Ready for shadowing ممارسة';
-
-  @override
-  String get shadowingReadyEx => 'Ready!';
-
-  @override
-  String get shadowingRecording => 'Recording...';
-
-  @override
-  String get shadowingRetry => 'إعادة المحاولة';
-
-  @override
-  String get shadowingRhythm => 'Rhythm';
-
-  @override
-  String get shadowingSelectSegment => 'Select an A-B Loop segment to start';
-
-  @override
-  String get shadowingSelectToPractice => 'Select segment to ممارسة';
-
-  @override
-  String get shadowingStartPractice => 'Start ممارسة';
-
-  @override
-  String get shadowingSteps => '1. Listen to sample\n2. Press record\n3. Repeat after sample';
-
-  @override
-  String get shadowingStopRecording => 'Stop recording';
-
-  @override
-  String get shadowingStopSample => 'Stop sample';
-
-  @override
   String get shadowingSubtitle => 'ممارسة التظليل';
 
   @override
-  String get studioRoom => 'غرفة الاستوديو';
+  String get dictation => 'إملاء';
 
   @override
-  String get timeline => 'الجدول الزمني';
+  String get dictationSubtitle => 'استمع واكتب';
 
   @override
-  String get timelineSubtitle => 'الجدول الزمني للتعلم';
+  String get audioLibrary => 'مكتبة الصوت';
+
+  @override
+  String get home => 'الرئيسية';
 
   @override
   String get tools => 'أدوات';
 
   @override
-  String toolsFeaturesCount(String count) => '$count features';
+  String get nowPlaying => 'يشتغل الآن';
 
   @override
-  String get toolsMoreComing => 'More features coming';
-
-  @override
-  String get toolsProgress => 'Learning Progress';
-
-  @override
-  String get toolsTitle => 'Tools';
-
-  @override
-  String get toolsTriangle => 'Triangle';
-
-  @override
-  String get toolsVenn => 'Venn Diagram';
-
-  @override
-  String get toolsWordMap => 'Word Map';
-
-  @override
-  String get translationBelow => 'Below';
-
-  @override
-  String translationChangedTo(String flag, String language) => '$flag Changed translation and voice to $language';
-
-  @override
-  String get translationClearAll => 'Clear all translations';
-
-  @override
-  String get translationColumn => 'Column';
-
-  @override
-  String get translationDeepLXUrl => 'DeepLX Server URL (optional)';
-
-  @override
-  String get translationEngine => 'Translation engine';
-
-  @override
-  String get translationEngineSettings => 'Translation engine الإعدادات';
-
-  @override
-  String translationError(String error) => 'خطأ $error';
-
-  @override
-  String get translationHide => 'Hide';
-
-  @override
-  String get translationLanguage => 'Translation language';
-
-  @override
-  String get translationLeaveEmpty => 'Leave empty → use Google Free';
-
-  @override
-  String get translationRetranslateAll => 'Retranslate all';
-
-  @override
-  String get translationSearchLang => 'بحث languages…';
-
-  @override
-  String get translationSelectTarget => 'Select target';
-
-  @override
-  String get translationSourceIsTarget => 'Source and target languages are the same.';
-
-  @override
-  String get translationStop => 'Stop';
-
-  @override
-  String get translationTargetViaFlag => 'Target language is selected via flag button on translation bar.';
-
-  @override
-  String get translationTranslate => 'ترجمة';
-
-  @override
-  String get translationTranslateAll => 'ترجمة all (skip existing)';
-
-  @override
-  String get translationTranslated => 'Translated';
-
-  @override
-  String get triangle => 'مثلث';
-
-  @override
-  String get triangleSubtitle => 'خريطة + تقييم سريع';
-
-  @override
-  String get ttsApiKeys => 'API Keys (optional, free)';
-
-  @override
-  String ttsApply(String count) => 'تطبيق ($count lines)';
-
-  @override
-  String get ttsAutoSplit => 'Auto split lines';
-
-  @override
-  String get ttsClear => 'Clear';
-
-  @override
-  String get ttsClearCache => 'Clear TTS cache!';
-
-  @override
-  String get ttsDragToSort => 'Drag to reorder';
-
-  @override
-  String ttsMaxWords(String count) => 'Max $count words/line';
-
-  @override
-  String ttsMinWords(String count) => 'Min $count words before split';
-
-  @override
-  String get ttsMode => 'Playback mode';
-
-  @override
-  String get ttsOrder => 'Playback order';
-
-  @override
-  String get ttsPreview => 'Preview';
-
-  @override
-  String get ttsReadingSpeed => 'قراءة speed';
-
-  @override
-  String get ttsSplitMode => 'Split mode';
-
-  @override
-  String get ttsVoice => 'Voice';
-
-  @override
-  String get typeDharma => 'دارما';
-
-  @override
-  String get typeGrammar => 'قواعد';
-
-  @override
-  String get typeParagraph => 'فقرة';
+  String get typeVocabulary => 'مفردات';
 
   @override
   String get typePhrase => 'عبارة';
@@ -768,34 +152,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String get typeSentence => 'جملة';
 
   @override
-  String get typeVocabulary => 'مفردات';
+  String get typeParagraph => 'فقرة';
 
   @override
-  String get understand => 'افهم';
+  String get typeDharma => 'دارما';
 
   @override
-  String get understandKaraoke => 'Karaoke lyrics';
+  String get typeGrammar => 'قواعد';
 
   @override
-  String get understandMode => 'Understand Mode';
+  String get diffEasy => 'سهل';
 
   @override
-  String get understandNoSync => 'Long press a sentence in Sync tab\nor use Set Loop button';
+  String get diffMedium => 'متوسط';
 
   @override
-  String get understandShadowing => 'Shadowing';
+  String get diffHard => 'صعب';
 
   @override
-  String get understandSync => 'Sync';
-
-  @override
-  String get vennDiagram => 'مخطط فين';
-
-  @override
-  String get vennDiagramSubtitle => 'مناطق المهارات';
-
-  @override
-  String get vocabParagraph => 'فقرة';
+  String get vocabWord => 'كلمة';
 
   @override
   String get vocabPhrase => 'عبارة';
@@ -804,43 +179,347 @@ class AppLocalizationsAr extends AppLocalizations {
   String get vocabSentence => 'جملة';
 
   @override
-  String get vocabWord => 'كلمة';
+  String get vocabParagraph => 'فقرة';
 
   @override
-  String get webReader => 'قارئ الويب';
+  String get commonCancel => 'إلغاء';
 
   @override
-  String get webReaderAddLink => 'إضافة link';
+  String get commonSave => 'حفظ';
 
   @override
-  String get webReaderAddLinkToGroup => 'إضافة link to group';
+  String get commonDelete => 'حذف';
 
   @override
-  String get webReaderBookmark => 'Bookmark current page';
+  String get commonClose => 'إغلاق';
 
   @override
-  String get webReaderContinueReading => 'Continue قراءة';
+  String get commonConfirm => 'Confirm';
 
   @override
-  String get webReaderCreateAndSave => 'Create & حفظ';
+  String get commonRetry => 'إعادة المحاولة';
 
   @override
-  String get webReaderCreateGroup => 'Create group';
+  String get commonEdit => 'تعديل';
 
   @override
-  String get webReaderCreateMyGroup => 'Create my group';
+  String get commonAdd => 'إضافة';
+
+  @override
+  String get commonRemove => 'Remove';
+
+  @override
+  String get commonShare => 'Share';
+
+  @override
+  String get commonCopy => 'Copy';
+
+  @override
+  String get commonCopied => 'Copied';
+
+  @override
+  String get commonSearch => 'بحث';
+
+  @override
+  String get commonFilter => 'تصفية';
+
+  @override
+  String get commonSort => 'ترتيب';
+
+  @override
+  String get commonSettings => 'الإعدادات';
+
+  @override
+  String get commonLoading => 'جار التحميل...';
+
+  @override
+  String get commonNoData => 'لا توجد بيانات';
+
+  @override
+  String get commonError => 'خطأ';
+
+  @override
+  String get commonSuccess => 'نجاح';
+
+  @override
+  String get commonFailed => 'Failed';
+
+  @override
+  String get commonComingSoon => 'Coming soon';
+
+  @override
+  String get commonUndo => 'Undo';
+
+  @override
+  String get commonRedo => 'Redo';
+
+  @override
+  String get commonNext => 'التالي';
+
+  @override
+  String get commonPrevious => 'السابق';
+
+  @override
+  String get commonBack => 'رجوع';
+
+  @override
+  String get commonDone => 'تم';
+
+  @override
+  String get commonApply => 'تطبيق';
+
+  @override
+  String get commonReset => 'Reset';
+
+  @override
+  String get commonClear => 'Clear';
+
+  @override
+  String get commonSelectAll => 'Select all';
+
+  @override
+  String get commonDeselect => 'Deselect';
+
+  @override
+  String get commonSaveNote => 'حفظ ملاحظة';
+
+  @override
+  String get commonAddNote => 'إضافة ملاحظة';
+
+  @override
+  String get commonEditNote => 'تعديل ملاحظة';
+
+  @override
+  String get commonDeleteNote => 'حذف ملاحظة';
+
+  @override
+  String get commonNote => 'ملاحظة';
+
+  @override
+  String get commonNotes => 'ملاحظات';
+
+  @override
+  String get commonReading => 'قراءة';
+
+  @override
+  String get commonListening => 'استماع';
+
+  @override
+  String get commonSpeaking => 'تحدث';
+
+  @override
+  String get commonWriting => 'كتابة';
+
+  @override
+  String get commonUnderstanding => 'فهم';
+
+  @override
+  String get commonRemembering => 'تذكر';
+
+  @override
+  String get commonLearn => 'تعلم';
+
+  @override
+  String get commonStudy => 'دراسة';
+
+  @override
+  String get commonReview => 'مراجعة';
+
+  @override
+  String get commonPractice => 'ممارسة';
+
+  @override
+  String get commonTranslate => 'ترجمة';
+
+  @override
+  String get commonPronunciation => 'نطق';
+
+  @override
+  String get commonVocabulary => 'مفردات';
+
+  @override
+  String get commonGrammar => 'قواعد';
+
+  @override
+  String get commonExample => 'مثال';
+
+  @override
+  String get commonMeaning => 'معنى';
+
+  @override
+  String get commonDefinition => 'Definition';
+
+  @override
+  String get commonSynonym => 'Synonym';
+
+  @override
+  String get commonAntonym => 'Antonym';
+
+  @override
+  String get readMode => 'Read Mode';
+
+  @override
+  String get readLibrary => 'قراءة library';
+
+  @override
+  String get readEmpty => 'إضافة text to start قراءة supports txt, lrc, srt';
+
+  @override
+  String get readAddDocument => 'إضافة document';
+
+  @override
+  String get readOpenFile => 'Open file';
+
+  @override
+  String get readPasteText => 'Paste text';
+
+  @override
+  String get readTextStudio => 'Text Studio';
+
+  @override
+  String get readNoDocument => 'No document';
+
+  @override
+  String get readLine => 'Line';
+
+  @override
+  String get readTranslate => 'Show translation';
+
+  @override
+  String get readHideTranslation => 'Hide translation';
+
+  @override
+  String get readTts => 'Text-to-Speech';
+
+  @override
+  String get readSpeed => 'Speed';
+
+  @override
+  String get readVoice => 'Voice';
+
+  @override
+  String get readAutoScroll => 'Auto scroll';
+
+  @override
+  String get readFontSize => 'Font size';
+
+  @override
+  String get listenMode => 'Listen Mode';
+
+  @override
+  String get listenLibrary => 'Audio Library';
+
+  @override
+  String get listenNoAudio => 'No audio yet';
+
+  @override
+  String get listenAddAudio => 'إضافة audio';
+
+  @override
+  String get listenNowPlaying => 'Now Playing';
+
+  @override
+  String get listenPlay => 'Play';
+
+  @override
+  String get listenPause => 'Pause';
+
+  @override
+  String get listenStop => 'Stop';
+
+  @override
+  String listenContinue(Object time) {
+    return 'Continue from $time';
+  }
+
+  @override
+  String get listenFromStart => 'From start';
+
+  @override
+  String get listenLoop => 'Loop';
+
+  @override
+  String get listenNoContent => 'No content\nCreate LRC from STT';
+
+  @override
+  String get understandMode => 'Understand Mode';
+
+  @override
+  String get understandSync => 'Sync';
+
+  @override
+  String get understandShadowing => 'Shadowing';
+
+  @override
+  String get understandKaraoke => 'Karaoke lyrics';
+
+  @override
+  String get understandNoSync =>
+      'Long press a sentence in Sync tab\nor use Set Loop button';
+
+  @override
+  String get memoryGarden => 'Memory Garden';
+
+  @override
+  String get memoryDue => 'Due';
+
+  @override
+  String get memoryTotalWords => 'Total words';
+
+  @override
+  String get memoryNeedReview => 'Need مراجعة';
+
+  @override
+  String get memoryMastered => 'Mastered';
+
+  @override
+  String get memorySeed => 'Seed';
+
+  @override
+  String get memorySprout => 'Sprout';
+
+  @override
+  String get memoryBloom => 'Bloom';
+
+  @override
+  String get memoryEmptyDesc =>
+      'حفظ مفردات from read tab to start growing your knowledge garden';
+
+  @override
+  String get memoryOpenWordlist => 'Open wordlist to إضافة new words';
+
+  @override
+  String get wordListEmpty => 'No مفردات yet';
+
+  @override
+  String get wordListSearchHint => 'بحث words, phrases...';
+
+  @override
+  String get wordListFilterStatus => 'تصفية by status';
+
+  @override
+  String get wordListSort => 'ترتيب';
+
+  @override
+  String get wordListAddManual => 'إضافة manually';
+
+  @override
+  String get wordListImport => 'Bulk import';
+
+  @override
+  String get wordListPlayAll => 'Play all';
+
+  @override
+  String get wordListDue => 'Due';
+
+  @override
+  String get wordListLearning => 'Learning';
+
+  @override
+  String get wordListBlindSpot => 'Blind spot';
 
   @override
   String get webReaderDashboard => 'Dashboard Home';
-
-  @override
-  String get webReaderDeleteGroup => 'حذف group';
-
-  @override
-  String get webReaderDeleteNote => 'حذف ملاحظة';
-
-  @override
-  String get webReaderEditGroup => 'تعديل group';
 
   @override
   String get webReaderGoBack => 'Go رجوع';
@@ -849,31 +528,61 @@ class AppLocalizationsAr extends AppLocalizations {
   String get webReaderGoForward => 'Go forward';
 
   @override
-  String get webReaderGroupDesc => 'Description';
+  String get webReaderUrlHint => 'Url or بحث to open quickly...';
 
   @override
-  String get webReaderGroupName => 'Group name';
+  String get webReaderSaveToGroup => 'حفظ current page to group';
+
+  @override
+  String get webReaderBookmark => 'Bookmark current page';
 
   @override
   String get webReaderInTextStudio => 'Open in Text Studio';
 
   @override
-  String get webReaderLinkName => 'Link name';
-
-  @override
-  String get webReaderMarkRead => 'Mark as read';
-
-  @override
-  String get webReaderMarkUnread => 'Mark as unread';
-
-  @override
   String get webReaderNoResult => 'No matching results';
 
   @override
-  String get webReaderPin => 'Pin';
+  String get webReaderContinueReading => 'Continue قراءة';
 
   @override
   String get webReaderPinned => 'Pinned';
+
+  @override
+  String get webReaderWithNotes => 'With ملاحظات';
+
+  @override
+  String get webReaderCreateGroup => 'Create group';
+
+  @override
+  String get webReaderAddLink => 'إضافة link';
+
+  @override
+  String get webReaderEditGroup => 'تعديل group';
+
+  @override
+  String get webReaderDeleteGroup => 'حذف group';
+
+  @override
+  String get webReaderGroupName => 'Group name';
+
+  @override
+  String get webReaderGroupDesc => 'Description';
+
+  @override
+  String get webReaderCreateMyGroup => 'Create my group';
+
+  @override
+  String get webReaderAddLinkToGroup => 'إضافة link to group';
+
+  @override
+  String get webReaderLinkName => 'Link name';
+
+  @override
+  String get webReaderUrl => 'URL';
+
+  @override
+  String get webReaderCreateAndSave => 'Create & حفظ';
 
   @override
   String get webReaderPinnedArticle => 'Pinned article';
@@ -882,115 +591,407 @@ class AppLocalizationsAr extends AppLocalizations {
   String get webReaderReadNotes => 'قراءة ملاحظات';
 
   @override
+  String get webReaderYourNote => 'Your ملاحظة';
+
+  @override
+  String get webReaderDeleteNote => 'حذف ملاحظة';
+
+  @override
   String get webReaderSaveNoteBtn => 'حفظ ملاحظة';
 
   @override
-  String get webReaderSaveToGroup => 'حفظ current page to group';
+  String get webReaderMarkUnread => 'Mark as unread';
 
   @override
-  String get webReaderSubtitle => 'قراءة الويب + تمييز CEFR';
+  String get webReaderMarkRead => 'Mark as read';
+
+  @override
+  String get webReaderPin => 'Pin';
 
   @override
   String get webReaderUnpin => 'Unpin';
 
   @override
-  String get webReaderUrl => 'URL';
+  String get pdfOpening => 'Opening PDF...';
 
   @override
-  String get webReaderUrlHint => 'Url or بحث to open quickly...';
+  String get pdfExtracting => 'Extracting text...';
 
   @override
-  String get webReaderWithNotes => 'With ملاحظات';
+  String get pdfCannotExtract =>
+      'Cannot extract text from this PDF.\nIt may be a scanned PDF (image).';
 
   @override
-  String get webReaderYourNote => 'Your ملاحظة';
+  String get pdfTextMode => 'Text mode — full highlighting & TTS features';
 
   @override
-  String get wordList => 'قائمة الكلمات';
+  String get pdfOpenInReadMode => 'Open in Read Mode →';
 
   @override
-  String get wordListAddManual => 'إضافة manually';
+  String get pdfNoteForSelection => 'ملاحظة for selection';
 
   @override
-  String get wordListBlindSpot => 'Blind spot';
+  String get pdfEnterNote => 'Enter ملاحظة / translation / insight...';
 
   @override
-  String get wordListDue => 'Due';
+  String get pdfSavedSelectionNote => '📝 saved ملاحظة for selection';
 
   @override
-  String get wordListEmpty => 'No مفردات yet';
+  String get pdfSelectionOpened => '✅ Opened selection in Text Studio';
 
   @override
-  String get wordListFilterStatus => 'تصفية by status';
+  String get pdfReaderDeepPos => 'PDF Reader · Deep POS';
 
   @override
-  String get wordListImport => 'Bulk import';
+  String get pdfLoadedToStudio => 'Loaded into Text Studio';
 
   @override
-  String get wordListLearning => 'Learning';
+  String get pdfCannotOpen => 'Cannot open PDF';
 
   @override
-  String get wordListPlayAll => 'Play all';
+  String get pdfViewSavedNotes => 'View saved ملاحظات';
 
   @override
-  String get wordListSearchHint => 'بحث words, phrases...';
+  String get pdfNoteSelection => 'ملاحظة selection';
 
   @override
-  String get wordListSort => 'ترتيب';
+  String get pdfSavedToWordlist => 'Saved to WordList';
 
   @override
-  String get wordListStats => 'إحصائيات الكلمات';
+  String get pdfContextAdded => 'Context added to WordList';
 
   @override
-  String get wordListStatsSubtitle => 'إحصائيات مفصلة';
+  String get pdfSaveToMemory => 'حفظ to memory garden';
 
   @override
-  String get wordListSubtitle => 'قائمة المفردات';
+  String get pdfSavedToMemory => 'Saved to Memory Garden';
 
   @override
-  String get wordMap => 'خريطة الكلمات';
+  String get pdfNoNotes => 'No ملاحظات yet';
 
   @override
-  String get wordMapSubtitle => 'معروف → صغير · غير معروف → كبير';
+  String get pdfLongPressHint =>
+      'Long-press a word on pdf or إضافة ملاحظة from selection in text mode.';
 
   @override
-  String get youglish => 'YouGlish';
+  String get translationEngineSettings => 'Translation engine الإعدادات';
 
   @override
-  String get youglishSubtitle => 'النطق الأصلي';
+  String translationError(Object error) {
+    return 'خطأ $error';
+  }
 
   @override
-  String get youtube => 'يوتيوب';
+  String translationChangedTo(Object flag, Object language) {
+    return '$flag Changed translation and voice to $language';
+  }
 
   @override
-  String get youtubeSubtitle => 'استكشاف القنوات الإنجليزية';
+  String get translationTranslateAll => 'ترجمة all (skip existing)';
 
   @override
-  String get ytAddChannel => 'إضافة channel';
+  String get translationRetranslateAll => 'Retranslate all';
 
   @override
-  String get ytAllChannels => 'All channels';
+  String get translationClearAll => 'Clear all translations';
+
+  @override
+  String get translationEngine => 'Translation engine';
+
+  @override
+  String get translationDeepLXUrl => 'DeepLX Server URL (optional)';
+
+  @override
+  String get translationLeaveEmpty => 'Leave empty → use Google Free';
+
+  @override
+  String get translationTargetViaFlag =>
+      'Target language is selected via flag button on translation bar.';
+
+  @override
+  String get translationStop => 'Stop';
+
+  @override
+  String get translationSelectTarget => 'Select target';
+
+  @override
+  String get translationTranslated => 'Translated';
+
+  @override
+  String get translationTranslate => 'ترجمة';
+
+  @override
+  String get translationHide => 'Hide';
+
+  @override
+  String get translationBelow => 'Below';
+
+  @override
+  String get translationColumn => 'Column';
+
+  @override
+  String get translationLanguage => 'Translation language';
+
+  @override
+  String get translationSearchLang => 'بحث languages…';
+
+  @override
+  String get translationSourceIsTarget =>
+      'Source and target languages are the same.';
+
+  @override
+  String get ttsReadingSpeed => 'قراءة speed';
+
+  @override
+  String get ttsVoice => 'Voice';
+
+  @override
+  String get ttsAutoSplit => 'Auto split lines';
+
+  @override
+  String get ttsSplitMode => 'Split mode';
+
+  @override
+  String ttsMinWords(Object count) {
+    return 'Min $count words before split';
+  }
+
+  @override
+  String ttsMaxWords(Object count) {
+    return 'Max $count words/line';
+  }
+
+  @override
+  String get ttsPreview => 'Preview';
+
+  @override
+  String ttsApply(Object count) {
+    return 'تطبيق ($count lines)';
+  }
+
+  @override
+  String get ttsMode => 'Playback mode';
+
+  @override
+  String get ttsOrder => 'Playback order';
+
+  @override
+  String get ttsDragToSort => 'Drag to reorder';
+
+  @override
+  String get ttsApiKeys => 'API Keys (optional, free)';
+
+  @override
+  String get ttsClearCache => 'Clear TTS cache!';
+
+  @override
+  String get ttsClear => 'Clear';
+
+  @override
+  String get shadowingReady => 'Ready for shadowing ممارسة';
+
+  @override
+  String get shadowingSelectSegment => 'Select an A-B Loop segment to start';
+
+  @override
+  String get shadowingStartPractice => 'Start ممارسة';
+
+  @override
+  String get shadowingSteps =>
+      '1. Listen to sample\n2. Press record\n3. Repeat after sample';
+
+  @override
+  String get shadowingListeningSample => 'استماع to sample...';
+
+  @override
+  String get shadowingListenCarefully => 'Listen carefully...';
+
+  @override
+  String get shadowingReadyEx => 'Ready!';
+
+  @override
+  String get shadowingRecording => 'Recording...';
+
+  @override
+  String shadowingMax(Object seconds) {
+    return 'Max: ${seconds}s';
+  }
+
+  @override
+  String get shadowingAnalyzing => 'Analyzing...';
+
+  @override
+  String get shadowingRhythm => 'Rhythm';
+
+  @override
+  String get shadowingPitch => 'Pitch';
+
+  @override
+  String get shadowingEnergy => 'Energy';
+
+  @override
+  String get shadowingPlaySample => 'Play sample';
+
+  @override
+  String get shadowingStopSample => 'Stop sample';
+
+  @override
+  String get shadowingCancelCountdown => 'إلغاء countdown';
+
+  @override
+  String get shadowingStopRecording => 'Stop recording';
+
+  @override
+  String get shadowingRetry => 'إعادة المحاولة';
+
+  @override
+  String get shadowingFinish => 'Finish';
+
+  @override
+  String get shadowingSelectToPractice => 'Select segment to ممارسة';
+
+  @override
+  String get grammarPos => 'Part of speech';
+
+  @override
+  String get grammarCefr => 'CEFR level';
+
+  @override
+  String get grammarDifficultyUser => 'Difficulty (your tags)';
+
+  @override
+  String get grammarPresetSuggestions => 'Suggested presets';
+
+  @override
+  String get grammarYourPresets => 'Your presets';
+
+  @override
+  String get grammarShowMiniLegend => 'Show mini legend in قراءة area';
+
+  @override
+  String get grammarComparePalette => 'Compare palettes visually';
+
+  @override
+  String get grammarColorStyle => 'Color style';
+
+  @override
+  String get grammarPosGroups => 'POS groups';
+
+  @override
+  String grammarUsingPreset(Object name) {
+    return 'Using preset: $name';
+  }
+
+  @override
+  String grammarCustomizingFrom(Object name) {
+    return 'Customizing from nearest preset: $name';
+  }
+
+  @override
+  String grammarHiddenGroups(Object count) {
+    return '$count groups hidden';
+  }
+
+  @override
+  String get grammarSavePreset => 'حفظ custom preset';
+
+  @override
+  String grammarRestore(Object name) {
+    return 'Restore $name';
+  }
+
+  @override
+  String grammarHiddenDesc(Object count) {
+    return '$count POS groups hidden. You can re-enable them.';
+  }
+
+  @override
+  String get grammarEnableAll => 'Enable all';
+
+  @override
+  String get grammarExperienceMode => 'Experience mode';
+
+  @override
+  String get grammarTextAlign => 'Text alignment';
+
+  @override
+  String get grammarFontSize => 'Font size';
+
+  @override
+  String get grammarTranslationBilingual => 'Translation & bilingual';
+
+  @override
+  String get grammarColorMode => 'Color mode';
+
+  @override
+  String get grammarDisplay => 'Display';
+
+  @override
+  String get grammarShowTranslation => 'Show translation';
+
+  @override
+  String get grammarShowLineNumbers => 'Show line numbers';
+
+  @override
+  String get grammarSmartSplit => 'Smart line split';
+
+  @override
+  String get grammarReadingMode => 'قراءة mode';
+
+  @override
+  String get grammarListeningMode => 'استماع mode (tts)';
+
+  @override
+  String get grammarTranslationMode => 'Translation Mode';
+
+  @override
+  String get grammarDrivingMode => 'Driving Mode';
 
   @override
   String get ytAudioCaptionsHistory => 'Audio · Captions · History';
 
   @override
-  String get ytAudioLyricsLinked => '🎵 Audio + Lyrics linked!';
+  String get ytPasteUrl => 'Paste YouTube URL...';
 
   @override
-  String get ytChannel => 'Channel';
+  String get ytHistory => 'History';
+
+  @override
+  String get ytNoHistory => 'No history yet';
+
+  @override
+  String get ytAddChannel => 'إضافة channel';
 
   @override
   String get ytChannelIdHint => 'Channel ID or URL...';
 
   @override
-  String get ytChooseSpecific => 'Choose specific';
+  String get ytVocabLevel => 'مفردات level';
+
+  @override
+  String get ytSortBy => 'ترتيب by';
 
   @override
   String get ytDate => 'Date';
 
   @override
-  String get ytDownloadAnother => 'Download another video';
+  String get ytViews => 'Views';
+
+  @override
+  String get ytChannel => 'Channel';
+
+  @override
+  String get ytAllChannels => 'All channels';
+
+  @override
+  String get ytNoVideos => 'No videos';
+
+  @override
+  String get ytSampleData =>
+      'Using sample data.\nSet YouTube Data API v3 key for real videos.';
+
+  @override
+  String get ytGetInfo => 'Get info';
 
   @override
   String get ytDownloadAudio => 'Download Audio';
@@ -999,49 +1000,121 @@ class AppLocalizationsAr extends AppLocalizations {
   String get ytDownloadLyrics => 'Download Lyrics';
 
   @override
-  String get ytDownloadedPlaying => 'Downloaded! Playing...';
+  String get ytSubtitleLang => 'Subtitle language';
 
   @override
   String get ytDownloadingAudio => 'Downloading audio...';
 
   @override
+  String get ytProcessing => 'Processing...';
+
+  @override
   String get ytDownloadingSubs => 'Downloading subtitles...';
 
   @override
-  String get ytFetchingInfo => 'Fetching info...';
-
-  @override
-  String ytGetCaptions(String lang) => 'Get captions ($lang)';
-
-  @override
-  String get ytGetInfo => 'Get info';
-
-  @override
-  String get ytHighDesc => 'Highest bitrate, prefer mp4/aac';
-
-  @override
-  String get ytHigherBigger => 'Higher quality = bigger file';
-
-  @override
-  String get ytHistory => 'History';
+  String get ytNoSubs => 'No subtitles';
 
   @override
   String get ytIknow => '✓ Known';
 
   @override
-  String get ytKnownAll => 'Know all';
+  String get ytLearning => '📖 Learning';
 
   @override
-  String get ytLang => 'Language:';
+  String get ytSkip => '⊘ Skip';
+
+  @override
+  String get ytKnownAll => 'Know all';
 
   @override
   String get ytLearnSentence => 'تعلم whole sentence';
 
   @override
-  String get ytLearning => '📖 Learning';
+  String get ytNoDict => '(not in dictionary)';
 
   @override
-  String ytLines(String count) => '$count lines';
+  String get ytQualityHighest => 'Highest';
+
+  @override
+  String get ytQualityMedium => 'Medium (128kbps)';
+
+  @override
+  String get ytQualityLow => 'Low / Small (64kbps)';
+
+  @override
+  String ytPreparingQuality(Object kbps, Object size) {
+    return 'Preparing · ${kbps}kbps · $size';
+  }
+
+  @override
+  String get ytVideoUnavailable => 'Video unavailable';
+
+  @override
+  String get ytNetworkError => 'Network خطأ — check connection';
+
+  @override
+  String get ytQualityList => 'Fetching quality list...';
+
+  @override
+  String get ytDownloadedPlaying => 'Downloaded! Playing...';
+
+  @override
+  String ytQualityLabel(Object quality) {
+    return 'Quality: $quality';
+  }
+
+  @override
+  String get ytDownloadAnother => 'Download another video';
+
+  @override
+  String get ytFetchingInfo => 'Fetching info...';
+
+  @override
+  String get ytPasteToStart => 'Paste YouTube URL above to start';
+
+  @override
+  String get ytSelectQuality => 'Select audio quality';
+
+  @override
+  String get ytHigherBigger => 'Higher quality = bigger file';
+
+  @override
+  String get ytHighDesc => 'Highest bitrate, prefer mp4/aac';
+
+  @override
+  String get ytMediumDesc => '~128kbps – balanced quality/size';
+
+  @override
+  String get ytLowDesc => '~64kbps – smallest, for slow network';
+
+  @override
+  String get ytChooseSpecific => 'Choose specific';
+
+  @override
+  String ytNoCaptionsLang(Object lang) {
+    return 'No captions for \"$lang\".\nTry another language.';
+  }
+
+  @override
+  String get ytLang => 'Language:';
+
+  @override
+  String ytGetCaptions(Object lang) {
+    return 'Get captions ($lang)';
+  }
+
+  @override
+  String ytLines(Object count) {
+    return '$count lines';
+  }
+
+  @override
+  String ytMoreLines(Object count) {
+    return '... and $count more lines';
+  }
+
+  @override
+  String get ytLoadedToStudio => '✅ Loaded into Text Studio';
 
   @override
   String get ytLinkPlay => 'Link + Play';
@@ -1050,87 +1123,68 @@ class AppLocalizationsAr extends AppLocalizations {
   String get ytLinkPlayDone => 'Link + Play ✅';
 
   @override
-  String get ytLoadedToStudio => '✅ Loaded into Text Studio';
+  String get ytNeedAudioFirst => 'Please download audio in \"Audio\" tab first';
 
   @override
-  String get ytLowDesc => '~64kbps – smallest, for slow network';
+  String get ytAudioLyricsLinked => '🎵 Audio + Lyrics linked!';
 
   @override
-  String get ytMediumDesc => '~128kbps – balanced quality/size';
+  String get msgCopied => '📋 Copied!';
 
   @override
-  String ytMoreLines(String count) => '... and $count more lines';
+  String get msgSaved => 'Saved';
 
   @override
-  String get ytNeedAudioFirst => 'Please download audio in "Audio" tab first';
+  String get msgDeleted => 'Deleted';
 
   @override
-  String get ytNetworkError => 'Network خطأ — check connection';
+  String msgError(Object error) {
+    return 'خطأ $error';
+  }
 
   @override
-  String ytNoCaptionsLang(String lang) => 'No captions for \"$lang\".\nTry another language.';
+  String get msgNetworkError => 'Network خطأ please check connection';
 
   @override
-  String get ytNoDict => '(not in dictionary)';
+  String get msgLoginNeeded => 'Please login';
 
   @override
-  String get ytNoHistory => 'No history yet';
+  String get msgNotLoggedIn => 'Not logged in';
 
   @override
-  String get ytNoSubs => 'No subtitles';
+  String msgPleaseEnter(Object field) {
+    return 'Please enter $field';
+  }
 
   @override
-  String get ytNoVideos => 'No videos';
+  String get msgInvalidInput => 'Invalid input';
 
   @override
-  String get ytPasteToStart => 'Paste YouTube URL above to start';
+  String get toolsTitle => 'Tools';
 
   @override
-  String get ytPasteUrl => 'Paste YouTube URL...';
+  String toolsFeaturesCount(Object count) {
+    return '$count features';
+  }
 
   @override
-  String ytPreparingQuality(String kbps, String size) => 'Preparing · $kbpskbps · $size';
+  String get toolsMoreComing => 'More features coming';
 
   @override
-  String get ytProcessing => 'Processing...';
+  String get toolsProgress => 'Learning Progress';
 
   @override
-  String get ytQualityHighest => 'Highest';
+  String get toolsWordMap => 'Word Map';
 
   @override
-  String ytQualityLabel(String quality) => 'Quality: $quality';
+  String get toolsTriangle => 'Triangle';
 
   @override
-  String get ytQualityList => 'Fetching quality list...';
+  String get toolsVenn => 'Venn Diagram';
 
   @override
-  String get ytQualityLow => 'Low / Small (64kbps)';
+  String get demoWordHello => 'hello';
 
   @override
-  String get ytQualityMedium => 'Medium (128kbps)';
-
-  @override
-  String get ytSampleData => 'Using sample data.\nSet YouTube Data API v3 key for real videos.';
-
-  @override
-  String get ytSelectQuality => 'Select audio quality';
-
-  @override
-  String get ytSkip => '⊘ Skip';
-
-  @override
-  String get ytSortBy => 'ترتيب by';
-
-  @override
-  String get ytSubtitleLang => 'Subtitle language';
-
-  @override
-  String get ytVideoUnavailable => 'Video unavailable';
-
-  @override
-  String get ytViews => 'Views';
-
-  @override
-  String get ytVocabLevel => 'مفردات level';
-
+  String get demoWordWorld => 'world';
 }

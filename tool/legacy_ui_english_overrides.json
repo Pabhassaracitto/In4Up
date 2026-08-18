@@ -1610,5 +1610,18 @@
   "Đã mở sẵn bài “{value0}”. Bạn vẫn có thể đổi dạng bài bên dưới.": "Opened the “{value0}” exercise. You can still change the exercise type below.",
   "Chép chính tả": "Dictation",
   "Từ khóa": "Keywords",
-  "Độ dài": "Length"
+  "Độ dài": "Length",
+  "AI model đã sẵn sàng": "AI model is ready",
+  "Import AI model": "Import AI model",
+  "AI local đã sẵn sàng.": "Local AI is ready.",
+  "Chưa import được model .gguf.": "Could not import the .gguf model.",
+  "Xóa cuộc trò chuyện": "Clear conversation",
+  "Hỏi I2U về từ vựng, ngữ pháp...": "Ask I2U about vocabulary, grammar...",
+  "Gửi": "Send",
+  "Trợ lý học tập I2U": "I2U learning assistant",
+  "Đặt câu hỏi về tiếng Anh hoặc nội dung bạn đang học.": "Ask a question about English or what you are studying.",
+  "Hỏi đáp về từ vựng và ngữ pháp": "Ask about vocabulary and grammar",
+  "AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.": "Local AI is not ready. You can import a .gguf model in AI settings.",
+  "Mình chưa tạo được câu trả lời cho tin nhắn này.": "I could not create a reply for this message.",
+  "Có lỗi khi xử lý. Vui lòng thử lại.": "Something went wrong. Please try again."
 }

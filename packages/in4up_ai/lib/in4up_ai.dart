@@ -5,6 +5,10 @@ export 'src/facade/ai_service_facade.dart';
 
 // Models
 export 'src/models/ai_analysis.dart';
+export 'src/models/chat_message.dart';
+
+// Defensive model-output parsing
+export 'src/mapper/ai_model_mapper.dart';
 
 // Loader - cho UI hiển thị trạng thái model
 export 'src/loader/ai_model_loader.dart'

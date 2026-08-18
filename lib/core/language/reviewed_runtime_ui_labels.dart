@@ -52,4 +52,7 @@ const List<String> reviewedRuntimeUiLabels = [
   '{value0}% độ dài nguồn',
   '{value0}% cụm 3 từ trùng nguồn',
   '{value0}% từ khóa quan sát được',
+  'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
+  'Mình chưa tạo được câu trả lời cho tin nhắn này.',
+  'Có lỗi khi xử lý. Vui lòng thử lại.',
 ];

@@ -189,6 +189,20 @@ void main() {
       });
     });
 
+    test('falls back to English for I2U chat harvest labels', () {
+      const cases = {
+        'Hỏi đáp về từ vựng và ngữ pháp': 'Ask about vocabulary and grammar',
+        'Trợ lý học tập I2U': 'I2U learning assistant',
+        'Xóa cuộc trò chuyện': 'Clear conversation',
+        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.':
+            'Local AI is not ready. You can import a .gguf model in AI settings.',
+      };
+      cases.forEach((source, english) {
+        expect(AppUITranslations.translate(source, 'en'), english);
+        expect(AppUITranslations.translate(source, 'ja'), isNot(source));
+      });
+    });
+
     test('falls back to English for writing-studio harvest labels', () {
       const cases = {
         'Nguồn cho Viết': 'Writing source',

@@ -2,7 +2,7 @@
 // in4up - Chế độ HIỂU (Fixed version)
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
@@ -348,9 +348,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         labelColor: const Color(0xFFFFB300),
         unselectedLabelColor: Colors.grey,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        tabs: const [
-          Tab(text: 'Đồng bộ'),
-          Tab(text: 'Shadowing'),
+        tabs: [
+          Tab(text: context.uiText('Đồng bộ')),
+          const Tab(text: 'Shadowing'),
         ],
       ),
     );
@@ -487,7 +487,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     IconButton(
                       icon: const Icon(Icons.tune,
                           color: Colors.grey, size: 20),
-                      tooltip: 'Tuỳ chỉnh karaoke',
+                      tooltip: context.uiText('Tuỳ chỉnh karaoke'),
                       onPressed: () => KaraokeSettingsSheet.show(context),
                     ),
                     AutoScrollButton(
@@ -1096,11 +1096,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã set loop cho dòng ${lineIndex + 1}'),
+        content: Text(context.uiText('Đã set loop cho dòng ${lineIndex + 1}')),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'Xóa',
+          label: context.uiText('Xóa'),
           textColor: Colors.white,
           onPressed: () => context.read<PlayerProvider>().clearLoop(),
         ),

@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/sheets/word_detail_sheet.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
@@ -500,7 +500,7 @@ class WordDetailSheet extends StatelessWidget {
           style: TextStyle(color: Colors.white),
         ),
         content: Text(
-          'Xóa "${item.word}" khỏi vườn nhớ?\nDữ liệu ôn tập sẽ mất.',
+          context.uiText('Xóa "${item.word}" khỏi vườn nhớ?\nDữ liệu ôn tập sẽ mất.'),
           style: TextStyle(color: Colors.grey[400]),
         ),
         actions: [
@@ -658,7 +658,7 @@ class _TimingRow extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            value,
+            context.uiText(value),
             style: TextStyle(
               color: valueColor ?? Colors.grey[400],
               fontSize: 12,

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/grammar_category.dart';
 import '../models/grammar_highlight_settings.dart';

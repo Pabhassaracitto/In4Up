@@ -6,7 +6,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
@@ -465,7 +465,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     await WebExtractionBatchSheet.show(
       context,
       controller: _controller,
-      sourceLabel: 'Đoạn đã chọn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+      sourceLabel: _controller.pageTitle.isEmpty
+          ? _controller.currentUrl
+          : _controller.pageTitle,
       sourceText: selection,
       fromSelection: true,
     );
@@ -608,7 +610,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                       ),
                       subtitle: Text(
                         collection.description.isEmpty
-                            ? '${collection.linkCount} liên kết'
+                            ? context.uiText(
+                                '${collection.linkCount} liên kết',
+                              )
                             : collection.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -727,8 +731,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     required String hint,
   }) {
     return InputDecoration(
-      labelText: label,
-      hintText: hint,
+      labelText: context.uiText(label),
+      hintText: context.uiText(hint),
       labelStyle: TextStyle(color: Colors.grey[300]),
       hintStyle: TextStyle(color: Colors.grey[600]),
       filled: true,
@@ -857,8 +861,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       }
       context.read<TextProvider>().loadFromString(
             noteText,
-            title:
-                'Ghi chú · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+            title: context.uiText(
+              'Ghi chú · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+            ),
           );
       _showSnack('Đã mở ghi chú trong Text Studio');
       return;
@@ -916,8 +921,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     if (selection.isEmpty) return;
     context.read<TextProvider>().loadFromString(
           selection,
-          title:
-              'Trích đoạn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+          title: context.uiText(
+            'Trích đoạn · ${_controller.pageTitle.isEmpty ? _controller.currentUrl : _controller.pageTitle}',
+          ),
         );
     _showSnack('Đã mở đoạn chọn trong Text Studio');
   }
@@ -956,7 +962,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(context.uiText(msg)),
         backgroundColor: const Color(0xFF1A237E),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: duration),
@@ -983,7 +989,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           icon: const Icon(Icons.arrow_back_ios_new,
               color: Colors.white, size: 18),
           onPressed: () => Navigator.pop(context),
-          tooltip: 'Quay lại',
+          tooltip: context.uiText('Quay lại'),
         ),
         titleSpacing: 0,
         title: !_showDashboard && _controller.state == WebReaderState.loading
@@ -1011,7 +1017,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           if (!_showDashboard && _controller.currentUrl.isNotEmpty)
             PopupMenuButton<String>(
               color: const Color(0xFF151B26),
-              tooltip: 'Tác vụ bài đọc',
+              tooltip: context.uiText('Tác vụ bài đọc'),
               onSelected: _handlePageAction,
               itemBuilder: (context) {
                 final isPinned =
@@ -1173,19 +1179,19 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           const SizedBox(width: 8),
           _SelectionActionButton(
             icon: Icons.sticky_note_2_outlined,
-            tooltip: 'Thêm vào ghi chú bài này',
+            tooltip: context.uiText('Thêm vào ghi chú bài này'),
             onTap: _appendSelectionToNote,
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(
             icon: Icons.text_snippet_outlined,
-            tooltip: 'Mở đoạn chọn trong Text Studio',
+            tooltip: context.uiText('Mở đoạn chọn trong Text Studio'),
             onTap: _openSelectionInTextStudio,
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(
             icon: Icons.volume_up,
-            tooltip: 'Đọc đoạn chọn',
+            tooltip: context.uiText('Đọc đoạn chọn'),
             onTap: () => _controller.speakText(_selectionText),
           ),
           const SizedBox(width: 6),
@@ -1225,9 +1231,9 @@ class _SelectionMoreButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Thao tác học tập',
+      message: context.uiText('Thao tác học tập'),
       child: PopupMenuButton<String>(
-        tooltip: 'Thao tác học tập',
+        tooltip: context.uiText('Thao tác học tập'),
         color: const Color(0xFF151B26),
         icon: Container(
           padding: const EdgeInsets.all(6),
@@ -1283,7 +1289,7 @@ class _SelectionActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         child: Container(

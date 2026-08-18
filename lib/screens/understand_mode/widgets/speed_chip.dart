@@ -1,6 +1,6 @@
 // lib/screens/understand_mode/widgets/speed_chip.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class SpeedChip extends StatelessWidget {
   final double speed;

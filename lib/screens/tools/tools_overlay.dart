@@ -7,7 +7,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 // ─── Model ───────────────────────────────────────────────
@@ -260,7 +260,7 @@ class _ToolsOverlayScreenState extends State<_ToolsOverlayScreen>
                   ),
                 ),
                 Text(
-                  '${widget.tools.where((t) => t.isAvailable).length} tính năng',
+                  context.uiText('${widget.tools.where((t) => t.isAvailable).length} tính năng'),
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ],

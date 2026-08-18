@@ -1,7 +1,7 @@
 // lib/widgets/shadowing/pronunciation_result.dart
 // Widget hiển thị kết quả phát âm đầy đủ
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../../shadowing/models/shadowing_result.dart';
 import 'phoneme_display.dart';

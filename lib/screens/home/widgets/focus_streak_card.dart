@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/focus_provider.dart';
 
@@ -44,7 +44,7 @@ class FocusStreakCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${focus.streak} ngày liên tiếp',
+                    context.uiText('${focus.streak} ngày liên tiếp'),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

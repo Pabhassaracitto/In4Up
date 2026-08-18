@@ -9,7 +9,7 @@
 //  ✅ Tap vùng để xem danh sách từ trong vùng đó
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -441,7 +441,7 @@ class _VennTabState extends State<VennTab> {
                       fontWeight: FontWeight.bold, color: _selectedZone!.color),
                 ),
                 const SizedBox(width: 4),
-                Text('(${displayWords.length} từ)',
+                Text(context.uiText('(${displayWords.length} từ)'),
                     style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 const Spacer(),
                 TextButton.icon(
@@ -452,7 +452,7 @@ class _VennTabState extends State<VennTab> {
               ] else ...[
                 const Icon(Icons.drag_indicator, size: 16, color: Colors.grey),
                 const SizedBox(width: 6),
-                Text('Tất cả (${displayWords.length} từ)',
+                Text(context.uiText('Tất cả (${displayWords.length} từ)'),
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 13)),
               ],

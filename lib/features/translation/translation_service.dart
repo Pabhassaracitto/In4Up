@@ -51,7 +51,7 @@ class TranslationService {
       AppLanguageCatalog.fromCode(_targetLang, fallback: AppLanguageCatalog.vietnamese);
   String get targetLangFlag => targetLanguage.flag;
   String get targetLangLabel => targetLanguage.translationCode;
-  String get targetLangName => targetLanguage.vietnameseName;
+  String get targetLangName => targetLanguage.nativeName;
   String get targetTtsLocale => targetLanguage.ttsLocale;
 
   List<String> get activeEngines =>

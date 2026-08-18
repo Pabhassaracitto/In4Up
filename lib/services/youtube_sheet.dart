@@ -2,7 +2,7 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -261,7 +261,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
           controller: _urlCtrl,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Dán link YouTube (youtu.be, shorts...)',
+            hintText: context.uiText('Dán link YouTube (youtu.be, shorts...)'),
             hintStyle: TextStyle(color: Colors.grey[600]),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 12 / 255),
@@ -379,7 +379,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
                     ))
                 .toList(),
             onChanged: (v) => setState(() => _selectedLang = v!),
-            decoration: const InputDecoration(labelText: 'Ngôn ngữ phụ đề'),
+            decoration:  InputDecoration(labelText: context.uiText('Ngôn ngữ phụ đề')),
           ),
         ],
       ],
@@ -419,7 +419,7 @@ class _YoutubeSheetState extends State<YoutubeSheet> {
       children: [
         const Icon(Icons.error_outline, color: Colors.red, size: 48),
         const SizedBox(height: 12),
-        Text(_errorMessage ?? 'Lỗi không xác định',
+        Text(context.uiText(_errorMessage ?? 'Lỗi không xác định'),
             style: const TextStyle(color: Colors.white),
             textAlign: TextAlign.center),
         const SizedBox(height: 24),

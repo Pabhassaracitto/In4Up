@@ -4,7 +4,7 @@
 //   1. LibraryAddSheet → "Thư viện Cloud"
 //   2. QuickLibrarySheet → cloud item
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -187,7 +187,7 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
           controller: _searchCtrl,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Tìm theo tiêu đề, chủ đề...',
+            hintText: context.uiText('Tìm theo tiêu đề, chủ đề...'),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -405,7 +405,7 @@ class _CloudEntryTile extends StatelessWidget {
                       ],
                       // Stats
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

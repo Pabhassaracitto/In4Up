@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
 import '../../memory_mode/models/memory_stage.dart';
@@ -88,7 +88,7 @@ class MemoryGardenCard extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onStartReview,
                   icon: const Icon(Icons.auto_fix_high),
-                  label: Text('TƯỚI NƯỚC (${stats.dueToday} TỪ)'),
+                  label: Text(context.uiText('TƯỚI NƯỚC (${stats.dueToday} TỪ)')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50),
                     foregroundColor: Colors.white,

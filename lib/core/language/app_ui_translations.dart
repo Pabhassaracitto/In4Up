@@ -1,136 +1,171 @@
-// Auto-generated translation map - FIXED to avoid const errors
-// Original had 5830 lines with many interpolated keys causing analyzer errors
-// Now using empty map + heuristic fallback to avoid Vietnamese residue
+import 'generated_legacy_ui_fallbacks.dart';
+import 'generated_ui_translations.dart';
 
+/// Translation bridge for presentation strings that have not yet been migrated
+/// to generated [AppLocalizations] getters.
+///
+/// Only exact, reviewed ARB source messages (and their placeholder forms) are
+/// translated. Unknown text is returned unchanged, which is important for
+/// documents, vocabulary and other user-provided content.
 class AppUITranslations {
-  // Empty map to avoid const errors - translate method has heuristic fallback
-  static final Map<String, Map<String, String>> _map = {
-    'Bài có ghi chú': {
-      'de': 'Notiz',
-      'en': 'Note',
-      'es': 'Nota',
-      'fr': 'Note',
-      'ja': 'メモ',
-      'ko': '메모',
-      'vi': 'Bài có ghi chú',
-      'zh': '笔记',
-    },
-    'Lưu': {
-      'de': 'Speichern',
-      'en': 'Save',
-      'es': 'Guardar',
-      'fr': 'Enregistrer',
-      'ja': '保存',
-      'ko': '저장',
-      'vi': 'Lưu',
-      'zh': '保存',
-    },
-    'Xóa': {
-      'de': 'Löschen',
-      'en': 'Delete',
-      'es': 'Eliminar',
-      'fr': 'Supprimer',
-      'ja': '削除',
-      'ko': '삭제',
-      'vi': 'Xóa',
-      'zh': '删除',
-    },
-    'Thêm': {
-      'de': 'Hinzufügen',
-      'en': 'Add',
-      'es': 'Añadir',
-      'fr': 'Ajouter',
-      'ja': '追加',
-      'ko': '추가',
-      'vi': 'Thêm',
-      'zh': '添加',
-    },
-    'Sửa': {
-      'de': 'Bearbeiten',
-      'en': 'Edit',
-      'es': 'Editar',
-      'fr': 'Modifier',
-      'ja': '編集',
-      'ko': '편집',
-      'vi': 'Sửa',
-      'zh': '编辑',
-    },
-    'Hủy': {
-      'de': 'Abbrechen',
-      'en': 'Cancel',
-      'es': 'Cancelar',
-      'fr': 'Annuler',
-      'ja': 'キャンセル',
-      'ko': '취소',
-      'vi': 'Hủy',
-      'zh': '取消',
-    },
-    'Xong': {
-      'de': 'Fertig',
-      'en': 'Done',
-      'es': 'Listo',
-      'fr': 'Terminé',
-      'ja': '完了',
-      'ko': '완료',
-      'vi': 'Xong',
-      'zh': '完成',
-    },
-  };
+  AppUITranslations._();
 
-  static String translate(String vietnameseText, String localeCode) {
-    final normalizedLocale = localeCode.toLowerCase().split('_').first.split('-').first;
-    final entry = _map[vietnameseText];
-    if (entry != null) {
-      if (entry.containsKey(normalizedLocale)) {
-        return entry[normalizedLocale]!;
-      }
-      if (entry.containsKey(localeCode)) {
-        return entry[localeCode]!;
-      }
-      if (normalizedLocale != 'vi' && entry.containsKey('en')) {
-        return entry['en']!;
-      }
-      if (normalizedLocale == 'vi') {
-        return entry['vi'] ?? vietnameseText;
-      }
-    }
-    if (normalizedLocale != 'vi') {
-      if (RegExp(r'[áàảãạăắằẳẵặâấầẩẫậđéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]').hasMatch(vietnameseText)) {
-        final lower = vietnameseText.toLowerCase();
-        if (lower.contains('đã lưu')) return 'Saved';
-        if (lower.contains('đã xóa') || lower.contains('đã xoá')) return 'Deleted';
-        if (lower.contains('đã mở')) return 'Opened';
-        if (lower.contains('đã tạo')) return 'Created';
-        if (lower.contains('ghi chú')) return 'Note';
-        if (lower.contains('tạo nhóm')) return 'Create group';
-        if (lower.contains('sửa nhóm')) return 'Edit group';
-        if (lower.contains('xóa nhóm') || lower.contains('xoá nhóm')) return 'Delete group';
-        if (lower.contains('thêm link')) return 'Add link';
-        if (lower.contains('bài đã ghim')) return 'Pinned';
-        if (lower.contains('bài có ghi chú')) return 'With notes';
-        if (lower.contains('đang tải')) return 'Loading...';
-        if (lower.contains('không thể')) return 'Cannot';
-        if (lower.contains('hãy')) return 'Please';
-        if (lower.contains('nhập')) return 'Enter';
-        if (lower.contains('tìm')) return 'Search';
-        if (lower.contains('tiếp tục')) return 'Continue';
-        if (lower.contains('quay lại')) return 'Back';
-        if (lower.contains('thử lại')) return 'Retry';
-        if (lower.contains('đóng')) return 'Close';
-        if (lower.contains('mở') && lower.contains('text studio')) return 'Open in Text Studio';
-        if (lower.contains('xóa') || lower.contains('xoá')) return 'Delete';
-        if (lower.contains('thêm')) return 'Add';
-        if (lower.contains('sửa')) return 'Edit';
-        if (lower.contains('lưu')) return 'Save';
-        if (lower.contains('hủy') || lower.contains('huỷ')) return 'Cancel';
-        if (lower.contains('xong') || lower.contains('hoàn tất')) return 'Done';
-        return 'Content';
+  static final List<_TranslationTemplate> _templates = ([
+    ...generatedUiTranslations.entries
+        .where((entry) => entry.key.contains('{'))
+        .map(_TranslationTemplate.fromEntry),
+    ...generatedLegacyUiEnglishFallbacks.entries
+        .where((entry) => entry.key.contains('{'))
+        .map(_TranslationTemplate.fromEnglishEntry),
+  ]..sort(
+      (left, right) => right.staticLength.compareTo(left.staticLength),
+    ));
+
+  /// Translates a known Vietnamese UI source message for [localeCode].
+  ///
+  /// English is the canonical fallback for every non-Vietnamese locale. Locale
+  /// subtags are preserved, so Traditional Chinese (`zh-TW`, `zh_Hant`) does
+  /// not accidentally resolve through Simplified Chinese.
+  static String translate(
+    String sourceText,
+    String localeCode, {
+    bool allowTemplates = true,
+  }) {
+    final locale = canonicalLocaleCode(localeCode);
+    if (locale == 'vi') return sourceText;
+
+    final exact = generatedUiTranslations[sourceText];
+    if (exact != null) return _valueForLocale(exact, locale);
+
+    final legacyEnglish = generatedLegacyUiEnglishFallbacks[sourceText];
+    if (legacyEnglish != null) return legacyEnglish;
+
+    if (allowTemplates) {
+      for (final template in _templates) {
+        final translated = template.translate(sourceText, locale);
+        if (translated != null) return translated;
       }
     }
-    return vietnameseText;
+
+    // Never guess at runtime content. Hard-coded presentation messages belong
+    // in an ARB and will then be picked up by this bridge automatically.
+    return sourceText;
   }
 
-  static bool isVietnamese(String text) {
-    return RegExp(r'[áàảãạăắằẳẵặâấầẩẫậđéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]').hasMatch(text);
+  /// Translates only exact reviewed messages.
+  ///
+  /// This is used by the global legacy [Text] shim so arbitrary document or
+  /// vocabulary content cannot accidentally match a placeholder template such
+  /// as `{value0} phút` or `Lỗi: {value0}`. Interpolated UI strings must opt in
+  /// explicitly through `BuildContext.uiText` at their rendering boundary.
+  static String translateExact(String sourceText, String localeCode) {
+    return translate(sourceText, localeCode, allowTemplates: false);
+  }
+
+  static bool containsSource(String sourceText) {
+    if (generatedUiTranslations.containsKey(sourceText) ||
+        generatedLegacyUiEnglishFallbacks.containsKey(sourceText)) {
+      return true;
+    }
+    return _templates.any((template) => template.matches(sourceText));
+  }
+
+  static String canonicalLocaleCode(String localeCode) {
+    final normalized = localeCode.trim().replaceAll('-', '_');
+    if (normalized.isEmpty) return 'en';
+
+    final parts = normalized.split('_');
+    final language = parts.first.toLowerCase();
+    if (language == 'zh') {
+      final subtags = parts.skip(1).map((part) => part.toLowerCase()).toSet();
+      if (subtags.contains('tw') ||
+          subtags.contains('hant') ||
+          subtags.contains('hk') ||
+          subtags.contains('mo')) {
+        return 'zh_TW';
+      }
+      return 'zh';
+    }
+    return language;
+  }
+
+  static String _valueForLocale(
+    Map<String, String> translations,
+    String locale,
+  ) {
+    return translations[locale] ?? translations['en']!;
+  }
+}
+
+class _TranslationTemplate {
+  final RegExp pattern;
+  final List<String> placeholderNames;
+  final Map<String, String> translations;
+  final int staticLength;
+
+  const _TranslationTemplate({
+    required this.pattern,
+    required this.placeholderNames,
+    required this.translations,
+    required this.staticLength,
+  });
+
+  factory _TranslationTemplate.fromEntry(
+    MapEntry<String, Map<String, String>> entry,
+  ) {
+    return _TranslationTemplate._fromSource(entry.key, entry.value);
+  }
+
+  factory _TranslationTemplate.fromEnglishEntry(
+    MapEntry<String, String> entry,
+  ) {
+    return _TranslationTemplate._fromSource(
+      entry.key,
+      {'en': entry.value},
+    );
+  }
+
+  factory _TranslationTemplate._fromSource(
+    String source,
+    Map<String, String> translations,
+  ) {
+    final placeholderPattern = RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}');
+    final names = <String>[];
+    final pattern = StringBuffer('^');
+    var cursor = 0;
+
+    for (final match in placeholderPattern.allMatches(source)) {
+      pattern.write(RegExp.escape(source.substring(cursor, match.start)));
+      pattern.write('(.*?)');
+      names.add(match.group(1)!);
+      cursor = match.end;
+    }
+    pattern.write(RegExp.escape(source.substring(cursor)));
+    pattern.write(r'$');
+
+    return _TranslationTemplate(
+      pattern: RegExp(pattern.toString(), dotAll: true),
+      placeholderNames: names,
+      translations: translations,
+      staticLength: source.replaceAll(placeholderPattern, '').length,
+    );
+  }
+
+  bool matches(String sourceText) => pattern.hasMatch(sourceText);
+
+  String? translate(String sourceText, String locale) {
+    final match = pattern.firstMatch(sourceText);
+    if (match == null) return null;
+
+    final values = <String, String>{};
+    for (var index = 0; index < placeholderNames.length; index++) {
+      values[placeholderNames[index]] = match.group(index + 1)!;
+    }
+
+    final target = AppUITranslations._valueForLocale(translations, locale);
+    return target.replaceAllMapped(
+      RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}'),
+      (placeholder) => values[placeholder.group(1)] ?? placeholder.group(0)!,
+    );
   }
 }

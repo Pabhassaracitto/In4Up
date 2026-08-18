@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/grammar_category.dart';
 import '../models/grammar_highlight_preset.dart';
@@ -161,7 +161,12 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
   }
 
   Future<void> _handleSaveCurrentPreset() async {
-    final draft = await _showSavePresetDialog(context, _activePreset.name);
+    final draft = await _showSavePresetDialog(
+      context,
+      _activePreset.isBuiltIn
+          ? context.uiText(_activePreset.name)
+          : _activePreset.name,
+    );
     if (draft == null) return;
     final saved = await widget.onSaveCurrentAsPreset(draft.name, draft.description);
     if (!mounted) return;
@@ -365,7 +370,9 @@ class _GrammarQuickSettingsSheetState extends State<GrammarQuickSettingsSheet> {
                   _HiddenCategoriesCard(
                     hiddenCategories: hiddenCategories,
                     palette: _palette,
-                    previousPresetName: _previousPreset.name,
+                    previousPresetName: _previousPreset.isBuiltIn
+                        ? context.uiText(_previousPreset.name)
+                        : _previousPreset.name,
                     onShowAllCategories: _handleShowAllCategories,
                     onToggleCategory: _handleToggleCategory,
                   ),
@@ -472,9 +479,19 @@ class _SummaryControlCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activePresetName = activePreset.isBuiltIn
+        ? context.uiText(activePreset.name)
+        : activePreset.name;
+    final previousPresetName = previousPreset.isBuiltIn
+        ? context.uiText(previousPreset.name)
+        : previousPreset.name;
     final subtitle = settings.isCustomPreset
-        ? 'Đang chỉnh tay từ preset gần nhất: ${previousPreset.name}'
-        : activePreset.description;
+        ? context.uiText(
+            'Đang chỉnh tay từ preset gần nhất: $previousPresetName',
+          )
+        : activePreset.isBuiltIn || activePreset.descriptionIsGenerated
+            ? context.uiText(activePreset.description)
+            : activePreset.description;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -507,9 +524,9 @@ class _SummaryControlCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      settings.isCustomPreset
+                      context.uiText(settings.isCustomPreset
                           ? 'Preset hiện tại: Tùy chỉnh'
-                          : 'Preset hiện tại: ${activePreset.name}',
+                          : 'Preset hiện tại: $activePresetName'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -608,7 +625,7 @@ class _SummaryControlCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onRestorePreviousPreset,
                   icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: Text('Khôi phục ${previousPreset.name}'),
+                  label: Text(context.uiText('Khôi phục $previousPresetName')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB8B5FF),
                     side: BorderSide(
@@ -667,7 +684,7 @@ class _PresetCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    preset.audienceLabel,
+                    context.uiText(preset.audienceLabel),
                     style: TextStyle(
                       color: selected ? const Color(0xFFD4D2FF) : Colors.white70,
                       fontSize: 10.5,
@@ -685,7 +702,7 @@ class _PresetCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              preset.name,
+              preset.isBuiltIn ? context.uiText(preset.name) : preset.name,
               style: TextStyle(
                 color: selected ? Colors.white : Colors.white,
                 fontSize: 13.5,
@@ -694,7 +711,9 @@ class _PresetCard extends StatelessWidget {
             ),
             const SizedBox(height: 5),
             Text(
-              preset.description,
+              preset.isBuiltIn || preset.descriptionIsGenerated
+                  ? context.uiText(preset.description)
+                  : preset.description,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -705,7 +724,7 @@ class _PresetCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              preset.focusSummary,
+              context.uiText(preset.focusSummary),
               style: TextStyle(
                 color: selected ? const Color(0xFFB8B5FF) : Colors.grey[500],
                 fontSize: 11,
@@ -808,7 +827,7 @@ class _PalettePreviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              _paletteHint(palette.id),
+              context.uiText(_paletteHint(palette.id)),
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 11.5,
@@ -863,7 +882,7 @@ class _HiddenCategoriesCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị mất — bạn có thể bật lại từng nhóm, bật lại tất cả, hoặc quay về preset gần nhất $previousPresetName.',
+            context.uiText('Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị mất — bạn có thể bật lại từng nhóm, bật lại tất cả, hoặc quay về preset gần nhất $previousPresetName.'),
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -893,7 +912,7 @@ class _HiddenCategoriesCard extends StatelessWidget {
                     color: palette.styleFor(category).color.withValues(alpha: 0.28),
                   ),
                   label: Text(
-                    '+ ${category.labelVi}',
+                    '+ ${context.uiText(category.labelVi)}',
                     style: TextStyle(
                       color: palette.styleFor(category).color,
                       fontSize: 11,
@@ -943,7 +962,7 @@ class _GrammarGroupCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  group.labelVi,
+                  context.uiText(group.labelVi),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -955,7 +974,7 @@ class _GrammarGroupCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            group.helperVi,
+            context.uiText(group.helperVi),
             style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11.5,
@@ -987,7 +1006,7 @@ class _GrammarGroupCard extends StatelessWidget {
                   ),
                 ),
                 label: Text(
-                  category.labelVi,
+                  context.uiText(category.labelVi),
                   style: TextStyle(
                     color: selected ? style.color : Colors.white70,
                     fontSize: 11.5,
@@ -1024,7 +1043,7 @@ class _InfoPill extends StatelessWidget {
           Icon(icon, size: 14, color: Colors.white70),
           const SizedBox(width: 6),
           Text(
-            label,
+            context.uiText(label),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 11.5,
@@ -1058,7 +1077,7 @@ class _HintCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            context.uiText(title),
             style: const TextStyle(
               color: Color(0xFFD4D2FF),
               fontWeight: FontWeight.w700,
@@ -1066,7 +1085,7 @@ class _HintCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            message,
+            context.uiText(message),
             style: const TextStyle(
               color: Color(0xFFB8B5FF),
               height: 1.45,
@@ -1122,7 +1141,7 @@ class _ChoiceChipButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              label,
+              context.uiText(label),
               style: TextStyle(
                 color: selected ? const Color(0xFFB8B5FF) : Colors.white,
                 fontWeight: FontWeight.w700,
@@ -1132,7 +1151,7 @@ class _ChoiceChipButton extends StatelessWidget {
             if (!compact && subtitle != null) ...[
               const SizedBox(height: 4),
               Text(
-                subtitle!,
+                context.uiText(subtitle!),
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 10.5,
@@ -1159,7 +1178,9 @@ Future<_PresetDraft?> _showSavePresetDialog(
   String suggestedName,
 ) async {
   final nameCtrl = TextEditingController(
-    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
+    text: suggestedName == context.uiText('Tùy chỉnh')
+        ? context.uiText('Preset của tôi 1')
+        : context.uiText('$suggestedName riêng'),
   );
   final descCtrl = TextEditingController();
 
@@ -1183,6 +1204,7 @@ Future<_PresetDraft?> _showSavePresetDialog(
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: _dialogInputDecoration(
+                  context: context,
                   label: 'Tên preset',
                   hint: 'Ví dụ: Verb focus riêng',
                 ),
@@ -1193,6 +1215,7 @@ Future<_PresetDraft?> _showSavePresetDialog(
                 maxLines: 3,
                 style: const TextStyle(color: Colors.white),
                 decoration: _dialogInputDecoration(
+                  context: context,
                   label: 'Mô tả ngắn',
                   hint: 'Ghi chú cách dùng của preset này',
                 ),
@@ -1225,12 +1248,13 @@ Future<_PresetDraft?> _showSavePresetDialog(
 }
 
 InputDecoration _dialogInputDecoration({
+  required BuildContext context,
   required String label,
   required String hint,
 }) {
   return InputDecoration(
-    labelText: label,
-    hintText: hint,
+    labelText: context.uiText(label),
+    hintText: context.uiText(hint),
     labelStyle: const TextStyle(color: Colors.white70),
     hintStyle: const TextStyle(color: Colors.grey),
     filled: true,

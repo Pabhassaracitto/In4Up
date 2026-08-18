@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/player_provider.dart';
 import 'package:in4up/providers/text_provider.dart';
@@ -92,7 +92,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                     IconButton(
                       icon: const Icon(Icons.close,
                           size: 16, color: Colors.redAccent),
-                      tooltip: 'Đóng lỗi',
+                      tooltip: context.uiText('Đóng lỗi'),
                       onPressed: () {
                         // Xóa lỗi để không hiện lại
                         context.read<PlayerProvider>().clearSttError();
@@ -190,7 +190,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${widget.title} (${_lines!.length} dòng)',
+                        context.uiText('${widget.title} (${_lines!.length} dòng)'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -286,7 +286,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    '${_lines!.length} dòng · Nhấn để mở rộng',
+                    context.uiText('${_lines!.length} dòng · Nhấn để mở rộng'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),

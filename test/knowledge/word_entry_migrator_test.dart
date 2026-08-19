@@ -114,7 +114,9 @@ void main() {
           surroundingText: 'The bank of the river was muddy.',
           encounteredAt: DateTime.utc(2026, 2, 1),
           pageIndexHint: 42,
-          rectHint: const Rect.fromLTWH(0.1, 0.2, 0.3, 0.05),
+          // Số dyadic (0.125/0.25): round-trip left/top/right/bottom qua
+          // JSON không sinh sai số dấu chấm động khi dựng lại width/height.
+          rectHint: const Rect.fromLTWH(0.125, 0.25, 0.25, 0.125),
         ),
         VocabContext(
           id: 'ctx_web',
@@ -152,7 +154,7 @@ void main() {
       expect(pdf.sourceType, EvidenceSourceType.pdf);
       expect(pdf.locator.page, 42);
       expect(pdf.locator.rect,
-          const LocatorRect(x: 0.1, y: 0.2, width: 0.3, height: 0.05));
+          const LocatorRect(x: 0.125, y: 0.25, width: 0.25, height: 0.125));
 
       final web = result.evidence[1];
       expect(web.sourceType, EvidenceSourceType.web);

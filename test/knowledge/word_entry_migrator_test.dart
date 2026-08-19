@@ -316,7 +316,9 @@ void main() {
     test('kind mapping: word/phrase/sentence/paragraph đúng loại unit', () {
       final result = WordEntryMigrator.migrate(
         [
-          _entry('k1', 'bank', vocabType: VocabularyType.word),
+          // k1: không truyền vocabType — mặc định đã là VocabularyType.word
+          // (tránh redundant-arg lint; chính là điều test cần chứng minh).
+          _entry('k1', 'bank'),
           _entry('k2', 'look up', vocabType: VocabularyType.phrase),
           _entry('k3', 'I look up.', vocabType: VocabularyType.sentence),
           _entry('k4', 'A paragraph.', vocabType: VocabularyType.paragraph),

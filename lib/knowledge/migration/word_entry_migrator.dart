@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:in4up/knowledge/models/evidence.dart';
 import 'package:in4up/knowledge/models/knowledge_unit.dart';
+import 'package:in4up/knowledge/models/learning_state.dart';
 import 'package:in4up/models/vocab_context.dart';
 import 'package:in4up/models/vocabulary_type.dart';
 import 'package:in4up/models/word_entry.dart';
@@ -36,11 +37,13 @@ class MigrationReport {
 class MigrationResult {
   final List<KnowledgeUnit> units;
   final List<Evidence> evidence;
+  final List<LearningState> states;
   final MigrationReport report;
 
   const MigrationResult({
     required this.units,
     required this.evidence,
+    required this.states,
     required this.report,
   });
 }
@@ -58,10 +61,12 @@ class WordEntryMigrator {
     DateTime? now,
     String Function()? newUnitId,
   }) {
+    final at = now ?? DateTime.now();
     final idGen = newUnitId ?? _defaultIdGen;
 
     final units = <KnowledgeUnit>[];
     final evidence = <Evidence>[];
+    final states = <LearningState>[];
     final seenUnitIds = <String>{};
     final duplicateIds = <String>[];
     final unmappedFields = <String>{};
@@ -89,6 +94,13 @@ class WordEntryMigrator {
         updatedAt: entry.updatedAt,
       ));
 
+      states.add(LearningState(
+        unitId: unitId,
+        understanding: SM2Snapshot.initial(now: at),
+        listening: SM2Snapshot.initial(now: at),
+        reading: SM2Snapshot.initial(now: at),
+      ));
+
       var ctxIndex = 0;
       for (final ctx in entry.contexts) {
         evidence.add(_toEvidence(unitId, ctx, ctxIndex));
@@ -99,11 +111,12 @@ class WordEntryMigrator {
     return MigrationResult(
       units: units,
       evidence: evidence,
+      states: states,
       report: MigrationReport(
         inputCount: entries.length,
         unitsCreated: units.length,
         evidenceCreated: evidence.length,
-        statesCreated: 0,
+        statesCreated: states.length,
         unbornUnits: unborn,
         duplicateIdsRemapped: List.unmodifiable(duplicateIds),
         fieldsNotRepresentedInV1: Set.unmodifiable(unmappedFields),

@@ -1,6 +1,5 @@
 /// ═══════════════════════════════════════════════════════════════
-/// WORD ENTRY MIGRATOR — chuyển dữ liệu cũ sang Knowledge schema
-/// (BISECT B3: bản lõi — đã tạm bỏ toJson/regex/Rect/scroll)
+/// WORD ENTRY MIGRATOR — BISECT B4 (bỏ khối states/snapshot + imports liên quan)
 /// ═══════════════════════════════════════════════════════════════
 library;
 
@@ -8,13 +7,10 @@ import 'package:uuid/uuid.dart';
 
 import 'package:in4up/knowledge/models/evidence.dart';
 import 'package:in4up/knowledge/models/knowledge_unit.dart';
-import 'package:in4up/knowledge/models/learning_state.dart';
-import 'package:in4up/models/skill_review_data.dart';
 import 'package:in4up/models/vocab_context.dart';
 import 'package:in4up/models/vocabulary_type.dart';
 import 'package:in4up/models/word_entry.dart';
 
-/// Báo cáo migration — để audit "chạy trên 100% dữ liệu, không mất từ nào".
 class MigrationReport {
   final int inputCount;
   final int unitsCreated;
@@ -34,20 +30,17 @@ class MigrationReport {
     required this.fieldsNotRepresentedInV1,
   });
 
-  /// DoD khớp: mỗi từ đầu vào có đúng 1 unit.
   bool get isLossless => unitsCreated == inputCount;
 }
 
 class MigrationResult {
   final List<KnowledgeUnit> units;
   final List<Evidence> evidence;
-  final List<LearningState> states;
   final MigrationReport report;
 
   const MigrationResult({
     required this.units,
     required this.evidence,
-    required this.states,
     required this.report,
   });
 }
@@ -65,12 +58,10 @@ class WordEntryMigrator {
     DateTime? now,
     String Function()? newUnitId,
   }) {
-    final at = now ?? DateTime.now();
     final idGen = newUnitId ?? _defaultIdGen;
 
     final units = <KnowledgeUnit>[];
     final evidence = <Evidence>[];
-    final states = <LearningState>[];
     final seenUnitIds = <String>{};
     final duplicateIds = <String>[];
     final unmappedFields = <String>{};
@@ -103,24 +94,16 @@ class WordEntryMigrator {
         evidence.add(_toEvidence(unitId, ctx, ctxIndex));
         ctxIndex++;
       }
-
-      states.add(LearningState(
-        unitId: unitId,
-        understanding: _snapshot(entry.understandData, entry.lastReviewed, at),
-        listening: _snapshot(entry.listenData, entry.lastReviewed, at),
-        reading: _snapshot(entry.readData, entry.lastReviewed, at),
-      ));
     }
 
     return MigrationResult(
       units: units,
       evidence: evidence,
-      states: states,
       report: MigrationReport(
         inputCount: entries.length,
         unitsCreated: units.length,
         evidenceCreated: evidence.length,
-        statesCreated: states.length,
+        statesCreated: 0,
         unbornUnits: unborn,
         duplicateIdsRemapped: List.unmodifiable(duplicateIds),
         fieldsNotRepresentedInV1: Set.unmodifiable(unmappedFields),
@@ -141,20 +124,6 @@ class WordEntryMigrator {
       case VocabularyType.paragraph:
         return KnowledgeUnitKind.paragraph;
     }
-  }
-
-  static SM2Snapshot _snapshot(
-    SkillReviewData data,
-    DateTime entryLastReviewed,
-    DateTime at,
-  ) {
-    return SM2Snapshot(
-      easeFactor: data.easeFactor,
-      interval: data.interval,
-      repetitions: data.repetitions,
-      dueDate: data.nextReview ?? at,
-      lastReviewedAt: data.totalReviews > 0 ? entryLastReviewed : null,
-    );
   }
 
   static Evidence _toEvidence(String unitId, VocabContext ctx, int index) {

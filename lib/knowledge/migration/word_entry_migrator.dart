@@ -8,7 +8,6 @@ import 'package:uuid/uuid.dart';
 import 'package:in4up/knowledge/models/evidence.dart';
 import 'package:in4up/knowledge/models/knowledge_unit.dart';
 import 'package:in4up/knowledge/models/learning_state.dart';
-import 'package:in4up/models/skill_review_data.dart';
 import 'package:in4up/models/vocab_context.dart';
 import 'package:in4up/models/vocabulary_type.dart';
 import 'package:in4up/models/word_entry.dart';
@@ -97,9 +96,33 @@ class WordEntryMigrator {
 
       states.add(LearningState(
         unitId: unitId,
-        understanding: _snapshot(entry.understandData, entry.lastReviewed, at),
-        listening: _snapshot(entry.listenData, entry.lastReviewed, at),
-        reading: _snapshot(entry.readData, entry.lastReviewed, at),
+        understanding: _snapshot(
+          easeFactor: entry.understandData.easeFactor,
+          interval: entry.understandData.interval,
+          repetitions: entry.understandData.repetitions,
+          nextReview: entry.understandData.nextReview,
+          totalReviews: entry.understandData.totalReviews,
+          entryLastReviewed: entry.lastReviewed,
+          at: at,
+        ),
+        listening: _snapshot(
+          easeFactor: entry.listenData.easeFactor,
+          interval: entry.listenData.interval,
+          repetitions: entry.listenData.repetitions,
+          nextReview: entry.listenData.nextReview,
+          totalReviews: entry.listenData.totalReviews,
+          entryLastReviewed: entry.lastReviewed,
+          at: at,
+        ),
+        reading: _snapshot(
+          easeFactor: entry.readData.easeFactor,
+          interval: entry.readData.interval,
+          repetitions: entry.readData.repetitions,
+          nextReview: entry.readData.nextReview,
+          totalReviews: entry.readData.totalReviews,
+          entryLastReviewed: entry.lastReviewed,
+          at: at,
+        ),
       ));
 
       var ctxIndex = 0;
@@ -140,17 +163,21 @@ class WordEntryMigrator {
     }
   }
 
-  static SM2Snapshot _snapshot(
-    SkillReviewData data,
-    DateTime entryLastReviewed,
-    DateTime at,
-  ) {
+  static SM2Snapshot _snapshot({
+    required double easeFactor,
+    required int interval,
+    required int repetitions,
+    required DateTime? nextReview,
+    required int totalReviews,
+    required DateTime entryLastReviewed,
+    required DateTime at,
+  }) {
     return SM2Snapshot(
-      easeFactor: data.easeFactor,
-      interval: data.interval,
-      repetitions: data.repetitions,
-      dueDate: data.nextReview ?? at,
-      lastReviewedAt: data.totalReviews > 0 ? entryLastReviewed : null,
+      easeFactor: easeFactor,
+      interval: interval,
+      repetitions: repetitions,
+      dueDate: nextReview ?? at,
+      lastReviewedAt: totalReviews > 0 ? entryLastReviewed : null,
     );
   }
 

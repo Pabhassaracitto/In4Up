@@ -4,7 +4,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 
@@ -12,6 +13,7 @@ mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
   String? get currentSongPath;
   UnderstandProvider? get understandProvider;
+  Future<void> pause();
 
   final SttServiceFacade _sttService = SttServiceFacade();
   SttServiceFacade get sttService => _sttService;
@@ -51,7 +53,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       final candidates = <String>[
         '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
             '/${hash}.lrc',
-        '/data/user/0/com.vipsound.app/cache/lrc/$hash.lrc',
+        '/data/user/0/com.in4up.app/cache/lrc/$hash.lrc',
         _replaceExtension(normalizedPath, '.lrc'),
       ];
 
@@ -93,39 +95,9 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (!await file.exists()) return [];
 
       final content = await file.readAsString();
-      final lines = <LrcLine>[];
-
-      for (final rawLine in content.split('\n')) {
-        final trimmed = rawLine.trim();
-        if (trimmed.isEmpty) continue;
-
-        final match = RegExp(
-          r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$',
-        ).firstMatch(trimmed);
-
-        if (match != null) {
-          final minutes = int.parse(match.group(1)!);
-          final seconds = int.parse(match.group(2)!);
-          final centisStr = match.group(3)!;
-          final millis = centisStr.length == 2
-              ? int.parse(centisStr) * 10
-              : int.parse(centisStr);
-
-          final timestamp = Duration(
-            minutes: minutes,
-            seconds: seconds,
-            milliseconds: millis,
-          );
-          final text = match.group(4)?.trim() ?? '';
-
-          if (text.isNotEmpty) {
-            lines.add(
-              LrcLine(timestamp: timestamp, text: text, rawText: trimmed),
-            );
-          }
-        }
-      }
-
+      // Dùng SttLrcConverter để tách đúng: bỏ inline `<mm:ss.cs>` khỏi text
+      // hiển thị và lưu vào words cho karaoke (tránh lộ timestamps ra chữ).
+      final lines = await SttLrcConverter().parseLrcContent(content);
       debugPrint('📄 Parsed ${lines.length} LRC lines from $lrcPath');
       return lines;
     } catch (e) {
@@ -136,6 +108,7 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) async {
     final path = currentSongPath;
     if (path == null) {
@@ -146,52 +119,85 @@ mixin PlayerSttMixin on ChangeNotifier {
 
     _isGeneratingLrc = true;
     _lastSttError = null;
+
+    // FIX OOM v3: dung player truoc khi transcribe de giai phong ExoPlayer (BufferPoolAccessor) + FFmpeg native RAM
+    try {
+      await pause();
+      debugPrint('[SttMixin] Paused player before transcription to free RAM');
+    } catch (_) {}
+
+    // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
+    //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").
+    understandProvider?.clear();
     notifyListeners();
 
     try {
       final stt = SttServiceFacade();
 
-      SttTranscribeOutput output;
-      if (level == null) {
-        output = await stt.transcribeAuto(
-          path,
-          language: 'en',
-          generateLrc: true,
-        );
-      } else {
-        output = await stt.transcribeFile(
-          path,
-          config: SttConfig.deepLearning.copyWith(
-            preferredEngine: SttEngineType.whisper,
-            whisperModel: level,
-            language: 'en',
-            generateLrc: true,
-          ),
-          generateLrc: true,
-        );
-      }
-
-      _lastSttOutput = output;
-      _lastSttError = output.success ? null : output.errorMessage;
-
-      if (output.lrcFilePath != null) {
-        _lastGeneratedLrcPath = output.lrcFilePath;
-      }
-
-      if (output.success &&
-          output.lrcFilePath != null &&
-          understandProvider != null) {
-        final lrcLines = await parseLrcFile(output.lrcFilePath!);
+      // ★ Stream kết quả từng phần: hiện dần lyrics mỗi khi xong 1 chunk,
+      //   thay vì đợi hết cả file mới hiện.
+      final partialSub = stt.partialResultStream.listen((partial) {
+        if (partial.segments.isEmpty || understandProvider == null) return;
+        // Chuyển partial → LrcLine để UnderstandProvider hiện dần
+        final lrcLines = partial.segments
+            .map((s) => LrcLine(
+                  timestamp: Duration(milliseconds: s.startMs),
+                  text: s.text,
+                ))
+            .where((l) => l.text.trim().isNotEmpty)
+            .toList();
         if (lrcLines.isNotEmpty) {
           understandProvider!.loadLrcLines(lrcLines);
-          debugPrint(
-            '✅ Auto-loaded ${lrcLines.length} LRC lines after generate',
+        }
+      });
+
+      try {
+        final SttTranscribeOutput output;
+        if (level == null) {
+          output = await stt.transcribeAuto(
+            path,
+            language: 'en',
+            generateLrc: true,
+            grouping: grouping,
+          );
+        } else {
+          output = await stt.transcribeFile(
+            path,
+            config: SttConfig.deepLearning.copyWith(
+              preferredEngine: SttEngineType.whisper,
+              whisperModel: level,
+              language: 'en',
+              generateLrc: true,
+              grouping: grouping,
+            ),
+            generateLrc: true,
           );
         }
-        _lrcJustGenerated = true;
-      }
 
-      return output;
+        _lastSttOutput = output;
+        _lastSttError = output.success ? null : output.errorMessage;
+
+        if (output.lrcFilePath != null) {
+          _lastGeneratedLrcPath = output.lrcFilePath;
+        }
+
+        if (output.success &&
+            output.lrcFilePath != null &&
+            understandProvider != null) {
+          final lrcLines = await parseLrcFile(output.lrcFilePath!);
+          if (lrcLines.isNotEmpty) {
+            understandProvider!.loadLrcLines(lrcLines);
+            debugPrint(
+              '✅ Auto-loaded ${lrcLines.length} LRC lines after generate',
+            );
+          }
+          _lrcJustGenerated = true;
+        }
+
+        return output;
+      } finally {
+        partialSub.cancel();
+      }
     } catch (e) {
       _lastSttError = e.toString();
       return null;
@@ -199,6 +205,20 @@ mixin PlayerSttMixin on ChangeNotifier {
       _isGeneratingLrc = false;
       notifyListeners();
     }
+  }
+
+  /// Dừng tạo LRC đang chạy (chunk transcribe). Đặt lại trạng thái để
+  /// người dùng không bị "kẹt" ở màn hình đang xử lý.
+  Future<void> cancelLrcGeneration() async {
+    debugPrint('⏹️ cancelLrcGeneration() — hủy transcribe');
+    try {
+      _sttService.cancelTranscription();
+    } catch (e) {
+      debugPrint('⚠️ cancelLrcGeneration error: $e');
+    }
+    // Reset trạng thái đang xử lý — để nút khả dụng lại ngay.
+    _isGeneratingLrc = false;
+    notifyListeners();
   }
 
   Future<String> transcribeForShadowing(String audioPath) async {
@@ -254,6 +274,7 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   SttTranscribeOutput? _lastSttOutput;
   SttTranscribeOutput? get lastSttOutput => _lastSttOutput;
+  set lastSttOutput(SttTranscribeOutput? value) => _lastSttOutput = value;
 
   String? _lastSttError;
   String? get lastSttError => _lastSttError;
@@ -265,4 +286,11 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   String? _lastGeneratedLrcPath;
   String? get lastGeneratedLrcPath => _lastGeneratedLrcPath;
+
+  void clearSttError() {
+    if (_lastSttError != null) {
+      _lastSttError = null;
+      notifyListeners();
+    }
+  }
 }

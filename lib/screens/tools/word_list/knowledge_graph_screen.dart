@@ -6,7 +6,7 @@
 //  Tap node → Expanded detail bottom sheet
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:graphview/GraphView.dart';
 import 'package:provider/provider.dart';
@@ -221,7 +221,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
             ...VocabularyType.values.map((type) => Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: _FilterChip(
-                    label: type.labelEn,
+                    label: type.label(context),
                     color: type.color,
                     isSelected: _filterType == type,
                     onTap: () {
@@ -277,7 +277,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      t.labelEn,
+                      t.label(context),
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 10,
@@ -657,7 +657,7 @@ class _WordDetailSheet extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Thuần thục: ${(word.mastery * 100).toInt()}%',
+                context.uiText('Thuần thục: ${(word.mastery * 100).toInt()}%'),
                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
               const SizedBox(width: 12),
@@ -707,7 +707,12 @@ class _WordDetailSheet extends StatelessWidget {
                       if (c.sourceName != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          '${c.sourceIcon} ${c.displaySource}',
+                          '${c.sourceIcon} ${c.composeDisplaySource(
+                            c.hasGeneratedPositionLabel &&
+                                    c.pageOrPosition != null
+                                ? context.uiText(c.pageOrPosition!)
+                                : c.pageOrPosition,
+                          )}',
                           style:
                               TextStyle(color: Colors.grey[600], fontSize: 10),
                         ),

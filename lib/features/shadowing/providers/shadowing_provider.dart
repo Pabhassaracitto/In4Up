@@ -10,10 +10,12 @@ import 'package:just_waveform/just_waveform.dart' as jw;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../models/shadowing_preset.dart';
 import '../models/shadowing_result.dart';
 import '../services/offline_stt_service.dart';
 import '../services/phoneme_analyzer.dart';
 import '../services/pronunciation_service.dart';
+import '../../../services/storage_service.dart';
 
 class ShadowingSettings {
   final int repeatCount;
@@ -30,6 +32,41 @@ class ShadowingSettings {
 }
 
 class ShadowingProvider extends ChangeNotifier {
+  static const List<ShadowingPreset> _builtInPresets = [
+    ShadowingPreset(
+      id: 'slow_mimic',
+      name: 'Slow Mimic',
+      repeatCount: 5,
+      playbackSpeed: 0.75,
+      description: 'Chậm và nhiều vòng để bắt chước kỹ từng âm.',
+      isBuiltIn: true,
+    ),
+    ShadowingPreset(
+      id: 'pronunciation_focus',
+      name: 'Pronunciation',
+      repeatCount: 4,
+      playbackSpeed: 0.8,
+      description: 'Tập trung vào độ rõ âm và độ chính xác phát âm.',
+      isBuiltIn: true,
+    ),
+    ShadowingPreset(
+      id: 'balanced_flow',
+      name: 'Balanced',
+      repeatCount: 3,
+      playbackSpeed: 0.9,
+      description: 'Cân bằng giữa phát âm, trí nhớ và nhịp phản xạ.',
+      isBuiltIn: true,
+    ),
+    ShadowingPreset(
+      id: 'fluency_boost',
+      name: 'Fluency',
+      repeatCount: 2,
+      playbackSpeed: 1.0,
+      description: 'Ưu tiên nhịp nói tự nhiên và giữ mạch câu.',
+      isBuiltIn: true,
+    ),
+  ];
+
   // ==================== STATE ====================
   ShadowingState _state = ShadowingState.idle;
   ShadowingState get state => _state;
@@ -40,6 +77,14 @@ class ShadowingProvider extends ChangeNotifier {
 
   double _playbackSpeed = 1.0;
   double get playbackSpeed => _playbackSpeed;
+
+  String? _activePresetLabel;
+  String get activePresetLabel => _activePresetLabel ?? 'Tùy chỉnh';
+  bool get activePresetLabelIsGenerated => _activePresetLabel == null;
+
+  final List<ShadowingPreset> _customPresets = [];
+  List<ShadowingPreset> get customPresets => List.unmodifiable(_customPresets);
+  List<ShadowingPreset> get builtInPresets => List.unmodifiable(_builtInPresets);
 
   // Progress
   int _completedRepetitions = 0;
@@ -76,6 +121,8 @@ class ShadowingProvider extends ChangeNotifier {
 
   final List<ShadowingResult> _history = [];
   List<ShadowingResult> get history => _history;
+  final List<ShadowingHistoryEntry> _savedHistory = [];
+  List<ShadowingHistoryEntry> get savedHistory => List.unmodifiable(_savedHistory);
 
   // Scores
   double _similarityScore = 0.0;
@@ -84,6 +131,7 @@ class ShadowingProvider extends ChangeNotifier {
   // Audio services
   final AudioPlayer _player = AudioPlayer();
   final AudioRecorder _recorder = AudioRecorder();
+  final StorageService _storage = StorageService();
   Timer? _recordingTimer;
   Timer? _autoStopTimer; // Thêm biến quản lý auto-stop
   Timer? _countdownTimer;
@@ -95,6 +143,20 @@ class ShadowingProvider extends ChangeNotifier {
   ShadowingSettings get settings => const ShadowingSettings();
   Duration get recordedDuration => _recordingDuration;
   List<ShadowingResult> get sessionResults => _history;
+  int get totalPracticeCount => _savedHistory.length;
+  int? get lastScorePercent =>
+      _savedHistory.isEmpty ? null : _savedHistory.first.overallScorePercent;
+  int? get bestScorePercent => _savedHistory.isEmpty
+      ? null
+      : _savedHistory
+          .map((e) => e.overallScorePercent)
+          .reduce(math.max);
+  double get averageScorePercent => _savedHistory.isEmpty
+      ? 0.0
+      : _savedHistory
+              .map((e) => e.overallScorePercent)
+              .reduce((a, b) => a + b) /
+          _savedHistory.length;
   bool get isRecording => _state == ShadowingState.recording;
   bool get isPlaying => _state == ShadowingState.playingOriginal;
   bool get hasResult => _currentResult != null;
@@ -120,7 +182,51 @@ class ShadowingProvider extends ChangeNotifier {
   Future<void> _initServices() async {
     await PhonemeAnalyzer.initialize();
     await OfflineSTTService.initialize();
+    _restorePresetState();
+    _loadSavedHistory();
     debugPrint('✅ Shadowing services initialized');
+  }
+
+  void _restorePresetState() {
+    if (!_storage.isInitialized) return;
+    try {
+      _repeatCount = _storage.getShadowingRepeatCount().clamp(1, 10);
+      _playbackSpeed =
+          _storage.getShadowingPlaybackSpeed().clamp(0.5, 2.0).toDouble();
+      _activePresetLabel = _storage.getShadowingPresetLabel();
+      final rawPresets = _storage.getShadowingCustomPresets();
+      _customPresets
+        ..clear()
+        ..addAll(rawPresets.map(ShadowingPreset.fromJson));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error restoring shadowing presets: $e');
+    }
+  }
+
+  Future<void> _persistPresetState() async {
+    if (!_storage.isInitialized) return;
+    await _storage.saveShadowingRepeatCount(_repeatCount);
+    await _storage.saveShadowingPlaybackSpeed(_playbackSpeed);
+    await _storage.saveShadowingPresetLabel(_activePresetLabel);
+    await _storage.saveShadowingCustomPresets(
+      _customPresets.map((e) => e.toJson()).toList(),
+    );
+  }
+
+  void _loadSavedHistory() {
+    if (!_storage.isInitialized) return;
+    try {
+      final raw = _storage.getAllShadowingResults();
+      final parsed = raw.map(ShadowingHistoryEntry.fromJson).toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      _savedHistory
+        ..clear()
+        ..addAll(parsed);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error loading shadowing history: $e');
+    }
   }
 
   @override
@@ -135,18 +241,61 @@ class ShadowingProvider extends ChangeNotifier {
   }
 
   // ==================== SETTINGS ====================
-  void setRepeatCount(int count) {
+  void setRepeatCount(int count, {bool markCustom = true}) {
     final newCount = count.clamp(1, 10);
-    if (_repeatCount == newCount) return; // ← THÊM
+    if (_repeatCount == newCount) return;
     _repeatCount = newCount;
+    if (markCustom) _activePresetLabel = null;
     notifyListeners();
+    _persistPresetState();
   }
 
-  void setPlaybackSpeed(double speed) {
+  void setPlaybackSpeed(double speed, {bool markCustom = true}) {
     final newSpeed = speed.clamp(0.5, 2.0);
-    if (_playbackSpeed == newSpeed) return; // ← THÊM
+    if (_playbackSpeed == newSpeed) return;
     _playbackSpeed = newSpeed;
+    if (markCustom) _activePresetLabel = null;
     notifyListeners();
+    _persistPresetState();
+  }
+
+  Future<void> applyPreset(ShadowingPreset preset) async {
+    _repeatCount = preset.repeatCount.clamp(1, 10);
+    _playbackSpeed = preset.playbackSpeed.clamp(0.5, 2.0).toDouble();
+    _activePresetLabel = preset.name;
+    notifyListeners();
+    await _persistPresetState();
+  }
+
+  Future<void> saveCurrentAsPreset({
+    required String name,
+    String description = '',
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final preset = ShadowingPreset(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: trimmed,
+      repeatCount: _repeatCount,
+      playbackSpeed: _playbackSpeed,
+      description: description.trim(),
+    );
+
+    _customPresets.insert(0, preset);
+    _activePresetLabel = preset.name;
+    notifyListeners();
+    await _persistPresetState();
+  }
+
+  Future<void> deleteCustomPreset(String id) async {
+    final removed = _customPresets.where((e) => e.id == id).toList();
+    _customPresets.removeWhere((e) => e.id == id);
+    if (removed.isNotEmpty && _activePresetLabel == removed.first.name) {
+      _activePresetLabel = null;
+    }
+    notifyListeners();
+    await _persistPresetState();
   }
 
   void setLoopRegion(Duration start, Duration end) {
@@ -201,21 +350,26 @@ class ShadowingProvider extends ChangeNotifier {
     debugPrint('🎵 Loop: $_loopStart → $_loopEnd');
     debugPrint('🎵 Repeats: $_repeatCount, Speed: $_playbackSpeed');
 
+    _positionTimer?.cancel();
     _setState(ShadowingState.playingOriginal);
     _completedRepetitions = 0;
 
     try {
-      // Load audio file
       await _player.setFilePath(_originalAudioPath!);
       await _player.setSpeed(_playbackSpeed);
 
       final startPos = _loopStart ?? Duration.zero;
-      final endPos =
-          _loopEnd ?? _player.duration ?? const Duration(seconds: 10);
+      final endPos = _loopEnd ?? _player.duration ?? const Duration(seconds: 10);
+      if (endPos <= startPos) {
+        debugPrint('⚠️ Invalid loop range: $startPos → $endPos');
+        await _player.pause();
+        _setState(ShadowingState.idle);
+        return;
+      }
 
       debugPrint('🎵 Will play from $startPos to $endPos');
+      final loopSpan = endPos - startPos;
 
-      // Play N times
       for (int i = 0; i < _repeatCount; i++) {
         if (_state != ShadowingState.playingOriginal) {
           debugPrint('🎵 Playback interrupted at repeat ${i + 1}');
@@ -227,72 +381,70 @@ class ShadowingProvider extends ChangeNotifier {
 
         debugPrint('🎵 Playing repeat ${i + 1}/$_repeatCount');
 
-        // Seek to start of loop
         await _player.seek(startPos);
         await _player.play();
 
-        // Monitor position and stop at endPos
-        await _waitUntilPosition(endPos);
+        await _waitUntilPosition(
+          endPos,
+          maxWait: Duration(
+            milliseconds: (loopSpan.inMilliseconds / _playbackSpeed).ceil() + 600,
+          ),
+        );
 
-        // Pause player
         await _player.pause();
+        await _player.seek(endPos);
 
         debugPrint('🎵 Repeat ${i + 1} complete');
 
-        // Pause between repeats
+        if (_state != ShadowingState.playingOriginal) break;
+
         if (i < _repeatCount - 1) {
-          await Future.delayed(const Duration(milliseconds: 800));
+          await Future.delayed(const Duration(milliseconds: 350));
         }
       }
 
       debugPrint('🎵 All repeats complete, returning to idle');
-
-      // ✅ QUAN TRỌNG: Quay về idle để nút hoạt động lại
       if (_state == ShadowingState.playingOriginal) {
         _setState(ShadowingState.idle);
       }
     } catch (e) {
       debugPrint('❌ Error playing audio: $e');
+      await _player.pause();
       _setState(ShadowingState.idle);
     }
   }
 
-  /// Đợi cho đến khi player đến vị trí target
-  Future<void> _waitUntilPosition(Duration targetPosition) async {
+  /// Đợi cho đến khi player đến vị trí target hoặc hard timeout theo độ dài loop
+  Future<void> _waitUntilPosition(
+    Duration targetPosition, {
+    required Duration maxWait,
+  }) async {
     final completer = Completer<void>();
 
     _positionTimer?.cancel();
-    _positionTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _positionTimer = Timer.periodic(const Duration(milliseconds: 60), (timer) {
       final currentPos = _player.position;
 
-      // Kiểm tra đã đến vị trí target chưa
-      if (currentPos >= targetPosition) {
-        timer.cancel();
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-
-      // Kiểm tra player đã dừng chưa
-      if (!_player.playing) {
-        timer.cancel();
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-
-      // Kiểm tra state đã thay đổi chưa (user cancel)
       if (_state != ShadowingState.playingOriginal) {
         timer.cancel();
         if (!completer.isCompleted) completer.complete();
         return;
       }
+
+      if (currentPos >= targetPosition) {
+        timer.cancel();
+        unawaited(_player.pause());
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
     });
 
-    // Timeout safety (max 60 seconds)
-    return completer.future.timeout(
-      const Duration(seconds: 60),
-      onTimeout: () {
+    await completer.future.timeout(
+      maxWait,
+      onTimeout: () async {
         _positionTimer?.cancel();
-        debugPrint('⚠️ Playback timeout');
+        debugPrint('⚠️ Loop playback hard-stop at $targetPosition');
+        await _player.pause();
       },
     );
   }
@@ -443,6 +595,10 @@ class ShadowingProvider extends ChangeNotifier {
 
       _similarityScore = _currentResult!.overallScore;
       _history.add(_currentResult!);
+      await _storage.saveShadowingResult(_currentResult!);
+      final savedEntry = ShadowingHistoryEntry.fromJson(_currentResult!.toJson());
+      _savedHistory.removeWhere((e) => e.id == savedEntry.id);
+      _savedHistory.insert(0, savedEntry);
 
       debugPrint('📊 === RESULTS ===');
       debugPrint(
@@ -552,6 +708,12 @@ class ShadowingProvider extends ChangeNotifier {
   /// Retry (alias for reset)
   void retry() {
     reset();
+  }
+
+  Future<void> clearSavedHistory() async {
+    _savedHistory.clear();
+    await _storage.clearShadowingHistory();
+    notifyListeners();
   }
 
   void stopPlayback() {

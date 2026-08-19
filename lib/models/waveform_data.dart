@@ -1,74 +1,13 @@
-// lib/models/waveform_data.dart
+// in4up1.0 — Canonical WaveformData model
+// Import duy nhất cho WaveformProvider + RollingWaveformPainter + Controller
+
 import 'package:flutter/material.dart';
-
-class WaveformData {
-  final List<double> samples;
-  final Duration duration;
-  final int sampleRate;
-
-  WaveformData({
-    required this.samples,
-    required this.duration,
-    this.sampleRate = 100,
-  });
-
-  int getIndexAtPosition(Duration position) {
-    final durMs = duration.inMilliseconds;
-    if (durMs <= 0 || samples.isEmpty) return 0;
-
-    final progress = position.inMilliseconds / durMs;
-    if (progress.isNaN || progress.isInfinite) return 0;
-
-    return (progress * samples.length)
-        .clamp(0.0, samples.isEmpty ? 0.0 : (samples.length - 1).toDouble())
-        .round();
-  }
-
-  List<double> getSamplesInRange(Duration start, Duration end) {
-    if (duration.inMilliseconds <= 0 || samples.isEmpty) return [];
-
-    final startIndex = getIndexAtPosition(start);
-    final endIndex = getIndexAtPosition(end);
-
-    if (startIndex >= endIndex || startIndex < 0 || endIndex > samples.length) {
-      return [];
-    }
-
-    return samples.sublist(startIndex, endIndex);
-  }
-
-  WaveformData downsample(int targetSamples) {
-    if (samples.length <= targetSamples) return this;
-
-    final ratio = samples.length / targetSamples;
-    final downsampled = <double>[];
-
-    for (int i = 0; i < targetSamples; i++) {
-      final start = (i * ratio).floor();
-      final end = ((i + 1) * ratio).ceil().clamp(0, samples.length);
-
-      double maxValue = 0.0;
-      for (int j = start; j < end; j++) {
-        if (samples[j] > maxValue) maxValue = samples[j];
-      }
-      downsampled.add(maxValue);
-    }
-
-    return WaveformData(
-      samples: downsampled,
-      duration: duration,
-      sampleRate: duration.inSeconds > 0
-          ? (targetSamples / duration.inSeconds).round()
-          : sampleRate,
-    );
-  }
-}
 
 class LoopRegion {
   final Duration start;
   final Duration end;
   final Color color;
-// Loop Region
+
   LoopRegion({
     required this.start,
     required this.end,
@@ -78,4 +17,50 @@ class LoopRegion {
   bool contains(Duration position) {
     return position >= start && position <= end;
   }
+}
+
+/// Tham chiếu nhẹ tới SttSegment — chỉ chứa data cần cho painter
+/// Tách khỏi SttSegment để tránh circular dependency
+/// lib/ → packages/in4up_stt/
+class WaveformSegmentRef {
+  final String uid; // ContentId.segmentUid(...)
+  final String joinKey; // startMs|textNorm — bridge tới SpeakerAnnotation
+  final int startMs;
+  final double endSeconds;
+
+  const WaveformSegmentRef({
+    required this.uid,
+    required this.joinKey,
+    required this.startMs,
+    required this.endSeconds,
+  });
+}
+
+class WaveformData {
+  final List<double> samples;
+  final Duration duration;
+
+  /// Segments để painter tra speakerId theo timestamp
+  /// null = file cũ chưa có diarization (backward compatible)
+  final List<WaveformSegmentRef>? segments;
+
+  const WaveformData({
+    required this.samples,
+    required this.duration,
+    this.segments,
+  });
+
+  /// Backward-compat: không có segments
+  factory WaveformData.simple({
+    required List<double> samples,
+    required Duration duration,
+  }) =>
+      WaveformData(samples: samples, duration: duration);
+
+  /// Tạo bản sao với segments được đính kèm
+  WaveformData withSegments(List<WaveformSegmentRef> segs) => WaveformData(
+        samples: samples,
+        duration: duration,
+        segments: segs,
+      );
 }

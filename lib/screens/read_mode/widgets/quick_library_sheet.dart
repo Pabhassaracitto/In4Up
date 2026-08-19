@@ -4,7 +4,7 @@
 // Bấm vào file → load ngay, đóng sheet
 // Bấm "Xem tất cả" → TextProvider.clearText() → về ReadLibraryScreen
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -101,7 +101,13 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
 
           if (entry != null) {
             final tp = context.read<TextProvider>();
-            tp.loadFromString(entry.content, title: entry.title);
+            tp.loadFromString(
+              entry.content,
+              title: entry.title,
+              sourceType: TextSourceType.cloud,
+              cloudId: entry.id,
+              category: entry.category,
+            );
 
             // Cập nhật recent
             await _service.addOrUpdate(
@@ -402,7 +408,7 @@ class _QuickFileRow extends StatelessWidget {
                       const SizedBox(width: 6),
                       // Progress text
                       Text(
-                        file.progressText,
+                        context.uiText(file.progressText),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

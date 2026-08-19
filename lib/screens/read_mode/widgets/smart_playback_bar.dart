@@ -1,10 +1,14 @@
 // lib/screens/read_mode/widgets/smart_playback_bar.dart
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../providers/text_provider.dart';
+import '../models/playback_anchor.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
 import '../services/playback_controller.dart';
@@ -50,8 +54,10 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
   Widget build(BuildContext context) {
     // ★ FIX 1: watch controller TRONG StatefulWidget này
     final controller = context.watch<PlaybackController>();
-    final tp = context.read<TextProvider>();
+    final tp = context.watch<TextProvider>();
     final recipe = controller.recipe;
+    final sourceLanguage = tp.detectedSourceLanguage;
+    final targetLanguage = tp.translationTargetLanguage;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -62,6 +68,38 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
             snapshot: controller.snapshot!,
             speed: recipe.speed,
             controller: controller,
+          ),
+        if (controller.lastError != null)
+          Container(
+            width: double.infinity,
+            color: Colors.red.withValues(alpha: 0.12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline,
+                    color: Colors.redAccent, size: 15),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    context.uiText(controller.lastError!),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: controller.clearError,
+                  icon: const Icon(Icons.close,
+                      color: Colors.white38, size: 15),
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
           ),
 
         Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
@@ -78,6 +116,8 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
                 controller: controller,
                 tp: tp,
                 recipe: recipe,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
                 expanded: _expanded,
                 showSpeedSlider: _showSpeedSlider,
                 onToggleExpand: () => _setExpanded(!_expanded),
@@ -97,7 +137,12 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
 
               // Expanded: pattern builder
               if (_expanded)
-                _PatternBuilder(controller: controller, recipe: recipe),
+                _PatternBuilder(
+                  controller: controller,
+                  recipe: recipe,
+                  sourceLanguage: sourceLanguage,
+                  targetLanguage: targetLanguage,
+                ),
             ],
           ),
         ),
@@ -114,6 +159,8 @@ class _MainRow extends StatelessWidget {
   final PlaybackController controller;
   final TextProvider tp;
   final PlaybackRecipe recipe;
+  final AppLanguage sourceLanguage;
+  final AppLanguage targetLanguage;
   final bool expanded;
   final bool showSpeedSlider;
   final VoidCallback onToggleExpand;
@@ -123,6 +170,8 @@ class _MainRow extends StatelessWidget {
     required this.controller,
     required this.tp,
     required this.recipe,
+    required this.sourceLanguage,
+    required this.targetLanguage,
     required this.expanded,
     required this.showSpeedSlider,
     required this.onToggleExpand,
@@ -139,8 +188,8 @@ class _MainRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _ModeBtn(
-              label: '🇬🇧',
-              tooltip: 'Chỉ tiếng Anh',
+              label: sourceLanguage.flag,
+              tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
               active: recipe.mode == PlaybackMode.enOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -152,11 +201,15 @@ class _MainRow extends StatelessWidget {
             const SizedBox(width: 4),
             _ModeBtn(
               label: '🔄',
-              tooltip: 'Song ngữ / Xen kẽ',
+              tooltip: context.uiText('Song ngữ / Xen kẽ'),
               active: recipe.mode == PlaybackMode.interleaved ||
                   recipe.mode == PlaybackMode.custom,
               onTap: () {
                 HapticFeedback.selectionClick();
+                if (!tp.translationPairUsesSameLanguage &&
+                    tp.translatedLineCount == 0) {
+                  unawaited(tp.translateAll());
+                }
                 // Toggle: nếu đang ở interleaved → custom, custom → interleaved
                 if (recipe.mode == PlaybackMode.custom) {
                   controller.updateRecipe(
@@ -179,11 +232,22 @@ class _MainRow extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             _ModeBtn(
-              label: '🇻🇳',
-              tooltip: 'Chỉ tiếng Việt',
+              label: targetLanguage.flag,
+              tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
               active: recipe.mode == PlaybackMode.viOnly,
               onTap: () {
                 HapticFeedback.selectionClick();
+                if (tp.translationPairUsesSameLanguage) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
+                    ),
+                  );
+                  return;
+                }
+                if (tp.translatedLineCount == 0) {
+                  unawaited(tp.translateAll());
+                }
                 controller.updateRecipe(
                   recipe.copyWith(mode: PlaybackMode.viOnly),
                 );
@@ -255,11 +319,45 @@ class _MainRow extends StatelessWidget {
     if (controller.isRunning) {
       controller.stop(fileId: tp.currentDocument?.id ?? 'unknown');
     } else {
-      _startPlayback(context);
+      unawaited(_startPlayback(context));
     }
   }
 
-  void _startPlayback(BuildContext context) {
+  Future<void> _startPlayback(BuildContext context) async {
+    final needsTranslation = recipe.mode != PlaybackMode.enOnly;
+    if (needsTranslation && tp.translationPairUsesSameLanguage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hãy chọn ngôn ngữ đích khác nguồn trước khi phát.'),
+        ),
+      );
+      return;
+    }
+    if (needsTranslation && tp.isTranslating) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đang dịch, vui lòng chờ hoàn tất…')),
+      );
+      return;
+    }
+    if (needsTranslation && tp.translatedLineCount == 0) {
+      await tp.translateAll();
+      if (tp.translatedLineCount == 0) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                context.uiText(
+                  tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
+    if (!context.mounted) return;
+
     final fileId = tp.currentDocument?.id ?? 'unknown';
     final anchor = controller.loadAnchor(fileId);
 
@@ -270,15 +368,31 @@ class _MainRow extends StatelessWidget {
           anchor: anchor,
           onFromStart: () {
             controller.clearAnchor(fileId);
-            controller.start(tp.lines, fileId: fileId);
+            controller.start(
+              tp.lines,
+              fileId: fileId,
+              sourceLanguageCode: sourceLanguage.translationCode,
+              targetLanguageCode: targetLanguage.translationCode,
+            );
           },
           onResume: () {
-            controller.start(tp.lines, fileId: fileId, anchor: anchor);
+            controller.start(
+              tp.lines,
+              fileId: fileId,
+              sourceLanguageCode: sourceLanguage.translationCode,
+              targetLanguageCode: targetLanguage.translationCode,
+              anchor: anchor,
+            );
           },
         ),
       );
     } else {
-      controller.start(tp.lines, fileId: fileId);
+      controller.start(
+        tp.lines,
+        fileId: fileId,
+        sourceLanguageCode: sourceLanguage.translationCode,
+        targetLanguageCode: targetLanguage.translationCode,
+      );
     }
   }
 
@@ -292,7 +406,11 @@ class _MainRow extends StatelessWidget {
       ),
       builder: (_) => ChangeNotifierProvider.value(
         value: controller,
-        child: _PresetSheet(currentRecipe: recipe),
+        child: _PresetSheet(
+          currentRecipe: recipe,
+          sourceLanguage: sourceLanguage,
+          targetLanguage: targetLanguage,
+        ),
       ),
     );
   }
@@ -305,10 +423,14 @@ class _MainRow extends StatelessWidget {
 class _PatternBuilder extends StatelessWidget {
   final PlaybackController controller;
   final PlaybackRecipe recipe;
+  final AppLanguage sourceLanguage;
+  final AppLanguage targetLanguage;
 
   const _PatternBuilder({
     required this.controller,
     required this.recipe,
+    required this.sourceLanguage,
+    required this.targetLanguage,
   });
 
   @override
@@ -328,7 +450,11 @@ class _PatternBuilder extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Hàng 1: Lặp câu + Vòng bài ─────────────────────
-          Row(
+          // Fix overflow 35px trên màn hình nhỏ: dùng Wrap
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Label('Lặp câu'),
               _Stepper(
@@ -340,7 +466,6 @@ class _PatternBuilder extends StatelessWidget {
                   recipe.copyWith(lineRepeats: v),
                 ),
               ),
-              const SizedBox(width: 16),
               _Label('Vòng bài'),
               _Stepper(
                 value: recipe.totalPasses == 0 ? 1 : recipe.totalPasses,
@@ -351,7 +476,6 @@ class _PatternBuilder extends StatelessWidget {
                   recipe.copyWith(totalPasses: v),
                 ),
               ),
-              const SizedBox(width: 8),
               _ToggleChip(
                 label: '∞',
                 active: recipe.totalPasses == 0,
@@ -366,38 +490,45 @@ class _PatternBuilder extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // ── Hàng 2: Pattern EN → VI (LUÔN HIỆN) ────────────
-          // ★ FIX 2: Luôn hiện EN/VI stepper bất kể mode
+          // ── Hàng 2: Pattern nguồn → đích (LUÔN HIỆN) ────────────
+          // ★ FIX 2: Luôn hiện stepper nguồn/đích bất kể mode
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Visual pattern display
-              _PatternVisual(recipe: recipe),
+              _PatternVisual(
+                recipe: recipe,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
+              ),
               const SizedBox(height: 8),
 
-              Row(
+              // Fix overflow 19px: Nguồn/đích dùng Wrap
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  // EN stepper
-                  _Label('🇬🇧 EN'),
+                  _Label(
+                    '${sourceLanguage.flag} ${sourceLanguage.translationCode}',
+                  ),
                   _Stepper(
                     value: recipe.enRepeats.clamp(0, 5),
                     min: 0,
                     max: 5,
                     suffix: '×',
                     onChanged: (v) {
-                      // ★ Auto-switch mode khi thay đổi EN/VI
                       final newMode = _resolveMode(v, recipe.viRepeats);
                       controller.updateRecipe(
                         recipe.copyWith(enRepeats: v, mode: newMode),
                       );
                     },
                   ),
-                  const SizedBox(width: 6),
                   const Text('→',
                       style: TextStyle(color: Colors.grey, fontSize: 13)),
-                  const SizedBox(width: 6),
-                  // VI stepper
-                  _Label('🇻🇳 VI'),
+                  _Label(
+                    '${targetLanguage.flag} ${targetLanguage.translationCode}',
+                  ),
                   _Stepper(
                     value: recipe.viRepeats.clamp(0, 3),
                     min: 0,
@@ -417,20 +548,20 @@ class _PatternBuilder extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // ── Hàng 3: Khoảng lặng (chỉ khi có VI) ────────────
+          // ── Hàng 3: Khoảng lặng (chỉ khi có bản dịch) ────────────
+          // Fix overflow: dùng Wrap
           if (recipe.viRepeats > 0) ...[
-            Row(
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _Label('Khoảng lặng'),
-                const SizedBox(width: 4),
-                ...SilenceGap.values.map((gap) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _ToggleChip(
-                        label: gap.label,
-                        active: recipe.silenceGap == gap,
-                        onTap: () => controller.updateRecipe(
-                          recipe.copyWith(silenceGap: gap),
-                        ),
+                ...SilenceGap.values.map((gap) => _ToggleChip(
+                      label: gap.label,
+                      active: recipe.silenceGap == gap,
+                      onTap: () => controller.updateRecipe(
+                        recipe.copyWith(silenceGap: gap),
                       ),
                     )),
               ],
@@ -441,12 +572,12 @@ class _PatternBuilder extends StatelessWidget {
     );
   }
 
-  // ★ FIX 2: Auto-resolve mode dựa trên EN/VI repeats
+  // ★ FIX 2: Auto-resolve mode dựa trên số lượt nguồn/đích
   PlaybackMode _resolveMode(int enRep, int viRep) {
     if (enRep > 0 && viRep == 0) return PlaybackMode.enOnly;
     if (enRep == 0 && viRep > 0) return PlaybackMode.viOnly;
     if (enRep == 1 && viRep == 1) return PlaybackMode.interleaved;
-    return PlaybackMode.custom; // EN×2→VI×1, EN×3→VI×1, etc.
+    return PlaybackMode.custom; // nguồn×2→đích×1, v.v., etc.
   }
 }
 
@@ -456,21 +587,27 @@ class _PatternBuilder extends StatelessWidget {
 
 class _PatternVisual extends StatelessWidget {
   final PlaybackRecipe recipe;
+  final AppLanguage sourceLanguage;
+  final AppLanguage targetLanguage;
 
-  const _PatternVisual({required this.recipe});
+  const _PatternVisual({
+    required this.recipe,
+    required this.sourceLanguage,
+    required this.targetLanguage,
+  });
 
   @override
   Widget build(BuildContext context) {
     // Tạo sequence dots: 🔵🔵🔵 → 🟠
     final List<Widget> dots = [];
 
-    // EN dots
+    // Source dots
     for (int i = 0; i < recipe.enRepeats.clamp(0, 5); i++) {
       dots.add(_Dot(color: const Color(0xFF3B82F6)));
       dots.add(const SizedBox(width: 3));
     }
 
-    // Arrow + VI dots
+    // Arrow + target dots
     if (recipe.viRepeats > 0 && recipe.enRepeats > 0) {
       dots.add(const Padding(
         padding: EdgeInsets.symmetric(horizontal: 4),
@@ -487,16 +624,18 @@ class _PatternVisual extends StatelessWidget {
     String label;
     switch (recipe.mode) {
       case PlaybackMode.enOnly:
-        label = 'Chỉ tiếng Anh';
+        label = 'Chỉ ${sourceLanguage.nativeName}';
         break;
       case PlaybackMode.viOnly:
-        label = 'Chỉ tiếng Việt';
+        label = 'Chỉ ${targetLanguage.nativeName}';
         break;
       case PlaybackMode.interleaved:
-        label = 'Song ngữ EN → VI';
+        label = 'Song ngữ ${sourceLanguage.translationCode} → '
+            '${targetLanguage.translationCode}';
         break;
       case PlaybackMode.custom:
-        label = 'EN×${recipe.enRepeats} → VI×${recipe.viRepeats}';
+        label = '${sourceLanguage.translationCode}×${recipe.enRepeats} → '
+            '${targetLanguage.translationCode}×${recipe.viRepeats}';
         break;
     }
 
@@ -505,7 +644,7 @@ class _PatternVisual extends StatelessWidget {
         ...dots,
         const SizedBox(width: 8),
         Text(
-          label,
+          context.uiText(label),
           style: const TextStyle(
             color: Color(0xFFA5B4FC),
             fontSize: 11,
@@ -572,17 +711,17 @@ class _LiveStatusBar extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: snapshot.isEN
+                    color: snapshot.isSource
                         ? Color(0xFF3B82F6).withValues(alpha: 0.2)
                         : Color(0xFFEF4444).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    snapshot.isEN ? '🇬🇧 EN' : '🇻🇳 VI',
+                    snapshot.activeLanguage.compactLabel,
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
-                      color: snapshot.isEN
+                      color: snapshot.isSource
                           ? const Color(0xFF60A5FA)
                           : const Color(0xFFFCA5A5),
                     ),
@@ -591,7 +730,7 @@ class _LiveStatusBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    snapshot.statusText,
+                    context.uiText(snapshot.statusText),
                     style: const TextStyle(color: Colors.grey, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -632,7 +771,7 @@ class _LiveStatusBar extends StatelessWidget {
               minHeight: 2,
               backgroundColor: Colors.white.withValues(alpha: 0.06),
               valueColor: AlwaysStoppedAnimation(
-                snapshot.isEN
+                snapshot.isSource
                     ? const Color(0xFF3B82F6)
                     : const Color(0xFFEF4444),
               ),
@@ -650,47 +789,57 @@ class _LiveStatusBar extends StatelessWidget {
 
 class _PresetSheet extends StatelessWidget {
   final PlaybackRecipe currentRecipe;
+  final AppLanguage sourceLanguage;
+  final AppLanguage targetLanguage;
 
-  const _PresetSheet({required this.currentRecipe});
+  const _PresetSheet({
+    required this.currentRecipe,
+    required this.sourceLanguage,
+    required this.targetLanguage,
+  });
 
-  static const _presets = [
-    (
-      icon: '🇬🇧',
-      label: 'Chỉ EN',
-      sub: 'Luyện nghe thuần tiếng Anh',
-      recipe: PlaybackRecipe.enOnly
-    ),
-    (
-      icon: '🔄',
-      label: 'Song ngữ',
-      sub: 'EN → nghĩ → VI (1:1)',
-      recipe: PlaybackRecipe.bilingual
-    ),
-    (
-      icon: '⚡',
-      label: 'EN×2 → VI×1',
-      sub: 'Nghe kỹ EN rồi xác nhận VI',
-      recipe: PlaybackRecipe.intensive
-    ),
-    (
-      icon: '🎯',
-      label: 'Tự kiểm tra',
-      sub: 'EN → 3 giây → VI',
-      recipe: PlaybackRecipe.quiz
-    ),
-    (
-      icon: '🔊',
-      label: 'Shadowing',
-      sub: 'EN×3 chậm 0.75x để bắt chước',
-      recipe: PlaybackRecipe.shadowing
-    ),
-    (
-      icon: '🇻🇳',
-      label: 'Chỉ VI',
-      sub: 'Nghe nghĩa tiếng Việt',
-      recipe: PlaybackRecipe.viOnly
-    ),
-  ];
+  List<({String icon, String label, String sub, PlaybackRecipe recipe})>
+      get _presets => [
+            (
+              icon: sourceLanguage.flag,
+              label: 'Chỉ ${sourceLanguage.translationCode}',
+              sub: 'Luyện nghe thuần ${sourceLanguage.nativeName}',
+              recipe: PlaybackRecipe.enOnly,
+            ),
+            (
+              icon: '🔄',
+              label: 'Song ngữ',
+              sub: '${sourceLanguage.translationCode} → nghĩ → '
+                  '${targetLanguage.translationCode} (1:1)',
+              recipe: PlaybackRecipe.bilingual,
+            ),
+            (
+              icon: '⚡',
+              label: '${sourceLanguage.translationCode}×2 → '
+                  '${targetLanguage.translationCode}×1',
+              sub: 'Nghe kỹ nguồn rồi xác nhận bản dịch',
+              recipe: PlaybackRecipe.intensive,
+            ),
+            (
+              icon: '🎯',
+              label: 'Tự kiểm tra',
+              sub: '${sourceLanguage.translationCode} → 3 giây → '
+                  '${targetLanguage.translationCode}',
+              recipe: PlaybackRecipe.quiz,
+            ),
+            (
+              icon: '🔊',
+              label: 'Shadowing',
+              sub: '${sourceLanguage.translationCode}×3 chậm 0.75x',
+              recipe: PlaybackRecipe.shadowing,
+            ),
+            (
+              icon: targetLanguage.flag,
+              label: 'Chỉ ${targetLanguage.translationCode}',
+              sub: 'Nghe bản dịch ${targetLanguage.nativeName}',
+              recipe: PlaybackRecipe.viOnly,
+            ),
+          ];
 
   @override
   Widget build(BuildContext context) {
@@ -757,17 +906,21 @@ class _PresetSheet extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.label,
-                              style: TextStyle(
-                                color: isActive ? Colors.white : Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          Text(p.sub,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 11,
-                              )),
+                          Text(
+                            context.uiText(p.label),
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            context.uiText(p.sub),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -790,7 +943,7 @@ class _PresetSheet extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 
 class _ResumeDialog extends StatelessWidget {
-  final dynamic anchor;
+  final PlaybackAnchor anchor;
   final VoidCallback onFromStart;
   final VoidCallback onResume;
 
@@ -808,7 +961,9 @@ class _ResumeDialog extends StatelessWidget {
       title: const Text('▶ Tiếp tục phát?',
           style: TextStyle(color: Colors.white, fontSize: 16)),
       content: Text(
-        anchor.displayText,
+        context.uiText(
+          'Câu ${anchor.lineIndex + 1}  •  ${context.uiText(anchor.ageText)}',
+        ),
         style: const TextStyle(color: Colors.grey, fontSize: 13),
       ),
       actions: [
@@ -898,7 +1053,7 @@ class _ModeBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -982,29 +1137,39 @@ class _SpeedSliderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
           const Text('0.5x',
-              style: TextStyle(color: Colors.grey, fontSize: 10)),
+              style: TextStyle(color: Colors.grey, fontSize: 9)),
+          const SizedBox(width: 4),
           Expanded(
-            child: Slider(
-              value: speed,
-              min: 0.5,
-              max: 2.0,
-              divisions: 6,
-              label: '${speed.toStringAsFixed(2)}x',
-              activeColor: const Color(0xFF6C63FF),
-              onChanged: onChanged,
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              ),
+              child: Slider(
+                value: speed,
+                min: 0.5,
+                max: 2.0,
+                divisions: 6,
+                label: '${speed.toStringAsFixed(2)}x',
+                activeColor: const Color(0xFF6C63FF),
+                onChanged: onChanged,
+              ),
             ),
           ),
+          const SizedBox(width: 4),
           const Text('2.0x',
-              style: TextStyle(color: Colors.grey, fontSize: 10)),
+              style: TextStyle(color: Colors.grey, fontSize: 9)),
+          const SizedBox(width: 2),
           GestureDetector(
             onTap: onClose,
             child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 16, color: Colors.grey),
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.close, size: 14, color: Colors.grey),
             ),
           ),
         ],

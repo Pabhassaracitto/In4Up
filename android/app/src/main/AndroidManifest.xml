@@ -18,9 +18,13 @@
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:roundIcon="@mipmap/launcher_icon"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
-        android:extractNativeLibs="true"> <!--  Dòng này ép điện thoại phải giải nén toàn bộ thư viện âm thanh ra bộ nhớ khi cài đặt, đảm bảo plugin audio tìm thấy file thực thi.  -->
+        android:enableOnBackInvokedCallback="true"
+        android:extractNativeLibs="true"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"> <!--  Dòng này ép điện thoại phải giải nén toàn bộ thư viện âm thanh ra bộ nhớ khi cài đặt, đảm bảo plugin audio tìm thấy file thực thi.  -->
 
         <activity
             android:name="com.linusu.flutter_web_auth_2.CallbackActivity"

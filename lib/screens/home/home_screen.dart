@@ -1,19 +1,21 @@
 import 'dart:math' as math;
+
 import 'package:animations/animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
-import 'package:vipsound/l10n/app_localizations.dart';
+import '../../core/responsive/app_responsive.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
-
 import '../settings/stt_model_settings_screen.dart';
 import 'widgets/focus_streak_card.dart';
-import 'widgets/memory_garden_card.dart';
 import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
+import 'widgets/memory_garden_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToListen;
@@ -35,98 +37,88 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
-  @override
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xFF080B1A),
       child: Stack(
         children: [
-          // Static Abstract Background
           const _AnimatedBackground(),
-
-          // Main Content
           SafeArea(
             child: RefreshIndicator(
-              onRefresh: () async {
-                // Refresh data logic
-              },
+              onRefresh: () async {},
               backgroundColor: const Color(0xFF1A1A2E),
               color: const Color(0xFF6C63FF),
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(child: _buildGlassHeader(context)),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontalPadding =
+                      AppResponsive.pageHorizontalPadding(constraints.maxWidth);
 
-                  // FOCUS & MOMENTUM SECTION
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: FocusStreakCard(),
+                  return ResponsiveContentFrame(
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(child: _buildGlassHeader(context)),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: FocusStreakCard(),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: MemoryGardenCard(
+                              onStartReview: widget.onNavigateToMemory,
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: HebbianInputCard(),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildBentoModesGrid(context),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: const SliverToBoxAdapter(
+                            child: KnowledgeGraphPreview(),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                      ],
                     ),
-                  ),
-
-                  // MEMORY GARDEN (LIVESTATUS)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: MemoryGardenCard(
-                        onStartReview: widget.onNavigateToMemory,
-                      ),
-                    ),
-                  ),
-
-                  // QUICK INPUT & HEBBIAN SUGGESTION
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: HebbianInputCard(),
-                    ),
-                  ),
-
-                  // MODES SECTION (BENTO GRID)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildBentoModesGrid(context),
-                    ),
-                  ),
-
-                  // KNOWLEDGE GRAPH PREVIEW
-                  const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    sliver: SliverToBoxAdapter(
-                      child: KnowledgeGraphPreview(),
-                    ),
-                  ),
-
-                  // BOTTOM SPACING
-                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                ],
+                  );
+                },
               ),
             ),
           ),
-
-          // MINI PLAYER OVERLAY
           const Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: _GlobalMiniPlayer(),
           ),
-
-          // FAB thay thế floatingActionButton
           Positioned(
             right: 16,
             bottom: 16,
@@ -139,103 +131,191 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildGlassHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.commandCenter,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.blue[400],
-                  letterSpacing: 2,
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = AppResponsive.isCompact(constraints.maxWidth);
+        final horizontal = isCompact ? 16.0 : 24.0;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 8),
+          child: isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeaderTextBlock(context, l10n),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.smart_toy_outlined,
+                            color: Colors.blueAccent,
+                            size: 24,
+                          ),
+                          tooltip: l10n.manageAIModels,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SttModelSettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _FirebaseAuthButton(),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildHeaderTextBlock(context, l10n)),
+                    const SizedBox(width: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.smart_toy_outlined,
+                            color: Colors.blueAccent,
+                            size: 24,
+                          ),
+                          tooltip: l10n.manageAIModels,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SttModelSettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _FirebaseAuthButton(),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-              Text(
-                l10n.knowledgeOS,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHeaderTextBlock(BuildContext context, AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.commandCenter,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: Colors.blue[400],
+            letterSpacing: 2,
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.smart_toy_outlined,
-                color: Colors.blueAccent, size: 26),
-            tooltip: l10n.manageAIModels,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const SttModelSettingsScreen()),
-              );
-            },
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.knowledgeOS,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: -0.5,
           ),
-          const SizedBox(width: 8),
-          _FirebaseAuthButton(),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 12,
+            height: 1.4,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildBentoModesGrid(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.studioRoom,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: Colors.grey,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.4,
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = AppResponsive.adaptiveGridColumns(
+          width,
+          compact: width < 380 ? 1 : 2,
+          medium: 2,
+          expanded: 4,
+          large: 4,
+        );
+        final childAspectRatio = width < 380
+            ? 2.2
+            : width < 600
+                ? 1.35
+                : width < 1024
+                    ? 1.55
+                    : 1.85;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _BentoCard(
-              icon: Icons.headphones,
-              title: l10n.listen,
-              color: const Color(0xFF6C63FF),
-              onTap: widget.onNavigateToListen,
+            Text(
+              l10n.studioRoom,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Colors.grey,
+                letterSpacing: 1.2,
+              ),
             ),
-            _BentoCard(
-              icon: Icons.menu_book,
-              title: l10n.read,
-              color: const Color(0xFF2196F3),
-              onTap: widget.onNavigateToRead,
-            ),
-            _BentoCard(
-              icon: Icons.lightbulb,
-              title: l10n.understand,
-              color: const Color(0xFFFFB300),
-              onTap: widget.onNavigateToUnderstand,
-            ),
-            _BentoCard(
-              icon: Icons.psychology,
-              title: l10n.remember,
-              color: const Color(0xFF4CAF50),
-              onTap: widget.onNavigateToMemory,
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: childAspectRatio,
+              children: [
+                _BentoCard(
+                  icon: Icons.headphones,
+                  title: l10n.listen,
+                  subtitle: 'Nghe · Nói',
+                  color: const Color(0xFF6C63FF),
+                  onTap: widget.onNavigateToListen,
+                ),
+                _BentoCard(
+                  icon: Icons.menu_book,
+                  title: l10n.read,
+                  subtitle: 'Đọc · Viết',
+                  color: const Color(0xFF2196F3),
+                  onTap: widget.onNavigateToRead,
+                ),
+                _BentoCard(
+                  icon: Icons.lightbulb,
+                  title: l10n.understand,
+                  subtitle: 'Đồng bộ · Hiểu sâu',
+                  color: const Color(0xFFFFB300),
+                  onTap: widget.onNavigateToUnderstand,
+                ),
+                _BentoCard(
+                  icon: Icons.psychology,
+                  title: l10n.remember,
+                  subtitle: 'Ôn tập · SRS',
+                  color: const Color(0xFF4CAF50),
+                  onTap: widget.onNavigateToMemory,
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -243,9 +323,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return OpenContainer(
       transitionType: ContainerTransitionType.fade,
       openBuilder: (context, _) => const _SttDialog(),
-      closedElevation: 6.0,
+      closedElevation: 6,
       closedShape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(56 / 2)),
+        borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
       closedColor: const Color(0xFF6C63FF),
       closedBuilder: (context, openContainer) => FloatingActionButton(
@@ -260,12 +340,14 @@ class _HomeScreenState extends State<HomeScreen> {
 class _BentoCard extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String subtitle;
   final Color color;
   final VoidCallback onTap;
 
   const _BentoCard({
     required this.icon,
     required this.title,
+    required this.subtitle,
     required this.color,
     required this.onTap,
   });
@@ -289,24 +371,44 @@ class _BentoCard extends StatelessWidget {
             Positioned(
               right: -10,
               top: -10,
-              child: Icon(icon, size: 60, color: color.withValues(alpha: 0.05)),
+              child: Icon(
+                icon,
+                size: 60,
+                color: color.withValues(alpha: 0.05),
+              ),
             ),
             Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, color: color, size: 28),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: color, size: 28),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: color.withValues(alpha: 0.82),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -332,7 +434,8 @@ class _GlobalMiniPlayer extends StatelessWidget {
             color: const Color(0xFF1A1A2E).withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.4),
@@ -350,7 +453,10 @@ class _GlobalMiniPlayer extends StatelessWidget {
                   color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.music_note, color: Color(0xFF6C63FF)),
+                child: const Icon(
+                  Icons.music_note,
+                  color: Color(0xFF6C63FF),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -363,9 +469,10 @@ class _GlobalMiniPlayer extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       AppLocalizations.of(context)!.nowPlaying,
@@ -375,8 +482,11 @@ class _GlobalMiniPlayer extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.play_arrow, color: Colors.white),
-                onPressed: () {},
+                icon: Icon(
+                  player.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                ),
+                onPressed: player.togglePlayPause,
               ),
             ],
           ),
@@ -427,8 +537,8 @@ class _AnimatedBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return const RepaintBoundary(
       child: CustomPaint(
-        painter: _BackgroundPainter(
-            0.5), // Fixed value instead of animated controller
+        painter: _BackgroundPainter(0.5),
+        child: SizedBox.expand(),
       ),
     );
   }
@@ -436,6 +546,7 @@ class _AnimatedBackground extends StatelessWidget {
 
 class _BackgroundPainter extends CustomPainter {
   final double t;
+
   const _BackgroundPainter(this.t);
 
   @override
@@ -443,7 +554,6 @@ class _BackgroundPainter extends CustomPainter {
     final paint = Paint()
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
 
-    // Deep Indigo Orb
     paint.color = const Color(0xFF6C63FF).withValues(alpha: 0.1);
     canvas.drawCircle(
       Offset(
@@ -454,7 +564,6 @@ class _BackgroundPainter extends CustomPainter {
       paint,
     );
 
-    // Deep Ocean Orb
     paint.color = const Color(0xFF2196F3).withValues(alpha: 0.08);
     canvas.drawCircle(
       Offset(
@@ -473,24 +582,39 @@ class _BackgroundPainter extends CustomPainter {
 class _FirebaseAuthButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    try {
+      // Guard for Linux where Firebase may not be initialized
+      if (Firebase.apps.isEmpty) {
+        return const Icon(Icons.offline_bolt, color: Colors.grey, size: 24);
+      }
+    } catch (_) {
+      return const Icon(Icons.offline_bolt, color: Colors.grey, size: 24);
+    }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(strokeWidth: 2));
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
         }
+
         final user = snapshot.data;
         if (user == null) {
           return IconButton(
-            icon: const Icon(Icons.account_circle_outlined,
-                color: Colors.white, size: 28),
+            icon: const Icon(
+              Icons.account_circle_outlined,
+              color: Colors.white,
+              size: 28,
+            ),
             onPressed: () => _handleSignIn(context),
           );
         }
+
         return Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
               radius: 14,
@@ -500,7 +624,7 @@ class _FirebaseAuthButton extends StatelessWidget {
                   ? Text(user.displayName?[0] ?? 'U')
                   : null,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.white, size: 20),
               onPressed: () => AuthService().signOut(),
@@ -515,11 +639,11 @@ class _FirebaseAuthButton extends StatelessWidget {
     try {
       await AuthService().signInWithGoogle();
     } catch (e) {
-      if (context.mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.loginFailed(e.toString()))));
-      }
+      if (!context.mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.loginFailed(e.toString()))),
+      );
     }
   }
 }

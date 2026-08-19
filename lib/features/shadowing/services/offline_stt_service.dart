@@ -1,7 +1,7 @@
 // lib/services/shadowing/offline_stt_service.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in4up_stt/in4up_stt.dart';
 
 /// Adapter tương thích ngược - dùng SttServiceFacade bên trong
 class OfflineSTTService {

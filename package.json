@@ -1,7 +1,7 @@
 {
-  "name": "vipsound",
+  "name": "in4up",
   "version": "1.0.0",
-  "description": "Vipsound - Language Learning App",
+  "description": "in4up - Language Learning App",
   "scripts": {
     "build": "flutter build web",
     "start": "flutter run -d web-server --web-hostname 0.0.0.0 --web-port 3000"

@@ -1,5 +1,5 @@
 // NEW - UI shadowing
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -141,7 +141,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '${shadowing.sessionResults.length} lần',
+              context.uiText('${shadowing.sessionResults.length} lần'),
               style: const TextStyle(
                 color: Colors.green,
                 fontSize: 12,
@@ -255,7 +255,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           ),
           const SizedBox(height: 16),
           Text(
-            'Đoạn: ${_formatDuration(shadowing.segmentStart ?? Duration.zero)} - ${_formatDuration(shadowing.segmentEnd ?? Duration.zero)}',
+            context.uiText('Đoạn: ${_formatDuration(shadowing.segmentStart ?? Duration.zero)} - ${_formatDuration(shadowing.segmentEnd ?? Duration.zero)}'),
             style: const TextStyle(
               color: Color(0xFF2196F3),
               fontWeight: FontWeight.bold,
@@ -414,7 +414,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           const SizedBox(height: 8),
 
           Text(
-            'Tối đa: ${shadowing.settings.maxRecordDuration.inSeconds}s',
+            context.uiText('Tối đa: ${shadowing.settings.maxRecordDuration.inSeconds}s'),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
         ],
@@ -476,6 +476,8 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                       originalWaveform: result.originalWaveform,
                       recordedWaveform: result.userWaveform,
                       animationProgress: _revealAnimation.value,
+                      originalLabel: context.uiText('Mẫu'),
+                      recordedLabel: context.uiText('Bạn'),
                     ),
                   ),
                 ),
@@ -583,20 +585,47 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         return ElevatedButton.icon(
           onPressed: hasLoop
               ? () {
-                  // Setup segment from player's loop
                   shadowing.setSegment(
                     start: player.loopStart!,
                     end: player.loopEnd!,
                     audioPath: player.currentSongPath ?? '',
-                    waveform: [], // TODO: Get waveform from WaveformProvider
+                    waveform: [],
                   );
+                  shadowing.playOriginal();
                 }
               : null,
           icon: const Icon(Icons.play_arrow),
-          label: const Text('Bắt đầu Shadowing'),
+          label: const Text('Nghe mẫu'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2196F3),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+        );
+
+      case ShadowingState.playingOriginal:
+        return ElevatedButton.icon(
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            shadowing.stopPlayback();
+          },
+          icon: const Icon(Icons.stop_circle_outlined),
+          label: const Text('Dừng nghe mẫu'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+        );
+
+      case ShadowingState.countdown:
+        return OutlinedButton.icon(
+          onPressed: () {
+            HapticFeedback.selectionClick();
+            shadowing.reset();
+          },
+          icon: const Icon(Icons.close),
+          label: const Text('Hủy đếm ngược'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white70,
           ),
         );
 

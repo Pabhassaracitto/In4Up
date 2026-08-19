@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
+import '../../../providers/vocabulary_provider.dart';
+import '../../../widgets/unified_knowledge_sheet.dart';
 import '../web_reader_controller.dart';
 
 /// Bottom sheet hiện khi tap vào từ trong Web Reader
@@ -43,17 +47,20 @@ class WebWordTapSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final cleanWord = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Consumer<VocabularyProvider>(
+      builder: (context, provider, _) {
+        final existing = provider.findByWord(cleanWord);
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Handle
           Center(
             child: Container(
@@ -177,7 +184,7 @@ class WebWordTapSheet extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${analyzed!.cefrLevel.shortLabel} — ${_cefrDescVi(analyzed!.cefrLevel)}',
+                  '${analyzed!.cefrLevel.shortLabel} — ${context.uiText(_cefrDescVi(analyzed!.cefrLevel))}',
                   style: TextStyle(
                       color: _cefrColor(analyzed!.cefrLevel)
                           .withValues(alpha: 0.9),
@@ -187,14 +194,140 @@ class WebWordTapSheet extends StatelessWidget {
             ),
           ],
 
+          if (analyzed?.userDifficulty != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.flag_rounded,
+                    color: analyzed!.userDifficulty!.color, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  context.uiText(
+                    'Độ khó đã lưu: ${context.uiText(analyzed!.userDifficulty!.label)}',
+                  ),
+                  style: TextStyle(
+                    color: analyzed!.userDifficulty!.color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          if (analyzed?.isSaved == true ||
+              analyzed?.hasSavedNotes == true ||
+              analyzed?.hasDueReview == true) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (analyzed?.isSaved == true)
+                  const _Tag(label: 'Đã lưu', color: Color(0xFF4CAF50)),
+                if (analyzed?.hasSavedNotes == true)
+                  const _Tag(label: 'Có ghi chú', color: Colors.amber),
+                if (analyzed?.hasDueReview == true)
+                  const _Tag(label: 'Đến kỳ ôn', color: Colors.redAccent),
+                if ((analyzed?.encounterCount ?? 0) > 1)
+                  _Tag(
+                    label: '${analyzed!.encounterCount} lần gặp',
+                    color: const Color(0xFF64B5F6),
+                  ),
+              ],
+            ),
+          ],
+
+          if (existing != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  UnifiedKnowledgeSheet.show(context, word: existing);
+                },
+                icon: const Icon(Icons.hub_outlined, size: 18),
+                label: const Text('Mở hồ sơ tri thức hợp nhất'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4CAF50),
+                  side: BorderSide(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          const Text(
+            'Đánh dấu độ khó:',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: DifficultyLevel.values.map((level) {
+              final isSelected = analyzed?.userDifficulty == level;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: GestureDetector(
+                    onTap: () {
+                      controller.markWordDifficulty(
+                        cleanWord,
+                        level,
+                        analyzed: analyzed,
+                      );
+                      HapticFeedback.selectionClick();
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '"$cleanWord" → ${context.uiText(level.label)}',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: level.color.withValues(alpha: isSelected ? 0.24 : 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? level.color
+                              : level.color.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.flag_rounded, color: level.color, size: 14),
+                          const SizedBox(height: 2),
+                          Text(
+                            level.label,
+                            style: TextStyle(color: level.color, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
           const SizedBox(height: 16),
 
           // ── Actions ──────────────────────────────────────
           Row(
             children: [
-              // Save to Memory
               Expanded(
-                flex: 3,
                 child: GestureDetector(
                   onTap: () {
                     controller.saveWordToMemory(cleanWord, analyzed: analyzed);
@@ -202,7 +335,7 @@ class WebWordTapSheet extends StatelessWidget {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('✅ Đã lưu "$cleanWord" vào Vườn Nhớ'),
+                        content: Text(context.uiText('✅ Đã lưu "$cleanWord" vào Vườn Nhớ')),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -214,10 +347,11 @@ class WebWordTapSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: Color(0xFF6C63FF).withValues(alpha: 0.15),
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color: Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -225,20 +359,85 @@ class WebWordTapSheet extends StatelessWidget {
                         Icon(Icons.psychology,
                             color: Color(0xFF6C63FF), size: 16),
                         SizedBox(width: 6),
-                        Text('Lưu vào Vườn Nhớ',
+                        Flexible(
+                          child: Text(
+                            'Vườn Nhớ',
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                color: Color(0xFF6C63FF),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
+                              color: Color(0xFF6C63FF),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-
               const SizedBox(width: 8),
-
-              // Oxford dictionary
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    final added = controller.saveWordToWordList(
+                      cleanWord,
+                      analyzed: analyzed,
+                    );
+                    HapticFeedback.mediumImpact();
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.uiText(added
+                              ? '📚 Đã thêm "$cleanWord" vào WordList'
+                              : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList'),
+                        ),
+                        backgroundColor: const Color(0xFF2E7D32),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF43A047).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF43A047).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.library_add,
+                            color: Color(0xFF43A047), size: 16),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'WordList',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF43A047),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
               _IconBtn(
                 icon: Icons.open_in_new,
                 tooltip: 'Oxford',
@@ -250,10 +449,7 @@ class WebWordTapSheet extends StatelessWidget {
                   );
                 },
               ),
-
               const SizedBox(width: 6),
-
-              // Copy
               _IconBtn(
                 icon: Icons.copy,
                 tooltip: 'Copy',
@@ -266,6 +462,8 @@ class WebWordTapSheet extends StatelessWidget {
           ),
         ],
       ),
+        );
+      },
     );
   }
 }
@@ -285,7 +483,7 @@ class _Tag extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style:
             TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
@@ -303,7 +501,7 @@ class _IconBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         child: Container(

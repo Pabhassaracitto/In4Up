@@ -3,7 +3,7 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -161,7 +161,13 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
         if (!mounted) return;
 
         if (entry != null) {
-          tp.loadFromString(entry.content, title: entry.title);
+          tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
           await _service.addOrUpdate(
             file.copyWith(
               lastOpened: DateTime.now(),
@@ -424,7 +430,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
               ),
               decoration: InputDecoration(
                 hintText:
-                    'Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.',
+                    context.uiText('Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.'),
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.28),
                   fontSize: 13,
@@ -640,11 +646,11 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _isLoading
+                  context.uiText(_isLoading
                       ? 'Đang tải...'
                       : _files.isEmpty
                           ? 'Chưa có tài liệu nào'
-                          : '${_files.length} tài liệu',
+                          : '${_files.length} tài liệu'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.42),
                     fontSize: 12,
@@ -690,70 +696,81 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TabBar(
-        controller: _tabCtrl,
-        indicator: BoxDecoration(
-          color: const Color(0xFF1565C0),
-          borderRadius: BorderRadius.circular(10),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: TabBar(
+            controller: _tabCtrl,
+            isScrollable: compact,
+            tabAlignment: compact ? TabAlignment.start : TabAlignment.fill,
+            indicator: BoxDecoration(
+              color: const Color(0xFF1565C0),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey,
+            labelStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelPadding: EdgeInsets.symmetric(horizontal: compact ? 8 : 0),
+            tabs: [
+              _libraryTab(
+                icon: Icons.history_rounded,
+                label: 'Gần đây',
+                compact: compact,
+                trailing: !compact && _files.isNotEmpty ? _TabBadge(count: _files.length) : null,
+              ),
+              _libraryTab(
+                icon: Icons.cloud_rounded,
+                label: 'Cloud',
+                compact: compact,
+              ),
+              _libraryTab(
+                icon: Icons.folder_rounded,
+                label: 'Thiết bị',
+                compact: compact,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Tab _libraryTab({
+    required IconData icon,
+    required String label,
+    required bool compact,
+    Widget? trailing,
+  }) {
+    return Tab(
+      height: compact ? 34 : 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: compact ? 13 : 14),
+            SizedBox(width: compact ? 4 : 5),
+            Text(label, overflow: TextOverflow.ellipsis),
+            if (trailing != null) ...[
+              const SizedBox(width: 4),
+              trailing,
+            ],
+          ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.grey,
-        labelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        tabs: [
-          // Tab 0: Gần đây
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.history_rounded, size: 14),
-                const SizedBox(width: 4),
-                const Text('Gần đây'),
-                if (_files.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  _TabBadge(count: _files.length),
-                ],
-              ],
-            ),
-          ),
-          // Tab 1: Cloud
-          const Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.cloud_rounded, size: 14),
-                SizedBox(width: 4),
-                Text('Cloud'),
-              ],
-            ),
-          ),
-          // Tab 2: Thiết bị
-          const Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.folder_rounded, size: 14),
-                SizedBox(width: 4),
-                Text('Thiết bị'),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -786,7 +803,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: context.uiText(hint),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -975,7 +992,13 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   Future<void> _loadCloudEntry(TextLibraryEntry entry) async {
     final tp = context.read<TextProvider>();
-    tp.loadFromString(entry.content, title: entry.title);
+    tp.loadFromString(
+      entry.content,
+      title: entry.title,
+      sourceType: TextSourceType.cloud,
+      cloudId: entry.id,
+      category: entry.category,
+    );
 
     final file = RecentFile.fromCloud(
       id: entry.id,
@@ -1089,7 +1112,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'Không tìm thấy "$query"',
+            context.uiText('Không tìm thấy "$query"'),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.6),
               fontSize: 15,
@@ -1408,7 +1431,7 @@ class _CloudEntryTile extends StatelessWidget {
                         const SizedBox(width: 6),
                       ],
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

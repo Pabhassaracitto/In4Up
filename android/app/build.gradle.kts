@@ -1,15 +1,16 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.vipsound"
-    compileSdk = 36
+    namespace = "com.in4up"
+    compileSdk = 36 // Đưa lên 36 để đáp ứng các plugin như file_picker, sqflite...
+
+    // NDK 28.2 dùng chung Windows + Linux (bạn yêu cầu giữ 28)
+    // CI sẽ cài cả 27 và 28 để tránh lỗi plugin yêu cầu NDK 27
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -22,58 +23,53 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.vipsound"
+        applicationId = "com.in4up"
         minSdk = 24
         targetSdk = 35
         versionCode = 2
         versionName = "1.0.0"
+    }
 
-        // ndk {
-        //     abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
-        // }
-    } // Đóng ngoặc defaultConfig ở đây là chuẩn
-
-    // 1. Định nghĩa kích thước (Dimension) nằm trong android { ... }
     flavorDimensions.add("default")
 
-    // 2. Các khuôn đúc (Flavors) nằm trong android { ... }
     productFlavors {
         create("stable") {
             dimension = "default"
-            applicationIdSuffix = "" // Giữ nguyên ID gốc: com.vipsound
-            resValue("string", "app_name", "VipSound")
+            applicationIdSuffix = ""
+            resValue("string", "app_name", "In4Up")
         }
-        
         create("dev") {
             dimension = "default"
-            applicationIdSuffix = ".dev" // ID sẽ thành: com.vipsound.dev
-            resValue("string", "app_name", "VipSound Dev")
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "In4Up Dev")
         }
-
         create("beta") {
             dimension = "default"
-            applicationIdSuffix = ".beta" // ID sẽ thành: com.vipsound.beta
-            resValue("string", "app_name", "VipSound Beta")
+            applicationIdSuffix = ".beta"
+            resValue("string", "app_name", "In4Up Beta")
         }
     }
 
-    // 3. Khối buildTypes đã được đưa về đúng vị trí bên trong android { ... }
     buildTypes {
-        getByName("release") { // Đã sửa thành cú pháp chuẩn của Kotlin (.kts)
+        getByName("release") {
             isMinifyEnabled = false 
             isShrinkResources = false 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
-    // externalNativeBuild {
-    //     cmake {
-    //         path = file("src/main/cpp/CMakeLists.txt")
-    //     }
-    // }
-} // <--- ĐÂY LÀ DẤU ĐÓNG NGOẶC CHÍNH XÁC CỦA KHỐI ANDROID
+    sourceSets {
+        getByName("main") {
+            jniLibs.setSrcDirs(listOf("src/main/jniLibs"))
+        }
+    }
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}
 
-// Các cấu hình hệ thống bên dưới nằm HOÀN TOÀN NGOÀI khối android { ... }
 configurations.all {
     resolutionStrategy {
         force("androidx.browser:browser:1.8.0")

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
@@ -13,6 +14,9 @@ import '../services/vocab_sync_service.dart';
 
 class VocabularyProvider extends ChangeNotifier {
   static const String _boxName = 'vocabulary_v2';
+  static const String _metaBoxName = 'vocabulary_meta';
+  static const String _customLanguagesKey = 'custom_languages';
+  static const String _customTopicsKey = 'custom_topics';
 
   final List<WordEntry> _words = [];
   MasteryZone? _filterZone;
@@ -24,6 +28,9 @@ class VocabularyProvider extends ChangeNotifier {
   String? _filterLanguage;
   String? _filterTopic;
   String? _filterLearningStatus;
+
+  final Set<String> _customLanguages = {};
+  final Set<String> _customTopics = {};
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
@@ -46,14 +53,26 @@ class VocabularyProvider extends ChangeNotifier {
   DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;
 
   Set<String> get allLanguages {
-    final Set<String> langs = _words.map((w) => w.language).where((l) => l.isNotEmpty).toSet();
+    final Set<String> langs = _words
+        .map((w) => w.language)
+        .where((l) => l.isNotEmpty)
+        .toSet()
+      ..addAll(_customLanguages);
     if (langs.isEmpty) return {'en'};
     return langs;
   }
 
   Set<String> get allTopics {
-    return _words.map((w) => w.topic).whereType<String>().where((t) => t.isNotEmpty).toSet();
+    return _words
+        .map((w) => w.topic)
+        .whereType<String>()
+        .where((t) => t.isNotEmpty)
+        .toSet()
+      ..addAll(_customTopics);
   }
+
+  bool isCustomLanguage(String lang) => _customLanguages.contains(lang);
+  bool isCustomTopic(String topic) => _customTopics.contains(topic);
 
   ValueNotifier<SyncStatus> get syncStatusNotifier => _sync.status;
   ValueNotifier<DateTime?> get lastSyncedNotifier => _sync.lastSyncedAt;
@@ -72,14 +91,24 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void bindAuthState() {
+    try {
+      if (FirebaseAuth.instance.app.name.isEmpty) return;
+    } catch (_) {
+      debugPrint('⚠️ bindAuthState: Firebase not available, skip');
+      return;
+    }
     _authSub?.cancel();
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
-      if (user == null) {
-        disableSync();
-        return;
-      }
-      await enableSync(user.uid);
-    });
+    try {
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+        if (user == null) {
+          disableSync();
+          return;
+        }
+        await enableSync(user.uid);
+      });
+    } catch (e) {
+      debugPrint('⚠️ bindAuthState failed: $e');
+    }
   }
 
   List<WordEntry> get displayedWords {
@@ -266,9 +295,11 @@ class VocabularyProvider extends ChangeNotifier {
 
   static Future<void> ensureBoxOpen() async {
     if (!Hive.isBoxOpen(_boxName)) await Hive.openBox<String>(_boxName);
+    if (!Hive.isBoxOpen(_metaBoxName)) await Hive.openBox<String>(_metaBoxName);
   }
 
   Box<String> get _box => Hive.box<String>(_boxName);
+  Box<String> get _metaBox => Hive.box<String>(_metaBoxName);
 
   Future<void> enableSync(String uid) async {
     if (_isEnablingSync) return;
@@ -337,6 +368,12 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       await ensureBoxOpen();
       _words.clear();
+      _customLanguages
+        ..clear()
+        ..addAll(_readMetaSet(_customLanguagesKey));
+      _customTopics
+        ..clear()
+        ..addAll(_readMetaSet(_customTopicsKey));
       _words.addAll(_box.values.map((json) {
         try {
           return WordEntry.fromJson(jsonDecode(json) as Map<String, dynamic>);
@@ -349,6 +386,21 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('VocabularyProvider._reloadFromHive error: $e');
     }
+  }
+
+  Set<String> _readMetaSet(String key) {
+    try {
+      final raw = _metaBox.get(key);
+      if (raw == null || raw.isEmpty) return <String>{};
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty).toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> _saveMetaSet(String key, Set<String> values) async {
+    await _metaBox.put(key, jsonEncode(values.toList()..sort()));
   }
 
   // ═══════════════════════════════════════════════════════
@@ -403,6 +455,38 @@ class VocabularyProvider extends ChangeNotifier {
 
   void setFilterLearningStatus(String? status) {
     _filterLearningStatus = _filterLearningStatus == status ? null : status;
+    notifyListeners();
+  }
+
+  Future<void> addCustomLanguage(String lang, {bool select = true}) async {
+    final normalized = lang.trim();
+    if (normalized.isEmpty) return;
+    _customLanguages.add(normalized);
+    if (select) _filterLanguage = normalized;
+    await _saveMetaSet(_customLanguagesKey, _customLanguages);
+    notifyListeners();
+  }
+
+  Future<void> removeCustomLanguage(String lang) async {
+    _customLanguages.remove(lang);
+    if (_filterLanguage == lang) _filterLanguage = null;
+    await _saveMetaSet(_customLanguagesKey, _customLanguages);
+    notifyListeners();
+  }
+
+  Future<void> addCustomTopic(String topic, {bool select = true}) async {
+    final normalized = topic.trim();
+    if (normalized.isEmpty) return;
+    _customTopics.add(normalized);
+    if (select) _filterTopic = normalized;
+    await _saveMetaSet(_customTopicsKey, _customTopics);
+    notifyListeners();
+  }
+
+  Future<void> removeCustomTopic(String topic) async {
+    _customTopics.remove(topic);
+    if (_filterTopic == topic) _filterTopic = null;
+    await _saveMetaSet(_customTopicsKey, _customTopics);
     notifyListeners();
   }
 
@@ -598,6 +682,42 @@ class VocabularyProvider extends ChangeNotifier {
       _saveWord(w);
       notifyListeners();
     } catch (_) {}
+  }
+
+  void updateDifficulty(String id, DifficultyLevel? difficulty) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.userDifficulty = difficulty;
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  WordEntry upsertDifficulty({
+    required String text,
+    required DifficultyLevel difficulty,
+    VocabContext? context,
+    VocabularyType? forceType,
+    String meaning = '',
+    String? phonetic,
+    String language = 'en',
+    String? topic,
+  }) {
+    final entry = addWithAutoClassify(
+      text: text,
+      meaning: meaning,
+      phonetic: phonetic,
+      forceType: forceType,
+      context: context,
+      language: language,
+      topic: topic,
+    );
+    entry.userDifficulty = difficulty;
+    entry.updatedAt = DateTime.now();
+    _saveWord(entry);
+    notifyListeners();
+    return entry;
   }
 
   void removeWord(String id) {

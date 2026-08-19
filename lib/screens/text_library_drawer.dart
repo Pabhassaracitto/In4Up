@@ -7,7 +7,8 @@
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -18,7 +19,17 @@ import '../services/text_library_service.dart';
 //news
 import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
+import 'text_library/local_text_entry_dialog.dart';
 import 'text_library/text_entry_dialog.dart';
+
+bool _isFirebaseLoggedInSafe() {
+  try {
+    if (Firebase.apps.isEmpty) return false;
+    return FirebaseAuth.instance.currentUser != null;
+  } catch (_) {
+    return false;
+  }
+}
 
 class TextLibraryDrawer extends StatefulWidget {
   const TextLibraryDrawer({super.key});
@@ -126,32 +137,56 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
 
   // ── Tab Bar ───────────────────────────────────────────────
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TabBar(
-        controller: _tabCtrl,
-        indicator: BoxDecoration(
-          color: Color(0xFF2196F3).withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: Color(0xFF2196F3).withValues(alpha: 0.4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 320;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: TabBar(
+            controller: _tabCtrl,
+            indicator: BoxDecoration(
+              color: const Color(0xFF2196F3).withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: const Color(0xFF2196F3).withValues(alpha: 0.4),
+              ),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: const Color(0xFF2196F3),
+            unselectedLabelColor: Colors.grey,
+            labelStyle:
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelPadding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
+            tabs: [
+              _drawerTab(Icons.folder_outlined, 'Máy', compact),
+              _drawerTab(Icons.cloud_outlined, 'Thư viện', compact),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Tab _drawerTab(IconData icon, String label, bool compact) {
+    return Tab(
+      height: compact ? 34 : 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: compact ? 14 : 16),
+            SizedBox(width: compact ? 4 : 6),
+            Text(label, overflow: TextOverflow.ellipsis),
+          ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: const Color(0xFF2196F3),
-        unselectedLabelColor: Colors.grey,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        tabs: const [
-          Tab(icon: Icon(Icons.folder_outlined, size: 16), text: 'Máy'),
-          Tab(icon: Icon(Icons.cloud_outlined, size: 16), text: 'Thư viện'),
-        ],
       ),
     );
   }
@@ -183,81 +218,118 @@ class _LocalTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Actions
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
-            children: [
-              Row(
+    return Consumer<TextProvider>(
+      builder: (context, tp, _) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.upload_file,
-                      label: 'Import',
-                      color: const Color(0xFF2196F3),
-                      onTap: () => _importTextFile(context),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.play_circle_fill,
-                      label: 'YouTube',
-                      color: const Color(0xFFFF0000),
-                      onTap: () =>
-                          YoutubeSheet.show(context, captionsFirst: true),
-                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 430;
+                      final tiles = [
+                        _ActionButton(
+                          icon: Icons.upload_file,
+                          label: 'Import',
+                          color: const Color(0xFF2196F3),
+                          onTap: () => _importTextFile(context),
+                        ),
+                        _ActionButton(
+                          icon: Icons.content_paste_rounded,
+                          label: 'Dán tay',
+                          color: const Color(0xFF26C6DA),
+                          onTap: () => _openManualEntryDialog(context),
+                        ),
+                        _ActionButton(
+                          icon: Icons.play_circle_fill,
+                          label: 'YouTube',
+                          color: const Color(0xFFFF0000),
+                          onTap: () => YoutubeSheet.show(context, captionsFirst: true),
+                        ),
+                        _ActionButton(
+                          icon: Icons.picture_as_pdf,
+                          label: 'Mở PDF',
+                          color: const Color(0xFFEF5350),
+                          onTap: () => _importPdfFile(context),
+                        ),
+                        _ActionButton(
+                          icon: Icons.cloud_upload_outlined,
+                          label: 'Lưu mới lên Cloud',
+                          color: const Color(0xFF6C63FF),
+                          onTap: () => _uploadCurrentTextToCloud(context, tp),
+                        ),
+                        _ActionButton(
+                          icon: Icons.cloud_sync_outlined,
+                          label: tp.isCurrentTextFromCloud
+                              ? 'Cập nhật file cloud hiện tại'
+                              : 'Cập nhật Cloud',
+                          color: const Color(0xFF7E57C2),
+                          onTap: () => tp.isCurrentTextFromCloud
+                              ? _updateCurrentCloudDirectly(context, tp)
+                              : _updateCurrentTextOnCloud(context, tp),
+                        ),
+                      ];
+
+                      if (compact) {
+                        return Column(
+                          children: [
+                            for (int i = 0; i < tiles.length; i++) ...[
+                              tiles[i],
+                              if (i != tiles.length - 1) const SizedBox(height: 8),
+                            ],
+                          ],
+                        );
+                      }
+
+                      return Column(
+                        children: [
+                          for (int i = 0; i < tiles.length; i += 2) ...[
+                            Row(
+                              children: [
+                                Expanded(child: tiles[i]),
+                                const SizedBox(width: 8),
+                                Expanded(child: tiles[i + 1]),
+                              ],
+                            ),
+                            if (i < tiles.length - 2) const SizedBox(height: 8),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: _ActionButton(
-                  icon: Icons.picture_as_pdf,
-                  label: 'Mở file PDF',
-                  color: const Color(0xFFEF5350),
-                  onTap: () => _importPdfFile(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-
-        // List
-        Expanded(
-          child: Consumer<TextProvider>(
-            builder: (context, tp, _) {
-              if (!tp.hasLyrics) {
-                return const _EmptyState(
-                  icon: Icons.text_snippet_outlined,
-                  title: 'Chưa có văn bản',
-                  subtitle: 'Import file TXT, LRC, hoặc SRT',
-                );
-              }
-              return ListView(
-                padding: const EdgeInsets.all(12),
-                children: [
-                  _TextCard(
-                    title: tp.currentTextPath?.split('/').last ??
-                        tp.currentDocument?.title ??
-                        'Văn bản hiện tại',
-                    subtitle: '${tp.lines.length} dòng',
-                    icon: Icons.description_outlined,
-                    color: const Color(0xFF2196F3),
-                    isActive: true,
-                    onTap: onClose,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+            ),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+            Expanded(
+              child: !tp.hasLyrics
+                  ? const _EmptyState(
+                      icon: Icons.text_snippet_outlined,
+                      title: 'Chưa có văn bản',
+                      subtitle:
+                          'Import file TXT/LRC/SRT, dán tay hoặc tải nội dung lên cloud',
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.all(12),
+                      children: [
+                        _TextCard(
+                          title: tp.currentTextPath?.split('/').last ??
+                              tp.currentDocument?.title ??
+                              'Văn bản hiện tại',
+                          subtitle: '${tp.lines.length} dòng',
+                          icon: Icons.description_outlined,
+                          color: const Color(0xFF2196F3),
+                          isActive: true,
+                          onTap: onClose,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -296,11 +368,9 @@ class _LocalTab extends StatelessWidget {
     final path = result.files.single.path!;
     if (!context.mounted) return;
 
-    // Load vào TextProvider
     final tp = context.read<TextProvider>();
     await tp.loadTextFile(path);
 
-    // ★ THÊM: Lưu vào recent
     if (context.mounted) {
       final file = RecentFile.fromLocalText(path).copyWith(
         totalLines: tp.lines.length,
@@ -309,6 +379,282 @@ class _LocalTab extends StatelessWidget {
     }
 
     onClose();
+  }
+
+  bool _isFirebaseLoggedInSafe() {
+    try {
+      if (Firebase.apps.isEmpty) return false;
+      return FirebaseAuth.instance.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _openManualEntryDialog(BuildContext context) async {
+    final isLoggedIn = _isFirebaseLoggedInSafe();
+    final draft = await showDialog<LocalTextDraft>(
+      context: context,
+      builder: (_) => LocalTextEntryDialog(
+        allowUploadToCloud: isLoggedIn,
+        titleText: 'Dán / nhập văn bản thủ công',
+        confirmText: isLoggedIn ? 'Nạp văn bản' : 'Nạp vào Đọc',
+      ),
+    );
+
+    if (draft == null || !context.mounted) return;
+
+    final tp = context.read<TextProvider>();
+    tp.loadFromString(draft.content, title: draft.title);
+
+    if (draft.uploadToCloud) {
+      final entry = await TextLibraryService().add(
+        title: draft.title,
+        content: draft.content,
+        category: draft.category,
+      );
+      if (entry != null) {
+        await RecentFilesService().addOrUpdate(
+          RecentFile.fromCloud(
+            id: entry.id,
+            title: entry.title,
+            category: entry.category,
+            totalLines: entry.lineCount,
+          ),
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã nạp văn bản và lưu lên cloud')),
+          );
+        }
+      }
+    }
+
+    if (context.mounted) onClose();
+  }
+
+  ({String title, String content})? _currentTextPayload(TextProvider tp) {
+    final content = tp.fullText.trim().isNotEmpty
+        ? tp.fullText.trim()
+        : tp.lines.map((e) => e.content).join('\n').trim();
+    if (content.isEmpty) return null;
+
+    final title = tp.currentDocument?.title ??
+        tp.currentTextPath?.split('/').last ??
+        'Văn bản hiện tại';
+    return (title: title, content: content);
+  }
+
+  Future<void> _uploadCurrentTextToCloud(
+    BuildContext context,
+    TextProvider tp,
+  ) async {
+    final payload = _currentTextPayload(tp);
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có văn bản hiện tại để đưa lên cloud')),
+      );
+      return;
+    }
+
+    if (!_isFirebaseLoggedInSafe()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cần đăng nhập Google để lưu thư viện cloud')),
+      );
+      return;
+    }
+
+    final entry = await showDialog<TextLibraryEntry>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        initialTitle: payload.title,
+        initialContent: payload.content,
+        initialCategory: null,
+      ),
+    );
+
+    if (entry != null && context.mounted) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: entry.id,
+          title: entry.title,
+          category: entry.category,
+          totalLines: entry.lineCount,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Đã lưu "${entry.title}" lên cloud'))),
+      );
+    }
+  }
+
+  Future<void> _updateCurrentCloudDirectly(
+    BuildContext context,
+    TextProvider tp,
+  ) async {
+    final payload = _currentTextPayload(tp);
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có văn bản hiện tại để cập nhật cloud')),
+      );
+      return;
+    }
+    if (!_isFirebaseLoggedInSafe()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cần đăng nhập Google để cập nhật file cloud hiện tại')),
+      );
+      return;
+    }
+    if (tp.currentCloudId == null) {
+      await _updateCurrentTextOnCloud(context, tp);
+      return;
+    }
+
+    final entry = await TextLibraryService().getById(tp.currentCloudId!);
+    if (!context.mounted) return;
+    if (entry == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy file cloud hiện tại, hãy chọn file khác để cập nhật')),
+      );
+      await _updateCurrentTextOnCloud(context, tp);
+      return;
+    }
+
+    final updated = await showDialog<TextLibraryEntry>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        entry: entry,
+        initialTitle: payload.title,
+        initialContent: payload.content,
+        initialCategory: tp.currentTextCategory ?? entry.category,
+        preferInitialValues: true,
+      ),
+    );
+
+    if (updated != null && context.mounted) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: updated.id,
+          title: updated.title,
+          category: updated.category,
+          totalLines: updated.lineCount,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Đã cập nhật trực tiếp file cloud "${updated.title}"'))),
+      );
+    }
+  }
+
+  Future<void> _updateCurrentTextOnCloud(
+    BuildContext context,
+    TextProvider tp,
+  ) async {
+    final payload = _currentTextPayload(tp);
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có văn bản hiện tại để cập nhật cloud')),
+      );
+      return;
+    }
+
+    if (!_isFirebaseLoggedInSafe()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cần đăng nhập Google để cập nhật thư viện cloud')),
+      );
+      return;
+    }
+
+    final entries = await TextLibraryService().fetchAll();
+    if (!context.mounted) return;
+    if (entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud chưa có file nào để cập nhật')),
+      );
+      return;
+    }
+
+    final selected = await showModalBottomSheet<TextLibraryEntry>(
+      context: context,
+      backgroundColor: const Color(0xFF0D1520),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Chọn file cloud để cập nhật',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Nội dung hiện tại sẽ được nạp vào form sửa của file cloud bạn chọn.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 360,
+                child: ListView.builder(
+                  itemCount: entries.length,
+                  itemBuilder: (_, i) {
+                    final entry = entries[i];
+                    return ListTile(
+                      leading: const Icon(Icons.cloud_done_outlined,
+                          color: Color(0xFF2196F3)),
+                      title: Text(entry.title,
+                          style: const TextStyle(color: Colors.white)),
+                      subtitle: Text(
+                        entry.category ??
+                            context.uiText(
+                              '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                            ),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      onTap: () => Navigator.pop(sheetCtx, entry),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selected == null || !context.mounted) return;
+
+    final updatedEntry = await showDialog<TextLibraryEntry>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        entry: selected,
+        initialTitle: payload.title,
+        initialContent: payload.content,
+        initialCategory: selected.category,
+        preferInitialValues: true,
+      ),
+    );
+
+    if (updatedEntry != null && context.mounted) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: updatedEntry.id,
+          title: updatedEntry.title,
+          category: updatedEntry.category,
+          totalLines: updatedEntry.lineCount,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Đã cập nhật file cloud "${updatedEntry.title}"'))),
+      );
+    }
   }
 }
 
@@ -348,6 +694,9 @@ class _CloudTabState extends State<_CloudTab> {
     context.read<TextProvider>().loadFromString(
           entry.content,
           title: entry.title,
+          sourceType: TextSourceType.cloud,
+          cloudId: entry.id,
+          category: entry.category,
         );
 
     // ★ THÊM: Lưu vào RecentFiles để hiện trong thư viện đọc
@@ -365,7 +714,7 @@ class _CloudTabState extends State<_CloudTab> {
 
   // ── Mở dialog thêm mới ────────────────────────────────────
   Future<void> _openAddDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final isLoggedIn = _isFirebaseLoggedInSafe();
 
     if (!isLoggedIn) {
       _showLoginRequired(context);
@@ -381,10 +730,63 @@ class _CloudTabState extends State<_CloudTab> {
   // ── Mở dialog sửa ─────────────────────────────────────────
   Future<void> _openEditDialog(
       BuildContext context, TextLibraryEntry entry) async {
-    await showDialog<TextLibraryEntry>(
+    final updated = await showDialog<TextLibraryEntry>(
       context: context,
       builder: (_) => TextEntryDialog(entry: entry),
     );
+    if (updated != null) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: updated.id,
+          title: updated.title,
+          category: updated.category,
+          totalLines: updated.lineCount,
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateEntryFromCurrentText(
+    BuildContext context,
+    TextLibraryEntry entry,
+  ) async {
+    final tp = context.read<TextProvider>();
+    final content = tp.fullText.trim().isNotEmpty
+        ? tp.fullText.trim()
+        : tp.lines.map((e) => e.content).join('\n').trim();
+
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có văn bản hiện tại để cập nhật vào cloud')),
+      );
+      return;
+    }
+
+    final title = tp.currentDocument?.title ?? entry.title;
+    final updated = await showDialog<TextLibraryEntry>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        entry: entry,
+        initialTitle: title,
+        initialContent: content,
+        initialCategory: tp.currentTextCategory ?? entry.category,
+        preferInitialValues: true,
+      ),
+    );
+
+    if (updated != null && context.mounted) {
+      await RecentFilesService().addOrUpdate(
+        RecentFile.fromCloud(
+          id: updated.id,
+          title: updated.title,
+          category: updated.category,
+          totalLines: updated.lineCount,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Đã cập nhật "${updated.title}" từ văn bản hiện tại'))),
+      );
+    }
   }
 
   // ── Xác nhận xoá ─────────────────────────────────────────
@@ -398,7 +800,7 @@ class _CloudTabState extends State<_CloudTab> {
         title: const Text('Xoá văn bản?',
             style: TextStyle(color: Colors.white, fontSize: 16)),
         content: Text(
-          '"${entry.title}" sẽ bị xoá khỏi thư viện cloud.',
+          context.uiText('"${entry.title}" sẽ bị xoá khỏi thư viện cloud.'),
           style: const TextStyle(color: Colors.grey, fontSize: 13),
         ),
         actions: [
@@ -436,12 +838,40 @@ class _CloudTabState extends State<_CloudTab> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         action: SnackBarAction(
-          label: 'Đăng nhập',
+          label: context.uiText('Đăng nhập'),
           textColor: const Color(0xFF82B1FF),
           onPressed: () {
             // AuthService().signInWithGoogle(context) nếu muốn trigger thẳng
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildCloudHintBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF2196F3).withValues(alpha: 0.16),
+        ),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.tips_and_updates_outlined,
+              color: Color(0xFF82B1FF), size: 16),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Chạm để mở vào Đọc · nút bút chì để sửa tên/chủ đề/nội dung · nút đồng bộ để cập nhật file cloud bằng văn bản hiện tại.',
+              style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.35),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -463,6 +893,7 @@ class _CloudTabState extends State<_CloudTab> {
         ),
 
         Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+        _buildCloudHintBar(),
 
         // ── List từ Firestore ────────────────────────────────
         Expanded(
@@ -536,6 +967,7 @@ class _CloudTabState extends State<_CloudTab> {
                   entry: items[i],
                   onTap: () => _loadEntry(context, items[i]),
                   onEdit: () => _openEditDialog(context, items[i]),
+                  onSyncFromCurrent: () => _updateEntryFromCurrentText(context, items[i]),
                   onDelete: () => _confirmDelete(context, items[i]),
                 ),
               );
@@ -558,7 +990,7 @@ class _CloudTabState extends State<_CloudTab> {
         controller: _searchCtrl,
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Tìm theo tiêu đề, chủ đề...',
+          hintText: context.uiText('Tìm theo tiêu đề, chủ đề...'),
           hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
           prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 16),
           suffixIcon: _searchCtrl.text.isNotEmpty
@@ -587,12 +1019,14 @@ class _CloudEntryCard extends StatelessWidget {
   final TextLibraryEntry entry;
   final VoidCallback onTap;
   final VoidCallback onEdit;
+  final VoidCallback onSyncFromCurrent;
   final VoidCallback onDelete;
 
   const _CloudEntryCard({
     required this.entry,
     required this.onTap,
     required this.onEdit,
+    required this.onSyncFromCurrent,
     required this.onDelete,
   });
 
@@ -661,9 +1095,12 @@ class _CloudEntryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (entry.category != null) ...[
+                          if (entry.category != null)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 1),
@@ -681,10 +1118,8 @@ class _CloudEntryCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
-                          ],
                           Text(
-                            '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                            context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 11,
@@ -696,17 +1131,28 @@ class _CloudEntryCard extends StatelessWidget {
                   ),
                 ),
 
-                // Edit button
-                GestureDetector(
-                  onTap: onEdit,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      color: Colors.grey[600],
-                      size: 16,
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: context.uiText('Sửa thông tin file cloud'),
+                      onPressed: onEdit,
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        color: Colors.grey[500],
+                        size: 18,
+                      ),
                     ),
-                  ),
+                    IconButton(
+                      tooltip: context.uiText('Cập nhật file cloud bằng văn bản hiện tại'),
+                      onPressed: onSyncFromCurrent,
+                      icon: const Icon(
+                        Icons.cloud_sync_outlined,
+                        color: Color(0xFF82B1FF),
+                        size: 18,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -773,25 +1219,50 @@ class _ActionButton extends StatelessWidget {
         HapticFeedback.lightImpact();
         onTap();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 13),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 170;
+          return Container(
+            padding: EdgeInsets.symmetric(vertical: compact ? 10 : 11, horizontal: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
-          ],
-        ),
+            child: compact
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 18, color: color),
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, size: 16, color: color),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: color, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+          );
+        },
       ),
     );
   }
@@ -849,7 +1320,7 @@ class _TextCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    subtitle,
+                    context.uiText(subtitle),
                     style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
                 ],
@@ -910,3 +1381,4 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+

@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:vipsound/screens/read_mode/models/playback_recipe.dart';
-import 'package:vipsound/screens/read_mode/services/playback_controller.dart';
+import 'package:in4up/screens/read_mode/models/playback_recipe.dart';
+import 'package:in4up/screens/read_mode/services/playback_controller.dart';
 
 class PresetRadialMenu extends StatelessWidget {
   final PlaybackController controller;
@@ -94,11 +94,12 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayLabel = context.uiText(label);
     return GestureDetector(
       onTap: onTap,
       child: Semantics(
         button: true,
-        label: 'Chọn chế độ $label',
+        label: context.uiText('Chọn chế độ $displayLabel'),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -122,7 +123,7 @@ class _PresetChip extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              label,
+              displayLabel,
               style: TextStyle(
                 color: isActive ? Colors.white : Colors.grey,
                 fontSize: 9,

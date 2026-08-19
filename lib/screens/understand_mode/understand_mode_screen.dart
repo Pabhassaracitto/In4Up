@@ -1,11 +1,11 @@
 // lib/screens/understand_mode/understand_mode_screen.dart
-// VipSound - Chế độ HIỂU (Fixed version)
+// in4up - Chế độ HIỂU (Fixed version)
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
 
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
@@ -14,6 +14,9 @@ import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
+import '../../providers/karaoke_settings_provider.dart';
+import '../../widgets/karaoke_lyrics_line.dart';
+import '../../widgets/karaoke_settings_sheet.dart';
 import '../../widgets/lrc_editor_panel.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
@@ -50,6 +53,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   // Auto-scroll to current line
   bool _autoScroll = true;
 
+  /// Người dùng đang tự kéo danh sách lyrics → tạm tắt auto-scroll.
+  bool _userScrollingLrc = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,8 +74,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         understandProvider.updatePosition(_playerProvider!.state.position);
 
         final idx = understandProvider.currentLineIndex;
-        // ★ FIX: Gọi _scrollToLine với đúng index
-        if (idx >= 0 && _autoScroll) {
+        // ★ FIX: Gọi _scrollToLine với đúng index (chỉ khi user không tự kéo)
+        if (idx >= 0 && _autoScroll && !_userScrollingLrc) {
           _scrollToLine(idx);
         }
       };
@@ -163,17 +169,26 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   // NEW: Auto-scroll to active line
   void _scrollToLine(int index) {
-    if (!_textScrollController.hasClients || index < 0) return;
+    if (!_lrcScrollController.hasClients || index < 0) return;
 
-    const double estimatedLineHeight = 52.0; // Average height of a line item
+    const double estimatedLineHeight = 56.0; // Average height of a line item
+
+    final position = _lrcScrollController.position;
+    final viewportHeight = position.viewportDimension;
 
     final targetOffset = index * estimatedLineHeight;
-    final viewportHeight = _textScrollController.position.viewportDimension;
     final centerOffset =
         targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
+    final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
 
-    _textScrollController.animateTo(
-      centerOffset.clamp(0.0, _textScrollController.position.maxScrollExtent),
+    // Chỉ scroll khi dòng nằm ngoài vùng nhìn → tránh giật liên tục.
+    final tolerance = 8.0;
+    final inView = targetOffset >= position.pixels - tolerance &&
+        targetOffset <= position.pixels + viewportHeight - tolerance;
+    if (inView) return;
+
+    _lrcScrollController.animateTo(
+      clamped,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
@@ -333,9 +348,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         labelColor: const Color(0xFFFFB300),
         unselectedLabelColor: Colors.grey,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        tabs: const [
-          Tab(text: 'Đồng bộ'),
-          Tab(text: 'Shadowing'),
+        tabs: [
+          Tab(text: context.uiText('Đồng bộ')),
+          const Tab(text: 'Shadowing'),
         ],
       ),
     );
@@ -402,7 +417,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             children: [
               Consumer<UnderstandProvider>(
                 builder: (context, provider, _) {
-                  if (provider.lrcLines.isEmpty) {
+                  if (provider!.lrcLines.isEmpty) {
                     return const Center(
                       child: Text(
                         "Chưa có nội dung\nHãy tạo LRC từ Tab Nghe",
@@ -412,11 +427,21 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     );
                   }
 
-                  return ListView.builder(
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      if (n is ScrollStartNotification) {
+                        _userScrollingLrc = true;
+                      } else if (n is ScrollEndNotification) {
+                        _userScrollingLrc = false;
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
                     controller: _lrcScrollController,
-                    itemCount: provider.lrcLines.length,
+                    itemCount: provider!.lrcLines.length,
                     itemBuilder: (context, index) {
-                      final line = provider.lrcLines[index];
+                      final line = provider!.lrcLines[index];
                       final isActive = index == provider.currentLineIndex;
 
                       return GestureDetector(
@@ -431,36 +456,48 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                           ),
                           decoration: BoxDecoration(
                             color: isActive
-                                ? const Color(0xFF6C63FF).withOpacity(0.15)
+                                ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            line.text,
-                            style: TextStyle(
-                              color: isActive ? Colors.white : Colors.grey[500],
-                              fontSize: isActive ? 16 : 14,
-                              fontWeight: isActive
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                              height: 1.4,
+                          child: Consumer<KaraokeSettingsProvider>(
+                            builder: (_, karaoke, __) => KaraokeLyricsLine(
+                              line: line,
+                              isActive: isActive,
+                              words: provider!.wordsForLine(index),
+                              activeWordIndex: isActive
+                                  ? provider.currentWordIndex
+                                  : -1,
+                              style: karaoke.style,
                             ),
                           ),
                         ),
                       );
                     },
+                  ),
                   );
                 },
               ),
               Positioned(
                 top: 8,
                 right: 8,
-                child: AutoScrollButton(
-                  isActive: _autoScroll,
-                  onToggle: () {
-                    setState(() => _autoScroll = !_autoScroll);
-                    // _scrollToLine will be called automatically by UnderstandProvider listener
-                  },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.tune,
+                          color: Colors.grey, size: 20),
+                      tooltip: context.uiText('Tuỳ chỉnh karaoke'),
+                      onPressed: () => KaraokeSettingsSheet.show(context),
+                    ),
+                    AutoScrollButton(
+                      isActive: _autoScroll,
+                      onToggle: () {
+                        setState(() => _autoScroll = !_autoScroll);
+                        // _scrollToLine will be called automatically by UnderstandProvider listener
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -473,95 +510,108 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   Widget _buildQuickControls(PlayerProvider player, TextProvider textProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         border: Border(
           top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.replay_10),
-            color: Colors.white70,
-            onPressed: () => player.replay10(),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Color(0xFFFFB300).withValues(alpha: 0.2),
-              shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.replay_10),
+              color: Colors.white70,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => player.replay10(),
             ),
-            child: IconButton(
-              icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow),
-              color: const Color(0xFFFFB300),
-              iconSize: 28,
-              onPressed: () => player.togglePlayPause(),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Color(0xFFFFB300).withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: Icon(player.isPlaying ? Icons.pause : Icons.play_arrow),
+                color: const Color(0xFFFFB300),
+                iconSize: 26,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                onPressed: () => player.togglePlayPause(),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.forward_10),
-            color: Colors.white70,
-            onPressed: () => player.forward10(),
-          ),
-          const SizedBox(width: 16),
-          if (player.isLooping)
-            GestureDetector(
-              onTap: () => showLoopControlSheet(context, player),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Color(0xFF4CAF50).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Color(0xFF4CAF50).withValues(alpha: 0.5),
+            IconButton(
+              icon: const Icon(Icons.forward_10),
+              color: Colors.white70,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => player.forward10(),
+            ),
+            const SizedBox(width: 12),
+            if (player.isLooping)
+              GestureDetector(
+                onTap: () => showLoopControlSheet(context, player),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF4CAF50).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Color(0xFF4CAF50).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.loop, size: 14, color: Color(0xFF4CAF50)),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${player.loopCount}x',
+                        style: const TextStyle(
+                          color: Color(0xFF4CAF50),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => player.clearLoop(),
+                        child: const Icon(
+                          Icons.close,
+                          size: 12,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.loop, size: 16, color: Color(0xFF4CAF50)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${player.loopCount}x',
-                      style: const TextStyle(
-                        color: Color(0xFF4CAF50),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: () => player.clearLoop(),
-                      child: const Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ],
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: () => _showSetLoopGuide(context),
+                icon: const Icon(Icons.loop, size: 16),
+                label: const Text('Loop', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                  side: BorderSide(color: Colors.grey[700]!),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: const Size(0, 32),
                 ),
               ),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: () => _showSetLoopGuide(context),
-              icon: const Icon(Icons.loop, size: 18),
-              label: const Text('Set Loop'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey,
-                side: BorderSide(color: Colors.grey[700]!),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
+            const SizedBox(width: 12),
+            SpeedChip(
+              speed: player.state.speed,
+              onTap: () => showSpeedControlSheet(context, player),
             ),
-          const Spacer(),
-          SpeedChip(
-            speed: player.state.speed,
-            onTap: () => showSpeedControlSheet(context, player),
-          ),
-        ],
+            const SizedBox(width: 12),
+          ],
+        ),
       ),
     );
   }
@@ -1046,11 +1096,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã set loop cho dòng ${lineIndex + 1}'),
+        content: Text(context.uiText('Đã set loop cho dòng ${lineIndex + 1}')),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'Xóa',
+          label: context.uiText('Xóa'),
           textColor: Colors.white,
           onPressed: () => context.read<PlayerProvider>().clearLoop(),
         ),

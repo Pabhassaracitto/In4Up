@@ -1,15 +1,15 @@
 // lib/screens/tools/venn_tab.dart
 // ═══════════════════════════════════════════════════════════════
-//  VIPSOUND INTEGRATION GUIDE
+//  in4up INTEGRATION GUIDE
 //  File: HOW_TO_INTEGRATE.md (dạng Dart comments)
 // ═══════════════════════════════════════════════════════════════
 
 ///
-/// # HƯỚNG DẪN TÍCH HỢP VÀO VIPSOUND
+/// # HƯỚNG DẪN TÍCH HỢP VÀO in4up
 ///
 /// ## 1. CẤU TRÚC FILE CẦN TẠO
 ///
-/// Thêm vào project VipSound (giả sử tên package là `vipsound`):
+/// Thêm vào project in4up (giả sử tên package là `in4up`):
 ///
 /// ```
 /// lib/
@@ -49,21 +49,21 @@
 ///   runApp(
 ///     MultiProvider(
 ///       providers: [
-///         // ... các providers VipSound hiện có ...
+///         // ... các providers in4up hiện có ...
 ///         ChangeNotifierProvider(
 ///           create: (_) => VocabularyProvider()..loadData(),
 ///         ),
 ///       ],
-///       child: const VipSoundApp(),
+///       child: const in4upApp(),
 ///     ),
 ///   );
 /// }
 /// ```
 ///
-/// ## 4. VIPSOUND MAIN SCREEN - Thêm tab Tools
+/// ## 4. in4up MAIN SCREEN - Thêm tab Tools
 ///
 /// ```dart
-/// // Trong màn hình chính của VipSound, thêm tab thứ 4 (hoặc tab mới):
+/// // Trong màn hình chính của in4up, thêm tab thứ 4 (hoặc tab mới):
 ///
 /// // Nếu dùng BottomNavigationBar:
 /// BottomNavigationBar(
@@ -118,7 +118,7 @@
 ///     // Show feedback
 ///     ScaffoldMessenger.of(context).showSnackBar(
 ///       SnackBar(
-///         content: Text('Đã lưu "$word" vào Tools'),
+///         content: Text(context.uiText('Đã lưu "$word" vào Tools')),
 ///         action: SnackBarAction(
 ///           label: 'Xem',
 ///           onPressed: () => _navigateToTools(),
@@ -141,7 +141,7 @@
 ///       children: [
 ///         ListTile(
 ///           leading: const Icon(Icons.save_alt),
-///           title: Text('Lưu "$word" vào Tools'),
+///           title: Text(context.uiText('Lưu "$word" vào Tools')),
 ///           onTap: () {
 ///             Navigator.pop(context);
 ///             // Sử dụng Future.microtask để đảm bảo context vẫn hợp lệ sau khi pop
@@ -161,12 +161,12 @@
 ///   showDialog(
 ///     context: context,
 ///     builder: (_) => AlertDialog(
-///       title: Text('Lưu từ: $word'),
+///       title: Text(context.uiText('Lưu từ: $word')),
 ///       content: TextField(
 ///         controller: meaningCtrl,
 ///         decoration: const InputDecoration(
-///           labelText: 'Nghĩa (tiếng Việt)',
-///           hintText: 'VD: ngôi nhà',
+///           labelText: context.uiText('Nghĩa (tiếng Việt)'),
+///           hintText: context.uiText('VD: ngôi nhà'),
 ///         ),
 ///       ),
 ///       actions: [
@@ -220,11 +220,11 @@
 library;
 
 // ═══════════════════════════════════════════════════════════════
-//  VIPSOUND WORD SAVER WIDGET
+//  in4up WORD SAVER WIDGET
 //  Widget tái sử dụng để lưu từ từ Read tab
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/word_entry.dart';
@@ -324,7 +324,7 @@ class _SaveButton extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Lưu từ: "$word"',
+                context.uiText('Lưu từ: "$word"'),
                 style: const TextStyle(fontSize: 16),
               ),
             ),
@@ -333,9 +333,9 @@ class _SaveButton extends StatelessWidget {
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nghĩa tiếng Việt',
-            hintText: 'VD: ngôi nhà, đẹp đẽ...',
+          decoration:  InputDecoration(
+            labelText: context.uiText('Nghĩa tiếng Việt'),
+            hintText: context.uiText('VD: ngôi nhà, đẹp đẽ...'),
             prefixIcon: Icon(Icons.translate),
           ),
           onSubmitted: (v) {
@@ -388,14 +388,14 @@ class _SaveButton extends StatelessWidget {
             children: [
               const Icon(Icons.check_circle, color: Colors.white, size: 16),
               const SizedBox(width: 8),
-              Expanded(child: Text('Đã lưu "$word" vào Tools')),
+              Expanded(child: Text(context.uiText('Đã lưu "$word" vào Tools'))),
             ],
           ),
           backgroundColor: const Color(0xFF66BB6A),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
-            label: 'Xem',
+            label: context.uiText('Xem'),
             textColor: Colors.white,
             onPressed: () {
               // Navigate to Tools tab

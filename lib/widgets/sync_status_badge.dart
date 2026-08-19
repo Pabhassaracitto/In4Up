@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/vocab_sync_service.dart';
@@ -55,16 +55,20 @@ class SyncStatusBadge extends StatelessWidget {
       default:
         color = Colors.grey;
         icon = Icons.cloud_queue;
-        label =
-            lastSync != null ? 'Đã lưu ${_formatTime(lastSync)}' : 'Sẵn sàng';
+        if (lastSync != null) {
+          final relativeTime = context.uiText(_formatTime(lastSync));
+          label = context.uiText('Đã lưu $relativeTime');
+        } else {
+          label = 'Sẵn sàng';
+        }
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

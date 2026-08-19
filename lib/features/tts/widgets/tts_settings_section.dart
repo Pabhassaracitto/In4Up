@@ -1,6 +1,6 @@
 // lib/features/tts/widgets/tts_settings_section.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../tts_service.dart';
 import '../tts_settings.dart';
@@ -429,9 +429,9 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
         }
       },
       decoration: InputDecoration(
-        labelText: widget.label,
+        labelText: context.uiText(widget.label),
         labelStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
-        hintText: widget.hint,
+        hintText: context.uiText(widget.hint),
         hintStyle: TextStyle(color: Colors.grey[700], fontSize: 10),
         isDense: true,
         contentPadding:

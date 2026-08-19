@@ -1,4 +1,4 @@
-# Podfile for VipSound project
+# Podfile for in4up project
 # --- KHÔNG ĐƯỢC THAY ĐỔI ĐOẠN NÀY ---
 # Tự động tìm đường dẫn Flutter SDK từ tệp Generated.xcconfig
 def find_flutter_root

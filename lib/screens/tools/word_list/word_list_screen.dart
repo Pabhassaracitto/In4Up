@@ -4,7 +4,7 @@
 // New: Hierarchy, type filter, contexts, relationships, decompose
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -19,7 +19,6 @@ import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
 import 'knowledge_graph_screen.dart';
-import 'loop_count_picker.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
@@ -35,6 +34,8 @@ class WordListScreen extends StatefulWidget {
 }
 
 class _WordListScreenState extends State<WordListScreen> {
+  static const double _kWordListSpeakSpeed = 0.82;
+
   // ── Services ──
   final _tts = TtsService();
 
@@ -43,7 +44,6 @@ class _WordListScreenState extends State<WordListScreen> {
   bool _showSearch = false;
   bool _filterExpanded = false;
   String? _expandedId;
-  VocabularyType? _typeFilter;
   WordListSortMode _sortMode = WordListSortMode.addTime;
   WordListSettings _settings = const WordListSettings();
 
@@ -150,96 +150,129 @@ class _WordListScreenState extends State<WordListScreen> {
         border: Border(
             bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                color: Colors.white, size: 18),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(width: 4),
-          if (!_showSearch) ...[
-            Expanded(
-              child: Row(
-                children: [
-                  const Text('Wordlist',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 8),
-                  _CountBadge(count: p.total, color: const Color(0xFF6C63FF)),
-                  if (sm2Due > 0) ...[
-                    const SizedBox(width: 8),
-                    _CountBadge(
-                      count: sm2Due,
-                      color: const Color(0xFFFF5722),
-                      icon: Icons.alarm,
-                      label: 'ôn',
-                      onTap: () =>
-                          setState(() => _sortMode = WordListSortMode.sm2Due),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          return Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new,
+                    color: Colors.white, size: 18),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(width: 4),
+              if (!_showSearch) ...[
+                Expanded(
+                  child: compact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Wordlist',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                _CountBadge(count: p.total, color: const Color(0xFF6C63FF)),
+                                if (sm2Due > 0)
+                                  _CountBadge(
+                                    count: sm2Due,
+                                    color: const Color(0xFFFF5722),
+                                    icon: Icons.alarm,
+                                    label: 'ôn',
+                                    onTap: () => setState(() => _sortMode = WordListSortMode.sm2Due),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            const Flexible(
+                              child: Text('Wordlist',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800)),
+                            ),
+                            const SizedBox(width: 8),
+                            _CountBadge(count: p.total, color: const Color(0xFF6C63FF)),
+                            if (sm2Due > 0) ...[
+                              const SizedBox(width: 8),
+                              _CountBadge(
+                                count: sm2Due,
+                                color: const Color(0xFFFF5722),
+                                icon: Icons.alarm,
+                                label: 'ôn',
+                                onTap: () => setState(() => _sortMode = WordListSortMode.sm2Due),
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
+              ] else ...[
+                Expanded(
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                  const SizedBox(width: 8),
-                  const SyncStatusBadge(),
-                ],
-              ),
-            ),
-          ] else ...[
-            Expanded(
-              child: Container(
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'Tìm từ, cụm từ, câu...',
-                    hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    prefixIcon:
-                        Icon(Icons.search, color: Colors.grey[600], size: 16),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: context.uiText('Tìm từ, cụm từ, câu...'),
+                        hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        prefixIcon:
+                            Icon(Icons.search, color: Colors.grey[600], size: 16),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      ),
+                      onChanged: p.setSearch,
+                    ),
                   ),
-                  onChanged: p.setSearch,
                 ),
+              ],
+              if (!compact && !_showSearch) const SyncStatusBadge(),
+              IconButton(
+                icon: Icon(_showSearch ? Icons.close : Icons.search,
+                    color: Colors.grey[400], size: 20),
+                onPressed: () {
+                  setState(() => _showSearch = !_showSearch);
+                  if (!_showSearch) {
+                    _searchCtrl.clear();
+                    p.clearSearch();
+                  }
+                },
               ),
-            ),
-          ],
-          IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search,
-                color: Colors.grey[400], size: 20),
-            onPressed: () {
-              setState(() => _showSearch = !_showSearch);
-              if (!_showSearch) {
-                _searchCtrl.clear();
-                p.clearSearch();
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.view_sidebar_outlined,
-                color: Colors.grey[400], size: 20),
-            onPressed: () => _showSmartGroupsSheet(p),
-          ),
-          // Knowledge Graph button
-          IconButton(
-            icon: Icon(Icons.hub_outlined, color: Colors.grey[400], size: 20),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const KnowledgeGraphScreen(),
+              IconButton(
+                icon: Icon(Icons.view_sidebar_outlined,
+                    color: Colors.grey[400], size: 20),
+                onPressed: () => _showSmartGroupsSheet(p),
               ),
-            ),
-            tooltip: 'Knowledge Graph',
-          ),
-          _buildOverflowMenu(p),
-        ],
+              IconButton(
+                icon: Icon(Icons.hub_outlined, color: Colors.grey[400], size: 20),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const KnowledgeGraphScreen(),
+                  ),
+                ),
+                tooltip: 'Knowledge Graph',
+              ),
+              _buildOverflowMenu(p),
+            ],
+          );
+        },
       ),
     );
   }
@@ -423,19 +456,17 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterType == null,
                       onTap: () {
                         p.setFilterType(null);
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
                     ...VocabularyType.values.map((type) => Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: _FilterSegmentChip(
-                            label: type.labelEn,
+                            label: type.label(context),
                             color: type.color,
                             isSelected: p.filterType == type,
                             onTap: () {
                               p.setFilterType(type);
-                              setState(() => _filterExpanded = false);
                             },
                           ),
                         )),
@@ -452,7 +483,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == null,
                       onTap: () {
                         p.setFilterLearningStatus(null);
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -462,7 +492,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'due',
                       onTap: () {
                         p.setFilterLearningStatus('due');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -472,7 +501,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'learning',
                       onTap: () {
                         p.setFilterLearningStatus('learning');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -482,7 +510,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'mastered',
                       onTap: () {
                         p.setFilterLearningStatus('mastered');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                     const SizedBox(width: 6),
@@ -492,7 +519,6 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected: p.filterLearningStatus == 'blindSpot',
                       onTap: () {
                         p.setFilterLearningStatus('blindSpot');
-                        setState(() => _filterExpanded = false);
                       },
                     ),
                   ]),
@@ -550,7 +576,6 @@ class _WordListScreenState extends State<WordListScreen> {
           isSelected: p.filterLanguage == null,
           onTap: () {
             p.setFilterLanguage(null);
-            setState(() => _filterExpanded = false);
           },
         ),
         const SizedBox(width: 6),
@@ -563,7 +588,6 @@ class _WordListScreenState extends State<WordListScreen> {
                 isSelected: p.filterLanguage == lang,
                 onTap: () {
                   p.setFilterLanguage(lang);
-                  setState(() => _filterExpanded = false);
                 },
               ),
             ),
@@ -575,8 +599,10 @@ class _WordListScreenState extends State<WordListScreen> {
               isSelected: p.filterLanguage == lang,
               onTap: () {
                 p.setFilterLanguage(lang);
-                setState(() => _filterExpanded = false);
               },
+              onDelete: p.isCustomLanguage(lang)
+                  ? () => p.removeCustomLanguage(lang)
+                  : null,
             ),
           ),
         _AddChip(onTap: () => _promptAddLanguage(p)),
@@ -594,7 +620,6 @@ class _WordListScreenState extends State<WordListScreen> {
           isSelected: p.filterTopic == null,
           onTap: () {
             p.setFilterTopic(null);
-            setState(() => _filterExpanded = false);
           },
         ),
         const SizedBox(width: 6),
@@ -606,8 +631,10 @@ class _WordListScreenState extends State<WordListScreen> {
               isSelected: p.filterTopic == topic,
               onTap: () {
                 p.setFilterTopic(topic);
-                setState(() => _filterExpanded = false);
               },
+              onDelete: p.isCustomTopic(topic)
+                  ? () => p.removeCustomTopic(topic)
+                  : null,
             ),
           ),
         _AddChip(onTap: () => _promptAddTopic(p)),
@@ -653,7 +680,7 @@ class _WordListScreenState extends State<WordListScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)',
+            hintText: context.uiText('Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.grey[800]!)),
@@ -667,16 +694,15 @@ class _WordListScreenState extends State<WordListScreen> {
             child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final val = textC.text.trim();
               if (val.isNotEmpty) {
-                p.setFilterLanguage(val);
+                await p.addCustomLanguage(val);
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF42A5F5)),
-            child: const Text('Lọc'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
+            child: const Text('Tạo & lọc'),
           ),
         ],
       ),
@@ -699,7 +725,7 @@ class _WordListScreenState extends State<WordListScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)',
+            hintText: context.uiText('Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.grey[800]!)),
@@ -713,16 +739,15 @@ class _WordListScreenState extends State<WordListScreen> {
             child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final val = textC.text.trim();
               if (val.isNotEmpty) {
-                p.setFilterTopic(val);
+                await p.addCustomTopic(val);
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF42A5F5)),
-            child: const Text('Lọc'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF42A5F5)),
+            child: const Text('Tạo & lọc'),
           ),
         ],
       ),
@@ -758,22 +783,7 @@ class _WordListScreenState extends State<WordListScreen> {
           _ListRepeatButton(
             count: _listRepeatCount,
             current: _listRepeatCurrent,
-            onTap: () => showModalBottomSheet(
-              context: context,
-              backgroundColor: const Color(0xFF0D1520),
-              isScrollControlled: true,
-              shape: const RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(20))),
-              builder: (_) => LoopCountPickerSheet(
-                current: _listRepeatCount,
-                allowInfinite: true,
-                onChanged: (v) {
-                  setState(() => _listRepeatCount = v);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
+            onChanged: (v) => setState(() => _listRepeatCount = v),
           ),
           const SizedBox(width: 8),
           // Play All
@@ -822,7 +832,6 @@ class _WordListScreenState extends State<WordListScreen> {
                 isAlreadySown:
                     sownWords.contains(entry.word.trim().toLowerCase()),
                 provider: p,
-                tts: _tts,
                 repeatCount: _getRepeatCount(entry.id),
                 playingRepeat: isPlaying ? _playingRepeatCurrent : 0,
                 onTap: _isSelecting
@@ -843,6 +852,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 onRepeatChanged: (v) =>
                     setState(() => _repeatOverrides[entry.id] = v),
                 onEdit: () => _showEditSheet(entry, p),
+                onSpeak: () => _speakWord(entry.word),
               );
             },
           ),
@@ -884,7 +894,7 @@ class _WordListScreenState extends State<WordListScreen> {
       color: const Color(0xFF1A1A2E),
       child: Row(
         children: [
-          Text('${_selectedIds.length} đã chọn',
+          Text(context.uiText('${_selectedIds.length} đã chọn'),
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -922,9 +932,9 @@ class _WordListScreenState extends State<WordListScreen> {
               size: 52, color: Colors.grey[800]),
           const SizedBox(height: 16),
           Text(
-              isSearching
+              context.uiText(isSearching
                   ? 'Không tìm thấy "${p.searchQuery}"'
-                  : 'Chưa có từ vựng',
+                  : 'Chưa có từ vựng'),
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 15,
@@ -966,6 +976,8 @@ class _WordListScreenState extends State<WordListScreen> {
           storyTitle: textProvider.currentDocument!.title,
           lineIndex: textProvider.currentLineIndex,
           surroundingText: line,
+          sourceRef: textProvider.currentContextSourceRef,
+          sourceRefType: textProvider.currentContextSourceRefType,
         );
       }
     } catch (_) {}
@@ -997,7 +1009,9 @@ class _WordListScreenState extends State<WordListScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Đã lưu $typeLabel: $text',
+                context.tr(
+                  'Đã lưu ${context.tr(typeLabel)}: $text',
+                ),
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
@@ -1006,12 +1020,22 @@ class _WordListScreenState extends State<WordListScreen> {
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'SỬA',
+          label: context.tr('SỬA'),
           textColor: Colors.white,
           onPressed: () => _showEditSheet(entry, p),
         ),
       ),
     );
+  }
+
+  Future<void> _speakWord(String text) async {
+    final previousSpeed = _tts.speed;
+    _tts.configure(speed: _kWordListSpeakSpeed);
+    try {
+      await _tts.speak(text);
+    } finally {
+      _tts.configure(speed: previousSpeed);
+    }
   }
 
   void _showAddMenu(VocabularyProvider provider) {
@@ -1132,9 +1156,9 @@ class _WordListScreenState extends State<WordListScreen> {
         ? items[_playingIndex]
         : null;
     final listInfo = _listRepeatCount == 0
-        ? 'Vòng $_listRepeatCurrent/∞'
+        ? context.uiText('Vòng $_listRepeatCurrent/∞')
         : _listRepeatCount > 1
-            ? 'Vòng $_listRepeatCurrent/$_listRepeatCount'
+            ? context.uiText('Vòng $_listRepeatCurrent/$_listRepeatCount')
             : '';
     return Row(
       children: [
@@ -1159,7 +1183,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       fontWeight: FontWeight.w700)),
               Text(
                   '${_playingIndex + 1}/${items.length}'
-                  '${_playingRepeatCurrent > 1 ? ' · lần $_playingRepeatCurrent' : ''}'
+                  '${_playingRepeatCurrent > 1 ? context.uiText(' · lần $_playingRepeatCurrent') : ''}'
                   '${listInfo.isNotEmpty ? '  $listInfo' : ''}',
                   style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             ])),
@@ -1179,7 +1203,7 @@ class _WordListScreenState extends State<WordListScreen> {
   Widget _buildSelectingPlayBar(List<WordEntry> items) {
     return Row(
       children: [
-        Text('${_selectedIds.length} đã chọn',
+        Text(context.uiText('${_selectedIds.length} đã chọn'),
             style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -1224,48 +1248,55 @@ class _WordListScreenState extends State<WordListScreen> {
     if (items.isEmpty) return;
     HapticFeedback.mediumImpact();
     _stopRequested = false;
+    final previousSpeed = _tts.speed;
+    _tts.configure(speed: _kWordListSpeakSpeed);
     setState(() {
       _isPlaying = true;
       _listRepeatCurrent = 0;
     });
 
-    int listPass = 0;
-    while (!_stopRequested && mounted) {
-      listPass++;
-      setState(() => _listRepeatCurrent = listPass);
+    try {
+      int listPass = 0;
+      while (!_stopRequested && mounted) {
+        listPass++;
+        setState(() => _listRepeatCurrent = listPass);
 
-      for (int i = 0; i < items.length; i++) {
-        if (_stopRequested || !mounted) break;
-        setState(() => _playingIndex = i);
-        final entry = items[i];
-        final repeat = _getRepeatCount(entry.id);
-        for (int r = 0; r < repeat; r++) {
+        for (int i = 0; i < items.length; i++) {
           if (_stopRequested || !mounted) break;
-          setState(() => _playingRepeatCurrent = r + 1);
-          await _tts.speak(entry.word);
-          if (r < repeat - 1 && !_stopRequested && mounted) {
-            await Future.delayed(const Duration(milliseconds: 700));
+          setState(() => _playingIndex = i);
+          final entry = items[i];
+          final repeat = _getRepeatCount(entry.id);
+          for (int r = 0; r < repeat; r++) {
+            if (_stopRequested || !mounted) break;
+            setState(() => _playingRepeatCurrent = r + 1);
+            await _tts.speak(entry.word);
+            if (r < repeat - 1 && !_stopRequested && mounted) {
+              await Future.delayed(const Duration(milliseconds: 700));
+            }
+          }
+          if (!_stopRequested && mounted && i < items.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 500));
           }
         }
-        if (!_stopRequested && mounted && i < items.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 500));
+
+        if (_stopRequested || !mounted) break;
+        if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
+        if (!_stopRequested && mounted) {
+          await Future.delayed(const Duration(milliseconds: 1200));
         }
       }
-
-      if (_stopRequested || !mounted) break;
-      if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-      if (!_stopRequested && mounted)
-        await Future.delayed(const Duration(milliseconds: 1200));
+    } finally {
+      _tts.configure(speed: previousSpeed);
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _playingIndex = -1;
+          _playingRepeatCurrent = 0;
+          _listRepeatCurrent = 0;
+          _stopRequested = false;
+        });
+      }
     }
-
-    if (mounted)
-      setState(() {
-        _isPlaying = false;
-        _playingIndex = -1;
-        _playingRepeatCurrent = 0;
-        _listRepeatCurrent = 0;
-        _stopRequested = false;
-      });
   }
 
   void _stopPlayback() {
@@ -1479,8 +1510,8 @@ class _WordListScreenState extends State<WordListScreen> {
 
   InputDecoration _inputDeco(String label, String hint, Color color) =>
       InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: context.uiText(label),
+        hintText: context.uiText(hint),
         hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
         labelStyle: TextStyle(color: color, fontSize: 12),
         filled: true,
@@ -1522,7 +1553,7 @@ class _WordListScreenState extends State<WordListScreen> {
                           fontWeight: FontWeight.bold)),
                 ]),
                 const SizedBox(height: 6),
-                Text('Chọn từ/cụm muốn lưu riêng từ "${parent.word}"',
+                Text(context.uiText('Chọn từ/cụm muốn lưu riêng từ "${parent.word}"'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                 const SizedBox(height: 16),
                 if (result.words.isNotEmpty) ...[
@@ -1598,14 +1629,14 @@ class _WordListScreenState extends State<WordListScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(
-                                '✅ Đã tạo ${selWords.length + selPhrases.length} entry con'),
+                                context.uiText('✅ Đã tạo ${selWords.length + selPhrases.length} entry con')),
                             backgroundColor: const Color(0xFF4CAF50),
                             behavior: SnackBarBehavior.floating));
                       },
                       style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6C63FF)),
                       child: Text(
-                          'Lưu ${selWords.length + selPhrases.length} mục'),
+                          context.uiText('Lưu ${selWords.length + selPhrases.length} mục')),
                     ),
                 ]),
               ]),
@@ -1617,6 +1648,7 @@ class _WordListScreenState extends State<WordListScreen> {
   void _showEditSheet(WordEntry entry, VocabularyProvider p) {
     final wordC = TextEditingController(text: entry.word);
     final meanC = TextEditingController(text: entry.meaning);
+    final ipaC = TextEditingController(text: entry.phonetic ?? '');
     final noteC = TextEditingController(text: entry.personalNotes ?? '');
     final topicC = TextEditingController(text: entry.topic ?? '');
     String selectedLang = entry.language;
@@ -1663,8 +1695,9 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(meanC, 'Nghĩa', Icons.translate),
                     const SizedBox(height: 10),
-                    _editField(noteC, 'Ghi chú', Icons.note_alt_outlined,
-                        maxLines: 2),
+                    _editField(ipaC, 'Phiên âm / IPA', Icons.record_voice_over_outlined),
+                    const SizedBox(height: 10),
+                    _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
                     _editField(
                         topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
@@ -1681,12 +1714,8 @@ class _WordListScreenState extends State<WordListScreen> {
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
                                 label: Text(
-                                  type.labelEn,
-                                  style: TextStyle(
-                                      color: selectedType == type
-                                          ? Colors.white
-                                          : Colors.grey,
-                                      fontSize: 11),
+                                  type.label(context),
+                                  style: TextStyle(color: selectedType == type ? Colors.white : Colors.grey, fontSize: 11),
                                 ),
                                 selected: selectedType == type,
                                 selectedColor: type.color,
@@ -1747,6 +1776,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               entry.id,
                               word: wordC.text.trim(),
                               meaning: meanC.text.trim(),
+                              phonetic: ipaC.text.trim(),
                               language: selectedLang,
                               topic: topicC.text.trim(),
                               vocabType: selectedType,
@@ -1781,7 +1811,7 @@ class _WordListScreenState extends State<WordListScreen> {
         maxLines: maxLines,
         style: const TextStyle(color: Colors.white, fontSize: 14),
         decoration: InputDecoration(
-            labelText: label,
+            labelText: context.uiText(label),
             labelStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
             prefixIcon: Icon(icon, color: Colors.grey[500], size: 16),
             filled: true,
@@ -1802,9 +1832,8 @@ class _CompactListItem extends StatelessWidget {
   final bool isAlreadySown;
   final WordListSettings settings;
   final VocabularyProvider provider;
-  final TtsService tts;
   final int repeatCount, playingRepeat;
-  final VoidCallback onTap, onLongPress, onEdit;
+  final VoidCallback onTap, onLongPress, onEdit, onSpeak;
   final ValueChanged<int> onRepeatChanged;
 
   const _CompactListItem({
@@ -1817,13 +1846,13 @@ class _CompactListItem extends StatelessWidget {
     required this.isSelecting,
     required this.settings,
     required this.provider,
-    required this.tts,
     required this.repeatCount,
     required this.playingRepeat,
     required this.onTap,
     required this.onLongPress,
     required this.onRepeatChanged,
     required this.onEdit,
+    required this.onSpeak,
   });
 
   @override
@@ -1995,7 +2024,7 @@ class _CompactListItem extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                            '🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!'),
+                            context.uiText('🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!')),
                         backgroundColor: const Color(0xFF4CAF50),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -2014,7 +2043,7 @@ class _CompactListItem extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                              '🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!'),
+                              context.uiText('🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!')),
                           backgroundColor: const Color(0xFF4CAF50),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
@@ -2065,7 +2094,7 @@ class _CompactListItem extends StatelessWidget {
 
               // TTS
               GestureDetector(
-                onTap: () => tts.speak(entry.word),
+                onTap: onSpeak,
                 child: Container(
                     width: 28,
                     height: 28,
@@ -2158,7 +2187,13 @@ class _CompactListItem extends StatelessWidget {
                                 height: 1.4)),
                       if (c.sourceName != null) ...[
                         const SizedBox(height: 4),
-                        Text('${c.sourceIcon} ${c.displaySource}',
+                        Text(
+                            '${c.sourceIcon} ${c.composeDisplaySource(
+                              c.hasGeneratedPositionLabel &&
+                                      c.pageOrPosition != null
+                                  ? ctx.uiText(c.pageOrPosition!)
+                                  : c.pageOrPosition,
+                            )}',
                             style: TextStyle(
                                 color: Colors.grey[600], fontSize: 10))
                       ],
@@ -2227,9 +2262,9 @@ class _CompactListItem extends StatelessWidget {
         if (entry.nextReview != null) ...[
           const SizedBox(height: 4),
           Text(
-              entry.isDue
+              ctx.uiText(entry.isDue
                   ? '⏰ Cần ôn tập!'
-                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa',
+                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa'),
               style: TextStyle(
                   color:
                       entry.isDue ? const Color(0xFFFF5722) : Colors.grey[600],
@@ -2390,7 +2425,7 @@ class _SmartGroupsSheet extends StatelessWidget {
           _gSection(
               '🏷️ Loại',
               VocabularyType.values
-                  .map((t) => _gItem(t.icon, t.labelEn,
+                  .map((t) => _gItem(t.icon, t.label(context),
                           provider.wordsByType[t]?.length ?? 0, t.color, () {
                         provider.setFilterType(t);
                         Navigator.pop(context);
@@ -2704,51 +2739,6 @@ class _CountBadge extends StatelessWidget {
       );
 }
 
-class _TypeChip extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
-  final bool isSelected;
-  final VoidCallback onTap;
-  const _TypeChip(
-      {required this.label,
-      required this.count,
-      required this.color,
-      required this.isSelected,
-      required this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-                color: isSelected
-                    ? color.withValues(alpha: 0.2)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: isSelected
-                        ? color
-                        : Colors.white.withValues(alpha: 0.1))),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(label,
-                  style: TextStyle(
-                      color: isSelected ? color : Colors.grey[500],
-                      fontSize: 11,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500)),
-              const SizedBox(width: 4),
-              Text('$count',
-                  style: TextStyle(
-                      color: isSelected
-                          ? color.withValues(alpha: 0.7)
-                          : Colors.grey[700],
-                      fontSize: 10)),
-            ])),
-      );
-}
-
 class _DropdownChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -2819,16 +2809,158 @@ class _PlayAllButton extends StatelessWidget {
       );
 }
 
+Future<void> _showRepeatCountMenu(
+  BuildContext context, {
+  required int current,
+  required ValueChanged<int> onChanged,
+  bool allowInfinite = false,
+}) async {
+  final box = context.findRenderObject() as RenderBox?;
+  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+  if (box == null || overlay == null) return;
+
+  final rect = RelativeRect.fromRect(
+    Rect.fromPoints(
+      box.localToGlobal(Offset.zero, ancestor: overlay),
+      box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+    ),
+    Offset.zero & overlay.size,
+  );
+
+  final selected = await showMenu<int>(
+    context: context,
+    position: rect,
+    color: const Color(0xFF141D2E),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    items: [
+      if (allowInfinite)
+        PopupMenuItem<int>(
+          value: 0,
+          child: _RepeatMenuItem(label: '∞', subtitle: 'Lặp mãi', selected: current == 0),
+        ),
+      for (final value in [1, 2, 3, 4, 5, 7, 10])
+        PopupMenuItem<int>(
+          value: value,
+          child: _RepeatMenuItem(
+            label: '$value×',
+            subtitle: value == 1 ? 'Một lần' : '$value lần',
+            selected: current == value,
+          ),
+        ),
+      const PopupMenuDivider(height: 1),
+      const PopupMenuItem<int>(
+        value: -1,
+        child: _RepeatMenuItem(label: 'Tùy chỉnh...', subtitle: 'Nhập số khác'),
+      ),
+    ],
+  );
+
+  if (selected == null) return;
+  if (selected == -1) {
+    final ctrl = TextEditingController(text: current > 0 ? '$current' : '');
+    final custom = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2235),
+        title: const Text('Nhập số lần lặp', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+              hintText: context.uiText('VD: 12'),
+            hintStyle: TextStyle(color: Colors.grey[600]),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = int.tryParse(ctrl.text.trim());
+              Navigator.pop(ctx, value);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (custom != null && custom >= 0) {
+      HapticFeedback.selectionClick();
+      onChanged(custom);
+    }
+    return;
+  }
+
+  HapticFeedback.selectionClick();
+  onChanged(selected);
+}
+
+class _RepeatMenuItem extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool selected;
+
+  const _RepeatMenuItem({
+    required this.label,
+    required this.subtitle,
+    this.selected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (selected)
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.check, size: 14, color: Color(0xFFFFB300)),
+          )
+        else
+          const SizedBox(width: 22),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.uiText(label),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                context.uiText(subtitle),
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ListRepeatButton extends StatelessWidget {
   final int count, current;
-  final VoidCallback onTap;
+  final ValueChanged<int> onChanged;
   const _ListRepeatButton(
-      {required this.count, required this.current, required this.onTap});
+      {required this.count, required this.current, required this.onChanged});
   @override
   Widget build(BuildContext context) {
     final label = count == 0 ? '∞' : '$count×';
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _showRepeatCountMenu(
+        context,
+        current: count,
+        allowInfinite: true,
+        onChanged: onChanged,
+      ),
       child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
@@ -2868,18 +3000,10 @@ class _PerWordRepeatBtn extends StatelessWidget {
       required this.onChanged});
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () => showModalBottomSheet(
-          context: context,
-          backgroundColor: const Color(0xFF0D1520),
-          isScrollControlled: true,
-          shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-          builder: (ctx) => LoopCountPickerSheet(
-              current: count,
-              onChanged: (v) {
-                onChanged(v.clamp(1, 999));
-                Navigator.pop(ctx);
-              }),
+        onTap: () => _showRepeatCountMenu(
+          context,
+          current: count,
+          onChanged: (v) => onChanged(v.clamp(1, 999)),
         ),
         child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
@@ -2920,7 +3044,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Icon(icon, size: 13, color: Colors.grey[500]),
         const SizedBox(width: 6),
-        Text(label,
+        Text(context.uiText(label),
             style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 11,
@@ -3064,12 +3188,14 @@ class _FilterSegmentChip extends StatelessWidget {
   final Color? color;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _FilterSegmentChip({
     required this.label,
     this.color,
     required this.isSelected,
     required this.onTap,
+    this.onDelete,
   });
 
   @override
@@ -3092,13 +3218,25 @@ class _FilterSegmentChip extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? chipColor : Colors.grey[400],
-            fontSize: 10.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? chipColor : Colors.grey[400],
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onDelete,
+                child: Icon(Icons.close, size: 12, color: Colors.grey[500]),
+              ),
+            ],
+          ],
         ),
       ),
     );

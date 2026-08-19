@@ -1,0 +1,52 @@
+{
+  "name": "english_syntax_highlighter",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": ".",
+  "dependencies": {
+    "@material/react-button": "^0.15.0",
+    "@material/react-checkbox": "^0.15.0",
+    "@material/react-dialog": "^0.15.0",
+    "@material/react-fab": "^0.15.0",
+    "@material/react-icon-button": "^0.15.0",
+    "@material/react-list": "^0.15.0",
+    "@material/react-material-icon": "^0.15.0",
+    "@material/react-select": "^0.15.0",
+    "@material/react-switch": "^0.15.0",
+    "@material/react-text-field": "^0.15.0",
+    "@material/react-top-app-bar": "^0.15.0",
+    "@material/react-typography": "^0.15.0",
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.5.0",
+    "@testing-library/user-event": "^7.2.1",
+    "lodash.clonedeep": "^4.5.0",
+    "node-html-parser": "^1.2.16",
+    "node-sass": "^4.14.1",
+    "react": "^16.13.1",
+    "react-color": "^2.18.1",
+    "react-dom": "^16.13.1",
+    "react-scripts": "3.4.1",
+    "uuid": "^8.0.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build && node remove-inline.js",
+    "remove-inline": "node remove-inline.js",
+    "copy-public": "cp public/* build/"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

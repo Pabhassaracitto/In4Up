@@ -1,0 +1,171 @@
+import 'package:flutter/material.dart' as material;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/core/language/app_ui_translations.dart';
+import 'package:in4up/core/language/localized_material.dart'
+    show LocalizedUiBuildContext, Text;
+
+void main() {
+  group('AppUITranslations', () {
+    test('uses English as the fallback for untranslated locales', () {
+      expect(AppUITranslations.translate('Lưu', 'en-US'), 'Save');
+      expect(AppUITranslations.translate('Lưu', 'bn-BD'), 'Save');
+      expect(AppUITranslations.translate('Lưu', 'bo-CN'), 'Save');
+    });
+
+    test('uses real locale translations when the catalog has one', () {
+      expect(AppUITranslations.translate('Lưu', 'de-DE'), 'Speichern');
+      expect(AppUITranslations.translate('Lưu', 'fr-FR'), 'Enregistrer');
+      expect(AppUITranslations.translate('Lưu', 'ja-JP'), '保存');
+    });
+
+    test('preserves Traditional Chinese locale subtags', () {
+      expect(
+        AppUITranslations.translate('Hệ điều hành Tri thức', 'zh-Hans-CN'),
+        '知识操作系统',
+      );
+      expect(
+        AppUITranslations.translate('Hệ điều hành Tri thức', 'zh-Hant-TW'),
+        '知識作業系統',
+      );
+      expect(
+        AppUITranslations.translate('Hệ điều hành Tri thức', 'zh_TW'),
+        '知識作業系統',
+      );
+    });
+
+    test('interpolates reviewed ARB templates without losing values', () {
+      expect(
+        AppUITranslations.translate('Lỗi: network timeout', 'fr'),
+        'Erreur network timeout',
+      );
+      expect(
+        AppUITranslations.translate('Dòng 2/14', 'en'),
+        'Line 2/14',
+      );
+    });
+
+    test('uses reviewed fallbacks for generated model UI templates', () {
+      expect(AppUITranslations.translate('trang 42', 'en'), 'page 42');
+      expect(AppUITranslations.translate('dòng 3', 'de'), 'line 3');
+      expect(AppUITranslations.translate('cuộn 50%', 'fr'), 'scroll 50%');
+      expect(
+        AppUITranslations.translate(
+          'Preset cá nhân gồm 7 nhóm từ loại được chọn thủ công.',
+          'en',
+        ),
+        'Personal preset with 7 manually selected part-of-speech groups.',
+      );
+    });
+
+    test('supports templates assembled from adjacent Dart strings', () {
+      expect(
+        AppUITranslations.translate(
+          '🇬🇧 en ×2  •  Câu 3/10  •  Vòng 1/4',
+          'en',
+        ),
+        '🇬🇧 en ×2  •  Sentence 3/10  •  Round 1/4',
+      );
+    });
+
+    test('localizes reviewed generated values at explicit UI boundaries', () {
+      expect(
+        AppUITranslations.translate('Dòng 5 / 20', 'en'),
+        'Line 5 / 20',
+      );
+      expect(
+        AppUITranslations.translate('Đang chờ... 1.5s', 'en'),
+        'Waiting... 1.5s',
+      );
+
+      final relativeTime = AppUITranslations.translate('5p trước', 'en');
+      expect(relativeTime, '5m ago');
+      expect(
+        AppUITranslations.translate('Đã lưu $relativeTime', 'en'),
+        'Saved 5m ago',
+      );
+
+      final anchorAge = AppUITranslations.translate('3 phút trước', 'en');
+      expect(
+        AppUITranslations.translate('Câu 7  •  $anchorAge', 'en'),
+        'Sentence 7  •  3 minutes ago',
+      );
+      expect(
+        AppUITranslations.translate('65% độ dài câu gốc', 'en'),
+        '65% of the original length',
+      );
+      expect(AppUITranslations.translate('Đặt 20 phút', 'en'), 'Set 20 minutes');
+    });
+
+    test('localizes generated custom-widget labels without losing content', () {
+      expect(
+        AppUITranslations.translate('12 lần gặp', 'en'),
+        'Encountered 12 times',
+      );
+      expect(
+        AppUITranslations.translate('4 nhóm đang bật', 'en'),
+        '4 groups enabled',
+      );
+      expect(
+        AppUITranslations.translate('Tối thiểu 6 ký tự', 'en'),
+        'At least 6 characters',
+      );
+      expect(
+        AppUITranslations.translate('PDF đoạn chọn · lesson-one', 'en'),
+        'PDF selection · lesson-one',
+      );
+      expect(
+        AppUITranslations.translate('Nhảy tới 02:15 trong audio', 'en'),
+        'Jump to 02:15 in audio',
+      );
+    });
+
+    test('exact lookup does not translate template-shaped content', () {
+      expect(AppUITranslations.translateExact('10 phút', 'en'), '10 phút');
+      expect(AppUITranslations.translate('10 phút', 'en'), '10 minutes');
+    });
+
+    testWidgets('Text requires an explicit UI boundary for templates',
+        (tester) async {
+      await tester.pumpWidget(
+        material.MaterialApp(
+          locale: const material.Locale('en'),
+          home: material.Builder(
+            builder: (context) => material.Column(
+              children: [
+                const Text('10 phút'),
+                material.Text(context.uiText('10 phút')),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('10 phút'), findsOneWidget);
+      expect(find.text('10 minutes'), findsOneWidget);
+    });
+
+    test('keeps Vietnamese unchanged when Vietnamese is selected', () {
+      expect(AppUITranslations.translate('Lưu', 'vi-VN'), 'Lưu');
+      expect(AppUITranslations.translate('Dòng 2/14', 'vi'), 'Dòng 2/14');
+    });
+
+    test('never guesses at unknown document or vocabulary content', () {
+      const userText = 'Đây là nội dung tiếng Việt do người dùng nhập.';
+      expect(AppUITranslations.translate(userText, 'en'), userText);
+      expect(AppUITranslations.containsSource(userText), isFalse);
+    });
+
+    test('does not use the old generic Content substitution', () {
+      const knownSources = [
+        'Đang khởi động...',
+        'Chưa có văn bản',
+        'Tìm bộ sưu tập, link, bookmark, lịch sử, tên miền...',
+      ];
+      for (final source in knownSources) {
+        final translated = AppUITranslations.translate(source, 'en');
+        expect(translated, isNot(source));
+        expect(translated, isNot('Content'));
+      }
+    });
+  });
+}

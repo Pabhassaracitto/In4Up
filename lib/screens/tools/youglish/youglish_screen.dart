@@ -4,7 +4,7 @@
 // ★ UI: Compact toolbar 1 hàng — Search + Language dropdown + Accent dropdown
 //   → WebView chiếm tối đa không gian, không cần kéo xuống
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import 'youglish_config.dart';
@@ -111,7 +111,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Nhập từ...',
+                  hintText: context.uiText('Nhập từ...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
                   prefixIcon: const Icon(Icons.search,
                       color: Color(0xFF6C63FF), size: 18),

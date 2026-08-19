@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../features/shadowing/models/shadowing_result.dart';
+import '../features/shadowing/models/shadowing_result.dart';
 import '../models/segment.dart';
 import '../models/text_segment.dart';
 
@@ -112,6 +112,18 @@ class StorageService {
     return getSetting<bool>('show_translation', defaultValue: true) ?? true;
   }
 
+  Future<void> saveTranslationTargetLanguage(String code) async {
+    await saveSetting('translation_target_language', code);
+  }
+
+  String getTranslationTargetLanguage() {
+    return getSetting<String>(
+          'translation_target_language',
+          defaultValue: 'VI',
+        ) ??
+        'VI';
+  }
+
   Future<void> saveLastPlaybackSpeed(double speed) async {
     await saveSetting('last_playback_speed', speed);
   }
@@ -142,6 +154,136 @@ class StorageService {
 
   String? getLastTextPath() {
     return getSetting<String>('last_text_path');
+  }
+
+  Future<void> saveShadowingRepeatCount(int count) async {
+    await saveSetting('shadowing_repeat_count', count);
+  }
+
+  int getShadowingRepeatCount() {
+    return getSetting<int>('shadowing_repeat_count', defaultValue: 3) ?? 3;
+  }
+
+  Future<void> saveShadowingPlaybackSpeed(double speed) async {
+    await saveSetting('shadowing_playback_speed', speed);
+  }
+
+  double getShadowingPlaybackSpeed() {
+    return getSetting<double>('shadowing_playback_speed', defaultValue: 1.0) ??
+        1.0;
+  }
+
+  Future<void> saveShadowingPresetLabel(String? label) async {
+    if (label == null || label.trim().isEmpty) {
+      await _settings.delete('shadowing_preset_label');
+      return;
+    }
+    await saveSetting('shadowing_preset_label', label.trim());
+  }
+
+  String? getShadowingPresetLabel() {
+    return getSetting<String>('shadowing_preset_label');
+  }
+
+  Future<void> saveShadowingCustomPresets(
+      List<Map<String, dynamic>> presets) async {
+    await saveSetting('shadowing_custom_presets', presets);
+  }
+
+  List<Map<String, dynamic>> getShadowingCustomPresets() {
+    final raw = _settings.get('shadowing_custom_presets');
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<void> saveShellCompactMode(bool value) async {
+    await saveSetting('shell_compact_mode', value);
+  }
+
+  bool getShellCompactMode() {
+    return getSetting<bool>('shell_compact_mode', defaultValue: false) ?? false;
+  }
+
+  Future<void> saveShellAutoHideModeSwitch(bool value) async {
+    await saveSetting('shell_auto_hide_mode_switch', value);
+  }
+
+  bool getShellAutoHideModeSwitch() {
+    return getSetting<bool>('shell_auto_hide_mode_switch', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> saveShellLongPressModeSwitch(bool value) async {
+    await saveSetting('shell_long_press_mode_switch', value);
+  }
+
+  bool getShellLongPressModeSwitch() {
+    return getSetting<bool>('shell_long_press_mode_switch', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> saveShellRememberLastSubMode(bool value) async {
+    await saveSetting('shell_remember_last_sub_mode', value);
+  }
+
+  bool getShellRememberLastSubMode() {
+    return getSetting<bool>('shell_remember_last_sub_mode', defaultValue: true) ??
+        true;
+  }
+
+  Future<void> saveShellListenSubMode(int index) async {
+    await saveSetting('shell_listen_sub_mode', index);
+  }
+
+  int getShellListenSubMode() {
+    return getSetting<int>('shell_listen_sub_mode', defaultValue: 0) ?? 0;
+  }
+
+  Future<void> saveShellReadSubMode(int index) async {
+    await saveSetting('shell_read_sub_mode', index);
+  }
+
+  int getShellReadSubMode() {
+    return getSetting<int>('shell_read_sub_mode', defaultValue: 0) ?? 0;
+  }
+
+  Future<void> saveShellLongPressHintSeen(bool value) async {
+    await saveSetting('shell_long_press_hint_seen', value);
+  }
+
+  bool getShellLongPressHintSeen() {
+    return getSetting<bool>('shell_long_press_hint_seen', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> saveShellModeChipHintSeen(bool value) async {
+    await saveSetting('shell_mode_chip_hint_seen', value);
+  }
+
+  bool getShellModeChipHintSeen() {
+    return getSetting<bool>('shell_mode_chip_hint_seen', defaultValue: false) ??
+        false;
+  }
+
+  Future<void> recordQuickActionUsage(String id) async {
+    final countKey = 'quick_action_count_$id';
+    final lastKey = 'quick_action_last_$id';
+    final current = (_settings.get(countKey, defaultValue: 0) as int?) ?? 0;
+    await _settings.put(countKey, current + 1);
+    await _settings.put(lastKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  int getQuickActionUsageCount(String id) {
+    return (_settings.get('quick_action_count_$id', defaultValue: 0) as int?) ?? 0;
+  }
+
+  int getQuickActionLastUsedMillis(String id) {
+    return (_settings.get('quick_action_last_$id', defaultValue: 0) as int?) ?? 0;
   }
 
   // ==================== AUDIO SEGMENTS ====================

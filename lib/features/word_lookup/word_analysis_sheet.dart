@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_ai/vipsound_ai.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
 
@@ -72,14 +72,6 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                   // ── Tầng 1/2: Luôn hiển thị ngay ──
                   _buildMeaningCard(analysis, isLoading),
 
-                  // ── IPA - xuất hiện sau ~50ms ──
-                  if (analysis?.wordDetail?.phonetic != null)
-                    _buildIpaCard(analysis!.wordDetail!.phonetic!),
-
-                  // ── Badge: đang phân tích sâu ──
-                  if (isLoading && analysis?.isPartial == true)
-                    _buildAnalyzingBadge(),
-
                   // ── Tầng 3: Hiển thị khi Gemma xong ──
                   if (analysis?.isPartial == false) ...[
                     if (analysis?.visualPrompt != null)
@@ -114,7 +106,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
           if (facade.currentAnalysis?.isPartial == false)
             IconButton(
               icon: const Icon(Icons.flag_outlined, size: 18),
-              tooltip: 'Báo kết quả sai',
+              tooltip: context.uiText('Báo kết quả sai'),
               onPressed: () => _reportError(context, facade),
             ),
 
@@ -302,7 +294,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             onPressed: () {
               // Lấy error log từ facade
               facade.reportError(reason: 'User reported incorrect');
-              // TODO: Lưu log vào vipsound_storage
+              // TODO: Lưu log vào in4up_storage
               // context.read<StorageService>().saveErrorLog(log);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

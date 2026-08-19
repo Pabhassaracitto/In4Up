@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
@@ -7,11 +7,17 @@ import '../pdf_reader_controller.dart';
 class PdfToolbar extends StatelessWidget {
   final PdfReaderController controller;
   final String title;
+  final VoidCallback? onUserInteraction;
+  final VoidCallback? onShowAnnotations;
+  final VoidCallback? onOpenGrammarSettings;
 
   const PdfToolbar({
     super.key,
     required this.controller,
     required this.title,
+    this.onUserInteraction,
+    this.onShowAnnotations,
+    this.onOpenGrammarSettings,
   });
 
   @override
@@ -33,7 +39,10 @@ class PdfToolbar extends StatelessWidget {
         children: [
           // ← Back
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              onUserInteraction?.call();
+              Navigator.pop(context);
+            },
             icon: const Icon(Icons.arrow_back_ios_new,
                 size: 18, color: Colors.white70),
           ),
@@ -72,17 +81,28 @@ class PdfToolbar extends StatelessWidget {
           const SizedBox(width: 6),
 
           // Color mode cycle button
-          _ColorModeButton(controller: controller),
+          _ColorModeButton(
+            controller: controller,
+            onUserInteraction: onUserInteraction,
+          ),
 
           const SizedBox(width: 4),
 
           // View mode toggle
-          _ViewModeButton(controller: controller),
+          _ViewModeButton(
+            controller: controller,
+            onUserInteraction: onUserInteraction,
+          ),
 
           const SizedBox(width: 4),
 
           // More options
-          _MoreButton(controller: controller),
+          _MoreButton(
+            controller: controller,
+            onUserInteraction: onUserInteraction,
+            onShowAnnotations: onShowAnnotations,
+            onOpenGrammarSettings: onOpenGrammarSettings,
+          ),
         ],
       ),
     );
@@ -93,13 +113,21 @@ class PdfToolbar extends StatelessWidget {
 
 class _ColorModeButton extends StatelessWidget {
   final PdfReaderController controller;
-  const _ColorModeButton({required this.controller});
+  final VoidCallback? onUserInteraction;
+
+  const _ColorModeButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isActive = controller.colorMode != ColorMode.none;
+    final showGrammarBadge =
+        controller.colorMode == ColorMode.wordType && controller.grammarSettings.enabled;
     return GestureDetector(
       onTap: () {
+        onUserInteraction?.call();
         HapticFeedback.selectionClick();
         controller.cycleColorMode();
       },
@@ -132,6 +160,24 @@ class _ColorModeButton extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            if (showGrammarBadge && MediaQuery.of(context).size.width >= 700) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  controller.activeGrammarPreset.name,
+                  style: const TextStyle(
+                    color: Color(0xFFB8B5FF),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -143,13 +189,19 @@ class _ColorModeButton extends StatelessWidget {
 
 class _ViewModeButton extends StatelessWidget {
   final PdfReaderController controller;
-  const _ViewModeButton({required this.controller});
+  final VoidCallback? onUserInteraction;
+
+  const _ViewModeButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isPdf = controller.viewMode == PdfViewMode.pdfView;
     return GestureDetector(
       onTap: () {
+        onUserInteraction?.call();
         HapticFeedback.selectionClick();
         if (isPdf) {
           controller.switchToTextMode();
@@ -177,12 +229,24 @@ class _ViewModeButton extends StatelessWidget {
 
 class _MoreButton extends StatelessWidget {
   final PdfReaderController controller;
-  const _MoreButton({required this.controller});
+  final VoidCallback? onUserInteraction;
+  final VoidCallback? onShowAnnotations;
+  final VoidCallback? onOpenGrammarSettings;
+
+  const _MoreButton({
+    required this.controller,
+    this.onUserInteraction,
+    this.onShowAnnotations,
+    this.onOpenGrammarSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showOptionsSheet(context),
+      onTap: () {
+        onUserInteraction?.call();
+        _showOptionsSheet(context);
+      },
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
@@ -201,14 +265,25 @@ class _MoreButton extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _PdfOptionsSheet(controller: controller),
+      builder: (_) => _PdfOptionsSheet(
+        controller: controller,
+        onShowAnnotations: onShowAnnotations,
+        onOpenGrammarSettings: onOpenGrammarSettings,
+      ),
     );
   }
 }
 
 class _PdfOptionsSheet extends StatelessWidget {
   final PdfReaderController controller;
-  const _PdfOptionsSheet({required this.controller});
+  final VoidCallback? onShowAnnotations;
+  final VoidCallback? onOpenGrammarSettings;
+
+  const _PdfOptionsSheet({
+    required this.controller,
+    this.onShowAnnotations,
+    this.onOpenGrammarSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -255,12 +330,36 @@ class _PdfOptionsSheet extends StatelessWidget {
 
           const SizedBox(height: 8),
 
+          if (controller.colorMode == ColorMode.wordType) ...[
+            ListTile(
+              leading: const Icon(Icons.auto_awesome_motion, color: Color(0xFF6C63FF)),
+              title: const Text(
+                'Từ loại chuyên sâu',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                controller.activeGrammarPreset.name,
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+              onTap: () {
+                Navigator.pop(context);
+                onOpenGrammarSettings?.call();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+
           // Annotations count
           ListTile(
             leading: const Icon(Icons.note_alt_outlined, color: Colors.amber),
             title: Text(
-              '${controller.annotations.length} ghi chú',
+              context.uiText('${controller.annotations.length} ghi chú'),
               style: const TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              'Mở danh sách để xem, sửa hoặc xoá ghi chú đã lưu',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
             ),
             trailing: controller.annotations.isEmpty
                 ? null
@@ -268,9 +367,15 @@ class _PdfOptionsSheet extends StatelessWidget {
                     icon: const Icon(Icons.list, color: Colors.grey),
                     onPressed: () {
                       Navigator.pop(context);
-                      // TODO: show annotation list
+                      onShowAnnotations?.call();
                     },
                   ),
+            onTap: controller.annotations.isEmpty
+                ? null
+                : () {
+                    Navigator.pop(context);
+                    onShowAnnotations?.call();
+                  },
           ),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),

@@ -1,14 +1,15 @@
 // lib/screens/read_mode/sheets/word_actions_sheet.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
-// XÓA: import 'package:vipsound_core/vocab_level_difficulty.dart';
+import '../../../widgets/unified_knowledge_sheet.dart';
+// XÓA: import 'package:in4up_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
 
 class WordActionsSheet {
@@ -28,11 +29,25 @@ class WordActionsSheet {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      useSafeArea: true,
       isScrollControlled: true,
-      builder: (sheetContext) => _WordActionsContent(
-        word: word,
-        lineIndex: lineIndex,
-        wordIndex: wordIndex,
+      builder: (sheetContext) => AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: FractionallySizedBox(
+            heightFactor: 0.88,
+            child: _WordActionsContent(
+              word: word,
+              lineIndex: lineIndex,
+              wordIndex: wordIndex,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -52,14 +67,11 @@ class _WordActionsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tp = context.read<TextProvider>();
+    final existingWord = context.read<VocabularyProvider>().findByWord(word.word);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -218,6 +230,31 @@ class _WordActionsContent extends StatelessWidget {
               ),
             ),
 
+          if (existingWord != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  UnifiedKnowledgeSheet.show(context, word: existingWord);
+                },
+                icon: const Icon(Icons.hub_outlined, size: 18),
+                label: const Text('Mở hồ sơ tri thức hợp nhất'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4CAF50),
+                  side: BorderSide(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // ===== DIFFICULTY MARKING =====
           const Align(
             alignment: Alignment.centerLeft,
@@ -251,7 +288,7 @@ class _WordActionsContent extends StatelessWidget {
                               color: level.color, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '"${word.word}" → ${level.label} (${level.repeatCount}x)',
+                            '"${word.word}" → ${context.uiText(level.label)} (${level.repeatCount}x)',
                           ),
                         ],
                       ),
@@ -273,8 +310,8 @@ class _WordActionsContent extends StatelessWidget {
                         : level.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: level.color.withValues(alpha: 
-                        isSelected ? 1.0 : 0.4,
+                      color: level.color.withValues(
+                        alpha: isSelected ? 1.0 : 0.4,
                       ),
                       width: isSelected ? 2 : 1,
                     ),
@@ -290,7 +327,7 @@ class _WordActionsContent extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${level.repeatCount}x lặp',
+                        context.uiText('${level.repeatCount}x lặp'),
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white70
@@ -358,7 +395,7 @@ class _WordActionsContent extends StatelessWidget {
                               const Icon(Icons.bookmark_added,
                                   color: Color(0xFF4CAF50), size: 18),
                               const SizedBox(width: 8),
-                              Text('"${word.word}" đã lưu'),
+                              Text(context.uiText('"${word.word}" đã lưu')),
                             ],
                           ),
                           behavior: SnackBarBehavior.floating,
@@ -591,18 +628,44 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
   // ── Form nhập nghĩa (Cấp 2) ───────────────────────────────
 
   Widget _buildMeaningInput(VocabularyProvider vocabProvider) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 340;
+        final actions = [
+          GestureDetector(
+            onTap: () => _saveWithMeaning(vocabProvider),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2196F3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 18),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _showMeaningInput = false),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.close, color: Colors.grey, size: 18),
+            ),
+          ),
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
+            if (compact) ...[
+              TextField(
                 controller: _meaningCtrl,
                 autofocus: true,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: 'Nhập nghĩa tiếng Việt...',
+                  hintText: context.uiText('Nhập nghĩa tiếng Việt...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
@@ -621,34 +684,54 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
                 ),
                 onSubmitted: (_) => _saveWithMeaning(vocabProvider),
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _saveWithMeaning(vocabProvider),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 18),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  actions[0],
+                  const SizedBox(width: 4),
+                  actions[1],
+                ],
               ),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => setState(() => _showMeaningInput = false),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.close, color: Colors.grey, size: 18),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _meaningCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: context.uiText('Nhập nghĩa tiếng Việt...'),
+                        hintStyle:
+                            TextStyle(color: Colors.grey[600], fontSize: 12),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF2196F3), width: 1.5),
+                        ),
+                      ),
+                      onSubmitted: (_) => _saveWithMeaning(vocabProvider),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  actions[0],
+                  const SizedBox(width: 4),
+                  actions[1],
+                ],
               ),
-            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -716,7 +799,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('📌 Đã thêm ngữ cảnh mới cho "${widget.word.word}"'),
+          content: Text(context.uiText('📌 Đã thêm ngữ cảnh mới cho "${widget.word.word}"')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF2A2A3E),
           duration: const Duration(seconds: 2),
@@ -732,11 +815,28 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     final lineContent = widget.lineIndex < tp.lines.length
         ? tp.lines[widget.lineIndex].content
         : widget.word.word;
+    final selectedInfo = tp.selectedTextInfo;
+    final selectedNormalized = (selectedInfo?.text ?? '')
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\w']"), '')
+        .trim();
+    final wordNormalized = widget.word.word
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\w']"), '')
+        .trim();
+    final useSelectionAnchor = selectedInfo != null &&
+        selectedInfo.lineIndex == widget.lineIndex &&
+        selectedNormalized == wordNormalized;
 
     return VocabContext.fromStory(
       storyTitle: title,
       lineIndex: widget.lineIndex,
       surroundingText: lineContent,
+      sourceRef: tp.currentContextSourceRef,
+      sourceRefType: tp.currentContextSourceRefType,
+      anchorText: widget.word.word,
+      textStartOffset: useSelectionAnchor ? selectedInfo.startOffset : null,
+      textEndOffset: useSelectionAnchor ? selectedInfo.endOffset : null,
     );
   }
 
@@ -749,7 +849,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
             const Icon(Icons.bookmark_added,
                 color: Color(0xFF4CAF50), size: 18),
             const SizedBox(width: 8),
-            Text('"$word" đã lưu vào Wordlist'),
+            Text(context.uiText('"$word" đã lưu vào Wordlist')),
           ],
         ),
         behavior: SnackBarBehavior.floating,

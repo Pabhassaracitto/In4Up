@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/widgets/memory_bottom_bar.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../controllers/memory_controller.dart';
@@ -34,12 +34,12 @@ class MemoryBottomBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${stats.reviewedToday}/${stats.dueToday} hôm nay',
+                    context.uiText('${stats.reviewedToday}/${stats.dueToday} hôm nay'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                   if (stats.totalItems > 0)
                     Text(
-                      '${(stats.averageAccuracy * 100).round()}% chính xác',
+                      context.uiText('${(stats.averageAccuracy * 100).round()}% chính xác'),
                       style: TextStyle(color: Colors.grey[600], fontSize: 10),
                     ),
                 ],

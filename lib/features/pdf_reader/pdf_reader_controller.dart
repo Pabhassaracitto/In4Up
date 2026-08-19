@@ -1,10 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
+import '../../features/grammar/models/grammar_category.dart';
+import '../../features/grammar/models/grammar_highlight_preset.dart';
+import '../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../features/grammar/models/grammar_highlight_style.dart';
+import '../../features/grammar/models/grammar_palette.dart';
+import '../../features/grammar/services/grammar_preset_library_service.dart';
+import '../../features/grammar/services/grammar_settings_service.dart';
 import '../../features/tts/tts_service.dart';
 import '../../models/color_mode.dart';
+import '../../models/vocab_context.dart';
+import '../../models/vocabulary_type.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import 'models/pdf_annotation.dart';
@@ -41,7 +51,18 @@ class PdfReaderController extends ChangeNotifier {
 
   // ─── Color Mode ─────────────────────────────────────────
   ColorMode _colorMode = ColorMode.none;
+  GrammarHighlightSettings _grammarSettings =
+      GrammarHighlightSettings.defaults();
+  List<GrammarHighlightPreset> _availableGrammarPresets =
+      GrammarHighlightPresets.defaults();
   ColorMode get colorMode => _colorMode;
+  GrammarHighlightSettings get grammarSettings => _grammarSettings;
+  List<GrammarHighlightPreset> get availableGrammarPresets =>
+      List.unmodifiable(_availableGrammarPresets);
+  GrammarPalette get activeGrammarPalette =>
+      GrammarPalettes.byId(_grammarSettings.paletteId);
+  GrammarHighlightPreset get activeGrammarPreset =>
+      _findGrammarPresetById(_grammarSettings.activePresetId);
 
   // ─── Words overlay ───────────────────────────────────────
   /// Cache: pageIndex → words với positions
@@ -57,6 +78,18 @@ class PdfReaderController extends ChangeNotifier {
   PdfTtsState get ttsState => _ttsState;
   String? _currentSpeakingWord;
   String? get currentSpeakingWord => _currentSpeakingWord;
+  String? _focusWordCue;
+  String? get focusWordCue => _focusWordCue;
+  Rect? _focusRectCue;
+  Rect? get focusRectCue => _focusRectCue;
+  int? _focusPageIndexCue;
+  int? get focusPageIndexCue => _focusPageIndexCue;
+  int? _focusTextStartOffsetCue;
+  int? get focusTextStartOffsetCue => _focusTextStartOffsetCue;
+  int? _focusTextEndOffsetCue;
+  int? get focusTextEndOffsetCue => _focusTextEndOffsetCue;
+  int _focusCueVersion = 0;
+  int get focusCueVersion => _focusCueVersion;
 
   String _ttsLanguage = 'en-US'; // 'en-US' | 'vi-VN' | 'bilingual'
   String get ttsLanguage => _ttsLanguage;
@@ -88,10 +121,23 @@ class PdfReaderController extends ChangeNotifier {
   bool get isExtractingText => _isExtractingText;
 
   // ─── Init ────────────────────────────────────────────────
+  GrammarHighlightPreset _findGrammarPresetById(String? presetId) {
+    for (final preset in _availableGrammarPresets) {
+      if (preset.id == presetId) return preset;
+    }
+    return GrammarHighlightPresets.byId(presetId);
+  }
+
   Future<void> _init() async {
     await _storage.initialize();
     _annotations = _storage.loadAnnotations(pdfPath);
     _currentPage = _storage.loadLastPage(pdfPath);
+    try {
+      _availableGrammarPresets = await GrammarPresetLibraryService.loadAllPresets();
+      _grammarSettings = await GrammarSettingsService.load();
+    } catch (e) {
+      debugPrint('PdfReaderController: grammar settings load error: $e');
+    }
     notifyListeners();
   }
 
@@ -125,7 +171,142 @@ class PdfReaderController extends ChangeNotifier {
     }
   }
 
+  void _clearFocusCueData() {
+    _focusWordCue = null;
+    _focusRectCue = null;
+    _focusPageIndexCue = null;
+    _focusTextStartOffsetCue = null;
+    _focusTextEndOffsetCue = null;
+  }
+
+  void showFocusCueForWord(String word,
+      {Duration duration = const Duration(seconds: 3)}) {
+    final normalized = word.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    _clearFocusCueData();
+    _focusWordCue = normalized;
+    _focusCueVersion++;
+    notifyListeners();
+
+    final version = _focusCueVersion;
+    Future.delayed(duration, () {
+      if (_focusCueVersion != version) return;
+      _clearFocusCueData();
+      notifyListeners();
+    });
+  }
+
+  void showFocusCueForContext(
+    VocabContext context, {
+    String? fallbackWord,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    _clearFocusCueData();
+    final anchor = (context.anchorText ?? fallbackWord ?? '').trim().toLowerCase();
+    _focusWordCue = anchor.isEmpty ? null : anchor;
+    _focusRectCue = context.rectHint;
+    _focusPageIndexCue = context.pageIndexHint;
+    _focusTextStartOffsetCue = context.textStartOffset;
+    _focusTextEndOffsetCue = context.textEndOffset;
+    _focusCueVersion++;
+    notifyListeners();
+
+    final version = _focusCueVersion;
+    Future.delayed(duration, () {
+      if (_focusCueVersion != version) return;
+      _clearFocusCueData();
+      notifyListeners();
+    });
+  }
+
   // ─── Color Mode ──────────────────────────────────────────
+  Future<void> _saveGrammarSettings() async {
+    try {
+      await GrammarSettingsService.save(_grammarSettings);
+    } catch (e) {
+      debugPrint('PdfReaderController: grammar settings save error: $e');
+    }
+  }
+
+  Future<void> refreshGrammarPresetLibrary() async {
+    _availableGrammarPresets = await GrammarPresetLibraryService.loadAllPresets();
+    notifyListeners();
+  }
+
+  Future<void> setGrammarSettings(GrammarHighlightSettings settings) async {
+    _grammarSettings = settings;
+    refreshVocabularySignals();
+    await _saveGrammarSettings();
+  }
+
+  Future<void> setGrammarHighlightEnabled(bool enabled) {
+    return setGrammarSettings(_grammarSettings.copyWith(enabled: enabled));
+  }
+
+  Future<void> applyGrammarPreset(String presetId) {
+    final preset = _findGrammarPresetById(presetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<void> restorePreviousGrammarPreset() {
+    final preset = _findGrammarPresetById(_grammarSettings.lastNonCustomPresetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<GrammarHighlightPreset> saveCurrentGrammarPreset({
+    required String name,
+    String description = '',
+  }) async {
+    final saved = await GrammarPresetLibraryService.savePreset(
+      name: name,
+      description: description,
+      settings: _grammarSettings,
+    );
+    _availableGrammarPresets = await GrammarPresetLibraryService.loadAllPresets();
+    notifyListeners();
+    await setGrammarSettings(_grammarSettings.applyPreset(saved));
+    return saved;
+  }
+
+  Future<void> setGrammarAdvancedControls(bool value) {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(showAdvancedControls: value),
+    );
+  }
+
+  Future<void> setGrammarPalette(String paletteId) {
+    return setGrammarSettings(_grammarSettings.copyWith(paletteId: paletteId));
+  }
+
+  Future<void> setGrammarHighlightStyle(GrammarHighlightStyle style) {
+    return setGrammarSettings(_grammarSettings.copyWith(highlightStyle: style));
+  }
+
+  Future<void> toggleGrammarCategory(GrammarCategory category) {
+    final next = Set<GrammarCategory>.from(_grammarSettings.visibleCategories);
+    if (next.contains(category)) {
+      next.remove(category);
+    } else {
+      next.add(category);
+    }
+    return setGrammarSettings(
+      _grammarSettings.copyWith(activePresetId: 'custom', visibleCategories: next),
+    );
+  }
+
+  Future<void> showAllGrammarCategories() {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(
+        activePresetId: 'custom',
+        visibleCategories: Set<GrammarCategory>.from(GrammarCategory.values),
+      ),
+    );
+  }
+
+  Future<void> setGrammarLegendVisible(bool visible) {
+    return setGrammarSettings(_grammarSettings.copyWith(showLegend: visible));
+  }
+
   void setColorMode(ColorMode mode) {
     if (_colorMode == mode) return;
     _colorMode = mode;
@@ -344,11 +525,49 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   // ─── Save to Memory Garden ───────────────────────────────
+  VocabContext buildWordContext(
+    PdfWordInfo wordInfo, {
+    String? surroundingText,
+    String? anchorText,
+  }) {
+    final displayText = wordInfo.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final snippet = ((surroundingText ?? '').trim().isNotEmpty
+            ? surroundingText!.trim()
+            : (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+                ? wordInfo.contextSnippet!.trim()
+                : displayText)
+        .trim();
+
+    return VocabContext.fromPdf(
+      fileName: pdfPath.split('/').last,
+      page: wordInfo.pageIndex + 1,
+      pageIndexHint: wordInfo.pageIndex,
+      surroundingText: snippet,
+      pdfPath: pdfPath,
+      anchorText: (anchorText ?? displayText).trim(),
+      textStartOffset: wordInfo.startOffset,
+      textEndOffset: wordInfo.endOffset,
+      rectHint: wordInfo.bounds,
+    );
+  }
+
+  VocabContext buildSelectionContext(String selectedText) {
+    final text = selectedText.trim();
+    return VocabContext.fromPdf(
+      fileName: pdfPath.split('/').last,
+      page: _currentPage + 1,
+      pageIndexHint: _currentPage,
+      surroundingText: text,
+      pdfPath: pdfPath,
+      anchorText: text,
+      rectHint: _selectionRect,
+    );
+  }
+
   void saveWordToMemory(PdfWordInfo wordInfo) {
     final word = wordInfo.text.replaceAll(RegExp(r'[^\w]'), '').toLowerCase();
     if (word.isEmpty) return;
 
-    // ★ Bridge → VocabularyProvider (hệ thống chung)
     VocabularyBridge.addFromAnalyzed(
       word: word,
       meaning: wordInfo.analyzed?.meaning,
@@ -358,6 +577,9 @@ class PdfReaderController extends ChangeNotifier {
       sourceFile: pdfPath.split('/').last,
     );
 
+    final memoryContext = (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+        ? wordInfo.contextSnippet!.trim()
+        : word;
     MemoryProvider.addWord(
       word: word,
       wordType: wordInfo.analyzed?.wordType.name,
@@ -366,7 +588,31 @@ class PdfReaderController extends ChangeNotifier {
       phonetic: wordInfo.analyzed?.phonetic,
       sourceFile: pdfPath.split('/').last,
       sourceLine: wordInfo.pageIndex,
+      context: memoryContext,
+      example: memoryContext,
     );
+
+    refreshVocabularySignals();
+  }
+
+  bool saveSelectedTextToWordList() {
+    final text = _selectedText?.trim() ?? '';
+    if (text.isEmpty) return false;
+
+    final context = buildSelectionContext(text);
+
+    final existed = VocabularyBridge.hasWord(text);
+    VocabularyBridge.addContextual(
+      text: text,
+      meaning: '',
+      example: text,
+      context: context,
+      forceType: text.contains(' ')
+          ? VocabularyType.phrase
+          : VocabularyType.word,
+    );
+    refreshVocabularySignals();
+    return !existed;
   }
 
   void saveSelectedTextToMemory() {
@@ -375,7 +621,59 @@ class PdfReaderController extends ChangeNotifier {
       word: _selectedText!.trim(),
       sourceFile: pdfPath.split('/').last,
       sourceLine: _currentPage,
+      context: _selectedText!.trim(),
+      example: _selectedText!.trim(),
+      tags: const ['pdf_reader'],
     );
+  }
+
+  Future<PdfAnnotation?> addAnnotationFromSelection({
+    required String note,
+    Color color = const Color(0xFFFFD54F),
+  }) async {
+    final text = _selectedText?.trim() ?? '';
+    if (text.isEmpty) return null;
+    return addAnnotation(
+      pageIndex: _currentPage,
+      bounds: _selectionRect ?? Rect.zero,
+      text: text,
+      color: color,
+      note: note.trim().isEmpty ? null : note.trim(),
+    );
+  }
+
+  bool markWordDifficulty(PdfWordInfo wordInfo, DifficultyLevel difficulty) {
+    final word = wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim().toLowerCase();
+    if (word.isEmpty) return false;
+
+    final context = buildWordContext(
+      wordInfo,
+      surroundingText: (wordInfo.contextSnippet ?? '').trim().isNotEmpty
+          ? wordInfo.contextSnippet!.trim()
+          : (wordInfo.analyzed?.example?.trim().isNotEmpty ?? false)
+              ? wordInfo.analyzed!.example!.trim()
+              : word,
+      anchorText: word,
+    );
+
+    VocabularyBridge.upsertDifficulty(
+      text: word,
+      difficulty: difficulty,
+      meaning: wordInfo.analyzed?.meaning ?? '',
+      phonetic: wordInfo.analyzed?.phonetic,
+      forceType: word.contains(' ') ? VocabularyType.phrase : VocabularyType.word,
+      context: context,
+    );
+
+    refreshVocabularySignals();
+    return true;
+  }
+
+  void refreshVocabularySignals() {
+    _pageWords.clear();
+    _extractor.clearCache();
+    _loadWordsForPage(_currentPage);
+    notifyListeners();
   }
 
   // ─── Dispose ─────────────────────────────────────────────

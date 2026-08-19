@@ -1,8 +1,8 @@
 // lib/widgets/ab_loop_controls.dart
-// VipSound - Enhanced A-B Loop Controls
+// in4up - Enhanced A-B Loop Controls
 // Version 2.0 - Optimized for Buddhism & English Learning
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/loop_presets.dart';
@@ -247,7 +247,7 @@ class _LoopHeader extends StatelessWidget {
 
         // Status Text
         Text(
-          _getStatusText(),
+          context.uiText(_getStatusText()),
           style: TextStyle(
             color: _getStatusColor(),
             fontSize: 13,

@@ -1,39 +1,99 @@
-// lib/features/translation/text_provider_translation.dart
-// ★ FIX: translateAll - throttle notifyListeners để tránh quá nhiều rebuild đồng thời
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/language/app_language.dart';
 import '../../models/text_item.dart';
+import '../../services/storage_service.dart';
+import '../tts/language_detector.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
 mixin TranslationMixin on ChangeNotifier {
-  // ── STATE ──
   TranslationDisplayMode _translationDisplayMode =
       TranslationDisplayMode.hidden;
-  TranslationDisplayMode get translationDisplayMode => _translationDisplayMode;
-
   bool _isTranslating = false;
-  bool get isTranslating => _isTranslating;
-
   double _translationProgress = 0.0;
-  double get translationProgress => _translationProgress;
-
   String? _translationError;
-  String? get translationError => _translationError;
-
   String _currentEngine = '';
-  String get currentEngine => _currentEngine;
-
-  int get translatedLineCount => lines
-      .where((l) => l.translation != null && l.translation!.isNotEmpty)
-      .length;
+  int _translationRunId = 0;
 
   List<TextItem> get lines;
 
-  // ── METHODS ──
+  TranslationDisplayMode get translationDisplayMode => _translationDisplayMode;
+  bool get isTranslating => _isTranslating;
+  double get translationProgress => _translationProgress;
+  String? get translationError => _translationError;
+  String get currentEngine => _currentEngine;
+
+  AppLanguage get translationTargetLanguage =>
+      TranslationService().targetLanguage;
+
+  AppLanguage get detectedSourceLanguage {
+    final sample = lines
+        .where((line) => line.content.trim().isNotEmpty)
+        .take(24)
+        .map((line) => line.content)
+        .join(' ');
+    return LanguageDetector.detectLanguage(sample);
+  }
+
+  bool get translationPairUsesSameLanguage =>
+      detectedSourceLanguage.translationCode ==
+      translationTargetLanguage.translationCode;
+
+  int get translatedLineCount {
+    final target = translationTargetLanguage.translationCode;
+    return lines.where((line) {
+      if (line.translation == null || line.translation!.trim().isEmpty) {
+        return false;
+      }
+      // Legacy imported bilingual lines had no metadata and were VI.
+      final lineTarget = line.translationLanguageCode ?? 'VI';
+      return AppLanguageCatalog.normalizeTranslationCode(lineTarget) == target;
+    }).length;
+  }
+
+  void restoreTranslationTargetLanguage(String code) {
+    TranslationService().configure(targetLang: code);
+  }
+
+  Future<bool> setTranslationTargetLanguage(
+    String code, {
+    bool retranslateExisting = true,
+  }) async {
+    final language = AppLanguageCatalog.maybeFromCode(code);
+    if (language == null) return false;
+
+    final service = TranslationService();
+    if (service.targetLang == language.translationCode) return false;
+
+    final hadTranslations = lines.any(
+      (line) => line.translation != null && line.translation!.trim().isNotEmpty,
+    );
+
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    service.configure(targetLang: language.translationCode);
+    final storage = StorageService();
+    if (storage.isInitialized) {
+      await storage.saveTranslationTargetLanguage(language.translationCode);
+    }
+
+    for (var index = 0; index < lines.length; index++) {
+      lines[index] = lines[index].copyWith(clearTranslation: true);
+    }
+    notifyListeners();
+
+    if (retranslateExisting &&
+        hadTranslations &&
+        !translationPairUsesSameLanguage) {
+      unawaited(translateAll(forceRetranslate: true));
+    }
+    return true;
+  }
 
   void cycleTranslationMode() {
     switch (_translationDisplayMode) {
@@ -51,43 +111,82 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   void setTranslationDisplayMode(TranslationDisplayMode mode) {
-    if (_translationDisplayMode != mode) {
-      _translationDisplayMode = mode;
-      notifyListeners();
-    }
+    if (_translationDisplayMode == mode) return;
+    _translationDisplayMode = mode;
+    notifyListeners();
   }
 
   Future<void> translateLine(int index) async {
     if (index < 0 || index >= lines.length) return;
-
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    final result = await TranslationService().translateText(line.content);
-
-    if (result.isSuccess) {
-      // ★ FIX: Guard index lại sau khi await (lines có thể đã thay đổi)
-      if (index < lines.length) {
-        lines[index] = line.copyWith(translation: result.translatedText);
-        _currentEngine = TranslationService().lastUsedEngine;
-        notifyListeners();
-      }
+    final source = detectedSourceLanguage;
+    final target = translationTargetLanguage;
+    if (source.translationCode == target.translationCode) {
+      _translationError =
+          'Ngôn ngữ nguồn và ngôn ngữ đích đang giống nhau.';
+      notifyListeners();
+      return;
     }
+
+    final lineSource = LanguageDetector.detectLanguage(
+      line.content,
+      fallback: source,
+    );
+    final runId = _translationRunId;
+    final result = await TranslationService().translateText(
+      line.content,
+      sourceLang: lineSource.translationCode,
+      targetLang: target.translationCode,
+    );
+
+    if (runId != _translationRunId || index >= lines.length) return;
+    if (TranslationService().targetLang != target.translationCode) return;
+
+    if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+      lines[index] = line.copyWith(
+        translation: result.translatedText,
+        sourceLanguageCode: result.detectedLang ?? lineSource.translationCode,
+        translationLanguageCode: target.translationCode,
+      );
+      _currentEngine = TranslationService().lastUsedEngine;
+      _translationError = null;
+    } else {
+      _translationError = '${result.engineName}: ${result.error}';
+    }
+    notifyListeners();
   }
 
   Future<void> translateAll({bool forceRetranslate = false}) async {
     if (_isTranslating) return;
 
+    final service = TranslationService();
+    final source = detectedSourceLanguage;
+    final target = translationTargetLanguage;
+    if (source.translationCode == target.translationCode) {
+      _translationError =
+          '${source.flag} ${source.nativeName} đã là ngôn ngữ đích. '
+          'Hãy chọn một ngôn ngữ khác.';
+      notifyListeners();
+      return;
+    }
+
+    final targetCode = target.translationCode;
     final toTranslate = <int>[];
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
       if (line.content.trim().isEmpty) continue;
-      if (!forceRetranslate &&
-          line.translation != null &&
-          line.translation!.isNotEmpty) {
-        continue;
-      }
-      toTranslate.add(i);
+      final existingTarget = line.translationLanguageCode == null
+          ? 'VI'
+          : AppLanguageCatalog.normalizeTranslationCode(
+              line.translationLanguageCode,
+            );
+      final hasCurrentTranslation = line.translation != null &&
+          line.translation!.trim().isNotEmpty &&
+          existingTarget == targetCode;
+      if (!forceRetranslate && hasCurrentTranslation) continue;
+      toTranslate.add(index);
     }
 
     if (toTranslate.isEmpty) {
@@ -98,42 +197,50 @@ mixin TranslationMixin on ChangeNotifier {
       return;
     }
 
+    final runId = ++_translationRunId;
     _isTranslating = true;
-    _translationProgress = 0.0;
+    _translationProgress = 0;
     _translationError = null;
     notifyListeners();
 
-    int consecutiveErrors = 0;
-
-    // ★ FIX: Throttle — chỉ notify mỗi N dòng thay vì mỗi dòng
-    // Tránh hàng chục notifyListeners() liên tiếp gây rebuild toàn bộ ListView
-    // Tăng lên 5 hoặc 10 nếu danh sách rất dài để mượt hơn nữa
+    var consecutiveErrors = 0;
+    var doneCount = 0;
     const notifyEvery = 5;
-    int doneCount = 0;
 
     try {
-      for (int i = 0; i < toTranslate.length; i++) {
-        if (!_isTranslating) break;
+      for (var position = 0; position < toTranslate.length; position++) {
+        if (!_isTranslating || runId != _translationRunId) break;
+        if (service.targetLang != targetCode) break;
 
-        final lineIndex = toTranslate[i];
-
-        // ★ FIX: Guard — lines có thể đã thay đổi sau mỗi await
+        final lineIndex = toTranslate[position];
         if (lineIndex >= lines.length) continue;
-
         final line = lines[lineIndex];
-        final result = await TranslationService().translateText(line.content);
+        final lineSource = LanguageDetector.detectLanguage(
+          line.content,
+          fallback: source,
+        );
+        final result = await service.translateText(
+          line.content,
+          sourceLang: lineSource.translationCode,
+          targetLang: targetCode,
+        );
 
-        // ★ FIX: Guard lại sau await
+        if (runId != _translationRunId || service.targetLang != targetCode) {
+          break;
+        }
         if (lineIndex < lines.length) {
-          if (result.isSuccess && result.translatedText.isNotEmpty) {
-            lines[lineIndex] =
-                line.copyWith(translation: result.translatedText);
-            _currentEngine = TranslationService().lastUsedEngine;
+          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+            lines[lineIndex] = line.copyWith(
+              translation: result.translatedText,
+              sourceLanguageCode:
+                  result.detectedLang ?? lineSource.translationCode,
+              translationLanguageCode: targetCode,
+            );
+            _currentEngine = service.lastUsedEngine;
             consecutiveErrors = 0;
           } else {
             _translationError = '${result.engineName}: ${result.error}';
             consecutiveErrors++;
-
             if (consecutiveErrors >= 5) {
               _translationError =
                   'Dừng sau 5 lỗi liên tiếp. Kiểm tra kết nối mạng.';
@@ -144,41 +251,44 @@ mixin TranslationMixin on ChangeNotifier {
 
         doneCount++;
         _translationProgress = doneCount / toTranslate.length;
+        final isLast = position == toTranslate.length - 1;
+        if (isLast || doneCount % notifyEvery == 0) notifyListeners();
 
-        // ★ FIX: Throttle notify — không notify mỗi dòng
-        final isLastItem = i == toTranslate.length - 1;
-        if (isLastItem || doneCount % notifyEvery == 0) {
-          notifyListeners();
-        }
-
-        if (i < toTranslate.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 200));
+        if (!isLast) {
+          await Future<void>.delayed(const Duration(milliseconds: 200));
         }
       }
 
-      if (_translationDisplayMode == TranslationDisplayMode.hidden) {
+      if (_translationDisplayMode == TranslationDisplayMode.hidden &&
+          translatedLineCount > 0) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }
-    } catch (e) {
-      _translationError = e.toString();
+    } catch (error) {
+      _translationError = error.toString();
     } finally {
-      _isTranslating = false;
-      _translationProgress = 1.0;
-      // ★ FIX: Chỉ notify 1 lần duy nhất khi hoàn tất
-      notifyListeners();
+      if (runId == _translationRunId) {
+        _isTranslating = false;
+        _translationProgress = doneCount / toTranslate.length;
+        notifyListeners();
+      }
     }
   }
 
   void cancelTranslation() {
+    _translationRunId++;
     _isTranslating = false;
     notifyListeners();
   }
 
   void clearAllTranslations() {
-    for (int i = 0; i < lines.length; i++) {
-      lines[i] = lines[i].copyWith(translation: null);
+    _translationRunId++;
+    _isTranslating = false;
+    for (var index = 0; index < lines.length; index++) {
+      lines[index] = lines[index].copyWith(clearTranslation: true);
     }
     _translationDisplayMode = TranslationDisplayMode.hidden;
+    _translationProgress = 0;
+    _translationError = null;
     _currentEngine = '';
     notifyListeners();
   }

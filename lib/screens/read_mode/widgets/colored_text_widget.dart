@@ -1,10 +1,14 @@
 // lib/screens/read_mode/widgets/colored_text_widget.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
+import '../../../features/grammar/models/grammar_category.dart';
+import '../../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../../features/grammar/models/grammar_palette.dart';
+import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
@@ -49,6 +53,26 @@ class ColoredTextWidget extends StatelessWidget {
   }
 }
 
+class _MiniMark extends StatelessWidget {
+  final Color color;
+  final double width;
+
+  const _MiniMark({required this.color, this.width = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: 2,
+      margin: const EdgeInsets.only(top: 1),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
+  }
+}
+
 class _ColoredWord extends StatelessWidget {
   final AnalyzedWord word;
   final int wordIndex;
@@ -66,22 +90,49 @@ class _ColoredWord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = word.getBackgroundColor(colorMode);
-    final textColor = word.getColor(colorMode);
+    final grammarSettings =
+        context.select<TextProvider, GrammarHighlightSettings>(
+      (tp) => tp.grammarSettings,
+    );
+    final activePalette = context.select<TextProvider, GrammarPalette>(
+      (tp) => tp.activeGrammarPalette,
+    );
     final hasDifficulty = word.userDifficulty != null;
+    final hasRecall = word.isSaved || word.hasSavedNotes || word.hasDueReview;
+
+    final grammarCategory = grammarCategoryFromLegacyWordType(word.wordType);
+    final useGrammarStyle =
+        colorMode == ColorMode.wordType && grammarSettings.enabled;
+    final grammarResolved = useGrammarStyle
+        ? GrammarStyleMapper.resolve(
+            category: grammarCategory,
+            palette: activePalette,
+            settings: grammarSettings,
+            defaultTextColor: Colors.white,
+          )
+        : null;
+
+    final bgColor = grammarResolved?.background ?? word.getBackgroundColor(colorMode);
+    final textColor = grammarResolved?.foreground ?? word.getColor(colorMode);
+    final borderColor = hasDifficulty
+        ? word.userDifficulty!.color.withValues(alpha: 0.5)
+        : word.hasDueReview
+            ? Colors.redAccent.withValues(alpha: 0.45)
+            : word.hasSavedNotes
+                ? Colors.amber.withValues(alpha: 0.38)
+                : word.isSaved
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.28)
+                    : grammarResolved?.outline ?? Colors.transparent;
 
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        // Tap = phát âm
         context.read<TextProvider>().speak(word.word);
       },
       onDoubleTap: () {
-        // Double tap = xem nghĩa nhanh
         _showQuickMeaning(context);
       },
       onLongPress: () {
-        // Long press = full word actions
         WordActionsSheet.show(context, word, lineIndex, wordIndex);
       },
       child: AnimatedContainer(
@@ -90,10 +141,10 @@ class _ColoredWord extends StatelessWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(4),
-          border: hasDifficulty
+          border: hasDifficulty || hasRecall || grammarResolved?.outline != null
               ? Border.all(
-                  color: word.userDifficulty!.color.withValues(alpha: 0.5),
-                  width: 1.5,
+                  color: borderColor,
+                  width: hasDifficulty ? 1.5 : 1,
                 )
               : null,
         ),
@@ -105,20 +156,32 @@ class _ColoredWord extends StatelessWidget {
               style: TextStyle(
                 fontSize: fontSize,
                 color: textColor,
-                fontWeight: hasDifficulty ? FontWeight.bold : FontWeight.normal,
+                fontWeight: grammarResolved?.fontWeight ??
+                    (hasDifficulty || word.isSaved
+                        ? FontWeight.bold
+                        : FontWeight.normal),
+                decoration: grammarResolved?.underline != null
+                    ? TextDecoration.underline
+                    : null,
+                decorationColor: grammarResolved?.underline,
+                decorationThickness: grammarResolved?.underline != null ? 2 : null,
                 height: 1.6,
               ),
             ),
-            // Mini difficulty indicator
-            if (hasDifficulty)
-              Container(
-                width: 16,
-                height: 2,
-                margin: const EdgeInsets.only(top: 1),
-                decoration: BoxDecoration(
-                  color: word.userDifficulty!.color,
-                  borderRadius: BorderRadius.circular(1),
-                ),
+            if (hasDifficulty || hasRecall)
+              Wrap(
+                spacing: 3,
+                runSpacing: 2,
+                children: [
+                  if (hasDifficulty)
+                    _MiniMark(color: word.userDifficulty!.color),
+                  if (word.isSaved)
+                    const _MiniMark(color: Color(0xFF4CAF50), width: 6),
+                  if (word.hasSavedNotes)
+                    const _MiniMark(color: Colors.amber, width: 6),
+                  if (word.hasDueReview)
+                    const _MiniMark(color: Colors.redAccent, width: 6),
+                ],
               ),
           ],
         ),
@@ -158,7 +221,7 @@ class _ColoredWord extends StatelessWidget {
                     style: const TextStyle(color: Colors.white),
                   ),
                   Text(
-                    '${word.wordType.labelVi} · ${word.cefrLevel.shortLabel}',
+                    '${context.uiText(grammarCategoryFromLegacyWordType(word.wordType).labelVi)} · ${word.cefrLevel.shortLabel}',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 10,

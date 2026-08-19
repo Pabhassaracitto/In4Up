@@ -109,25 +109,25 @@ jobs:
         run: |
           # Đổi tên 3 bản tách
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           # Đổi tên bản gộp (Universal)
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/VipSound-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+             build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/VipSound-Android-*.apk
+          path: build/app/outputs/flutter-apk/in4up-Android-*.apk
 
       - name: Đẩy TẤT CẢ APK lên GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/VipSound-Android-*.apk"
+          artifacts: "build/app/outputs/flutter-apk/in4up-Android-*.apk"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -149,7 +149,17 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
-          cache: false
+          cache: true
+
+      # ⚡ CACHE FIREBASE C++ SDK ĐỂ CHẠY CI SIÊU TỐC (MỚI BỔ SUNG)
+      - name: Cache Firebase C++ SDK
+        id: cache-firebase
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/Users/runneradmin/.firebase_sdk_cache
+            C:/Users/runneradmin/AppData/Local/Temp/firebase_cpp_sdk
+          key: firebase-cpp-sdk-windows-v13.5.0
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
@@ -160,7 +170,6 @@ jobs:
           rm -rf lib/features/DeepLX || true
           rm -rf lib/features/deeplx || true
 
-      # FIX WINDOWS DLL: Tạo sẵn thư mục libs và mock các file dll native để vượt qua bước PostBuild sao chép của CMake
       - name: Pre-create Required Windows DLLs & Asset Directories
         shell: pwsh
         run: |
@@ -169,9 +178,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path "android/app"
           New-Item -ItemType Directory -Force -Path "windows/libs"
           
-          # Tạo file dll giả lập dung lượng rỗng tránh lỗi gãy tiến trình sao chép liên kết
-          "Mock DLL content" | Out-File -FilePath "windows/libs/ggml.dll" -Encoding ascii
-          "Mock DLL content" | Out-File -FilePath "windows/libs/whisper.dll" -Encoding ascii
+          # Tạo DLL rỗng dạng Binary chuẩn thay vì chuỗi Text để tránh lỗi PE Header
+          if (-not (Test-Path "windows/libs/ggml.dll")) { [System.IO.File]::WriteAllBytes("windows/libs/ggml.dll", [byte[]]@()) }
+          if (-not (Test-Path "windows/libs/whisper.dll")) { [System.IO.File]::WriteAllBytes("windows/libs/whisper.dll", [byte[]]@()) }
           
           # Sinh file mock json phòng hờ cấu hình plugin rà soát
           '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' | Out-File -FilePath "android/app/google-services.json" -Encoding utf8
@@ -217,26 +226,31 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      # Nén toàn bộ thư mục Release thành file ZIP (bao gồm cả các file .dll và WebView2)
+      # Nén linh hoạt thư mục Release
       - name: Zip Windows build
         shell: pwsh
         run: |
-          # Thiết lập tên file zip động dựa trên Tag hoặc Version đầu vào
           $VERSION_NAME = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           
-          # Nén toàn bộ thư mục Release
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "VipSound-Windows-$VERSION_NAME.zip" -Force
+          # Tự động quét thư mục Release thực tế của dự án
+          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+          if ($RELEASE_DIR) {
+            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
+          } else {
+            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
+          }
+          Get-ChildItem "in4up-Windows-*.zip"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: VipSound-Windows-*.zip
+          path: in4up-Windows-*.zip
 
       - name: Đẩy ZIP Windows lên GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "VipSound-Windows-*.zip"
+          artifacts: "in4up-Windows-*.zip"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -305,7 +319,7 @@ jobs:
                 appId: 'mock',
                 messagingSenderId: 'mock',
                 projectId: 'mock',
-                iosBundleId: 'com.vipsound',
+                iosBundleId: 'com.in4up',
               );
             }
           }
@@ -346,19 +360,19 @@ jobs:
           VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r "VipSound-iOS-${VERSION_NAME}.ipa" Payload
+          zip -r "in4up-iOS-${VERSION_NAME}.ipa" Payload
           rm -rf Payload
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: VipSound-iOS-*.ipa
+          path: in4up-iOS-*.ipa
 
       - name: Đẩy IPA lên GitHub Release chung
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "VipSound-iOS-*.ipa"
+          artifacts: "in4up-iOS-*.ipa"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true

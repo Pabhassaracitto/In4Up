@@ -1,5 +1,5 @@
 // lib/screens/listen_mode/listen_mode_screen.dart
-// VipSound – Listen Mode (v11 LRC Fix)
+// in4up – Listen Mode (v11 LRC Fix)
 //
 // CHANGELOG v11:
 //   1. Double-tap: không ẩn waveform (sửa ở rolling_waveform_view.dart)
@@ -10,15 +10,21 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up_stt/models/stt_config.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/screens/understand_mode/understand_provider.dart';
-import 'package:vipsound/widgets/lrc_editor_panel.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
+import 'package:in4up/widgets/karaoke_lyrics_line.dart';
+import 'package:in4up/widgets/karaoke_settings_sheet.dart';
+import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
+import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../widgets/ab_loop_controls.dart';
 import '../../widgets/speed_control.dart';
@@ -50,14 +56,22 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   bool _isUserSeeking = false;
   bool _isCurrentRoute = true;
 
-  // ★ LRC state
+  // ★ LRC state - curtain style
   List<String> _lrcLines = [];
   bool _showLrcOnMain = false;
   bool _lrcAutoScroll = true;
+  double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
+  static const double _lrcMinHeight = 64.0; // when collapsed, show handle
+  static const double _lrcDefaultHeight = 220.0;
+  double _lrcDragStartHeight = 320.0;
 
   // LRC ScrollController for sophisticated LRC display
   late ScrollController _lrcScrollController;
   bool _autoScroll = true;
+
+  /// Khi người dùng đang tự kéo danh sách → tạm tắt auto-scroll để không
+  /// giật ngược vị trí (issue: kéo thủ công không được).
+  bool _userScrollingLrc = false;
 
   bool _sheetOpen = false;
   bool _listenersSetup = false;
@@ -112,7 +126,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     // Load LRC nếu đã có
     if (player.lastGeneratedLrcPath != null) {
       final understandProvider = context.read<UnderstandProvider>();
-      if (understandProvider.lrcLines.isNotEmpty) {
+      if (understandProvider!.lrcLines.isNotEmpty) {
         _showLrcOnMain = true;
       }
     }
@@ -124,6 +138,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    // FIX OOM v4: neu dang transcribe thi KHONG reload waveform de tranh double FFmpeg + ExoPlayer ton RAM
+    try {
+      if (player.isGeneratingLrc) {
+        debugPrint('⏭️ Skip waveform reload during transcription to save RAM');
+        return;
+      }
+    } catch (_) {}
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
@@ -191,26 +213,59 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     super.dispose();
   }
 
-  // Auto-scroll to active LRC line (from UnderstandModeScreen)
+  // Auto-scroll to active LRC line - improved, không trật màn hình
   void _scrollToLine(int index) {
     if (!_lrcScrollController.hasClients || index < 0) return;
+    if (_lrcHeight < _lrcMinHeight) return; // panel đang ẩn hoặc quá nhỏ
 
-    const double estimatedLineHeight = 52.0; // Average height of a line item
+    try {
+      final position = _lrcScrollController.position;
+      if (!position.hasContentDimensions) return;
 
-    final targetOffset = index * estimatedLineHeight;
-    final viewportHeight = _lrcScrollController.position.viewportDimension;
-    final centerOffset =
-        targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
+      final viewportHeight = position.viewportDimension;
+      if (viewportHeight <= 0) return;
 
-    _lrcScrollController.animateTo(
-      centerOffset.clamp(0.0, _lrcScrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+      const estimatedLineHeight = 52.0;
+      final targetOffset = index * estimatedLineHeight;
+      final desiredCenter = viewportHeight * 0.35;
+      final centerOffset =
+          targetOffset - desiredCenter + (estimatedLineHeight / 2);
+
+      if (position.maxScrollExtent <= 0) return;
+      final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
+
+      const visibleBuffer = 48.0;
+      final inView = targetOffset >= position.pixels - visibleBuffer &&
+          targetOffset <=
+              position.pixels +
+                  viewportHeight -
+                  estimatedLineHeight -
+                  visibleBuffer;
+
+      if (inView && (position.pixels - clamped).abs() < 32) {
+        return;
+      }
+
+      // Chỉ animate khi cách xa đủ lớn để tránh giật liên tục
+      if ((position.pixels - clamped).abs() > 24) {
+        _lrcScrollController.animateTo(
+          clamped,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    } catch (e) {
+      debugPrint('[LRC] scrollToLine error: $e');
+    }
   }
 
   String _normalizePath(String path) {
-    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
+    try {
+      return Uri.decodeFull(path.replaceAll("\\", "/").toLowerCase().trim());
+    } catch (_) {
+      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
+      return path.replaceAll("\\", "/").toLowerCase().trim();
+    }
   }
 
   void _onPlayerChange() {
@@ -220,6 +275,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
@@ -301,11 +358,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       setState(() {
         _showLrcOnMain = true;
       });
+    } else if (!hasLrcLines && _showLrcOnMain) {
+      // Đã đổi bài / clear → ẩn panel lyrics cũ đi, tránh giữ chữ bài cũ.
+      setState(() {
+        _showLrcOnMain = false;
+      });
     }
 
     // Auto-scroll to current line (from UnderstandModeScreen logic)
     final idx = understand.currentLineIndex;
-    if (idx >= 0 && _autoScroll && hasLrcLines) {
+    // Chỉ auto-scroll khi user KHÔNG đang tự kéo danh sách.
+    if (idx >= 0 && _autoScroll && !_userScrollingLrc && hasLrcLines) {
       _scrollToLine(idx);
     }
   }
@@ -395,7 +458,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             child: Row(children: [
               const Text('📍', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text('Tại ${_fmtDuration(position)}',
+              Text(context.uiText('Tại ${_fmtDuration(position)}'),
                   style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -456,13 +519,18 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFF6C63FF),
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(message)),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFF6C63FF),
+          duration: const Duration(milliseconds: 1200),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   String _fmtDuration(Duration d) {
@@ -497,113 +565,408 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     onTitleTap: () => QuickAudioSheet.show(context),
                   ),
 
-                  // ★ Waveform — chiếm ít hơn khi có LRC
+                  // ★ Waveform — chiếm phần còn lại, khi LRC mở thì tự thu nhỏ
                   Expanded(
-                    flex: _showLrcOnMain ? 2 : 4,
                     child: _buildWaveform(player),
                   ),
 
-                  // ★ FIX 3: Hiển thị Lyrics từ UnderstandProvider ngay khi có
+                  // ★ LRC CURTAIN: kéo được như rèm, chạm chân sóng, ẩn hiện linh hoạt
+                  // Thay vì Flexible cố định, dùng Container với _lrcHeight có thể kéo
                   if (_showLrcOnMain)
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
-                        if (understand.lrcLines.isEmpty) {
-                          return Flexible(
-                            flex: 3,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  "Chưa có nội dung\nHãy tạo LRC từ STT",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey),
-                                ),
+                        final hasLines = understand!.lrcLines.isNotEmpty;
+                        // Tính max height responsive: 45% màn nhỏ, 62% màn lớn, tránh overflow 1100-1140
+                        final screenH = MediaQuery.of(context).size.height;
+                        final maxH = (screenH * (screenH < 700 ? 0.45 : 0.55)).clamp(180.0, 420.0);
+                        final dragAction = context.uiText(
+                          _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
+                        );
+                        final tapAction = context.uiText(
+                          _lrcHeight < maxH * 0.9 ? 'mở toàn màn hình' : 'thu gọn',
+                        );
+
+                        // Clamp current height
+                        if (_lrcHeight > maxH) _lrcHeight = maxH;
+                        if (_lrcHeight < _lrcMinHeight) _lrcHeight = _lrcMinHeight;
+
+                        if (!hasLines) {
+                          return Container(
+                            height: 120,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[900],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Chưa có nội dung\nHãy tạo LRC từ STT",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey),
                               ),
                             ),
                           );
                         }
 
-                        return Flexible(
-                          flex: 3,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[900],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              children: [
-                                // Header với nút đóng
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                        return Container(
+                          height: _lrcHeight,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121212),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.06)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Drag handle - curtain: kéo như rèm
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragStart: (d) {
+                                  _lrcDragStartHeight = _lrcHeight;
+                                },
+                                onVerticalDragUpdate: (d) {
+                                  // Kéo lên => tăng height, kéo xuống => giảm
+                                  // Dùng delta.dy: kéo lên delta âm, nên -delta => tăng
+                                  final delta = -d.delta.dy;
+                                  setState(() {
+                                    _lrcHeight = (_lrcHeight + delta)
+                                        .clamp(_lrcMinHeight, maxH);
+                                  });
+                                },
+                                onVerticalDragEnd: (d) {
+                                  final velocity = d.primaryVelocity ?? 0;
+                                  // Vuốt xuống nhanh (velocity >0) -> ẩn
+                                  if (velocity > 700) {
+                                    setState(() {
+                                      _showLrcOnMain = false;
+                                      _lrcHeight = _lrcDefaultHeight;
+                                    });
+                                    HapticFeedback.mediumImpact();
+                                  } else if (_lrcHeight < 96) {
+                                    // Kéo thấp quá -> ẩn
+                                    setState(() {
+                                      _showLrcOnMain = false;
+                                      _lrcHeight = _lrcDefaultHeight;
+                                    });
+                                    HapticFeedback.lightImpact();
+                                  } else if (_lrcHeight < 180) {
+                                    // Snap về min
+                                    setState(() {
+                                      _lrcHeight = _lrcMinHeight + 32;
+                                    });
+                                  }
+                                },
+                                onTap: () {
+                                  // Tap handle để toggle full / default
+                                  HapticFeedback.selectionClick();
+                                  setState(() {
+                                    if (_lrcHeight < maxH * 0.85) {
+                                      _lrcHeight = maxH;
+                                    } else {
+                                      _lrcHeight = _lrcDefaultHeight;
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.03),
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(14)),
+                                  ),
+                                  child: Column(
                                     children: [
-                                      const Text(
-                                        "LRC Lyrics",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
+                                      Container(
+                                        width: 38,
+                                        height: 5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white24,
+                                          borderRadius:
+                                              BorderRadius.circular(3),
                                         ),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.close,
-                                            color: Colors.grey),
-                                        onPressed: () => setState(
-                                            () => _showLrcOnMain = false),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.keyboard_arrow_up_rounded,
+                                            size: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.keyboard_arrow_down_rounded,
+                                            size: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                // Sophisticated LRC ListView (from UnderstandModeScreen)
-                                Expanded(
+                              ),
+                              // Header với title + actions
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.06)),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.lyrics_outlined,
+                                        size: 14,
+                                        color: Color(0xFF6C63FF)),
+                                    const SizedBox(width: 5),
+                                    Flexible(
+                                      child: Text(
+                                        context.uiText("LRC ${understand.lrcLines.length} dòng"),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    // Auto-scroll toggle compact
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _autoScroll = !_autoScroll;
+                                        });
+                                        HapticFeedback.selectionClick();
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: _autoScroll
+                                              ? const Color(0xFF4CAF50)
+                                                  .withValues(alpha: 0.15)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.05),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              _autoScroll
+                                                  ? Icons.auto_awesome_mosaic
+                                                  : Icons
+                                                      .auto_awesome_mosaic_outlined,
+                                              size: 10,
+                                              color: _autoScroll
+                                                  ? const Color(0xFF4CAF50)
+                                                  : Colors.grey,
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              _autoScroll ? "Auto" : "Off",
+                                              style: TextStyle(
+                                                color: _autoScroll
+                                                    ? const Color(0xFF4CAF50)
+                                                    : Colors.grey,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    _LrcIconBtn(
+                                      icon: Icons.tune,
+                                      tooltip: context.uiText('Tuỳ chỉnh'),
+                                      onTap: () =>
+                                          KaraokeSettingsSheet.show(context),
+                                    ),
+                                    _LrcIconBtn(
+                                      icon: Icons.close_fullscreen_rounded,
+                                      tooltip: context.uiText('Thu nhỏ'),
+                                      onTap: () {
+                                        setState(() {
+                                          if (_lrcHeight > 140) {
+                                            _lrcHeight = 140;
+                                          } else {
+                                            _showLrcOnMain = false;
+                                            _lrcHeight = _lrcDefaultHeight;
+                                          }
+                                        });
+                                      },
+                                    ),
+                                    _LrcIconBtn(
+                                      icon: Icons.close,
+                                      tooltip: context.uiText('Ẩn'),
+                                      onTap: () => setState(() {
+                                        _showLrcOnMain = false;
+                                        _lrcHeight = _lrcDefaultHeight;
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // LRC List
+                              Expanded(
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (n) {
+                                    if (n is ScrollStartNotification) {
+                                      _userScrollingLrc = true;
+                                    } else if (n is ScrollEndNotification) {
+                                      _userScrollingLrc = false;
+                                      // Sau 2.5s không kéo thì bật lại auto-scroll
+                                      Future.delayed(
+                                          const Duration(milliseconds: 2500),
+                                          () {
+                                        if (mounted &&
+                                            !_userScrollingLrc) {
+                                          // không làm gì, chỉ reset cờ cho lần sau
+                                        }
+                                      });
+                                    }
+                                    return false;
+                                  },
                                   child: ListView.builder(
                                     controller: _lrcScrollController,
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding:
+                                        const EdgeInsets.only(bottom: 72),
                                     itemCount: understand.lrcLines.length,
                                     itemBuilder: (context, index) {
-                                      final line = understand.lrcLines[index];
-                                      final isActive =
-                                          index == understand.currentLineIndex;
+                                      final line =
+                                          understand.lrcLines[index];
+                                      final isActive = index ==
+                                          understand.currentLineIndex;
+
+                                      // Tìm bản dịch từ TextProvider nếu có (khớp nội dung)
+                                      String? lrcTranslation;
+                                      try {
+                                        final tp =
+                                            context.read<TextProvider>();
+                                        if (tp.lines.isNotEmpty) {
+                                          // Thử khớp chính xác trước
+                                          final exact = tp.lines.where((e) =>
+                                              e.content.trim() ==
+                                              line.text.trim());
+                                          if (exact.isNotEmpty &&
+                                              exact.first.translation !=
+                                                  null) {
+                                            lrcTranslation =
+                                                exact.first.translation;
+                                          } else {
+                                            // Fallback: tìm chứa
+                                            final contains = tp.lines.where(
+                                                (e) =>
+                                                    line.text.contains(
+                                                        e.content.trim()) ||
+                                                    e.content
+                                                        .trim()
+                                                        .contains(line.text
+                                                            .trim()));
+                                            if (contains.isNotEmpty) {
+                                              lrcTranslation = contains
+                                                  .firstWhere((e) =>
+                                                      e.translation != null &&
+                                                      e.translation!
+                                                          .isNotEmpty,
+                                                      orElse: () =>
+                                                          contains.first)
+                                                  .translation;
+                                            }
+                                          }
+                                        }
+                                      } catch (_) {}
 
                                       return GestureDetector(
                                         onTap: () {
                                           context
                                               .read<PlayerProvider>()
                                               .seek(line.timestamp);
+                                          HapticFeedback.selectionClick();
+                                        },
+                                        onLongPress: () {
+                                          // Copy text
+                                          Clipboard.setData(ClipboardData(
+                                              text: line.text));
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    "Đã copy lời thoại"),
+                                                duration:
+                                                    Duration(seconds: 1)),
+                                          );
                                         },
                                         child: AnimatedContainer(
-                                          duration:
-                                              const Duration(milliseconds: 200),
+                                          duration: const Duration(
+                                              milliseconds: 220),
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 10,
-                                            horizontal: 16,
+                                            horizontal: 12,
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
                                                 ? const Color(0xFF6C63FF)
-                                                    .withOpacity(0.15)
+                                                    .withValues(alpha: 0.14)
                                                 : Colors.transparent,
                                             borderRadius:
-                                                BorderRadius.circular(8),
+                                                BorderRadius.circular(10),
+                                            border: isActive
+                                                ? Border.all(
+                                                    color:
+                                                        const Color(0xFF6C63FF)
+                                                            .withValues(
+                                                                alpha: 0.25),
+                                                    width: 1)
+                                                : null,
                                           ),
-                                          child: Text(
-                                            line.text,
-                                            style: TextStyle(
-                                              color: isActive
-                                                  ? Colors.white
-                                                  : Colors.grey[500],
-                                              fontSize: isActive ? 16 : 14,
-                                              fontWeight: isActive
-                                                  ? FontWeight.w700
-                                                  : FontWeight.normal,
-                                              height: 1.4,
+                                          child: Consumer<
+                                              KaraokeSettingsProvider>(
+                                            builder: (_, karaoke, __) =>
+                                                KaraokeLyricsLine(
+                                              line: line,
+                                              isActive: isActive,
+                                              words: understand
+                                                  .wordsForLine(index),
+                                              activeWordIndex: isActive
+                                                  ? understand
+                                                      .currentWordIndex
+                                                  : -1,
+                                              style: karaoke.style,
+                                              translation: lrcTranslation,
                                             ),
                                           ),
                                         ),
@@ -611,12 +974,82 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     },
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              // Bottom hint to drag down to close
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  "Vuốt xuống để ẩn • Nhấn dòng để nhảy tới",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 9,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
                     ),
+                  // Khi ẩn nhưng vẫn có LRC -> hiện pill để mở lại
+                  Consumer<UnderstandProvider>(
+                    builder: (context, understand, _) {
+                      if (_showLrcOnMain) return const SizedBox.shrink();
+                      if (understand!.lrcLines.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Container(
+                        margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            _showLrcOnMain = true;
+                            _lrcHeight = _lrcDefaultHeight;
+                          }),
+                          onVerticalDragUpdate: (d) {
+                            if (d.delta.dy < -6) {
+                              // kéo lên
+                              setState(() {
+                                _showLrcOnMain = true;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C63FF)
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: const Color(0xFF6C63FF)
+                                      .withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.lyrics,
+                                    size: 16, color: Color(0xFF8B83FF)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
+                                  style: const TextStyle(
+                                    color: Color(0xFF8B83FF),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.keyboard_arrow_up_rounded,
+                                    size: 16, color: Color(0xFF8B83FF)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
                   // Controls
                   Consumer<PlayerProvider>(
@@ -907,6 +1340,28 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
             enabled: _zoom < _maxZoom,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LrcIconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _LrcIconBtn({required this.icon, required this.tooltip, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(left: 4),
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 14, color: Colors.grey),
       ),
     );
   }
@@ -1210,7 +1665,7 @@ class _SleepPanel extends StatelessWidget {
           min: 5,
           max: 120,
           divisions: 23,
-          label: '$minutes phút',
+          label: context.uiText('$minutes phút'),
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
         ),
@@ -1222,7 +1677,7 @@ class _SleepPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child:
-                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
+                Text(context.uiText('Đặt $minutes phút'), style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
@@ -1373,20 +1828,19 @@ class _AIPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints:
-          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
-      child: const SingleChildScrollView(
-        child: Column(
-          children: [
-            GenerateLrcButton(),
-            SizedBox(height: 12),
-            LrcEditorPanel(
-              initiallyExpanded: true,
-            ),
-          ],
+    final screenSize = MediaQuery.sizeOf(context);
+    final compact = screenSize.width < 430 || screenSize.height < 780;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const GenerateLrcButton(),
+        SizedBox(height: compact ? 10 : 12),
+        LrcEditorPanel(
+          initiallyExpanded: true,
+          compact: compact,
         ),
-      ),
+      ],
     );
   }
 }
@@ -1559,6 +2013,10 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   }
 
   Widget _buildInlinePanel(PlayerProvider player) {
+    // Fix overflow 34/354px trên màn hình nhỏ SE (568px): giảm maxHeight xuống 24-28% và cho scroll
+    // Trước 0.42 gây overflow 18px, 0.32 vẫn overflow 34px khi height 1100, nên dùng 0.26-0.30 tùy màn hình
+    final screenH = MediaQuery.of(context).size.height;
+    final maxH = screenH < 700 ? screenH * 0.26 : screenH < 900 ? screenH * 0.28 : screenH * 0.32;
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
       padding: const EdgeInsets.all(12),
@@ -1567,13 +2025,17 @@ class _SmartActionBarState extends State<_SmartActionBar> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: switch (_openPanel!) {
-        _InlinePanel.repeat => _RepeatPanel(player: player),
-        _InlinePanel.speed => _SpeedPanel(player: player),
-        _InlinePanel.sleep => _SleepPanel(player: player),
-        _InlinePanel.ab => const _ABLoopWithSilencePanel(),
-        _InlinePanel.ai => const _AIPanel(),
-      },
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: switch (_openPanel!) {
+          _InlinePanel.repeat => _RepeatPanel(player: player),
+          _InlinePanel.speed => _SpeedPanel(player: player),
+          _InlinePanel.sleep => _SleepPanel(player: player),
+          _InlinePanel.ab => const _ABLoopWithSilencePanel(),
+          _InlinePanel.ai => const _AIPanel(),
+        },
+      ),
     );
   }
 
@@ -1624,13 +2086,18 @@ class _SmartActionBarState extends State<_SmartActionBar> {
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFF6C63FF),
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(msg)),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFF6C63FF),
+          duration: const Duration(milliseconds: 1200),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   static String _fmt(Duration d) {
@@ -1782,6 +2249,20 @@ class _PlayButton extends StatelessWidget {
 class GenerateLrcButton extends StatelessWidget {
   const GenerateLrcButton({super.key});
 
+  String _formatEta(int chunkIndex, int chunkCount, double progress) {
+    if (chunkCount <= 0 || chunkIndex < 0) return '';
+    // progress is 0..1 overall, but chunk progress gives better ETA
+    final done = chunkIndex + 1;
+    if (done <= 0) return '';
+    // We don't have per-chunk time here, but we can estimate from progress value
+    // For simple UI, show "Chunk X/Y" and percent
+    final percent = (done / chunkCount * 100).toStringAsFixed(1);
+    final remaining = chunkCount - done;
+    // Assume avg 20s per chunk (whisper base on mid device) -> ETA rough
+    // If progress has message with ETA from engine, prefer that
+    return 'Chunk $done/$chunkCount ($percent%) - Con $remaining doan';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
@@ -1792,6 +2273,7 @@ class GenerateLrcButton extends StatelessWidget {
           builder: (context, snapshot) {
             final progress = snapshot.data ?? SttProgress.idle;
             final isActive = progress.isActive;
+            final hasChunkInfo = progress.chunkCount > 0;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -1801,24 +2283,86 @@ class GenerateLrcButton extends StatelessWidget {
                   firstChild: const SizedBox(height: 4),
                   secondChild: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LinearProgressIndicator(
-                        value: progress.progress,
-                        backgroundColor: Colors.grey.shade800,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progress.status == SttFacadeStatus.error
-                              ? Colors.red
-                              : Colors.blue.shade400,
-                        ),
+                      // Progress bar with chunk info
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: hasChunkInfo
+                                  ? (progress.chunkIndex + 1) / progress.chunkCount
+                                  : progress.progress,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                progress.status == SttFacadeStatus.error
+                                    ? Colors.red
+                                    : Colors.blue.shade400,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (hasChunkInfo)
+                            Text(
+                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: Colors.blue.shade300,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(progress.message,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey[400]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      // Main message
+                      Text(
+                        progress.message,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[300], fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasChunkInfo) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.hourglass_top, size: 14, color: Colors.blue),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _formatEta(progress.chunkIndex, progress.chunkCount, progress.progress),
+                                  style: TextStyle(
+                                    color: Colors.blue.shade300,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.memory, size: 12, color: Colors.orange),
+                              const SizedBox(width: 2),
+                              Text(
+                                'RAM safe: lazy chunk',
+                                style: TextStyle(color: Colors.orange.shade300, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Dang hoat dong... File dai toi 1h van xu ly on. Dung lo!',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 10, fontStyle: FontStyle.italic),
+                        ),
+                      ],
                     ],
                   ),
                   crossFadeState: isActive
@@ -1829,18 +2373,25 @@ class GenerateLrcButton extends StatelessWidget {
                 const SizedBox(height: 8),
                 _LrcModelSelector(
                   isProcessing: isActive || provider.isGeneratingLrc,
-                  onGenerate: (level) =>
-                      provider.generateLrcForCurrentAudio(level: level),
+                  onGenerate: (level, grouping) =>
+                      provider.generateLrcForCurrentAudio(
+                    level: level,
+                    grouping: grouping,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                Row(children: [
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        context.read<SttServiceFacade>().startListening(),
-                    icon: const Icon(Icons.mic),
-                    label: const Text('Shadowing'),
-                  ),
-                ]),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          context.read<SttServiceFacade>().startListening(),
+                      icon: const Icon(Icons.mic),
+                      label: const Text('Shadowing'),
+                    ),
+                  ],
+                ),
               ],
             );
           },
@@ -1852,7 +2403,8 @@ class GenerateLrcButton extends StatelessWidget {
 
 class _LrcModelSelector extends StatefulWidget {
   final bool isProcessing;
-  final Future<SttTranscribeOutput?> Function(WhisperModelLevel?) onGenerate;
+  final Future<SttTranscribeOutput?> Function(
+      WhisperModelLevel?, SttSegmentGrouping) onGenerate;
 
   const _LrcModelSelector(
       {required this.isProcessing, required this.onGenerate});
@@ -1863,6 +2415,7 @@ class _LrcModelSelector extends StatefulWidget {
 
 class _LrcModelSelectorState extends State<_LrcModelSelector> {
   WhisperModelLevel? _selectedLevel;
+  SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
 
   @override
   Widget build(BuildContext context) {
@@ -1894,23 +2447,62 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
           }),
         ]),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: widget.isProcessing
-              ? null
-              : () => widget.onGenerate(_selectedLevel),
-          icon: widget.isProcessing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.subtitles_outlined),
-          label: Text(
-              widget.isProcessing ? 'Đang xử lý...' : 'Tạo lời thoại (LRC)'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        if (!widget.isProcessing)
+          SegmentedButton<SttSegmentGrouping>(
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+            ),
+            segments: const [
+              ButtonSegment(
+                value: SttSegmentGrouping.sentence,
+                label: Text('Theo câu',
+                    style: TextStyle(fontSize: 12)),
+              ),
+              ButtonSegment(
+                value: SttSegmentGrouping.phrase,
+                label: Text('Theo cụm',
+                    style: TextStyle(fontSize: 12)),
+              ),
+            ],
+            selected: {_grouping},
+            onSelectionChanged: (s) =>
+                setState(() => _grouping = s.first),
           ),
-        ),
+        const SizedBox(height: 12),
+        if (widget.isProcessing)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              const Text('Đang xử lý...'),
+              const SizedBox(width: 12),
+              TextButton.icon(
+                onPressed: () =>
+                    context.read<PlayerProvider>().cancelLrcGeneration(),
+                icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                label: const Text('Hủy'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                ),
+              ),
+            ],
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: () => widget.onGenerate(_selectedLevel, _grouping),
+            icon: const Icon(Icons.subtitles_outlined),
+            label: const Text('Tạo lời thoại (LRC)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
       ]),
     );
   }

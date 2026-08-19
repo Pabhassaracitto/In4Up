@@ -1,11 +1,13 @@
 // lib/screens/read_mode/read_mode_screen.dart
 // Thêm tracking tiến độ đọc vào code hiện tại
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:vipsound/models/word_entry.dart';
+import 'package:in4up/models/word_entry.dart';
 
+import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
+import '../../models/color_mode.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -32,6 +34,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   final ScrollController _scrollController = ScrollController();
   late ReadModeController _controller;
   bool _controllerInitialized = false;
+  int _lastHandledFocusCueVersion = 0;
   VoidCallback? _playerListener;
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false; // wordlist
@@ -114,13 +117,38 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       value: _controller,
       child: Consumer<TextProvider>(
         builder: (context, textProvider, _) {
+          if (textProvider.focusCueVersion != _lastHandledFocusCueVersion &&
+              textProvider.focusCueLineIndex != null) {
+            _lastHandledFocusCueVersion = textProvider.focusCueVersion;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || !_scrollController.hasClients) return;
+              _controller.scrollToLine(
+                _scrollController,
+                textProvider.focusCueLineIndex!,
+                animated: true,
+              );
+            });
+          }
+
           if (!textProvider.hasLyrics) {
             return const ReadEmptyState();
           }
+          final showGrammarLegend =
+              textProvider.colorMode == ColorMode.wordType &&
+              textProvider.grammarSettings.enabled &&
+              textProvider.grammarSettings.showLegend;
+
+          // Nếu đã có bản dịch thì luôn cho phép hiện toolbar để user đổi layout,
+          // kể cả khi showTranslation đang false (tránh trường hợp tắt rồi không mở lại được)
+          final hasTranslation = textProvider.translatedLineCount > 0;
           return Column(
             children: [
               const ReadTopBar(),
-              if (textProvider.showTranslation) const TranslationToolbar(),
+              if (showGrammarLegend)
+                _GrammarLegendStrip(textProvider: textProvider),
+              // Hiện toolbar khi đang bật dịch HOẶC đã có bản dịch sẵn
+              if (textProvider.showTranslation || hasTranslation)
+                const TranslationToolbar(),
               Expanded(
                 child: _showWordlistPanel
                     ? _buildSplitView(textProvider)
@@ -129,7 +157,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                         child: _buildTextList(textProvider),
                       ),
               ),
-              const SmartPlaybackBar(), // ← THÊM Smart Playback Bar
+              const SmartPlaybackBar(),
               ReadBottomBar(
                 showWordlistPanel: _showWordlistPanel,
                 onToggleWordlist: () {
@@ -196,6 +224,204 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   }
 }
 
+class _GrammarLegendStrip extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _GrammarLegendStrip({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = textProvider.grammarSettings;
+    final palette = textProvider.activeGrammarPalette;
+    final visibleCategories = settings.visibleCategories.toList()
+      ..sort((a, b) => a.referenceStyleIndex.compareTo(b.referenceStyleIndex));
+    final hiddenCount =
+        GrammarCategory.values.length - settings.visibleCategories.length;
+    final previousPreset = textProvider.availableGrammarPresets.firstWhere(
+      (preset) => preset.id == settings.lastNonCustomPresetId,
+      orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
+    );
+    final activePreset = textProvider.activeGrammarPreset;
+    final activePresetName = activePreset.isBuiltIn
+        ? context.uiText(activePreset.name)
+        : activePreset.name;
+    final previousPresetName = previousPreset.isBuiltIn
+        ? context.uiText(previousPreset.name)
+        : previousPreset.name;
+    final grammarTitle = settings.isCustomPreset
+        ? context.uiText('Grammar Highlight · Tùy chỉnh')
+        : 'Grammar Highlight · $activePresetName';
+    final canCollapse = visibleCategories.length > 4;
+    final displaySettings = settings.legendCollapsed && canCollapse
+        ? settings.copyWith(
+            visibleCategories: visibleCategories.take(4).toSet(),
+          )
+        : settings;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        final actionButtons = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: compact ? WrapAlignment.start : WrapAlignment.end,
+          children: [
+            if (settings.isCustomPreset)
+              OutlinedButton.icon(
+                onPressed: textProvider.restorePreviousGrammarPreset,
+                icon: const Icon(Icons.undo_rounded, size: 16),
+                label: Text(context.uiText('Khôi phục $previousPresetName')),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            if (hiddenCount > 0)
+              OutlinedButton.icon(
+                onPressed: textProvider.showAllGrammarCategories,
+                icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                label: const Text('Bật lại tất cả'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB8B5FF),
+                  side: BorderSide(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            if (canCollapse)
+              TextButton.icon(
+                onPressed: () => textProvider.setGrammarLegendCollapsed(
+                  !settings.legendCollapsed,
+                ),
+                icon: Icon(
+                  settings.legendCollapsed
+                      ? Icons.unfold_more_rounded
+                      : Icons.unfold_less_rounded,
+                  size: 16,
+                ),
+                label: Text(settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF9FA8DA),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+          ],
+        );
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (compact) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome_motion,
+                      size: 14,
+                      color: Color(0xFF6C63FF),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            grammarTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (hiddenCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              context.uiText(settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về $previousPresetName.'
+                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.'),
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                actionButtons,
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome_motion,
+                      size: 14,
+                      color: Color(0xFF6C63FF),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            grammarTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (hiddenCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              context.uiText(settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về $previousPresetName.'
+                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.'),
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(child: actionButtons),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 6),
+              GrammarLegendBar(
+                settings: displaySettings,
+                palette: palette,
+                toolbarStyle: true,
+                compact: settings.legendCollapsed || compact,
+                horizontalScroll: settings.legendCollapsed || compact,
+                showHandle: true,
+                onToggleCategory: (category) =>
+                    textProvider.toggleGrammarCategory(category),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _StoryWordlistPanel extends StatelessWidget {
   final String storyTitle;
 
@@ -233,7 +459,7 @@ class _StoryWordlistPanel extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Từ đã lưu (${words.length})',
+                        context.uiText('Từ đã lưu (${words.length})'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,

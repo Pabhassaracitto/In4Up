@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 //
 // Tập hợp các JavaScript strings được inject vào WebView
 // Mỗi function được tách riêng để dễ debug và maintain
@@ -14,12 +16,17 @@ class WebReaderJS {
   const CONFIG = $configJson;
   const MODE = CONFIG.mode;
   const CEFR_DICT = CONFIG.cefrDictionary || {};
+  const DIFFICULTY_DICT = CONFIG.difficultyDictionary || {};
+  const RECALL_DICT = CONFIG.recallDictionary || {};
   const COLORS = CONFIG.colors || {};
+  const VISIBLE_WORD_TYPES = new Set(CONFIG.visibleWordTypes || []);
+  const HIDE_ALL_WORD_TYPES = !!CONFIG.hideAllWordTypes;
+  const WORDTYPE_BOLD = CONFIG.wordTypeBold || {};
   const SUFFIXES = CONFIG.suffixes || {};
 
   // ── Cleanup script (xóa highlight cũ) ─────────────────
   function removeHighlights() {
-    const spans = document.querySelectorAll('.vipsound-word');
+    const spans = document.querySelectorAll('.in4up-word');
     spans.forEach(span => {
       const text = document.createTextNode(span.textContent);
       span.parentNode.replaceChild(text, span);
@@ -42,6 +49,13 @@ class WebReaderJS {
       if (w.length <= 5) return { mode: 'cefr', level: 'a2' };
       if (w.length <= 8) return { mode: 'cefr', level: 'b1' };
       return { mode: 'cefr', level: 'b2' };
+    }
+
+    if (MODE === 'difficulty') {
+      if (DIFFICULTY_DICT[w]) {
+        return { mode: 'difficulty', level: DIFFICULTY_DICT[w] };
+      }
+      return null;
     }
 
     if (MODE === 'wordType') {
@@ -106,9 +120,70 @@ class WebReaderJS {
       return (COLORS.cefr || {})[classification.level];
     }
     if (classification.mode === 'wordType') {
+      if (HIDE_ALL_WORD_TYPES) return null;
+      if (VISIBLE_WORD_TYPES.size > 0 && !VISIBLE_WORD_TYPES.has(classification.type)) {
+        return null;
+      }
       return (COLORS.wordType || {})[classification.type];
     }
+    if (classification.mode === 'difficulty') {
+      return (COLORS.difficulty || {})[classification.level];
+    }
     return null;
+  }
+
+  function getRecallMeta(word) {
+    const w = word.toLowerCase().replace(/[^\\w']/g, '');
+    return RECALL_DICT[w] || null;
+  }
+
+  function applyRecallStyle(span, meta) {
+    if (!meta) return;
+    if (meta.saved) {
+      span.style.outline = '1px solid rgba(76,175,80,0.45)';
+      span.style.outlineOffset = '1px';
+    }
+    if (meta.note) {
+      span.style.boxShadow = 'inset 0 -2px 0 rgba(255,193,7,0.75)';
+    }
+    if (meta.due) {
+      span.style.borderTop = '2px solid rgba(244,67,54,0.85)';
+    }
+  }
+
+  function getScrollProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(1, scrollHeight - viewportHeight);
+    return Math.max(0, Math.min(1, scrollTop / maxScrollable));
+  }
+
+  function getContextTextForNode(node, focusText) {
+    const element = node && node.closest
+      ? node.closest('p, li, blockquote, h1, h2, h3, h4, td, th, figcaption, article, main')
+      : null;
+    let text = '';
+    if (element) {
+      text = (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+    if (!text && node) {
+      text = ((node.innerText || node.textContent || '') + '').replace(/\s+/g, ' ').trim();
+    }
+    const focus = (focusText || '').replace(/\s+/g, ' ').trim();
+    if (!text) return focus;
+    if (!focus || text.length <= 260) return text;
+
+    const lower = text.toLowerCase();
+    const index = lower.indexOf(focus.toLowerCase());
+    if (index < 0) return text.slice(0, 260).trim();
+
+    const start = Math.max(0, index - 90);
+    const end = Math.min(text.length, index + focus.length + 120);
+    return text.slice(start, end).trim();
   }
 
   // ── Text node walker ──────────────────────────────────
@@ -122,8 +197,8 @@ class WebReaderJS {
     const tag = parent.tagName ? parent.tagName.toLowerCase() : '';
     if (['script','style','noscript','code','pre','textarea',
          'input','button','select','option'].includes(tag)) return;
-    // Skip nếu đã là vipsound span
-    if (parent.classList && parent.classList.contains('vipsound-word')) return;
+    // Skip nếu đã là in4up span
+    if (parent.classList && parent.classList.contains('in4up-word')) return;
 
     // Tokenize: chia thành words + non-words
     const tokenRegex = /[\\w']+|[^\\w\\s]+|\\s+/g;
@@ -142,16 +217,20 @@ class WebReaderJS {
 
       const classification = classifyWord(token);
       const color = getColor(classification);
+      const recallMeta = getRecallMeta(token);
 
       if (color && color !== 'transparent') {
         const span = document.createElement('span');
-        span.className = 'vipsound-word';
+        span.className = 'in4up-word';
         span.setAttribute('data-word', token.toLowerCase());
         span.setAttribute('data-type',
           classification.mode === 'cefr'
             ? classification.level
-            : classification.type);
+            : classification.mode === 'difficulty'
+              ? classification.level
+              : classification.type);
         span.textContent = token;
+        const isBold = classification.mode === 'wordType' && !!WORDTYPE_BOLD[classification.type];
         span.style.cssText = [
           'background-color: ' + color + '22',
           'border-bottom: 2px solid ' + color,
@@ -159,6 +238,7 @@ class WebReaderJS {
           'cursor: pointer',
           'padding: 0 1px',
           'transition: background-color 0.15s',
+          isBold ? 'font-weight: 700' : '',
         ].join(';');
 
         // Hover effect via JS (không dùng CSS class để tránh xung đột)
@@ -169,11 +249,13 @@ class WebReaderJS {
           span.style.backgroundColor = color + '22';
         });
 
+        applyRecallStyle(span, recallMeta);
+
         // Click → gửi message về Flutter
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          window.VipSoundChannel.postMessage(JSON.stringify({
+          window.in4upChannel.postMessage(JSON.stringify({
             type: 'wordTap',
             word: token,
             wordType: classification.mode === 'cefr'
@@ -182,6 +264,8 @@ class WebReaderJS {
             cefrLevel: classification.mode === 'cefr'
               ? classification.level
               : null,
+            contextText: getContextTextForNode(span, token),
+            scrollProgress: getScrollProgress(),
           }));
         });
 
@@ -190,18 +274,21 @@ class WebReaderJS {
       } else {
         // Non-highlighted word: vẫn gắn click để tra từ
         const span = document.createElement('span');
-        span.className = 'vipsound-word vipsound-plain';
+        span.className = 'in4up-word in4up-plain';
         span.setAttribute('data-word', token.toLowerCase());
         span.textContent = token;
         span.style.cssText = 'cursor: pointer;';
+        applyRecallStyle(span, recallMeta);
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          window.VipSoundChannel.postMessage(JSON.stringify({
+          window.in4upChannel.postMessage(JSON.stringify({
             type: 'wordTap',
             word: token,
             wordType: null,
             cefrLevel: null,
+            contextText: getContextTextForNode(span, token),
+            scrollProgress: getScrollProgress(),
           }));
         });
         fragment.appendChild(span);
@@ -248,7 +335,7 @@ class WebReaderJS {
     walkDOM(mainContent);
   }
 
-  console.log('[VipSound] Highlight applied: mode=' + MODE);
+  console.log('[in4up] Highlight applied: mode=' + MODE);
 })();
 ''';
   }
@@ -256,13 +343,13 @@ class WebReaderJS {
   /// Script để remove highlight
   static const String removeHighlightScript = '''
 (function() {
-  const spans = document.querySelectorAll('.vipsound-word');
+  const spans = document.querySelectorAll('.in4up-word');
   spans.forEach(span => {
     const text = document.createTextNode(span.textContent);
     if (span.parentNode) span.parentNode.replaceChild(text, span);
   });
   document.body.normalize();
-  console.log('[VipSound] Highlights removed');
+  console.log('[in4up] Highlights removed');
 })();
 ''';
 
@@ -306,46 +393,389 @@ window.getSelection()?.toString() || '';
   /// Script setup text selection listener
   static const String setupSelectionListenerScript = '''
 (function() {
-  document.addEventListener('mouseup', function() {
-    const sel = window.getSelection();
-    if (sel && sel.toString().trim().length > 0) {
-      window.VipSoundChannel.postMessage(JSON.stringify({
-        type: 'textSelected',
-        text: sel.toString().trim()
-      }));
+  if (window.__in4upSelectionReady) return;
+  window.__in4upSelectionReady = true;
+
+  function getScrollProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(1, scrollHeight - viewportHeight);
+    return Math.max(0, Math.min(1, scrollTop / maxScrollable));
+  }
+
+  function buildContextText(selection) {
+    if (!selection || selection.rangeCount === 0) return '';
+    const range = selection.getRangeAt(0);
+    const selectedText = (selection.toString() || '').replace(/\s+/g, ' ').trim();
+    if (!selectedText) return '';
+
+    const element = range.startContainer && range.startContainer.parentElement
+      ? range.startContainer.parentElement.closest('p, li, blockquote, h1, h2, h3, h4, td, th, figcaption, article, main')
+      : null;
+    let text = '';
+    if (element) {
+      text = (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
     }
-  });
+    if (!text) {
+      text = selectedText;
+    }
+    if (text.length <= 320) return text;
+
+    const lower = text.toLowerCase();
+    const index = lower.indexOf(selectedText.toLowerCase());
+    if (index < 0) return text.slice(0, 320).trim();
+
+    const start = Math.max(0, index - 110);
+    const end = Math.min(text.length, index + selectedText.length + 140);
+    return text.slice(start, end).trim();
+  }
+
+  function sendSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.toString().trim().length === 0) return;
+    const text = sel.toString().trim();
+    window.in4upChannel.postMessage(JSON.stringify({
+      type: 'textSelected',
+      text: text,
+      contextText: buildContextText(sel),
+      scrollProgress: getScrollProgress(),
+    }));
+  }
+
+  document.addEventListener('mouseup', sendSelection);
 
   // Touch devices
   document.addEventListener('touchend', function() {
-    setTimeout(() => {
-      const sel = window.getSelection();
-      if (sel && sel.toString().trim().length > 0) {
-        window.VipSoundChannel.postMessage(JSON.stringify({
-          type: 'textSelected',
-          text: sel.toString().trim()
-        }));
-      }
-    }, 100);
-  });
+    setTimeout(sendSelection, 100);
+  }, { passive: true });
 
-  console.log('[VipSound] Selection listener ready');
+  console.log('[in4up] Selection listener ready');
 })();
 ''';
+
+  /// Script setup reading progress listener
+  static const String setupReadingProgressListenerScript = '''
+(function() {
+  if (window.__in4upReadingProgressReady) return;
+  window.__in4upReadingProgressReady = true;
+
+  function getMainContent() {
+    return document.querySelector('article') ||
+      document.querySelector('[role="main"]') ||
+      document.querySelector('main') ||
+      document.querySelector('.content') ||
+      document.querySelector('.post-content') ||
+      document.body;
+  }
+
+  function getPreview() {
+    const text = (getMainContent().innerText || getMainContent().textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.slice(0, 220);
+  }
+
+  function getProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(1, scrollHeight - viewportHeight);
+    return Math.max(0, Math.min(1, scrollTop / maxScrollable));
+  }
+
+  let lastSent = -1;
+  let timer = null;
+
+  function sendProgress(force) {
+    const progress = getProgress();
+    if (!force && Math.abs(progress - lastSent) < 0.03) return;
+    lastSent = progress;
+    window.in4upChannel.postMessage(JSON.stringify({
+      type: 'readingProgress',
+      progress: progress,
+      preview: getPreview(),
+    }));
+  }
+
+  function schedule() {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => sendProgress(false), 120);
+  }
+
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('touchend', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+
+  setTimeout(() => sendProgress(true), 250);
+  setTimeout(() => sendProgress(true), 1200);
+
+  console.log('[in4up] Reading progress listener ready');
+})();
+''';
+
+  static String buildRestoreScrollScript(double progress) {
+    final clamped = progress.clamp(0.0, 1.0);
+    return '''
+(function() {
+  const progress = $clamped;
+  if (progress <= 0.01) return;
+
+  function applyRestore() {
+    const scrollHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxScrollable = Math.max(0, scrollHeight - viewportHeight);
+    const target = Math.max(0, Math.min(maxScrollable, maxScrollable * progress));
+    window.scrollTo({ top: target, behavior: 'auto' });
+  }
+
+  setTimeout(applyRestore, 120);
+  setTimeout(applyRestore, 500);
+  setTimeout(applyRestore, 1200);
+})();
+''';
+  }
+
+  static String buildPreciseFocusCueScript({
+    String? term,
+    String? anchorText,
+    String? surroundingText,
+    double? scrollProgress,
+  }) {
+    final encodedTerm = jsonEncode(term ?? '');
+    final encodedAnchor = jsonEncode(anchorText ?? '');
+    final encodedContext = jsonEncode(surroundingText ?? '');
+    final encodedScroll = scrollProgress == null
+        ? 'null'
+        : scrollProgress.clamp(0.0, 1.0).toStringAsFixed(4);
+
+    return '''
+(function() {
+  const term = ($encodedTerm || '').toString().trim();
+  const anchorText = ($encodedAnchor || '').toString().trim();
+  const surroundingText = ($encodedContext || '').toString().trim();
+  const scrollProgress = $encodedScroll;
+
+  function clearOldCue() {
+    const old = document.getElementById('in4up-focus-cue');
+    if (!old) return;
+    const parent = old.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(old.textContent || ''), old);
+    parent.normalize();
+  }
+
+  clearOldCue();
+
+  function normalizeWord(value) {
+    return (value || '').toLowerCase().replace(/[^\\w']/g, '');
+  }
+
+  function normalizeText(value) {
+    return (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  function getRoot() {
+    return document.querySelector('article') ||
+      document.querySelector('[role="main"]') ||
+      document.querySelector('main') ||
+      document.body;
+  }
+
+  function applyScrollProgress(progress) {
+    if (progress == null || Number.isNaN(progress) || progress <= 0.01) return;
+    function run() {
+      const scrollHeight = Math.max(
+        document.body.scrollHeight || 0,
+        document.documentElement.scrollHeight || 0
+      );
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const maxScrollable = Math.max(0, scrollHeight - viewportHeight);
+      const target = Math.max(0, Math.min(maxScrollable, maxScrollable * progress));
+      window.scrollTo({ top: target, behavior: 'auto' });
+    }
+    setTimeout(run, 60);
+    setTimeout(run, 240);
+  }
+
+  function glowElement(el) {
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const prevOutline = el.style.outline;
+    const prevOutlineOffset = el.style.outlineOffset;
+    const prevBoxShadow = el.style.boxShadow;
+    const prevBackground = el.style.background;
+    el.style.outline = '2px solid #64B5F6';
+    el.style.outlineOffset = '2px';
+    el.style.boxShadow = '0 0 0 6px rgba(100,181,246,0.18)';
+    el.style.background = el.style.background || 'rgba(100,181,246,0.12)';
+    setTimeout(() => {
+      el.style.outline = prevOutline;
+      el.style.outlineOffset = prevOutlineOffset;
+      el.style.boxShadow = prevBoxShadow;
+      el.style.background = prevBackground;
+    }, 2600);
+  }
+
+  function findSpanSequence(rawText, scope) {
+    const tokens = rawText
+      .split(/\s+/)
+      .map(normalizeWord)
+      .filter(Boolean);
+    if (!tokens.length) return null;
+
+    const spans = Array.from((scope || document).querySelectorAll('.in4up-word'));
+    for (let i = 0; i <= spans.length - tokens.length; i++) {
+      let ok = true;
+      for (let j = 0; j < tokens.length; j++) {
+        if (normalizeWord(spans[i + j].textContent) !== tokens[j]) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return spans.slice(i, i + tokens.length);
+    }
+    return null;
+  }
+
+  function glowSpanGroup(group) {
+    if (!group || !group.length) return false;
+    group[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    group.forEach((el) => {
+      el.style.outline = '2px solid #64B5F6';
+      el.style.outlineOffset = '2px';
+      el.style.boxShadow = '0 0 0 6px rgba(100,181,246,0.18)';
+    });
+    setTimeout(() => {
+      group.forEach((el) => {
+        el.style.outline = '';
+        el.style.outlineOffset = '';
+        el.style.boxShadow = '';
+      });
+    }, 2600);
+    return true;
+  }
+
+  function findContextBlock() {
+    const needle = normalizeText(surroundingText);
+    const anchorNeedle = normalizeText(anchorText || term);
+    if (!needle && !anchorNeedle) return null;
+
+    const root = getRoot();
+    const blocks = Array.from(
+      root.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, td, th, figcaption, article, main, section')
+    );
+    if (!blocks.length) blocks.push(root);
+
+    let best = null;
+    let bestScore = 0;
+    const shortNeedle = needle.length > 120 ? needle.slice(0, 120) : needle;
+
+    for (const el of blocks) {
+      const text = normalizeText(el.innerText || el.textContent || '');
+      if (!text) continue;
+      let score = 0;
+      if (needle && text.includes(needle)) score += 4;
+      else if (shortNeedle && text.includes(shortNeedle)) score += 3;
+      if (anchorNeedle && text.includes(anchorNeedle)) score += 2;
+      if (score > bestScore) {
+        best = el;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function markTextInElement(root, rawTarget) {
+    const target = (rawTarget || '').trim();
+    if (!target) return false;
+
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node || !node.textContent || !node.textContent.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentNode;
+          const tag = parent && parent.tagName ? parent.tagName.toLowerCase() : '';
+          if (['script','style','noscript','textarea','code','pre'].includes(tag)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.textContent || '';
+      const index = text.toLowerCase().indexOf(target.toLowerCase());
+      if (index < 0) continue;
+      try {
+        const range = document.createRange();
+        range.setStart(node, index);
+        range.setEnd(node, index + target.length);
+        const mark = document.createElement('mark');
+        mark.id = 'in4up-focus-cue';
+        mark.style.background = 'rgba(100,181,246,0.28)';
+        mark.style.outline = '2px solid #64B5F6';
+        mark.style.borderRadius = '4px';
+        mark.style.padding = '0 2px';
+        range.surroundContents(mark);
+        mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        setTimeout(clearOldCue, 2600);
+        return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  applyScrollProgress(scrollProgress);
+
+  const contextBlock = findContextBlock();
+  if (contextBlock) {
+    const scopedGroup = findSpanSequence(anchorText || term, contextBlock);
+    if (glowSpanGroup(scopedGroup)) return;
+    glowElement(contextBlock);
+    if (anchorText && markTextInElement(contextBlock, anchorText)) return;
+    if (term && markTextInElement(contextBlock, term)) return;
+    return;
+  }
+
+  const directGroup = findSpanSequence(anchorText || term, document);
+  if (glowSpanGroup(directGroup)) return;
+
+  const root = getRoot();
+  if (anchorText && markTextInElement(root, anchorText)) return;
+  if (term) markTextInElement(root, term);
+})();
+''';
+  }
 
   /// Script thêm floating action button vào trang web
   static String buildFabScript(String configJson) {
     return '''
 (function() {
   // Xóa FAB cũ nếu có
-  const old = document.getElementById('vipsound-fab');
+  const old = document.getElementById('in4up-fab');
   if (old) old.remove();
 
   const config = $configJson;
   const mode = config.mode;
 
   const fab = document.createElement('div');
-  fab.id = 'vipsound-fab';
+  fab.id = 'in4up-fab';
   fab.style.cssText = [
     'position: fixed',
     'bottom: 80px',
@@ -372,7 +802,7 @@ window.getSelection()?.toString() || '';
   });
   fab.addEventListener('mouseup', () => {
     fab.style.transform = 'scale(1)';
-    window.VipSoundChannel.postMessage(JSON.stringify({ type: 'fabTap' }));
+    window.in4upChannel.postMessage(JSON.stringify({ type: 'fabTap' }));
   });
 
   document.body.appendChild(fab);

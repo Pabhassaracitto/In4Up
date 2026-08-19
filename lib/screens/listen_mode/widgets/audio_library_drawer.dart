@@ -3,7 +3,7 @@
 // FIX 2: Chọn nhiều file → hiển thị playlist, phát được từng bài
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -115,58 +115,57 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
   }
 
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TabBar(
-        controller: _tabCtrl,
-        indicator: BoxDecoration(
-          color: Color(0xFF6C63FF).withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: Color(0xFF6C63FF).withValues(alpha: 0.4)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 330;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TabBar(
+            controller: _tabCtrl,
+            isScrollable: compact,
+            tabAlignment: compact ? TabAlignment.start : TabAlignment.fill,
+            indicator: BoxDecoration(
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: const Color(0xFF6C63FF),
+            unselectedLabelColor: Colors.grey,
+            labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 11),
+            labelPadding: EdgeInsets.symmetric(horizontal: compact ? 8 : 0),
+            tabs: [
+              _drawerTab(compact, const Icon(Icons.phone_android, size: 13), 'Thiết bị'),
+              _drawerTab(compact, const Text('📂', style: TextStyle(fontSize: 13)), 'Drive'),
+              _drawerTab(compact, const Text('▶️', style: TextStyle(fontSize: 13)), 'YouTube'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Tab _drawerTab(bool compact, Widget icon, String label) {
+    return Tab(
+      height: compact ? 34 : 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            icon,
+            const SizedBox(width: 4),
+            Text(label),
+          ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: const Color(0xFF6C63FF),
-        unselectedLabelColor: Colors.grey,
-        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontSize: 11),
-        tabs: const [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.phone_android, size: 13),
-                SizedBox(width: 4),
-                Text('Thiết bị'),
-              ],
-            ),
-          ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('📂', style: TextStyle(fontSize: 13)),
-                SizedBox(width: 4),
-                Text('Drive'),
-              ],
-            ),
-          ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('▶️', style: TextStyle(fontSize: 13)),
-                SizedBox(width: 4),
-                Text('YouTube'),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -319,7 +318,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                   if (_playlist.isNotEmpty) ...[
                     Row(
                       children: [
-                        Text('Playlist — ${_playlist.length} bài',
+                        Text(context.uiText('Playlist — ${_playlist.length} bài'),
                             style: TextStyle(
                                 color: Colors.grey[500],
                                 fontSize: 11,

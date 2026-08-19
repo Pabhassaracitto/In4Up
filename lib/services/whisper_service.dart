@@ -2,8 +2,9 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:vipsound_stt/vipsound_stt.dart';
-import '../../native/whisper_bindings.dart';
+import 'package:in4up_stt/stt_model_manager.dart';
+import 'package:in4up_stt/in4up_stt.dart';
+import '../native/whisper_bindings.dart';
 
 /// Service quản lý trực tiếp Native FFI cho Whisper (đặc biệt là Windows)
 /// Kết nối giữa logic Native và SttModelManager hiện tại
@@ -58,7 +59,7 @@ class WhisperService {
         debugPrint(
             '✅ WhisperService: Native context khởi tạo thành công tại $_context');
       } else {
-        debugPrint('❌ WhisperService: whisper_init_from_file trả về null');
+        debugPrint('❌ WhisperService: whisper_init_* trả về null (context rỗng)');
       }
     } catch (e) {
       debugPrint('❌ WhisperService Error: $e');

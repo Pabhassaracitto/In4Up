@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:path/path.dart' as path;
 
 import '../ffi/ultra_engine_ffi_v2.dart';
 import '../models/playback_state.dart';
@@ -110,24 +112,114 @@ class AudioPlayerService {
   /// Get current state
   PlaybackState get currentState => _stateController.value;
 
-  /// Load audio file
+  // Lưu đường dẫn tạm đã sanitize để dọn khi dispose/load mới
+  String? _tempSanitizedPath;
+
+  bool _needsSanitize(String path) {
+    // Ky tu dac biet gay loi tren Windows Media Foundation / Uri.decodeFull
+    // - % : gay Illegal percent encoding
+    // - cac ky tu unicode >127 (’ ‘ “ ” …)
+    if (path.contains('%')) return true;
+    for (final c in path.runes) {
+      if (c > 127) return true;
+    }
+    return false;
+  }
+
+  Future<String> _getSafeFilePath(String original) async {
+    // Nếu không cần sanitize, trả về gốc
+    if (!_needsSanitize(original)) return original;
+    try {
+      final srcFile = File(original);
+      // Tạo tên an toàn: chỉ giữ ascii alnum + _ -
+      final ext = original.split('.').last;
+      final safePrefix = 'in4up_play_${DateTime.now().millisecondsSinceEpoch}_${original.hashCode.abs()}';
+      final safeName = ('${safePrefix}_$ext').replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+      final tempDir = Directory.systemTemp;
+      final destPath = path.join(tempDir.path, safeName);
+      if (File(destPath).existsSync()) {
+        try { File(destPath).deleteSync(); } catch (_) {}
+      }
+      // Copy file để tránh lỗi ký tự đặc biệt trên Windows
+      if (srcFile.existsSync()) {
+        await srcFile.copy(destPath);
+        _tempSanitizedPath = destPath;
+        debugPrint('🔧 Sanitized playback path: $original -> $destPath');
+        return destPath;
+      }
+    } catch (e) {
+      debugPrint('⚠️ Sanitize failed, fallback to original: $e');
+    }
+    return original;
+  }
+
+  /// Load audio file - có fallback cho đường dẫn chứa ký tự đặc biệt
   Future<bool> loadFile(String filePath) async {
+    String safePath = filePath;
     try {
       _updateState(status: PlaybackStatus.loading);
 
-      await _audioPlayer.setFilePath(filePath);
+      // Thử sanitize nếu cần
+      safePath = await _getSafeFilePath(filePath);
 
-      final duration = _audioPlayer.duration;
+      // Cố gắng load với nhiều cách
+      try {
+        // C1: setFilePath trực tiếp (khuyến nghị)
+        await _audioPlayer.setFilePath(safePath);
+      } catch (e) {
+        debugPrint('⚠️ setFilePath failed ($e), trying AudioSource.uri');
+        try {
+          // C2: Dùng Uri.file - xử lý đúng ký tự đặc biệt & space
+          final uri = Uri.file(safePath);
+          debugPrint('Trying Uri.file: $uri');
+          await _audioPlayer.setAudioSource(AudioSource.uri(uri));
+        } catch (e2) {
+          debugPrint('⚠️ AudioSource.uri failed ($e2), trying original path');
+          // C3: Fallback về file gốc nếu safePath khác gốc
+          if (safePath != filePath) {
+            try {
+              await _audioPlayer.setFilePath(filePath);
+              safePath = filePath;
+            } catch (e3) {
+              debugPrint('❌ All load methods failed: $e3');
+              rethrow;
+            }
+          } else {
+            rethrow;
+          }
+        }
+      }
+
+      // Đợi duration khả dụng (just_audio có thể cần tí thời gian)
+      Duration? duration = _audioPlayer.duration;
+      if (duration == null) {
+        // Đợi tối đa 1.5s cho durationStream
+        try {
+          duration = await _audioPlayer.durationStream
+              .firstWhere((d) => d != null)
+              .timeout(const Duration(milliseconds: 1500));
+        } catch (_) {
+          duration = _audioPlayer.duration;
+        }
+      }
+
       if (duration != null) {
         _updateState(duration: duration);
+        debugPrint('✅ Loaded duration: $duration');
+      } else {
+        debugPrint('⚠️ Duration still null after load, file may be unreadable but continuing');
+        // Vẫn cho phép play, progress sẽ update sau
       }
 
       _updateState(status: PlaybackStatus.paused);
 
-      debugPrint('Loaded file: $filePath');
+      debugPrint('Loaded file: $filePath (safe: $safePath)');
       return true;
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('Error loading file: $e');
+      debugPrint('Stack: $st');
+      debugPrint('Original path: $filePath');
+      debugPrint('Safe path: $safePath');
       _updateState(
         status: PlaybackStatus.error,
         errorMessage: e.toString(),

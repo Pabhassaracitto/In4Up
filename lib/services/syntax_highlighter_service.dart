@@ -1,9 +1,14 @@
+import 'package:in4up/features/grammar/models/grammar_category.dart';
+
+import '../features/grammar/services/grammar_lexicon_service.dart';
 import '../models/word_analysis.dart';
+import '../providers/vocabulary_bridge.dart';
 
 class SyntaxHighlighterService {
   SyntaxHighlighterService._();
   static final SyntaxHighlighterService instance = SyntaxHighlighterService._();
 
+  final GrammarLexiconService _grammarLexicon = GrammarLexiconService.instance;
   final Map<String, List<AnalyzedWord>> _cache = {};
   static const int _maxCacheSize = 500;
 
@@ -29,10 +34,12 @@ class SyntaxHighlighterService {
     if (clean.isEmpty) {
       return AnalyzedWord(word: word, wordType: WordType.unknown);
     }
-    final isStop = _stopWords.contains(clean);
-    final type = isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean);
+    final lexiconEntry = _grammarLexicon.lookup(clean);
+    final isStop = _stopWords.contains(clean) || (lexiconEntry?.category.isFunctionWord ?? false);
+    final type = lexiconEntry?.category.legacyWordType ??
+        (isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean));
     final cefr = _estimateCEFR(clean);
-    return AnalyzedWord(
+    final base = AnalyzedWord(
       word: word,
       originalWord: word,
       wordType: type,
@@ -40,6 +47,7 @@ class SyntaxHighlighterService {
       meaning: _basicDict[clean],
       isStopWord: isStop,
     );
+    return _applyGlobalVocabularyData(base, clean);
   }
 
   /// Expose CEFR dictionary cho JavaScript serialization
@@ -50,7 +58,14 @@ class SyntaxHighlighterService {
     if (src.isEmpty) return [];
 
     final cached = _cache[src];
-    if (cached != null) return cached;
+    if (cached != null) {
+      return cached
+          .map((word) => _applyGlobalVocabularyData(
+                word,
+                word.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), ''),
+              ))
+          .toList();
+    }
 
     final tokens = _tokenize(src);
     final result = <AnalyzedWord>[];
@@ -92,9 +107,11 @@ class SyntaxHighlighterService {
         continue;
       }
 
-      final isStop = _stopWords.contains(clean);
-      final type =
-          isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean);
+      final lexiconEntry = _grammarLexicon.lookup(clean);
+      final isStop =
+          _stopWords.contains(clean) || (lexiconEntry?.category.isFunctionWord ?? false);
+      final type = lexiconEntry?.category.legacyWordType ??
+          (isStop ? _classifyStopWord(clean) : _classifyWordBasic(clean));
       final cefr = _estimateCEFR(clean);
 
       result.add(AnalyzedWord(
@@ -109,7 +126,32 @@ class SyntaxHighlighterService {
 
     _trimCacheIfNeeded();
     _cache[src] = result;
-    return result;
+    return result
+        .map((word) => _applyGlobalVocabularyData(
+              word,
+              word.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), ''),
+            ))
+        .toList();
+  }
+
+  AnalyzedWord _applyGlobalVocabularyData(AnalyzedWord word, String clean) {
+    if (clean.isEmpty) return word;
+    final entry = VocabularyBridge.findByWord(clean);
+    if (entry == null) return word;
+    return word.copyWith(
+      meaning: entry.meaning.trim().isNotEmpty ? entry.meaning.trim() : word.meaning,
+      phonetic: (entry.phonetic?.trim().isNotEmpty ?? false)
+          ? entry.phonetic!.trim()
+          : word.phonetic,
+      example: (entry.example?.trim().isNotEmpty ?? false)
+          ? entry.example!.trim()
+          : word.example,
+      userDifficulty: entry.userDifficulty,
+      isSaved: true,
+      hasSavedNotes: (entry.personalNotes?.trim().isNotEmpty ?? false),
+      hasDueReview: entry.hasAnyDue,
+      encounterCount: entry.encounterCount,
+    );
   }
 
   List<String> _tokenize(String text) {

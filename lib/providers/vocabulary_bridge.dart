@@ -2,7 +2,10 @@
 // Gọi từ TextProvider, WebReaderController, PdfReaderController, v.v.
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
+import '../models/vocab_context.dart';
+import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
 import 'vocabulary_provider.dart';
 
@@ -61,6 +64,110 @@ class VocabularyBridge {
       example: example,
       source: sourceFile,
     );
+  }
+
+  /// Thêm vào WordList với context để tích luỹ ngữ cảnh gặp lại.
+  static WordEntry? addContextual({
+    required String text,
+    String meaning = '',
+    String? phonetic,
+    String? example,
+    VocabContext? context,
+    VocabularyType? forceType,
+    String language = 'en',
+    String? topic,
+  }) {
+    final inst = _instance;
+    if (inst == null) {
+      debugPrint('⚠️ VocabularyBridge: not initialized');
+      return null;
+    }
+
+    final normalized = text.trim();
+    if (normalized.isEmpty || normalized.length < 2) {
+      return null;
+    }
+
+    final entry = inst.addWithAutoClassify(
+      text: normalized,
+      meaning: meaning,
+      phonetic: phonetic,
+      forceType: forceType,
+      context: context,
+      language: language,
+      topic: topic,
+    );
+
+    final normalizedExample = example?.trim() ?? '';
+    if (normalizedExample.isNotEmpty &&
+        (entry.example == null || entry.example!.trim().isEmpty)) {
+      inst.updateWord(entry.id, example: normalizedExample);
+    }
+
+    return entry;
+  }
+
+  static WordEntry? upsertDifficulty({
+    required String text,
+    required DifficultyLevel difficulty,
+    VocabContext? context,
+    VocabularyType? forceType,
+    String meaning = '',
+    String? phonetic,
+    String language = 'en',
+    String? topic,
+  }) {
+    final inst = _instance;
+    if (inst == null) {
+      debugPrint('⚠️ VocabularyBridge: not initialized');
+      return null;
+    }
+    return inst.upsertDifficulty(
+      text: text.trim(),
+      difficulty: difficulty,
+      context: context,
+      forceType: forceType,
+      meaning: meaning,
+      phonetic: phonetic,
+      language: language,
+      topic: topic,
+    );
+  }
+
+  static void updateDifficulty(String id, DifficultyLevel? difficulty) {
+    _instance?.updateDifficulty(id, difficulty);
+  }
+
+  static DifficultyLevel? difficultyOf(String word) =>
+      _instance?.findByWord(word.trim().toLowerCase())?.userDifficulty;
+
+  static Map<String, String> exportDifficultyMap() {
+    final inst = _instance;
+    if (inst == null) return const {};
+    final out = <String, String>{};
+    for (final entry in inst.allWords) {
+      final difficulty = entry.userDifficulty;
+      if (difficulty == null) continue;
+      out[entry.word.toLowerCase().trim()] = difficulty.name;
+    }
+    return out;
+  }
+
+  static Map<String, Map<String, dynamic>> exportRecallMetadata() {
+    final inst = _instance;
+    if (inst == null) return const {};
+    final out = <String, Map<String, dynamic>>{};
+    for (final entry in inst.allWords) {
+      final key = entry.word.toLowerCase().trim();
+      if (key.isEmpty) continue;
+      out[key] = {
+        'saved': true,
+        'note': (entry.personalNotes?.trim().isNotEmpty ?? false),
+        'due': entry.hasAnyDue,
+        'count': entry.encounterCount,
+      };
+    }
+    return out;
   }
 
   static bool hasWord(String word) => _instance?.hasWord(word) ?? false;

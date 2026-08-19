@@ -2,15 +2,28 @@
 // Dialog thêm mới hoặc chỉnh sửa một mục trong thư viện văn bản.
 // Dùng cho cả hai trường hợp: entry == null → thêm mới, entry != null → sửa.
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/text_provider.dart';
 import '../../services/text_library_service.dart';
 
 class TextEntryDialog extends StatefulWidget {
   final TextLibraryEntry? entry; // null = thêm mới
+  final String? initialTitle;
+  final String? initialContent;
+  final String? initialCategory;
+  final bool preferInitialValues;
 
-  const TextEntryDialog({super.key, this.entry});
+  const TextEntryDialog({
+    super.key,
+    this.entry,
+    this.initialTitle,
+    this.initialContent,
+    this.initialCategory,
+    this.preferInitialValues = false,
+  });
 
   @override
   State<TextEntryDialog> createState() => _TextEntryDialogState();
@@ -28,9 +41,67 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController(text: widget.entry?.title ?? '');
-    _contentCtrl = TextEditingController(text: widget.entry?.content ?? '');
-    _categoryCtrl = TextEditingController(text: widget.entry?.category ?? '');
+    final seedTitle = widget.preferInitialValues
+        ? (widget.initialTitle ?? widget.entry?.title ?? '')
+        : (widget.entry?.title ?? widget.initialTitle ?? '');
+    final seedContent = widget.preferInitialValues
+        ? (widget.initialContent ?? widget.entry?.content ?? '')
+        : (widget.entry?.content ?? widget.initialContent ?? '');
+    final seedCategory = widget.preferInitialValues
+        ? (widget.initialCategory ?? widget.entry?.category ?? '')
+        : (widget.entry?.category ?? widget.initialCategory ?? '');
+
+    _titleCtrl = TextEditingController(text: seedTitle);
+    _contentCtrl = TextEditingController(text: seedContent);
+    _categoryCtrl = TextEditingController(text: seedCategory);
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData('text/plain');
+    final text = data?.text?.trim();
+    if (text == null || text.isEmpty || !mounted) return;
+    _seedFromContent(text);
+  }
+
+  void _fillFromCurrentText() {
+    final tp = context.read<TextProvider>();
+    final text = tp.fullText.trim().isNotEmpty
+        ? tp.fullText.trim()
+        : tp.lines.map((e) => e.content).join('\n').trim();
+    if (text.isEmpty) return;
+    _seedFromContent(
+      text,
+      preferredTitle: tp.currentDocument?.title,
+      preferredCategory: tp.currentTextCategory,
+    );
+  }
+
+  void _seedFromContent(
+    String text, {
+    String? preferredTitle,
+    String? preferredCategory,
+  }) {
+    setState(() {
+      _contentCtrl.text = text;
+      if ((preferredCategory ?? '').trim().isNotEmpty &&
+          _categoryCtrl.text.trim().isEmpty) {
+        _categoryCtrl.text = preferredCategory!.trim();
+      }
+      if (_titleCtrl.text.trim().isEmpty) {
+        if ((preferredTitle ?? '').trim().isNotEmpty) {
+          _titleCtrl.text = preferredTitle!.trim();
+        } else {
+          final firstLine = text
+              .split('\n')
+              .map((e) => e.trim())
+              .firstWhere((e) => e.isNotEmpty, orElse: () => 'Văn bản mới');
+          final clipped = firstLine.length > 48
+              ? '${firstLine.substring(0, 48).trim()}...'
+              : firstLine;
+          _titleCtrl.text = clipped;
+        }
+      }
+    });
   }
 
   @override
@@ -114,7 +185,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         icon: Icons.title,
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Nhập tiêu đề'
+                          ? context.uiText('Nhập tiêu đề')
                           : null,
                       textInputAction: TextInputAction.next,
                     ),
@@ -135,7 +206,24 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                     const SizedBox(height: 16),
 
                     // Nội dung
-                    const _FieldLabel(label: 'Nội dung *'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const _FieldLabel(label: 'Nội dung *'),
+                        TextButton.icon(
+                          onPressed: _pasteFromClipboard,
+                          icon: const Icon(Icons.content_paste_go_outlined, size: 16),
+                          label: const Text('Dán clipboard'),
+                        ),
+                        TextButton.icon(
+                          onPressed: _fillFromCurrentText,
+                          icon: const Icon(Icons.copy_all_outlined, size: 16),
+                          label: const Text('Lấy văn bản hiện tại'),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _contentCtrl,
@@ -172,7 +260,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            '$wc từ · $lc dòng',
+                            context.uiText('$wc từ · $lc dòng'),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 11,
@@ -332,7 +420,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
   InputDecoration _inputDecoration(
       {required String hint, required IconData icon}) {
     return InputDecoration(
-      hintText: hint,
+      hintText: context.uiText(hint),
       hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
       prefixIcon: Icon(icon, color: Colors.grey[600], size: 18),
       filled: true,

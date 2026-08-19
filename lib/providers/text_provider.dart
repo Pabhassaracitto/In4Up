@@ -5,20 +5,30 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:in4up_stt/models/stt_result.dart';
 
+import '../features/grammar/models/grammar_category.dart';
+import '../features/grammar/models/grammar_highlight_preset.dart';
+import '../features/grammar/models/grammar_highlight_settings.dart';
+import '../features/grammar/models/grammar_highlight_style.dart';
+import '../features/grammar/models/grammar_palette.dart';
+import '../features/grammar/services/grammar_preset_library_service.dart';
+import '../features/grammar/services/grammar_settings_service.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
 import '../models/color_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
+import '../models/vocab_context.dart';
+import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
-import 'package:vipsound_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 enum ReadSubMode { reading, listening, translation, driving }
 
@@ -28,6 +38,13 @@ enum TtsPlaybackOwner {
   preview, // Icon loa / swipe phát âm 1 dòng
   segment, // Segment playback
   vocabReview, // Đọc từ khó
+}
+
+enum TextSourceType {
+  manual,
+  localFile,
+  cloud,
+  generated,
 }
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
@@ -113,13 +130,22 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextDocument? _currentDocument;
   List<TextItem> _lines = [];
   int _currentLineIndex = -1;
+  int? _focusCueLineIndex;
+  int _focusCueVersion = 0;
   String? _selectedText;
   String _fullText = '';
   String? _currentTextPath;
+  TextSourceType _currentSourceType = TextSourceType.manual;
+  String? _currentCloudId;
+  String? _currentTextCategory;
 
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
+  GrammarHighlightSettings _grammarSettings =
+      GrammarHighlightSettings.defaults();
+  List<GrammarHighlightPreset> _availableGrammarPresets =
+      GrammarHighlightPresets.defaults();
 
   // ==================== TEXT SEGMENTS ====================
   final List<TextSegment> _segments = [];
@@ -128,7 +154,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TTS SETTINGS ====================
   double _ttsSpeed = 1.0;
   double _ttsPitch = 1.0;
-  String _ttsLanguage = 'en-US';
+  String _ttsLanguage = 'auto';
   bool _isSpeaking = false;
   //TTS session management
   TtsPlaybackOwner _ttsOwner = TtsPlaybackOwner.none;
@@ -156,12 +182,42 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   @override
   List<TextItem> get lines => _lines;
   int get currentLineIndex => _currentLineIndex;
+  int? get focusCueLineIndex => _focusCueLineIndex;
+  int get focusCueVersion => _focusCueVersion;
   String? get selectedText => _selectedText;
   String get fullText => _fullText;
   bool get hasLyrics => _lines.isNotEmpty;
   String? get currentTextPath => _currentTextPath;
+  TextSourceType get currentSourceType => _currentSourceType;
+  String? get currentCloudId => _currentCloudId;
+  String? get currentTextCategory => _currentTextCategory;
+  bool get isCurrentTextFromCloud =>
+      _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
+  String? get currentContextSourceRef {
+    if (isCurrentTextFromCloud && _currentCloudId != null) return _currentCloudId;
+    if (_currentTextPath != null && _currentTextPath!.trim().isNotEmpty) {
+      return _currentTextPath;
+    }
+    return null;
+  }
+
+  String? get currentContextSourceRefType {
+    if (isCurrentTextFromCloud && _currentCloudId != null) return 'cloudText';
+    if (_currentTextPath != null && _currentTextPath!.trim().isNotEmpty) {
+      return 'localText';
+    }
+    return null;
+  }
+
   List<List<AnalyzedWord>> get analyzedLines => _analyzedLines;
   ColorMode get colorMode => _colorMode;
+  GrammarHighlightSettings get grammarSettings => _grammarSettings;
+  List<GrammarHighlightPreset> get availableGrammarPresets =>
+      List.unmodifiable(_availableGrammarPresets);
+  GrammarPalette get activeGrammarPalette =>
+      GrammarPalettes.byId(_grammarSettings.paletteId);
+  GrammarHighlightPreset get activeGrammarPreset =>
+      _findGrammarPresetById(_grammarSettings.activePresetId);
   List<TextSegment> get segments => List.unmodifiable(_segments);
   SelectedTextInfo? get selectedTextInfo => _selectedTextInfo;
   double get ttsSpeed => _ttsSpeed;
@@ -184,6 +240,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   TextProvider() {
     _restoreFromStorage();
+    unawaited(_restoreGrammarPresetLibrary());
+    unawaited(_restoreGrammarSettings());
   }
 
   // ★ THÊM: Restore settings
@@ -196,7 +254,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
       final savedSpeed = _storage.getTtsSpeed();
       _ttsSpeed = (savedSpeed == 1.75 || savedSpeed == 0.0) ? 1.0 : savedSpeed;
-      _ttsService.configure(speed: _ttsSpeed);
+      _ttsService.configure(
+        speed: _ttsSpeed,
+        language: 'auto',
+        autoDetect: true,
+      );
+
+      restoreTranslationTargetLanguage(
+        _storage.getTranslationTargetLanguage(),
+      );
 
       if (_storage.getShowTranslation()) {
         setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
@@ -231,16 +297,149 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     }
   }
 
+  GrammarHighlightPreset _findGrammarPresetById(String? presetId) {
+    for (final preset in _availableGrammarPresets) {
+      if (preset.id == presetId) return preset;
+    }
+    return GrammarHighlightPresets.byId(presetId);
+  }
+
+  Future<void> _restoreGrammarPresetLibrary() async {
+    try {
+      _availableGrammarPresets =
+          await GrammarPresetLibraryService.loadAllPresets();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error restoring grammar preset library: $e');
+    }
+  }
+
+  Future<void> _refreshGrammarPresetLibrary() async {
+    _availableGrammarPresets = await GrammarPresetLibraryService.loadAllPresets();
+    notifyListeners();
+  }
+
+  Future<void> refreshGrammarPresetLibrary() {
+    return _refreshGrammarPresetLibrary();
+  }
+
+  Future<void> _restoreGrammarSettings() async {
+    try {
+      _grammarSettings = await GrammarSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Error restoring grammar settings: $e');
+    }
+  }
+
+  Future<void> _saveGrammarSettings() async {
+    try {
+      await GrammarSettingsService.save(_grammarSettings);
+    } catch (e) {
+      debugPrint('⚠️ Error saving grammar settings: $e');
+    }
+  }
+
+  Future<void> setGrammarSettings(GrammarHighlightSettings settings) async {
+    _grammarSettings = settings;
+    notifyListeners();
+    await _saveGrammarSettings();
+  }
+
+  Future<void> setGrammarHighlightEnabled(bool enabled) {
+    return setGrammarSettings(_grammarSettings.copyWith(enabled: enabled));
+  }
+
+  Future<void> applyGrammarPreset(String presetId) {
+    final preset = _findGrammarPresetById(presetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<void> restorePreviousGrammarPreset() {
+    final preset = _findGrammarPresetById(_grammarSettings.lastNonCustomPresetId);
+    return setGrammarSettings(_grammarSettings.applyPreset(preset));
+  }
+
+  Future<GrammarHighlightPreset> saveCurrentGrammarPreset({
+    required String name,
+    String description = '',
+  }) async {
+    final saved = await GrammarPresetLibraryService.savePreset(
+      name: name,
+      description: description,
+      settings: _grammarSettings,
+    );
+    await _refreshGrammarPresetLibrary();
+    await setGrammarSettings(_grammarSettings.applyPreset(saved));
+    return saved;
+  }
+
+  Future<void> setGrammarAdvancedControls(bool value) {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(showAdvancedControls: value),
+    );
+  }
+
+  Future<void> setGrammarPalette(String paletteId) {
+    return setGrammarSettings(_grammarSettings.copyWith(paletteId: paletteId));
+  }
+
+  Future<void> setGrammarHighlightStyle(GrammarHighlightStyle style) {
+    return setGrammarSettings(_grammarSettings.copyWith(highlightStyle: style));
+  }
+
+  Future<void> toggleGrammarCategory(GrammarCategory category) {
+    final next = Set<GrammarCategory>.from(_grammarSettings.visibleCategories);
+    if (next.contains(category)) {
+      next.remove(category);
+    } else {
+      next.add(category);
+    }
+    return setGrammarSettings(_grammarSettings.copyWith(
+      activePresetId: 'custom',
+      visibleCategories: next,
+    ));
+  }
+
+  Future<void> showAllGrammarCategories() {
+    return setGrammarSettings(
+      _grammarSettings.copyWith(
+        activePresetId: 'custom',
+        visibleCategories: Set<GrammarCategory>.from(GrammarCategory.values),
+      ),
+    );
+  }
+
+  Future<void> setGrammarLegendVisible(bool visible) {
+    return setGrammarSettings(_grammarSettings.copyWith(showLegend: visible));
+  }
+
+  Future<void> setGrammarLegendCollapsed(bool collapsed) {
+    return setGrammarSettings(_grammarSettings.copyWith(legendCollapsed: collapsed));
+  }
+
   // ==================== TEXT MANAGEMENT ====================
 
   void loadText(String content, {String? title}) {
     _parsePlainText(content, title: title);
-    _currentTextPath = null;
+    _setSourceMeta(sourceType: TextSourceType.manual);
   }
 
-  void loadFromString(String content, {String? title}) {
+  void loadFromString(
+    String content, {
+    String? title,
+    TextSourceType sourceType = TextSourceType.manual,
+    String? localPath,
+    String? cloudId,
+    String? category,
+  }) {
     _parsePlainText(content, title: title);
-    _currentTextPath = null;
+    _setSourceMeta(
+      sourceType: sourceType,
+      localPath: localPath,
+      cloudId: cloudId,
+      category: category,
+    );
   }
 
   Future<void> loadTextFile(String path, {String? title}) async {
@@ -251,7 +450,6 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         return;
       }
 
-      _currentTextPath = path;
       final content = await file.readAsString();
       final lower = path.toLowerCase();
       final docTitle = title ?? _extractFileName(path);
@@ -264,6 +462,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         _parsePlainText(content, title: docTitle);
       }
 
+      _setSourceMeta(
+        sourceType: TextSourceType.localFile,
+        localPath: path,
+      );
+
       // ★ THÊM: Save last text path
       _storage.saveLastTextPath(path);
     } catch (e) {
@@ -275,16 +478,32 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _parsePlainText(newText, title: _currentDocument?.title);
   }
 
+  void _setSourceMeta({
+    required TextSourceType sourceType,
+    String? localPath,
+    String? cloudId,
+    String? category,
+  }) {
+    _currentSourceType = sourceType;
+    _currentTextPath = localPath;
+    _currentCloudId = cloudId;
+    _currentTextCategory = category;
+  }
+
   void clearText() {
     _lines = [];
     _analyzedLines = [];
     _currentDocument = null;
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedText = null;
     _selectedTextInfo = null;
     _fullText = '';
     _segments.clear();
     _currentTextPath = null;
+    _currentCloudId = null;
+    _currentTextCategory = null;
+    _currentSourceType = TextSourceType.manual;
     notifyListeners();
   }
 
@@ -304,6 +523,23 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       _currentLineIndex = index;
       notifyListeners();
     }
+  }
+
+  void focusLineCue(int index, {Duration duration = const Duration(seconds: 2)}) {
+    if (index < 0 || index >= _lines.length) return;
+    _currentLineIndex = index;
+    _focusCueLineIndex = index;
+    _focusCueVersion++;
+    final version = _focusCueVersion;
+    notifyListeners();
+
+    Future.delayed(duration, () {
+      if (_focusCueVersion != version) return;
+      if (_focusCueLineIndex == index) {
+        _focusCueLineIndex = null;
+        notifyListeners();
+      }
+    });
   }
 
   String _extractFileName(String path) {
@@ -344,8 +580,42 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
+    notifyListeners();
+  }
+
+  // ★ THÊM: Phương thức để load kết quả từ STT
+  void loadFromSttResult(SttResult result) {
+    _fullText = result.fullText;
+    _lines = result.segments.map((seg) {
+      return TextItem(
+        id: seg.uid,
+        content: seg.text,
+        startTime: seg.startDuration,
+        endTime: seg.endDuration,
+      );
+    }).toList();
+
+    _analyzedLines = SyntaxHighlighterService.analyzeLines(
+      _lines.map((l) => l.content).toList(),
+    );
+
+    _currentDocument = TextDocument(
+      id: result.audioFingerprint.isNotEmpty
+          ? result.audioFingerprint
+          : DateTime.now().millisecondsSinceEpoch.toString(),
+      title: 'STT Result',
+      lines: _lines,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _currentLineIndex = -1;
+    _selectedTextInfo = null;
+    _selectedText = null;
+    _setSourceMeta(sourceType: TextSourceType.generated);
     notifyListeners();
   }
 
@@ -362,7 +632,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
       final seconds = int.tryParse(match.group(2) ?? '') ?? 0;
       final fraction = match.group(3) ?? '00';
-      final text = (match.group(4) ?? '').trim();
+      // Bỏ inline word timestamps `<mm:ss.cs>` để không lộ ra chữ hiển thị.
+      var text = (match.group(4) ?? '').trim();
+      text = text.replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2,3}>'), '').trim();
       if (text.isEmpty) continue;
 
       final ms =
@@ -401,6 +673,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
@@ -470,6 +743,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
@@ -479,6 +753,12 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void setColorMode(ColorMode mode) {
     _colorMode = mode;
+
+    if (_lines.isNotEmpty) {
+      _analyzedLines = SyntaxHighlighterService.analyzeLines(
+        _lines.map((l) => l.content).toList(),
+      );
+    }
 
     // ★ THÊM: Persist
     _storage.saveColorMode(mode.name);
@@ -490,6 +770,12 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     final modes = ColorMode.values;
     final currentIndex = modes.indexOf(_colorMode);
     _colorMode = modes[(currentIndex + 1) % modes.length];
+
+    if (_lines.isNotEmpty) {
+      _analyzedLines = SyntaxHighlighterService.analyzeLines(
+        _lines.map((l) => l.content).toList(),
+      );
+    }
 
     // ★ THÊM: Persist
     _storage.saveColorMode(_colorMode.name);
@@ -538,6 +824,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translation: (translation == null || translation.trim().isEmpty)
           ? null
           : translation.trim(),
+      translationLanguageCode: translation == null || translation.trim().isEmpty
+          ? null
+          : translationTargetLanguage.translationCode,
+      clearTranslation: translation == null || translation.trim().isEmpty,
+      clearSourceLanguage: true,
     );
 
     // Re-analyze từ loại
@@ -597,6 +888,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         id: '${original.id}_s$i',
         content: text,
         translation: trans,
+        sourceLanguageCode: original.sourceLanguageCode,
+        translationLanguageCode: trans == null
+            ? null
+            : original.translationLanguageCode ??
+                translationTargetLanguage.translationCode,
         startTime: i == 0 ? original.startTime : null,
         endTime: i == 0 ? original.endTime : null,
       );
@@ -791,7 +1087,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   Future<void> setTtsLanguage(String language) async {
     _ttsLanguage = language;
-    _ttsService.configure(language: language);
+    final isAuto = language.toLowerCase() == 'auto';
+    _ttsService.configure(
+      language: isAuto ? 'auto' : language,
+      autoDetect: isAuto,
+    );
     notifyListeners();
   }
 
@@ -867,15 +1167,59 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void markWordDifficulty(
       int lineIndex, int wordIndex, DifficultyLevel difficulty) {
-    if (lineIndex >= 0 && lineIndex < _analyzedLines.length) {
-      if (wordIndex >= 0 && wordIndex < _analyzedLines[lineIndex].length) {
-        _analyzedLines[lineIndex][wordIndex] =
-            _analyzedLines[lineIndex][wordIndex].copyWith(
-          userDifficulty: difficulty,
-        );
-        notifyListeners();
+    if (lineIndex < 0 || lineIndex >= _analyzedLines.length) return;
+    if (wordIndex < 0 || wordIndex >= _analyzedLines[lineIndex].length) return;
+
+    final target = _analyzedLines[lineIndex][wordIndex];
+    final normalized =
+        target.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '').trim();
+    if (normalized.isEmpty) return;
+
+    for (int i = 0; i < _analyzedLines.length; i++) {
+      for (int j = 0; j < _analyzedLines[i].length; j++) {
+        final current = _analyzedLines[i][j];
+        final currentNormalized = current.word
+            .toLowerCase()
+            .replaceAll(RegExp(r"[^\w']"), '')
+            .trim();
+        if (currentNormalized == normalized) {
+          _analyzedLines[i][j] = current.copyWith(userDifficulty: difficulty);
+        }
       }
     }
+
+    final lineText =
+        (lineIndex >= 0 && lineIndex < _lines.length) ? _lines[lineIndex].content : normalized;
+    final selectedInfo = _selectedTextInfo;
+    final selectedNormalized = (selectedInfo?.text ?? '')
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\w']"), '')
+        .trim();
+    final useSelectionAnchor =
+        selectedInfo != null && selectedInfo.lineIndex == lineIndex && selectedNormalized == normalized;
+
+    VocabularyBridge.upsertDifficulty(
+      text: normalized,
+      difficulty: difficulty,
+      meaning: target.meaning ?? '',
+      phonetic: target.phonetic,
+      forceType: normalized.contains(' ')
+          ? VocabularyType.phrase
+          : VocabularyType.word,
+      context: VocabContext.fromStory(
+        storyTitle: _currentDocument?.title ?? 'Read Mode',
+        lineIndex: lineIndex,
+        surroundingText: lineText,
+        sourceRef: currentContextSourceRef,
+        sourceRefType: currentContextSourceRefType,
+        anchorText: target.word,
+        textStartOffset: useSelectionAnchor ? selectedInfo.startOffset : null,
+        textEndOffset: useSelectionAnchor ? selectedInfo.endOffset : null,
+      ),
+      topic: _currentTextCategory,
+    );
+
+    notifyListeners();
   }
 
   Future<void> speakDifficultWordsFirst() async {
@@ -1219,6 +1563,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
 
     _currentLineIndex = -1;
+    _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();

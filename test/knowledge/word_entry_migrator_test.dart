@@ -182,7 +182,7 @@ void main() {
           interval: 21,
           repetitions: 4,
           nextReview: DateTime.utc(2026, 8, 25));
-      final r = _skill(); // chưa từng review: nextReview null
+      final r = _skill(totalReviews: 0); // chưa từng review lần nào
 
       final result = WordEntryMigrator.migrate(
           [_entry('v_due_0', 'bank', u: u, l: l, r: r)],

@@ -8,6 +8,7 @@
 // named-arg literal trùng giá trị default (avoid_redundant_argument_values).
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/models/skill_review_data.dart';
 import 'package:in4up/models/sm2_algorithm.dart';
 
 void main() {
@@ -40,8 +41,9 @@ void main() {
     test('EF luôn trong [1.3, 2.5] dù fail liên tục', () {
       var ef = 1.4;
       for (var i = 0; i < 20; i++) {
-        ef = SM2Algorithm.calculate(quality: 0, currentEF: ef, currentInterval: 1)
-            .easeFactor;
+        ef =
+            SM2Algorithm.calculate(quality: 0, currentEF: ef, currentInterval: 1)
+                .easeFactor;
       }
       expect(ef, greaterThanOrEqualTo(1.3));
       expect(ef, lessThanOrEqualTo(2.5));
@@ -70,6 +72,39 @@ void main() {
       expect(kSm2AlgorithmVersion, 'sm2-srd-v1');
     });
 
-    // (bisect: tạm skip - sẽ trả lại sau khi tách model)
+    test(
+        'TƯƠNG ĐƯƠNG: SkillReviewData.review() ≡ SM2Algorithm.calculate() '
+        'trên lưới 384 tổ hợp đầu vào (không đổi due date dữ liệu cũ)',
+        () {
+      for (final q in [0, 1, 2, 3, 4, 5]) {
+        for (final ef in [1.3, 1.7, 2.18, 2.5]) {
+          for (final iv in [0, 1, 6, 30]) {
+            for (final reps in [0, 1, 2, 5]) {
+              final expected = SM2Algorithm.calculate(
+                quality: q,
+                currentEF: ef,
+                currentInterval: iv,
+                currentReps: reps,
+              );
+              final data = SkillReviewData(
+                easeFactor: ef,
+                interval: iv,
+                repetitions: reps,
+              );
+
+              data.review(q);
+
+              final tag = 'q=$q ef=$ef iv=$iv reps=$reps';
+              expect(data.easeFactor, closeTo(expected.easeFactor, 0.0001),
+                  reason: 'EF lệch tại $tag');
+              expect(data.interval, expected.interval,
+                  reason: 'interval lệch tại $tag');
+              expect(data.repetitions, expected.repetitions,
+                  reason: 'repetitions lệch tại $tag');
+            }
+          }
+        }
+      }
+    });
   });
 }

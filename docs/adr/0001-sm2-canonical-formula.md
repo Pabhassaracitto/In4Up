@@ -64,3 +64,21 @@ Thay đổi:
 5. Test khóa: `test/knowledge/sm2_canonical_test.dart` — bao lưới tương đương
    384 tổ hợp `SkillReviewData.review() ≡ SM2Algorithm.calculate()`.
 
+## Hậu kiểm (postmortem) — 2026-08-20
+
+Audit vòng 2 phát hiện thêm **bản sao thứ 4** mà lần đầu bỏ sót (chỉ grep `lib/`,
+quên `packages/`): `packages/in4up_core/lib/sm2_algorithm.dart` — bản chép
+nguyên Bản 1, **không một dòng nào import** (dead code). Đã xóa đúng quy tắc
+mục 2.3 bàn giao ("không giữ cả hai 'cho chắc'").
+
+`SkillReviewData` được tách từ word_entry.dart sang `lib/models/skill_review_data.dart`
+(file thuần, chỉ phụ thuộc hàm duy nhất) — sau khi phát hiện import word_entry
+trong test làm gãy compile suite (lỗi thiếu import bị artifact layer nuốt mất
+khi ghi file, còn analyze không báo lỗi file ngoài phạm vi). Lưới test tương
+đương 384 tổ hợp chính là câu chốt đã vạch ra sự lệch chuẩn này.
+
+Kết quả Task 2: đúng 1 hàm `SM2Algorithm.calculate()` (ngữ nghĩa Bản 2) được
+gọi ở mọi nơi — `SkillReviewData.review()` delegate, 3 màn preview gọi trực
+tiếp, Memory Mode giữ engine stage riêng theo Quyết định 3.
+
+

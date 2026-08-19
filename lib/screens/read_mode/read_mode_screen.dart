@@ -141,23 +141,50 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           // Nếu đã có bản dịch thì luôn cho phép hiện toolbar để user đổi layout,
           // kể cả khi showTranslation đang false (tránh trường hợp tắt rồi không mở lại được)
           final hasTranslation = textProvider.translatedLineCount > 0;
+<<<<<<< HEAD
+=======
+          final isFocusMode = _controller.isFocusMode;
+          final isSmallScreen = MediaQuery.of(context).size.height < 700 ||
+              MediaQuery.of(context).size.width < 380;
+>>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
           return Column(
             children: [
-              const ReadTopBar(),
-              if (showGrammarLegend)
+              if (!isFocusMode) const ReadTopBar(),
+              if (!isFocusMode && showGrammarLegend)
                 _GrammarLegendStrip(textProvider: textProvider),
               // Hiện toolbar khi đang bật dịch HOẶC đã có bản dịch sẵn
+<<<<<<< HEAD
               if (textProvider.showTranslation || hasTranslation)
+=======
+              // Ở màn hình nhỏ, auto ẩn nếu đang focus mode hoặc compact
+              if (!isFocusMode &&
+                  (textProvider.showTranslation || hasTranslation))
+>>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
                 const TranslationToolbar(),
               Expanded(
                 child: _showWordlistPanel
                     ? _buildSplitView(textProvider)
                     : GestureDetector(
-                        onTap: () => _controller.removeFloatingMenu(),
+                        onTap: () {
+                          if (isFocusMode) {
+                            _controller.setFocusMode(false);
+                          } else {
+                            _controller.removeFloatingMenu();
+                          }
+                        },
+                        onDoubleTap: () {
+                          if (isSmallScreen) {
+                            _controller.toggleFocusMode();
+                          }
+                        },
                         child: _buildTextList(textProvider),
                       ),
               ),
+<<<<<<< HEAD
               const SmartPlaybackBar(),
+=======
+              if (!isFocusMode) const SmartPlaybackBar(),
+>>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
               ReadBottomBar(
                 showWordlistPanel: _showWordlistPanel,
                 onToggleWordlist: () {
@@ -165,6 +192,36 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                   HapticFeedback.lightImpact();
                 },
               ),
+              // Nút vào focus mode nổi khi ở màn hình nhỏ và không ở focus mode
+              if (isSmallScreen && !isFocusMode)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () => _controller.setFocusMode(true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.fullscreen, size: 14, color: Color(0xFF6C63FF)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Focus',
+                              style: TextStyle(color: const Color(0xFF6C63FF), fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },
@@ -251,10 +308,16 @@ class _GrammarLegendStrip extends StatelessWidget {
     final grammarTitle = settings.isCustomPreset
         ? context.uiText('Grammar Highlight · Tùy chỉnh')
         : 'Grammar Highlight · $activePresetName';
+<<<<<<< HEAD
     final canCollapse = visibleCategories.length > 4;
+=======
+    final canCollapse = visibleCategories.length > 2;
+    final isSmall = MediaQuery.of(context).size.height < 700;
+    final collapsedCount = isSmall ? 2 : 4;
+>>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
     final displaySettings = settings.legendCollapsed && canCollapse
         ? settings.copyWith(
-            visibleCategories: visibleCategories.take(4).toSet(),
+            visibleCategories: visibleCategories.take(collapsedCount).toSet(),
           )
         : settings;
 

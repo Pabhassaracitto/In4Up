@@ -13,11 +13,11 @@ library;
 
 /// Version công thức SM-2 đã phát hành snapshot này (bắt buộc — mục 2.3).
 ///
-/// ADR-0001 (2026-08-19): chuẩn hóa về bản "SkillReviewData" — đường
-/// 3-skill đang chạy thật trong app. Task 2 sẽ gom mọi nơi gọi về MỘT hàm
-/// `SM2Algorithm.calculate()` duy nhất với ngữ nghĩa đó và phát hành
-/// version này từ chính hàm đó.
-const String kSm2AlgorithmVersion = 'sm2-srd-v1';
+/// ADR-0001 (duyệt 2026-08-19, đã triển khai ở Task 2): hằng số do chính
+/// hàm SM-2 DUY NHẤT phát hành — `lib/models/sm2_algorithm.dart`.
+/// Re-export tại đây để knowledge module import một chỗ.
+export 'package:in4up/models/sm2_algorithm.dart' show kSm2AlgorithmVersion;
+import 'package:in4up/models/sm2_algorithm.dart' show kSm2AlgorithmVersion;
 
 /// 3 chiều kỹ năng — TÁCH BIỆT, không gộp (mục 0).
 enum SkillDimension { understanding, listening, reading }

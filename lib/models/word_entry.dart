@@ -141,26 +141,21 @@ class SkillReviewData {
   double get accuracy => totalReviews > 0 ? correctReviews / totalReviews : 0;
 
   void review(int quality) {
-    // SM-2 algorithm inline
-    if (quality >= 3) {
-      if (repetitions == 0) {
-        interval = 1;
-      } else if (repetitions == 1) {
-        interval = 6;
-      } else {
-        interval = (interval * easeFactor).round();
-      }
-      repetitions++;
-    } else {
-      repetitions = 0;
-      interval = 1;
-    }
+    // ADR-0001 / Task 2: gọi HÀM SM-2 DUY NHẤT — không tự giữ công thức
+    // inline ở đây nữa. Ngữ nghĩa giữ nguyên hệ nghĩa cũ của chính file
+    // này (đường ghi dữ liệu thật) ⇒ due date hiện tại không đổi.
+    final result = SM2Algorithm.calculate(
+      quality: quality,
+      currentEF: easeFactor,
+      currentInterval: interval,
+      currentReps: repetitions,
+    );
+    easeFactor = result.easeFactor;
+    interval = result.interval;
+    repetitions = result.repetitions;
+    nextReview = result.nextReview;
 
-    easeFactor =
-        (easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
-            .clamp(1.3, 2.5);
-    nextReview = DateTime.now().add(Duration(days: interval));
-
+    // Bookkeeping mastery-score (0..1) — không phải SM-2, giữ nguyên hệ cũ.
     totalReviews++;
     if (quality >= 3) {
       correctReviews++;

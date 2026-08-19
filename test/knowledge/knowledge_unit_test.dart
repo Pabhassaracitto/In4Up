@@ -24,6 +24,19 @@ void main() {
       expect(a.isMergeCandidateWith(b), isTrue);
     });
 
+    test('AT4 (phần sinh ID): 500 unit cùng chữ ⇒ 500 unitId khác nhau', () {
+      // unitId là UUID ngẫu nhiên — cùng canonicalForm không được sinh ra id trùng
+      // (nếu id được hash từ text thì test này fail ngay lập tức).
+      final ids = <String>{
+        for (var i = 0; i < 500; i++)
+          KnowledgeUnit.create(
+            kind: KnowledgeUnitKind.word,
+            canonicalForm: 'bank',
+          ).unitId,
+      };
+      expect(ids.length, 500);
+    });
+
     test('isMergeCandidateWith: tự mình ⇒ false; khác chữ ⇒ false', () {
       final a = KnowledgeUnit.create(
           kind: KnowledgeUnitKind.word, canonicalForm: 'bank');

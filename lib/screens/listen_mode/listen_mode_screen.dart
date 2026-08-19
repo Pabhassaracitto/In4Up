@@ -227,27 +227,16 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
       const estimatedLineHeight = 52.0;
       final targetOffset = index * estimatedLineHeight;
-      final desiredCenter = viewportHeight * 0.35;
+      // Karaoke centered in middle for best visibility (was 0.35 top, hidden above)
+      final desiredCenter = viewportHeight * 0.5;
       final centerOffset =
           targetOffset - desiredCenter + (estimatedLineHeight / 2);
 
       if (position.maxScrollExtent <= 0) return;
       final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
 
-      const visibleBuffer = 48.0;
-      final inView = targetOffset >= position.pixels - visibleBuffer &&
-          targetOffset <=
-              position.pixels +
-                  viewportHeight -
-                  estimatedLineHeight -
-                  visibleBuffer;
-
-      if (inView && (position.pixels - clamped).abs() < 32) {
-        return;
-      }
-
-      // Chỉ animate khi cách xa đủ lớn để tránh giật liên tục
-      if ((position.pixels - clamped).abs() > 24) {
+      // Luôn scroll để dòng karaoke ở giữa, không skip khi inView (fix ẩn trên nhiều)
+      if ((position.pixels - clamped).abs() > 8) {
         _lrcScrollController.animateTo(
           clamped,
           duration: const Duration(milliseconds: 320),
@@ -576,9 +565,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
                         final hasLines = understand!.lrcLines.isNotEmpty;
-                        // Tính max height responsive: 45% màn nhỏ, 62% màn lớn, tránh overflow 1100-1140
+                        // Cho phép kéo rèm sát sóng: 65-75% màn hình, max 650px
                         final screenH = MediaQuery.of(context).size.height;
-                        final maxH = (screenH * (screenH < 700 ? 0.45 : 0.55)).clamp(180.0, 420.0);
+                        final maxH = (screenH * (screenH < 700 ? 0.65 : 0.75)).clamp(250.0, 650.0);
                         final dragAction = context.uiText(
                           _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
                         );
@@ -2251,16 +2240,11 @@ class GenerateLrcButton extends StatelessWidget {
 
   String _formatEta(int chunkIndex, int chunkCount, double progress) {
     if (chunkCount <= 0 || chunkIndex < 0) return '';
-    // progress is 0..1 overall, but chunk progress gives better ETA
     final done = chunkIndex + 1;
     if (done <= 0) return '';
-    // We don't have per-chunk time here, but we can estimate from progress value
-    // For simple UI, show "Chunk X/Y" and percent
     final percent = (done / chunkCount * 100).toStringAsFixed(1);
     final remaining = chunkCount - done;
-    // Assume avg 20s per chunk (whisper base on mid device) -> ETA rough
-    // If progress has message with ETA from engine, prefer that
-    return 'Chunk $done/$chunkCount ($percent%) - Con $remaining doan';
+    return 'Chunk $done/$chunkCount ($percent%) - $remaining left';
   }
 
   @override
@@ -2356,11 +2340,6 @@ class GenerateLrcButton extends StatelessWidget {
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Dang hoat dong... File dai toi 1h van xu ly on. Dung lo!',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 10, fontStyle: FontStyle.italic),
                         ),
                       ],
                     ],

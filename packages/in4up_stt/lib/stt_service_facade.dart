@@ -565,7 +565,7 @@ class SttServiceFacade extends ChangeNotifier {
     _emitProgress(
       SttFacadeStatus.processingWhisper,
       0.10,
-      'Transcribing với Whisper ${config.whisperModel.name}...',
+      'Transcribing with Whisper ${config.whisperModel.name}...',
       engine: SttEngineType.whisper,
     );
 

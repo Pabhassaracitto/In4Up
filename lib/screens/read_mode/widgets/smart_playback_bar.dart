@@ -180,135 +180,264 @@ class _MainRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // ── Mode chips (3 nút trái) ──────────────────────────
-        Row(
-          mainAxisSize: MainAxisSize.min,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isVerySmall = constraints.maxWidth < 360;
+        final isSmall = constraints.maxWidth < 400;
+
+        // On very small screens, stack vertically to avoid 19px overflow
+        if (isVerySmall) {
+          return Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Mode chips
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ModeBtn(
+                        label: sourceLanguage.flag,
+                        tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
+                        active: recipe.mode == PlaybackMode.enOnly,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          controller.updateRecipe(
+                            recipe.copyWith(mode: PlaybackMode.enOnly),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      _ModeBtn(
+                        label: '🔄',
+                        tooltip: context.uiText('Song ngữ / Xen kẽ'),
+                        active: recipe.mode == PlaybackMode.interleaved ||
+                            recipe.mode == PlaybackMode.custom,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          if (!tp.translationPairUsesSameLanguage &&
+                              tp.translatedLineCount == 0) {
+                            unawaited(tp.translateAll());
+                          }
+                          if (recipe.mode == PlaybackMode.custom) {
+                            controller.updateRecipe(
+                              recipe.copyWith(mode: PlaybackMode.interleaved),
+                            );
+                          } else {
+                            controller.updateRecipe(
+                              recipe.copyWith(mode: PlaybackMode.interleaved),
+                            );
+                          }
+                        },
+                        onLongPress: () {
+                          HapticFeedback.mediumImpact();
+                          controller.updateRecipe(
+                            recipe.copyWith(mode: PlaybackMode.custom),
+                          );
+                          if (!expanded) onToggleExpand();
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      _ModeBtn(
+                        label: targetLanguage.flag,
+                        tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
+                        active: recipe.mode == PlaybackMode.viOnly,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          if (tp.translationPairUsesSameLanguage) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
+                              ),
+                            );
+                            return;
+                          }
+                          if (tp.translatedLineCount == 0) {
+                            unawaited(tp.translateAll());
+                          }
+                          controller.updateRecipe(
+                            recipe.copyWith(mode: PlaybackMode.viOnly),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  // Play controls
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SmallIconBtn(
+                        icon: Icons.skip_previous_rounded,
+                        color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                        onTap: controller.isRunning ? () => controller.skip(-1) : null,
+                      ),
+                      _PlayBtn(
+                        isRunning: controller.isRunning,
+                        onTap: () => _onPlayTap(context),
+                        onLongPress: () => _showPresetSheet(context),
+                      ),
+                      _SmallIconBtn(
+                        icon: Icons.skip_next_rounded,
+                        color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                        onTap: controller.isRunning ? () => controller.skip(1) : null,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _SpeedChip(
+                    speed: recipe.speed,
+                    onTap: onToggleSlider,
+                    onSwipe: (delta) => controller.adjustSpeed(delta),
+                  ),
+                  _SmallIconBtn(
+                    icon: expanded
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    color: expanded ? const Color(0xFF6C63FF) : Colors.grey,
+                    onTap: onToggleExpand,
+                  ),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _ModeBtn(
-              label: sourceLanguage.flag,
-              tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
-              active: recipe.mode == PlaybackMode.enOnly,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                controller.updateRecipe(
-                  recipe.copyWith(mode: PlaybackMode.enOnly),
-                );
-              },
+            // ── Mode chips (3 nút trái) ──────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ModeBtn(
+                  label: sourceLanguage.flag,
+                  tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
+                  active: recipe.mode == PlaybackMode.enOnly,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    controller.updateRecipe(
+                      recipe.copyWith(mode: PlaybackMode.enOnly),
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+                _ModeBtn(
+                  label: '🔄',
+                  tooltip: context.uiText('Song ngữ / Xen kẽ'),
+                  active: recipe.mode == PlaybackMode.interleaved ||
+                      recipe.mode == PlaybackMode.custom,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    if (!tp.translationPairUsesSameLanguage &&
+                        tp.translatedLineCount == 0) {
+                      unawaited(tp.translateAll());
+                    }
+                    // Toggle: nếu đang ở interleaved → custom, custom → interleaved
+                    if (recipe.mode == PlaybackMode.custom) {
+                      controller.updateRecipe(
+                        recipe.copyWith(mode: PlaybackMode.interleaved),
+                      );
+                    } else {
+                      controller.updateRecipe(
+                        recipe.copyWith(mode: PlaybackMode.interleaved),
+                      );
+                    }
+                  },
+                  onLongPress: () {
+                    // Long press → custom mode + mở expand
+                    HapticFeedback.mediumImpact();
+                    controller.updateRecipe(
+                      recipe.copyWith(mode: PlaybackMode.custom),
+                    );
+                    if (!expanded) onToggleExpand();
+                  },
+                ),
+                const SizedBox(width: 4),
+                _ModeBtn(
+                  label: targetLanguage.flag,
+                  tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
+                  active: recipe.mode == PlaybackMode.viOnly,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    if (tp.translationPairUsesSameLanguage) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
+                        ),
+                      );
+                      return;
+                    }
+                    if (tp.translatedLineCount == 0) {
+                      unawaited(tp.translateAll());
+                    }
+                    controller.updateRecipe(
+                      recipe.copyWith(mode: PlaybackMode.viOnly),
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            _ModeBtn(
-              label: '🔄',
-              tooltip: context.uiText('Song ngữ / Xen kẽ'),
-              active: recipe.mode == PlaybackMode.interleaved ||
-                  recipe.mode == PlaybackMode.custom,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                if (!tp.translationPairUsesSameLanguage &&
-                    tp.translatedLineCount == 0) {
-                  unawaited(tp.translateAll());
-                }
-                // Toggle: nếu đang ở interleaved → custom, custom → interleaved
-                if (recipe.mode == PlaybackMode.custom) {
-                  controller.updateRecipe(
-                    recipe.copyWith(mode: PlaybackMode.interleaved),
-                  );
-                } else {
-                  controller.updateRecipe(
-                    recipe.copyWith(mode: PlaybackMode.interleaved),
-                  );
-                }
-              },
-              onLongPress: () {
-                // Long press → custom mode + mở expand
-                HapticFeedback.mediumImpact();
-                controller.updateRecipe(
-                  recipe.copyWith(mode: PlaybackMode.custom),
-                );
-                if (!expanded) onToggleExpand();
-              },
+
+            // ── Navigation + Play ────────────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Prev
+                _SmallIconBtn(
+                  icon: Icons.skip_previous_rounded,
+                  color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                  onTap: controller.isRunning ? () => controller.skip(-1) : null,
+                ),
+                SizedBox(width: isSmall ? 2 : 6),
+
+                // PLAY BUTTON
+                _PlayBtn(
+                  isRunning: controller.isRunning,
+                  onTap: () => _onPlayTap(context),
+                  onLongPress: () => _showPresetSheet(context),
+                ),
+
+                SizedBox(width: isSmall ? 2 : 6),
+
+                // Next
+                _SmallIconBtn(
+                  icon: Icons.skip_next_rounded,
+                  color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                  onTap: controller.isRunning ? () => controller.skip(1) : null,
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            _ModeBtn(
-              label: targetLanguage.flag,
-              tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
-              active: recipe.mode == PlaybackMode.viOnly,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                if (tp.translationPairUsesSameLanguage) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
-                    ),
-                  );
-                  return;
-                }
-                if (tp.translatedLineCount == 0) {
-                  unawaited(tp.translateAll());
-                }
-                controller.updateRecipe(
-                  recipe.copyWith(mode: PlaybackMode.viOnly),
-                );
-              },
+
+            // ── Right controls ───────────────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Speed chip (tap = slider, swipe = ±0.25x)
+                _SpeedChip(
+                  speed: recipe.speed,
+                  onTap: onToggleSlider,
+                  onSwipe: (delta) => controller.adjustSpeed(delta),
+                ),
+                const SizedBox(width: 6),
+
+                // Expand toggle
+                _SmallIconBtn(
+                  icon: expanded
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.keyboard_arrow_up_rounded,
+                  color: expanded ? const Color(0xFF6C63FF) : Colors.grey,
+                  onTap: onToggleExpand,
+                ),
+              ],
             ),
           ],
-        ),
-
-        // ── Navigation + Play ────────────────────────────────
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Prev
-            _SmallIconBtn(
-              icon: Icons.skip_previous_rounded,
-              color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
-              onTap: controller.isRunning ? () => controller.skip(-1) : null,
-            ),
-            const SizedBox(width: 6),
-
-            // PLAY BUTTON
-            _PlayBtn(
-              isRunning: controller.isRunning,
-              onTap: () => _onPlayTap(context),
-              onLongPress: () => _showPresetSheet(context),
-            ),
-
-            const SizedBox(width: 6),
-
-            // Next
-            _SmallIconBtn(
-              icon: Icons.skip_next_rounded,
-              color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
-              onTap: controller.isRunning ? () => controller.skip(1) : null,
-            ),
-          ],
-        ),
-
-        // ── Right controls ───────────────────────────────────
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Speed chip (tap = slider, swipe = ±0.25x)
-            _SpeedChip(
-              speed: recipe.speed,
-              onTap: onToggleSlider,
-              onSwipe: (delta) => controller.adjustSpeed(delta),
-            ),
-            const SizedBox(width: 6),
-
-            // Expand toggle
-            _SmallIconBtn(
-              icon: expanded
-                  ? Icons.keyboard_arrow_down_rounded
-                  : Icons.keyboard_arrow_up_rounded,
-              color: expanded ? const Color(0xFF6C63FF) : Colors.grey,
-              onTap: onToggleExpand,
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 

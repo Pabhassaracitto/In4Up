@@ -33,6 +33,7 @@ import 'tools/venn_tab.dart';
 import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
+import 'tools/word_list/wordlist_bubble.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_workspace_screen.dart';
 
@@ -271,10 +272,6 @@ class _MainShellState extends State<MainShell> {
   }
 
   bool get _shouldShowShellMiniPlayer {
-    // Fix audit: mini gây vướng, nhất là ở Understand khi đã có trình phát riêng + lyric
-    // => Ẩn mini ở tất cả tab có player riêng (Nghe, Đọc, Hiểu)
-    // Chỉ hiện ở Remember (và có thể Home nếu muốn quick control)
-    // Ngoài ra, nếu đang không phát và user đã gạt tắt, thì ẩn
     if (_currentTab == _PrimaryTab.home) return false;
     if (_currentTab == _PrimaryTab.listen) return false;
     if (_currentTab == _PrimaryTab.read) return false;
@@ -773,77 +770,81 @@ class _MainShellState extends State<MainShell> {
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            _buildAppBar(context),
-            _buildAnimatedModeSwitch(context),
-            Expanded(
-              child: ClipRect(
-                child: _buildCurrentScreen(),
-              ),
-            ),
-            if (_shouldShowShellMiniPlayer)
-              Consumer<PlayerProvider>(
-                builder: (context, player, _) {
-                  if (player.currentSongPath == null) {
-                    return const SizedBox.shrink();
-                  }
-                  // Audit fix: khi đang không phát và user chuyển tab, ẩn mini để đỡ vướng
-                  // Cho phép vuốt để tắt/ẩn
-                  return Dismissible(
-                    key: ValueKey('mini_${player.currentSongPath}'),
-                    direction: DismissDirection.horizontal,
-                    background: Container(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 24),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.close, color: Colors.redAccent, size: 18),
-                          SizedBox(width: 6),
-                          Text('Vuốt để ẩn',
-                              style: TextStyle(
-                                  color: Colors.redAccent, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    secondaryBackground: Container(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Vuốt để ẩn',
-                              style: TextStyle(
-                                  color: Colors.redAccent, fontSize: 12)),
-                          SizedBox(width: 6),
-                          Icon(Icons.close, color: Colors.redAccent, size: 18),
-                        ],
-                      ),
-                    ),
-                    onDismissed: (_) {
-                      // Khi vuốt ẩn, xóa bài hiện tại để mini biến mất hoàn toàn, tránh lỗi
-                      // "A dismissed Dismissible widget is still part of the tree"
-                      HapticFeedback.mediumImpact();
-                      player.clearCurrentSong();
+            Column(
+              children: [
+                _buildAppBar(context),
+                _buildAnimatedModeSwitch(context),
+                Expanded(
+                  child: ClipRect(
+                    child: _buildCurrentScreen(),
+                  ),
+                ),
+                if (_shouldShowShellMiniPlayer)
+                  Consumer<PlayerProvider>(
+                    builder: (context, player, _) {
+                      if (player.currentSongPath == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Dismissible(
+                        key: ValueKey('mini_${player.currentSongPath}'),
+                        direction: DismissDirection.horizontal,
+                        background: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 24),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.close,
+                                  color: Colors.redAccent, size: 18),
+                              SizedBox(width: 6),
+                              Text('Vuốt để ẩn',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        secondaryBackground: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Vuốt để ẩn',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
+                              SizedBox(width: 6),
+                              Icon(Icons.close,
+                                  color: Colors.redAccent, size: 18),
+                            ],
+                          ),
+                        ),
+                        onDismissed: (_) {
+                          HapticFeedback.mediumImpact();
+                          player.clearCurrentSong();
+                        },
+                        child: MiniPlayer(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          onTap: () => _setListenMode(0),
+                        ),
+                      );
                     },
-                    child: MiniPlayer(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      onTap: () => _setListenMode(0),
-                    ),
-                  );
-                },
-              ),
+                  ),
+              ],
+            ),
+            // ★ Wordlist floating bubble – persistent TTS across tabs
+            const WordlistBubble(),
           ],
         ),
       ),

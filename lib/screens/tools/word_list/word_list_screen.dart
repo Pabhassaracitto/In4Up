@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
-import '../../../features/tts/tts_service.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
@@ -22,6 +21,7 @@ import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
+import 'wordlist_playback_service.dart';
 import 'youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -34,10 +34,8 @@ class WordListScreen extends StatefulWidget {
 }
 
 class _WordListScreenState extends State<WordListScreen> {
-  static const double _kWordListSpeakSpeed = 0.82;
-
   // ── Services ──
-  final _tts = TtsService();
+  final _playbackService = WordlistPlaybackService();
 
   // ── UI state ──
   final _searchCtrl = TextEditingController();
@@ -47,23 +45,26 @@ class _WordListScreenState extends State<WordListScreen> {
   WordListSortMode _sortMode = WordListSortMode.addTime;
   WordListSettings _settings = const WordListSettings();
 
-  // ── Playback state ──
-  bool _isPlaying = false;
-  int _playingIndex = -1;
-  int _playingRepeatCurrent = 0;
-  bool _stopRequested = false;
-  int _listRepeatCount = 1;
-  int _listRepeatCurrent = 0;
-  final Map<String, int> _repeatOverrides = {};
-
   // ── Selection state ──
   bool _isSelecting = false;
   final Set<String> _selectedIds = {};
 
   @override
+  void initState() {
+    super.initState();
+    _playbackService.setWordlistScreenActive(true);
+    _playbackService.addListener(_onPlaybackChanged);
+  }
+
+  void _onPlaybackChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
-    _stopRequested = true;
-    _tts.stop();
+    _playbackService.removeListener(_onPlaybackChanged);
+    _playbackService.setWordlistScreenActive(false);
+    // Do NOT stop playback here – persistent across tabs, bubble will handle mute
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -102,7 +103,7 @@ class _WordListScreenState extends State<WordListScreen> {
     }
   }
 
-  int _getRepeatCount(String id) => (_repeatOverrides[id] ?? 1).clamp(1, 999);
+  int _getRepeatCount(String id) => _playbackService.getRepeatCount(id);
 
   @override
   Widget build(BuildContext context) {
@@ -743,6 +744,7 @@ class _WordListScreenState extends State<WordListScreen> {
   // SUB BAR (Sort + Play All + Repeat)
   // ═══════════════════════════════════════════════════════
   Widget _buildSubBar(VocabularyProvider p, List<WordEntry> items) {
+    final isPlaying = _playbackService.isPlaying;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
@@ -752,7 +754,6 @@ class _WordListScreenState extends State<WordListScreen> {
       ),
       child: Row(
         children: [
-          // Sort
           _DropdownChip(
             icon: _sortMode.icon,
             label: _sortMode.label,
@@ -764,17 +765,15 @@ class _WordListScreenState extends State<WordListScreen> {
             onTap: () => _showSortSheet(),
           ),
           const Spacer(),
-          // List repeat
           _ListRepeatButton(
-            count: _listRepeatCount,
-            current: _listRepeatCurrent,
-            onChanged: (v) => setState(() => _listRepeatCount = v),
+            count: _playbackService.listRepeatCount,
+            current: _playbackService.listRepeatCurrent,
+            onChanged: (v) => _playbackService.setListRepeatCount(v),
           ),
           const SizedBox(width: 8),
-          // Play All
           _PlayAllButton(
-            isPlaying: _isPlaying,
-            onTap: () => _isPlaying ? _stopPlayback() : _playAll(items),
+            isPlaying: isPlaying,
+            onTap: () => isPlaying ? _stopPlayback() : _playAll(items),
           ),
         ],
       ),
@@ -790,18 +789,16 @@ class _WordListScreenState extends State<WordListScreen> {
 
     return Column(
       children: [
-        // Selection action bar
         if (_isSelecting && _selectedIds.isNotEmpty) _buildSelectionBar(),
-        // Stats strip
         _buildStatsStrip(p),
-        // List
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
             itemCount: items.length,
             itemBuilder: (_, i) {
               final entry = items[i];
-              final isPlaying = _isPlaying && _playingIndex == i;
+              final isPlaying = _playbackService.isPlaying &&
+                  _playbackService.playingIndex == i;
               final isSelected = _selectedIds.contains(entry.id);
               final isExpanded =
                   _expandedId == entry.id || _settings.definitionsExpanded;
@@ -818,7 +815,8 @@ class _WordListScreenState extends State<WordListScreen> {
                     sownWords.contains(entry.word.trim().toLowerCase()),
                 provider: p,
                 repeatCount: _getRepeatCount(entry.id),
-                playingRepeat: isPlaying ? _playingRepeatCurrent : 0,
+                playingRepeat:
+                    isPlaying ? _playbackService.playingRepeatCurrent : 0,
                 onTap: _isSelecting
                     ? () => setState(() {
                           _selectedIds.contains(entry.id)
@@ -835,9 +833,9 @@ class _WordListScreenState extends State<WordListScreen> {
                   setState(() => _selectedIds.add(entry.id));
                 },
                 onRepeatChanged: (v) =>
-                    setState(() => _repeatOverrides[entry.id] = v),
+                    _playbackService.setRepeatCount(entry.id, v),
                 onEdit: () => _showEditSheet(entry, p),
-                onSpeak: () => _speakWord(entry.word),
+                onSpeak: () => _speakWord(entry),
               );
             },
           ),
@@ -1014,13 +1012,16 @@ class _WordListScreenState extends State<WordListScreen> {
     );
   }
 
-  Future<void> _speakWord(String text) async {
-    final previousSpeed = _tts.speed;
-    _tts.configure(speed: _kWordListSpeakSpeed);
-    try {
-      await _tts.speak(text);
-    } finally {
-      _tts.configure(speed: previousSpeed);
+  Future<void> _speakWord(WordEntry entry) async {
+    await _playbackService.playSingle(entry);
+  }
+
+  Future<void> _speakWordLegacy(String text) async {
+    // For cases where only text is available
+    final vocab = context.read<VocabularyProvider>();
+    final match = vocab.allWords.where((w) => w.word == text).toList();
+    if (match.isNotEmpty) {
+      await _playbackService.playSingle(match.first);
     }
   }
 
@@ -1120,10 +1121,11 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   // ═══════════════════════════════════════════════════════
-  // PLAY BAR
+  // PLAY BAR – now uses persistent service
   // ═══════════════════════════════════════════════════════
   Widget _buildPlayBar(List<WordEntry> items) {
-    if (!_isPlaying && !(_isSelecting && _selectedIds.isNotEmpty))
+    final isPlaying = _playbackService.isPlaying;
+    if (!isPlaying && !(_isSelecting && _selectedIds.isNotEmpty))
       return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -1132,19 +1134,17 @@ class _WordListScreenState extends State<WordListScreen> {
         border: Border(
             top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
       ),
-      child:
-          _isPlaying ? _buildPlayingBar(items) : _buildSelectingPlayBar(items),
+      child: isPlaying ? _buildPlayingBar(items) : _buildSelectingPlayBar(items),
     );
   }
 
   Widget _buildPlayingBar(List<WordEntry> items) {
-    final current = _playingIndex >= 0 && _playingIndex < items.length
-        ? items[_playingIndex]
-        : null;
-    final listInfo = _listRepeatCount == 0
-        ? context.uiText('Vòng $_listRepeatCurrent/∞')
-        : _listRepeatCount > 1
-            ? context.uiText('Vòng $_listRepeatCurrent/$_listRepeatCount')
+    final current = _playbackService.currentWord;
+    final listInfo = _playbackService.listRepeatCount == 0
+        ? context.uiText('Vòng ${_playbackService.listRepeatCurrent}/∞')
+        : _playbackService.listRepeatCount > 1
+            ? context.uiText(
+                'Vòng ${_playbackService.listRepeatCurrent}/${_playbackService.listRepeatCount}')
             : '';
     return Row(
       children: [
@@ -1152,7 +1152,7 @@ class _WordListScreenState extends State<WordListScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-                color: Color(0xFF6C63FF).withValues(alpha: 0.2),
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.volume_up,
                 color: Color(0xFF9C8FFF), size: 18)),
@@ -1168,8 +1168,8 @@ class _WordListScreenState extends State<WordListScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w700)),
               Text(
-                  '${_playingIndex + 1}/${items.length}'
-                  '${_playingRepeatCurrent > 1 ? context.uiText(' · lần $_playingRepeatCurrent') : ''}'
+                  '${_playbackService.playingIndex + 1}/${items.length}'
+                  '${_playbackService.playingRepeatCurrent > 1 ? context.uiText(' · lần ${_playbackService.playingRepeatCurrent}') : ''}'
                   '${listInfo.isNotEmpty ? '  $listInfo' : ''}',
                   style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             ])),
@@ -1223,78 +1223,23 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   // ═══════════════════════════════════════════════════════
-  // TTS PLAYBACK
+  // TTS PLAYBACK – delegated to persistent service
   // ═══════════════════════════════════════════════════════
 
   Future<void> _playAll(List<WordEntry> items) async {
-    if (_isPlaying) {
-      _stopPlayback();
+    if (_playbackService.isPlaying) {
+      await _stopPlayback();
       return;
     }
     if (items.isEmpty) return;
-    HapticFeedback.mediumImpact();
-    _stopRequested = false;
-    final previousSpeed = _tts.speed;
-    _tts.configure(speed: _kWordListSpeakSpeed);
-    setState(() {
-      _isPlaying = true;
-      _listRepeatCurrent = 0;
-    });
-
-    try {
-      int listPass = 0;
-      while (!_stopRequested && mounted) {
-        listPass++;
-        setState(() => _listRepeatCurrent = listPass);
-
-        for (int i = 0; i < items.length; i++) {
-          if (_stopRequested || !mounted) break;
-          setState(() => _playingIndex = i);
-          final entry = items[i];
-          final repeat = _getRepeatCount(entry.id);
-          for (int r = 0; r < repeat; r++) {
-            if (_stopRequested || !mounted) break;
-            setState(() => _playingRepeatCurrent = r + 1);
-            await _tts.speak(entry.word);
-            if (r < repeat - 1 && !_stopRequested && mounted) {
-              await Future.delayed(const Duration(milliseconds: 700));
-            }
-          }
-          if (!_stopRequested && mounted && i < items.length - 1) {
-            await Future.delayed(const Duration(milliseconds: 500));
-          }
-        }
-
-        if (_stopRequested || !mounted) break;
-        if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-        if (!_stopRequested && mounted) {
-          await Future.delayed(const Duration(milliseconds: 1200));
-        }
-      }
-    } finally {
-      _tts.configure(speed: previousSpeed);
-      if (mounted) {
-        setState(() {
-          _isPlaying = false;
-          _playingIndex = -1;
-          _playingRepeatCurrent = 0;
-          _listRepeatCurrent = 0;
-          _stopRequested = false;
-        });
-      }
-    }
+    await _playbackService.playAll(
+      items,
+      listRepeatCount: _playbackService.listRepeatCount,
+    );
   }
 
-  void _stopPlayback() {
-    _stopRequested = true;
-    _tts.stop();
-    if (mounted)
-      setState(() {
-        _isPlaying = false;
-        _playingIndex = -1;
-        _playingRepeatCurrent = 0;
-        _listRepeatCurrent = 0;
-      });
+  Future<void> _stopPlayback() async {
+    await _playbackService.stopPlayback();
   }
 
   // ═══════════════════════════════════════════════════════

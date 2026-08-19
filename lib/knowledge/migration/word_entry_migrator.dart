@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import 'package:in4up/knowledge/models/evidence.dart';
 import 'package:in4up/knowledge/models/knowledge_unit.dart';
 import 'package:in4up/knowledge/models/learning_state.dart';
+import 'package:in4up/models/skill_review_data.dart';
 import 'package:in4up/models/vocab_context.dart';
 import 'package:in4up/models/vocabulary_type.dart';
 import 'package:in4up/models/word_entry.dart';
@@ -96,9 +97,9 @@ class WordEntryMigrator {
 
       states.add(LearningState(
         unitId: unitId,
-        understanding: SM2Snapshot.initial(now: at),
-        listening: SM2Snapshot.initial(now: at),
-        reading: SM2Snapshot.initial(now: at),
+        understanding: _snapshot(entry.understandData, entry.lastReviewed, at),
+        listening: _snapshot(entry.listenData, entry.lastReviewed, at),
+        reading: _snapshot(entry.readData, entry.lastReviewed, at),
       ));
 
       var ctxIndex = 0;
@@ -137,6 +138,20 @@ class WordEntryMigrator {
       case VocabularyType.paragraph:
         return KnowledgeUnitKind.paragraph;
     }
+  }
+
+  static SM2Snapshot _snapshot(
+    SkillReviewData data,
+    DateTime entryLastReviewed,
+    DateTime at,
+  ) {
+    return SM2Snapshot(
+      easeFactor: data.easeFactor,
+      interval: data.interval,
+      repetitions: data.repetitions,
+      dueDate: data.nextReview ?? at,
+      lastReviewedAt: data.totalReviews > 0 ? entryLastReviewed : null,
+    );
   }
 
   static Evidence _toEvidence(String unitId, VocabContext ctx, int index) {

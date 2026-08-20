@@ -13,7 +13,7 @@
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
 | MVA-T4 | TextPipeline + Trie Việt + isolate + 4 profile | ✅ done | run 32358239999 |
 | MVA-T5 | ReviewEvent append-only + compaction job | ✅ done | run 32371603413 |
-| MVA-T6 | Dual-Memory lifecycle (mục 6 bàn giao) | 📋 todo | — |
+| MVA-T6 | Dual-Memory lifecycle (mục 6 bàn giao) | ✅ done | run 32380422644 |
 | MVA-T7 | Attention Score v1 (mục 5) | 📋 todo | — |
 | MVA-T8 | Chat grounding + citation validator (mục 7) | 📋 todo | — |
 | OPS-1 | Bật CI knowledge_tests.yml | ✅ done | commit 797efff (người dùng) |
@@ -75,11 +75,18 @@
   - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32371603413
 
 ### MVA-T6 — Dual-Memory lifecycle (mục 6)
-- **Trạng thái:** todo
-- **Nội dung:** Observed→Captured→Promoted→Practicing→Maintained; cấm popup
-  chặn luồng; DoD: đọc 5 phút không bị gián đoạn dialog.
+- **Trạng thái:** done
+- **Nội dung:** engine 5 trạng thái; 3 quy tắc capture implicit; promote chỉ
+  từ người dùng; maintained dẫn xuất; BẢO ĐẢM KHÔNG-CHẶN-LUỒNG cấu trúc
+  (zero dialog API — output duy nhất là suggestion-dữ liệu); Unit immutable
+  copy-on-write (an toàn isolate mục 4); 15 test (gồm mô phỏng đọc 300 hành
+  vi/5 phút).
+- **Bằng chứng:** CI run 32380422644. Bisect D1–D9 lesson: mutable fields tự
+  nhiễm prefer_final_fields khi bisect cắt Engine — giải triệt để bằng immutable.
 - **Lịch sử:**
   - 2026-08-20 | created | agent arena/01a019bb-in4up | từ bàn giao mục 8
+  - 2026-08-20 | todo→doing | agent arena/01a019bb-in4up |
+  - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32380422644
 
 ### MVA-T7 — Attention Score v1 (mục 5)
 - **Trạng thái:** todo

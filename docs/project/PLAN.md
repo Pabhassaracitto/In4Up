@@ -10,11 +10,13 @@
 - Lịch sử:
   - 2026-08-20 | doing→done | agent | CI runs 32287539067/32293474036/32302871487
 
-### M1 — Pipeline & Vận hành ghi nhớ · 🔄 doing
+### M1 — Pipeline & Vận hành ghi nhớ · ✅ done 2026-08-20
 - MVA-T4 ✅ (TextPipeline + isolate worker — nền cho T5/T7).
 - MVA-T5 ✅ (compaction + store append-only + worker op — 2026-08-20).
-- MVA-T6 (lifecycle UI).
+- MVA-T6 ✅ (lifecycle engine — 2026-08-20).
 - Đầu ra kiểm chứng: AT4, AT5 (mục 9 bàn giao).
+- Lịch sử:
+  - 2026-08-20 | doing→done | agent | CI runs 32358239999/32371603413/32380422644
 
 ### M2 — Trí tuệ gợi ý · 📋 todo
 - MVA-T7 (Attention Score), MVA-T8 (Chat grounding).

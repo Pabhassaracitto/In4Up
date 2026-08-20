@@ -12,7 +12,7 @@
 
 ### M1 — Pipeline & Vận hành ghi nhớ · 🔄 doing
 - MVA-T4 ✅ (TextPipeline + isolate worker — nền cho T5/T7).
-- MVA-T5 (compaction) — tiếp theo.
+- MVA-T5 ✅ (compaction + store append-only + worker op — 2026-08-20).
 - MVA-T6 (lifecycle UI).
 - Đầu ra kiểm chứng: AT4, AT5 (mục 9 bàn giao).
 

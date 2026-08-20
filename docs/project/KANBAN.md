@@ -12,7 +12,7 @@
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
 | MVA-T4 | TextPipeline + Trie Việt + isolate + 4 profile | ✅ done | run 32358239999 |
-| MVA-T5 | ReviewEvent append-only + compaction job | 📋 todo | — |
+| MVA-T5 | ReviewEvent append-only + compaction job | ✅ done | run 32371603413 |
 | MVA-T6 | Dual-Memory lifecycle (mục 6 bàn giao) | 📋 todo | — |
 | MVA-T7 | Attention Score v1 (mục 5) | 📋 todo | — |
 | MVA-T8 | Chat grounding + citation validator (mục 7) | 📋 todo | — |
@@ -64,11 +64,15 @@
   - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32358239999
 
 ### MVA-T5 — ReviewEvent append-only + compaction job
-- **Trạng thái:** todo
-- **Nội dung (DoD bàn giao):** ghi 1000 event giả lập → RAM không tăng bất
-  thường, snapshot đúng sau compaction (500 event/unit → baseline snapshot).
+- **Trạng thái:** done
+- **Nội dung (DoD bàn giao):** ghi 1000 event giả lập → RAM không tăng bất thường
+  (active per-unit về 0 sau nén, audit-trail đếm đủ), snapshot đúng sau compaction
+  (bất biến associativity: nén 2 chặng == replay một mạch); job chạy trong worker
+  isolate (op `compactReviewEvents`, JSON hai chiều).
+- **Bằng chứng:** CI run 32371603413 (11 test mới); postmortem bẫy 5.10/5.11 trong skill.
 - **Lịch sử:**
-  - 2026-08-20 | created | agent arena/01a019bb-in4up | từ bàn giao mục 8
+  - 2026-08-20 | todo→doing | agent arena/01a019bb-in4up |
+  - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32371603413
 
 ### MVA-T6 — Dual-Memory lifecycle (mục 6)
 - **Trạng thái:** todo

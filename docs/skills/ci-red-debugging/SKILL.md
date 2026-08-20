@@ -132,6 +132,8 @@ squash-merge để lịch sử sạch.
 | 5.7 | paths-filter | push xong không có run mới | Đảm bảo commit chạm path match của trigger |
 | 5.8 | Bisect gây đỏ tự thân | file bisect cắt bằng script python bị vỡ cú pháp ⇒ đỏ oan, đổ lỗi nhầm cho code đang nghi vấn | MỌI file bisect phải qua balance-check (phiên bản xử lý CẢ nháy đơn lẫn nháy kép) trước khi push; vòng T9–T10 từng đỏ oan vì thế |
 | 5.9 | Cắt normalize/dọn dòng bằng regex | `\s+`/`[ \t]+` gộp run nhưng KHÔNG xóa space sát `\n` (`'b \n'` giữ nguyên) | Chuẩn hóa per-line: split('\n') → collapse+trim từng dòng → join; nghĩ "line edges" trước khi dùng replaceAll toàn chuỗi |
+| 5.10 | show-combinator + export-chain | `show X, Y` với tên KHÔNG dùng thật (đặc biệt tên đến qua export của file khác) ⇒ CI analyze đỏ; lấy tên hàm SM-2 vào test bằng MỌI đường (import trực tiếp = B6, show-từ-export) đều gãy | Chỉ show đúng tên đang dùng; khi test cần đối chiếu thuật toán, dùng phép so sánh tương đương nội bộ (compact-vs-compact) thay vì gọi hàm ngoài qua export |
+| 5.11 | Underscore local variable | `final _ = expr;` ⇒ `no_leading_underscores_for_local_identifiers` (có trong lints/recommended — CI fatal) | Dùng trực tiếp `expect(Class.method, isNotNull)` hoặc đặt tên có nghĩa |
 
 ## 6. Khi nào PHẢI lên tiếng với người dùng
 

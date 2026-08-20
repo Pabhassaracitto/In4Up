@@ -2,6 +2,7 @@
 // Sheet tạo / sửa một "Điểm" trong Âm mục (Soundlist).
 // Dùng chung cho nút "Dấu" trong Listen Mode và panel Âm mục.
 
+// ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last
 import 'package:flutter/material.dart';
 
 import '../models/sound_mark.dart';

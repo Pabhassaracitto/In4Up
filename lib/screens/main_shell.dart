@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
+import 'package:in4up/l10n/app_localizations.dart';
+
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
@@ -1154,7 +1156,65 @@ class _MainShellState extends State<MainShell> {
               ),
             ],
           ),
-        ),
+          NavigationDestination(
+            icon: const Icon(Icons.menu_book_outlined),
+            selectedIcon: const Icon(Icons.menu_book),
+            label: l10n.read,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.headphones_outlined),
+            selectedIcon: const Icon(Icons.headphones),
+            label: l10n.listen,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.lightbulb_outline),
+            selectedIcon: const Icon(Icons.lightbulb),
+            label: l10n.understand,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.psychology_outlined),
+            selectedIcon: const Icon(Icons.psychology),
+            label: l10n.remember,
+          ),
+          NavigationDestination(
+            icon: Consumer<VocabularyProvider>(
+              builder: (_, vocab, __) {
+                final due = vocab.dueCount;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.extension_outlined), // ★ Icon thường
+                    /*const IgnorePointer(
+                        child: PuzzleNavButton(
+                            onTap: null)),*/ // UI placeholder inside Nav
+                    if (due > 0)
+                      Positioned(
+                        top: -2,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            due > 99 ? '99+' : '$due',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+            label: l10n.tools,
+          ),
+        ],
       ),
     );
   }

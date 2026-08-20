@@ -1,10 +1,11 @@
 name: Soundlist Module Tests (Âm mục)
 
 # CI nhẹ cho module Soundlist (Âm mục) — theo pattern knowledge_tests.yml.
-# ⚠️ LƯU Ý QUAN TRỌNG: lệnh analyze phải là MỘT DÒNG DUY NHẤT.
-#   (Bản cũ dùng nhiều dòng với dấu `\` trong plain-scalar YAML → YAML fold
-#    thành backslash + space → bash dính toàn bộ path thành 1 tham số → lệnh
-#    sai → analyze luôn đỏ dù code đúng. Đã chẩn đoán bằng vòng bisect skeleton.)
+# ⚠️ LƯU Ý: lệnh analyze/test phải là MỘT DÒNG hoặc dùng heredoc/tee; KHÔNG
+#   dùng plain-scalar YAML nhiều dòng với dấu `\` (YAML fold → backslash+space
+#   → bash dính path thành 1 tham số → lệnh sai → CI đỏ giả).
+# ⚠️ Log được upload thành artifact (vì GitHub App token không đọc được
+#   workflow log trực tiếp — blob URL bị chặn) — tải artifact để đọc lỗi.
 # Skill liên quan: docs/skills/ci-red-debugging/SKILL.md
 
 on:
@@ -54,7 +55,35 @@ jobs:
         run: flutter pub get
 
       - name: Analyze Soundlist module
-        run: flutter analyze lib/models/sound_mark.dart lib/models/sound_chapter.dart lib/models/sound_transcript.dart lib/models/sound_loop_stat.dart lib/models/vad_settings.dart lib/services/sound_auto_toc_service.dart lib/providers/soundlist_provider.dart lib/widgets/sound_mark_edit_sheet.dart lib/widgets/sound_auto_toc_dialog.dart lib/screens/listen_mode/widgets/soundlist_panel.dart lib/screens/tools/sound_list test/sound_auto_toc_test.dart
+        id: analyze
+        run: |
+          set +e
+          flutter analyze lib/models/sound_mark.dart lib/models/sound_chapter.dart lib/models/sound_transcript.dart lib/models/sound_loop_stat.dart lib/models/vad_settings.dart lib/services/sound_auto_toc_service.dart lib/providers/soundlist_provider.dart lib/widgets/sound_mark_edit_sheet.dart lib/widgets/sound_auto_toc_dialog.dart lib/screens/listen_mode/widgets/soundlist_panel.dart lib/screens/tools/sound_list test/sound_auto_toc_test.dart > analyze.log 2>&1
+          code=$?
+          cat analyze.log
+          exit $code
+
+      - name: Upload analyze log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soundlist-analyze-log
+          path: analyze.log
+          if-no-files-found: ignore
 
       - name: Run Soundlist tests
-        run: flutter test test/sound_auto_toc_test.dart
+        id: test
+        run: |
+          set +e
+          flutter test test/sound_auto_toc_test.dart > test.log 2>&1
+          code=$?
+          cat test.log
+          exit $code
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soundlist-test-log
+          path: test.log
+          if-no-files-found: ignore

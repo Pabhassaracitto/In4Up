@@ -2,12 +2,14 @@
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/foundation.dart'; // cho kDebugMode
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/providers/locale_provider.dart';
-import 'package:in2up_stt/stt_model_manager.dart';
-import 'package:in2up_stt/stt_service_facade.dart' as modelManager;
-import 'package:in2up_stt/in2up_stt.dart';
+import 'package:in4up/providers/locale_provider.dart';
+import 'package:in4up_stt/stt_model_manager.dart';
+import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
+import 'package:in4up_stt/in4up_stt.dart';
+
+import '../../core/language/app_language.dart';
 
 class SttModelSettingsScreen extends StatelessWidget {
   const SttModelSettingsScreen({super.key});
@@ -57,24 +59,26 @@ class _SourceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.blue.shade900.withValues(alpha: 0.3),
+      color: Colors.orange.shade900.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Icon(Icons.cloud_download, color: Colors.blue),
+            const Icon(Icons.folder_special, color: Colors.orange),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Nguồn tải: Hugging Face',
+                    'Chế độ Local Only (Fix HttpException)',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    'Miễn phí · Không cần tài khoản · '
-                    'Tự động chuyển sang GitHub nếu chậm',
+                    'Auto-download từ HuggingFace đã TẮT theo Handover Rule 2 '
+                    'để tránh Connection closed trên Android Tablet. '
+                    'Hãy chép file .bin thủ công vào Documents/in4up_whisper_models/ '
+                    'và đảm bảo size >1MB (Rule 3).',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -198,7 +202,7 @@ class _ModelCard extends StatelessWidget {
                       // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
-                        label: Text('Xoá (${level.sizeInMB}MB)'),
+                        label: Text(context.uiText('Xoá (${level.sizeInMB}MB)')),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
@@ -242,33 +246,38 @@ class _ModelCard extends StatelessWidget {
     SttModelManager manager,
     WhisperModelLevel level,
   ) async {
-    if (level == WhisperModelLevel.small) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Xác nhận tải model Small'),
-          content: const Text(
-            'Model Small có dung lượng ~466MB.\n\n'
-            'Nguồn tải: Hugging Face (miễn phí)\n'
-            'Thời gian ước tính: 5-15 phút tùy mạng\n\n'
-            'Bạn có muốn tiếp tục không?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huỷ'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Tải về'),
-            ),
-          ],
+    // Rule 2: Auto-download disabled — hướng dẫn chép thủ công
+    await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Auto-download đã tắt (Fix HttpException)'),
+        content: Text(
+          'Theo handover SECTION 1 Rule 2, auto-download từ HuggingFace CDN đã bị '
+          'tắt để tránh lỗi HttpException: Connection closed trên Android Tablet.\n\n'
+          'Cách đúng:\n'
+          '1. Dùng path_provider: getApplicationDocumentsDirectory()\n'
+          '2. Chép file ${level.fileName} hoặc ggml-tiny-q4_0.bin vào:\n'
+          '   Documents/in4up_whisper_models/\n'
+          '3. Đảm bảo File.existsSync() && lengthSync() > 1_000_000\n'
+          '4. App sẽ tự scan và dùng luôn, không tải lại.\n\n'
+          'Nút Import bên dưới vẫn hoạt động để chọn file .bin từ bộ nhớ.',
         ),
-      );
-      if (confirm != true) return;
-    }
-
-    manager.downloadModel(level);
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Đã hiểu'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+              // Mở picker import thay vì download
+              _importModel(context, manager, level);
+            },
+            child: const Text('Chọn file thủ công'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _importModel(
@@ -295,9 +304,9 @@ class _ModelCard extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success
+          context.uiText(success
               ? '✅ Import ${level.name.toUpperCase()} thành công!'
-              : '❌ Import thất bại — sai file hoặc file bị lỗi',
+              : '❌ Import thất bại — sai file hoặc file bị lỗi'),
         ),
       ),
     );
@@ -311,10 +320,9 @@ class _ModelCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Xoá model ${level.name.toUpperCase()}?'),
+        title: Text(context.uiText('Xoá model ${level.name.toUpperCase()}?')),
         content: Text(
-          'Sẽ giải phóng ${level.sizeInMB}MB. '
-          'Bạn cần tải lại để dùng tính năng này.',
+          context.uiText('Sẽ giải phóng ${level.sizeInMB}MB. Bạn cần tải lại để dùng tính năng này.'),
         ),
         actions: [
           TextButton(
@@ -425,37 +433,28 @@ class _LanguageSettingCard extends StatelessWidget {
                   ? 'system'
                   : '${currentLocale.languageCode}${currentLocale.countryCode == null ? '' : '_${currentLocale.countryCode}'}',
               underline: const SizedBox(),
-              items: const [
-                DropdownMenuItem(value: 'system', child: Text('Hệ thống')),
-                DropdownMenuItem(value: 'ar', child: Text('العربية (Arabic)')),
-                DropdownMenuItem(value: 'bn', child: Text('বাংলা (Bengali)')),
-                DropdownMenuItem(value: 'bo', child: Text('བོད་ཡིག (Tibetan)')),
-                DropdownMenuItem(value: 'de', child: Text('Deutsch (German)')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(value: 'es', child: Text('Español (Spanish)')),
-                DropdownMenuItem(value: 'fr', child: Text('Français (French)')),
-                DropdownMenuItem(value: 'hi', child: Text('हिन्दी (Hindi)')),
-                DropdownMenuItem(value: 'id', child: Text('Bahasa Indonesia')),
-                DropdownMenuItem(
-                    value: 'it', child: Text('Italiano (Italian)')),
-                DropdownMenuItem(value: 'ja', child: Text('日本語 (Japanese)')),
-                DropdownMenuItem(value: 'km', child: Text('ភាសាខ្មែរ (Khmer)')),
-                DropdownMenuItem(value: 'ko', child: Text('한국어 (Korean)')),
-                DropdownMenuItem(value: 'lo', child: Text('ລາວ (Lao)')),
-                DropdownMenuItem(
-                    value: 'mn', child: Text('Монгол (Mongolian)')),
-                DropdownMenuItem(value: 'mr', child: Text('मराठी (Marathi)')),
-                DropdownMenuItem(value: 'my', child: Text('မြန်မာ (Burmese)')),
-                DropdownMenuItem(
-                    value: 'pt', child: Text('Português (Portuguese)')),
-                DropdownMenuItem(value: 'ru', child: Text('Русский (Russian)')),
-                DropdownMenuItem(value: 'si', child: Text('සිංහල (Sinhala)')),
-                DropdownMenuItem(value: 'ta', child: Text('தமிழ் (Tamil)')),
-                DropdownMenuItem(value: 'te', child: Text('తెలుగు (Telugu)')),
-                DropdownMenuItem(value: 'th', child: Text('ไทย (Thai)')),
-                DropdownMenuItem(value: 'vi', child: Text('Tiếng Việt')),
-                DropdownMenuItem(value: 'zh', child: Text('中文 (Giản thể)')),
-                DropdownMenuItem(value: 'zh_TW', child: Text('中文 (Phồn thể)')),
+              items: [
+                const DropdownMenuItem(
+                  value: 'system',
+                  child: Text('🌐 Hệ thống'),
+                ),
+                ...AppLanguageCatalog.languages.map(
+                  (language) => DropdownMenuItem(
+                    value: language.appLocaleCode,
+                    child: Text(
+                      '${language.flag} ${language.nativeName} '
+                      '(${language.englishName})',
+                    ),
+                  ),
+                ),
+              ],
+              selectedItemBuilder: (_) => [
+                const Text('🌐 Auto'),
+                ...AppLanguageCatalog.languages.map(
+                  (language) => Text(
+                    '${language.flag} ${language.translationCode}',
+                  ),
+                ),
               ],
               onChanged: (value) {
                 if (value == null || value == 'system') {

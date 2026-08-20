@@ -36,6 +36,20 @@ At its core is the **UltraTimeStretch** Engine V2, a native C++ DSP backend acce
 - MEMORY Mode – “Memory Garden”  
   Vocabulary SRS using SM‑2 (Anki‑style) with visual growth stages: Seed → Sprout → Tree → Branch → Bud → Bloom. [github](https://github.com/Pabhassaracitto/in4up)
 
+### 1.5 Soundlist (Âm mục) — Make Audio Visible
+
+Transform any audio file into a navigable "talking book":
+
+- **Điểm (Sound Marks):** one-tap bookmarks at the current playback position with label, kind (Important / Hard / Unsure / Favorite / Quote), notes and tags. The old "Dấu 📌" button now actually saves.
+- **Mục lục (Sound TOC):** a flexible book-style table of contents per audio file — chapters and sub-chapters with time anchors, notes, and children — jump anywhere with one tap.
+- **Đoạn (Segments):** A–B loops saved as study segments (reuse the existing Segment system) and browsed alongside marks and chapters.
+- **Two entry points:** an in-player "Âm mục" panel (Listen Mode, 3 tabs: Mục lục / Điểm / Đoạn) and a full **Soundlist library** tool tab — search, filter (Pháp thoại, Tiếng Anh, marks by kind), per-file expandable index, tap-to-jump playback.
+- **⚡ Auto-TOC (VAD + Whisper):** one tap auto-generates a book-style table of contents — VAD splits the audio by silence (offline, via waveform energy analysis in an isolate), then offline Whisper transcription titles each chapter with the opening sentence (notes hold the full text). Fallback: VAD-only with "Đoạn N · mm:ss" titles when no model is downloaded.
+- **🎚 Tuneable VAD:** the auto-TOC dialog exposes presets (Tách ít / Bình thường / Tách nhiều) plus sliders for minimum silence (0.4–2.5s) and minimum segment length (2–20s) — persisted, so no code change needed to match any lecture style.
+- **🔍 Search inside audio:** every Whisper run (or existing LRC) is saved as a searchable transcript. The "Tìm kiếm" tab in the Listen panel and the library search let you type a phrase and jump straight to the exact spoken moment; the library also previews transcript lines per file.
+- **💡 Smart suggestions:** the app silently tracks A–B loop habits (which ranges you repeat, how often, how recently). Ranges repeated ≥ 3 times within 14 days surface as "💪 Lặp N×" chips — one tap to mark as Khó / create a point / dismiss. Files with hot ranges show a 🔥 badge in the library.
+- Offline-first storage via Hive, consistent with the rest of the app.
+
 ### 2. Rich Content Sources
 
 - YouTube Explorer: Search, download audio, and fetch multi‑language captions to convert into learning materials. [github](https://github.com/Pabhassaracitto/in4up)

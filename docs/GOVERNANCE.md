@@ -49,6 +49,20 @@ Không bao giờ giả định bản trên branch mình là mới nhất.
 - Sau khi main đổi giữa chừng session: agent Fetch lại và append tiếp —
   không rebase -f lịch sử đã đẩy.
 
+## 4b. Luật bảo vệ lịch sử main (KHÔNG dựng lại main nữa)
+
+> Hậu kiểm tiền lệ: main đã bị rewrite **3 lần** (2026-08-20/21: squash-nhập
+> khẩu → force-move sang lineage vipsound → squash-nhập lần 2). Cả 3 lần
+> may mắn không mất dữ liệu (governance được cứu nhờ content-sync). Từ
+> 2026-08-21, ký kết giữa người sở hữu và agent:
+
+1. **KHÔNG force-push / squash-rewrite / filter-branch trên main.**
+2. Mọi thay đổi lên main = commit thường, hoặc path-checkout chọn lọc
+   (`git checkout origin/<branch> -- <files>` — content-sync, 0 conflict).
+3. Cần "làm lại" gì ⇒ branch mới; main là bản kiểm toán (mục 3.3 mở rộng).
+4. Đồng bộ nội dung giữa branch = path-checkout; KHÔNG merge chéo các
+   lineage bị squash (base chung sai ⇒ conflict giả hàng chục file).
+
 ## 5. Luật tiếp nhận kế hoạch mới (từ người sở hữu)
 
 Người nói tự nhiên ("thêm kế hoạch X vào P1") cho agent ĐANG hoạt động:

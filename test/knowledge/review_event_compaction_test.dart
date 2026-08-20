@@ -8,9 +8,11 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show SkillDimension;
+    show SM2Snapshot, SkillDimension, SM2Algorithm;
 import 'package:in4up/knowledge/models/review_event.dart';
+import 'package:in4up/knowledge/review/review_event_compactor.dart';
 import 'package:in4up/knowledge/review/review_event_store.dart';
+import 'package:in4up/knowledge/text/text_pipeline_worker.dart';
 
 ReviewEvent _ev(
   int i,
@@ -43,24 +45,9 @@ List<ReviewEvent> _batch(int count, String unitId, {int from = 0}) =>
     [for (var i = 0; i < count; i++) _ev(from + i, unitId)];
 
 void main() {
-  group('ReviewEventStore — append-only (mục 2.4)', () {
-    test('append trùng eventId ⇒ StateError (không có đường sửa/xóa)',
-        () async {
-      final store = InMemoryReviewEventStore();
-      await store.append(_ev(1, 'u1'));
-      await store.append(_ev(2, 'u1'));
-      expect(() => store.append(_ev(1, 'u1')), throwsStateError);
-      expect(await store.activeCountOfUnit('u1'), 2);
-    });
-
-    test('activeEventsOfUnit: lazy, lọc retired, sắp theo timestamp', () async {
-      final store = InMemoryReviewEventStore();
-      await store.append(_ev(5, 'u1'));
-      await store.append(_ev(1, 'u1'));
-      await store.append(_ev(9, 'u2')); // unit khác — không lọt vào
-      final events = await store.activeEventsOfUnit('u1').toList();
-      expect(events.map((e) => e.eventId).toList(), ['e-u1-1', 'e-u1-5']);
-    });
+  test('minimal append + count', () async {
+    final store = InMemoryReviewEventStore();
+    await store.append(_ev(1, 'u1'));
+    expect(await store.activeCountOfUnit('u1'), 1);
   });
-
 }

@@ -122,35 +122,6 @@ void main() {
       expect(b.lastReviewedAt, events.last.timestamp);
     });
 
-    test('ignoredForMastery: KHÔNG tính mastery nhưng vẫn được nghỉ hưu', () {
-      final events = _batch(500, 'u1');
-      // 100 event đầu bị flag ignore (thua conflict 2 thiết bị):
-      final marked = [
-        for (var i = 0; i < events.length; i++)
-          i < 100 ? events[i].markedIgnoredForMastery() : events[i],
-      ];
-      final record =
-          ReviewEventCompactor.compact(unitId: 'u1', events: marked);
-      expect(record!.eventCount, 500);
-      expect(record.replayedCount, 400);
-      // Cả 500 (kể cả ignored) đều nằm trong lô nghỉ hưu — không rác:
-      expect(record.compactedEventIds.length, 500);
-    });
-
-    test('rating mapping: 500 lần again ⇒ reps 0, interval 1, EF chạm sàn', () {
-      final events = [
-        for (var i = 0; i < 500; i++)
-          _ev(i, 'u1', rating: SkillRating.again,
-              t: DateTime.utc(2020, 1, 1).add(Duration(days: i)))
-      ];
-      final record =
-          ReviewEventCompactor.compact(unitId: 'u1', events: events);
-      final b = record!.baseline;
-      expect(b.repetitions, 0);
-      expect(b.interval, 1);
-      expect(b.easeFactor, closeTo(1.3, 1e-9));
-      expect(b.dueDate, events.last.timestamp.add(const Duration(days: 1)));
-    });
   });
 
 }

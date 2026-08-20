@@ -16,6 +16,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/stt_model_manager.dart';
 import 'package:just_waveform/just_waveform.dart' as jw;
 
 import '../models/sound_chapter.dart';
@@ -71,7 +72,7 @@ class SoundAutoTocService {
         final stream = jw.JustWaveform.extract(
           audioInFile: file,
           waveOutFile: waveFile,
-          zoom: const jw.WaveformZoom.pixelsPerSecond(200),
+          zoom: jw.WaveformZoom.pixelsPerSecond(200),
         );
         await for (final progress in stream) {
           if (progress.waveform != null) waveform = progress.waveform;

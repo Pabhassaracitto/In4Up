@@ -303,9 +303,9 @@ class _AutoTocProgressDialog extends StatelessWidget {
                 builder: (context, snapshot) {
                   final p = snapshot.data ?? SttProgress.idle;
                   if (!p.isActive) {
-                    return const LinearProgressIndicator(
-                      backgroundColor: Color(0xFF2A3050),
-                      color: Color(0xFF26C6DA),
+                    return LinearProgressIndicator(
+                      backgroundColor: const Color(0xFF2A3050),
+                      color: const Color(0xFF26C6DA),
                     );
                   }
                   return Column(

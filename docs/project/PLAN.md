@@ -41,6 +41,13 @@
 | AT7 | Tắt AI/GGUF → 4 luồng vẫn chạy | 🔶 OfflineQuoteFirstModel ✓ (không phụ thuộc model); e2e chờ INTEGRATE-1 |
 | AT8 | Audio 0.3x + isolate nặng → không giật | 🔶 kiến trúc isolate ✓; đo trên máy thật khi INTEGRATE-1 |
 
+## Trạng thái lineage (LINEAGE-1 done)
+
+- main = vipsound (417-commit lineage) + governance — mọi session mới tự kế thừa.
+- Knowledge-work (8/8 task) nằm trên `arena/01a019bb-in4up` — vào main qua INTEGRATE-1.
+- Đồng bộ governance-mới-nhất lên main (khi cần):
+  `git checkout main && git pull && git checkout origin/arena/01a019bb-in4up -- docs/project docs/GOVERNANCE.md docs/skills AGENTS.md && git commit -m "docs(governance): sync snapshot" && git push origin main`
+
 ## Kế hoạch mới (tiếp nhận từ người sở hữu)
 
 > TEMPLATE khi thêm:

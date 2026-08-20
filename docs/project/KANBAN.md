@@ -20,7 +20,7 @@
 | OPS-2 | Skill ci-red-debugging v1.1 | ✅ done | commit a706953 |
 | GOV-1 | Hạ tầng governance (file này + GOVERNANCE + PLAN) | ✅ done | commit này |
 | PR-1 | PR #6 (knowledge-work) chờ chiến lược lineage | 🚫 blocked | xem LINEAGE-1 |
-| LINEAGE-1 | Quyết định 2 dòng codebase (In4Up vs vipsound-main) | 🟢 decided | main := arena/019fe630-vipsound |
+| LINEAGE-1 | Quyết định 2 dòng codebase (In4Up vs vipsound-main) | ✅ done | main=62ce24a (vipsound+governance) |
 | INTEGRATE-1 | Tích hợp knowledge-work (PR #6) vào main mới | 📋 proposed | sau khi main cập nhật xong |
 
 ---
@@ -143,8 +143,8 @@
     2 dòng sản phẩm (565 file), ngoài thẩm quyền tự quyết của agent
 
 ### LINEAGE-1 — Chiến lược 2 dòng codebase (In4Up-knowledge vs vipsound-main)
-- **Trạng thái:** decided — người sở hữu chọn: main := trạng thái arena/019fe630-vipsound
-  (nâng cấp main "bắt kịp thời đại"; không đổi tên branch để không đứt session đang chạy).
+- **Trạng thái:** done — main := arena/019fe630-vipsound + lớp governance
+  (main=62ce24a, kiểm chứng bởi agent: GOVERNANCE/KANBAN/PLAN/skills/AGENTS齐全).
 - **Cơ sở xác minh an toàn:** main hiện chỉ có 1 commit gốc (nhập khẩu toàn cây +
   AGENTS.md) — nội dung ĐÃ chứa trong 019fe630 (417 commit, kèm 3 commit docs/skill
   cherry-picked) ⇒ force-move không mất dữ liệu duy nhất nào.
@@ -152,6 +152,8 @@
   - 2026-08-20 | created | agent arena/01a019bb-in4up | phát hiện unrelated histories
   - 2026-08-20 | proposed→decided | người sở hữu (qua chat) + agent xác minh trùng lặp |
     người chạy lệnh force-move main (agent không có quyền push main)
+  - 2026-08-20 | decided→done | agent arena/01a019bb-in4up | người sở hữu đã chạy 2 khối
+    lệnh; agent fetch kiểm chứng: main=62ce24a (vipsound lineage + governance cherry-picks)
 
 ### INTEGRATE-1 — Tích hợp knowledge-work vào main mới
 - **Trạng thái:** proposed

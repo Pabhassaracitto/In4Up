@@ -19,7 +19,8 @@
 | OPS-1 | Bật CI knowledge_tests.yml | ✅ done | commit 797efff (người dùng) |
 | OPS-2 | Skill ci-red-debugging v1.1 | ✅ done | commit a706953 |
 | GOV-1 | Hạ tầng governance (file này + GOVERNANCE + PLAN) | ✅ done | commit này |
-| PR-1 | PR #6 (Task 1-4 + skill + governance) chờ người duyệt | ⏳ waiting | PR #6 |
+| PR-1 | PR #6 (knowledge-work) chờ chiến lược lineage | 🚫 blocked | xem LINEAGE-1 |
+| LINEAGE-1 | Quyết định 2 dòng codebase (In4Up vs vipsound-main) | 🟡 proposed | cần người chọn (a)/(b)/(c) |
 
 ---
 
@@ -106,7 +107,20 @@
 - **Lịch sử:**
   - 2026-08-20 | created→done | agent arena/01a019bb-in4up | theo yêu cầu người sở hữu
 
-### PR-1 — PR #6 chờ duyệt
-- **Trạng thái:** waiting (chờ người sở hữu review + squash-merge)
+### PR-1 — PR #6: hợp nhất knowledge-work vào main
+- **Trạng thái:** blocked (chờ người sở hữu quyết định chiến lược lineage — xem LINEAGE-1)
 - **Lịch sử:**
   - 2026-08-20 | created | agent arena/01a019bb-in4up | PR #6 draft
+  - 2026-08-20 | waiting→blocked | agent arena/01a019bb-in4up | main bị dựng lại thành
+    codebase vipsound (1 commit, lịch sử không còn chung gốc) — merge là hợp nhất
+    2 dòng sản phẩm (565 file), ngoài thẩm quyền tự quyết của agent
+
+### LINEAGE-1 — Chiến lược 2 dòng codebase (In4Up-knowledge vs vipsound-main)
+- **Trạng thái:** proposed (cần người sở hữu chọn hướng)
+- **Nội dung:** main mới = vipsound squashed; branch knowledge = In4Up-MVA.
+  Lựa chọn: (a) merge PR #6 để tích hợp knowledge vào vipsound-main;
+  (b) giữ song song, governance/docs đồng bộ qua cherry-pick nhỏ;
+  (c) dựng lại main từ dòng In4Up. Agent sẵn sàng thực thi theo lựa chọn.
+- **Lịch sử:**
+  - 2026-08-20 | created | agent arena/01a019bb-in4up | phát hiện khi chuẩn bị
+    hòa main: unrelated histories, 565 file khác biệt

@@ -20,7 +20,7 @@ import '../models/sound_transcript.dart';
 import '../models/vad_settings.dart';
 import '../services/sound_auto_toc_service.dart';
 import '../services/storage_service.dart';
-import 'player_provider.dart';
+import '../providers/player_provider.dart';
 
 class SoundlistProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();

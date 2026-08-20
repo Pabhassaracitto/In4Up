@@ -33,10 +33,20 @@ ReviewEvent _ev(
   );
 }
 
+
+List<ReviewEvent> _batch(int count, String unitId, {int from = 0}) =>
+    [for (var i = 0; i < count; i++) _ev(from + i, unitId)];
+
 void main() {
   test('minimal inline', () async {
     final store = InMemoryReviewEventStore();
     await store.append(_ev(1, 'u1'));
     expect(await store.activeCountOfUnit('u1'), 1);
+  });
+
+  test('batch helper dùng được', () {
+    final b = _batch(3, 'u1');
+    expect(b.length, 3);
+    expect(b.first.eventId, 'e-u1-0');
   });
 }

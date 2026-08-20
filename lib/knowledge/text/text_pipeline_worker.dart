@@ -50,9 +50,6 @@ class TextPipelineWorker {
       if (completer == null || completer.isCompleted) return;
       if (map['error'] != null) {
         completer.completeError(StateError('worker lỗi: ${map['error']}'));
-      } else if (map['result'] == null) {
-        // Op có thể không sinh kết quả (vd compaction dưới ngưỡng).
-        completer.complete(<String, dynamic>{});
       } else {
         completer.complete(map['result'] as Map<String, dynamic>);
       }
@@ -106,36 +103,6 @@ class TextPipelineWorker {
           replyTo.send(<String, dynamic>{
             'id': msg['id'],
             'result': result.toJson(),
-          });
-        } catch (e) {
-          replyTo.send(<String, dynamic>{
-            'id': msg['id'],
-            'error': e.toString(),
-          });
-        }
-      } else if (msg['op'] == 'compactReviewEvents' && replyTo != null) {
-        // Task 5 (mục 2.4 + mục 4): compaction job chạy trong worker
-        // isolate — JSON vào/JSON ra, không đụng tới audio/UI isolate.
-        try {
-          final events = [
-            for (final raw in (msg['events'] as List<dynamic>)
-                .whereType<Map<String, dynamic>>())
-              ReviewEvent.fromJson(raw)
-          ];
-          final baselineRaw = msg['baseline'];
-          final record = ReviewEventCompactor.compact(
-            unitId: msg['unitId'] as String,
-            events: events,
-            baseline: baselineRaw == null
-                ? null
-                : SM2Snapshot.fromJson(baselineRaw as Map<String, dynamic>),
-            now: msg['now'] == null
-                ? null
-                : DateTime.parse(msg['now'] as String),
-          );
-          replyTo.send(<String, dynamic>{
-            'id': msg['id'],
-            'result': record?.toJson(),
           });
         } catch (e) {
           replyTo.send(<String, dynamic>{

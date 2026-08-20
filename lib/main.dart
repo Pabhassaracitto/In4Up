@@ -26,6 +26,7 @@ import 'providers/focus_provider.dart';
 import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/player_provider.dart';
+import 'providers/soundlist_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
 import 'providers/waveform_provider.dart';
@@ -251,6 +252,12 @@ class _MyAppState extends State<MyApp> {
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
+        ChangeNotifierProvider(
+          create: (ctx) => SoundlistProvider()
+            ..load()
+            ..attachPlayer(ctx.read<PlayerProvider>()),
+        ),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(

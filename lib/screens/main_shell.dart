@@ -30,6 +30,7 @@ import 'tools/stats_tab.dart';
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
+import 'tools/sound_list/sound_list_screen.dart';
 import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
@@ -417,6 +418,13 @@ class _MainShellState extends State<MainShell> {
         color: const Color(0xFF6C63FF),
       ),
       tools.ToolItem(
+        id: 'sound_list',
+        title: 'Âm mục',
+        subtitle: 'Điểm, đoạn & mục lục âm thanh',
+        icon: Icons.menu_book_outlined,
+        color: const Color(0xFF26C6DA),
+      ),
+      tools.ToolItem(
         id: 'timeline',
         title: l10n.timeline,
         subtitle: l10n.timelineSubtitle,
@@ -583,6 +591,7 @@ class _MainShellState extends State<MainShell> {
     const remember = {
       'review': 100,
       'word_list': 98,
+      'sound_list': 97,
       'timeline': 95,
       'stats': 94,
       'word_map': 93,
@@ -630,6 +639,11 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'word_list':
         nav.push(MaterialPageRoute(builder: (_) => const WordListScreen()));
+        return;
+      case 'sound_list':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const SoundListScreen()),
+        );
         return;
       case 'timeline':
         nav.push(MaterialPageRoute(builder: (_) => const TimelineView()));

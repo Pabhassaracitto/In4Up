@@ -6,7 +6,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../features/shadowing/models/shadowing_result.dart';
 import '../models/segment.dart';
+import '../models/sound_chapter.dart';
+import '../models/sound_loop_stat.dart';
+import '../models/sound_mark.dart';
+import '../models/sound_transcript.dart';
 import '../models/text_segment.dart';
+import '../models/vad_settings.dart';
 
 /// Service quản lý lưu trữ dữ liệu local với Hive
 /// Singleton pattern - gọi StorageService() ở bất kỳ đâu
@@ -23,6 +28,10 @@ class StorageService {
   static const String _shadowingHistoryBox = 'shadowing_history';
   static const String _savedWordsBox = 'saved_words';
   static const String _dailyStatsBox = 'daily_stats';
+  static const String _soundMarksBox = 'sound_marks';
+  static const String _soundChaptersBox = 'sound_chapters';
+  static const String _soundTranscriptsBox = 'sound_transcripts';
+  static const String _soundLoopStatsBox = 'sound_loop_stats';
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -47,6 +56,10 @@ class StorageService {
         Hive.openBox(_dailyStatsBox),
         Hive.openBox<String>('web_reader_history'),
         Hive.openBox<String>('pdf_annotations'),
+        Hive.openBox<String>(_soundMarksBox),
+        Hive.openBox<String>(_soundChaptersBox),
+        Hive.openBox<String>(_soundTranscriptsBox),
+        Hive.openBox<String>(_soundLoopStatsBox),
       ]);
 
       _initialized = true;
@@ -334,6 +347,169 @@ class StorageService {
   /// Xóa tất cả audio segments
   Future<void> clearAllAudioSegments() async {
     await _audioSegments.clear();
+  }
+
+  // ==================== SOUND MARKS (Điểm âm thanh) ====================
+
+  Box<String> get _soundMarks => Hive.box<String>(_soundMarksBox);
+
+  /// Lưu / cập nhật một điểm đánh dấu âm thanh
+  Future<void> saveSoundMark(SoundMark mark) async {
+    await _soundMarks.put(mark.id, jsonEncode(mark.toJson()));
+  }
+
+  /// Lưu nhiều điểm
+  Future<void> saveAllSoundMarks(List<SoundMark> marks) async {
+    final entries = <String, String>{};
+    for (final mark in marks) {
+      entries[mark.id] = jsonEncode(mark.toJson());
+    }
+    await _soundMarks.putAll(entries);
+  }
+
+  /// Đọc tất cả điểm
+  List<SoundMark> getAllSoundMarks() {
+    final marks = <SoundMark>[];
+    for (final json in _soundMarks.values) {
+      try {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        marks.add(SoundMark.fromJson(map));
+      } catch (e) {
+        debugPrint('Error parsing sound mark: $e');
+      }
+    }
+    return marks;
+  }
+
+  /// Đọc điểm theo file audio
+  List<SoundMark> getSoundMarksForFile(String audioPath) {
+    return getAllSoundMarks()
+        .where((m) => m.audioPath == audioPath)
+        .toList();
+  }
+
+  /// Xóa một điểm
+  Future<void> deleteSoundMark(String id) async {
+    await _soundMarks.delete(id);
+  }
+
+  // ==================== SOUND CHAPTERS (Mục lục âm thanh) ====================
+
+  Box<String> get _soundChapters => Hive.box<String>(_soundChaptersBox);
+
+  /// Lưu / cập nhật một chương / mục
+  Future<void> saveSoundChapter(SoundChapter chapter) async {
+    await _soundChapters.put(chapter.id, jsonEncode(chapter.toJson()));
+  }
+
+  /// Đọc tất cả chương / mục
+  List<SoundChapter> getAllSoundChapters() {
+    final chapters = <SoundChapter>[];
+    for (final json in _soundChapters.values) {
+      try {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        chapters.add(SoundChapter.fromJson(map));
+      } catch (e) {
+        debugPrint('Error parsing sound chapter: $e');
+      }
+    }
+    return chapters;
+  }
+
+  /// Đọc chương / mục theo file audio
+  List<SoundChapter> getSoundChaptersForFile(String audioPath) {
+    return getAllSoundChapters()
+        .where((c) => c.audioPath == audioPath)
+        .toList();
+  }
+
+  /// Xóa một chương / mục
+  Future<void> deleteSoundChapter(String id) async {
+    await _soundChapters.delete(id);
+  }
+
+  // ==================== SOUND TRANSCRIPTS (Bản ghi nội dung) ====================
+
+  Box<String> get _soundTranscripts => Hive.box<String>(_soundTranscriptsBox);
+
+  /// Lưu transcript theo audio path
+  Future<void> saveSoundTranscript(SoundTranscript transcript) async {
+    await _soundTranscripts.put(
+      transcript.audioPath,
+      jsonEncode(transcript.toJson()),
+    );
+  }
+
+  /// Đọc transcript của một file
+  SoundTranscript? getSoundTranscript(String audioPath) {
+    final json = _soundTranscripts.get(audioPath);
+    if (json == null) return null;
+    try {
+      return SoundTranscript.fromJson(
+        jsonDecode(json) as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('Error parsing sound transcript: $e');
+      return null;
+    }
+  }
+
+  /// Đọc toàn bộ transcript (cho tìm kiếm ở thư viện)
+  Map<String, SoundTranscript> getAllSoundTranscripts() {
+    final result = <String, SoundTranscript>{};
+    for (final entry in _soundTranscripts.toMap().entries) {
+      try {
+        result[entry.key] = SoundTranscript.fromJson(
+          jsonDecode(entry.value as String) as Map<String, dynamic>,
+        );
+      } catch (e) {
+        debugPrint('Error parsing sound transcript: $e');
+      }
+    }
+    return result;
+  }
+
+  // ==================== SOUND LOOP STATS (Thói quen lặp) ====================
+
+  Box<String> get _soundLoopStats => Hive.box<String>(_soundLoopStatsBox);
+
+  /// Lưu / cập nhật thống kê lặp
+  Future<void> saveSoundLoopStat(SoundLoopStat stat) async {
+    await _soundLoopStats.put(stat.id, jsonEncode(stat.toJson()));
+  }
+
+  /// Đọc tất cả thống kê lặp
+  List<SoundLoopStat> getAllSoundLoopStats() {
+    final stats = <SoundLoopStat>[];
+    for (final json in _soundLoopStats.values) {
+      try {
+        stats.add(
+          SoundLoopStat.fromJson(jsonDecode(json) as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('Error parsing sound loop stat: $e');
+      }
+    }
+    return stats;
+  }
+
+  // ==================== VAD SETTINGS (Cài đặt tách đoạn) ====================
+
+  /// Lưu cài đặt tách đoạn VAD (dạng JSON trong settings box)
+  Future<void> saveVadSettings(VadSettings settings) async {
+    await saveSetting('soundlist_vad_settings', jsonEncode(settings.toJson()));
+  }
+
+  VadSettings getVadSettings() {
+    final raw = getSetting<String>('soundlist_vad_settings');
+    if (raw == null) return const VadSettings();
+    try {
+      return VadSettings.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return const VadSettings();
+    }
   }
 
   // ==================== TEXT SEGMENTS ====================

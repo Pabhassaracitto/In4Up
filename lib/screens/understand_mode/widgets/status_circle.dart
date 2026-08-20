@@ -1,6 +1,6 @@
 // lib/screens/understand_mode/widgets/status_circle.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class StatusCircle extends StatelessWidget {
   final IconData icon;

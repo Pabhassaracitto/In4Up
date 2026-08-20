@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import '../../features/grammar/models/grammar_category.dart';

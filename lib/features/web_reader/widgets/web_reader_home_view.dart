@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -447,13 +447,13 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       onChanged: (value) => setState(() => _searchQuery = value),
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: 'Tìm bộ sưu tập, link, bookmark, lịch sử, tên miền...',
+        hintText: context.uiText('Tìm bộ sưu tập, link, bookmark, lịch sử, tên miền...'),
         hintStyle: TextStyle(color: Colors.grey[500]),
         prefixIcon: const Icon(Icons.search, color: Colors.white70),
         suffixIcon: _searchQuery.trim().isEmpty
             ? null
             : IconButton(
-                tooltip: 'Xoá tìm kiếm',
+                tooltip: context.uiText('Xoá tìm kiếm'),
                 onPressed: () {
                   _searchCtrl.clear();
                   setState(() => _searchQuery = '');
@@ -806,7 +806,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           Icon(icon, color: Colors.grey[700], size: 34),
           const SizedBox(height: 12),
           Text(
-            title,
+            context.uiText(title),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
@@ -816,7 +816,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
           ),
           const SizedBox(height: 8),
           Text(
-            description,
+            context.uiText(description),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[400],
@@ -843,7 +843,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Text(
-        message,
+        context.uiText(message),
         style: TextStyle(color: Colors.grey[400], height: 1.45),
       ),
     );
@@ -1157,7 +1157,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                currentCollection.title,
+                                context.uiText(currentCollection.title),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -1166,7 +1166,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                currentCollection.description,
+                                context.uiText(currentCollection.description),
                                 style: TextStyle(
                                   color: Colors.grey[400],
                                   fontSize: 13,
@@ -1177,7 +1177,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                           ),
                         ),
                         IconButton(
-                          tooltip: isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                          tooltip: context.uiText(
+                            isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                          ),
                           onPressed: () async {
                             await widget.controller
                                 .toggleCollectionPin(currentCollection.id);
@@ -1193,7 +1195,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                tooltip: 'Thêm link',
+                                tooltip: context.uiText('Thêm link'),
                                 onPressed: () async {
                                   await _showLinkEditor(
                                       collectionId: currentCollection.id);
@@ -1203,7 +1205,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                                     color: Colors.white),
                               ),
                               IconButton(
-                                tooltip: 'Sửa nhóm',
+                                tooltip: context.uiText('Sửa nhóm'),
                                 onPressed: () async {
                                   await _showCollectionEditor(
                                       existing: currentCollection);
@@ -1232,7 +1234,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                               size: 18, color: Colors.blue[200]),
                           const SizedBox(width: 8),
                           Text(
-                            '${currentCollection.linkCount} liên kết',
+                            context.uiText('${currentCollection.linkCount} liên kết'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -1264,9 +1266,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  added
+                                  context.uiText(added
                                       ? 'Đã lưu trang hiện tại vào nhóm "${currentCollection.title}"'
-                                      : 'Trang này đã có sẵn trong nhóm "${currentCollection.title}"',
+                                      : 'Trang này đã có sẵn trong nhóm "${currentCollection.title}"'),
                                 ),
                               ),
                             );
@@ -1352,7 +1354,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                                       ? const Icon(Icons.open_in_new,
                                           color: Colors.white54, size: 18)
                                       : IconButton(
-                                          tooltip: 'Xoá link',
+                                          tooltip: context.uiText('Xoá link'),
                                           onPressed: () async {
                                             await widget.controller
                                                 .removeLinkFromUserCollection(
@@ -1397,7 +1399,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
             fontWeight: FontWeight.w700,
           ),
           content: Text(
-            'Nhóm "${collection.title}" sẽ bị xoá, nhưng các preset mặc định và lịch sử duyệt sẽ không bị ảnh hưởng.',
+            context.uiText('Nhóm "${collection.title}" sẽ bị xoá, nhưng các preset mặc định và lịch sử duyệt sẽ không bị ảnh hưởng.'),
             style: TextStyle(color: Colors.grey[300], height: 1.5),
           ),
           actions: [
@@ -1539,7 +1541,9 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
       }
       context.read<TextProvider>().loadFromString(
             noteText,
-            title: 'Ghi chú · ${entry.title.isEmpty ? entry.url : entry.title}',
+            title: context.uiText(
+            'Ghi chú · ${entry.title.isEmpty ? entry.url : entry.title}',
+          ),
           );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã mở ghi chú trong Text Studio')),
@@ -1580,8 +1584,8 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
 
   InputDecoration _inputDecoration(String label, {String? hint}) {
     return InputDecoration(
-      labelText: label,
-      hintText: hint,
+      labelText: context.uiText(label),
+      hintText: hint == null ? null : context.uiText(hint),
       labelStyle: TextStyle(color: Colors.grey[300]),
       hintStyle: TextStyle(color: Colors.grey[600]),
       filled: true,
@@ -1639,7 +1643,7 @@ class _SectionHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                context.uiText(title),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -1648,7 +1652,7 @@ class _SectionHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                subtitle,
+                context.uiText(subtitle),
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 12.5,
@@ -1706,7 +1710,7 @@ class _DraftCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Xoá nháp',
+                tooltip: context.uiText('Xoá nháp'),
                 visualDensity: VisualDensity.compact,
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline,
@@ -1748,7 +1752,9 @@ class _DraftCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Cập nhật ${_HistoryTile._formatVisitedAt(draft.updatedAt)}',
+                  context.uiText(
+                    'Cập nhật ${context.uiText(_HistoryTile._formatVisitedAt(draft.updatedAt))}',
+                  ),
                   style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
                 ),
               ),
@@ -1900,7 +1906,7 @@ class _ResumeCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    'Tiến độ ~ ${entry.progressPercent}%',
+                    context.uiText('Tiến độ ~ ${entry.progressPercent}%'),
                     style: TextStyle(
                       color: Colors.blue[200],
                       fontSize: 12,
@@ -1909,14 +1915,18 @@ class _ResumeCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    _HistoryTile._formatVisitedAt(entry.effectiveReadAt),
+                    context.uiText(
+                      _HistoryTile._formatVisitedAt(entry.effectiveReadAt),
+                    ),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
                   ),
                 ],
               ),
             ] else ...[
               Text(
-                'Mới mở · ${_HistoryTile._formatVisitedAt(entry.effectiveReadAt)}',
+                context.uiText(
+                  'Mới mở · ${context.uiText(_HistoryTile._formatVisitedAt(entry.effectiveReadAt))}',
+                ),
                 style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
               ),
             ],
@@ -2058,7 +2068,9 @@ class _CollectionCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                tooltip: context.uiText(
+                  isPinned ? 'Bỏ ghim' : 'Ghim bộ sưu tập',
+                ),
                 visualDensity: VisualDensity.compact,
                 onPressed: onTogglePin,
                 icon: Icon(
@@ -2176,9 +2188,9 @@ class _CollectionCard extends StatelessWidget {
               onPressed: onOpen,
               icon: const Icon(Icons.view_list_rounded, size: 18),
               label: Text(
-                collection.linkCount > previewLinks.length
+                context.uiText(collection.linkCount > previewLinks.length
                     ? 'Xem tất cả ${collection.linkCount} link'
-                    : 'Mở chi tiết nhóm',
+                    : 'Mở chi tiết nhóm'),
               ),
             ),
           ),
@@ -2208,7 +2220,7 @@ class _InfoChip extends StatelessWidget {
           Icon(icon, size: 14, color: Colors.white70),
           const SizedBox(width: 6),
           Text(
-            label,
+            context.uiText(label),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -2252,7 +2264,7 @@ class _FeedChip extends StatelessWidget {
           ),
         ),
         child: Text(
-          label,
+          context.uiText(label),
           style: TextStyle(
             color: selected ? const Color(0xFF90CAF9) : Colors.white70,
             fontSize: 12.5,
@@ -2373,7 +2385,7 @@ class _HistoryTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    _formatVisitedAt(entry.effectiveReadAt),
+                    context.uiText(_formatVisitedAt(entry.effectiveReadAt)),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11.5),
                   ),
                 ),

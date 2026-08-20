@@ -1,9 +1,10 @@
 // lib/screens/read_mode/widgets/read_bottom_bar.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/translation/translation_display_mode.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
@@ -24,6 +25,7 @@ class ReadBottomBar extends StatelessWidget {
     final tp = context.watch<TextProvider>();
     context.watch<PlayerProvider>();
     final controller = context.watch<ReadModeController>();
+    final isSmall = MediaQuery.of(context).size.height < 700;
 
     return Container(
       decoration: BoxDecoration(
@@ -40,29 +42,46 @@ class ReadBottomBar extends StatelessWidget {
             // Reading Progress Bar
             _ReadingProgressBar(progress: controller.readingProgress),
 
-            // Action Buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            // Action Buttons - make horizontally scrollable to avoid Bottom overflow on small screens
+            // On small screens, reduce padding and icon size
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: isSmall ? 2 : 6),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Font Size
                   _BarAction(
                     icon: Icons.text_decrease,
                     onTap: () => tp.setFontSize(tp.fontSize - 2),
+                    compact: isSmall,
                   ),
+                  SizedBox(width: isSmall ? 6 : 12),
                   _BarAction(
                     icon: Icons.text_increase,
                     onTap: () => tp.setFontSize(tp.fontSize + 2),
+                    compact: isSmall,
                   ),
+                  SizedBox(width: isSmall ? 6 : 12),
 
-                  // Translation toggle
+                  // Translation toggle — fix: explicit set stackedBelow/hidden
                   _BarAction(
                     icon: Icons.translate,
                     isActive: tp.showTranslation,
                     activeThumbColor: const Color(0xFF4CAF50),
-                    onTap: () => tp.toggleTranslation(),
+                    compact: isSmall,
+                    onTap: () {
+                      if (tp.showTranslation) {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.hidden);
+                      } else {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.stackedBelow);
+                      }
+                    },
                   ),
+                  SizedBox(width: isSmall ? 6 : 12),
 
                   // TTS current line
                   _BarAction(
@@ -71,6 +90,7 @@ class ReadBottomBar extends StatelessWidget {
                         : Icons.record_voice_over,
                     isActive: tp.isSpeaking,
                     activeThumbColor: Colors.orange,
+                    compact: isSmall,
                     onTap: () {
                       if (tp.isSpeaking) {
                         tp.stopSpeaking();
@@ -79,22 +99,26 @@ class ReadBottomBar extends StatelessWidget {
                       }
                     },
                   ),
+                  SizedBox(width: isSmall ? 6 : 12),
 
                   // Segments (Bookmarks)
                   _BarAction(
                     icon: Icons.bookmark,
                     isActive: tp.segments.isNotEmpty,
                     activeThumbColor: Colors.amber,
+                    compact: isSmall,
                     badge:
                         tp.segments.isNotEmpty ? '${tp.segments.length}' : null,
                     onTap: () => SegmentsListSheet.show(context),
                   ),
+                  SizedBox(width: isSmall ? 6 : 12),
                   _BarAction(
                     icon: showWordlistPanel
                         ? Icons.view_sidebar
                         : Icons.view_sidebar_outlined,
                     isActive: showWordlistPanel,
                     activeThumbColor: const Color(0xFF6C63FF),
+                    compact: isSmall,
                     onTap: () => onToggleWordlist?.call(),
                   ),
                 ],
@@ -136,6 +160,7 @@ class _BarAction extends StatelessWidget {
   final bool isActive;
   final Color? activeThumbColor;
   final String? badge;
+  final bool compact;
 
   const _BarAction({
     required this.icon,
@@ -143,6 +168,7 @@ class _BarAction extends StatelessWidget {
     this.isActive = false,
     this.activeThumbColor,
     this.badge,
+    this.compact = false,
   });
 
   @override
@@ -160,14 +186,14 @@ class _BarAction extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(compact ? 6 : 10),
             decoration: isActive
                 ? BoxDecoration(
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   )
                 : null,
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: color, size: compact ? 18 : 22),
           ),
           if (badge != null)
             Positioned(

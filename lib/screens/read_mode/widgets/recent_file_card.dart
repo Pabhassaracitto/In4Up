@@ -1,6 +1,6 @@
 // lib/screens/read_mode/widgets/recent_file_card.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/recent_file.dart';
@@ -263,7 +263,7 @@ class _ProgressText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      text,
+      context.uiText(text),
       style: TextStyle(
         color: color,
         fontSize: 11,

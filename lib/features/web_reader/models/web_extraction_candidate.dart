@@ -56,11 +56,18 @@ class WebExtractionDraft {
 
   factory WebExtractionDraft.fromJson(Map<String, dynamic> json) {
     final rawCandidates = json['candidates'];
+    final fromSelection = json['fromSelection'] == true;
+    const legacySelectionPrefix = 'Đoạn đã chọn · ';
+    final storedSourceLabel = (json['sourceLabel'] ?? '').toString();
+    final sourceLabel = fromSelection &&
+            storedSourceLabel.startsWith(legacySelectionPrefix)
+        ? storedSourceLabel.substring(legacySelectionPrefix.length)
+        : storedSourceLabel;
     return WebExtractionDraft(
       id: (json['id'] ?? '').toString(),
-      sourceLabel: (json['sourceLabel'] ?? '').toString(),
+      sourceLabel: sourceLabel,
       sourceText: (json['sourceText'] ?? '').toString(),
-      fromSelection: json['fromSelection'] == true,
+      fromSelection: fromSelection,
       createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
           DateTime.now(),
       updatedAt: DateTime.tryParse((json['updatedAt'] ?? '').toString()) ??

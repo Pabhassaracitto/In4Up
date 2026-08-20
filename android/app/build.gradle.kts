@@ -6,10 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.in2up"
+    namespace = "com.in4up"
     compileSdk = 36 // Đưa lên 36 để đáp ứng các plugin như file_picker, sqflite...
 
-    // Dùng chung NDK 28.2 trên cả Windows và Linux
+    // NDK 28.2 dùng chung Windows + Linux (bạn yêu cầu giữ 28)
+    // CI sẽ cài cả 27 và 28 để tránh lỗi plugin yêu cầu NDK 27
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -22,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.in2up"
+        applicationId = "com.in4up"
         minSdk = 24
         targetSdk = 35
         versionCode = 2
@@ -35,17 +36,17 @@ android {
         create("stable") {
             dimension = "default"
             applicationIdSuffix = ""
-            resValue("string", "app_name", "in2up")
+            resValue("string", "app_name", "In4Up")
         }
         create("dev") {
             dimension = "default"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "in2up Dev")
+            resValue("string", "app_name", "In4Up Dev")
         }
         create("beta") {
             dimension = "default"
             applicationIdSuffix = ".beta"
-            resValue("string", "app_name", "in2up Beta")
+            resValue("string", "app_name", "In4Up Beta")
         }
     }
 

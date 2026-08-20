@@ -3,7 +3,7 @@
 // FIX 2: Chọn nhiều file → hiển thị playlist, phát được từng bài
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -318,7 +318,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                   if (_playlist.isNotEmpty) ...[
                     Row(
                       children: [
-                        Text('Playlist — ${_playlist.length} bài',
+                        Text(context.uiText('Playlist — ${_playlist.length} bài'),
                             style: TextStyle(
                                 color: Colors.grey[500],
                                 fontSize: 11,

@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:in2up_stt/models/stt_result.dart';
+import 'package:in4up_stt/models/stt_result.dart';
 
 import '../features/grammar/models/grammar_category.dart';
 import '../features/grammar/models/grammar_highlight_preset.dart';
@@ -14,6 +14,7 @@ import '../features/grammar/models/grammar_highlight_style.dart';
 import '../features/grammar/models/grammar_palette.dart';
 import '../features/grammar/services/grammar_preset_library_service.dart';
 import '../features/grammar/services/grammar_settings_service.dart';
+import '../features/writing/models/writing_source_request.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
@@ -28,7 +29,7 @@ import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 enum ReadSubMode { reading, listening, translation, driving }
 
@@ -139,6 +140,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? _currentCloudId;
   String? _currentTextCategory;
 
+  // ==================== WRITING HANDOFF ====================
+  WritingSourceRequest? _writingSourceRequest;
+  int _writingSourceVersion = 0;
+
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
@@ -154,7 +159,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TTS SETTINGS ====================
   double _ttsSpeed = 1.0;
   double _ttsPitch = 1.0;
-  String _ttsLanguage = 'en-US';
+  String _ttsLanguage = 'auto';
   bool _isSpeaking = false;
   //TTS session management
   TtsPlaybackOwner _ttsOwner = TtsPlaybackOwner.none;
@@ -191,6 +196,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextSourceType get currentSourceType => _currentSourceType;
   String? get currentCloudId => _currentCloudId;
   String? get currentTextCategory => _currentTextCategory;
+  WritingSourceRequest? get writingSourceRequest => _writingSourceRequest;
+  int get writingSourceVersion => _writingSourceVersion;
   bool get isCurrentTextFromCloud =>
       _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
   String? get currentContextSourceRef {
@@ -254,7 +261,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
       final savedSpeed = _storage.getTtsSpeed();
       _ttsSpeed = (savedSpeed == 1.75 || savedSpeed == 0.0) ? 1.0 : savedSpeed;
-      _ttsService.configure(speed: _ttsSpeed);
+      _ttsService.configure(
+        speed: _ttsSpeed,
+        language: 'auto',
+        autoDetect: true,
+      );
+
+      restoreTranslationTargetLanguage(
+        _storage.getTranslationTargetLanguage(),
+      );
 
       if (_storage.getShowTranslation()) {
         setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
@@ -413,6 +428,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TEXT MANAGEMENT ====================
 
   void loadText(String content, {String? title}) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(sourceType: TextSourceType.manual);
   }
@@ -425,6 +441,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     String? cloudId,
     String? category,
   }) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(
       sourceType: sourceType,
@@ -434,8 +451,36 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
   }
 
+  /// Chuyển nội dung từ Web/PDF Reader thẳng sang một nhiệm vụ trong tab Viết.
+  ///
+  /// Reader chỉ chuẩn bị nguồn và ý định. Writing Studio vẫn cho phép người học
+  /// đổi sang bất kỳ dạng bài nào sau khi quay lại.
+  void loadWritingSource(
+    String content, {
+    required String title,
+    required WritingTaskType task,
+    required WritingSourceKind kind,
+    required String sourceLabel,
+    bool isExcerpt = false,
+  }) {
+    loadFromString(
+      content,
+      title: title,
+      sourceType: TextSourceType.generated,
+    );
+    _writingSourceRequest = WritingSourceRequest(
+      task: task,
+      kind: kind,
+      sourceLabel: sourceLabel,
+      isExcerpt: isExcerpt,
+    );
+    _writingSourceVersion++;
+    notifyListeners();
+  }
+
   Future<void> loadTextFile(String path, {String? title}) async {
     try {
+      _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
@@ -496,6 +541,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentCloudId = null;
     _currentTextCategory = null;
     _currentSourceType = TextSourceType.manual;
+    _writingSourceRequest = null;
     notifyListeners();
   }
 
@@ -580,6 +626,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ★ THÊM: Phương thức để load kết quả từ STT
   void loadFromSttResult(SttResult result) {
+    _writingSourceRequest = null;
     _fullText = result.fullText;
     _lines = result.segments.map((seg) {
       return TextItem(
@@ -816,6 +863,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translation: (translation == null || translation.trim().isEmpty)
           ? null
           : translation.trim(),
+      translationLanguageCode: translation == null || translation.trim().isEmpty
+          ? null
+          : translationTargetLanguage.translationCode,
+      clearTranslation: translation == null || translation.trim().isEmpty,
+      clearSourceLanguage: true,
     );
 
     // Re-analyze từ loại
@@ -875,6 +927,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         id: '${original.id}_s$i',
         content: text,
         translation: trans,
+        sourceLanguageCode: original.sourceLanguageCode,
+        translationLanguageCode: trans == null
+            ? null
+            : original.translationLanguageCode ??
+                translationTargetLanguage.translationCode,
         startTime: i == 0 ? original.startTime : null,
         endTime: i == 0 ? original.endTime : null,
       );
@@ -1069,7 +1126,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   Future<void> setTtsLanguage(String language) async {
     _ttsLanguage = language;
-    _ttsService.configure(language: language);
+    final isAuto = language.toLowerCase() == 'auto';
+    _ttsService.configure(
+      language: isAuto ? 'auto' : language,
+      autoDetect: isAuto,
+    );
     notifyListeners();
   }
 

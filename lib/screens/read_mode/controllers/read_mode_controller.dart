@@ -211,6 +211,23 @@ class ReadModeController extends ChangeNotifier {
     );
   }
 
+  // ===== FOCUS MODE FOR SMALL SCREENS =====
+  bool _isFocusMode = false;
+  bool get isFocusMode => _isFocusMode;
+
+  void toggleFocusMode() {
+    _isFocusMode = !_isFocusMode;
+    HapticFeedback.selectionClick();
+    notifyListeners();
+  }
+
+  void setFocusMode(bool value) {
+    if (_isFocusMode != value) {
+      _isFocusMode = value;
+      notifyListeners();
+    }
+  }
+
   // ===== CLEANUP =====
   @override
   void dispose() {

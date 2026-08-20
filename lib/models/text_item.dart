@@ -1,11 +1,13 @@
 // lib/models/text_item.dart
-// in2up - Text Item Model
+// in4up - Text Item Model
 // Không chứa WordType (được chuyển sang word_analysis.dart)
 
 class TextItem {
   final String id;
   final String content;
   final String? translation;
+  final String? sourceLanguageCode;
+  final String? translationLanguageCode;
   final Duration? startTime;
   final Duration? endTime;
   final List<WordItem> words;
@@ -15,25 +17,47 @@ class TextItem {
     required this.id,
     required this.content,
     this.translation,
+    this.sourceLanguageCode,
+    this.translationLanguageCode,
     this.startTime,
     this.endTime,
     this.words = const [],
     this.isHighlighted = false,
   });
 
+  static const _unset = Object();
+
   TextItem copyWith({
     String? id,
     String? content,
-    String? translation,
+    Object? translation = _unset,
+    String? sourceLanguageCode,
+    String? translationLanguageCode,
     Duration? startTime,
     Duration? endTime,
     List<WordItem>? words,
     bool? isHighlighted,
+    bool clearTranslation = false,
+    bool clearSourceLanguage = false,
   }) {
+    String? newTranslation;
+    if (clearTranslation) {
+      newTranslation = null;
+    } else if (translation == _unset) {
+      newTranslation = this.translation;
+    } else {
+      newTranslation = translation as String?;
+    }
     return TextItem(
       id: id ?? this.id,
       content: content ?? this.content,
-      translation: translation ?? this.translation,
+      translation: newTranslation,
+      sourceLanguageCode: clearSourceLanguage
+          ? null
+          : sourceLanguageCode ?? this.sourceLanguageCode,
+      translationLanguageCode: clearTranslation
+          ? null
+          : translationLanguageCode ?? this.translationLanguageCode,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       words: words ?? this.words,

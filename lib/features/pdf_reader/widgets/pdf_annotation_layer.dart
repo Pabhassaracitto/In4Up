@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
-import 'package:in2up/features/pdf_reader/models/pdf_annotation.dart';
+import 'package:in4up/features/pdf_reader/models/pdf_annotation.dart';
 
 /// Layer hiển thị tất cả annotations (highlight + note icons) trên PDF page
 class PdfAnnotationLayer extends StatelessWidget {

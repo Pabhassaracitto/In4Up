@@ -1,4 +1,4 @@
-import 'package:in2up/features/grammar/models/grammar_category.dart';
+import 'package:in4up/features/grammar/models/grammar_category.dart';
 
 import '../features/grammar/services/grammar_lexicon_service.dart';
 import '../models/word_analysis.dart';

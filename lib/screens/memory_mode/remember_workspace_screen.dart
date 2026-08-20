@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/vocabulary_provider.dart';
+import '../../widgets/auto_hide_banner.dart';
 import 'memory_tab_connector.dart';
 
 class RememberWorkspaceScreen extends StatelessWidget {
@@ -26,13 +27,17 @@ class RememberWorkspaceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _RememberWorkspaceHeader(
-          onOpenReview: onOpenReview,
-          onOpenWordList: onOpenWordList,
-          onOpenTimeline: onOpenTimeline,
-          onOpenStats: onOpenStats,
-          onOpenMap: onOpenMap,
-          onOpenQuickActions: onOpenQuickActions,
+        AutoHideInfoBanner(
+          storageKey: 'remember_workspace_header',
+          autoHideAfter: const Duration(seconds: 5),
+          child: _RememberWorkspaceHeader(
+            onOpenReview: onOpenReview,
+            onOpenWordList: onOpenWordList,
+            onOpenTimeline: onOpenTimeline,
+            onOpenStats: onOpenStats,
+            onOpenMap: onOpenMap,
+            onOpenQuickActions: onOpenQuickActions,
+          ),
         ),
         const Expanded(
           child: MemoryTabConnector(),
@@ -260,7 +265,7 @@ class _StatPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '$label: $value',
+        '${context.uiText(label)}: $value',
         style: TextStyle(
           color: color,
           fontSize: 11,

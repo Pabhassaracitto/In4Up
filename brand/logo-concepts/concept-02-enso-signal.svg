@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up — Ensō Signal</title>
+  <desc id="desc">An open ensō circle surrounds a listening bowl, sound waves and an upward four.</desc>
+  <defs>
+    <linearGradient id="bg" x1="74" y1="35" x2="455" y2="475" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#172B2D"/>
+      <stop offset="0.48" stop-color="#0A1A23"/>
+      <stop offset="1" stop-color="#071119"/>
+    </linearGradient>
+    <linearGradient id="enso" x1="92" y1="97" x2="424" y2="415" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5D477"/>
+      <stop offset="0.48" stop-color="#D4B05A"/>
+      <stop offset="1" stop-color="#55D6BE"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="256" y1="348" x2="256" y2="112" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#55D6BE"/>
+      <stop offset="1" stop-color="#F5D477"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#00070C" flood-opacity="0.48"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFF9E8" stroke-opacity="0.07" stroke-width="2"/>
+
+  <!-- Open circle: spaciousness / inward attention -->
+  <path d="M385 111C327 68 247 55 178 82C99 113 54 192 66 276C78 362 146 429 232 443C320 457 407 409 440 329" fill="none" stroke="url(#enso)" stroke-width="25" stroke-linecap="round"/>
+  <path d="M409 92C421 102 431 114 439 127" fill="none" stroke="#F5D477" stroke-opacity="0.55" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- U as a listening vessel -->
+  <path d="M151 231V276C151 337 192 374 256 374C320 374 361 337 361 276V231" fill="none" stroke="#F8F4E8" stroke-width="27" stroke-linecap="round"/>
+
+  <!-- 4 / path upward -->
+  <path d="M256 340V160L199 257H310" fill="none" stroke="url(#arrow)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M256 110L222 161H290L256 110Z" fill="#F5D477"/>
+
+  <!-- Sound resonance -->
+  <g fill="none" stroke="#86E0D0" stroke-width="12" stroke-linecap="round">
+    <path d="M112 244V274" opacity="0.40"/>
+    <path d="M124 218V299" opacity="0.65"/>
+    <path d="M388 218V299" opacity="0.65"/>
+    <path d="M400 244V274" opacity="0.40"/>
+  </g>
+  <circle cx="256" cy="409" r="5" fill="#55D6BE" opacity="0.8"/>
+</svg>

@@ -80,6 +80,7 @@ class ShadowingProvider extends ChangeNotifier {
 
   String? _activePresetLabel;
   String get activePresetLabel => _activePresetLabel ?? 'Tùy chỉnh';
+  bool get activePresetLabelIsGenerated => _activePresetLabel == null;
 
   final List<ShadowingPreset> _customPresets = [];
   List<ShadowingPreset> get customPresets => List.unmodifiable(_customPresets);

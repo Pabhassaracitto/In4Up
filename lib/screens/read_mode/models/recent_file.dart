@@ -130,7 +130,7 @@ class RecentFile {
 
   /// Từ file text local (.txt / .lrc / .srt)
   factory RecentFile.fromLocalText(String path) {
-    final normalizedPath = path.replaceAll('\\', '/');
+    final normalizedPath = path.replaceAll("\\", "/");
     final name = normalizedPath.split('/').last;
     final title =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
@@ -147,7 +147,7 @@ class RecentFile {
 
   /// Từ file PDF local
   factory RecentFile.fromLocalPdf(String path) {
-    final normalizedPath = path.replaceAll('\\', '/');
+    final normalizedPath = path.replaceAll("\\", "/");
     final name = normalizedPath.split('/').last;
     final title =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;

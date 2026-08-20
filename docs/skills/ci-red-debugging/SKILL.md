@@ -130,6 +130,11 @@ squash-merge để lịch sử sạch.
 | 5.5 | Sandbox tái bản giữa phiên | `git log` về commit nền, files thành untracked, mất remote-tracking refs | `cp` file đang sửa → /tmp TRƯỚC; `git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'; git fetch; git reset --hard origin/<branch>`; cp ngược lại |
 | 5.6 | Dual-view file layer | edit_tool báo OK mà bash grep không thấy (và ngược lại); "nothing to commit" ma | KHÔNG song song lệnh ghi-file với git; sau khi ghi bằng tool, xác nhận bằng grep/md5sum TRƯỚC khi commit |
 | 5.7 | paths-filter | push xong không có run mới | Đảm bảo commit chạm path match của trigger |
+| 5.8 | Bisect gây đỏ tự thân | file bisect cắt bằng script python bị vỡ cú pháp ⇒ đỏ oan, đổ lỗi nhầm cho code đang nghi vấn | MỌI file bisect phải qua balance-check (phiên bản xử lý CẢ nháy đơn lẫn nháy kép) trước khi push; vòng T9–T10 từng đỏ oan vì thế |
+| 5.9 | Cắt normalize/dọn dòng bằng regex | `\s+`/`[ \t]+` gộp run nhưng KHÔNG xóa space sát `\n` (`'b \n'` giữ nguyên) | Chuẩn hóa per-line: split('\n') → collapse+trim từng dòng → join; nghĩ "line edges" trước khi dùng replaceAll toàn chuỗi |
+| 5.10 | show-combinator + export-chain | `show X, Y` với tên KHÔNG dùng thật (đặc biệt tên đến qua export của file khác) ⇒ CI analyze đỏ; lấy tên hàm SM-2 vào test bằng MỌI đường (import trực tiếp = B6, show-từ-export) đều gãy | Chỉ show đúng tên đang dùng; khi test cần đối chiếu thuật toán, dùng phép so sánh tương đương nội bộ (compact-vs-compact) thay vì gọi hàm ngoài qua export |
+| 5.12 | Mutable fields + bisect | Bisect cắt class Engine (nơi gán field) để Unit đứng một mình ⇒ `prefer_final_fields` đỏ oan nhiều vòng; mutable state cũng ngược mục 4 (isolate) | Thiết kế model immutable + copy-on-write ngay từ đầu — bisect an toàn mọi cấu hình, đúng chuẩn isolate |
+| 5.11 | Underscore local variable | `final _ = expr;` ⇒ `no_leading_underscores_for_local_identifiers` (có trong lints/recommended — CI fatal) | Dùng trực tiếp `expect(Class.method, isNotNull)` hoặc đặt tên có nghĩa |
 
 ## 6. Khi nào PHẢI lên tiếng với người dùng
 
@@ -138,6 +143,10 @@ squash-merge để lịch sử sạch.
 - Cần quyền cao hơn (workflows) hoặc log thật: đưa URL thẳng
   `https://github.com/<o>/<r>/actions/runs/<runId>/job/<jobId>` và đề nghị dán
   đúng đoạn đỏ của step — 30 giây của người dùng thay cho 1 giờ đoán.
+  ✅ ĐÃ THỰC CHIẾN (Task 4): người dùng dán Expected/Actual từ log — fix đúng
+  ngay vòng kế tiếp sau 11 vòng mù. LUÔN dọn "run đầy đủ" trước khi hỏi.
+- Agent thường KHÔNG có thị giác — ảnh chụp màn hình log không đọc được: xin dán
+  CHỮ (không phải screenshot), và lưu ý ảnh có thể không tới được filesystem sandbox.
 - Remote có commit lạ/không phải của mình ⇒ hỏi trước khi rebase/force.
 
 ## 7. Phòng bệnh

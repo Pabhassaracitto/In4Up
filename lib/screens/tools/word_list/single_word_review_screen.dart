@@ -1,6 +1,6 @@
 // lib/screens/tools/word_list/single_word_review_screen.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -304,7 +304,9 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Đánh giá: ${_skillName(skill)}',
+            context.uiText(
+              'Đánh giá: ${context.uiText(_skillName(skill))}',
+            ),
             style: TextStyle(color: Colors.grey[600], fontSize: 11),
           ),
           const SizedBox(height: 10),

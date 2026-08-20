@@ -16,6 +16,13 @@
 - `docs/adr/` — mọi quyết định kiến trúc sau bàn giao đi qua ADR tại đây
   (xem 0001: chuẩn hóa SM-2 về một hàm duy nhất + postmortem).
 
+## Quản trị thông tin dự án (BẮT BUỘC đọc `docs/GOVERNANCE.md`)
+
+- `docs/project/KANBAN.md` — bảng việc, nguồn sự thật duy nhất về trạng thái.
+  Luật: CHỈ đổi trạng thái + append lịch sử, KHÔNG xóa.
+- `docs/project/PLAN.md` — milestone + nơi tiếp nhận kế hoạch mới từ người sở hữu.
+- Đầu session: `git fetch` rồi đọc bản trên `origin/main` trước khi cập nhật.
+
 ## Quy tắc vàng (vi phạm = dừng lại hỏi người, không tự quyết)
 
 1. KHÔNG đụng `UltraTimeStretch` C++ FFI / `lib/ffi/` — audio realtime là vùng bảo vệ.

@@ -1,7 +1,7 @@
 // lib/screens/understand_mode/sheets/speed_control_sheet.dart
 
-import 'package:flutter/material.dart';
-import 'package:in2up/providers/player_provider.dart';
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/providers/player_provider.dart';
 
 void showSpeedControlSheet(BuildContext context, PlayerProvider player) {
   showModalBottomSheet(

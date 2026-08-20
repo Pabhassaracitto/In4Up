@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/l10n/app_localizations.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -13,6 +13,7 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/storage_service.dart';
+import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/speak_mode_screen.dart';
@@ -30,9 +31,11 @@ import 'tools/stats_tab.dart';
 import 'tools/tools_overlay_v2.dart' as tools;
 import 'tools/triangle_tab.dart';
 import 'tools/venn_tab.dart';
+import 'tools/sound_list/sound_list_screen.dart';
 import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
+import 'tools/word_list/wordlist_bubble.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_workspace_screen.dart';
 
@@ -258,7 +261,7 @@ class _MainShellState extends State<MainShell> {
   String get _titleText {
     switch (_currentTab) {
       case _PrimaryTab.home:
-        return 'in2up';
+        return 'In4Up';
       case _PrimaryTab.listen:
         return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
       case _PrimaryTab.read:
@@ -272,9 +275,9 @@ class _MainShellState extends State<MainShell> {
 
   bool get _shouldShowShellMiniPlayer {
     if (_currentTab == _PrimaryTab.home) return false;
-    if (_currentTab == _PrimaryTab.listen && _listenModeIndex == 0) {
-      return false;
-    }
+    if (_currentTab == _PrimaryTab.listen) return false;
+    if (_currentTab == _PrimaryTab.read) return false;
+    if (_currentTab == _PrimaryTab.understand) return false;
     return true;
   }
 
@@ -411,6 +414,13 @@ class _MainShellState extends State<MainShell> {
         subtitle: l10n.wordListSubtitle,
         icon: Icons.format_list_bulleted,
         color: const Color(0xFF6C63FF),
+      ),
+      tools.ToolItem(
+        id: 'sound_list',
+        title: 'Âm mục',
+        subtitle: 'Điểm, đoạn & mục lục âm thanh',
+        icon: Icons.menu_book_outlined,
+        color: const Color(0xFF26C6DA),
       ),
       tools.ToolItem(
         id: 'timeline',
@@ -579,6 +589,7 @@ class _MainShellState extends State<MainShell> {
     const remember = {
       'review': 100,
       'word_list': 98,
+      'sound_list': 97,
       'timeline': 95,
       'stats': 94,
       'word_map': 93,
@@ -627,6 +638,11 @@ class _MainShellState extends State<MainShell> {
       case 'word_list':
         nav.push(MaterialPageRoute(builder: (_) => const WordListScreen()));
         return;
+      case 'sound_list':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const SoundListScreen()),
+        );
+        return;
       case 'timeline':
         nav.push(MaterialPageRoute(builder: (_) => const TimelineView()));
         return;
@@ -634,7 +650,13 @@ class _MainShellState extends State<MainShell> {
         nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
         return;
       case 'web_reader':
-        nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
+        final openForWriting =
+            _currentTab == _PrimaryTab.read && _readModeIndex == 1;
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => WebReaderScreen(writingMode: openForWriting),
+          ),
+        );
         return;
       case 'youtube_downloader':
         nav.push(
@@ -652,10 +674,14 @@ class _MainShellState extends State<MainShell> {
         );
         if (!mounted) return;
         if (result != null && result.files.single.path != null) {
+          final openForWriting =
+              _currentTab == _PrimaryTab.read && _readModeIndex == 1;
           nav.push(
             MaterialPageRoute(
-              builder: (_) =>
-                  PdfReaderScreen(pdfPath: result.files.single.path!),
+              builder: (_) => PdfReaderScreen(
+                pdfPath: result.files.single.path!,
+                writingMode: openForWriting,
+              ),
             ),
           );
         }
@@ -700,6 +726,11 @@ class _MainShellState extends State<MainShell> {
           onNavigateToRead: () => _setReadMode(0),
           onNavigateToUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
           onNavigateToMemory: () => _setPrimaryTab(_PrimaryTab.remember),
+          onOpenAiChat: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiChatScreen()),
+            );
+          },
         );
       case _PrimaryTab.listen:
         return IndexedStack(
@@ -769,27 +800,81 @@ class _MainShellState extends State<MainShell> {
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            _buildAppBar(context),
-            _buildAnimatedModeSwitch(context),
-            Expanded(
-              child: ClipRect(
-                child: _buildCurrentScreen(),
-              ),
+            Column(
+              children: [
+                _buildAppBar(context),
+                _buildAnimatedModeSwitch(context),
+                Expanded(
+                  child: ClipRect(
+                    child: _buildCurrentScreen(),
+                  ),
+                ),
+                if (_shouldShowShellMiniPlayer)
+                  Consumer<PlayerProvider>(
+                    builder: (context, player, _) {
+                      if (player.currentSongPath == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Dismissible(
+                        key: ValueKey('mini_${player.currentSongPath}'),
+                        direction: DismissDirection.horizontal,
+                        background: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 24),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.close,
+                                  color: Colors.redAccent, size: 18),
+                              SizedBox(width: 6),
+                              Text('Vuốt để ẩn',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        secondaryBackground: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Vuốt để ẩn',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
+                              SizedBox(width: 6),
+                              Icon(Icons.close,
+                                  color: Colors.redAccent, size: 18),
+                            ],
+                          ),
+                        ),
+                        onDismissed: (_) {
+                          HapticFeedback.mediumImpact();
+                          player.clearCurrentSong();
+                        },
+                        child: MiniPlayer(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          onTap: () => _setListenMode(0),
+                        ),
+                      );
+                    },
+                  ),
+              ],
             ),
-            if (_shouldShowShellMiniPlayer)
-              Consumer<PlayerProvider>(
-                builder: (context, player, _) {
-                  if (player.currentSongPath == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return MiniPlayer(
-                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    onTap: () => _setListenMode(0),
-                  );
-                },
-              ),
+            // ★ Wordlist floating bubble – persistent TTS across tabs
+            const WordlistBubble(),
           ],
         ),
       ),
@@ -837,14 +922,14 @@ class _MainShellState extends State<MainShell> {
           _ShellActionButton(
             icon: Icons.bolt_rounded,
             color: const Color(0xFFB388FF),
-            tooltip: 'Công cụ nhanh',
+            tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
           const SizedBox(width: 8),
           _ShellActionButton(
             icon: Icons.library_music_rounded,
             color: const Color(0xFF6C63FF),
-            tooltip: 'Thư viện âm thanh',
+            tooltip: context.uiText('Thư viện âm thanh'),
             onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
@@ -1159,7 +1244,7 @@ class _ShellActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -1211,7 +1296,7 @@ class _ModeHintChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Text(
-        '$label · $suffix',
+        '${context.uiText(label)} · ${context.uiText(suffix)}',
         style: TextStyle(
           color: color,
           fontSize: 10,

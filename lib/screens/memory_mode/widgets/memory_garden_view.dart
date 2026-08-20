@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/widgets/memory_garden_view.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -42,7 +42,7 @@ class MemoryGardenView extends StatelessWidget {
                 ),
               Expanded(
                 child: items.isEmpty
-                    ? _buildFilterEmpty(controller.filterStage)
+                    ? _buildFilterEmpty(context, controller.filterStage)
                     : _buildGardenGrid(context, items),
               ),
             ],
@@ -136,7 +136,7 @@ class MemoryGardenView extends StatelessWidget {
     );
   }
 
-  Widget _buildFilterEmpty(MemoryStage? stage) {
+  Widget _buildFilterEmpty(BuildContext context, MemoryStage? stage) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -147,9 +147,9 @@ class MemoryGardenView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            stage != null
-                ? 'Chưa có từ nào ở giai đoạn "${stage.label}"'
-                : 'Chưa có từ nào',
+            context.uiText(stage != null
+                ? 'Chưa có từ nào ở giai đoạn "${context.uiText(stage.label)}"'
+                : 'Chưa có từ nào'),
             style: TextStyle(color: Colors.grey[500]),
           ),
         ],
@@ -294,7 +294,7 @@ class _DueIndicator extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '$dueCount từ cần tưới hôm nay',
+                context.uiText('$dueCount từ cần tưới hôm nay'),
                 style: const TextStyle(
                   color: Color(0xFF4CAF50),
                   fontWeight: FontWeight.w600,

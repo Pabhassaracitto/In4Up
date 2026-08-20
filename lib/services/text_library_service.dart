@@ -92,20 +92,60 @@ class TextLibraryService {
   factory TextLibraryService() => _instance;
   TextLibraryService._();
 
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  FirebaseFirestore? _firestoreInstance;
+  FirebaseFirestore get _firestore {
+    try {
+      _firestoreInstance ??= FirebaseFirestore.instance;
+      return _firestoreInstance!;
+    } catch (e) {
+      debugPrint('⚠️ TextLibraryService: Firestore not available: $e');
+      throw StateError('Firestore not available');
+    }
+  }
+
+  FirebaseAuth? _authInstance;
+  FirebaseAuth get _auth {
+    try {
+      _authInstance ??= FirebaseAuth.instance;
+      return _authInstance!;
+    } catch (e) {
+      debugPrint('⚠️ TextLibraryService: Auth not available: $e');
+      throw StateError('Auth not available');
+    }
+  }
+
+  bool get _hasFirebase {
+    try {
+      FirebaseFirestore.instance;
+      FirebaseAuth.instance;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // Collection ref cho user hiện tại
   CollectionReference<Map<String, dynamic>>? get _collection {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return null;
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('text_library');
+    try {
+      if (!_hasFirebase) return null;
+      final uid = _auth.currentUser?.uid;
+      if (uid == null) return null;
+      return _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('text_library');
+    } catch (_) {
+      return null;
+    }
   }
 
-  bool get isAvailable => _auth.currentUser != null;
+  bool get isAvailable {
+    try {
+      return _hasFirebase && _auth.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // ── Stream realtime ──────────────────────────────────────
   Stream<List<TextLibraryEntry>> watchAll() {

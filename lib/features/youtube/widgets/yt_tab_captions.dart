@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
@@ -94,7 +94,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
+      content: Text(context.uiText(msg)),
       backgroundColor: const Color(0xFF1A237E),
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 3),
@@ -203,7 +203,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
               const Icon(Icons.warning_amber, size: 14, color: Colors.amber),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(_error!,
+                child: Text(context.uiText(_error!),
                     style: const TextStyle(color: Colors.amber, fontSize: 11)),
               ),
             ],
@@ -224,7 +224,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                       valueColor: AlwaysStoppedAnimation(Colors.white)),
                 )
               : const Icon(Icons.download, size: 16),
-          label: Text(_isFetching ? 'Đang tải...' : 'Lấy captions ($_lang)'),
+          label: Text(context.uiText(_isFetching ? 'Đang tải...' : 'Lấy captions ($_lang)')),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -252,7 +252,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                 const Icon(Icons.subtitles_outlined,
                     size: 14, color: Color(0xFF4CAF50)),
                 const SizedBox(width: 6),
-                Text('${_captions.length} dòng',
+                Text(context.uiText('${_captions.length} dòng'),
                     style: const TextStyle(
                         color: Color(0xFF4CAF50),
                         fontSize: 12,
@@ -294,7 +294,7 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
           if (_captions.length > 6)
             Padding(
               padding: const EdgeInsets.all(10),
-              child: Text('... và ${_captions.length - 6} dòng nữa',
+              child: Text(context.uiText('... và ${_captions.length - 6} dòng nữa'),
                   style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   textAlign: TextAlign.center),
             ),

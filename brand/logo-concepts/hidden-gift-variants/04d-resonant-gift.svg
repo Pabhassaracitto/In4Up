@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up Hidden Gift — Resonant Gift</title>
+  <desc id="desc">A dynamic audio waveform passes behind In4Up while I4U remains bright.</desc>
+  <defs>
+    <linearGradient id="bg" x1="58" y1="35" x2="456" y2="476" gradientUnits="userSpaceOnUse"><stop stop-color="#183455"/><stop offset="0.5" stop-color="#101B35"/><stop offset="1" stop-color="#07131F"/></linearGradient>
+    <linearGradient id="rise" x1="207" y1="345" x2="277" y2="119" gradientUnits="userSpaceOnUse"><stop stop-color="#4FD6C1"/><stop offset="1" stop-color="#FFD269"/></linearGradient>
+    <linearGradient id="wave" x1="48" y1="0" x2="466" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#6298FF" stop-opacity="0.15"/><stop offset="0.47" stop-color="#51D8C1"/><stop offset="0.53" stop-color="#51D8C1"/><stop offset="1" stop-color="#6298FF" stop-opacity="0.15"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#020711" flood-opacity="0.52"/></filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- The learning signal grows toward the centre, then settles -->
+  <path d="M46 270H76L90 230L109 313L129 250L149 281L169 209L190 325L211 243L232 286L256 173L278 305L299 226L320 284L342 239L362 308L382 252L404 281L424 245L440 270H466" fill="none" stroke="url(#wave)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.62"/>
+  <path d="M71 177C100 133 140 105 187 91M441 337C414 383 373 412 324 425" fill="none" stroke="#6C9AFF" stroke-opacity="0.23" stroke-width="10" stroke-linecap="round"/>
+  <path d="M77 199C101 164 133 141 170 129M435 315C412 351 379 375 342 387" fill="none" stroke="#52D7C1" stroke-opacity="0.28" stroke-width="7" stroke-linecap="round"/>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 196H90M69 196V334M48 334H90" stroke="#F8F4EA" stroke-width="20"/>
+    <path d="M112 334V240C112 214 128 198 150 198C173 198 188 215 188 241V334" stroke="#6EA5D6" stroke-opacity="0.36" stroke-width="21"/>
+    <path d="M246 338V181L196 271H280" stroke="url(#rise)" stroke-width="24"/>
+    <path d="M300 201V276C300 316 316 336 343 336C370 336 386 316 386 276V201" stroke="#F8F4EA" stroke-width="23"/>
+    <path d="M414 379V202M414 206H440C461 206 473 220 473 241C473 262 460 277 440 277H414" stroke="#6EA5D6" stroke-opacity="0.36" stroke-width="20"/>
+  </g>
+  <path d="M246 120L215 183H277L246 120Z" fill="#FFD269"/>
+  <g fill="#51D8C1"><circle cx="216" cy="391" r="4" opacity="0.35"/><circle cx="242" cy="391" r="4" opacity="0.55"/><circle cx="268" cy="391" r="4" opacity="0.75"/><circle cx="294" cy="391" r="4"/></g>
+</svg>

@@ -3,7 +3,7 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -430,7 +430,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
               ),
               decoration: InputDecoration(
                 hintText:
-                    'Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.',
+                    context.uiText('Paste hoặc nhập văn bản...\n\nMỗi dòng = 1 đơn vị đọc.'),
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.28),
                   fontSize: 13,
@@ -646,11 +646,11 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _isLoading
+                  context.uiText(_isLoading
                       ? 'Đang tải...'
                       : _files.isEmpty
                           ? 'Chưa có tài liệu nào'
-                          : '${_files.length} tài liệu',
+                          : '${_files.length} tài liệu'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.42),
                     fontSize: 12,
@@ -803,7 +803,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: context.uiText(hint),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -1036,66 +1036,97 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   Widget _buildRecentEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.elasticOut,
-              builder: (_, v, child) => Transform.scale(scale: v, child: child),
-              child: const Text(
-                '📚',
-                style: TextStyle(fontSize: 72),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isVerySmall = constraints.maxWidth < 360;
+          final horizontalPad = isVerySmall ? 20.0 : 40.0;
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.elasticOut,
+                    builder: (_, v, child) =>
+                        Transform.scale(scale: v, child: child),
+                    child: Text(
+                      '📚',
+                      style: TextStyle(fontSize: isVerySmall ? 56 : 72),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Thư viện đang trống',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isVerySmall ? 18 : 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Nhấn "Thêm tài liệu" bên dưới\nhoặc chọn tab Cloud / Thiết bị',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.42),
+                      fontSize: isVerySmall ? 12 : 14,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Responsive button – Wrap ensures no yellow-black overflow on small screens
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.9,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _showAddSheet,
+                          icon:
+                              const Icon(Icons.add_rounded, color: Colors.white),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              isVerySmall
+                                  ? 'Thêm tài liệu'
+                                  : 'Thêm tài liệu đầu tiên',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1565C0),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isVerySmall ? 20 : 28,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Thư viện đang trống',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Nhấn "Thêm tài liệu" bên dưới\nhoặc chọn tab Cloud / Thiết bị',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontSize: 14,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _showAddSheet,
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: const Text(
-                'Thêm tài liệu đầu tiên',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 4,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1112,7 +1143,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'Không tìm thấy "$query"',
+            context.uiText('Không tìm thấy "$query"'),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.6),
               fontSize: 15,
@@ -1431,7 +1462,7 @@ class _CloudEntryTile extends StatelessWidget {
                         const SizedBox(width: 6),
                       ],
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

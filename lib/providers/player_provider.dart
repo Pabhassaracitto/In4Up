@@ -3,14 +3,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
-import 'package:in2up_stt/in2up_stt.dart';
-
-import '../audio/audio_player_service.dart';
-import '../models/playback_state.dart';
-import '../models/segment.dart';
-import '../screens/listen_mode/models/recent_audio.dart';
-import '../screens/listen_mode/services/recent_audio_service.dart';
+import 'package:in4up/audio/audio_player_service.dart';
+import 'package:in4up/models/playback_state.dart';
+import 'package:in4up/models/segment.dart';
+import 'package:in4up/screens/listen_mode/models/recent_audio.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../services/storage_service.dart';
 import 'text_provider.dart'; // Import TextProvider
@@ -306,7 +303,7 @@ class PlayerProvider extends ChangeNotifier
     String? artist,
     bool autoPlay = false,
   }) async {
-    final normalizedPath = path.replaceAll('\\', '/');
+    final normalizedPath = path.replaceAll("\\", "/");
 
     // ★ TASK 5: Dọn dẹp dữ liệu LRC bài cũ ngay khi đổi sang bài mới
     // Chỉ clear nếu thực sự đổi bài (tránh clear khi load lại cùng bài)
@@ -374,7 +371,12 @@ class PlayerProvider extends ChangeNotifier
 
   /// Helper normalize path (dùng nội bộ trong provider)
   String _normalizePath(String path) {
-    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
+    try {
+      return Uri.decodeFull(path.replaceAll("\\", "/").toLowerCase().trim());
+    } catch (_) {
+      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
+      return path.replaceAll("\\", "/").toLowerCase().trim();
+    }
   }
 
   // ★ THÊM: clearCurrentSong() — dùng cho "Xem tất cả" trong QuickAudioSheet

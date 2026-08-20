@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_ai/in2up_ai.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 
 import '../../../providers/text_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
@@ -241,9 +241,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          facade.hasModel
+          context.uiText(facade.hasModel
               ? '✨ Đã làm giàu ${targets.length} mục bằng AI/local'
-              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic',
+              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic'),
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -343,7 +343,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🛠️ Đã áp dụng bulk fields cho ${targets.length} mục'),
+        content: Text(context.uiText('🛠️ Đã áp dụng bulk fields cho ${targets.length} mục')),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -364,7 +364,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: Text('Sửa mục: ${candidate.text}'),
+          title: Text(context.uiText('Sửa mục: ${candidate.text}')),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -437,8 +437,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
 
   InputDecoration _inputDecoration(String label, {String? hint}) {
     return InputDecoration(
-      labelText: label,
-      hintText: hint,
+      labelText: context.uiText(label),
+      hintText: hint == null ? null : context.uiText(hint),
       labelStyle: TextStyle(color: Colors.grey[300]),
       hintStyle: TextStyle(color: Colors.grey[600]),
       filled: true,
@@ -631,9 +631,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.processedCount == 0
+          context.uiText(result.processedCount == 0
               ? 'Chưa có mục nào được nhập vào WordList'
-              : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}, bỏ qua ${result.skippedCount}',
+              : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}, bỏ qua ${result.skippedCount}'),
         ),
         backgroundColor: const Color(0xFF1E5F3A),
         behavior: SnackBarBehavior.floating,
@@ -712,7 +712,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               onChanged: (value) => setState(() => _searchQuery = value),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Tìm trong danh sách ứng viên...',
+                hintText: context.uiText('Tìm trong danh sách ứng viên...'),
                 hintStyle: TextStyle(color: Colors.grey[500]),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70),
                 suffixIcon: _searchQuery.trim().isEmpty
@@ -870,7 +870,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                   ),
                                   const SizedBox(width: 2),
                                   IconButton(
-                                    tooltip: 'Sửa mục này',
+                                    tooltip: context.uiText('Sửa mục này'),
                                     visualDensity: VisualDensity.compact,
                                     onPressed: () => _editCandidate(candidate),
                                     icon: const Icon(
@@ -973,7 +973,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _candidateStatusText(candidate),
+                                  context.uiText(
+                                    _candidateStatusText(candidate),
+                                  ),
                                   style: TextStyle(
                                     color: candidate.isImportReady
                                         ? Colors.green[200]
@@ -1017,9 +1019,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 ),
                 const Spacer(),
                 Text(
-                  _importReadyOnly
+                  context.uiText(_importReadyOnly
                       ? 'Ready đã chọn: $_selectedReadyCount'
-                      : 'Đã chọn: $_selectedCount',
+                      : 'Đã chọn: $_selectedCount'),
                   style: TextStyle(color: Colors.grey[400], fontSize: 12),
                 ),
               ],
@@ -1052,9 +1054,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                         : _importSelected,
                     icon: const Icon(Icons.library_add_check),
                     label: Text(
-                      _importReadyOnly
+                      context.uiText(_importReadyOnly
                           ? 'Nhập $_selectedReadyCount mục sẵn sàng'
-                          : 'Nhập $_selectedCount mục vào WordList',
+                          : 'Nhập $_selectedCount mục vào WordList'),
                     ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1084,7 +1086,7 @@ class _MetaChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: const TextStyle(
           color: Colors.white70,
           fontWeight: FontWeight.w600,
@@ -1110,7 +1112,7 @@ class _MiniBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: TextStyle(
           color: color,
           fontSize: 11,
@@ -1146,7 +1148,7 @@ class _LengthChip extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Text(
-          'Min length $value',
+          context.uiText('Min length $value'),
           style: const TextStyle(color: Colors.white70),
         ),
       ),
@@ -1191,7 +1193,7 @@ class _SortChip extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Text(
-          _label(sort),
+          context.uiText(_label(sort)),
           style: const TextStyle(color: Colors.white70),
         ),
       ),
@@ -1236,7 +1238,7 @@ class _EmptyState extends StatelessWidget {
                 color: Colors.grey[600], size: 34),
             const SizedBox(height: 12),
             Text(
-              title,
+              context.uiText(title),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
@@ -1246,7 +1248,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              description,
+              context.uiText(description),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[400], height: 1.5),
             ),

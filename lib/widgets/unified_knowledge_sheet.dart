@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';
@@ -205,7 +205,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           if ((word.example ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              'Ví dụ: ${word.example!.trim()}',
+              context.uiText('Ví dụ: ${word.example!.trim()}'),
               style: TextStyle(
                 color: Colors.grey[300],
                 height: 1.45,
@@ -296,9 +296,9 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           if (word.nextReview != null) ...[
             const SizedBox(height: 10),
             Text(
-              word.hasAnyDue
+              context.uiText(word.hasAnyDue
                   ? 'Cần ôn lại ngay'
-                  : 'Ôn tiếp sau ${word.daysUntilDue} ngày',
+                  : 'Ôn tiếp sau ${word.daysUntilDue} ngày'),
               style: TextStyle(
                 color: word.hasAnyDue ? Colors.redAccent : Colors.grey[300],
                 fontWeight: FontWeight.w600,
@@ -379,6 +379,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
     Color color,
     double value,
   ) {
+    final displayLabel = context.uiText(label);
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -390,7 +391,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           SizedBox(
             width: 42,
             child: Text(
-              label,
+              displayLabel,
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
             ),
           ),
@@ -412,12 +413,12 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: '$label chưa chắc',
+            tooltip: context.uiText('$displayLabel chưa chắc'),
             onPressed: () => provider.quickAnswerWord(word.id, skill, false),
             icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
           ),
           IconButton(
-            tooltip: '$label ổn',
+            tooltip: context.uiText('$displayLabel ổn'),
             onPressed: () => provider.quickAnswerWord(word.id, skill, true),
             icon: const Icon(Icons.check_rounded, color: Colors.greenAccent),
           ),
@@ -527,7 +528,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
               maxLines: 6,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Nhập ghi chú tổng hợp cho từ này...',
+                hintText: context.uiText('Nhập ghi chú tổng hợp cho từ này...'),
                 hintStyle: TextStyle(color: Colors.grey[500]),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),
@@ -588,7 +589,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
             )
           else
             ...contexts.take(12).map(
-              (context) => Container(
+              (entry) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -601,11 +602,16 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                   children: [
                     Row(
                       children: [
-                        Text(context.sourceIcon, style: const TextStyle(fontSize: 14)),
+                        Text(entry.sourceIcon, style: const TextStyle(fontSize: 14)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            context.displaySource,
+                            entry.composeDisplaySource(
+                              entry.hasGeneratedPositionLabel &&
+                                      entry.pageOrPosition != null
+                                  ? context.uiText(entry.pageOrPosition!)
+                                  : entry.pageOrPosition,
+                            ),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -614,7 +620,9 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                           ),
                         ),
                         Text(
-                          _formatEncounterAt(context.encounteredAt),
+                          context.uiText(
+                            _formatEncounterAt(entry.encounteredAt),
+                          ),
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 11,
@@ -624,14 +632,14 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      context.surroundingText,
+                      entry.surroundingText,
                       style: TextStyle(
                         color: Colors.grey[300],
                         height: 1.45,
                         fontSize: 12,
                       ),
                     ),
-                    if (context.hasPreciseAnchor) ...[
+                    if (entry.hasPreciseAnchor) ...[
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -656,7 +664,9 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                context.precisionSummary,
+                                entry.precisionSummaryParts
+                                    .map((part) => context.uiText(part))
+                                    .join(' · '),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -674,11 +684,13 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
-                        onPressed: context.canReopenSource
-                            ? () => _openContextSource(context, word)
+                        onPressed: entry.canReopenSource
+                            ? () => _openContextSource(entry, word)
                             : null,
                         icon: const Icon(Icons.open_in_new, size: 16),
-                        label: Text(context.reopenActionLabel),
+                        label: Text(
+                          context.uiText(entry.reopenActionLabel),
+                        ),
                       ),
                     ),
                   ],

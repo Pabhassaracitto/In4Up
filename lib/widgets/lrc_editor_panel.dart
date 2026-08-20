@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/providers/player_provider.dart';
-import 'package:in2up/providers/text_provider.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up_stt/stt_lrc_converter.dart';
+import 'package:in4up/providers/player_provider.dart';
+import 'package:in4up/providers/text_provider.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up_stt/stt_lrc_converter.dart';
 
 class LrcEditorPanel extends StatefulWidget {
   final bool initiallyExpanded;
@@ -49,18 +49,20 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, provider, _) {
-        final lrcPath = provider.lastGeneratedLrcPath;
-        final error = provider.lastSttError;
+    // Chỉ rebuild khi lrcPath / error / isGenerating thay đổi, tránh rebuild liên tục do position
+    return Selector<PlayerProvider,
+        ({String? lrcPath, String? error, bool isGenerating})>(
+      selector: (_, p) => (
+        lrcPath: p.lastGeneratedLrcPath,
+        error: p.lastSttError,
+        isGenerating: p.isGeneratingLrc
+      ),
+      builder: (context, data, _) {
+        final lrcPath = data.lrcPath;
+        final error = data.error;
+        final isGenerating = data.isGenerating;
 
-        // ★ DEBUG - xóa sau khi fix xong
-        debugPrint('🔍 LrcEditorPanel rebuild: '
-            'lrcPath=$lrcPath, '
-            'error=$error, '
-            'isGenerating=${provider.isGeneratingLrc}');
-
-        // Hiển thị lỗi
+        // Hiển thị lỗi - chỉ log khi error thay đổi
         if (error != null && error.isNotEmpty) {
           return Container(
             margin: const EdgeInsets.only(top: 12),
@@ -73,12 +75,12 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.error_outline,
+                    const Icon(Icons.error_outline,
                         color: Colors.redAccent, size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
+                    const SizedBox(width: 8),
+                    const Expanded(
                       child: Text(
                         'Lỗi tạo LRC',
                         style: TextStyle(
@@ -87,37 +89,82 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                         ),
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 16, color: Colors.redAccent),
+                      tooltip: context.uiText('Đóng lỗi'),
+                      onPressed: () {
+                        // Xóa lỗi để không hiện lại
+                        context.read<PlayerProvider>().clearSttError();
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
+                SelectableText(
                   error,
-                  maxLines: 6,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.redAccent, height: 1.35),
+                  maxLines: 12,
+                  style:
+                      const TextStyle(color: Colors.redAccent, height: 1.35, fontSize: 12),
                 ),
+                if (isGenerating) ...[
+                  const SizedBox(height: 8),
+                  const Row(
+                    children: [
+                      SizedBox(
+                          width: 14,
+                          height: 14,
+                          child:
+                              CircularProgressIndicator(strokeWidth: 2)),
+                      SizedBox(width: 8),
+                      Text('Đang tạo lại...',
+                          style: TextStyle(
+                              color: Colors.redAccent, fontSize: 11)),
+                    ],
+                  ),
+                ],
               ],
             ),
           );
         }
 
-        // ★ FIX: Chỉ cần lrcPath, không cần check segments
         if (lrcPath == null) {
           return const SizedBox.shrink();
         }
 
-        // ★ FIX: Check file tồn tại trước khi load
+        // Check file tồn tại trước khi load (không log spam)
         final file = File(lrcPath);
         if (!file.existsSync()) {
-          debugPrint('⚠️ LRC file không tồn tại: $lrcPath');
+          // File chưa kịp tạo hoặc đã xóa, ẩn đi
           return const SizedBox.shrink();
         }
 
         // Load LRC nếu path thay đổi
         _ensureLoaded(lrcPath);
 
-        // ★ FIX: Nếu load xong mà không có dòng nào thì ẩn
         if (_lines == null || _lines!.isEmpty) {
+          // Đang load async, hiện loading nhẹ thay vì shrink để tránh nhảy layout
+          if (_lastLrcPath != lrcPath) {
+            return Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 8),
+                  Text('Đang tải LRC...',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            );
+          }
           return const SizedBox.shrink();
         }
 
@@ -143,7 +190,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${widget.title} (${_lines!.length} dòng)',
+                        context.uiText('${widget.title} (${_lines!.length} dòng)'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -239,7 +286,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    '${_lines!.length} dòng · Nhấn để mở rộng',
+                    context.uiText('${_lines!.length} dòng · Nhấn để mở rộng'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),

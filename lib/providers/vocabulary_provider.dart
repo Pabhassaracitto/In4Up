@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
@@ -91,14 +91,24 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void bindAuthState() {
+    try {
+      if (FirebaseAuth.instance.app.name.isEmpty) return;
+    } catch (_) {
+      debugPrint('⚠️ bindAuthState: Firebase not available, skip');
+      return;
+    }
     _authSub?.cancel();
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
-      if (user == null) {
-        disableSync();
-        return;
-      }
-      await enableSync(user.uid);
-    });
+    try {
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+        if (user == null) {
+          disableSync();
+          return;
+        }
+        await enableSync(user.uid);
+      });
+    } catch (e) {
+      debugPrint('⚠️ bindAuthState failed: $e');
+    }
   }
 
   List<WordEntry> get displayedWords {

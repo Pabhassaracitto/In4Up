@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import 'vocabulary_type.dart';
 import 'vocab_context.dart';
+
+// Task 2 / ADR-0001: SkillReviewData tách file riêng, chỉ phụ thuộc
+// hàm SM-2 DUY NHẤT. Re-export để mọi nơi import word_entry vẫn dùng được.
+import 'skill_review_data.dart';
+export 'skill_review_data.dart';
 
 const double kThreshold = 0.6;
 
@@ -106,98 +111,10 @@ extension MasteryZoneInfo on MasteryZone {
 }
 
 /// ═══════════════════════════════════════════════════════════════
-/// SKILL REVIEW DATA — SM-2 cho từng chiều kỹ năng
-/// ═══════════════════════════════════════════════════════════════
-class SkillReviewData {
-  double score; // 0.0 → 1.0
-  double easeFactor;
-  int interval; // ngày
-  int repetitions;
-  DateTime? nextReview;
-  int totalReviews;
-  int correctReviews;
-
-  SkillReviewData({
-    this.score = 0.0,
-    this.easeFactor = 2.5,
-    this.interval = 0,
-    this.repetitions = 0,
-    this.nextReview,
-    this.totalReviews = 0,
-    this.correctReviews = 0,
-  });
-
-  bool get isDue {
-    if (nextReview == null) return true;
-    return DateTime.now().isAfter(nextReview!);
-  }
-
-  int get daysUntilDue {
-    if (nextReview == null) return 0;
-    final diff = nextReview!.difference(DateTime.now()).inDays;
-    return diff < 0 ? 0 : diff;
-  }
-
-  double get accuracy => totalReviews > 0 ? correctReviews / totalReviews : 0;
-
-  void review(int quality) {
-    // SM-2 algorithm inline
-    if (quality >= 3) {
-      if (repetitions == 0) {
-        interval = 1;
-      } else if (repetitions == 1) {
-        interval = 6;
-      } else {
-        interval = (interval * easeFactor).round();
-      }
-      repetitions++;
-    } else {
-      repetitions = 0;
-      interval = 1;
-    }
-
-    easeFactor =
-        (easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
-            .clamp(1.3, 2.5);
-    nextReview = DateTime.now().add(Duration(days: interval));
-
-    totalReviews++;
-    if (quality >= 3) {
-      correctReviews++;
-      final delta = (quality - 2) * 0.1;
-      score = (score + delta).clamp(0.0, 1.0);
-    } else {
-      final delta = (quality - 2) * 0.05;
-      score = (score + delta).clamp(0.0, 1.0);
-    }
-  }
-
-  Map<String, dynamic> toJson() => {
-        'score': score,
-        'easeFactor': easeFactor,
-        'interval': interval,
-        'repetitions': repetitions,
-        'nextReview': nextReview?.toIso8601String(),
-        'totalReviews': totalReviews,
-        'correctReviews': correctReviews,
-      };
-
-  factory SkillReviewData.fromJson(Map<String, dynamic> json) =>
-      SkillReviewData(
-        score: (json['score'] as num?)?.toDouble() ?? 0.0,
-        easeFactor: (json['easeFactor'] as num?)?.toDouble() ?? 2.5,
-        interval: json['interval'] as int? ?? 0,
-        repetitions: json['repetitions'] as int? ?? 0,
-        nextReview: json['nextReview'] != null
-            ? DateTime.parse(json['nextReview'] as String)
-            : null,
-        totalReviews: json['totalReviews'] as int? ?? 0,
-        correctReviews: json['correctReviews'] as int? ?? 0,
-      );
-}
-
-/// ═══════════════════════════════════════════════════════════════
 /// WORD ENTRY — 3 chiều SM-2 + Hierarchical Vocabulary
+///
+/// SkillReviewData (SM-2 cho từng chiều) đã tách sang skill_review_data.dart
+/// (Task 2 / ADR-0001) — được import + re-export bên dưới.
 /// ═══════════════════════════════════════════════════════════════
 class WordEntry {
   final String id;

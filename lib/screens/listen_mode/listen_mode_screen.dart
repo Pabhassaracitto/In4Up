@@ -1,5 +1,5 @@
 // lib/screens/listen_mode/listen_mode_screen.dart
-// in2up – Listen Mode (v11 LRC Fix)
+// in4up – Listen Mode (v11 LRC Fix)
 //
 // CHANGELOG v11:
 //   1. Double-tap: không ẩn waveform (sửa ở rolling_waveform_view.dart)
@@ -10,27 +10,31 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:in2up_stt/models/stt_config.dart';
-import 'package:in2up_stt/models/stt_model_info.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/models/stt_config.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up/providers/karaoke_settings_provider.dart';
-import 'package:in2up/widgets/karaoke_lyrics_line.dart';
-import 'package:in2up/widgets/karaoke_settings_sheet.dart';
-import 'package:in2up/widgets/lrc_editor_panel.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
+import 'package:in4up/widgets/karaoke_lyrics_line.dart';
+import 'package:in4up/widgets/karaoke_settings_sheet.dart';
+import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
+import '../../providers/soundlist_provider.dart';
+import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../widgets/ab_loop_controls.dart';
+import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
+import 'widgets/soundlist_panel.dart';
 
 enum _InlinePanel { repeat, speed, sleep, ab, ai }
 
@@ -55,10 +59,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   bool _isUserSeeking = false;
   bool _isCurrentRoute = true;
 
-  // ★ LRC state
+  // ★ LRC state - curtain style
   List<String> _lrcLines = [];
   bool _showLrcOnMain = false;
   bool _lrcAutoScroll = true;
+  double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
+  static const double _lrcMinHeight = 64.0; // when collapsed, show handle
+  static const double _lrcDefaultHeight = 220.0;
+  double _lrcDragStartHeight = 320.0;
 
   // LRC ScrollController for sophisticated LRC display
   late ScrollController _lrcScrollController;
@@ -134,6 +142,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
 
+    // FIX OOM v4: neu dang transcribe thi KHONG reload waveform de tranh double FFmpeg + ExoPlayer ton RAM
+    try {
+      if (player.isGeneratingLrc) {
+        debugPrint('⏭️ Skip waveform reload during transcription to save RAM');
+        return;
+      }
+    } catch (_) {}
+
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
 
@@ -200,35 +216,48 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     super.dispose();
   }
 
-  // Auto-scroll to active LRC line (from UnderstandModeScreen)
+  // Auto-scroll to active LRC line - improved, không trật màn hình
   void _scrollToLine(int index) {
     if (!_lrcScrollController.hasClients || index < 0) return;
+    if (_lrcHeight < _lrcMinHeight) return; // panel đang ẩn hoặc quá nhỏ
 
-    // Chỉ scroll khi dòng hiện tại nằm ngoài vùng nhìn, tránh giật liên tục.
-    final position = _lrcScrollController.position;
-    final viewportHeight = position.viewportDimension;
-    final estimatedLineHeight = 56.0;
+    try {
+      final position = _lrcScrollController.position;
+      if (!position.hasContentDimensions) return;
 
-    final targetOffset = index * estimatedLineHeight;
-    final centerOffset =
-        targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
-    final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
+      final viewportHeight = position.viewportDimension;
+      if (viewportHeight <= 0) return;
 
-    // Nếu dòng đã ở trong vùng nhìn (với một chút lề) thì không cần scroll.
-    final tolerance = 8.0;
-    final inView = targetOffset >= position.pixels - tolerance &&
-        targetOffset <= position.pixels + viewportHeight - tolerance;
-    if (inView) return;
+      const estimatedLineHeight = 52.0;
+      final targetOffset = index * estimatedLineHeight;
+      // Karaoke centered in middle for best visibility (was 0.35 top, hidden above)
+      final desiredCenter = viewportHeight * 0.5;
+      final centerOffset =
+          targetOffset - desiredCenter + (estimatedLineHeight / 2);
 
-    _lrcScrollController.animateTo(
-      clamped,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+      if (position.maxScrollExtent <= 0) return;
+      final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
+
+      // Luôn scroll để dòng karaoke ở giữa, không skip khi inView (fix ẩn trên nhiều)
+      if ((position.pixels - clamped).abs() > 8) {
+        _lrcScrollController.animateTo(
+          clamped,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    } catch (e) {
+      debugPrint('[LRC] scrollToLine error: $e');
+    }
   }
 
   String _normalizePath(String path) {
-    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
+    try {
+      return Uri.decodeFull(path.replaceAll("\\", "/").toLowerCase().trim());
+    } catch (_) {
+      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
+      return path.replaceAll("\\", "/").toLowerCase().trim();
+    }
   }
 
   void _onPlayerChange() {
@@ -238,6 +267,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
@@ -419,7 +450,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             child: Row(children: [
               const Text('📍', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text('Tại ${_fmtDuration(position)}',
+              Text(context.uiText('Tại ${_fmtDuration(position)}'),
                   style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -484,7 +515,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(context.uiText(message)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -526,151 +557,491 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     onTitleTap: () => QuickAudioSheet.show(context),
                   ),
 
-                  // ★ Waveform — chiếm ít hơn khi có LRC
+                  // ★ Waveform — chiếm phần còn lại, khi LRC mở thì tự thu nhỏ
                   Expanded(
-                    flex: _showLrcOnMain ? 2 : 4,
                     child: _buildWaveform(player),
                   ),
 
-                  // ★ FIX 3: Hiển thị Lyrics từ UnderstandProvider ngay khi có
+                  // ★ LRC CURTAIN: kéo được như rèm, chạm chân sóng, ẩn hiện linh hoạt
+                  // Thay vì Flexible cố định, dùng Container với _lrcHeight có thể kéo
                   if (_showLrcOnMain)
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
-                        if (understand!.lrcLines.isEmpty) {
-                          return Flexible(
-                            flex: 3,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  "Chưa có nội dung\nHãy tạo LRC từ STT",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey),
-                                ),
+                        final hasLines = understand!.lrcLines.isNotEmpty;
+                        // Cho phép kéo rèm sát sóng: 65-75% màn hình, max 650px
+                        final screenH = MediaQuery.of(context).size.height;
+                        final maxH = (screenH * (screenH < 700 ? 0.65 : 0.75)).clamp(250.0, 650.0);
+                        final dragAction = context.uiText(
+                          _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
+                        );
+                        final tapAction = context.uiText(
+                          _lrcHeight < maxH * 0.9 ? 'mở toàn màn hình' : 'thu gọn',
+                        );
+
+                        // Clamp current height
+                        if (_lrcHeight > maxH) _lrcHeight = maxH;
+                        if (_lrcHeight < _lrcMinHeight) _lrcHeight = _lrcMinHeight;
+
+                        if (!hasLines) {
+                          return Container(
+                            height: 120,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[900],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Chưa có nội dung\nHãy tạo LRC từ STT",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey),
                               ),
                             ),
                           );
                         }
 
-                        return Flexible(
-                          flex: 3,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[900],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              children: [
-                                // Header với nút đóng
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                        return Container(
+                          height: _lrcHeight,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121212),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.06)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Drag handle - curtain: kéo như rèm
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragStart: (d) {
+                                  _lrcDragStartHeight = _lrcHeight;
+                                },
+                                onVerticalDragUpdate: (d) {
+                                  // Kéo lên => tăng height, kéo xuống => giảm
+                                  // Dùng delta.dy: kéo lên delta âm, nên -delta => tăng
+                                  final delta = -d.delta.dy;
+                                  setState(() {
+                                    _lrcHeight = (_lrcHeight + delta)
+                                        .clamp(_lrcMinHeight, maxH);
+                                  });
+                                },
+                                onVerticalDragEnd: (d) {
+                                  final velocity = d.primaryVelocity ?? 0;
+                                  // Vuốt xuống nhanh (velocity >0) -> ẩn
+                                  if (velocity > 700) {
+                                    setState(() {
+                                      _showLrcOnMain = false;
+                                      _lrcHeight = _lrcDefaultHeight;
+                                    });
+                                    HapticFeedback.mediumImpact();
+                                  } else if (_lrcHeight < 96) {
+                                    // Kéo thấp quá -> ẩn
+                                    setState(() {
+                                      _showLrcOnMain = false;
+                                      _lrcHeight = _lrcDefaultHeight;
+                                    });
+                                    HapticFeedback.lightImpact();
+                                  } else if (_lrcHeight < 180) {
+                                    // Snap về min
+                                    setState(() {
+                                      _lrcHeight = _lrcMinHeight + 32;
+                                    });
+                                  }
+                                },
+                                onTap: () {
+                                  // Tap handle để toggle full / default
+                                  HapticFeedback.selectionClick();
+                                  setState(() {
+                                    if (_lrcHeight < maxH * 0.85) {
+                                      _lrcHeight = maxH;
+                                    } else {
+                                      _lrcHeight = _lrcDefaultHeight;
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.03),
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(14)),
+                                  ),
+                                  child: Column(
                                     children: [
-                                      const Text(
-                                        "LRC Lyrics",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
+                                      Container(
+                                        width: 38,
+                                        height: 5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white24,
+                                          borderRadius:
+                                              BorderRadius.circular(3),
                                         ),
                                       ),
+                                      const SizedBox(height: 6),
                                       Row(
-                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.tune,
-                                                color: Colors.grey, size: 20),
-                                            tooltip: 'Tuỳ chỉnh karaoke',
-                                            onPressed: () =>
-                                                KaraokeSettingsSheet.show(
-                                                    context),
+                                          Icon(
+                                            Icons.keyboard_arrow_up_rounded,
+                                            size: 14,
+                                            color: Colors.grey[600],
                                           ),
-                                          IconButton(
-                                            icon: const Icon(Icons.close,
-                                                color: Colors.grey),
-                                            onPressed: () => setState(
-                                                () => _showLrcOnMain = false),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.keyboard_arrow_down_rounded,
+                                            size: 14,
+                                            color: Colors.grey[600],
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                // Sophisticated LRC ListView (from UnderstandModeScreen)
-                                Expanded(
-                                  child: NotificationListener<ScrollNotification>(
-                                    onNotification: (n) {
-                                      // Người dùng bắt đầu tự kéo → tạm tắt auto-scroll;
-                                      // ngừng kéo một lúc → bật lại.
-                                      if (n is ScrollStartNotification) {
-                                        _userScrollingLrc = true;
-                                      } else if (n is ScrollEndNotification) {
-                                        _userScrollingLrc = false;
-                                      }
-                                      return false;
-                                    },
-                                    child: ListView.builder(
+                              ),
+                              // Header với title + actions
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.06)),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.lyrics_outlined,
+                                        size: 14,
+                                        color: Color(0xFF6C63FF)),
+                                    const SizedBox(width: 5),
+                                    Flexible(
+                                      child: Text(
+                                        context.uiText("LRC ${understand.lrcLines.length} dòng"),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    // Auto-scroll toggle compact
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _autoScroll = !_autoScroll;
+                                        });
+                                        HapticFeedback.selectionClick();
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: _autoScroll
+                                              ? const Color(0xFF4CAF50)
+                                                  .withValues(alpha: 0.15)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.05),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              _autoScroll
+                                                  ? Icons.auto_awesome_mosaic
+                                                  : Icons
+                                                      .auto_awesome_mosaic_outlined,
+                                              size: 10,
+                                              color: _autoScroll
+                                                  ? const Color(0xFF4CAF50)
+                                                  : Colors.grey,
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              _autoScroll ? "Auto" : "Off",
+                                              style: TextStyle(
+                                                color: _autoScroll
+                                                    ? const Color(0xFF4CAF50)
+                                                    : Colors.grey,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    _LrcIconBtn(
+                                      icon: Icons.tune,
+                                      tooltip: context.uiText('Tuỳ chỉnh'),
+                                      onTap: () =>
+                                          KaraokeSettingsSheet.show(context),
+                                    ),
+                                    _LrcIconBtn(
+                                      icon: Icons.close_fullscreen_rounded,
+                                      tooltip: context.uiText('Thu nhỏ'),
+                                      onTap: () {
+                                        setState(() {
+                                          if (_lrcHeight > 140) {
+                                            _lrcHeight = 140;
+                                          } else {
+                                            _showLrcOnMain = false;
+                                            _lrcHeight = _lrcDefaultHeight;
+                                          }
+                                        });
+                                      },
+                                    ),
+                                    _LrcIconBtn(
+                                      icon: Icons.close,
+                                      tooltip: context.uiText('Ẩn'),
+                                      onTap: () => setState(() {
+                                        _showLrcOnMain = false;
+                                        _lrcHeight = _lrcDefaultHeight;
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // LRC List
+                              Expanded(
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (n) {
+                                    if (n is ScrollStartNotification) {
+                                      _userScrollingLrc = true;
+                                    } else if (n is ScrollEndNotification) {
+                                      _userScrollingLrc = false;
+                                      // Sau 2.5s không kéo thì bật lại auto-scroll
+                                      Future.delayed(
+                                          const Duration(milliseconds: 2500),
+                                          () {
+                                        if (mounted &&
+                                            !_userScrollingLrc) {
+                                          // không làm gì, chỉ reset cờ cho lần sau
+                                        }
+                                      });
+                                    }
+                                    return false;
+                                  },
+                                  child: ListView.builder(
                                     controller: _lrcScrollController,
-                                    itemCount: understand!.lrcLines.length,
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding:
+                                        const EdgeInsets.only(bottom: 72),
+                                    itemCount: understand.lrcLines.length,
                                     itemBuilder: (context, index) {
-                                      final line = understand.lrcLines[index];
-                                      final isActive =
-                                          index == understand.currentLineIndex;
+                                      final line =
+                                          understand.lrcLines[index];
+                                      final isActive = index ==
+                                          understand.currentLineIndex;
+
+                                      // Tìm bản dịch từ TextProvider nếu có (khớp nội dung)
+                                      String? lrcTranslation;
+                                      try {
+                                        final tp =
+                                            context.read<TextProvider>();
+                                        if (tp.lines.isNotEmpty) {
+                                          // Thử khớp chính xác trước
+                                          final exact = tp.lines.where((e) =>
+                                              e.content.trim() ==
+                                              line.text.trim());
+                                          if (exact.isNotEmpty &&
+                                              exact.first.translation !=
+                                                  null) {
+                                            lrcTranslation =
+                                                exact.first.translation;
+                                          } else {
+                                            // Fallback: tìm chứa
+                                            final contains = tp.lines.where(
+                                                (e) =>
+                                                    line.text.contains(
+                                                        e.content.trim()) ||
+                                                    e.content
+                                                        .trim()
+                                                        .contains(line.text
+                                                            .trim()));
+                                            if (contains.isNotEmpty) {
+                                              lrcTranslation = contains
+                                                  .firstWhere((e) =>
+                                                      e.translation != null &&
+                                                      e.translation!
+                                                          .isNotEmpty,
+                                                      orElse: () =>
+                                                          contains.first)
+                                                  .translation;
+                                            }
+                                          }
+                                        }
+                                      } catch (_) {}
 
                                       return GestureDetector(
                                         onTap: () {
                                           context
                                               .read<PlayerProvider>()
                                               .seek(line.timestamp);
+                                          HapticFeedback.selectionClick();
+                                        },
+                                        onLongPress: () {
+                                          // Copy text
+                                          Clipboard.setData(ClipboardData(
+                                              text: line.text));
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    "Đã copy lời thoại"),
+                                                duration:
+                                                    Duration(seconds: 1)),
+                                          );
                                         },
                                         child: AnimatedContainer(
-                                          duration:
-                                              const Duration(milliseconds: 200),
+                                          duration: const Duration(
+                                              milliseconds: 220),
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 10,
-                                            horizontal: 16,
+                                            horizontal: 12,
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
                                                 ? const Color(0xFF6C63FF)
-                                                    .withValues(alpha: 0.15)
+                                                    .withValues(alpha: 0.14)
                                                 : Colors.transparent,
                                             borderRadius:
-                                                BorderRadius.circular(8),
+                                                BorderRadius.circular(10),
+                                            border: isActive
+                                                ? Border.all(
+                                                    color:
+                                                        const Color(0xFF6C63FF)
+                                                            .withValues(
+                                                                alpha: 0.25),
+                                                    width: 1)
+                                                : null,
                                           ),
-                                          child: Consumer<KaraokeSettingsProvider>(
+                                          child: Consumer<
+                                              KaraokeSettingsProvider>(
                                             builder: (_, karaoke, __) =>
                                                 KaraokeLyricsLine(
                                               line: line,
                                               isActive: isActive,
-                                              words: understand!
+                                              words: understand
                                                   .wordsForLine(index),
                                               activeWordIndex: isActive
-                                                  ? understand.currentWordIndex
+                                                  ? understand
+                                                      .currentWordIndex
                                                   : -1,
                                               style: karaoke.style,
+                                              translation: lrcTranslation,
                                             ),
                                           ),
                                         ),
                                       );
                                     },
                                   ),
-                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              // Bottom hint to drag down to close
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  "Vuốt xuống để ẩn • Nhấn dòng để nhảy tới",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 9,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
                     ),
+                  // Khi ẩn nhưng vẫn có LRC -> hiện pill để mở lại
+                  Consumer<UnderstandProvider>(
+                    builder: (context, understand, _) {
+                      if (_showLrcOnMain) return const SizedBox.shrink();
+                      if (understand!.lrcLines.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Container(
+                        margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            _showLrcOnMain = true;
+                            _lrcHeight = _lrcDefaultHeight;
+                          }),
+                          onVerticalDragUpdate: (d) {
+                            if (d.delta.dy < -6) {
+                              // kéo lên
+                              setState(() {
+                                _showLrcOnMain = true;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C63FF)
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: const Color(0xFF6C63FF)
+                                      .withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.lyrics,
+                                    size: 16, color: Color(0xFF8B83FF)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
+                                  style: const TextStyle(
+                                    color: Color(0xFF8B83FF),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.keyboard_arrow_up_rounded,
+                                    size: 16, color: Color(0xFF8B83FF)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
                   // Controls
                   Consumer<PlayerProvider>(
@@ -961,6 +1332,28 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
             enabled: _zoom < _maxZoom,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LrcIconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _LrcIconBtn({required this.icon, required this.tooltip, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(left: 4),
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 14, color: Colors.grey),
       ),
     );
   }
@@ -1264,7 +1657,7 @@ class _SleepPanel extends StatelessWidget {
           min: 5,
           max: 120,
           divisions: 23,
-          label: '$minutes phút',
+          label: context.uiText('$minutes phút'),
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
         ),
@@ -1276,7 +1669,7 @@ class _SleepPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child:
-                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
+                Text(context.uiText('Đặt $minutes phút'), style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
@@ -1429,24 +1822,17 @@ class _AIPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
     final compact = screenSize.width < 430 || screenSize.height < 780;
-    final maxHeight = compact ? screenSize.height * 0.42 : screenSize.height * 0.55;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const GenerateLrcButton(),
-            SizedBox(height: compact ? 10 : 12),
-            LrcEditorPanel(
-              initiallyExpanded: true,
-              compact: compact,
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const GenerateLrcButton(),
+        SizedBox(height: compact ? 10 : 12),
+        LrcEditorPanel(
+          initiallyExpanded: true,
+          compact: compact,
         ),
-      ),
+      ],
     );
   }
 }
@@ -1573,11 +1959,16 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     label: 'Dấu',
                     color: const Color(0xFFFFB300),
                     isActive: false,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      _showSnack(
-                          '📌 Đã đánh dấu ${_fmt(player.state.position)}');
-                    },
+                    onTap: () => _saveMark(player),
+                    onLongPress: () => showSoundlistPanel(context),
+                  ),
+                  const SizedBox(width: 6),
+                  _ActionTile(
+                    icon: Icons.menu_book_outlined,
+                    label: 'Âm mục',
+                    color: const Color(0xFF26C6DA),
+                    isActive: false,
+                    onTap: () => showSoundlistPanel(context),
                   ),
                   const SizedBox(width: 6),
                   _ActionTile(
@@ -1619,6 +2010,10 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   }
 
   Widget _buildInlinePanel(PlayerProvider player) {
+    // Fix overflow 34/354px trên màn hình nhỏ SE (568px): giảm maxHeight xuống 24-28% và cho scroll
+    // Trước 0.42 gây overflow 18px, 0.32 vẫn overflow 34px khi height 1100, nên dùng 0.26-0.30 tùy màn hình
+    final screenH = MediaQuery.of(context).size.height;
+    final maxH = screenH < 700 ? screenH * 0.26 : screenH < 900 ? screenH * 0.28 : screenH * 0.32;
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
       padding: const EdgeInsets.all(12),
@@ -1627,13 +2022,17 @@ class _SmartActionBarState extends State<_SmartActionBar> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: switch (_openPanel!) {
-        _InlinePanel.repeat => _RepeatPanel(player: player),
-        _InlinePanel.speed => _SpeedPanel(player: player),
-        _InlinePanel.sleep => _SleepPanel(player: player),
-        _InlinePanel.ab => const _ABLoopWithSilencePanel(),
-        _InlinePanel.ai => const _AIPanel(),
-      },
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: switch (_openPanel!) {
+          _InlinePanel.repeat => _RepeatPanel(player: player),
+          _InlinePanel.speed => _SpeedPanel(player: player),
+          _InlinePanel.sleep => _SleepPanel(player: player),
+          _InlinePanel.ab => const _ABLoopWithSilencePanel(),
+          _InlinePanel.ai => const _AIPanel(),
+        },
+      ),
     );
   }
 
@@ -1682,13 +2081,56 @@ class _SmartActionBarState extends State<_SmartActionBar> {
     return 'A─B';
   }
 
+  /// 📌 Lưu một "Điểm" vào Âm mục tại vị trí đang phát.
+  /// Giữ lâu nút này → mở panel Âm mục.
+  Future<void> _saveMark(PlayerProvider player) async {
+    final path = player.currentSongPath;
+    if (path == null) {
+      _showSnack('⚠️ Chưa có file âm thanh nào');
+      return;
+    }
+    HapticFeedback.lightImpact();
+    final soundlist = context.read<SoundlistProvider>();
+    if (!soundlist.isLoaded) {
+      await soundlist.load();
+    }
+    final mark = await soundlist.addMark(
+      audioPath: path,
+      position: player.state.position,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('📌 Đã đánh dấu ${_fmt(player.state.position)}'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFFFFB300),
+          duration: const Duration(milliseconds: 2600),
+          action: SnackBarAction(
+            label: 'Ghi chú',
+            textColor: Colors.black,
+            onPressed: () {
+              showEditMarkSheet(
+                context,
+                soundlist: soundlist,
+                mark: mark,
+              );
+            },
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+  }
+
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(msg),
+          content: Text(context.uiText(msg)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -1847,6 +2289,15 @@ class _PlayButton extends StatelessWidget {
 class GenerateLrcButton extends StatelessWidget {
   const GenerateLrcButton({super.key});
 
+  String _formatEta(int chunkIndex, int chunkCount, double progress) {
+    if (chunkCount <= 0 || chunkIndex < 0) return '';
+    final done = chunkIndex + 1;
+    if (done <= 0) return '';
+    final percent = (done / chunkCount * 100).toStringAsFixed(1);
+    final remaining = chunkCount - done;
+    return 'Chunk $done/$chunkCount ($percent%) - $remaining left';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
@@ -1857,6 +2308,7 @@ class GenerateLrcButton extends StatelessWidget {
           builder: (context, snapshot) {
             final progress = snapshot.data ?? SttProgress.idle;
             final isActive = progress.isActive;
+            final hasChunkInfo = progress.chunkCount > 0;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -1866,24 +2318,81 @@ class GenerateLrcButton extends StatelessWidget {
                   firstChild: const SizedBox(height: 4),
                   secondChild: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LinearProgressIndicator(
-                        value: progress.progress,
-                        backgroundColor: Colors.grey.shade800,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progress.status == SttFacadeStatus.error
-                              ? Colors.red
-                              : Colors.blue.shade400,
-                        ),
+                      // Progress bar with chunk info
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: hasChunkInfo
+                                  ? (progress.chunkIndex + 1) / progress.chunkCount
+                                  : progress.progress,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                progress.status == SttFacadeStatus.error
+                                    ? Colors.red
+                                    : Colors.blue.shade400,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (hasChunkInfo)
+                            Text(
+                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: Colors.blue.shade300,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(progress.message,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey[400]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      // Main message
+                      Text(
+                        progress.message,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[300], fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasChunkInfo) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.hourglass_top, size: 14, color: Colors.blue),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _formatEta(progress.chunkIndex, progress.chunkCount, progress.progress),
+                                  style: TextStyle(
+                                    color: Colors.blue.shade300,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.memory, size: 12, color: Colors.orange),
+                              const SizedBox(width: 2),
+                              Text(
+                                'RAM safe: lazy chunk',
+                                style: TextStyle(color: Colors.orange.shade300, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   crossFadeState: isActive

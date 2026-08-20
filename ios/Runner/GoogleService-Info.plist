@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>342774597309-gk1uua5n5ldohtt4nroc8irie05bed4m.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.342774597309-gk1uua5n5ldohtt4nroc8irie05bed4m</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>342774597309-276p37a3jequc9hfp3vsrfn1b6jels0b.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig</string>
+	<key>GCM_SENDER_ID</key>
+	<string>342774597309</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.in4up</string>
+	<key>PROJECT_ID</key>
+	<string>vipsound-df903</string>
+	<key>STORAGE_BUCKET</key>
+	<string>vipsound-df903.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:342774597309:ios:f1643ab0df1208351319d4</string>
+	<key>DATABASE_URL</key>
+	<string>https://vipsound-df903-default-rtdb.firebaseio.com</string>
+</dict>
+</plist>

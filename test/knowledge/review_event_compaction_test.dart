@@ -1,7 +1,7 @@
 // BISECT C10 — inline toàn bộ, không helper.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show SkillDimension;
+    show SkillDimension, SM2Algorithm;
 import 'package:in4up/knowledge/models/review_event.dart';
 import 'package:in4up/knowledge/review/review_event_compactor.dart';
 import 'package:in4up/knowledge/review/review_event_store.dart';
@@ -83,6 +83,43 @@ void main() {
       expect(record!.eventCount, 500);
       expect(record.replayedCount, 500);
       expect(record.compactedEventIds.length, 500);
+    });
+
+    test('replay ĐÚNG bằng hàm SM-2 duy nhất (so chuỗi thủ công)', () {
+      final events = [
+        _ev(0, 'u1', rating: SkillRating.good, t: DateTime.utc(2020, 1, 1)),
+        _ev(1, 'u1', rating: SkillRating.easy, t: DateTime.utc(2020, 1, 3)),
+        _ev(2, 'u1', rating: SkillRating.again, t: DateTime.utc(2020, 1, 9)),
+        // pad lên 500 với good ở các mốc ngày tiếp theo:
+        for (var i = 3; i < 500; i++)
+          _ev(i, 'u1', rating: SkillRating.good,
+              t: DateTime.utc(2020, 1, 10).add(Duration(days: i - 3))),
+      ];
+
+      // Chuỗi thủ công — gọi thẳng hàm chuẩn:
+      var ef = 2.5, interval = 0, reps = 0;
+      DateTime due = DateTime.utc(2020, 1, 1);
+      for (final e in events) {
+        final r = SM2Algorithm.calculate(
+            quality: qualityOf(e.rating),
+            currentEF: ef,
+            currentInterval: interval,
+            currentReps: reps,
+            now: e.timestamp);
+        ef = r.easeFactor;
+        interval = r.interval;
+        reps = r.repetitions;
+        due = r.nextReview;
+      }
+
+      final record =
+          ReviewEventCompactor.compact(unitId: 'u1', events: events);
+      final b = record!.baseline;
+      expect(b.easeFactor, closeTo(ef, 1e-9));
+      expect(b.interval, interval);
+      expect(b.repetitions, reps);
+      expect(b.dueDate, due);
+      expect(b.lastReviewedAt, events.last.timestamp);
     });
 
   });

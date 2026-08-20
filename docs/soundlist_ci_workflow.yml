@@ -1,7 +1,10 @@
 name: Soundlist Module Tests (Âm mục)
 
 # CI nhẹ cho module Soundlist (Âm mục) — theo pattern knowledge_tests.yml.
-# Sandbox/dev không cần build app đầy đủ; chỉ compile + analyze + test module mới.
+# ⚠️ LƯU Ý QUAN TRỌNG: lệnh analyze phải là MỘT DÒNG DUY NHẤT.
+#   (Bản cũ dùng nhiều dòng với dấu `\` trong plain-scalar YAML → YAML fold
+#    thành backslash + space → bash dính toàn bộ path thành 1 tham số → lệnh
+#    sai → analyze luôn đỏ dù code đúng. Đã chẩn đoán bằng vòng bisect skeleton.)
 # Skill liên quan: docs/skills/ci-red-debugging/SKILL.md
 
 on:
@@ -51,19 +54,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze Soundlist module
-        run: flutter analyze \
-          lib/models/sound_mark.dart \
-          lib/models/sound_chapter.dart \
-          lib/models/sound_transcript.dart \
-          lib/models/sound_loop_stat.dart \
-          lib/models/vad_settings.dart \
-          lib/services/sound_auto_toc_service.dart \
-          lib/providers/soundlist_provider.dart \
-          lib/widgets/sound_mark_edit_sheet.dart \
-          lib/widgets/sound_auto_toc_dialog.dart \
-          lib/screens/listen_mode/widgets/soundlist_panel.dart \
-          lib/screens/tools/sound_list \
-          test/sound_auto_toc_test.dart
+        run: flutter analyze lib/models/sound_mark.dart lib/models/sound_chapter.dart lib/models/sound_transcript.dart lib/models/sound_loop_stat.dart lib/models/vad_settings.dart lib/services/sound_auto_toc_service.dart lib/providers/soundlist_provider.dart lib/widgets/sound_mark_edit_sheet.dart lib/widgets/sound_auto_toc_dialog.dart lib/screens/listen_mode/widgets/soundlist_panel.dart lib/screens/tools/sound_list test/sound_auto_toc_test.dart
 
       - name: Run Soundlist tests
         run: flutter test test/sound_auto_toc_test.dart

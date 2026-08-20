@@ -49,4 +49,25 @@ void main() {
     expect(b.length, 3);
     expect(b.first.eventId, 'e-u1-0');
   });
+
+
+  group('ReviewEventStore — append-only (mục 2.4)', () {
+    test('append trùng eventId ⇒ StateError (không có đường sửa/xóa)',
+        () async {
+      final store = InMemoryReviewEventStore();
+      await store.append(_ev(1, 'u1'));
+      await store.append(_ev(2, 'u1'));
+      expect(() => store.append(_ev(1, 'u1')), throwsStateError);
+      expect(await store.activeCountOfUnit('u1'), 2);
+    });
+
+    test('activeEventsOfUnit: lazy, lọc retired, sắp theo timestamp', () async {
+      final store = InMemoryReviewEventStore();
+      await store.append(_ev(5, 'u1'));
+      await store.append(_ev(1, 'u1'));
+      await store.append(_ev(9, 'u2')); // unit khác — không lọt vào
+      final events = await store.activeEventsOfUnit('u1').toList();
+      expect(events.map((e) => e.eventId).toList(), ['e-u1-1', 'e-u1-5']);
+    });
+  });
 }

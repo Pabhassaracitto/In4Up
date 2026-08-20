@@ -1,53 +1,21 @@
-// Test Task 5 — DoD (mục 8 bàn giao):
-//   "Ghi 1000 event giả lập → RAM không tăng bất thường,
-//    snapshot đúng sau compaction"
-//
-// Thiết kế RAM-bounded thể hiện ở tầng store: active-per-unit bị chặn
-// quanh ngưỡng 500 (mục 2.4); tổng lịch sử append được đếm vĩnh viễn.
-// Impl vật lý (Hive LazyBox/SQLite) sẽ gắn qua cùng interface.
-
+// BISECT C10 — inline toàn bộ, không helper.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show SM2Snapshot, SkillDimension, SM2Algorithm;
+    show SkillDimension;
 import 'package:in4up/knowledge/models/review_event.dart';
-import 'package:in4up/knowledge/review/review_event_compactor.dart';
 import 'package:in4up/knowledge/review/review_event_store.dart';
-import 'package:in4up/knowledge/text/text_pipeline_worker.dart';
-
-ReviewEvent _ev(
-  int i,
-  String unitId, {
-  SkillRating? rating,
-  DateTime? t,
-  bool ignored = false,
-  String device = 'test-device',
-}) {
-  final effectiveRating = rating ??
-      (i % 4 == 0
-          ? SkillRating.again
-          : i % 4 == 1
-              ? SkillRating.hard
-              : i % 4 == 2
-                  ? SkillRating.good
-                  : SkillRating.easy);
-  return ReviewEvent(
-    eventId: 'e-$unitId-$i',
-    unitId: unitId,
-    skill: SkillDimension.listening,
-    rating: effectiveRating,
-    timestamp: t ?? DateTime.utc(2020, 1, 1).add(Duration(days: i)),
-    deviceId: device,
-    ignoredForMastery: ignored,
-  );
-}
-
-List<ReviewEvent> _batch(int count, String unitId, {int from = 0}) =>
-    [for (var i = 0; i < count; i++) _ev(from + i, unitId)];
 
 void main() {
-  test('minimal append + count', () async {
+  test('minimal inline', () async {
     final store = InMemoryReviewEventStore();
-    await store.append(_ev(1, 'u1'));
+    await store.append(ReviewEvent(
+      eventId: 'e1',
+      unitId: 'u1',
+      skill: SkillDimension.listening,
+      rating: SkillRating.good,
+      timestamp: DateTime.utc(2026, 1, 1),
+      deviceId: 'd',
+    ));
     expect(await store.activeCountOfUnit('u1'), 1);
   });
 }

@@ -779,7 +779,7 @@ class _MarkTab extends StatelessWidget {
                             mark.tags.map((t) => '#$t').join('  '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: mark.kind.color.withValues(alpha: 0.8), fontSize: 11),
+                            style: TextStyle(color: mark.kind.color.withValues(alpha: 0.8), fontSize: 11),
                           ),
                       ],
                     ),

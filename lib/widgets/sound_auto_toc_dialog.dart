@@ -24,14 +24,15 @@ Future<void> runSoundAutoToc(
 }) async {
   final soundlist = context.read<SoundlistProvider>();
 
-  // ── 1. Xác nhận + chọn chế độ ──
-  final mode = await _showModeDialog(
+  // ── 1. Xác nhận + chọn chế độ + ngôn ngữ (D16) ──
+  final selection = await _showModeDialog(
     context,
     hasExistingChapters: hasExistingChapters,
   );
-  if (mode == null || !context.mounted) return;
+  if (selection == null || !context.mounted) return;
 
-  final useWhisper = mode == _AutoTocMode.whisper;
+  final useWhisper = selection.mode == _AutoTocMode.whisper;
+  final language = selection.language;
   final nav = Navigator.of(context);
 
   // ── 2. Dialog tiến trình ──
@@ -51,6 +52,7 @@ Future<void> runSoundAutoToc(
       audioPath: audioPath,
       totalDuration: totalDuration,
       useWhisper: useWhisper,
+      language: language,
       onStatus: (msg) => status.value = msg,
     );
   } catch (e) {
@@ -96,7 +98,10 @@ Future<void> runSoundAutoToc(
 
 enum _AutoTocMode { whisper, vadOnly }
 
-Future<_AutoTocMode?> _showModeDialog(
+/// Kết quả chọn: (chế độ, ngôn ngữ Whisper).
+typedef _AutoTocSelection = ({_AutoTocMode mode, String language});
+
+Future<_AutoTocSelection?> _showModeDialog(
   BuildContext context, {
   required bool hasExistingChapters,
 }) async {
@@ -107,15 +112,18 @@ Future<_AutoTocMode?> _showModeDialog(
       ? '\n\n⚠️ Mục lục hiện có của file sẽ được THAY THẾ.'
       : '';
 
-  return showDialog<_AutoTocMode>(
+  return showDialog<_AutoTocSelection>(
     context: context,
     builder: (ctx) {
       final soundlist = ctx.read<SoundlistProvider>();
       var vad = soundlist.vadSettings;
+      var language = 'auto'; // 'auto' | 'vi' | 'en' — D16
 
       Future<void> pick(_AutoTocMode mode) async {
         await soundlist.setVadSettings(vad);
-        if (ctx.mounted) Navigator.pop(ctx, mode);
+        if (ctx.mounted) {
+          Navigator.pop(ctx, (mode: mode, language: language));
+        }
       }
 
       return StatefulBuilder(
@@ -227,6 +235,39 @@ Future<_AutoTocMode?> _showModeDialog(
                       setDialogState(() => vad = vad.copyWith(minSegmentSec: v)),
                 ),
                 const SizedBox(height: 4),
+
+                // ── Ngôn ngữ nhận diện (D16) ──
+                const Divider(color: Colors.white12, height: 1),
+                const SizedBox(height: 10),
+                const Text(
+                  'Ngôn ngữ nhận diện',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    _langChip('🌐 Tự động', language == 'auto', () {
+                      setDialogState(() => language = 'auto');
+                    }),
+                    _langChip('🇻🇳 Tiếng Việt', language == 'vi', () {
+                      setDialogState(() => language = 'vi');
+                    }),
+                    _langChip('🇬🇧 English', language == 'en', () {
+                      setDialogState(() => language = 'en');
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  language == 'vi'
+                      ? 'Tiêu đề chương sẽ ra tiếng Việt có dấu.'
+                      : language == 'en'
+                          ? 'Tiêu đề chương sẽ ra tiếng Anh.'
+                          : 'Tự động — hiện mặc định tiếng Anh (xem báo cáo D16).',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+                const SizedBox(height: 4),
               ],
             ),
           ),
@@ -239,6 +280,22 @@ Future<_AutoTocMode?> _showModeDialog(
         ),
       );
     },
+  );
+}
+
+Widget _langChip(String label, bool selected, VoidCallback onTap) {
+  return ChoiceChip(
+    selected: selected,
+    label: Text(label, style: const TextStyle(fontSize: 12)),
+    selectedColor: const Color(0xFF26C6DA),
+    backgroundColor: const Color(0xFF2A3050),
+    labelStyle: TextStyle(
+      color: selected ? Colors.black : Colors.white70,
+      fontSize: 12,
+      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+    ),
+    onSelected: (_) => onTap(),
+    visualDensity: VisualDensity.compact,
   );
 }
 

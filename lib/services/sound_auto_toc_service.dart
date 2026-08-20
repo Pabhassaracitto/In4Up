@@ -182,15 +182,22 @@ class SoundAutoTocService {
   // ─────────────────────────── BƯỚC 2: WHISPER ───────────────────────────
 
   /// Transcribe offline (Whisper qua isolate). Trả về [SttResult] nếu thành công.
+  ///
+  /// [language]: 'vi' | 'en' | 'auto' (D16). Lưu ý: in4up_stt chưa hỗ trợ
+  /// auto-detect qua SttConfig.language='auto' (whisper.cpp nhận mã ngôn ngữ
+  /// cụ thể) — nên 'auto' được map về 'en' (giữ hành vi cũ), không đổi package.
   static Future<SttResult?> transcribe(
     String audioPath, {
     WhisperModelLevel? level,
+    String language = 'auto',
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) async {
     try {
       final facade = SttServiceFacade();
+      final effectiveLanguage = language == 'auto' ? 'en' : language;
       final cfg = SttConfig.deepLearning.copyWith(
         whisperModel: level ?? WhisperModelLevel.base,
+        language: effectiveLanguage,
         generateLrc: false,
         grouping: grouping,
       );

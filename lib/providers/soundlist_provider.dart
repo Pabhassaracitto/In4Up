@@ -310,6 +310,7 @@ class SoundlistProvider extends ChangeNotifier {
   ///
   /// [useWhisper] = true  → VAD + Whisper: chương có tiêu đề = câu mở đầu.
   /// [useWhisper] = false → Chỉ VAD: chương "Đoạn N · mm:ss" (không cần model).
+  /// [language]   = 'vi' | 'en' | 'auto' — ngôn ngữ nhận diện (D16).
   ///
   /// Thay thế toàn bộ chương/mục hiện có của file (UI xác nhận trước khi gọi).
   /// [onStatus] callback cho UI hiển thị tiến trình ("Đang phân tích…").
@@ -318,6 +319,7 @@ class SoundlistProvider extends ChangeNotifier {
     Duration? totalDuration,
     bool useWhisper = true,
     WhisperModelLevel? whisperLevel,
+    String language = 'auto',
     ValueChanged<String>? onStatus,
   }) async {
     onStatus?.call('Phân tích khoảng lặng (VAD)…');
@@ -334,7 +336,10 @@ class SoundlistProvider extends ChangeNotifier {
     if (useWhisper) {
       onStatus?.call('Đang nhận diện giọng nói (Whisper)…\n'
           'File dài có thể mất vài phút.');
-      stt = await SoundAutoTocService.transcribe(audioPath);
+      stt = await SoundAutoTocService.transcribe(
+        audioPath,
+        language: language,
+      );
     }
 
     final chapters = SoundAutoTocService.buildChapters(

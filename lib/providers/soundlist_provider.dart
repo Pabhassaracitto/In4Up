@@ -188,8 +188,17 @@ class SoundlistProvider extends ChangeNotifier {
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
       if (line.text.trim().isEmpty) continue;
-      final end = i + 1 < lines.length
-          ? lines[i + 1].timestamp
+      // end = timestamp dòng KẾ TIẾP CÓ NỘI DUNG; nếu không còn dòng nào
+      // (hoặc chỉ còn dòng rỗng) → fallback +3s. (Fix: trước đây lấy thẳng
+      // lines[i+1] kể cả khi dòng đó rỗng → dòng cuối có nội dung bị end
+      // sai bằng timestamp dòng rỗng.)
+      Duration end;
+      var next = i + 1;
+      while (next < lines.length && lines[next].text.trim().isEmpty) {
+        next++;
+      }
+      end = next < lines.length
+          ? lines[next].timestamp
           : line.timestamp + const Duration(seconds: 3);
       tLines.add(TranscriptLine(
         start: line.timestamp,

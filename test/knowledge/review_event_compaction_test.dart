@@ -1,7 +1,7 @@
 // BISECT C10 — inline toàn bộ, không helper.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show SkillDimension, SM2Algorithm;
+    show SkillDimension;
 import 'package:in4up/knowledge/models/review_event.dart';
 import 'package:in4up/knowledge/review/review_event_compactor.dart';
 import 'package:in4up/knowledge/review/review_event_store.dart';

@@ -99,7 +99,7 @@ void main() {
     });
 
     test('title is truncated to 64 chars and cleaned', () {
-      final long = '  --  ' +
+      final long = '  --  '
           'Từ bi là một phẩm chất vô cùng quan trọng trong đời sống tâm linh '
           'và chúng ta nên thực tập mỗi ngày để tâm được an lạc hơn.';
       final segments = [_seg(0, 1, 5, long)];

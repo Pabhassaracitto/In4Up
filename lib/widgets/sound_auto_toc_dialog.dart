@@ -79,7 +79,7 @@ Future<void> runSoundAutoToc(
       content: Text('⚠️ Không tạo được mục lục (không đủ khoảng lặng hoặc '
           'không nhận diện được giọng nói).'),
       behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFFEF5350),
+      backgroundColor: Color(0xFFEF5350),
     ));
     return;
   }

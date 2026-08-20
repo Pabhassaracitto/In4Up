@@ -43,18 +43,11 @@ class ReadBottomBar extends StatelessWidget {
             _ReadingProgressBar(progress: controller.readingProgress),
 
             // Action Buttons - make horizontally scrollable to avoid Bottom overflow on small screens
-<<<<<<< HEAD
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-=======
             // On small screens, reduce padding and icon size
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const ClampingScrollPhysics(),
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: isSmall ? 2 : 6),
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -64,31 +57,20 @@ class ReadBottomBar extends StatelessWidget {
                     onTap: () => tp.setFontSize(tp.fontSize - 2),
                     compact: isSmall,
                   ),
-<<<<<<< HEAD
-                  const SizedBox(width: 12),
-=======
                   SizedBox(width: isSmall ? 6 : 12),
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
                   _BarAction(
                     icon: Icons.text_increase,
                     onTap: () => tp.setFontSize(tp.fontSize + 2),
                     compact: isSmall,
                   ),
-<<<<<<< HEAD
-                  const SizedBox(width: 12),
-=======
                   SizedBox(width: isSmall ? 6 : 12),
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
 
                   // Translation toggle — fix: explicit set stackedBelow/hidden
                   _BarAction(
                     icon: Icons.translate,
                     isActive: tp.showTranslation,
                     activeThumbColor: const Color(0xFF4CAF50),
-<<<<<<< HEAD
-=======
                     compact: isSmall,
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
                     onTap: () {
                       if (tp.showTranslation) {
                         tp.setTranslationDisplayMode(
@@ -99,11 +81,7 @@ class ReadBottomBar extends StatelessWidget {
                       }
                     },
                   ),
-<<<<<<< HEAD
-                  const SizedBox(width: 12),
-=======
                   SizedBox(width: isSmall ? 6 : 12),
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
 
                   // TTS current line
                   _BarAction(
@@ -121,11 +99,7 @@ class ReadBottomBar extends StatelessWidget {
                       }
                     },
                   ),
-<<<<<<< HEAD
-                  const SizedBox(width: 12),
-=======
                   SizedBox(width: isSmall ? 6 : 12),
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
 
                   // Segments (Bookmarks)
                   _BarAction(
@@ -137,11 +111,7 @@ class ReadBottomBar extends StatelessWidget {
                         tp.segments.isNotEmpty ? '${tp.segments.length}' : null,
                     onTap: () => SegmentsListSheet.show(context),
                   ),
-<<<<<<< HEAD
-                  const SizedBox(width: 12),
-=======
                   SizedBox(width: isSmall ? 6 : 12),
->>>>>>> 3caee57 (feat(read): compact UI for small screens + focus mode to maximize reading area)
                   _BarAction(
                     icon: showWordlistPanel
                         ? Icons.view_sidebar

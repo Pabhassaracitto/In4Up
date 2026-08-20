@@ -16,7 +16,8 @@ library;
 /// ADR-0001 (duyệt 2026-08-19, đã triển khai ở Task 2): hằng số do chính
 /// hàm SM-2 DUY NHẤT phát hành — `lib/models/sm2_algorithm.dart`.
 /// Re-export tại đây để knowledge module import một chỗ.
-export 'package:in4up/models/sm2_algorithm.dart' show kSm2AlgorithmVersion;
+export 'package:in4up/models/sm2_algorithm.dart'
+    show kSm2AlgorithmVersion, SM2Algorithm, SM2Result;
 import 'package:in4up/models/sm2_algorithm.dart' show kSm2AlgorithmVersion;
 
 /// 3 chiều kỹ năng — TÁCH BIỆT, không gộp (mục 0).

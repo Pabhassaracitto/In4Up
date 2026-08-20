@@ -19,9 +19,9 @@ library;
 import 'package:uuid/uuid.dart';
 
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show SM2Snapshot, kSm2AlgorithmVersion;
+    show SM2Snapshot, kSm2AlgorithmVersion, SM2Algorithm;
 import 'package:in4up/knowledge/models/review_event.dart';
-import 'package:in4up/models/sm2_algorithm.dart';
+import 'package:in4up/knowledge/review/review_event_store.dart';
 
 /// Ngưỡng nén theo bàn giao mục 2.4 (sau mỗi 500 event của 1 unit).
 const int kCompactionThreshold = 500;

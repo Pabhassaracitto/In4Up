@@ -24,6 +24,11 @@ import 'dart:isolate';
 import 'text_pipeline.dart';
 import 'vietnamese_trie.dart';
 
+import 'package:in4up/knowledge/models/learning_state.dart'
+    show SM2Snapshot;
+import 'package:in4up/knowledge/models/review_event.dart';
+import 'package:in4up/knowledge/review/review_event_compactor.dart';
+
 /// Client đứng ở isolate gọi (main/UI hoặc test).
 class TextPipelineWorker {
   final ReceivePort _responses = ReceivePort();
@@ -50,6 +55,9 @@ class TextPipelineWorker {
       if (completer == null || completer.isCompleted) return;
       if (map['error'] != null) {
         completer.completeError(StateError('worker lỗi: ${map['error']}'));
+      } else if (map['result'] == null) {
+        // Op có thể không sinh kết quả (vd compaction dưới ngưỡng).
+        completer.complete(<String, dynamic>{});
       } else {
         completer.complete(map['result'] as Map<String, dynamic>);
       }
@@ -71,6 +79,31 @@ class TextPipelineWorker {
     });
     final resultMap = await completer.future;
     return PipelineResult.fromJson(resultMap);
+  }
+
+  /// Task 5 (mục 2.4 + 4): nén event của 1 unit TRONG worker isolate.
+  /// Trả null nếu chưa chạm ngưỡng 500 event.
+  Future<CompactionRecord?> compactReviewEvents({
+    required String unitId,
+    required List<ReviewEvent> events,
+    SM2Snapshot? baseline,
+    DateTime? now,
+  }) async {
+    final id = ++_seq;
+    final completer = Completer<Map<String, dynamic>>();
+    _pending[id] = completer;
+    _commandPort.send(<String, dynamic>{
+      'id': id,
+      'op': 'compactReviewEvents',
+      'unitId': unitId,
+      'events': [for (final e in events) e.toJson()],
+      'baseline': baseline?.toJson(),
+      'now': now?.toIso8601String(),
+      'replyTo': _responses.sendPort,
+    });
+    final resultMap = await completer.future;
+    if (resultMap.isEmpty) return null;
+    return CompactionRecord.fromJson(resultMap);
   }
 
   /// Đóng worker; các request đang chờ hoàn tất với lỗi.
@@ -103,6 +136,35 @@ class TextPipelineWorker {
           replyTo.send(<String, dynamic>{
             'id': msg['id'],
             'result': result.toJson(),
+          });
+        } catch (e) {
+          replyTo.send(<String, dynamic>{
+            'id': msg['id'],
+            'error': e.toString(),
+          });
+        }
+      } else if (msg['op'] == 'compactReviewEvents' && replyTo != null) {
+        // Task 5 (mục 2.4 + mục 4): compaction job trong worker isolate.
+        try {
+          final events = [
+            for (final raw in (msg['events'] as List<dynamic>)
+                .whereType<Map<String, dynamic>>())
+              ReviewEvent.fromJson(raw)
+          ];
+          final baselineRaw = msg['baseline'];
+          final record = ReviewEventCompactor.compact(
+            unitId: msg['unitId'] as String,
+            events: events,
+            baseline: baselineRaw == null
+                ? null
+                : SM2Snapshot.fromJson(baselineRaw as Map<String, dynamic>),
+            now: msg['now'] == null
+                ? null
+                : DateTime.parse(msg['now'] as String),
+          );
+          replyTo.send(<String, dynamic>{
+            'id': msg['id'],
+            'result': record?.toJson(),
           });
         } catch (e) {
           replyTo.send(<String, dynamic>{

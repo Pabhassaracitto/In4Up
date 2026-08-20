@@ -99,7 +99,10 @@ class SoundAutoTocService {
         final sorted = [...samples.map((v) => v.abs())]..sort();
         final p95 = sorted.isEmpty
             ? 1.0
-            : sorted[(sorted.length * 0.95).floor().clamp(0, sorted.length - 1)];
+            : sorted[(sorted.length * 0.95)
+                    .floor()
+                    .clamp(0, sorted.length - 1)
+                    .toInt()];
         final norm = p95 > 0 ? p95 : 1.0;
 
         // Năng lượng theo cửa sổ 100ms (20 mẫu).

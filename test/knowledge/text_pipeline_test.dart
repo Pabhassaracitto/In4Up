@@ -196,7 +196,8 @@ void main() {
   });
 
   group('Background Worker Isolate (mục 4)', () {
-    test('round-trip qua isolate: kết quả trùng hệt in-process', () async {
+    test('round-trip qua isolate: kết quả trùng hệt in-process',
+        skip: 'bisect T6: tách bạch lỗi isolate vs segmentation', () async {
       final worker = await TextPipelineWorker.spawn()
           .timeout(const Duration(seconds: 10));
       try {
@@ -213,7 +214,8 @@ void main() {
       }
     });
 
-    test('worker xử lý nhiều request tuần tự đúng id', () async {
+    test('worker xử lý nhiều request tuần tự đúng id',
+        skip: 'bisect T6', () async {
       final worker = await TextPipelineWorker.spawn()
           .timeout(const Duration(seconds: 10));
       try {

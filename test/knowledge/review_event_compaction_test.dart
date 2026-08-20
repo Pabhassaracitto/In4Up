@@ -33,7 +33,6 @@ void main() {
     final probe = <String, dynamic>{'op': 'probe'};
     expect(probe['op'], 'probe');
     // TextPipelineWorker được nhắc qua import — đảm bảo không unused:
-    final _ = TextPipelineWorker.spawn;
-    expect(_, isNotNull);
+    expect(TextPipelineWorker.spawn, isNotNull);
   });
 }

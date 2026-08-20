@@ -14,7 +14,7 @@
 | MVA-T4 | TextPipeline + Trie Việt + isolate + 4 profile | ✅ done | run 32358239999 |
 | MVA-T5 | ReviewEvent append-only + compaction job | ✅ done | run 32371603413 |
 | MVA-T6 | Dual-Memory lifecycle (mục 6 bàn giao) | ✅ done | run 32380422644 |
-| MVA-T7 | Attention Score v1 (mục 5) | 📋 todo | — |
+| MVA-T7 | Attention Score v1 (mục 5) | ✅ done | run 32381534996 |
 | MVA-T8 | Chat grounding + citation validator (mục 7) | 📋 todo | — |
 | OPS-1 | Bật CI knowledge_tests.yml | ✅ done | commit 797efff (người dùng) |
 | OPS-2 | Skill ci-red-debugging v1.1 | ✅ done | commit a706953 |
@@ -89,11 +89,17 @@
   - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32380422644
 
 ### MVA-T7 — Attention Score v1 (mục 5)
-- **Trạng thái:** todo
-- **Nội dung:** công thức w1-w4 (0.4/0.3/0.2/0.1); UI lý do cụ thể; chạy
-  trong worker isolate đã có.
+- **Trạng thái:** done
+- **Nội dung:** công thức deterministic w1–w4 (0.4/0.3/0.2/0.1, const tune
+  được); overdue boost chặn ×1.5; tương tác gần đây chuẩn hóa bão hòa; lý do
+  cụ thể theo tiêu chí (không "AI đề xuất" mơ hồ); tie-break unitId; op
+  rankAttention trong worker isolate (mục 4). XANH NGAY VÒNG CI ĐẦU.
+- **Bằng chứng:** CI run 32381534996 (11 test: ranking kỳ vọng thủ công
+  C > A > D=E(tie) > B, đường cong overdue + chặn, lật goal skill…).
 - **Lịch sử:**
   - 2026-08-20 | created | agent arena/01a019bb-in4up | từ bàn giao mục 8
+  - 2026-08-20 | todo→doing | agent arena/01a019bb-in4up |
+  - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32381534996
 
 ### MVA-T8 — Chat grounding + citation validator (mục 7)
 - **Trạng thái:** todo

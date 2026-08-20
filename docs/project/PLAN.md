@@ -19,7 +19,7 @@
   - 2026-08-20 | doing→done | agent | CI runs 32358239999/32371603413/32380422644
 
 ### M2 — Trí tuệ gợi ý · 📋 todo
-- MVA-T7 (Attention Score), MVA-T8 (Chat grounding).
+- MVA-T7 ✅ (Attention Score v1 — 2026-08-20). MVA-T8 (Chat grounding) — việc cuối.
 - Đầu ra kiểm chứng: AT2, AT3, AT6 (mục 9).
 
 ### M3 — Phạm vi P2+ · 📌 out-of-scope (theo bàn giao)

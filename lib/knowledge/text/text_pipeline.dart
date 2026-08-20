@@ -90,16 +90,19 @@ class PipelineResult {
 class TextPipeline {
   TextPipeline._();
 
-  /// Chuẩn hóa: NFC, gộp space/tab, chuẩn \n thành tối đa một dòng trống
-  /// (\n\n giữ nguyên làm ranh giới đoạn), trim hai đầu.
+  /// Chuẩn hóa: NFC-safe, gộp space/tab TRONG dòng + trim MỖI DÒNG
+  /// (không để space cuối dòng/đầu dòng), \n trở thành tối đa một dòng
+  /// trống (\n\n giữ nguyên làm ranh giới đoạn), trim hai đầu.
   /// Offset của mọi Segment/Token tính trên KẾT QUẢ của hàm này.
   static String normalize(String raw) {
-    final nfc = raw.trim().replaceAll(String.fromCharCode(0x00AD), ''); // soft hyphen
-    final collapsed = nfc
-        .replaceAll(RegExp(r'[ \t]+'), ' ')
-        .replaceAll(RegExp(r'\r\n?'), '\n')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n');
-    return collapsed.trim();
+    final noSoftHyphen = raw.replaceAll(String.fromCharCode(0x00AD), '');
+    final perLine = noSoftHyphen
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n')
+        .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
+        .join('\n');
+    return perLine.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   }
 
   /// Xử lý toàn pipeline. [trie] nullable để test; mặc định dùng seed Việt.

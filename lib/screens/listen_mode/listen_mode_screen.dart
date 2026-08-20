@@ -24,14 +24,17 @@ import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
+import '../../providers/soundlist_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../widgets/ab_loop_controls.dart';
+import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
+import 'widgets/soundlist_panel.dart';
 
 enum _InlinePanel { repeat, speed, sleep, ab, ai }
 
@@ -1956,11 +1959,16 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     label: 'Dấu',
                     color: const Color(0xFFFFB300),
                     isActive: false,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      _showSnack(
-                          '📌 Đã đánh dấu ${_fmt(player.state.position)}');
-                    },
+                    onTap: () => _saveMark(player),
+                    onLongPress: () => showSoundlistPanel(context),
+                  ),
+                  const SizedBox(width: 6),
+                  _ActionTile(
+                    icon: Icons.menu_book_outlined,
+                    label: 'Âm mục',
+                    color: const Color(0xFF26C6DA),
+                    isActive: false,
+                    onTap: () => showSoundlistPanel(context),
                   ),
                   const SizedBox(width: 6),
                   _ActionTile(
@@ -2071,6 +2079,49 @@ class _SmartActionBarState extends State<_SmartActionBar> {
     if (p.hasCompletedLoop) return 'A══B';
     if (p.pendingLoopA != null) return 'A…B';
     return 'A─B';
+  }
+
+  /// 📌 Lưu một "Điểm" vào Âm mục tại vị trí đang phát.
+  /// Giữ lâu nút này → mở panel Âm mục.
+  Future<void> _saveMark(PlayerProvider player) async {
+    final path = player.currentSongPath;
+    if (path == null) {
+      _showSnack('⚠️ Chưa có file âm thanh nào');
+      return;
+    }
+    HapticFeedback.lightImpact();
+    final soundlist = context.read<SoundlistProvider>();
+    if (!soundlist.isLoaded) {
+      await soundlist.load();
+    }
+    final mark = await soundlist.addMark(
+      audioPath: path,
+      position: player.state.position,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('📌 Đã đánh dấu ${_fmt(player.state.position)}'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFFFFB300),
+          duration: const Duration(milliseconds: 2600),
+          action: SnackBarAction(
+            label: 'Ghi chú',
+            textColor: Colors.black,
+            onPressed: () {
+              showEditMarkSheet(
+                context,
+                soundlist: soundlist,
+                mark: mark,
+              );
+            },
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   void _showSnack(String msg) {

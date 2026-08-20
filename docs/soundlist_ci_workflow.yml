@@ -1,0 +1,69 @@
+name: Soundlist Module Tests (Âm mục)
+
+# CI nhẹ cho module Soundlist (Âm mục) — theo pattern knowledge_tests.yml.
+# Sandbox/dev không cần build app đầy đủ; chỉ compile + analyze + test module mới.
+# Skill liên quan: docs/skills/ci-red-debugging/SKILL.md
+
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'lib/models/sound_*.dart'
+      - 'lib/models/vad_settings.dart'
+      - 'lib/services/sound_auto_toc_service.dart'
+      - 'lib/services/storage_service.dart'
+      - 'lib/providers/soundlist_provider.dart'
+      - 'lib/widgets/sound_mark_edit_sheet.dart'
+      - 'lib/widgets/sound_auto_toc_dialog.dart'
+      - 'lib/screens/listen_mode/widgets/soundlist_panel.dart'
+      - 'lib/screens/tools/sound_list/**'
+      - 'test/sound_auto_toc_test.dart'
+      - '.github/workflows/soundlist_tests.yml'
+  pull_request:
+    paths:
+      - 'lib/models/sound_*.dart'
+      - 'lib/models/vad_settings.dart'
+      - 'lib/services/sound_auto_toc_service.dart'
+      - 'lib/services/storage_service.dart'
+      - 'lib/providers/soundlist_provider.dart'
+      - 'lib/widgets/sound_mark_edit_sheet.dart'
+      - 'lib/widgets/sound_auto_toc_dialog.dart'
+      - 'lib/screens/listen_mode/widgets/soundlist_panel.dart'
+      - 'lib/screens/tools/sound_list/**'
+      - 'test/sound_auto_toc_test.dart'
+      - '.github/workflows/soundlist_tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml — tránh lệch dependency
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze Soundlist module
+        run: flutter analyze \
+          lib/models/sound_mark.dart \
+          lib/models/sound_chapter.dart \
+          lib/models/sound_transcript.dart \
+          lib/models/sound_loop_stat.dart \
+          lib/models/vad_settings.dart \
+          lib/services/sound_auto_toc_service.dart \
+          lib/providers/soundlist_provider.dart \
+          lib/widgets/sound_mark_edit_sheet.dart \
+          lib/widgets/sound_auto_toc_dialog.dart \
+          lib/screens/listen_mode/widgets/soundlist_panel.dart \
+          lib/screens/tools/sound_list \
+          test/sound_auto_toc_test.dart
+
+      - name: Run Soundlist tests
+        run: flutter test test/sound_auto_toc_test.dart

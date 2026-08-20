@@ -66,7 +66,9 @@ class AiModelMapper {
     return json.containsKey('word_detail') ||
         json.containsKey('grammar') ||
         json.containsKey('visual_prompt') ||
-        json.containsKey('pao_suggestions');
+        json.containsKey('pao_suggestions') ||
+        json.containsKey('summary') ||
+        json.containsKey('action_items');
   }
 
   /// Map wordType string → WordType enum (tương thích word_analysis.dart)

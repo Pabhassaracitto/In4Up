@@ -11,6 +11,7 @@ class WebReaderToolbar extends StatefulWidget {
   final VoidCallback onSavePageToCollection;
   final VoidCallback onOpenGrammarSettings;
   final bool showingDashboard;
+  final bool writingMode;
 
   const WebReaderToolbar({
     super.key,
@@ -20,6 +21,7 @@ class WebReaderToolbar extends StatefulWidget {
     required this.onSavePageToCollection,
     required this.onOpenGrammarSettings,
     required this.showingDashboard,
+    this.writingMode = false,
   });
 
   @override
@@ -198,12 +200,18 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   activeThumbColor: const Color(0xFF6C63FF),
                 ),
               _ToolbarBtn(
-                icon: Icons.text_fields,
+                icon: widget.writingMode
+                    ? Icons.edit_square
+                    : Icons.text_fields,
                 size: 18,
                 enabled: pageActionsEnabled,
                 onTap: widget.onExtractText,
-                tooltip: context.uiText('Mở trong Text Studio'),
-                activeThumbColor: const Color(0xFF2196F3),
+                tooltip: widget.writingMode
+                    ? 'Dùng cả bài làm nguồn luyện Viết'
+                    : 'Mở trong Text Studio',
+                activeThumbColor: widget.writingMode
+                    ? const Color(0xFF26C6DA)
+                    : const Color(0xFF2196F3),
               ),
               _ToolbarBtn(
                 icon: Icons.playlist_add,

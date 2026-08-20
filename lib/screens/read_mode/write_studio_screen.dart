@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import '../../core/responsive/app_responsive.dart';
+import '../../features/writing/models/writing_assignment.dart';
+import '../../features/writing/models/writing_source_request.dart';
+import '../../features/writing/services/document_summary_signal_service.dart';
+import '../../features/writing/services/writing_draft_store.dart';
 import '../../models/text_item.dart';
 import '../../providers/text_provider.dart';
 
@@ -33,13 +38,18 @@ class WriteStudioScreen extends StatefulWidget {
 
 class _WriteStudioScreenState extends State<WriteStudioScreen> {
   final math.Random _random = math.Random();
+  final WritingDraftStore _draftStore = WritingDraftStore();
   final TextEditingController _dictationController = TextEditingController();
   final TextEditingController _rewriteController = TextEditingController();
   final TextEditingController _summaryController = TextEditingController();
+  Timer? _draftSaveTimer;
 
   _WriteExerciseType _exerciseType = _WriteExerciseType.dictation;
+  WritingAssignment? _assignment;
+  String _assignmentSourceKey = '';
   String _sourceKey = '';
   String _lastAiPromptKey = '';
+  int _handledWritingSourceVersion = -1;
   int _lineIndex = 0;
   bool _showAnswer = false;
 
@@ -47,6 +57,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   _ClozeResult? _clozeResult;
   _RewriteResult? _rewriteResult;
   _SummaryResult? _summaryResult;
+  DocumentSummarySignals? _documentSummarySignals;
 
   List<TextEditingController> _blankControllers = [];
   List<_BlankPrompt> _blankPrompts = [];
@@ -55,6 +66,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
   @override
   void dispose() {
+    _saveCurrentWorkspaceDraft();
     _dictationController.dispose();
     _rewriteController.dispose();
     _summaryController.dispose();
@@ -69,34 +81,135 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     _blankControllers = [];
   }
 
+  WritingTaskType get _activeTask => switch (_exerciseType) {
+        _WriteExerciseType.dictation => WritingTaskType.dictation,
+        _WriteExerciseType.clozeInput => WritingTaskType.cloze,
+        _WriteExerciseType.clozeChoice => WritingTaskType.cloze,
+        _WriteExerciseType.rewrite => WritingTaskType.rewrite,
+        _WriteExerciseType.summary => WritingTaskType.summary,
+      };
+
   void _ensureExerciseState(TextProvider textProvider) {
+    final writingRequest = textProvider.writingSourceRequest;
+    final receivedNewRequest = writingRequest != null &&
+        _handledWritingSourceVersion != textProvider.writingSourceVersion;
+    if (receivedNewRequest) {
+      _exerciseType = switch (writingRequest!.task) {
+        WritingTaskType.dictation => _WriteExerciseType.dictation,
+        WritingTaskType.cloze => _WriteExerciseType.clozeInput,
+        WritingTaskType.rewrite => _WriteExerciseType.rewrite,
+        WritingTaskType.summary => _WriteExerciseType.summary,
+      };
+      _handledWritingSourceVersion = textProvider.writingSourceVersion;
+    }
+
     final newKey = [
-      textProvider.currentTextPath ?? '',
+      textProvider.currentContextSourceRef ?? '',
       textProvider.currentDocument?.title ?? '',
       textProvider.lines.length,
-      textProvider.fullText.hashCode,
-    ].join('|');
+      writingRequest?.kind.name ?? 'no-handoff',
+      writingRequest?.isExcerpt.toString() ?? 'false',
+      writingRequest?.sourceLabel ?? '',
+      textProvider.fullText,
+    ].join('\u0000');
 
-    if (_sourceKey == newKey && textProvider.lines.isNotEmpty) {
+    if (_sourceKey == newKey &&
+        textProvider.lines.isNotEmpty &&
+        !receivedNewRequest) {
       if (_lineIndex >= textProvider.lines.length) {
         _lineIndex = textProvider.lines.length - 1;
         _resetExerciseForLine(textProvider, regenerateCloze: true);
+      } else if (_assignment == null) {
+        _assignment = _createAssignment(textProvider);
+        _assignmentSourceKey = _sourceKey;
       }
       return;
     }
 
+    _saveCurrentWorkspaceDraft();
     _sourceKey = newKey;
     _lineIndex = textProvider.currentLineIndex >= 0 &&
             textProvider.currentLineIndex < textProvider.lines.length
         ? textProvider.currentLineIndex
         : 0;
-    _resetExerciseForLine(textProvider, regenerateCloze: true);
+    _resetExerciseForLine(
+      textProvider,
+      regenerateCloze: true,
+      saveCurrentDraft: false,
+    );
+  }
+
+  WritingAssignment _createAssignment(TextProvider textProvider) {
+    return WritingAssignment.fromContext(
+      context: WritingAssignmentContext(
+        sourceKey: _sourceKey,
+        sourceTitle:
+            textProvider.currentDocument?.title ?? 'Văn bản hiện tại',
+        fullText: textProvider.fullText,
+        lines: textProvider.lines.map((line) => line.content).toList(),
+        lineIndex: _lineIndex,
+        request: textProvider.writingSourceRequest,
+      ),
+      task: _activeTask,
+    );
+  }
+
+  WritingDraftKey? _currentDraftKey() {
+    final assignment = _assignment;
+    if (assignment == null || !assignment.isWorkspaceTask) return null;
+    return _draftStore.keyFor(
+      sourceKey: _assignmentSourceKey,
+      assignment: assignment,
+    );
+  }
+
+  void _saveCurrentWorkspaceDraft() {
+    _draftSaveTimer?.cancel();
+    final assignment = _assignment;
+    final key = _currentDraftKey();
+    if (assignment == null || key == null) return;
+    final text = switch (assignment.task) {
+      WritingTaskType.rewrite => _rewriteController.text,
+      WritingTaskType.summary => _summaryController.text,
+      _ => '',
+    };
+    _draftStore.save(key, text);
+  }
+
+  void _saveWorkspaceDraftForInput(String text) {
+    final key = _currentDraftKey();
+    if (key == null) return;
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(
+      const Duration(milliseconds: 350),
+      () => _draftStore.save(key, text),
+    );
+  }
+
+  void _restoreWorkspaceDraft() {
+    final assignment = _assignment;
+    final key = _currentDraftKey();
+    if (assignment == null || key == null) return;
+    final draft = _draftStore.read(key);
+    if (assignment.task == WritingTaskType.rewrite) {
+      _rewriteController.text = draft;
+    } else if (assignment.task == WritingTaskType.summary) {
+      _summaryController.text = draft;
+    }
+  }
+
+  void _clearCurrentWorkspaceDraft() {
+    _draftSaveTimer?.cancel();
+    final key = _currentDraftKey();
+    if (key != null) _draftStore.clear(key);
   }
 
   void _resetExerciseForLine(
     TextProvider textProvider, {
     required bool regenerateCloze,
+    bool saveCurrentDraft = true,
   }) {
+    if (saveCurrentDraft) _saveCurrentWorkspaceDraft();
     _dictationController.clear();
     _rewriteController.clear();
     _summaryController.clear();
@@ -104,10 +217,15 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     _clozeResult = null;
     _rewriteResult = null;
     _summaryResult = null;
+    _documentSummarySignals = null;
     _showAnswer = false;
     _lastAiPromptKey = '';
     _selectedChoices = [];
     _disposeBlankControllers();
+
+    _assignment = _createAssignment(textProvider);
+    _assignmentSourceKey = _sourceKey;
+    _restoreWorkspaceDraft();
 
     if (regenerateCloze && textProvider.lines.isNotEmpty) {
       _generateCloze(textProvider);
@@ -136,23 +254,34 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
   void _cycleExercise(TextProvider textProvider, _WriteExerciseType type) {
     if (_exerciseType == type) return;
+    _saveCurrentWorkspaceDraft();
     setState(() {
       _exerciseType = type;
-      _resetExerciseForLine(textProvider, regenerateCloze: true);
+      _resetExerciseForLine(
+        textProvider,
+        regenerateCloze: true,
+        saveCurrentDraft: false,
+      );
     });
   }
 
   void _generateCloze(TextProvider textProvider) {
-    if (textProvider.lines.isEmpty) {
+    final assignment = _assignment;
+    if (textProvider.lines.isEmpty ||
+        assignment == null ||
+        assignment.sourceText.trim().isEmpty) {
       _blankPrompts = [];
       _choiceOptions = [];
       return;
     }
 
-    final line = textProvider.lines[_lineIndex].content;
+    final line = assignment.sourceText;
     final tokens = line.split(RegExp(r'\s+'));
-    final analyzedWords = _lineIndex < textProvider.analyzedLines.length
-        ? textProvider.analyzedLines[_lineIndex]
+    final assignmentLineIndex = assignment.lineIndex;
+    final analyzedWords = assignment.origin == AssignmentOrigin.perLine &&
+            assignmentLineIndex != null &&
+            assignmentLineIndex < textProvider.analyzedLines.length
+        ? textProvider.analyzedLines[assignmentLineIndex]
         : const [];
 
     final candidateIndexes = <_RankedCandidate>[];
@@ -273,14 +402,16 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   Future<void> _speakCurrentLine(TextProvider textProvider) async {
-    if (textProvider.lines.isEmpty) return;
-    await textProvider.speak(textProvider.lines[_lineIndex].content);
+    final assignment = _assignment;
+    if (assignment == null || assignment.sourceText.trim().isEmpty) return;
+    await textProvider.speak(assignment.sourceText);
   }
 
-  void _scoreDictation(TextProvider textProvider) {
-    if (textProvider.lines.isEmpty) return;
+  void _scoreDictation() {
+    final assignment = _assignment;
+    if (assignment == null || assignment.sourceText.trim().isEmpty) return;
 
-    final expected = textProvider.lines[_lineIndex].content;
+    final expected = assignment.sourceText;
     final actual = _dictationController.text.trim();
 
     final expectedTokens = _tokenizeNormalized(expected);
@@ -420,9 +551,15 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     return result;
   }
 
-  Set<String> _extractRewriteKeywords(TextProvider textProvider) {
-    final analyzedWords = _lineIndex < textProvider.analyzedLines.length
-        ? textProvider.analyzedLines[_lineIndex]
+  Set<String> _extractRewriteKeywords(
+    TextProvider textProvider,
+    WritingAssignment assignment,
+  ) {
+    final assignmentLineIndex = assignment.lineIndex;
+    final analyzedWords = assignment.origin == AssignmentOrigin.perLine &&
+            assignmentLineIndex != null &&
+            assignmentLineIndex < textProvider.analyzedLines.length
+        ? textProvider.analyzedLines[assignmentLineIndex]
         : const [];
 
     final keywords = <String>{};
@@ -443,15 +580,21 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
     if (keywords.isNotEmpty) return keywords.take(6).toSet();
 
-    return _tokenizeNormalized(textProvider.lines[_lineIndex].content)
+    return _tokenizeNormalized(assignment.sourceText)
         .where((word) => word.length >= 4)
         .take(6)
         .toSet();
   }
 
-  List<String> _extractExpectedVerbs(TextProvider textProvider) {
-    final analyzedWords = _lineIndex < textProvider.analyzedLines.length
-        ? textProvider.analyzedLines[_lineIndex]
+  List<String> _extractExpectedVerbs(
+    TextProvider textProvider,
+    WritingAssignment assignment,
+  ) {
+    final assignmentLineIndex = assignment.lineIndex;
+    final analyzedWords = assignment.origin == AssignmentOrigin.perLine &&
+            assignmentLineIndex != null &&
+            assignmentLineIndex < textProvider.analyzedLines.length
+        ? textProvider.analyzedLines[assignmentLineIndex]
         : const [];
 
     final verbs = analyzedWords
@@ -521,14 +664,15 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   void _scoreRewrite(TextProvider textProvider) {
-    if (textProvider.lines.isEmpty) return;
+    final assignment = _assignment;
+    if (assignment == null || assignment.sourceText.trim().isEmpty) return;
 
-    final expected = textProvider.lines[_lineIndex].content;
+    final expected = assignment.sourceText;
     final actual = _rewriteController.text.trim();
     final actualTokens = _tokenizeNormalized(actual);
     if (actualTokens.isEmpty) return;
 
-    final keywords = _extractRewriteKeywords(textProvider);
+    final keywords = _extractRewriteKeywords(textProvider, assignment);
     final usedKeywords = actualTokens.where(keywords.contains).toSet().toList()
       ..sort();
     final missingKeywords =
@@ -559,7 +703,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     final grammarScore = _grammarProxyScore(
       actual,
       actualTokens,
-      _extractExpectedVerbs(textProvider),
+      _extractExpectedVerbs(textProvider, assignment),
     );
 
     final overall = ((completenessScore * 0.5) +
@@ -583,15 +727,29 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   void _scoreSummary(TextProvider textProvider) {
-    if (textProvider.lines.isEmpty) return;
+    final assignment = _assignment;
+    if (assignment == null || assignment.sourceText.trim().isEmpty) return;
 
-    final expected = textProvider.lines[_lineIndex].content;
+    final expected = assignment.sourceText;
     final actual = _summaryController.text.trim();
+    if (actual.isEmpty) return;
+
+    if (assignment.scoringProfile == ScoringProfile.documentSignals) {
+      setState(() {
+        _summaryResult = null;
+        _documentSummarySignals = DocumentSummarySignalService.analyze(
+          sourceText: expected,
+          draftText: actual,
+        );
+        _showAnswer = true;
+      });
+      return;
+    }
+
     final actualTokens = _tokenizeNormalized(actual);
     if (actualTokens.isEmpty) return;
-
     final expectedTokens = _tokenizeNormalized(expected);
-    final keywords = _extractRewriteKeywords(textProvider);
+    final keywords = _extractRewriteKeywords(textProvider, assignment);
     final keptKeywords = actualTokens.where(keywords.contains).toSet().toList()
       ..sort();
     final missedKeywords =
@@ -621,7 +779,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     final grammarScore = _grammarProxyScore(
       actual,
       actualTokens,
-      _extractExpectedVerbs(textProvider),
+      _extractExpectedVerbs(textProvider, assignment),
     );
 
     final overall = ((contentRetention * 0.5) +
@@ -631,6 +789,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
         .toDouble();
 
     setState(() {
+      _documentSummarySignals = null;
       _summaryResult = _SummaryResult(
         overallScore: overall,
         contentRetentionScore: contentRetention,
@@ -852,9 +1011,11 @@ Hãy trả về JSON hợp lệ với:
           }
 
           final source = textProvider.currentTextPath;
-          final currentTitle =
-              textProvider.currentDocument?.title ?? 'Văn bản hiện tại';
-          final currentLine = hasText ? textProvider.lines[_lineIndex] : null;
+          final writingRequest = textProvider.writingSourceRequest;
+          final assignment = hasText ? _assignment : null;
+          final currentLine = assignment == null
+              ? null
+              : TextItem(id: assignment.id, content: assignment.sourceText);
           final activeLineIndex = textProvider.currentLineIndex;
 
           return SingleChildScrollView(
@@ -868,6 +1029,10 @@ Hãy trả về JSON hợp lệ với:
                     source: source,
                     lineCount: textProvider.lines.length,
                   ),
+                  if (hasText && writingRequest != null) ...[
+                    const SizedBox(height: 12),
+                    _WritingSourceHandoffCard(request: writingRequest),
+                  ],
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
@@ -901,18 +1066,24 @@ Hãy trả về JSON hợp lệ với:
                     )
                   else ...[
                     _buildContextCard(
-                      title: currentTitle,
-                      currentLine: currentLine!,
+                      assignment: assignment!,
                       totalLines: textProvider.lines.length,
                       activeLineIndex: activeLineIndex,
-                      onJumpToActive: activeLineIndex >= 0
-                          ? () => _jumpToCurrentLine(textProvider)
-                          : null,
+                      onJumpToActive:
+                          assignment!.showLineNavigator && activeLineIndex >= 0
+                              ? () => _jumpToCurrentLine(textProvider)
+                              : null,
                     ),
                     const SizedBox(height: 16),
                     _buildExerciseSelector(textProvider),
-                    const SizedBox(height: 16),
-                    _buildLineNavigator(textProvider),
+                    if (assignment!.showLineNavigator) ...[
+                      const SizedBox(height: 16),
+                      _buildLineNavigator(textProvider),
+                    ],
+                    if (assignment!.needsContextPreview) ...[
+                      const SizedBox(height: 16),
+                      _buildReferenceContextCard(assignment!),
+                    ],
                     const SizedBox(height: 16),
                     if (_exerciseType == _WriteExerciseType.dictation)
                       _buildDictationCard(textProvider, currentLine!)
@@ -942,12 +1113,18 @@ Hãy trả về JSON hợp lệ với:
   }
 
   Widget _buildContextCard({
-    required String title,
-    required TextItem currentLine,
+    required WritingAssignment assignment,
     required int totalLines,
     required int activeLineIndex,
     VoidCallback? onJumpToActive,
   }) {
+    final scopeLabel = switch (assignment.origin) {
+      AssignmentOrigin.perLine => 'Dòng ${_lineIndex + 1}/$totalLines',
+      AssignmentOrigin.excerpt => 'Đoạn trích',
+      AssignmentOrigin.fullDocument =>
+        'Toàn bài · ${assignment.sourceWordCount} từ',
+    };
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -965,7 +1142,7 @@ Hãy trả về JSON hợp lệ với:
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  title,
+                  context.uiText(assignment.sourceTitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -983,7 +1160,7 @@ Hãy trả về JSON hợp lệ với:
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  context.uiText('Dòng ${_lineIndex + 1}/$totalLines'),
+                  context.uiText(scopeLabel),
                   style: const TextStyle(
                     color: Color(0xFF26C6DA),
                     fontSize: 11,
@@ -995,13 +1172,25 @@ Hãy trả về JSON hợp lệ với:
           ),
           const SizedBox(height: 12),
           Text(
-            currentLine.content,
+            assignment.sourceText,
+            maxLines:
+                assignment.origin == AssignmentOrigin.fullDocument ? 10 : null,
+            overflow: assignment.origin == AssignmentOrigin.fullDocument
+                ? TextOverflow.ellipsis
+                : null,
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 13,
               height: 1.45,
             ),
           ),
+          if (assignment.scoringProfile == ScoringProfile.documentSignals) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Bài dài: phản hồi offline chỉ hiển thị tín hiệu quan sát, không gán điểm hiểu nghĩa.',
+              style: TextStyle(color: Color(0xFFFFD180), fontSize: 11),
+            ),
+          ],
           if (onJumpToActive != null && activeLineIndex != _lineIndex) ...[
             const SizedBox(height: 12),
             TextButton.icon(
@@ -1011,6 +1200,65 @@ Hãy trả về JSON hợp lệ với:
                   context.uiText('Dùng dòng đang focus trong tab Đọc (#${activeLineIndex + 1})')),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReferenceContextCard(WritingAssignment assignment) {
+    final taskInstruction = switch (assignment.task) {
+      WritingTaskType.dictation => 'chép lại câu đầu tiên',
+      WritingTaskType.cloze => 'làm bài cloze trên câu đầu tiên',
+      WritingTaskType.rewrite => 'viết lại câu đầu tiên',
+      WritingTaskType.summary => 'tóm tắt câu đầu tiên',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF26C6DA).withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF26C6DA).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.library_books_outlined,
+                  color: Color(0xFF80DEEA), size: 19),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Ngữ cảnh tham khảo',
+                  style: TextStyle(
+                    color: Color(0xFF80DEEA),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.uiText(
+              'Đoạn chọn có nhiều câu. Bài hiện tại chỉ yêu cầu $taskInstruction để công thức chấm câu đơn không cho kết quả sai.',
+            ),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SelectableText(
+            assignment.contextText,
+            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
         ],
       ),
     );
@@ -1244,7 +1492,7 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _scoreDictation(textProvider),
+                  onPressed: _scoreDictation,
                   icon: const Icon(Icons.grading_rounded),
                   label: const Text('Chấm nhanh'),
                 ),
@@ -1552,7 +1800,8 @@ Hãy trả về JSON hợp lệ với:
           const SizedBox(height: 14),
           TextField(
             controller: _rewriteController,
-            onChanged: (_) {
+            onChanged: (value) {
+              _saveWorkspaceDraftForInput(value);
               if (_rewriteResult != null || _lastAiPromptKey.isNotEmpty) {
                 setState(() {
                   _rewriteResult = null;
@@ -1594,6 +1843,7 @@ Hãy trả về JSON hợp lệ với:
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
+                    _clearCurrentWorkspaceDraft();
                     setState(() {
                       _rewriteController.clear();
                       _rewriteResult = null;
@@ -1824,6 +2074,10 @@ Hãy trả về JSON hợp lệ với:
 
   Widget _buildSummaryCard(TextProvider textProvider, TextItem currentLine) {
     final result = _summaryResult;
+    final signals = _documentSummarySignals;
+    final assignment = _assignment!;
+    final usesDocumentSignals =
+        assignment.scoringProfile == ScoringProfile.documentSignals;
 
     return Container(
       width: double.infinity,
@@ -1841,10 +2095,12 @@ Hãy trả về JSON hợp lệ với:
             children: [
               const Icon(Icons.short_text_rounded, color: Color(0xFF81C784)),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Tóm tắt ý bằng câu ngắn',
-                  style: TextStyle(
+                  usesDocumentSignals
+                      ? 'Tóm tắt nội dung dài'
+                      : 'Tóm tắt ý bằng câu ngắn',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -1858,9 +2114,11 @@ Hãy trả về JSON hợp lệ với:
             ],
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Hãy rút gọn nội dung câu gốc thành một câu ngắn hơn nhưng vẫn giữ ý chính.',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
+          Text(
+            usesDocumentSignals
+                ? 'Viết bản tóm tắt cho toàn bộ nguồn. Phản hồi offline chỉ mô tả độ dài, mức trùng cụm và sự hiện diện từ khóa — không tự nhận là điểm hiểu nghĩa.'
+                : 'Hãy rút gọn nội dung câu gốc thành một câu ngắn hơn nhưng vẫn giữ ý chính.',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
           const SizedBox(height: 12),
           Container(
@@ -1872,6 +2130,8 @@ Hãy trả về JSON hợp lệ với:
             ),
             child: Text(
               currentLine.content,
+              maxLines: usesDocumentSignals ? 8 : null,
+              overflow: usesDocumentSignals ? TextOverflow.ellipsis : null,
               style: const TextStyle(
                   color: Colors.white70, fontSize: 13, height: 1.4),
             ),
@@ -1879,20 +2139,27 @@ Hãy trả về JSON hợp lệ với:
           const SizedBox(height: 14),
           TextField(
             controller: _summaryController,
-            onChanged: (_) {
-              if (_summaryResult != null || _lastAiPromptKey.isNotEmpty) {
+            onChanged: (value) {
+              _saveWorkspaceDraftForInput(value);
+              if (_summaryResult != null ||
+                  _documentSummarySignals != null ||
+                  _lastAiPromptKey.isNotEmpty) {
                 setState(() {
                   _summaryResult = null;
+                  _documentSummarySignals = null;
                   _lastAiPromptKey = '';
                 });
               }
             },
-            minLines: 3,
-            maxLines: 5,
+            minLines: usesDocumentSignals ? 7 : 3,
+            maxLines: usesDocumentSignals ? 14 : 5,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText:
-                  context.uiText('Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...'),
+              hintText: context.uiText(
+                usesDocumentSignals
+                    ? 'Viết bản tóm tắt toàn bài theo cách hiểu của bạn...'
+                    : 'Viết một phiên bản ngắn hơn, rõ hơn, giữ đúng ý chính...',
+              ),
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.04),
@@ -1915,16 +2182,20 @@ Hãy trả về JSON hợp lệ với:
                 child: ElevatedButton.icon(
                   onPressed: () => _scoreSummary(textProvider),
                   icon: const Icon(Icons.compress_outlined),
-                  label: const Text('Chấm tóm tắt'),
+                  label: Text(
+                    usesDocumentSignals ? 'Xem tín hiệu offline' : 'Chấm tóm tắt',
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
+                    _clearCurrentWorkspaceDraft();
                     setState(() {
                       _summaryController.clear();
                       _summaryResult = null;
+                      _documentSummarySignals = null;
                       _lastAiPromptKey = '';
                     });
                   },
@@ -1934,6 +2205,45 @@ Hãy trả về JSON hợp lệ với:
               ),
             ],
           ),
+          if (signals != null) ...[
+            const SizedBox(height: 16),
+            _FeedbackCard(
+              title: 'Tín hiệu quan sát · không phải điểm semantic',
+              color: const Color(0xFFFFB74D),
+              children: [
+                _MetricRow(
+                  label: 'Độ dài',
+                  value:
+                      '${signals.draftWordCount}/${signals.sourceWordCount} từ · ${signals.compressionLabel}',
+                ),
+                _MetricRow(
+                  label: 'Cụm trùng',
+                  value: signals.copiedPhraseLabel,
+                ),
+                _MetricRow(
+                  label: 'Từ khóa',
+                  value: signals.keywordPresenceLabel,
+                ),
+                _MetricRow(
+                  label: 'Đã xuất hiện',
+                  value: signals.presentKeywords.isEmpty
+                      ? 'Chưa quan sát thấy'
+                      : signals.presentKeywords.join(', '),
+                ),
+                _MetricRow(
+                  label: 'Chưa xuất hiện',
+                  value: signals.absentKeywords.isEmpty
+                      ? 'Không có trong danh sách quan sát'
+                      : signals.absentKeywords.join(', '),
+                ),
+                const _MetricRow(
+                  label: 'Giới hạn',
+                  value:
+                      'Các tín hiệu trên không kết luận bản tóm tắt đúng nghĩa, đủ ý hay viết hay. Cần người học hoặc AI semantic kiểm tra riêng.',
+                ),
+              ],
+            ),
+          ],
           if (result != null) ...[
             const SizedBox(height: 16),
             _FeedbackCard(
@@ -2478,6 +2788,89 @@ class _HeroCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WritingSourceHandoffCard extends StatelessWidget {
+  final WritingSourceRequest request;
+
+  const _WritingSourceHandoffCard({required this.request});
+
+  @override
+  Widget build(BuildContext context) {
+    final sourceIcon = switch (request.kind) {
+      WritingSourceKind.web => Icons.language_rounded,
+      WritingSourceKind.pdf => Icons.picture_as_pdf_rounded,
+      WritingSourceKind.text => Icons.description_outlined,
+    };
+    final taskLabel = switch (request.task) {
+      WritingTaskType.dictation => 'Chép chính tả',
+      WritingTaskType.cloze => 'Điền từ',
+      WritingTaskType.rewrite => 'Viết lại ý',
+      WritingTaskType.summary => 'Tóm tắt ngắn',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(sourceIcon, color: const Color(0xFF81C784), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  request.isExcerpt
+                      ? context.uiText('Đã nhận đoạn chọn để luyện Viết')
+                      : context.uiText('Đã nhận nội dung để luyện Viết'),
+                  style: const TextStyle(
+                    color: Color(0xFFB9F6CA),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  request.sourceLabel,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  context.uiText(
+                    'Đã mở sẵn bài “$taskLabel”. Bạn vẫn có thể đổi dạng bài bên dưới.',
+                  ),
+                  style: const TextStyle(
+                    color: Color(0xFF81C784),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_downward_rounded,
+              color: Color(0xFF81C784), size: 18),
         ],
       ),
     );

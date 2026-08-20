@@ -189,6 +189,38 @@ void main() {
       });
     });
 
+    test('falls back to English for I2U chat harvest labels', () {
+      const cases = {
+        'Hỏi đáp về từ vựng và ngữ pháp': 'Ask about vocabulary and grammar',
+        'Trợ lý học tập I2U': 'I2U learning assistant',
+        'Xóa cuộc trò chuyện': 'Clear conversation',
+        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.':
+            'Local AI is not ready. You can import a .gguf model in AI settings.',
+      };
+      cases.forEach((source, english) {
+        expect(AppUITranslations.translate(source, 'en'), english);
+        expect(AppUITranslations.translate(source, 'ja'), isNot(source));
+      });
+    });
+
+    test('falls back to English for writing-studio harvest labels', () {
+      const cases = {
+        'Nguồn cho Viết': 'Writing source',
+        'Dùng đoạn này cho bài Viết lại ý':
+            'Use this passage for a rewrite exercise',
+        'Đã nhận đoạn chọn để luyện Viết':
+            'Received a selected passage for writing practice',
+        'Tín hiệu quan sát · không phải điểm semantic':
+            'Observational signals · not a semantic score',
+        '65% độ dài nguồn': '65% of source length',
+        'Đoạn trích · Example article': 'Excerpt · Example article',
+      };
+      cases.forEach((source, english) {
+        expect(AppUITranslations.translate(source, 'en'), english);
+        expect(AppUITranslations.translate(source, 'ja'), isNot(source));
+      });
+    });
+
     test('does not use the old generic Content substitution', () {
       const knownSources = [
         'Đang khởi động...',

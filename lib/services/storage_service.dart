@@ -169,6 +169,30 @@ class StorageService {
     return getSetting<String>('last_text_path');
   }
 
+  // ==================== WRITING DRAFTS ====================
+
+  String _writingDraftKey(String id) => 'writing_draft_v1_$id';
+
+  Future<void> saveWritingDraft(String id, String text) async {
+    if (!_initialized) return;
+    final normalized = text.trim();
+    if (normalized.isEmpty) {
+      await _settings.delete(_writingDraftKey(id));
+      return;
+    }
+    await _settings.put(_writingDraftKey(id), text);
+  }
+
+  String? getWritingDraft(String id) {
+    if (!_initialized) return null;
+    return _settings.get(_writingDraftKey(id)) as String?;
+  }
+
+  Future<void> deleteWritingDraft(String id) async {
+    if (!_initialized) return;
+    await _settings.delete(_writingDraftKey(id));
+  }
+
   Future<void> saveShadowingRepeatCount(int count) async {
     await saveSetting('shadowing_repeat_count', count);
   }

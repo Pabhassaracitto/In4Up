@@ -13,6 +13,7 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/storage_service.dart';
+import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/speak_mode_screen.dart';
@@ -649,7 +650,13 @@ class _MainShellState extends State<MainShell> {
         nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
         return;
       case 'web_reader':
-        nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
+        final openForWriting =
+            _currentTab == _PrimaryTab.read && _readModeIndex == 1;
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => WebReaderScreen(writingMode: openForWriting),
+          ),
+        );
         return;
       case 'youtube_downloader':
         nav.push(
@@ -667,10 +674,14 @@ class _MainShellState extends State<MainShell> {
         );
         if (!mounted) return;
         if (result != null && result.files.single.path != null) {
+          final openForWriting =
+              _currentTab == _PrimaryTab.read && _readModeIndex == 1;
           nav.push(
             MaterialPageRoute(
-              builder: (_) =>
-                  PdfReaderScreen(pdfPath: result.files.single.path!),
+              builder: (_) => PdfReaderScreen(
+                pdfPath: result.files.single.path!,
+                writingMode: openForWriting,
+              ),
             ),
           );
         }
@@ -715,6 +726,11 @@ class _MainShellState extends State<MainShell> {
           onNavigateToRead: () => _setReadMode(0),
           onNavigateToUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
           onNavigateToMemory: () => _setPrimaryTab(_PrimaryTab.remember),
+          onOpenAiChat: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiChatScreen()),
+            );
+          },
         );
       case _PrimaryTab.listen:
         return IndexedStack(

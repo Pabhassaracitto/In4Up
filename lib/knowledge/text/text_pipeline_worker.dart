@@ -24,6 +24,7 @@ import 'dart:isolate';
 import 'text_pipeline.dart';
 import 'vietnamese_trie.dart';
 
+import 'package:in4up/knowledge/attention/attention_score.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
     show SM2Snapshot;
 import 'package:in4up/knowledge/models/review_event.dart';
@@ -106,6 +107,29 @@ class TextPipelineWorker {
     return CompactionRecord.fromJson(resultMap);
   }
 
+  /// Task 7 (mục 5 + 4): xếp hạng Attention Score trong worker isolate.
+  Future<List<AttentionResult>> rankAttention(
+    List<AttentionInput> inputs, {
+    DateTime? now,
+  }) async {
+    final id = ++_seq;
+    final completer = Completer<Map<String, dynamic>>();
+    _pending[id] = completer;
+    _commandPort.send(<String, dynamic>{
+      'id': id,
+      'op': 'rankAttention',
+      'inputs': [for (final i in inputs) i.toJson()],
+      'now': now?.toIso8601String(),
+      'replyTo': _responses.sendPort,
+    });
+    final resultMap = await completer.future;
+    final items = resultMap['items'] as List<dynamic>;
+    return [
+      for (final raw in items.whereType<Map<String, dynamic>>())
+        AttentionResult.fromJson(raw)
+    ];
+  }
+
   /// Đóng worker; các request đang chờ hoàn tất với lỗi.
   void dispose() {
     _commandPort.send(<String, dynamic>{'op': 'close'});
@@ -165,6 +189,32 @@ class TextPipelineWorker {
           replyTo.send(<String, dynamic>{
             'id': msg['id'],
             'result': record?.toJson(),
+          });
+        } catch (e) {
+          replyTo.send(<String, dynamic>{
+            'id': msg['id'],
+            'error': e.toString(),
+          });
+        }
+      } else if (msg['op'] == 'rankAttention' && replyTo != null) {
+        // Task 7 (mục 5 + mục 4): Attention Score trong worker isolate.
+        try {
+          final inputs = [
+            for (final raw in (msg['inputs'] as List<dynamic>)
+                .whereType<Map<String, dynamic>>())
+              AttentionInput.fromJson(raw)
+          ];
+          final ranked = AttentionRanker.rank(
+            inputs,
+            now: msg['now'] == null
+                ? null
+                : DateTime.parse(msg['now'] as String),
+          );
+          replyTo.send(<String, dynamic>{
+            'id': msg['id'],
+            'result': <String, dynamic>{
+              'items': [for (final r in ranked) r.toJson()],
+            },
           });
         } catch (e) {
           replyTo.send(<String, dynamic>{

@@ -15,7 +15,7 @@
 | MVA-T5 | ReviewEvent append-only + compaction job | ✅ done | run 32371603413 |
 | MVA-T6 | Dual-Memory lifecycle (mục 6 bàn giao) | ✅ done | run 32380422644 |
 | MVA-T7 | Attention Score v1 (mục 5) | ✅ done | run 32381534996 |
-| MVA-T8 | Chat grounding + citation validator (mục 7) | 📋 todo | — |
+| MVA-T8 | Chat grounding + citation validator (mục 7) | ✅ done | run 32382509679 |
 | OPS-1 | Bật CI knowledge_tests.yml | ✅ done | commit 797efff (người dùng) |
 | OPS-2 | Skill ci-red-debugging v1.1 | ✅ done | commit a706953 |
 | GOV-1 | Hạ tầng governance (file này + GOVERNANCE + PLAN) | ✅ done | commit này |
@@ -102,10 +102,19 @@
   - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32381534996
 
 ### MVA-T8 — Chat grounding + citation validator (mục 7)
-- **Trạng thái:** todo
-- **Nội dung:** pipeline 6 bước; validator quoteExcerpt; offline quote-first.
+- **Trạng thái:** done
+- **Nội dung:** pipeline 6 bước trọn vẹn dưới dạng "context injection" (đúng tên,
+  không gọi RAG): builder top-5 có chặn (topic seam + mastery thấp + tie-break
+  deterministic), prompt chỉ chứa current + top-5, ChatModel seam cắm được,
+  OfflineQuoteFirstModel (quote-first, không tự sinh), validator 3 phán quyết
+  (verified/nearMatch/unverified + lý do), GroundedAnswer gắn locator reopen
+  cho mọi citation được tin + cờ hasUnverified cho UI cảnh báo.
+- **Bằng chứng:** CI run 32382509679 (13 test: e2e reopen đúng vị trí, model
+  bịa ⇒ cờ bật, bounded prompt…).
 - **Lịch sử:**
   - 2026-08-20 | created | agent arena/01a019bb-in4up | từ bàn giao mục 8
+  - 2026-08-20 | todo→doing | agent arena/01a019bb-in4up |
+  - 2026-08-20 | doing→done | agent arena/01a019bb-in4up | CI run 32382509679
 
 ### OPS-1 — Bật CI knowledge_tests.yml
 - **Trạng thái:** done

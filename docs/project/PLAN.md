@@ -18,8 +18,10 @@
 - Lịch sử:
   - 2026-08-20 | doing→done | agent | CI runs 32358239999/32371603413/32380422644
 
-### M2 — Trí tuệ gợi ý · 📋 todo
-- MVA-T7 ✅ (Attention Score v1 — 2026-08-20). MVA-T8 (Chat grounding) — việc cuối.
+### M2 — Trí tuệ gợi ý · ✅ done 2026-08-20
+- MVA-T7 ✅ + MVA-T8 ✅ (Chat grounding — 2026-08-20).
+- Lịch sử:
+  - 2026-08-20 | todo→done | agent | CI runs 32381534996/32382509679
 - Đầu ra kiểm chứng: AT2, AT3, AT6 (mục 9).
 
 ### M3 — Phạm vi P2+ · 📌 out-of-scope (theo bàn giao)
@@ -30,14 +32,14 @@
 
 | AT | Nội dung | Trạng thái |
 |---|---|---|
-| AT1 | 1 từ gặp ở PDF + audio → 1 unit, 2 evidence, reopen đúng | 📋 (cần T5/T6) |
+| AT1 | 1 từ gặp ở PDF + audio → 1 unit, 2 evidence, reopen đúng | 🔶 mô hình hỗ trợ ✓; kịch bản e2e chờ INTEGRATE-1 |
 | AT2 | Giống chữ khác nghĩa không tự merge | ✅ phủ bởi unit test T1 |
 | AT3 | Web đổi nội dung → phát hiện "nguồn đã đổi" | 🔶 phần cơ chế (verifyAgainst) ✅; phần UI còn thiếu |
 | AT4 | Đổi tokenizer → unitId & lịch sử KHÔNG đổi | ✅ phủ bởi unit test T1/T3 |
 | AT5 | 2 thiết bị conflict → không nhân đôi/mất | 🔶 resolver ✅; tích hợp sync còn thiếu |
-| AT6 | Xóa nguồn PDF → xử lý evidence theo policy | 📋 |
-| AT7 | Tắt AI/GGUF → 4 luồng vẫn chạy | 📋 |
-| AT8 | Audio 0.3x + isolate nặng → không giật | 📋 (cần harness manual) |
+| AT6 | Xóa nguồn PDF → xử lý evidence theo policy | 📋 (chờ INTEGRATE-1 + policy xóa ADR mới) |
+| AT7 | Tắt AI/GGUF → 4 luồng vẫn chạy | 🔶 OfflineQuoteFirstModel ✓ (không phụ thuộc model); e2e chờ INTEGRATE-1 |
+| AT8 | Audio 0.3x + isolate nặng → không giật | 🔶 kiến trúc isolate ✓; đo trên máy thật khi INTEGRATE-1 |
 
 ## Kế hoạch mới (tiếp nhận từ người sở hữu)
 

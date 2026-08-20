@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 // lib/models/vad_settings.dart
 // Soundlist – Cài đặt tách đoạn (VAD) có thể tinh chỉnh trong app.
 //

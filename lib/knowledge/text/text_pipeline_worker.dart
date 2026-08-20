@@ -4,17 +4,17 @@
 /// "Giao tiếp: chỉ qua SendPort/ReceivePort, payload là primitive/JSON,
 ///  KHÔNG share mutable object giữa 2 isolate."
 ///
-/// Thiết kế v1.1 (sau bisect C1–C4): KHÔNG handshake trạng thái — mỗi
-/// request tự mang SendPort nhận kết quả (reply-port pattern). Worker
-/// dài hạn, trie seed dựng MỘT LẦN trong isolate. Nền tảng cho các job
-/// sau (Attention Score, compaction, lexical search) cùng isolate này —
-/// cách ly hoàn toàn khỏi audio/UI isolate (mục 0).
+/// Thiết kế v1.2 (sau bisect C1–C5): bootstrap 1 tin nhắn (không chuỗi
+/// closure .then/.catchError), MỘT listener thường trực trên responses
+/// (ReceivePort là single-subscription — không được listen mỗi request),
+/// bảng pending theo id cho nhiều request chồng lấn. Worker dài hạn,
+/// trie seed dựng MỘT LẦN trong isolate. Nền cho các job sau (Attention
+/// Score, compaction, lexical search) — cách ly khỏi audio/UI (mục 0).
 ///
 /// Protocol (JSON-able hai chiều):
 ///   main → worker: {'id': int, 'op': 'process', 'request': {...},
-///                   'replyTo': SendPort}
-///   worker → main: {'id': int, 'result': {...}} qua replyTo
-///   main → worker: {'op': 'close'} ⇒ Isolate.exit()
+///                   'replyTo': SendPort} | {'op': 'close'}
+///   worker → main: {'id': int, 'result': {...}|'error': str} qua replyTo
 /// ═══════════════════════════════════════════════════════════════
 library;
 
@@ -27,7 +27,10 @@ import 'vietnamese_trie.dart';
 /// Client đứng ở isolate gọi (main/UI hoặc test).
 class TextPipelineWorker {
   final ReceivePort _responses = ReceivePort();
+  final Map<int, Completer<Map<String, dynamic>>> _pending =
+      <int, Completer<Map<String, dynamic>>>{};
   late final SendPort _commandPort;
+  late final StreamSubscription<dynamic> _listener;
   int _seq = 0;
 
   TextPipelineWorker._();
@@ -39,45 +42,48 @@ class TextPipelineWorker {
     await Isolate.spawn(_workerEntry, bootstrap.sendPort);
     worker._commandPort = await bootstrap.first as SendPort;
     bootstrap.close();
+
+    // MỘT listener thường trực — phân phát kết quả theo id.
+    worker._listener = worker._responses.listen((reply) {
+      final map = reply as Map<String, dynamic>;
+      final completer = worker._pending.remove(map['id'] as int);
+      if (completer == null || completer.isCompleted) return;
+      if (map['error'] != null) {
+        completer.completeError(StateError('worker lỗi: ${map['error']}'));
+      } else {
+        completer.complete(map['result'] as Map<String, dynamic>);
+      }
+    });
     return worker;
   }
 
   /// Chạy pipeline trong worker isolate — payload JSON hai chiều.
+  /// An toàn khi gọi chồng lấn nhiều request (phân phát theo id).
   Future<PipelineResult> process(PipelineRequest request) async {
     final id = ++_seq;
     final completer = Completer<Map<String, dynamic>>();
-    late final StreamSubscription<dynamic> subscription;
-    subscription = _responses.listen((reply) {
-      final map = reply as Map<String, dynamic>;
-      if (map['id'] as int == id) {
-        if (!completer.isCompleted) {
-          if (map['error'] != null) {
-            completer.completeError(
-                StateError('worker lỗi: ${map['error']}'));
-          } else {
-            completer.complete(map['result'] as Map<String, dynamic>);
-          }
-        }
-        subscription.cancel();
-      }
-    });
+    _pending[id] = completer;
     _commandPort.send(<String, dynamic>{
       'id': id,
       'op': 'process',
       'request': request.toJson(),
       'replyTo': _responses.sendPort,
     });
-    try {
-      return PipelineResult.fromJson(await completer.future);
-    } finally {
-      await subscription.cancel();
-    }
+    final resultMap = await completer.future;
+    return PipelineResult.fromJson(resultMap);
   }
 
-  /// Đóng worker.
+  /// Đóng worker; các request đang chờ hoàn tất với lỗi.
   void dispose() {
     _commandPort.send(<String, dynamic>{'op': 'close'});
+    _listener.cancel();
     _responses.close();
+    for (final completer in _pending.values) {
+      if (!completer.isCompleted) {
+        completer.completeError(StateError('TextPipelineWorker đã đóng'));
+      }
+    }
+    _pending.clear();
   }
 
   /// Entry point chạy TRONG worker isolate — state tối thiểu.
@@ -88,17 +94,18 @@ class TextPipelineWorker {
 
     port.listen((message) {
       final msg = message as Map<String, dynamic>;
-      if (msg['op'] == 'process') {
+      final replyTo = msg['replyTo'] as SendPort?;
+      if (msg['op'] == 'process' && replyTo != null) {
         try {
           final request =
               PipelineRequest.fromJson(msg['request'] as Map<String, dynamic>);
           final result = TextPipeline.process(request, trie: trie);
-          (msg['replyTo'] as SendPort).send(<String, dynamic>{
+          replyTo.send(<String, dynamic>{
             'id': msg['id'],
             'result': result.toJson(),
           });
         } catch (e) {
-          (msg['replyTo'] as SendPort).send(<String, dynamic>{
+          replyTo.send(<String, dynamic>{
             'id': msg['id'],
             'error': e.toString(),
           });

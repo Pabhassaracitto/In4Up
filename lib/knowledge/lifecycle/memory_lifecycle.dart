@@ -23,9 +23,6 @@
 /// ═══════════════════════════════════════════════════════════════
 library;
 
-import 'package:in4up/knowledge/models/learning_action.dart';
-import 'package:in4up/knowledge/models/learning_state.dart'
-    show LearningState, SkillDimension;
 
 /// 5 trạng thái mục 6 (thứ tự enum = chiều phát triển bình thường).
 enum MemoryStage { observed, captured, promoted, practicing, maintained }
@@ -114,4 +111,90 @@ class MemoryLifecycleUnit {
   })  : contextReopens = contextReopens ?? <String, int>{},
         sentenceReplays = sentenceReplays ?? <String, int>{},
         history = history ?? <StageTransition>[];
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'unitId': unitId,
+        'stage': stage.name,
+        'stageEnteredAt': stageEnteredAt.toIso8601String(),
+        'evidenceCount': evidenceCount,
+        'highlighted': highlighted,
+        'translated': translated,
+        'contextReopens': contextReopens,
+        'sentenceReplays': sentenceReplays,
+        'sm2StartedAt': sm2StartedAt?.toIso8601String(),
+        'history': [for (final t in history) t.toJson()],
+      };
+
+  factory MemoryLifecycleUnit.fromJson(Map<String, dynamic> json) {
+    return MemoryLifecycleUnit(
+      unitId: json['unitId'] as String,
+      stage: MemoryStage.values.firstWhere((s) => s.name == json['stage']),
+      stageEnteredAt: DateTime.parse(json['stageEnteredAt'] as String),
+      evidenceCount: json['evidenceCount'] as int? ?? 0,
+      highlighted: json['highlighted'] as bool? ?? false,
+      translated: json['translated'] as bool? ?? false,
+      contextReopens:
+          (json['contextReopens'] as Map<String, dynamic>?)?.cast<int>(),
+      sentenceReplays:
+          (json['sentenceReplays'] as Map<String, dynamic>?)?.cast<int>(),
+      sm2StartedAt: json['sm2StartedAt'] == null
+          ? null
+          : DateTime.parse(json['sm2StartedAt'] as String),
+      history: [
+        for (final t in (json['history'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>())
+          StageTransition.fromJson(t)
+      ],
+    );
+  }
+}
+
+/// Đề xuất KHÔNG CHẶN LUỒNG — dữ liệu cho badge nhỏ hoặc tổng kết cuối phiên.
+class LifecycleSuggestion {
+  final String unitId;
+
+  /// Lý do dạng người đọc được — bắt buộc cụ thể (mục 5 style), không "AI đề xuất" mơ hồ.
+  final String reason;
+
+  final DateTime at;
+
+  const LifecycleSuggestion({
+    required this.unitId,
+    required this.reason,
+    required this.at,
+  });
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'unitId': unitId,
+        'reason': reason,
+        'at': at.toIso8601String(),
+      };
+}
+
+/// Engine lifecycle — bản bisect D9: chỉ observe + getter.
+class MemoryLifecycleEngine {
+  final Map<String, MemoryLifecycleUnit> _units = <String, MemoryLifecycleUnit>{};
+  final DateTime Function() _clock;
+
+  MemoryLifecycleEngine({DateTime Function()? clock})
+      : _clock = clock ?? DateTime.now;
+
+  MemoryLifecycleUnit observe(String unitId, {int evidenceBump = 1}) {
+    final now = _clock();
+    final existing = _units[unitId];
+    if (existing != null) {
+      existing.evidenceCount += evidenceBump;
+      return existing;
+    }
+    final unit = MemoryLifecycleUnit(
+      unitId: unitId,
+      stage: MemoryStage.observed,
+      stageEnteredAt: now,
+      evidenceCount: evidenceBump,
+    );
+    _units[unitId] = unit;
+    return unit;
+  }
+
+  MemoryLifecycleUnit? unit(String unitId) => _units[unitId];
 }

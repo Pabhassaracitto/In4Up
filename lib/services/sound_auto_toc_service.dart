@@ -322,7 +322,8 @@ class SoundAutoTocService {
     final perGroup = (list.length / maxChapters).ceil();
     final groups = <List<SttSegment>>[];
     for (int i = 0; i < list.length; i += perGroup) {
-      groups.add(list.sublist(i, math.min(i + perGroup, list.length)));
+      final end = i + perGroup < list.length ? i + perGroup : list.length;
+      groups.add(list.sublist(i, end));
     }
     return groups;
   }

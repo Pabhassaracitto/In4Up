@@ -9,8 +9,9 @@ At its core is the **UltraTimeStretch** Engine V2, a native C++ DSP backend acce
 - [Key Features](#key-features)
 - [Architecture](#architecture)
 - [Getting Started](#getting-started)
-- [Platform Notes](#platform-notes)
+- [Platform Support](#platform-support)
 - [Roadmap](#roadmap)
+- [Contributing](#contributing)
 - [License](#license)
 - [Tiếng Việt](#tiếng-việt)
 
@@ -41,7 +42,7 @@ At its core is the **UltraTimeStretch** Engine V2, a native C++ DSP backend acce
 - Cloud & Local Library: Stream or play audio from Google Drive or local storage. [github](https://github.com/Pabhassaracitto/in4up)
 - Integrated Readers: Built‑in PDF Reader and Web Reader that extract text for instant analysis and “Text Studio” processing. [github](https://github.com/Pabhassaracitto/in4up)
 
-### 3. Smart Sync & Offline‑First
+### 3. Smart Sync & Offline-First
 
 - Cross‑device sync using Firebase Auth and Cloud Firestore for vocabulary and learning progress. [github](https://github.com/Pabhassaracitto/in4up)
 - Offline‑first design with local storage in Hive for instant access without network. [github](https://github.com/Pabhassaracitto/in4up)
@@ -55,7 +56,7 @@ At its core is the **UltraTimeStretch** Engine V2, a native C++ DSP backend acce
 - Backend & Sync: Firebase Auth, Cloud Firestore, Hive for local DB. [github](https://github.com/Pabhassaracitto/in4up)
 - Platforms: Android, iOS, Windows (with CMake‑built native libraries). [github](https://github.com/Pabhassaracitto/in4up)
 
-### lib/ Structure
+### `lib/` Structure
 
 - `audio/` – Core playback services and UltraTimeStretch bindings. [github](https://github.com/Pabhassaracitto/in4up)
 - `features/` – PDF/Web readers, YouTube downloader, TTS, translation, etc. [github](https://github.com/Pabhassaracitto/in4up)
@@ -78,7 +79,7 @@ At its core is the **UltraTimeStretch** Engine V2, a native C++ DSP backend acce
 git clone https://github.com/Pabhassaracitto/in4up.git
 cd in4up
 
-# Install Dart/Flutter dependencies
+# Install Dart / Flutter dependencies
 flutter pub get
 ```
 
@@ -95,21 +96,29 @@ flutter run
 
 # Windows (ensure native libs are built via CMake)
 flutter run -d windows
+
+# Web
+flutter run -d web
 ```
 
 > Note: This project is intended for personal educational use.  
 > Please respect copyright when downloading external content (e.g. YouTube). [github](https://github.com/Pabhassaracitto/in4up)
 
-## Platform Notes
+## Platform Support
 
 - Android/iOS: UltraTimeStretch engine built as native libraries, accessed via FFI. [github](https://github.com/Pabhassaracitto/in4up)
 - Windows: Requires CMake build; see `windows/` and `native/` folders for C++ configuration and scripts. [github](https://github.com/Pabhassaracitto/in4up)
 
 ## Roadmap
 
-- Improved Shadowing feedback with richer pronunciation analytics.  
-- More TTS / translation engines and better offline support.  
-- UI/UX refinements for waveform editor and Memory Garden.
+- Richer Shadowing feedback with deeper pronunciation analytics.
+- Additional TTS / translation engines and improved offline support.
+- UI/UX refinements for the waveform editor and Memory Garden.
+
+## Contributing
+
+Contributions are welcome for personal, educational, and non-commercial purposes. Please
+open an issue to discuss substantial changes before submitting a pull request.
 
 ## License
 This project is released under the **in4up Source-Available License (Non-Commercial)**.  
@@ -118,7 +127,7 @@ Commercial use of in4up, in whole or in part, requires prior written permission 
 
 See the [LICENSE](./LICENSE) file for the full terms.
 
-***
+---
 
 ## Tiếng Việt
 

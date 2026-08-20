@@ -502,7 +502,6 @@ class _SttDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(

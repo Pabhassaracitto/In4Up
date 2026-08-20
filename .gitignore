@@ -131,8 +131,15 @@ docs/api/
 build_log.txt
 .firebase/
 **/.firebase/
-android/local.properties
-docs/
+google_sign_in_config.dart
+*.bin
+*.claudignore
+.ai/
+.roo/
+project/
+# Bỏ qua các file localization tự sinh
+lib/l10n/app_localizations*.dart
+.dart_tool/
 .guide/
 google-services.json
 # Exceptions - force track important files

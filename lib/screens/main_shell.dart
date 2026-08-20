@@ -843,6 +843,7 @@ class _MainShellState extends State<MainShell> {
                   ),
               ],
             ),
+            // ★ Wordlist floating bubble – persistent TTS across tabs
             const WordlistBubble(),
           ],
         ),
@@ -1007,28 +1008,28 @@ class _MainShellState extends State<MainShell> {
                     _setReadMode(index);
                   }
                 },
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: selected
-                        ? accent.withValues(alpha: 0.15)
+                        ? accent.withValues(alpha: 0.18)
                         : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: selected
-                          ? accent.withValues(alpha: 0.4)
-                          : Colors.transparent,
+                          ? accent.withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
-                  alignment: Alignment.center,
                   child: Text(
                     labels[index],
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          selected ? FontWeight.bold : FontWeight.normal,
                       color: selected ? accent : Colors.grey[400],
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -1160,6 +1161,43 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
+class _ToolPage extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final Color color;
+
+  const _ToolPage({
+    required this.title,
+    required this.child,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF080B1A),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1A1A2E),
+          elevation: 0,
+        ),
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: color),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: child,
+      ),
+    );
+  }
+}
+
 class _ShellActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1176,21 +1214,17 @@ class _ShellActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: InkWell(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(8),
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: color.withValues(alpha: 0.25),
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
           child: Icon(icon, color: color, size: 20),
         ),
@@ -1218,43 +1252,26 @@ class _ModeHintChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final suffix = compactEnabled
+        ? (expanded ? 'Chạm để ẩn' : 'Chạm để hiện')
+        : longPressEnabled
+            ? 'Giữ để đổi'
+            : altLabel;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          if (compactEnabled) ...[
-            const SizedBox(width: 3),
-            Icon(
-              expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: 12,
-              color: color,
-            ),
-          ],
-          if (longPressEnabled && !compactEnabled) ...[
-            const SizedBox(width: 3),
-            Text(
-              '• Đổi: $altLabel',
-              style: TextStyle(
-                fontSize: 9,
-                color: color.withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ],
+      child: Text(
+        '${context.uiText(label)} · ${context.uiText(suffix)}',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1277,97 +1294,93 @@ class _BottomNavItem extends StatelessWidget {
     required this.color,
     required this.icon,
     required this.selectedIcon,
-    this.badgeText,
-    this.showLongPressHint = false,
     required this.onTap,
     this.onLongPress,
+    this.badgeText,
+    this.showLongPressHint = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final activeColor = selected ? color : Colors.grey[500]!;
 
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  selected ? selectedIcon : icon,
-                  color: activeColor,
-                  size: 22,
-                ),
-                if (badgeText != null)
-                  Positioned(
-                    top: -4,
-                    right: -8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      constraints: const BoxConstraints(minWidth: 14),
-                      child: Text(
-                        badgeText!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          decoration: BoxDecoration(
+            color:
+                selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+                  selected ? color.withValues(alpha: 0.24) : Colors.transparent,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(selected ? selectedIcon : icon,
+                      color: activeColor, size: 22),
+                  if (badgeText != null)
+                    Positioned(
+                      top: -6,
+                      right: -14,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          badgeText!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                color: activeColor,
+                  if (showLongPressHint)
+                    Positioned(
+                      bottom: -2,
+                      right: -8,
+                      child: Icon(
+                        Icons.subdirectory_arrow_left,
+                        size: 10,
+                        color: activeColor.withValues(alpha: 0.8),
+                      ),
+                    ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: activeColor,
+                    fontSize: 10,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _ToolPage extends StatelessWidget {
-  final String title;
-  final Color color;
-  final Widget child;
-
-  const _ToolPage({
-    required this.title,
-    required this.color,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF080B1A),
-      appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontSize: 16)),
-        backgroundColor: const Color(0xFF1A1A2E),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: child,
     );
   }
 }

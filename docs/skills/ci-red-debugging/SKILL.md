@@ -1,22 +1,22 @@
 ---
 name: ci-red-debugging-github-actions
-version: 1.0.0
-ngôn ngữ: vi
-mức: proven-in-battle
+version: 1.1.0
+language: vi
+maturity: proven-in-battle
 description: >
   Tự chẩn đoán và xử lý CI đỏ (Flutter / GitHub Actions) trong môi trường KHÔNG đọc
   được log CI và KHÔNG có Flutter SDK local — dùng chính CI làm "oracle 1-bit" kết hợp
   bisect có kỷ luật. Mục tiêu: giải phóng 100% công sức người dùng, không bắt họ mở
   VSCode/máy local để xem lỗi rồi gửi ngược lại.
-khi_nào_dùng:
+use_when:
   - CI GitHub Actions đỏ trong repo Flutter và không tự sửa được ngay
   - "'gh run view --log' / '--log-failed' lỗi EOF hoặc trả chuỗi rỗng"
   - Sandbox không cài được Flutter/Dart SDK (storage.googleapis.com / pub.dev bị chặn)
   - Cần xác minh compile/test khi không thể chạy local
-khi_nào_không_dùng:
+do_not_use_when:
   - Log tải được bình thường → đọc log trực tiếp, nhanh hơn hẳn
   - Đỏ do hạ tầng runner (mạng/lưu lượng GitHub) → chạy lại run trước khi phân tích
-tác_giểnghề: phiên Task 3 In4Up (2026-08-20) — 15+ vòng CI đỏ được chẩn đoán tự động
+origin: phiên Task 3 In4Up (2026-08-20) — 15+ vòng CI đỏ được chẩn đoán tự động
 ---
 
 # SKILL — Debug CI đỏ Flutter khi không có log, không có SDK

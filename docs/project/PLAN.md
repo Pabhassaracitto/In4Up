@@ -310,3 +310,15 @@
 - Lịch sử:
   - 2026-08-21 | created | owner via chat
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | 3 commit (rule, import, loader)
+
+### PLAN-014 — AI Chat thật: tích hợp llama.cpp native backend (hết mock)
+- Nguồn: người (2026-08-21) — yêu cầu "Hoàn thiện chat AI" kèm audit nhánh
+  arena/01a0251e-in4up (chat UI/wiring chạy nhưng câu trả lời vẫn mock;
+  native binding có sẵn nhưng chưa nối; llama.cpp chưa có submodule/CMake).
+- Trạng thái: doing — agent arena/01a02601-in4up, PR #8; card KANBAN AICHAT-01.
+- Milestone đề xuất: M3 (ngoài hợp đồng bàn giao MVA) — AI local offline.
+- Chi tiết: submodule llama.cpp pin b10567; CMake Android (file riêng, không
+  đụng vùng bảo vệ UltraTimeStretch) + Windows; nối AiNativeBindings vào
+  isolate AiEngineGemma với mock fallback; hasModel trung thực; mock→real
+  re-init; validate GGUF magic; CMake tự init submodule (token thiếu quyền
+  workflows). Đã verify local (build + ABI smoke) và chờ CI full build.

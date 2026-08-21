@@ -30,6 +30,7 @@
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
+| AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | 🔄 doing | 5 commits + PR #8 (chờ CI full build) |
 
 ---
 
@@ -310,3 +311,30 @@
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat (item 5)
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | docx thật (deflate) + md + json mô phỏng pass
+
+### AICHAT-01 — AI Chat thật: llama.cpp native backend (hết mock)
+- **Trạng thái:** doing
+- **Nội dung:** Đưa inference thật vào luồng AI Chat (audit nhánh 01a0251e:
+  chat đang mock, AiEngineGemma gọi _mockInference, binding/CMake có sẵn
+  nhưng chưa nối). (1) Submodule `third_party/llama.cpp` pin tag b10567
+  (shallow). (2) CMake build `in4up_ai_native`: Android dùng file riêng
+  `android/app/src/main/cpp/ai/CMakeLists.txt` — KHÔNG đụng CMakeLists
+  UltraTimeStretch (vùng bảo vệ mục 0) — wire qua externalNativeBuild
+  (ANDROID_STL=c++_static); Windows thêm target + copy DLL cạnh in4up.exe
+  (POST_BUILD + install). (3) Nối AiNativeBindings vào isolate AiEngineGemma:
+  luồng thật Chat UI → Facade → Engine → isolate → FFI → llama.cpp → GGUF;
+  mock fallback khi thiếu lib/model (app không vỡ); isolate báo ready trước
+  khi load model. (4) Fix hasModel = _initialized && !_useMock (hết hiểu
+  nhầm "model sẵn sàng" khi mock), cho phép mock→real re-init khi import
+  .gguf giữa phiên chạy, loader validate magic header GGUF. (5) CMake tự
+  init submodule khi thiếu (token GitHub App không có quyền workflows nên
+  không sửa được .github/workflows/build.yml — push commit đó bị reject,
+  đã bỏ và dùng self-heal tại configure).
+- **Bằng chứng:** sandbox local (g++12 + CMake 4.4): llama.cpp b10567 build
+  sạch; in4up_ai_native compile + link + ABI smoke pass (create path sai ⇒
+  nullptr, alias in2up_ai_* OK, generate null ⇒ -1); configure thiếu
+  submodule tự clone lại đúng pin; mô phỏng git lỗi ⇒ WARNING (không fail).
+  CI full build qua tag tạm v1.4.0-ai-native-test (run 32525863254) — chờ kết quả.
+- **Lịch sử:**
+  - 2026-08-21 21:10 UTC | created | owner via chat | "Hoàn thiện chat AI" — audit: nhánh 01a0251e chat đang mock, llama.cpp chưa tích hợp (commit 959263d nằm ở arena/019fe84a-vipsound)
+  - 2026-08-21 21:10 UTC | proposed→doing | agent arena/01a02601-in4up | 5 commits + PR #8 + tag CI oracle

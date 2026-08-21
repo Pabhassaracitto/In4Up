@@ -189,7 +189,12 @@ class TextSourceLoader {
                     (bytes[next + 2] == 0x03 || bytes[next + 2] == 0x01))) {
               next++;
             }
-            return _inflate(bytes, dataStart, min(next, bytes.length), method);
+            return _inflate(
+              bytes,
+              dataStart,
+              next < bytes.length ? next : bytes.length,
+              method,
+            );
           }
           return _inflate(
             bytes,

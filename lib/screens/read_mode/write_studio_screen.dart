@@ -1066,12 +1066,14 @@ Hãy trả về JSON hợp lệ với:
                       onOpenPdfReader: widget.onOpenPdfReader,
                     )
                   else ...[
+                    // hasText=true ⇒ _assignment đã auto-create
+                    // (_ensureExerciseState) ⇒ an toàn dùng !
                     _buildContextCard(
-                      assignment: assignment,
+                      assignment: assignment!,
                       totalLines: textProvider.lines.length,
                       activeLineIndex: activeLineIndex,
                       onJumpToActive:
-                          assignment.showLineNavigator && activeLineIndex >= 0
+                          assignment!.showLineNavigator && activeLineIndex >= 0
                               ? () => _jumpToCurrentLine(textProvider)
                               : null,
                     ),
@@ -1087,13 +1089,13 @@ Hãy trả về JSON hợp lệ với:
                     ],
                     const SizedBox(height: 16),
                     if (_exerciseType == _WriteExerciseType.dictation)
-                      _buildDictationCard(textProvider, currentLine)
+                      _buildDictationCard(textProvider, currentLine!)
                     else if (_exerciseType == _WriteExerciseType.rewrite)
-                      _buildRewriteCard(textProvider, currentLine)
+                      _buildRewriteCard(textProvider, currentLine!)
                     else if (_exerciseType == _WriteExerciseType.summary)
-                      _buildSummaryCard(textProvider, currentLine)
+                      _buildSummaryCard(textProvider, currentLine!)
                     else
-                      _buildClozeCard(currentLine),
+                      _buildClozeCard(currentLine!),
                     const SizedBox(height: 20),
                     const _TipCard(
                       title: 'Vai trò của tab Viết',

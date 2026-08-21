@@ -29,6 +29,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
+import '../sherpa_bindings.dart';
+
 /// Một đoạn speech phát hiện được (thời gian tính bằng giây trong file).
 class SherpaVadSegment {
   final double startTime;
@@ -52,8 +54,6 @@ class SherpaVadCore {
   static const int sampleRate = 16000;
   static const int windowSize = 512; // 1 frame silero = 32ms @16kHz
 
-  static bool _bindingsInitialized = false;
-
   sherpa.VoiceActivityDetector? _vad;
   final String modelPath;
 
@@ -62,12 +62,8 @@ class SherpaVadCore {
   SherpaVadCore._(this.modelPath, sherpa.VoiceActivityDetector vad)
       : _vad = vad;
 
-  /// Init FFI bindings MỘT lần (idempotent).
-  static void ensureBindings() {
-    if (_bindingsInitialized) return;
-    sherpa.initBindings();
-    _bindingsInitialized = true;
-  }
+  /// Init FFI bindings MỘT lần (idempotent, dùng chung cho TTS/STT).
+  static void ensureBindings() => ensureSherpaBindings();
 
   /// Tạo detector từ model silero_vad.onnx.
   /// Ném exception nếu model hỏng — caller tự fallback sang EnergyVad.

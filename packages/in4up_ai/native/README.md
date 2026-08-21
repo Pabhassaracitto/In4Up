@@ -1,20 +1,31 @@
 # in4up AI native backend
 
-This directory contains the small C ABI adapter used by Dart FFI. The adapter
-links against the `llama` target from an optional `third_party/llama.cpp`
-checkout and exposes model loading plus synchronous generation.
+C ABI adapter (Dart FFI) for the local GGUF inference backend. The adapter
+links against the `llama` target from the shallow `third_party/llama.cpp`
+submodule and exposes model loading plus synchronous generation.
 
-Native linking is **opt-in**. Android and Windows CMake only build
-`in4up_ai_native` when `third_party/llama.cpp/CMakeLists.txt` exists:
+## Init submodule (bắt buộc trước khi build native)
 
 ```bash
-git submodule add --depth 1 https://github.com/ggerganov/llama.cpp.git third_party/llama.cpp
+git submodule update --init --depth 1
 ```
 
-The Dart side loads `libin4up_ai_native.so` on Android and
-`in4up_ai_native.dll` on Windows. When the native library is unavailable, the
-engine falls back to the existing mock backend so Chat and analysis stay usable.
+Submodule được pin tại tag ổn định của llama.cpp (xem `git ls-tree HEAD
+third_party/llama.cpp`).
 
-The model itself is not committed to Git. Import a valid `.gguf` file from the
-I2U AI Chat screen; the loader validates the GGUF magic header and copies it to
-application storage.
+## Build targets
+
+| Platform | Cấu hình | Kết quả |
+|---|---|---|
+| Android | `android/app/src/main/cpp/ai/CMakeLists.txt` (wire qua `externalNativeBuild` trong `build.gradle.kts`) | `libin4up_ai_native.so` — AGP đóng gói tự động vào APK |
+| Windows | `windows/CMakeLists.txt` + `windows/runner/CMakeLists.txt` | `in4up_ai_native.dll` — copy cạnh `in4up.exe` (POST_BUILD + install) |
+
+Nếu thiếu submodule, CMake chỉ in WARNING (không fail configure) và app chạy
+không có native lib — Dart engine tự fallback về mock để Chat vẫn dùng được.
+
+Dart FFI load `libin4up_ai_native.so` trên Android và `in4up_ai_native.dll`
+trên Windows. Native lib cũng export alias `in2up_ai_*` để tương thích ngược
+với các build cũ (harvested từ nhánh vipsound).
+
+Model KHÔNG commit vào Git. Import file `.gguf` từ màn hình I2U AI Chat;
+loader kiểm tra magic header GGUF trước khi copy vào app storage.

@@ -2,9 +2,11 @@
 // v11.0-final — fix param analysisType (không phải type)
 
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'ai_engine.dart';
+import 'ai_native_bindings.dart';
 
 class AiEngineGemma implements AiEngine {
   @override
@@ -131,18 +133,46 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
+    // Báo sẵn sàng NGAY — việc load model native có thể mất vài giây (file GGUF
+    // lớn). Message gửi tới trong lúc load sẽ nằm queue ở ReceivePort và được
+    // xử lý sau khi native handle sẵn sàng.
     init.mainSendPort.send(port.sendPort);
+
+    // Nối backend llama.cpp thật nếu native lib đã được build (Android:
+    // libin4up_ai_native.so; Windows: in4up_ai_native.dll). Nếu không có lib
+    // hoặc model không load được ⇒ fallback mock để app vẫn dùng được.
+    final native = AiNativeBindings.tryLoad();
+    ffi.Pointer<ffi.Void>? nativeHandle;
+    if (native != null && init.modelPath.isNotEmpty) {
+      nativeHandle = native.create(init.modelPath);
+      if (nativeHandle == ffi.nullptr) {
+        debugPrint('[AiEngineGemma] Native model load failed — mock fallback.');
+        nativeHandle = null;
+      } else {
+        debugPrint('[AiEngineGemma] ✅ Native llama.cpp backend ready.');
+      }
+    } else if (native == null) {
+      debugPrint('[AiEngineGemma] Native lib not found — mock fallback.');
+    }
+
     await for (final msg in port) {
       if (msg is _IsolateMessage) {
         try {
+          final nativeOutput = native != null && nativeHandle != null
+              ? native.generate(nativeHandle!, msg.prompt,
+                  temperature: msg.temperature)
+              : null;
           msg.replyPort.send(_IsolateResponse(
-            fullText: _mockInference(msg.prompt),
+            fullText: nativeOutput ?? _mockInference(msg.prompt),
             isComplete: true,
           ));
         } catch (e) {
           msg.replyPort.send(_IsolateError(error: e.toString()));
         }
       }
+    }
+    if (native != null && nativeHandle != null) {
+      native.destroy(nativeHandle!);
     }
   }
 

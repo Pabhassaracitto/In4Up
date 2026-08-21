@@ -28,6 +28,14 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "1.0.0"
+
+        // STL cho native build (llama.cpp cần C++ STL). Kotlin DSL dùng
+        // `arguments += listOf(...)` — KHÔNG dùng syntax Groovy `arguments("-D...")`.
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_static")
+            }
+        }
     }
 
     flavorDimensions.add("default")
@@ -76,7 +84,6 @@ android {
         cmake {
             path = file("src/main/cpp/ai/CMakeLists.txt")
             version = "3.22.1"
-            arguments("-DANDROID_STL=c++_static")
         }
     }
 }

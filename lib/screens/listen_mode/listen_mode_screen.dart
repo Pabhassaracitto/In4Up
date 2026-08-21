@@ -68,6 +68,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   static const double _lrcDefaultHeight = 220.0;
   double _lrcDragStartHeight = 320.0;
 
+  // LISTEN-630-01: panel inline (AB loop / tốc độ / AI) đang mở —
+  // rèm LRC phải nhường chỗ để không bottom overflow che thanh điều hướng
+  bool _inlinePanelOpen = false;
+
   // LRC ScrollController for sophisticated LRC display
   late ScrollController _lrcScrollController;
   bool _autoScroll = true;
@@ -568,9 +572,30 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
                         final hasLines = understand!.lrcLines.isNotEmpty;
-                        // Cho phép kéo rèm sát sóng: 65-75% màn hình, max 650px
+                        // LISTEN-630-01: budget chiều cao rèm LRC = màn hình
+                        // trừ (song info + controls + panel inline đang mở +
+                        // bottom padding + waveform tối thiểu) — hết bottom
+                        // overflow che thanh điều hướng khi bật lặp AB.
                         final screenH = MediaQuery.of(context).size.height;
-                        final maxH = (screenH * (screenH < 700 ? 0.65 : 0.75)).clamp(250.0, 650.0);
+                        final bottomPad = MediaQuery.of(context).padding.bottom + 4;
+                        const controlsBase = 178.0;
+                        const waveformMin = 64.0;
+                        const songInfoH = 68.0;
+                        final panelReserve = _inlinePanelOpen
+                            ? (screenH < 700
+                                    ? screenH * 0.26
+                                    : screenH < 900
+                                        ? screenH * 0.28
+                                        : screenH * 0.32) +
+                                14
+                            : 0.0;
+                        final maxH = (screenH -
+                                songInfoH -
+                                controlsBase -
+                                panelReserve -
+                                bottomPad -
+                                waveformMin)
+                            .clamp(120.0, 650.0);
                         final dragAction = context.uiText(
                           _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
                         );
@@ -1048,6 +1073,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     builder: (_, p, __) => _CorePlayerControls(
                       player: p,
                       onOpenSheet: _openSheet,
+                      onPanelChanged: (open) {
+                        if (mounted && _inlinePanelOpen != open) {
+                          setState(() => _inlinePanelOpen = open);
+                        }
+                      },
                     ),
                   ),
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
@@ -1482,10 +1512,12 @@ class _SongInfoBar extends StatelessWidget {
 class _CorePlayerControls extends StatelessWidget {
   final PlayerProvider player;
   final VoidCallback onOpenSheet;
+  final ValueChanged<bool>? onPanelChanged;
 
   const _CorePlayerControls({
     required this.player,
     required this.onOpenSheet,
+    this.onPanelChanged,
   });
 
   @override
@@ -1500,7 +1532,11 @@ class _CorePlayerControls extends StatelessWidget {
         const SizedBox(height: 6),
         _SeekAndPlayRow(player: player),
         const SizedBox(height: 2),
-        _SmartActionBar(player: player, onOpenSheet: onOpenSheet),
+        _SmartActionBar(
+          player: player,
+          onOpenSheet: onOpenSheet,
+          onPanelChanged: onPanelChanged,
+        ),
       ],
     );
   }
@@ -1845,9 +1881,14 @@ class _SmartActionBar extends StatefulWidget {
   final PlayerProvider player;
   final VoidCallback onOpenSheet;
 
+  /// LISTEN-630-01: báo ra màn hình khi panel inline mở/đóng để rèm
+  /// LRC nhường chiều cao (tránh bottom overflow).
+  final ValueChanged<bool>? onPanelChanged;
+
   const _SmartActionBar({
     required this.player,
     required this.onOpenSheet,
+    this.onPanelChanged,
   });
 
   @override
@@ -1890,13 +1931,16 @@ class _SmartActionBarState extends State<_SmartActionBar> {
     }
 
     if (needsUpdate) {
+      widget.onPanelChanged?.call(true);
       setState(() {});
     }
   }
 
   void _togglePanel(_InlinePanel panel) {
     HapticFeedback.selectionClick();
+    final willOpen = _openPanel != panel;
     setState(() => _openPanel = _openPanel == panel ? null : panel);
+    widget.onPanelChanged?.call(willOpen);
   }
 
   @override
@@ -1997,6 +2041,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     isActive: false,
                     onTap: () {
                       setState(() => _openPanel = null);
+                      widget.onPanelChanged?.call(false);
                       widget.onOpenSheet();
                     },
                   ),

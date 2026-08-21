@@ -491,6 +491,18 @@ class PdfReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Trích text trang hiện tại (dùng cho TTS + lưu hàng loạt).
+  Future<String> extractCurrentPageText() async {
+    if (_document == null) return '';
+    final page = _document!.pages[_currentPage];
+    try {
+      return await _extractor.extractPageText(page, _currentPage);
+    } catch (e) {
+      debugPrint('PdfReaderController: extractCurrentPageText error: $e');
+      return '';
+    }
+  }
+
   // ─── Text Selection ──────────────────────────────────────
   void setSelection(String text, Rect rect) {
     _selectedText = text;

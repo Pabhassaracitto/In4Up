@@ -99,6 +99,8 @@ class WebExtractionCandidate {
   String? phonetic;
   String? topic;
   String? example;
+  /// READ-630-04: ngôn ngữ áp khi nhập vào WordList (mặc định 'en').
+  String language;
   bool enriched;
   String enrichSource;
   bool selected;
@@ -118,6 +120,7 @@ class WebExtractionCandidate {
     this.phonetic,
     this.topic,
     this.example,
+    this.language = 'en',
     this.enriched = false,
     this.enrichSource = '',
     this.selected = false,
@@ -138,6 +141,7 @@ class WebExtractionCandidate {
         'phonetic': phonetic,
         'topic': topic,
         'example': example,
+        'language': language,
         'enriched': enriched,
         'enrichSource': enrichSource,
         'selected': selected,
@@ -165,6 +169,9 @@ class WebExtractionCandidate {
       example: (json['example'] ?? '').toString().trim().isEmpty
           ? null
           : (json['example'] ?? '').toString(),
+      language: (json['language'] ?? '').toString().trim().isEmpty
+          ? 'en'
+          : (json['language'] ?? '').toString(),
       enriched: json['enriched'] == true,
       enrichSource: (json['enrichSource'] ?? '').toString(),
       selected: json['selected'] == true,

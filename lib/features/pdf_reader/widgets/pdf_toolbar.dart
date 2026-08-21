@@ -13,6 +13,10 @@ class PdfToolbar extends StatelessWidget {
   final bool writingMode;
   final VoidCallback? onSendToWriting;
 
+  /// READ-630-04: lưu hàng loạt từ trang hiện tại (chọn nhiều
+  /// từ/cụm/câu → 1 chủ đề + ngôn ngữ).
+  final VoidCallback? onBatchSavePage;
+
   const PdfToolbar({
     super.key,
     required this.controller,
@@ -22,6 +26,7 @@ class PdfToolbar extends StatelessWidget {
     this.onOpenGrammarSettings,
     this.writingMode = false,
     this.onSendToWriting,
+    this.onBatchSavePage,
   });
 
   @override
@@ -104,6 +109,7 @@ class PdfToolbar extends StatelessWidget {
                 onUserInteraction: onUserInteraction,
                 onShowAnnotations: onShowAnnotations,
                 onOpenGrammarSettings: onOpenGrammarSettings,
+                onBatchSavePage: onBatchSavePage,
               ),
             ],
           ),
@@ -342,12 +348,14 @@ class _MoreButton extends StatelessWidget {
   final VoidCallback? onUserInteraction;
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
+  final VoidCallback? onBatchSavePage;
 
   const _MoreButton({
     required this.controller,
     this.onUserInteraction,
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
+    this.onBatchSavePage,
   });
 
   @override
@@ -379,6 +387,7 @@ class _MoreButton extends StatelessWidget {
         controller: controller,
         onShowAnnotations: onShowAnnotations,
         onOpenGrammarSettings: onOpenGrammarSettings,
+        onBatchSavePage: onBatchSavePage,
       ),
     );
   }
@@ -388,11 +397,13 @@ class _PdfOptionsSheet extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
+  final VoidCallback? onBatchSavePage;
 
   const _PdfOptionsSheet({
     required this.controller,
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
+    this.onBatchSavePage,
   });
 
   @override
@@ -459,6 +470,27 @@ class _PdfOptionsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
+
+          // READ-630-04: lưu hàng loạt từ trang hiện tại
+          if (onBatchSavePage != null)
+            ListTile(
+              leading: const Icon(
+                Icons.auto_fix_high_outlined,
+                color: Color(0xFF4CAF50),
+              ),
+              title: const Text(
+                'Lưu hàng loạt từ trang này',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                'Chọn nhiều từ/cụm/câu → 1 chủ đề + ngôn ngữ',
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onBatchSavePage?.call();
+              },
+            ),
 
           // Annotations count
           ListTile(

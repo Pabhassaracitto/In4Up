@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 
 import '../../../providers/text_provider.dart';
+import '../../../providers/vocabulary_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
 import '../../../services/text_library_service.dart';
-import '../models/web_extraction_candidate.dart';
+import '../../../services/vocab_batch/vocab_batch_models.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../web_reader_controller.dart';
 
 class WebExtractionBatchSheet extends StatefulWidget {
@@ -257,6 +259,14 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     final topicCtrl = TextEditingController();
     final exampleCtrl = TextEditingController();
     bool useSampleContextIfEmpty = true;
+    String? bulkLanguage; // null = giữ nguyên language từng mục
+
+    final provider = context.read<VocabularyProvider>();
+    final languageOptions = (provider.allLanguages.toList()
+          ..sort())
+        .toSet()
+      ..addAll(['en', 'vi', 'pali', 'my']);
+    final sortedLangs = languageOptions.toList()..sort();
 
     final shouldApply = await showDialog<bool>(
       context: context,
@@ -280,6 +290,47 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                       controller: topicCtrl,
                       label: 'Topic áp cho tất cả',
                       hint: 'Ví dụ: dharma, english_learning, news',
+                    ),
+                    const SizedBox(height: 12),
+                    // READ-630-04: ngôn ngữ áp cho tất cả (tap lại = bỏ)
+                    Text(
+                      'Ngôn ngữ áp cho tất cả',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final lang in sortedLangs)
+                          ChoiceChip(
+                            label: Text(
+                              labelForLanguage(lang),
+                              style: TextStyle(
+                                color: bulkLanguage == lang
+                                    ? Colors.white
+                                    : Colors.white54,
+                                fontSize: 11,
+                              ),
+                            ),
+                            selected: bulkLanguage == lang,
+                            selectedColor: const Color(0xFF42A5F5),
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.04),
+                            side: BorderSide(
+                              color: bulkLanguage == lang
+                                  ? const Color(0xFF42A5F5)
+                                  : Colors.white.withValues(alpha: 0.1),
+                            ),
+                            onSelected: (value) => setLocalState(() {
+                              bulkLanguage = value ? lang : null;
+                            }),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     _editorField(
@@ -335,6 +386,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           (candidate.example ?? '').trim().isEmpty) {
         candidate.example = candidate.sampleContext;
       }
+      if (bulkLanguage != null) {
+        candidate.language = bulkLanguage!;
+      }
       candidate.enriched = true;
       candidate.enrichSource = 'manual';
     }
@@ -359,10 +413,18 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           : candidate.example,
     );
 
+    final provider = context.read<VocabularyProvider>();
+    final languageOptions = (provider.allLanguages.toList()..sort()).toSet()
+      ..addAll(['en', 'vi', 'pali', 'my']);
+    final sortedLangs = languageOptions.toList()..sort();
+    String selectedLang = candidate.language;
+
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
           title: Text(context.uiText('Sửa mục: ${candidate.text}')),
           titleTextStyle: const TextStyle(
@@ -395,6 +457,48 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                     hint: 'dharma / english_learning / news...',
                   ),
                   const SizedBox(height: 12),
+                  Text(
+                    'Ngôn ngữ',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final lang in sortedLangs)
+                        ChoiceChip(
+                          label: Text(
+                            labelForLanguage(lang),
+                            style: TextStyle(
+                              color: selectedLang == lang
+                                  ? Colors.white
+                                  : Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                          selected: selectedLang == lang,
+                          selectedColor: const Color(0xFF42A5F5),
+                          backgroundColor:
+                              Colors.white.withValues(alpha: 0.04),
+                          side: BorderSide(
+                            color: selectedLang == lang
+                                ? const Color(0xFF42A5F5)
+                                : Colors.white.withValues(alpha: 0.1),
+                          ),
+                          onSelected: (value) {
+                            if (value) {
+                              setLocalState(() => selectedLang = lang);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   _editorField(
                     controller: exampleCtrl,
                     label: 'Example',
@@ -416,6 +520,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
             ),
           ],
         );
+          });
       },
     );
 
@@ -423,6 +528,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
 
     setState(() {
       candidate.meaning = meaningCtrl.text.trim();
+      candidate.language = selectedLang;
       candidate.phonetic = phoneticCtrl.text.trim().isEmpty
           ? null
           : phoneticCtrl.text.trim();

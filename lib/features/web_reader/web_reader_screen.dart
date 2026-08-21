@@ -16,6 +16,7 @@ import '../../features/writing/models/writing_source_request.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../providers/text_provider.dart';
+import '../../widgets/selection_save_sheet.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
 import 'widgets/web_extraction_batch_sheet.dart';
@@ -953,11 +954,15 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   void _saveSelectionToWordList() {
     final selection = _selectionText.trim();
     if (selection.isEmpty || _showDashboard) return;
-    final added = _controller.saveSelectionToWordList(selection);
-    _showSnack(
-      added
-          ? '📚 Đã thêm đoạn chọn vào WordList'
-          : '📚 Đã bổ sung ngữ cảnh cho mục này trong WordList',
+    // READ-630-01/04: sheet chung — lưu nguyên cụm HOẶC lưu thông minh
+    // (hàng loạt), kèm chọn/tạo chủ đề + ngôn ngữ
+    SelectionSaveSheet.show(
+      context,
+      text: selection,
+      sourceLabel: _controller.pageTitle.isEmpty
+          ? _controller.currentUrl
+          : _controller.pageTitle,
+      contextBuilder: (sample) => _controller.buildSelectionContext(sample),
     );
   }
 

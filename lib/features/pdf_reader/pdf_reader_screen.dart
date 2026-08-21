@@ -22,6 +22,7 @@ import '../../models/vocab_context.dart';
 import '../../models/word_entry.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../widgets/selection_save_sheet.dart';
 import '../../widgets/unified_knowledge_sheet.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
@@ -189,6 +190,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     onOpenGrammarSettings: _openGrammarSettings,
                     writingMode: widget.writingMode,
                     onSendToWriting: _sendPdfToWriting,
+                    onBatchSavePage: _openBatchSaveFromPage,
                   ),
                 ),
               ),
@@ -708,6 +710,36 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
+  /// READ-630-04: lưu hàng loạt từ trang hiện tại
+  Future<void> _openBatchSaveFromPage() async {
+    _showChrome(autoHide: false);
+    final text = await _controller.extractCurrentPageText();
+    if (!mounted) return;
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không trích xuất được text từ trang này.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    await SelectionSaveSheet.show(
+      context,
+      text: text,
+      sourceLabel: _title,
+      sourceDetail: 'trang ${_controller.currentPage + 1}',
+      contextBuilder: (sample) => VocabContext.fromPdf(
+        fileName: widget.pdfPath.split(Platform.pathSeparator).last,
+        page: _controller.currentPage + 1,
+        pageIndexHint: _controller.currentPage,
+        surroundingText: sample,
+        pdfPath: widget.pdfPath,
+        anchorText: sample,
+      ),
+    );
+  }
+
   Future<void> _openGrammarSettings() async {
     await _controller.refreshGrammarPresetLibrary();
     await GrammarQuickSettingsSheet.show(
@@ -941,19 +973,19 @@ class _SelectionBar extends StatelessWidget {
           _SelectionIconButton(
             icon: Icons.bookmark_add,
             color: const Color(0xFF4CAF50),
-            tooltip: context.uiText('Lưu vào WordList'),
+            tooltip: context.uiText('Lưu vào WordList (chủ đề + ngôn ngữ)'),
             onTap: () {
-              final added = controller.saveSelectedTextToWordList();
-              controller.clearSelection();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(added
-                      ? '✅ Đã lưu vào WordList'
-                      : '✅ Đã bổ sung ngữ cảnh vào WordList'),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF4CAF50),
-                  duration: const Duration(seconds: 2),
-                ),
+              final text = controller.selectedText?.trim() ?? '';
+              if (text.isEmpty) return;
+              SelectionSaveSheet.show(
+                context,
+                text: text,
+                sourceLabel: controller.pdfPath
+                    .split(Platform.pathSeparator)
+                    .last,
+                sourceDetail: 'trang ${controller.currentPage + 1}',
+                contextBuilder: (sample) =>
+                    controller.buildSelectionContext(sample),
               );
             },
           ),

@@ -22,10 +22,10 @@
 | PR-1 | PR #6 (knowledge-work) chờ chiến lược lineage | 🚫 blocked | xem LINEAGE-1 |
 | LINEAGE-1 | Quyết định 2 dòng codebase (In4Up vs vipsound-main) | ✅ done | main=62ce24a (vipsound+governance) |
 | INTEGRATE-1 | Tích hợp knowledge-work (PR #6) vào main mới | 📋 proposed | sau khi main cập nhật xong |
-| READ-630-01 | Lưu cụm/câu nhiều dòng (mode không màu): chọn/tạo topic + language | 📋 proposed | owner 2026-08-21 |
-| READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | 📋 proposed | owner 2026-08-21 |
-| READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | 📋 proposed | owner 2026-08-21 |
-| READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | 📋 proposed | owner 2026-08-21 |
+| READ-630-01 | Lưu cụm/câu nhiều dòng (mode không màu): chọn/tạo topic + language | ✅ done | SelectionSaveSheet (chờ nghiệm thu build) |
+| READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | ✅ done | VocabEntryEditSheet (chờ nghiệm thu build) |
+| READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
+| READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | 📋 proposed | owner 2026-08-21 (xếp sau READ-630-*) |
 
 ---
@@ -215,16 +215,18 @@
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + Section3 handover
 
 ### READ-630-01 — Tab Đọc: lưu cụm/câu (mode không màu) kèm chọn/tạo topic + language
-- **Trạng thái:** proposed
+- **Trạng thái:** done (chờ nghiệm thu build)
 - **Nội dung:** Ở mode không màu, bôi chọn nhiều dòng → "Lưu vào WordList" hiện tại KHÔNG
   có bước chọn/tạo chủ đề & ngôn ngữ. Thêm `SelectionSaveSheet` chung (PDF + Web):
   (a) Lưu nguyên cụm/câu; (b) Lưu thông minh (hàng loạt) — chọn/tạo topic + language
   (chip có sẵn + ô tạo mới), áp cho cả mục đã tồn tại (chỉ bổ sung, không ghi đè).
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat (message "Thêm nữa" #1) | thiếu topic/language khi save full phrase
+  - 2026-08-21 | proposed→doing | agent arena/01a0251e-in4up | kế thừa từ 019fe630
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code xong, chờ nghiệm thu build của owner (sandbox không có Flutter SDK; CI module không cover paths này)
 
 ### READ-630-02 — Tap/long-press sheet: hiện đủ + sửa được IPA, loại, topic, language
-- **Trạng thái:** proposed
+- **Trạng thái:** done (chờ nghiệm thu build)
 - **Nội dung:** Ở các mode (wordType/CEFR/difficulty), chạm giữ từ đã có sẵn → bảng
   phải hiện ĐẦY ĐỦ: IPA, từ/cụm/câu, chủ đề, ngôn ngữ; cho thêm/bớt chủ đề & ngôn
   ngữ ngay tại đó. BẢO ĐẢM: xóa topic/language chỉ gỡ tag, từ + ngữ cảnh vẫn giữ
@@ -232,18 +234,22 @@
   `languages: List<String>` (migration tự động từ `topic`/`language` cũ, lossless).
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat | thiếu info đã lưu + không sửa được topic/language
+  - 2026-08-21 | proposed→doing | agent arena/01a0251e-in4up | kế thừa từ 019fe630
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code xong, chờ nghiệm thu build của owner (sandbox không có Flutter SDK; CI module không cover paths này)
 
 ### READ-630-03 — Marker "từ đã lưu" (outline/chấm) tắt mặc định, bật khi cần
-- **Trạng thái:** proposed
+- **Trạng thái:** done (chờ nghiệm thu build)
 - **Nội dung:** Marker bao quanh từ đã lưu (green outline = đã lưu, amber = có ghi chú,
   red = đến kỳ ôn) đang LUÔN hiển thị → nhiễu thị giác. Thêm toggle trong toolbar
   (PDF + Web), mặc định TẮT (đọc sạch), BẬT khi cần + hiện legend giải thích marker.
   Persist qua SharedPreferences (`reader_show_recall_markers`).
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat | "Tốt khi cần nhưng bình thường gây nhiễu thị giác"
+  - 2026-08-21 | proposed→doing | agent arena/01a0251e-in4up | kế thừa từ 019fe630
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code xong, chờ nghiệm thu build của owner (sandbox không có Flutter SDK; CI module không cover paths này)
 
 ### READ-630-04 — Lưu hàng loạt thông minh: nhiều từ/cụm/câu → 1 topic + language
-- **Trạng thái:** proposed
+- **Trạng thái:** done (chờ nghiệm thu build)
 - **Nội dung:** Web đã có `WebExtractionBatchSheet` (audit: có chọn nhiều mục, bulk
   topic, AI enrich, import — THiếu field language). PDF chưa có batch. Kế hoạch:
   (a) tách extractor + model + importer sang `lib/services/vocab_batch/` dùng chung;
@@ -251,6 +257,8 @@
   từ đoạn chọn hoặc cả trang, dùng cùng extractor + SelectionSaveSheet.
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat | "lưu 1 lần cho nhiều đối tượng từ, cụm, câu"
+  - 2026-08-21 | proposed→doing | agent arena/01a0251e-in4up | kế thừa từ 019fe630
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code xong, chờ nghiệm thu build của owner (sandbox không có Flutter SDK; CI module không cover paths này)
 
 ### LISTEN-630-01 — Tab Nghe: AB loop bottom overflow 24px + lặp câu tiếp theo
 - **Trạng thái:** proposed

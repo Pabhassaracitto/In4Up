@@ -239,7 +239,7 @@
   - 2026-08-21 | created | owner via arena/019fe630-vipsound + agent web search | học Google cabin mới + sherpa branch 27
 ### PLAN-010 — Tab Đọc: chủ đề + ngôn ngữ xuyên suốt lưu từ (READ-630-01/02)
 - Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
-- Trạng thái: proposed
+- Trạng thái: done (code 2026-08-21, chờ nghiệm thu build)
 - Milestone đề xuất: M2
 - Chi tiết:
   - Model: `WordEntry` thêm `topics: List<String>` + `languages: List<String>`
@@ -257,7 +257,7 @@
 
 ### PLAN-011 — Tab Đọc: marker "từ đã lưu" theo nhu cầu + lưu hàng loạt (READ-630-03/04)
 - Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
-- Trạng thái: proposed
+- Trạng thái: done (code 2026-08-21, chờ nghiệm thu build)
 - Milestone đề xuất: M2
 - Chi tiết:
   - Marker bao quanh từ đã lưu (green = đã lưu, amber = có ghi chú, red = đến kỳ ôn):

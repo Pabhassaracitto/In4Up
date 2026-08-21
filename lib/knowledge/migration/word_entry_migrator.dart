@@ -334,7 +334,11 @@ class WordEntryMigrator {
     if (entry.tags.isNotEmpty) into.add('tags');
     if ((entry.personalNotes ?? '').isNotEmpty) into.add('personalNotes');
     if (entry.userDifficulty != null) into.add('userDifficulty');
+    // `topic`/`language` chính được map qua KnowledgeUnit; các tag PHỤ
+    // (multi-topic/multi-language — READ-630-02) chưa có chỗ trong schema v1.
     if ((entry.topic ?? '').isNotEmpty) into.add('topic');
+    if (entry.topics.length > 1) into.add('topics');
+    if (entry.languages.length > 1) into.add('languages');
     if (entry.parentIds.isNotEmpty) into.add('parentIds');
     if (entry.childIds.isNotEmpty) into.add('childIds');
   }

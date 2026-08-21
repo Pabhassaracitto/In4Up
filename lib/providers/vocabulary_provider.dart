@@ -53,22 +53,22 @@ class VocabularyProvider extends ChangeNotifier {
   DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;
 
   Set<String> get allLanguages {
-    final Set<String> langs = _words
-        .map((w) => w.language)
-        .where((l) => l.isNotEmpty)
-        .toSet()
-      ..addAll(_customLanguages);
+    final Set<String> langs = <String>{};
+    for (final w in _words) {
+      langs.addAll(w.languages.where((l) => l.isNotEmpty));
+    }
+    langs.addAll(_customLanguages);
     if (langs.isEmpty) return {'en'};
     return langs;
   }
 
   Set<String> get allTopics {
-    return _words
-        .map((w) => w.topic)
-        .whereType<String>()
-        .where((t) => t.isNotEmpty)
-        .toSet()
-      ..addAll(_customTopics);
+    final Set<String> topics = <String>{};
+    for (final w in _words) {
+      topics.addAll(w.topics.where((t) => t.isNotEmpty));
+    }
+    topics.addAll(_customTopics);
+    return topics;
   }
 
   bool isCustomLanguage(String lang) => _customLanguages.contains(lang);
@@ -126,10 +126,10 @@ class VocabularyProvider extends ChangeNotifier {
           .toList();
     }
     if (_filterLanguage != null) {
-      list = list.where((w) => w.language == _filterLanguage).toList();
+      list = list.where((w) => w.languages.contains(_filterLanguage)).toList();
     }
     if (_filterTopic != null) {
-      list = list.where((w) => w.topic == _filterTopic).toList();
+      list = list.where((w) => w.topics.contains(_filterTopic)).toList();
     }
     if (_filterLearningStatus != null) {
       switch (_filterLearningStatus) {
@@ -532,8 +532,31 @@ class VocabularyProvider extends ChangeNotifier {
 
     final existing = findByWord(normalized);
     if (existing != null) {
+      bool changed = false;
       if (context != null) {
         existing.addContext(context);
+        changed = true;
+      }
+      // Smart-fill: chỉ BỔ SUNG chỗ trống / tag mới — không ghi đè dữ liệu cũ
+      if ((phonetic ?? '').trim().isNotEmpty &&
+          (existing.phonetic ?? '').trim().isEmpty) {
+        existing.phonetic = phonetic!.trim();
+        changed = true;
+      }
+      if ((meaning ?? '').trim().isNotEmpty && existing.meaning.trim().isEmpty) {
+        existing.meaning = meaning!.trim();
+        existing.isUnborn = false;
+        changed = true;
+      }
+      if ((topic ?? '').trim().isNotEmpty) {
+        existing.addTopic(topic!.trim());
+        changed = true;
+      }
+      if ((language ?? '').trim().isNotEmpty) {
+        existing.addLanguage(language.trim());
+        changed = true;
+      }
+      if (changed) {
         _saveWord(existing);
         notifyListeners();
       }
@@ -551,7 +574,7 @@ class VocabularyProvider extends ChangeNotifier {
       contexts: context != null ? [context] : [],
       isUnborn: meaning.trim().isEmpty,
       language: language,
-      topic: topic,
+      topics: (topic ?? '').trim().isNotEmpty ? [topic!.trim()] : const [],
     );
 
     _words.add(entry);
@@ -647,7 +670,15 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void updateWord(String id,
-      {String? word, String? meaning, String? phonetic, String? example, String? language, String? topic, VocabularyType? vocabType}) {
+      {String? word,
+      String? meaning,
+      String? phonetic,
+      String? example,
+      String? language,
+      String? topic,
+      List<String>? topics,
+      List<String>? languages,
+      VocabularyType? vocabType}) {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       if (word != null) w.word = word;
@@ -664,7 +695,14 @@ class VocabularyProvider extends ChangeNotifier {
         if (example.trim().isNotEmpty) w.isUnborn = false;
       }
       if (language != null) w.language = language;
-      if (topic != null) w.topic = topic.trim().isEmpty ? null : topic;
+      // topic: thay chủ đề CHÍNH, giữ nguyên các chủ đề còn lại
+      if (topic != null) {
+        final v = topic.trim();
+        final rest = w.topics.length > 1 ? w.topics.sublist(1) : const <String>[];
+        w.topics = v.isEmpty ? rest : [v, ...rest];
+      }
+      if (topics != null) w.setTopics(topics);
+      if (languages != null) w.setLanguages(languages);
       if (vocabType != null) {
         w.vocabType = vocabType;
       }

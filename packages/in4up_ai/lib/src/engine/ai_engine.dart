@@ -1,4 +1,4 @@
-// in4up v11.0 — AiEngine interface
+// VipSound v11.0 — AiEngine interface
 
 import '../models/ai_analysis.dart';
 

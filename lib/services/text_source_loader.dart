@@ -253,9 +253,11 @@ class TextSourceLoader {
         .replaceAll('&quot;', '"')
         .replaceAll('&apos;', "'")
         .replaceAll('&amp;', '&');
-    text = text.replaceAll(RegExp(r'&#x([0-9A-Fa-f]+);'),
+    text = text.replaceAllMapped(
+        RegExp(r'&#x([0-9A-Fa-f]+);'),
         (m) => String.fromCharCode(int.parse(m.group(1)!, radix: 16)));
-    text = text.replaceAll(RegExp(r'&#(\d+);'),
+    text = text.replaceAllMapped(
+        RegExp(r'&#(\d+);'),
         (m) => String.fromCharCode(int.parse(m.group(1)!)));
     // Dọn whitespace
     text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');

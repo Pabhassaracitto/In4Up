@@ -361,7 +361,9 @@ class _LocalTab extends StatelessWidget {
   Future<void> _importTextFile(BuildContext context) async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['txt', 'lrc', 'srt'],
+      allowedExtensions: const [
+        'txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx',
+      ],
     );
     if (result == null || result.files.single.path == null) return;
 
@@ -369,7 +371,18 @@ class _LocalTab extends StatelessWidget {
     if (!context.mounted) return;
 
     final tp = context.read<TextProvider>();
-    await tp.loadTextFile(path);
+    final loaded = await tp.loadTextFile(path);
+    if (!loaded && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (context.mounted) {
       final file = RecentFile.fromLocalText(path).copyWith(

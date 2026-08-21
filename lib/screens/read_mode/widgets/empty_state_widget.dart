@@ -92,9 +92,18 @@ class ReadEmptyState extends StatelessWidget {
                 _ImportCard(
                   icon: Icons.upload_file,
                   label: 'File TXT',
-                  subtitle: 'Plain text',
+                  subtitle: 'txt · md · json · docx',
                   color: const Color(0xFF2196F3),
-                  onTap: () => _importFile(context, ['txt']),
+                  onTap: () => _importFile(
+                    context,
+                    const [
+                      'txt',
+                      'md',
+                      'markdown',
+                      'json',
+                      'docx',
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 12),
                 _ImportCard(
@@ -189,7 +198,17 @@ class ReadEmptyState extends StatelessWidget {
       }
 
       if (context.mounted) {
-        await context.read<TextProvider>().loadTextFile(path);
+        final loaded = await context.read<TextProvider>().loadTextFile(path);
+        if (!loaded && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
       // ignore: avoid_print

@@ -27,6 +27,7 @@ import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
+import '../services/text_source_loader.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -478,25 +479,45 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     notifyListeners();
   }
 
-  Future<void> loadTextFile(String path, {String? title}) async {
+  /// Nạp file text (.txt, .md, .json, .docx, .lrc, .srt) vào pipeline Đọc.
+  /// Trả về true nếu nạp được; false nếu file không tồn tại / không đọc
+  /// được / .doc binary cũ (caller tự hiện thông báo cho user).
+  Future<bool> loadTextFile(String path, {String? title}) async {
     try {
       _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
-        return;
+        return false;
       }
 
-      final content = await file.readAsString();
       final lower = path.toLowerCase();
       final docTitle = title ?? _extractFileName(path);
 
+      // .doc binary cũ (không phải .docx) — không đọc được trực tiếp
+      if (lower.endsWith('.doc') && !lower.endsWith('.docx')) {
+        debugPrint('TextProvider.loadTextFile: .doc legacy không hỗ trợ: $path');
+        return false;
+      }
+
       if (lower.endsWith('.lrc')) {
-        _parseLrc(content, title: docTitle);
+        _parseLrc(await file.readAsString(), title: docTitle);
       } else if (lower.endsWith('.srt')) {
-        _parseSrt(content, title: docTitle);
+        _parseSrt(await file.readAsString(), title: docTitle);
+      } else if (lower.endsWith('.md') ||
+          lower.endsWith('.markdown') ||
+          lower.endsWith('.json') ||
+          lower.endsWith('.docx')) {
+        // md/json/docx → trích text thuần (giữ chữ thật cho pipeline Đọc)
+        final extracted = await TextSourceLoader.extractReadableText(path);
+        if (extracted != null && extracted.trim().isNotEmpty) {
+          _parsePlainText(extracted, title: docTitle);
+        } else {
+          // Fallback: đọc thô (json hỏng sẽ hiện text gốc)
+          _parsePlainText(await file.readAsString(), title: docTitle);
+        }
       } else {
-        _parsePlainText(content, title: docTitle);
+        _parsePlainText(await file.readAsString(), title: docTitle);
       }
 
       _setSourceMeta(
@@ -506,8 +527,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
       // ★ THÊM: Save last text path
       _storage.saveLastTextPath(path);
+      return true;
     } catch (e) {
       debugPrint('TextProvider.loadTextFile error: $e');
+      return false;
     }
   }
 

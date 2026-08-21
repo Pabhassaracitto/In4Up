@@ -286,3 +286,20 @@
   - Owner chỉ đạo: làm SAU khi READ-630-* hoàn tất và đã push.
 - Lịch sử:
   - 2026-08-21 | created | owner via chat | "Trước khi làm phần này... hoàn tất các task trước và push"
+### PLAN-013 — Rule locale chrome + import WordList thật + nguồn text md/json/docx
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — item 3,4,5)
+- Trạng thái: done (code 2026-08-21, chờ nghiệm thu build)
+- Chi tiết:
+  - **Rule #5 (GOV-2):** locale ≠ vi → chrome UI không tiếng Việt; thiếu dịch
+    → English; không bao giờ fallback vi. Máy bắt: generator + test
+    `locale_chrome_no_vietnamese_test.dart` + QA tay EN/JA/BN.
+  - **Import WordList (WORDLIST-630-01):** bảng header word/meaning/ipa/
+    topic/example/example_simple/example_complex/language — CSV quotes,
+    không _minLength cho hàng cấu trúc, từ đã có được smart-fill (nền merge
+    từ điển + trò chơi nhìn chữ–nghe âm–viết nghĩa AI chấm).
+  - **Nguồn text (SRC-630-01):** TextSourceLoader thuần Dart: .md (strip),
+    .json (gom string), .docx (ZIP + ZLibCodec raw-deflate + <w:t>);
+    loadTextFile → Future<bool>; picker 4 điểm; .doc cũ báo rõ.
+- Lịch sử:
+  - 2026-08-21 | created | owner via chat
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | 3 commit (rule, import, loader)

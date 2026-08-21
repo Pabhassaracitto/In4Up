@@ -208,7 +208,9 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     try {
       result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['txt', 'lrc', 'srt'],
+        allowedExtensions: const [
+          'txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx',
+        ],
       );
     } catch (e) {
       debugPrint('[LibraryScreen] FilePicker error: $e');
@@ -219,8 +221,19 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     if (!mounted) return;
 
     final path = result.files.single.path!;
-    await tp.loadTextFile(path);
+    final loaded = await tp.loadTextFile(path);
     if (!mounted) return;
+    if (!loaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     final file = RecentFile.fromLocalText(path).copyWith(
       totalLines: tp.lines.length,
@@ -1250,7 +1263,9 @@ class _DeviceTabState extends State<_DeviceTab> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: isPdf ? ['pdf'] : ['txt', 'lrc', 'srt'],
+        allowedExtensions: isPdf
+            ? ['pdf']
+            : const ['txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx'],
         allowMultiple: false,
       );
 

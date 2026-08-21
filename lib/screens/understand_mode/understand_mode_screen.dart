@@ -214,13 +214,25 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['lrc', 'srt', 'txt'],
+        allowedExtensions: const [
+          'lrc', 'srt', 'txt', 'md', 'markdown', 'json', 'docx',
+        ],
       );
       if (result != null && result.files.single.path != null) {
         if (context.mounted) {
-          await context
+          final loaded = await context
               .read<TextProvider>()
               .loadTextFile(result.files.single.path!);
+          if (!loaded && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         }
       }
     } catch (e) {

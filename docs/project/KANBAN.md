@@ -27,6 +27,9 @@
 | READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
+| GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
+| WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
+| SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 
 ---
 
@@ -271,3 +274,39 @@
   - 2026-08-21 | created | owner via chat | "Trước khi làm phần này: ... Hãy hoàn tất các task trước và push"
   - 2026-08-21 | proposed→doing | agent arena/01a0251e-in4up | sau khi READ-630-* xong + push
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code xong (LRC height budget + onPanelChanged + nút Lặp câu tiếp), chờ nghiệm thu build của owner
+### GOV-2 — Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi
+- **Trạng thái:** done
+- **Nội dung:** Rule #5 trong AGENTS.md (locale ≠ vi → chrome hiện English,
+  không bao giờ fallback vi; thứ tự locale → en; ngoại lệ nội dung user/AI/STT).
+  Máy bắt: (1) generator unclassified/unused_overrides giữ nguyên,
+  (2) `test/locale_chrome_no_vietnamese_test.dart` — mọi locale ≠ vi trong
+  catalog (en/ja + 20 locale khác) không ký tự Việt, mọi entry có `en`,
+  legacy fallbacks + overrides json sạch; (3) QA tay EN + JA/BN.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat (item 4)
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | rule + test (catalog 346 entries × 22 locale: 0 vi phạm)
+
+### WORDLIST-630-01 — Import hàng loạt (Clipboard/Text) hoạt động thật + meaning
+- **Trạng thái:** done (chờ nghiệm thu build)
+- **Nội dung:** Bảng có header `word meaning ipa topic example example_simple
+  example_complex language`: CSV có nháy kép không xé meaning chứa dấu phẩy;
+  hàng cấu trúc không áp _minLength; từ ĐÃ CÓ vẫn hiện (badge "đã có") —
+  import smart-fill (meaning/IPA/example chỉ điền chỗ trống + tag
+  topic/language, không ghi đè, không mất ngữ cảnh). List import hiển thị
+  meaning/IPA từng từ. Meaning là thuộc tính giải thích — nền cho merge từ
+  điển + trò chơi "nhìn chữ, nghe âm, viết nghĩa" AI chấm (đã đưa vào plan).
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat (item 3)
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | parse mô phỏng bằng sample thật của owner (tab + CSV quotes)
+
+### SRC-630-01 — Nguồn text mới: .md, .json, .docx
+- **Trạng thái:** done (chờ nghiệm thu build)
+- **Nội dung:** `TextSourceLoader` thuần Dart, 0 package mới:
+  .md → strip markdown giữ chữ thật; .json → gom string values;
+  .docx → tự parse ZIP local file header + inflate raw-deflate bằng
+  ZLibCodec (bù zlib header) + tách <w:t>/<w:p>. `loadTextFile` trả
+  Future<bool>; picker thêm md/markdown/json/docx (empty state, library,
+  drawer, understand); .doc binary cũ → thông báo rõ.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat (item 5)
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | docx thật (deflate) + md + json mô phỏng pass

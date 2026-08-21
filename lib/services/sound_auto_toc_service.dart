@@ -472,3 +472,4 @@ class SoundAutoTocService {
     return boundaries;
   }
 }
+

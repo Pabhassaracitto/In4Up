@@ -1,7 +1,6 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
-import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
@@ -59,24 +58,25 @@ class _SourceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.blue.shade900.withValues(alpha: 0.3),
+      color: Colors.teal.shade900.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Icon(Icons.cloud_download, color: Colors.blue),
+            const Icon(Icons.cloud_download, color: Colors.teal),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Nguồn tải: Hugging Face',
+                    'Tải khi bạn bấm — không tự tải lúc mở app',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    'Miễn phí · Không cần tài khoản · '
-                    'Tự động chuyển sang GitHub nếu chậm',
+                    'Bấm Tải về để lấy model từ mạng (HuggingFace, rồi GitHub). '
+                    'App không tự tải khi khởi động — tránh lỗi Connection closed '
+                    'trên tablet. Import file .bin nếu bạn đã có sẵn.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -189,14 +189,12 @@ class _ModelCard extends StatelessWidget {
                         onPressed: () => manager.cancelDownload(level),
                       ),
                     ] else if (info.isReady) ...[
-                      // Nút Import (chỉ debug)
-                      if (kDebugMode)
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 16),
-                          label: const Text('Import'),
-                          onPressed: () =>
-                              _importModel(context, manager, level),
-                        ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () =>
+                            _importModel(context, manager, level),
+                      ),
                       // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
@@ -208,14 +206,12 @@ class _ModelCard extends StatelessWidget {
                             _confirmDelete(context, manager, level),
                       ),
                     ] else ...[
-                      // Nút Import (chỉ debug)
-                      if (kDebugMode)
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 16),
-                          label: const Text('Import'),
-                          onPressed: () =>
-                              _importModel(context, manager, level),
-                        ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () =>
+                            _importModel(context, manager, level),
+                      ),
                       // Size label + Nút Tải
                       Text(
                         '${level.sizeInMB}MB',
@@ -244,16 +240,16 @@ class _ModelCard extends StatelessWidget {
     SttModelManager manager,
     WhisperModelLevel level,
   ) async {
-    if (level == WhisperModelLevel.small) {
+    if (level.sizeInMB >= 100) {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Xác nhận tải model Small'),
-          content: const Text(
-            'Model Small có dung lượng ~466MB.\n\n'
-            'Nguồn tải: Hugging Face (miễn phí)\n'
-            'Thời gian ước tính: 5-15 phút tùy mạng\n\n'
-            'Bạn có muốn tiếp tục không?',
+          title: Text('Tải Whisper ${level.name.toUpperCase()}?'),
+          content: Text(
+            'Dung lượng khoảng ${level.sizeInMB}MB.\n\n'
+            'Nên dùng Wi-Fi và giữ app mở trong lúc tải. '
+            'Nếu mạng đứt, bấm Tải về lại — app thử HuggingFace rồi GitHub.\n\n'
+            'Hoặc Import nếu bạn đã có file ${level.fileName}.',
           ),
           actions: [
             TextButton(

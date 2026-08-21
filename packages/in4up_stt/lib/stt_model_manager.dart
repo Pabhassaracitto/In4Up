@@ -119,30 +119,62 @@ class SttModelManager {
     await _scanExistingModels();
   }
 
+  /// Auto-download (startup / ensureModel / lần STT đầu) vẫn TẮT.
+  /// Lý do tablet đen màn hình: sai filePath → HTTP GET HuggingFace lúc
+  /// bootstrap → Battery Saver đóng kết nối → HttpException không bắt.
+  /// User bấm "Tải về" thì được phép gọi [downloadModel].
   Future<bool> ensureModel(WhisperModelLevel level) async {
-    _ensureInitialized();
+    _ensureSubjects();
+    if (_modelDirectory == null) {
+      _emitState(
+        level,
+        ModelStatus.notDownloaded,
+        errorMessage: 'Đang khởi tạo kho model. Thử lại sau vài giây.',
+      );
+      return false;
+    }
 
     final existing = await _findExistingModelFile(level);
     if (existing != null) {
-      _emitState(
-        level,
-        ModelStatus.downloaded,
-        localPath: existing.path,
-        progress: 1.0,
-      );
-      return true;
+      // Rule 3 — Local Verification trước khi coi là ready
+      final ok = await _verifyFileWithAbsoluteCheck(existing.path, level);
+      if (ok) {
+        _emitState(
+          level,
+          ModelStatus.downloaded,
+          localPath: existing.path,
+          progress: 1.0,
+        );
+        return true;
+      }
     }
 
-    return downloadModel(level);
+    _emitState(
+      level,
+      ModelStatus.notDownloaded,
+      errorMessage:
+          'Chưa có model ${level.name}. '
+          'Mở Home → Quản lý Model AI rồi bấm Tải về, hoặc Import file .bin.',
+    );
+    return false;
   }
 
   Future<bool> downloadModel(
     WhisperModelLevel level, {
     int maxRetries = 2,
   }) async {
-    _ensureInitialized();
+    _ensureSubjects();
+    if (_modelDirectory == null) {
+      _emitState(
+        level,
+        ModelStatus.notDownloaded,
+        errorMessage: 'Đang khởi tạo kho model. Thử lại sau vài giây.',
+      );
+      return false;
+    }
 
     if (isModelReady(level)) return true;
+
     if (_activeDownloads.containsKey(level)) return false;
 
     final urls = _urlsFor(level);
@@ -196,7 +228,8 @@ class SttModelManager {
         level,
         ModelStatus.notDownloaded,
         errorMessage:
-            'Không tải được model ${level.name} từ tất cả nguồn đã cấu hình',
+            'Không tải được ${level.name} (mạng đứt hoặc CDN đóng kết nối). '
+            'Giữ app mở, thử lại khi Wi-Fi ổn định, hoặc Import file ${level.fileName}.',
       );
       return false;
     } catch (e) {
@@ -204,8 +237,33 @@ class SttModelManager {
       _emitState(
         level,
         ModelStatus.notDownloaded,
-        errorMessage: e.toString(),
+        errorMessage:
+            'Không tải được ${level.name}. Thử lại hoặc Import file .bin. ($e)',
       );
+      return false;
+    }
+  }
+
+  /// Rule 3 — Local Verification helper
+  /// Kiểm tra absolute path tồn tại + size > 1_000_000 trước init Whisper
+  Future<bool> _verifyFileWithAbsoluteCheck(
+      String absolutePath, WhisperModelLevel level) async {
+    try {
+      final file = File(absolutePath);
+      // Dùng existsSync() như yêu cầu handover
+      if (!file.existsSync()) {
+        debugPrint('❌ Verify Rule3: File không tồn tại (existsSync false): $absolutePath');
+        return false;
+      }
+      final size = file.lengthSync();
+      if (size <= 1000000) {
+        debugPrint('❌ Verify Rule3: File quá nhỏ ($size bytes) — yêu cầu >1_000_000: $absolutePath');
+        return false;
+      }
+      // Kiểm tra thêm minimum theo level
+      return await _verifyFile(absolutePath, level);
+    } catch (e) {
+      debugPrint('❌ Verify Rule3 exception: $e');
       return false;
     }
   }
@@ -361,13 +419,39 @@ class SttModelManager {
     }
   }
 
+  /// Rule 1 — Absolute Path via path_provider (handover SECTION 1)
+  /// Trước đây hardcode string gây lỗi trên Android Tablet.
+  /// Giờ dùng getApplicationDocumentsDirectory() để có absolute path chuẩn,
+  /// không phụ thuộc flavor / sandbox của Android.
   Future<String> _resolveModelDirectory() async {
-    final appDir = await getApplicationSupportDirectory();
-    final dir = Directory(p.join(appDir.path, 'in4up_whisper_models'));
+    // Handover yêu cầu: final dir = await getApplicationDocumentsDirectory();
+    // Tạo folder con để gom model
+    Directory baseDir;
+    try {
+      baseDir = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      // Fallback nếu documents không khả dụng (test env)
+      baseDir = await getApplicationSupportDirectory();
+    }
+    final dir = Directory(p.join(baseDir.path, 'in4up_whisper_models'));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
+
+    // Đồng thời đảm bảo folder cũ (support dir) vẫn được quét khi rescan
+    // để không mất model của user cũ — scan sẽ merge từ _listLocalBinFiles
+    // có thêm fallback scan ở dưới.
     return dir.path;
+  }
+
+  /// Thêm scan fallback: nếu model không có ở documents, thử tìm ở support dir cũ
+  Future<String?> _resolveLegacySupportDirectory() async {
+    try {
+      final sup = await getApplicationSupportDirectory();
+      final legacy = Directory(p.join(sup.path, 'in4up_whisper_models'));
+      if (await legacy.exists()) return legacy.path;
+    } catch (_) {}
+    return null;
   }
 
   List<String> _normalizeStringList(List<String> input) {
@@ -388,25 +472,56 @@ class SttModelManager {
   }
 
   List<String> _urlsFor(WhisperModelLevel level) {
+    final defaults = <String>[
+      '${level.downloadUrl}?download=true',
+      level.mirrorUrl,
+    ];
     final override = _urlOverrides[level];
-    if (override != null && override.isNotEmpty) {
-      return override;
+    if (override == null || override.isEmpty) return defaults;
+
+    // URL cấu hình trước, HuggingFace + GitHub làm dự phòng.
+    final seen = <String>{};
+    final urls = <String>[];
+    for (final url in [...override, ...defaults]) {
+      if (seen.add(url)) urls.add(url);
     }
-    return [level.downloadUrl, level.mirrorUrl];
+    return urls;
   }
 
   Future<List<File>> _listLocalBinFiles() async {
     _ensureInitialized();
-    final dir = Directory(_modelDirectory!);
     final result = <File>[];
 
-    if (!await dir.exists()) return result;
-
-    await for (final entity in dir.list()) {
-      if (entity is File && p.extension(entity.path).toLowerCase() == '.bin') {
-        result.add(entity);
+    // Primary: documents/in4up_whisper_models (Rule 1)
+    final primaryDir = Directory(_modelDirectory!);
+    if (await primaryDir.exists()) {
+      await for (final entity in primaryDir.list()) {
+        if (entity is File && p.extension(entity.path).toLowerCase() == '.bin') {
+          result.add(entity);
+        }
       }
     }
+
+    // Fallback: legacy support dir — để không mất model cũ khi migrate
+    try {
+      final legacyPath = await _resolveLegacySupportDirectory();
+      if (legacyPath != null && legacyPath != _modelDirectory) {
+        final legacyDir = Directory(legacyPath);
+        if (await legacyDir.exists()) {
+          await for (final entity in legacyDir.list()) {
+            if (entity is File &&
+                p.extension(entity.path).toLowerCase() == '.bin') {
+              // Tránh duplicate cùng tên đã có ở primary
+              final name = p.basename(entity.path);
+              if (!result.any((f) => p.basename(f.path) == name)) {
+                result.add(entity);
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
     return result;
   }
 
@@ -745,12 +860,16 @@ class SttModelManager {
     String? errorMessage,
   }) {
     final current = _modelStates[level]!.value;
+    final clearError = status == ModelStatus.downloading ||
+        status == ModelStatus.downloaded ||
+        (status == ModelStatus.notDownloaded && errorMessage == null);
     _modelStates[level]!.add(
       current.copyWith(
         status: status,
         localPath: localPath,
         downloadProgress: progress,
         errorMessage: errorMessage,
+        clearErrorMessage: clearError,
       ),
     );
   }

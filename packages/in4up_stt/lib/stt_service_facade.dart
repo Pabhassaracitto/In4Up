@@ -43,8 +43,12 @@ import 'models/stt_config.dart';
 import 'models/stt_isolate_payload.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
+import 'stt_engine.dart';
 import 'stt_engine_native.dart';
+import 'stt_engine_native_strategy.dart';
+import 'stt_engine_registry.dart';
 import 'stt_engine_whisper.dart';
+import 'stt_engine_whisper_strategy.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
 import 'utils/audio_converter.dart';
@@ -231,6 +235,10 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
       await _modelManager.initialize();
+      // Cấu hình model dir cho WhisperSttEngine (registry).
+      SttEngineRegistry.configureWhisperModelDir(
+        _modelManager.modelDirectoryPath,
+      );
       _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
 
       // Native STT init is non-fatal: nếu thất bại, app vẫn chạy và fallback
@@ -411,8 +419,8 @@ class SttServiceFacade extends ChangeNotifier {
 
     final localLevel = _modelManager.getBestAvailableLocalModel(
       preferredOrder: const [
-        WhisperModelLevel.base,
         WhisperModelLevel.tiny,
+        WhisperModelLevel.base,
         WhisperModelLevel.small,
         WhisperModelLevel.medium,
         WhisperModelLevel.large,
@@ -423,7 +431,7 @@ class SttServiceFacade extends ChangeNotifier {
       _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
       return SttTranscribeOutput.failure(
         'Không có model Whisper nào được tải về. '
-        'Vào Settings → AI Model để tải model.',
+        'Mở Home → Quản lý Model AI rồi bấm Tải về.',
       );
     }
 
@@ -462,26 +470,75 @@ class SttServiceFacade extends ChangeNotifier {
     );
 
     // ── A1. Pre-convert audio if needed (Main Thread) ─────────────────────
-    final convertedPath =
-        await AudioConverter.convertToWhisperCompatible(audioPath);
+    // FIX OOM v3: tren mobile, file >60s thi KHONG pre-convert full WAV 16k
+    // de tranh 2 lan FFmpeg (full + chunk) gay ton RAM. De engine cat truc tiep tu goc.
+    // UPDATE v6: Android gio dung FFI isolate nen van can check Platform.isAndroid
+    String? convertedPath;
+    try {
+      final dur = await AudioConverter.probeDurationMs(audioPath);
+      final isLongForMobile = (SttEngineWhisper.isMobilePluginSupported || Platform.isAndroid) &&
+          dur != null &&
+          dur > 60 * 1000;
+      if (isLongForMobile) {
+        debugPrint('[Facade] File dai ${dur! ~/ 1000}s >60s tren mobile, SKIP pre-convert de tiet kiem RAM');
+        convertedPath = null;
+      } else {
+        convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+      }
+    } catch (_) {
+      // neu probe fail thi van convert nhu cu
+      convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+    }
 
     // ── A2. Resolve modelPath (cần SttModelManager Singleton — Main only) ──
-    final modelPath = _modelManager.getModelPath(config.whisperModel);
+    // Handover Rule 1 & 3: absolute path via path_provider + verification >1MB
+    String? modelPath = _modelManager.getModelPath(config.whisperModel);
+
+    if (modelPath == null || modelPath.isEmpty) {
+      // Thử tìm trực tiếp tại documents/in4up_whisper_models/ggml-*.bin (Rule1)
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final fallbackNames = [
+          'ggml-tiny-q4_0.bin',
+          'ggml-tiny.bin',
+          config.whisperModel.fileName,
+        ];
+        for (final n in fallbackNames) {
+          final cand = p.join(docDir.path, 'in4up_whisper_models', n);
+          final f = File(cand);
+          if (f.existsSync() && f.lengthSync() > 1000000) {
+            modelPath = cand;
+            debugPrint('🔎 Fallback found model at absolute path: $cand');
+            break;
+          }
+        }
+      } catch (_) {}
+    }
 
     if (modelPath == null || modelPath.isEmpty) {
       throw StateError(
-        'Model "${config.whisperModel.name}" chưa được tải về. '
-        'Vào Settings → AI Model để tải.',
+        'Chưa có model Whisper ${config.whisperModel.name}. '
+        'Mở Home → Quản lý Model AI rồi bấm Tải về, hoặc Import file '
+        '${config.whisperModel.fileName}.',
       );
     }
 
-    // Verify file tồn tại trước khi spawn Isolate
-    if (!File(modelPath).existsSync()) {
+    // Rule 3: Local Verification — existsSync + size >1_000_000
+    final modelFile = File(modelPath);
+    if (!modelFile.existsSync()) {
       throw StateError(
-        'File model không tồn tại trên đĩa: $modelPath. '
-        'Thử download lại trong Settings → AI Model.',
+        'File model không tồn tại (existsSync false): $modelPath. '
+        'Kiểm tra Rule1 absolute path và chép file thủ công.',
       );
     }
+    final sizeBytes = modelFile.lengthSync();
+    if (sizeBytes <= 1000000) {
+      throw StateError(
+        'File model quá nhỏ ($sizeBytes bytes) — yêu cầu >1_000_000: $modelPath. '
+        'File có thể bị corrupt/hardcode sai path.',
+      );
+    }
+    debugPrint('✅ Rule3 verification OK: $modelPath size=${sizeBytes}bytes');
 
     // ── B. Resolve LRC directory (cần path_provider — Main only) ──────────
     final lrcDirectory = await _resolveLrcDirectory(lrcOutputPath);
@@ -548,7 +605,7 @@ class SttServiceFacade extends ChangeNotifier {
     _emitProgress(
       SttFacadeStatus.processingWhisper,
       0.10,
-      'Transcribing với Whisper ${config.whisperModel.name}...',
+      'Transcribing with Whisper ${config.whisperModel.name}...',
       engine: SttEngineType.whisper,
     );
 
@@ -808,6 +865,16 @@ class SttServiceFacade extends ChangeNotifier {
       );
     }
   }
+
+  // ── Engine API (Strategy Pattern) ─────────────────────────────────────────
+
+  /// Lấy engine theo type qua registry. Trả null nếu chưa đăng ký.
+  static SttEngine? getEngine(SttEngineType type) =>
+      SttEngineRegistry.create(type);
+
+  /// Danh sách engine đã đăng ký (để UI chọn backend nếu muốn).
+  static List<SttEngineType> get availableEngineTypes =>
+      SttEngineRegistry.registeredTypes;
 
   // ── Model Management API (không thay đổi) ────────────────────────────────
 

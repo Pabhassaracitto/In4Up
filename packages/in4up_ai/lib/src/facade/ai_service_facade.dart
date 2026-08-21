@@ -39,7 +39,10 @@ class AiServiceFacade extends ChangeNotifier {
   AiFacadeState get facadeState => _facadeState;
   bool get isLoading => _facadeState == AiFacadeState.loading;
   bool get isChatLoading => _facadeState == AiFacadeState.chatting;
-  bool get hasModel => _initialized;
+  /// Chỉ `true` khi đang chạy model THẬT (AiEngineGemma + modelPath hợp lệ).
+  /// Trong mock mode (chưa import .gguf) trả `false` để UI không hiểu nhầm
+  /// "model đã sẵn sàng" — vấn đề `hasModel` gây hiểu nhầm cũ đã được fix.
+  bool get hasModel => _initialized && !_useMock;
   String? _lastError;
   String? get lastError => _lastError;
   bool get isReady => _initialized && (_engine?.state == AiEngineState.ready);
@@ -152,7 +155,17 @@ class AiServiceFacade extends ChangeNotifier {
   }
 
   Future<bool> initialize({required String modelPath, bool useMock = false}) async {
-    if (_initialized) return true;
+    // Cho phép chuyển backend giữa phiên chạy (VD: app khởi động ở mock mode,
+    // người dùng import .gguf ⇒ cần re-init sang AiEngineGemma thật).
+    if (_initialized) {
+      if (useMock == _useMock) return true;
+      debugPrint(
+          '[AiServiceFacade] Switching backend ${_useMock ? "mock" : "real"} → ${useMock ? "mock" : "real"}');
+      await _engine?.dispose();
+      _engine = null;
+      _initialized = false;
+      _useMock = false;
+    }
     _useMock = useMock;
 
     if (useMock) {

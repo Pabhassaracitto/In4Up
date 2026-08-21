@@ -30,6 +30,25 @@
 3. KHÔNG làm mất khả năng reopen đúng vị trí nguồn (PDF page/rect, Web url/scroll,
    Audio timestamp) — xem schema Evidence mục 2.2.
 4. Mọi thay đổi kiến trúc: ADR + code review, không "hội đồng AI".
+5. **Locale ≠ tiếng Việt → chrome UI không được còn tiếng Việt. Thiếu bản dịch
+   ngôn ngữ đó thì hiện English. Không bao giờ fallback về `vi`.**
+   - Áp dụng: nút, tooltip, title, snackbar, empty state, chip, dialog hệ thống.
+   - **Không** áp dụng (giữ nguyên nguồn): nội dung user (văn bản, lyric, PDF/Web,
+     ghi chú), từ vựng/nghĩa user nhập, output AI, transcript STT, tiêu đề chương
+     auto-TOC.
+   - Thứ tự: `locale có sẵn` → `en` → không đoán, không để `vi`.
+   - Chuỗi UI mới: ARB **hoặc** `uiText('…')` + English trong
+     `tool/legacy_ui_english_overrides.json`. KHÔNG hard-code tiếng Việt ra `Text`
+     rồi hy vọng shim bắt hết (shim chỉ exact, không template).
+   - **Đừng chỉ có chữ trên giấy** — cần máy bắt (rule văn xuôi agent vẫn quên):
+     1. Generator `tool/generate_legacy_ui_fallbacks.py` (`unused_overrides` /
+        unclassified — fail nếu có literal chrome chưa phân loại) — giữ nguyên.
+     2. Test `test/locale_chrome_no_vietnamese_test.dart`: catalog đã review —
+        dịch `ja`/`en` (và mọi locale ≠ vi) **không còn ký tự Việt**; mọi entry
+        phải có giá trị `en` (canonical fallback).
+     3. QA tay: EN + 1 locale chưa dịch hết (JA/BN) — chrome không `vi`; mở file
+        tiếng Việt vẫn thấy tiếng Việt.
+   - KHÔNG bật dịch máy runtime cho mọi chuỗi lạ.
 
 ## Vận hành CI / môi trường (đúc kết từ thực chiến)
 

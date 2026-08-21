@@ -43,8 +43,12 @@ import 'models/stt_config.dart';
 import 'models/stt_isolate_payload.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
+import 'stt_engine.dart';
 import 'stt_engine_native.dart';
+import 'stt_engine_native_strategy.dart';
+import 'stt_engine_registry.dart';
 import 'stt_engine_whisper.dart';
+import 'stt_engine_whisper_strategy.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
 import 'utils/audio_converter.dart';
@@ -231,6 +235,10 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
       await _modelManager.initialize();
+      // Cấu hình model dir cho WhisperSttEngine (registry).
+      SttEngineRegistry.configureWhisperModelDir(
+        _modelManager.modelDirectoryPath,
+      );
       _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
 
       // Native STT init is non-fatal: nếu thất bại, app vẫn chạy và fallback
@@ -859,6 +867,16 @@ class SttServiceFacade extends ChangeNotifier {
       );
     }
   }
+
+  // ── Engine API (Strategy Pattern) ─────────────────────────────────────────
+
+  /// Lấy engine theo type qua registry. Trả null nếu chưa đăng ký.
+  static SttEngine? getEngine(SttEngineType type) =>
+      SttEngineRegistry.create(type);
+
+  /// Danh sách engine đã đăng ký (để UI chọn backend nếu muốn).
+  static List<SttEngineType> get availableEngineTypes =>
+      SttEngineRegistry.registeredTypes;
 
   // ── Model Management API (không thay đổi) ────────────────────────────────
 

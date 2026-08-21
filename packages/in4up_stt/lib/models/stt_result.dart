@@ -184,4 +184,4 @@ class SttResult {
       'words=${allWords.length}, fp=$audioFingerprint)';
 }
 
-enum SttEngineType { native, whisper }
+enum SttEngineType { native, whisper, sherpa }

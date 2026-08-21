@@ -24,16 +24,34 @@ class MyMemoryEngine extends TranslationEngine {
   static const String _baseUrl = 'https://api.mymemory.translated.net/get';
 
   static const Map<String, String> _langMap = {
-    'VI': 'vi',
-    'EN': 'en',
-    'ZH': 'zh-CN',
-    'JA': 'ja',
-    'KO': 'ko',
-    'FR': 'fr',
+    'AR': 'ar',
+    'BN': 'bn',
+    'BO': 'bo',
     'DE': 'de',
+    'EN': 'en',
     'ES': 'es',
+    'FR': 'fr',
+    'HI': 'hi',
+    'ID': 'id',
+    'IT': 'it',
+    'JA': 'ja',
+    'KM': 'km',
+    'KO': 'ko',
+    'LO': 'lo',
+    'MN': 'mn',
+    'MR': 'mr',
+    'MY': 'my',
+    'PT': 'pt',
     'RU': 'ru',
-    'AUTO': 'en', // MyMemory không hỗ trợ auto, default english
+    'SI': 'si',
+    'TA': 'ta',
+    'TE': 'te',
+    'TH': 'th',
+    'VI': 'vi',
+    'ZH': 'zh-CN',
+    'ZH-CN': 'zh-CN',
+    'ZH-TW': 'zh-TW',
+    'AUTO': 'en',
   };
 
   String _mapLang(String lang) {

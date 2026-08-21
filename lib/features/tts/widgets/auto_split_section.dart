@@ -1,6 +1,6 @@
 // lib/features/tts/widgets/auto_split_section.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../../../services/text_splitter_service.dart';
 
@@ -180,8 +180,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                     ),
                     const Spacer(),
                     Text(
-                      '${_preview!.originalLineCount} dòng → ${_preview!.totalLines} dòng '
-                      '(~${_preview!.avgWordsPerLine.toStringAsFixed(1)} từ/dòng)',
+                      context.uiText('${_preview!.originalLineCount} dòng → ${_preview!.totalLines} dòng (~${_preview!.avgWordsPerLine.toStringAsFixed(1)} từ/dòng)'),
                       style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                     ),
                   ],
@@ -229,7 +228,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      '... và ${_preview!.lines.length - 20} dòng nữa',
+                      context.uiText('... và ${_preview!.lines.length - 20} dòng nữa'),
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.grey[600],
@@ -253,7 +252,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
               },
               icon: const Icon(Icons.check, size: 18),
               label: Text(
-                'Áp dụng (${_preview!.totalLines} dòng)',
+                context.uiText('Áp dụng (${_preview!.totalLines} dòng)'),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.primaryColor,
@@ -294,7 +293,7 @@ class _SliderRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          context.uiText(label),
           style: TextStyle(fontSize: 11, color: Colors.grey[400]),
         ),
         SliderTheme(

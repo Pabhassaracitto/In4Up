@@ -4,15 +4,18 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:in2up_stt/in2up_stt.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 
+import '../../features/vad/pipeline/vad_pipeline_integration.dart';
+import '../../features/vad/pipeline/vad_whisper_pipeline.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 
 mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
   String? get currentSongPath;
   UnderstandProvider? get understandProvider;
+  Future<void> pause();
 
   final SttServiceFacade _sttService = SttServiceFacade();
   SttServiceFacade get sttService => _sttService;
@@ -49,10 +52,11 @@ mixin PlayerSttMixin on ChangeNotifier {
     try {
       final hash = _computeFileHash(normalizedPath);
 
+      // Rule 1: Dùng absolute path via path_provider, không hardcode /data/...
+      // Thử các vị trí cache theo thứ tự ưu tiên
       final candidates = <String>[
         '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
             '/${hash}.lrc',
-        '/data/user/0/com.in2up.app/cache/lrc/$hash.lrc',
         _replaceExtension(normalizedPath, '.lrc'),
       ];
 
@@ -105,6 +109,96 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
   }
 
+  // Handover SECTION 2 — VAD Pipeline integration
+  // File 1h từ 20p -> 8-10p nhờ loại bỏ silence + chunk tối ưu
+  final VadPipelineIntegration _vadIntegration = VadPipelineIntegration();
+
+  /// Tạo LRC dùng VAD pipeline tối ưu (khuyên dùng cho file dài >60s)
+  /// Pipeline: File Audio -> VAD -> Chunk Extractor -> Whisper Isolate -> Offset Corrector -> UI Stream
+  Future<SttTranscribeOutput?> generateLrcWithVadPipeline({
+    WhisperModelLevel? level,
+    String language = 'vi',
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
+    bool skipSilence = true,
+  }) async {
+    final path = currentSongPath;
+    if (path == null) {
+      _lastSttError = 'Chưa có file audio đang phát';
+      notifyListeners();
+      return null;
+    }
+
+    _isGeneratingLrc = true;
+    _lastSttError = null;
+
+    try {
+      await pause();
+      debugPrint('[VAD Pipeline] Paused player, delay 1s for BufferPool release');
+      await Future.delayed(const Duration(milliseconds: 1000));
+    } catch (_) {}
+
+    understandProvider?.clear();
+    notifyListeners();
+
+    try {
+      final modelLevel = level ?? WhisperModelLevel.tiny;
+
+      final output = await _vadIntegration.transcribeWithVad(
+        audioPath: path,
+        modelLevel: modelLevel,
+        language: language,
+        skipSilence: skipSilence,
+        onProgress: (prog) {
+          debugPrint(
+            '[VAD Pipeline] ${prog.status.name} ${prog.progress.toStringAsFixed(2)} '
+            '${prog.message} chunk ${prog.currentChunkIndex}/${prog.totalChunks}',
+          );
+          // Có thể emit progress ra UI qua _sttService hoặc notifyListeners
+        },
+        onPartialResult: (partial) async {
+          if (partial.segments.isEmpty || understandProvider == null) return;
+          final lrcLines = partial.segments
+              .map((s) => LrcLine(
+                    timestamp: Duration(milliseconds: s.startMs),
+                    text: s.text,
+                  ))
+              .where((l) => l.text.trim().isNotEmpty)
+              .toList();
+          if (lrcLines.isNotEmpty) {
+            understandProvider!.loadLrcLines(lrcLines);
+          }
+        },
+      );
+
+      _lastSttOutput = output;
+      _lastSttError = output.success ? null : output.errorMessage;
+
+      if (output.success && understandProvider != null) {
+        final lrcLines = output.result.segments
+            .map((s) => LrcLine(
+                  timestamp: Duration(milliseconds: s.startMs),
+                  text: s.text,
+                ))
+            .where((l) => l.text.trim().isNotEmpty)
+            .toList();
+        if (lrcLines.isNotEmpty) {
+          understandProvider!.loadLrcLines(lrcLines);
+          debugPrint('✅ VAD Pipeline loaded ${lrcLines.length} LRC lines');
+        }
+        _lrcJustGenerated = true;
+      }
+
+      return output;
+    } catch (e) {
+      _lastSttError = e.toString();
+      debugPrint('❌ VAD Pipeline error: $e');
+      return null;
+    } finally {
+      _isGeneratingLrc = false;
+      notifyListeners();
+    }
+  }
+
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
@@ -116,8 +210,36 @@ mixin PlayerSttMixin on ChangeNotifier {
       return null;
     }
 
+    // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        // Nếu file >60s, tự động dùng VAD pipeline tối ưu
+        // Probe duration đơn giản qua file size hoặc dùng AudioConverter
+        // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
+        final size = await file.length();
+        if (size > 5 * 1024 * 1024) {
+          debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
+          return await generateLrcWithVadPipeline(
+            level: level,
+            language: 'en',
+            grouping: grouping,
+            skipSilence: true,
+          );
+        }
+      }
+    } catch (_) {}
+
     _isGeneratingLrc = true;
     _lastSttError = null;
+
+    // FIX OOM v3: dung player truoc khi transcribe de giai phong ExoPlayer (BufferPoolAccessor) + FFmpeg native RAM
+    // v7: them delay 1s sau pause de ExoPlayer giai phong buffer pool truoc khi Whisper chiem RAM
+    try {
+      await pause();
+      debugPrint('[SttMixin] Paused player before transcription to free RAM, delay 1s for BufferPool release');
+      await Future.delayed(const Duration(milliseconds: 1000));
+    } catch (_) {}
 
     // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
     //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").

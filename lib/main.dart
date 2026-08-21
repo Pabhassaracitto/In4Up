@@ -1,24 +1,23 @@
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:in2up/l10n/app_localizations.dart';
-
 import 'dart:async';
+import 'package:device_preview/device_preview.dart';
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:device_preview/device_preview.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:in4up/l10n/app_localizations.dart';
+import 'package:in4up/screens/memory_mode/controllers/memory_controller.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/services/storage_service.dart';
+import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up_stt/models/stt_config.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:in2up/screens/memory_mode/controllers/memory_controller.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up/services/storage_service.dart';
-import 'package:in2up_ai/in2up_ai.dart';
-import 'package:in2up_stt/models/stt_config.dart';
-import 'package:in2up_stt/models/stt_model_info.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
 
 import 'core/responsive/app_responsive.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
@@ -28,6 +27,7 @@ import 'providers/focus_provider.dart';
 import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/player_provider.dart';
+import 'providers/soundlist_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
 import 'providers/waveform_provider.dart';
@@ -38,28 +38,23 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
 
-/// Thay 5 link này bằng nguồn thật của bạn.
-/// Nếu model đã có sẵn trong assets/local thì app sẽ dùng luôn, không tải lại.
+/// Handover SECTION 1 — Fix HttpException: Connection closed
+/// Rule 2: Disable Auto-Download hoàn toàn để tránh HuggingFace CDN timeout
+/// trên Android Tablet do Battery Saver.
+/// Trước đây sai filePath -> fallback tự động gọi HTTP GET -> HttpException
+/// Giờ ép app chỉ nạp file đã chép sẵn tại absolute path (Rule 1).
+/// Nếu model chưa có, SttModelManager sẽ báo lỗi thân thiện thay vì tải.
 final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
-  WhisperModelLevel.tiny: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin?download=true',
-  ],
-  WhisperModelLevel.base: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true',
-  ],
-  WhisperModelLevel.small: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true',
-  ],
-  WhisperModelLevel.medium: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin?download=true',
-  ],
-  WhisperModelLevel.large: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v2.bin?download=true',
-  ],
+  WhisperModelLevel.tiny: [],
+  WhisperModelLevel.base: [],
+  WhisperModelLevel.small: [],
+  WhisperModelLevel.medium: [],
+  WhisperModelLevel.large: [],
 };
 
 /// Tên file được chấp nhận khi:
@@ -99,11 +94,15 @@ Future<void> main() async {
   }
 
   // ★ runApp ngay - không block
+  const bool useDevicePreview = false; // Thay đổi giá trị này thành true khi cần DevicePreview
+
   runApp(
-    DevicePreview(
-      enabled: !kReleaseMode,
-      builder: (context) => const MyApp(),
-    ),
+    useDevicePreview
+        ? DevicePreview(
+            enabled: true,
+            builder: (context) => const MyApp(),
+          )
+        : const MyApp(),
   );
 
   // ★ STT init chạy background sau khi UI đã show
@@ -141,7 +140,7 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
       );
     } else if (Platform.isAndroid) {
       // Android: dùng google-services.json native để hỗ trợ flavors
-      // File này đã chứa nhiều clients cho com.in2up, com.in2up.dev, com.in2up.beta...
+      // File này đã chứa nhiều clients cho com.in4up, com.in4up.dev, com.in4up.beta...
       // Nếu dùng DefaultFirebaseOptions, chỉ có 1 appId và sẽ fail cho beta/dev
       // nên để Firebase tự đọc google-services.json
       try {
@@ -164,7 +163,8 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
     }
 
     isFirebaseAvailable = true;
-    debugPrint('✅ Firebase initialized: ${app.options.projectId} flavor=${const String.fromEnvironment('FLAVOR', defaultValue: 'stable')}');
+    debugPrint(
+        '✅ Firebase initialized: ${app.options.projectId} flavor=${const String.fromEnvironment('FLAVOR', defaultValue: 'stable')}');
     return app;
   } on FirebaseException catch (e) {
     if (e.code == 'duplicate-app') {
@@ -248,22 +248,37 @@ class _MyAppState extends State<MyApp> {
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
+        ChangeNotifierProvider(
+          create: (ctx) => SoundlistProvider()
+            ..load()
+            ..attachPlayer(ctx.read<PlayerProvider>()),
+        ),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(
           create: (_) {
             final prov = VocabularyProvider();
             prov.loadData(); // Nạp danh sách từ cục bộ từ Hive
+            unawaited(ReaderDisplaySettings().init()); // READ-630-03
 
-            // Tự động kích hoạt sync khi có User đăng nhập
-            FirebaseAuth.instance.authStateChanges().listen((user) {
-              if (user != null) {
-                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
-                unawaited(prov.enableSync(user.uid));
-              } else {
-                prov.disableSync();
+            // Tự động kích hoạt sync khi có User đăng nhập - chỉ khi Firebase sẵn sàng (fix Linux no-app)
+            if (isFirebaseAvailable) {
+              try {
+                FirebaseAuth.instance.authStateChanges().listen((user) {
+                  if (user != null) {
+                    debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                    unawaited(prov.enableSync(user.uid));
+                  } else {
+                    prov.disableSync();
+                  }
+                });
+              } catch (e) {
+                debugPrint('⚠️ FirebaseAuth listener failed (Linux no-app expected): $e');
               }
-            });
+            } else {
+              debugPrint('ℹ️ Firebase not available (Linux), skip auth sync listener');
+            }
 
             return prov;
           },
@@ -274,7 +289,6 @@ class _MyAppState extends State<MyApp> {
             create: (_) => KaraokeSettingsProvider()..load()),
         ChangeNotifierProvider(
             create: (_) => LearnByHeartProvider()..loadData()),
-
 
         // Nếu đây là singleton/global controller thì dùng .value an toàn hơn
         ChangeNotifierProvider<MemoryController>.value(
@@ -304,6 +318,8 @@ class _MyAppState extends State<MyApp> {
             ctx.read<PlaybackEngine>(),
             ctx.read<SharedPreferences>(),
             ctx.read<TtsNotificationService>(),
+            () => ctx.read<LocaleProvider>().locale?.toLanguageTag() ??
+                WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
           ),
         ),
 
@@ -320,7 +336,7 @@ class _MyAppState extends State<MyApp> {
           return MaterialApp(
             title: 'In4Up',
             debugShowCheckedModeBanner: false,
-            locale: localeProvider.locale ?? DevicePreview.locale(context),
+            locale: localeProvider.locale,
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -368,8 +384,7 @@ class _MyAppState extends State<MyApp> {
 }
 
 Widget _appBuilder(BuildContext context, Widget? child) {
-  final previewChild = DevicePreview.appBuilder(context, child);
-  return _clampedMediaQuery(context, previewChild);
+  return _clampedMediaQuery(context, child!);
 }
 
 Widget _clampedMediaQuery(BuildContext context, Widget? child) {

@@ -3,9 +3,9 @@
 // Bottom sheet tuỳ chỉnh hiển thị karaoke: cỡ chữ, màu sắc, căn lề,
 // và bật/tắt bản dịch.
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/providers/karaoke_settings_provider.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
 
 class KaraokeSettingsSheet extends StatefulWidget {
   const KaraokeSettingsSheet({super.key});

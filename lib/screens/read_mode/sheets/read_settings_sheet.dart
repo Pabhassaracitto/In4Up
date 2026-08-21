@@ -1,15 +1,17 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/grammar.dart';
 import '../../../features/translation/translation_display_mode.dart';
+import '../../../features/translation/translation_language_picker.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+import '../services/playback_controller.dart';
 
 class ReadSettingsSheet {
   ReadSettingsSheet._();
@@ -110,6 +112,15 @@ class _SettingsContent extends StatelessWidget {
                   _TtsControls(tp: tp),
                   const SizedBox(height: 24),
 
+                  // ===== TRANSLATION + BILINGUAL TTS =====
+                  const _SectionTitle(
+                    title: 'Dịch & đọc song ngữ',
+                    icon: Icons.compare_arrows_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _TranslationLanguageSection(tp: tp),
+                  const SizedBox(height: 24),
+
                   // ===== COLOR MODE =====
                   const _SectionTitle(title: 'Chế độ màu', icon: Icons.palette),
                   const SizedBox(height: 12),
@@ -156,7 +167,7 @@ class _SettingsContent extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content:
-                                Text('Đã tách thành ${lines.length} dòng')),
+                                Text(context.uiText('Đã tách thành ${lines.length} dòng'))),
                       );
                     },
                   ),
@@ -411,6 +422,69 @@ class _TtsControls extends StatelessWidget {
   }
 }
 
+class _TranslationLanguageSection extends StatelessWidget {
+  final TextProvider tp;
+
+  const _TranslationLanguageSection({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    final source = tp.detectedSourceLanguage;
+    final target = tp.translationTargetLanguage;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TranslationLanguagePickerButton(
+            sourceLanguage: source,
+            targetLanguage: target,
+            compact: false,
+            accentColor: const Color(0xFF53D6BD),
+            onSelected: (language) async {
+              final playback = context.read<PlaybackController>();
+              if (playback.isRunning) {
+                playback.stop(fileId: tp.currentDocument?.id ?? 'unknown');
+              }
+              await tp.stopSpeaking();
+              await tp.setTranslationTargetLanguage(
+                language.translationCode,
+                retranslateExisting: true,
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.uiText('Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.'),
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          if (tp.translationPairUsesSameLanguage) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.',
+              style: TextStyle(
+                color: Colors.amber,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _TtsButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -497,7 +571,7 @@ class _ColorModeSelector extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  mode.label,
+                  context.uiText(mode.label),
                   style: TextStyle(
                     fontSize: 12,
                     color: isSelected ? Colors.white : Colors.grey,
@@ -632,6 +706,12 @@ class _GrammarHighlightSection extends StatelessWidget {
       (preset) => preset.id == settings.lastNonCustomPresetId,
       orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
     );
+    final activePresetName = tp.activeGrammarPreset.isBuiltIn
+        ? context.uiText(tp.activeGrammarPreset.name)
+        : tp.activeGrammarPreset.name;
+    final previousPresetName = previousPreset.isBuiltIn
+        ? context.uiText(previousPreset.name)
+        : previousPreset.name;
     final hiddenCategories = GrammarCategory.values
         .where((category) => !settings.visibleCategories.contains(category))
         .toList()
@@ -678,8 +758,8 @@ class _GrammarHighlightSection extends StatelessWidget {
           const SizedBox(height: 12),
           _GrammarControlSummary(
             settings: settings,
-            activePresetName: tp.activeGrammarPreset.name,
-            previousPresetName: previousPreset.name,
+            activePresetName: activePresetName,
+            previousPresetName: previousPresetName,
             visibleCount: settings.visibleCategories.length,
             hiddenCount: hiddenCategories.length,
             onRestorePreviousPreset: tp.restorePreviousGrammarPreset,
@@ -687,7 +767,7 @@ class _GrammarHighlightSection extends StatelessWidget {
             onSaveCurrentPreset: () async {
               final draft = await _showReadSavePresetDialog(
                 context,
-                tp.activeGrammarPreset.name,
+                activePresetName,
               );
               if (draft == null) return;
               await tp.saveCurrentGrammarPreset(
@@ -767,7 +847,7 @@ class _GrammarHighlightSection extends StatelessWidget {
             _ReadSettingsHiddenGrammarCard(
               hiddenCategories: hiddenCategories,
               palette: palette,
-              previousPresetName: previousPreset.name,
+              previousPresetName: previousPresetName,
               onShowAllCategories: tp.showAllGrammarCategories,
               onToggleCategory: tp.toggleGrammarCategory,
             ),
@@ -921,9 +1001,9 @@ class _GrammarControlSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            settings.isCustomPreset
+            context.uiText(settings.isCustomPreset
                 ? 'Đang dùng preset: Tùy chỉnh'
-                : 'Đang dùng preset: $activePresetName',
+                : 'Đang dùng preset: $activePresetName'),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -931,9 +1011,9 @@ class _GrammarControlSummary extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            settings.isCustomPreset
+            context.uiText(settings.isCustomPreset
                 ? 'Bạn đang chỉnh tay từ preset gần nhất: $previousPresetName'
-                : 'Có thể chuyển sang tùy chỉnh nếu cần ẩn/hiện thủ công từng nhóm từ loại.',
+                : 'Có thể chuyển sang tùy chỉnh nếu cần ẩn/hiện thủ công từng nhóm từ loại.'),
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -1010,7 +1090,7 @@ class _GrammarControlSummary extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onRestorePreviousPreset,
                   icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: Text('Khôi phục $previousPresetName'),
+                  label: Text(context.uiText('Khôi phục $previousPresetName')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB8B5FF),
                     side: BorderSide(
@@ -1054,7 +1134,7 @@ class _ReadSettingsHiddenGrammarCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị xoá — bạn có thể bật lại từng nhóm, bật hết, hoặc quay về preset $previousPresetName.',
+            context.uiText('Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị xoá — bạn có thể bật lại từng nhóm, bật hết, hoặc quay về preset $previousPresetName.'),
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -1084,7 +1164,7 @@ class _ReadSettingsHiddenGrammarCard extends StatelessWidget {
                     color: palette.styleFor(category).color.withValues(alpha: 0.28),
                   ),
                   label: Text(
-                    '+ ${category.labelVi}',
+                    '+ ${context.uiText(category.labelVi)}',
                     style: TextStyle(
                       color: palette.styleFor(category).color,
                       fontSize: 11,
@@ -1420,7 +1500,7 @@ class _TinyStatChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: const TextStyle(
           color: Colors.white70,
           fontSize: 11.5,
@@ -1511,7 +1591,9 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
   String suggestedName,
 ) async {
   final nameCtrl = TextEditingController(
-    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
+    text: suggestedName == context.uiText('Tùy chỉnh')
+        ? context.uiText('Preset của tôi 1')
+        : context.uiText('$suggestedName riêng'),
   );
   final descCtrl = TextEditingController();
 
@@ -1535,6 +1617,7 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: _readDialogInputDecoration(
+                  context: context,
                   label: 'Tên preset',
                   hint: 'Ví dụ: Verb focus riêng',
                 ),
@@ -1545,6 +1628,7 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
                 maxLines: 3,
                 style: const TextStyle(color: Colors.white),
                 decoration: _readDialogInputDecoration(
+                  context: context,
                   label: 'Mô tả ngắn',
                   hint: 'Ghi chú cách dùng của preset này',
                 ),
@@ -1577,12 +1661,13 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
 }
 
 InputDecoration _readDialogInputDecoration({
+  required BuildContext context,
   required String label,
   required String hint,
 }) {
   return InputDecoration(
-    labelText: label,
-    hintText: hint,
+    labelText: context.uiText(label),
+    hintText: context.uiText(hint),
     labelStyle: const TextStyle(color: Colors.white70),
     hintStyle: const TextStyle(color: Colors.grey),
     filled: true,
@@ -1605,6 +1690,9 @@ class _DisplayOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibilityAction = context.uiText(
+      tp.showTranslation ? 'ẩn' : 'hiện',
+    );
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -1617,9 +1705,9 @@ class _DisplayOptions extends StatelessWidget {
             title: const Text('Hiện bản dịch',
                 style: TextStyle(color: Colors.white, fontSize: 14)),
             subtitle: Text(
-                tp.translatedLineCount > 0
-                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để ${tp.showTranslation ? 'ẩn' : 'hiện'}'
-                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng',
+                context.uiText(tp.translatedLineCount > 0
+                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để $visibilityAction'
+                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng'),
                 style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             value: tp.showTranslation,
             activeThumbColor: const Color(0xFF4CAF50),

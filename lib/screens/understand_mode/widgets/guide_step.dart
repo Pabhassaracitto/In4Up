@@ -1,6 +1,6 @@
 // lib/screens/understand_mode/widgets/guide_step.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class GuideStep extends StatelessWidget {
   final String number;

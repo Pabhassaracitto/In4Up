@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:path/path.dart';
 
 import '../models/grammar_category.dart';
 import '../models/grammar_highlight_settings.dart';
@@ -40,7 +41,8 @@ class GrammarLegendBar extends StatelessWidget {
       ),
     );
 
-    final chipWidgets = categories.map(_buildChip).toList();
+    final chipWidgets =
+        categories.map((category) => _buildChip(context, category)).toList();
     final content = categories.isEmpty
         ? emptyText
         : horizontalScroll
@@ -104,7 +106,7 @@ class GrammarLegendBar extends StatelessWidget {
     );
   }
 
-  Widget _buildChip(GrammarCategory category) {
+  Widget _buildChip(BuildContext context, GrammarCategory category) {
     final style = palette.styleFor(category);
     final showLabel = !compact;
     final child = Container(
@@ -141,7 +143,7 @@ class GrammarLegendBar extends StatelessWidget {
           if (showLabel) ...[
             const SizedBox(width: 6),
             Text(
-              category.labelVi,
+              context.uiText(category.labelVi),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11.5,

@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import 'vocabulary_type.dart';
 import 'vocab_context.dart';
+
+// Task 2 / ADR-0001: SkillReviewData tách file riêng, chỉ phụ thuộc
+// hàm SM-2 DUY NHẤT. Re-export để mọi nơi import word_entry vẫn dùng được.
+import 'skill_review_data.dart';
+export 'skill_review_data.dart';
 
 const double kThreshold = 0.6;
 
@@ -106,98 +111,10 @@ extension MasteryZoneInfo on MasteryZone {
 }
 
 /// ═══════════════════════════════════════════════════════════════
-/// SKILL REVIEW DATA — SM-2 cho từng chiều kỹ năng
-/// ═══════════════════════════════════════════════════════════════
-class SkillReviewData {
-  double score; // 0.0 → 1.0
-  double easeFactor;
-  int interval; // ngày
-  int repetitions;
-  DateTime? nextReview;
-  int totalReviews;
-  int correctReviews;
-
-  SkillReviewData({
-    this.score = 0.0,
-    this.easeFactor = 2.5,
-    this.interval = 0,
-    this.repetitions = 0,
-    this.nextReview,
-    this.totalReviews = 0,
-    this.correctReviews = 0,
-  });
-
-  bool get isDue {
-    if (nextReview == null) return true;
-    return DateTime.now().isAfter(nextReview!);
-  }
-
-  int get daysUntilDue {
-    if (nextReview == null) return 0;
-    final diff = nextReview!.difference(DateTime.now()).inDays;
-    return diff < 0 ? 0 : diff;
-  }
-
-  double get accuracy => totalReviews > 0 ? correctReviews / totalReviews : 0;
-
-  void review(int quality) {
-    // SM-2 algorithm inline
-    if (quality >= 3) {
-      if (repetitions == 0) {
-        interval = 1;
-      } else if (repetitions == 1) {
-        interval = 6;
-      } else {
-        interval = (interval * easeFactor).round();
-      }
-      repetitions++;
-    } else {
-      repetitions = 0;
-      interval = 1;
-    }
-
-    easeFactor =
-        (easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
-            .clamp(1.3, 2.5);
-    nextReview = DateTime.now().add(Duration(days: interval));
-
-    totalReviews++;
-    if (quality >= 3) {
-      correctReviews++;
-      final delta = (quality - 2) * 0.1;
-      score = (score + delta).clamp(0.0, 1.0);
-    } else {
-      final delta = (quality - 2) * 0.05;
-      score = (score + delta).clamp(0.0, 1.0);
-    }
-  }
-
-  Map<String, dynamic> toJson() => {
-        'score': score,
-        'easeFactor': easeFactor,
-        'interval': interval,
-        'repetitions': repetitions,
-        'nextReview': nextReview?.toIso8601String(),
-        'totalReviews': totalReviews,
-        'correctReviews': correctReviews,
-      };
-
-  factory SkillReviewData.fromJson(Map<String, dynamic> json) =>
-      SkillReviewData(
-        score: (json['score'] as num?)?.toDouble() ?? 0.0,
-        easeFactor: (json['easeFactor'] as num?)?.toDouble() ?? 2.5,
-        interval: json['interval'] as int? ?? 0,
-        repetitions: json['repetitions'] as int? ?? 0,
-        nextReview: json['nextReview'] != null
-            ? DateTime.parse(json['nextReview'] as String)
-            : null,
-        totalReviews: json['totalReviews'] as int? ?? 0,
-        correctReviews: json['correctReviews'] as int? ?? 0,
-      );
-}
-
-/// ═══════════════════════════════════════════════════════════════
 /// WORD ENTRY — 3 chiều SM-2 + Hierarchical Vocabulary
+///
+/// SkillReviewData (SM-2 cho từng chiều) đã tách sang skill_review_data.dart
+/// (Task 2 / ADR-0001) — được import + re-export bên dưới.
 /// ═══════════════════════════════════════════════════════════════
 class WordEntry {
   final String id;
@@ -227,8 +144,74 @@ class WordEntry {
   bool isUnborn;
 
   // ── ★ MỚI: Ma trận Ngôn ngữ và Chủ đề ──
+  /// Ngôn ngữ chính (giữ cho tương thích; `languages.first` đồng bộ với nó).
   String language;
-  String? topic;
+
+  /// Tất cả ngôn ngữ entry thuộc về (đầu danh sách = chính).
+  /// Xóa 1 ngôn ngữ chỉ gỡ tag — word + context vẫn giữ nguyên.
+  List<String> languages;
+
+  /// Tất cả chủ đề entry thuộc về (đầu danh sách = chính).
+  /// Xóa 1 chủ đề chỉ gỡ tag — word + context vẫn giữ nguyên.
+  List<String> topics;
+
+  /// Chủ đề chính (tương thích với field `topic` cũ).
+  String? get topic => topics.isEmpty ? null : topics.first;
+
+  set topic(String? value) {
+    final v = (value ?? '').trim();
+    final rest = topics.length > 1 ? topics.sublist(1) : const <String>[];
+    topics = v.isEmpty ? rest : [v, ...rest];
+    updatedAt = DateTime.now();
+  }
+
+  void addTopic(String value) {
+    final v = value.trim();
+    if (v.isEmpty || topics.contains(v)) return;
+    topics.add(v);
+    updatedAt = DateTime.now();
+  }
+
+  void removeTopic(String value) {
+    if (topics.remove(value)) updatedAt = DateTime.now();
+  }
+
+  void setTopics(Iterable<String> values) {
+    final next = values
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+    topics = next;
+    updatedAt = DateTime.now();
+  }
+
+  void addLanguage(String value) {
+    final v = value.trim();
+    if (v.isEmpty || languages.contains(v)) return;
+    languages.add(v);
+    if (language.trim().isEmpty) language = v;
+    updatedAt = DateTime.now();
+  }
+
+  void removeLanguage(String value) {
+    if (!languages.remove(value)) return;
+    if (language == value) {
+      language = languages.isEmpty ? 'en' : languages.first;
+    }
+    updatedAt = DateTime.now();
+  }
+
+  void setLanguages(Iterable<String> values) {
+    final next = values
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+    languages = next;
+    language = next.isEmpty ? 'en' : next.first;
+    updatedAt = DateTime.now();
+  }
 
   WordEntry({
     required this.id,
@@ -254,8 +237,10 @@ class WordEntry {
     this.personalNotes,
     this.userDifficulty,
     this.isUnborn = false,
-    this.language = 'en',
-    this.topic,
+    String language = 'en',
+    List<String>? languages,
+    List<String>? topics,
+    String? topic,
   })  : tags = tags ?? [],
         understandData = understandData ?? SkillReviewData(score: understand),
         listenData = listenData ?? SkillReviewData(score: listen),
@@ -266,7 +251,13 @@ class WordEntry {
         vocabType = vocabType ?? VocabularyType.word,
         contexts = contexts ?? [],
         parentIds = parentIds ?? [],
-        childIds = childIds ?? [];
+        childIds = childIds ?? [],
+        language = language,
+        topics = topics ??
+            (topic != null && topic.trim().isNotEmpty
+                ? [topic.trim()]
+                : <String>[]),
+        languages = languages ?? [language];
 
   // ═══════════════════════════════════════
   // SKILL SCORE GETTERS
@@ -581,8 +572,23 @@ class WordEntry {
         'userDifficulty': userDifficulty?.name,
         'isUnborn': isUnborn,
         'language': language,
+        'languages': languages,
         'topic': topic,
+        'topics': topics,
       };
+
+  /// Migration lossless: `topic` (string cũ) → `topics` (list mới),
+  /// `language` (string cũ) → `languages` (list mới).
+  static List<String> _parseStringList(
+    dynamic raw, {
+    required String fallback,
+  }) {
+    final list = (raw is List)
+        ? raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
+        : <String>[];
+    if (list.isEmpty && fallback.trim().isNotEmpty) list.add(fallback.trim());
+    return list;
+  }
 
   factory WordEntry.fromJson(Map<String, dynamic> json) {
     // Parse vocabType
@@ -601,6 +607,10 @@ class WordEntry {
           .map((c) => VocabContext.fromJson(c as Map<String, dynamic>))
           .toList();
     }
+
+    final language = json['language'] as String? ?? 'en';
+    final topics = _parseStringList(json['topics'], fallback: json['topic']?.toString() ?? '');
+    final languages = _parseStringList(json['languages'], fallback: language);
 
     // Backward compatibility: old format without understandData
     if (json.containsKey('understand') && !json.containsKey('understandData')) {
@@ -636,8 +646,9 @@ class WordEntry {
               )
             : null,
         isUnborn: json['isUnborn'] as bool? ?? false,
-        language: json['language'] as String? ?? 'en',
-        topic: json['topic'] as String?,
+        language: language,
+        topics: topics,
+        languages: languages,
       );
     }
 
@@ -676,8 +687,9 @@ class WordEntry {
             )
           : null,
       isUnborn: json['isUnborn'] as bool? ?? false,
-      language: json['language'] as String? ?? 'en',
-      topic: json['topic'] as String?,
+      language: language,
+      topics: topics,
+      languages: languages,
     );
   }
 
@@ -692,6 +704,8 @@ class WordEntry {
     bool? isUnborn,
     String? language,
     String? topic,
+    List<String>? topics,
+    List<String>? languages,
   }) =>
       WordEntry(
         id: id,
@@ -714,6 +728,12 @@ class WordEntry {
         userDifficulty: userDifficulty ?? this.userDifficulty,
         isUnborn: isUnborn ?? this.isUnborn,
         language: language ?? this.language,
-        topic: topic ?? this.topic,
+        topics: topics ?? (topic != null ? (topic.trim().isEmpty ? <String>[] : [topic.trim(), ...topicsTail]) : this.topics),
+        languages: languages ?? this.languages,
       );
+
+  List<String> get topicsTail {
+    final rest = topics.length > 1 ? topics.sublist(1) : const <String>[];
+    return rest;
+  }
 }

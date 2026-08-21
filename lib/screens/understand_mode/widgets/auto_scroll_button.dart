@@ -1,6 +1,6 @@
 // lib/screens/understand_mode/widgets/auto_scroll_button.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class AutoScrollButton extends StatelessWidget {
   final bool isActive;

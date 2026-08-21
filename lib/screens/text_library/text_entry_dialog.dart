@@ -2,7 +2,7 @@
 // Dialog thêm mới hoặc chỉnh sửa một mục trong thư viện văn bản.
 // Dùng cho cả hai trường hợp: entry == null → thêm mới, entry != null → sửa.
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -185,7 +185,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         icon: Icons.title,
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Nhập tiêu đề'
+                          ? context.uiText('Nhập tiêu đề')
                           : null,
                       textInputAction: TextInputAction.next,
                     ),
@@ -260,7 +260,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            '$wc từ · $lc dòng',
+                            context.uiText('$wc từ · $lc dòng'),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 11,
@@ -420,7 +420,7 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
   InputDecoration _inputDecoration(
       {required String hint, required IconData icon}) {
     return InputDecoration(
-      hintText: hint,
+      hintText: context.uiText(hint),
       hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
       prefixIcon: Icon(icon, color: Colors.grey[600], size: 18),
       filled: true,

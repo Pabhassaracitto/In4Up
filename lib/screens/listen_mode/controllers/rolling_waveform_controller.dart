@@ -1,4 +1,4 @@
-// in2up v11.0 — Controller với _disposed guard toàn bộ mutators
+// in4up v11.0 — Controller với _disposed guard toàn bộ mutators
 
 import 'package:flutter/foundation.dart';
 

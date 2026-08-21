@@ -2,10 +2,11 @@ import 'dart:math' as math;
 
 import 'package:animations/animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/l10n/app_localizations.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
 import '../../core/responsive/app_responsive.dart';
 import '../../providers/player_provider.dart';
@@ -21,6 +22,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToRead;
   final VoidCallback onNavigateToUnderstand;
   final VoidCallback onNavigateToMemory;
+  final VoidCallback onOpenAiChat;
 
   const HomeScreen({
     super.key,
@@ -28,6 +30,7 @@ class HomeScreen extends StatefulWidget {
     required this.onNavigateToRead,
     required this.onNavigateToUnderstand,
     required this.onNavigateToMemory,
+    required this.onOpenAiChat,
   });
 
   @override
@@ -57,6 +60,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       physics: const BouncingScrollPhysics(),
                       slivers: [
                         SliverToBoxAdapter(child: _buildGlassHeader(context)),
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildAiChatCard(context),
+                          ),
+                        ),
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,
@@ -124,6 +136,51 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _buildOmniMicrophone(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAiChatCard(BuildContext context) {
+    return InkWell(
+      onTap: widget.onOpenAiChat,
+      borderRadius: BorderRadius.circular(20),
+      child: Ink(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF312E81), Color(0xFF172554)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Color(0xFFE9D5FF), size: 30),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.uiText('I2U AI Chat'),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.uiText('Hỏi đáp về từ vựng và ngữ pháp'),
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white70),
+          ],
+        ),
       ),
     );
   }
@@ -582,6 +639,14 @@ class _BackgroundPainter extends CustomPainter {
 class _FirebaseAuthButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    try {
+      // Guard for Linux where Firebase may not be initialized
+      if (Firebase.apps.isEmpty) {
+        return const Icon(Icons.offline_bolt, color: Colors.grey, size: 24);
+      }
+    } catch (_) {
+      return const Icon(Icons.offline_bolt, color: Colors.grey, size: 24);
+    }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

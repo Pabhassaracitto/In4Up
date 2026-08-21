@@ -1,7 +1,7 @@
-// in2up v11.0 — MemoryBridge: UI không ghi DB trực tiếp
+// in4up v11.0 — MemoryBridge: UI không ghi DB trực tiếp
 
 import 'package:flutter/foundation.dart';
-import 'package:in2up_stt/in2up_stt.dart';
+import 'package:in4up_stt/in4up_stt.dart';
 
 abstract class MemoryBridge {
   Future<void> ingestTranscript({

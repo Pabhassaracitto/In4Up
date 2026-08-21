@@ -1,7 +1,7 @@
 // lib/screens/read_mode/widgets/text_line_widget.dart
 // ★ FIX: Thêm guard index trong Selector2 để tránh RangeError khi lines thay đổi
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -39,12 +39,12 @@ class TextLineWidget extends StatelessWidget {
       valueListenable: playbackController.activeLineNotifier,
       builder: (_, activeLine, __) {
         return ValueListenableBuilder<bool>(
-          valueListenable: playbackController.isENNotifier,
-          builder: (_, isEN, ___) {
-            // Ghost: dòng VI mờ khi đang phát EN
+          valueListenable: playbackController.isSourceNotifier,
+          builder: (_, isSource, ___) {
+            // Ghost: dòng bản dịch mờ khi đang phát ngôn ngữ nguồn
             final isPlaybackActive = activeLine == index;
-            final ghostVI = isPlaybackActive &&
-                isEN &&
+            final ghostTranslation = isPlaybackActive &&
+                isSource &&
                 playbackController.recipe.mode != PlaybackMode.enOnly;
 
             return Selector2<TextProvider, PlayerProvider, _LineData>(
@@ -71,7 +71,7 @@ class TextLineWidget extends StatelessWidget {
                   analyzedWords: index < tp.analyzedLines.length
                       ? tp.analyzedLines[index]
                       : const <AnalyzedWord>[],
-                  ghostVI: ghostVI, // ★ Đảm bảo có dòng này
+                  ghostTranslation: ghostTranslation, // ★ Đảm bảo có dòng này
                 );
               },
               shouldRebuild: (prev, next) => prev != next,
@@ -209,11 +209,11 @@ class TextLineWidget extends StatelessWidget {
               displayMode: data.displayMode,
               originalWidget: _buildTextContent(context, data),
               textAlign: data.textAlign,
-              // Ghost VI: khi đang phát EN, dòng VI mờ đi nhưng vẫn đọc được
+              // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được
               // Trước đây alpha 0.15 quá mờ khiến user tưởng bản dịch biến mất
               translationStyle: TextStyle(
                 fontSize: data.fontSize - 2,
-                color: data.ghostVI
+                color: data.ghostTranslation
                     ? Colors.grey[400]!.withValues(alpha: 0.55)
                     : Colors.grey[400],
                 fontStyle: FontStyle.italic,
@@ -374,7 +374,7 @@ class _LineData {
   final bool isSpeaking;
   final List<AnalyzedWord> analyzedWords;
   final bool isEmpty;
-  final bool ghostVI; // ★ ĐÃ THÊM
+  final bool ghostTranslation; // ★ ĐÃ THÊM
 
   const _LineData({
     required this.content,
@@ -392,7 +392,7 @@ class _LineData {
     required this.isSpeaking,
     required this.analyzedWords,
     this.isEmpty = false,
-    this.ghostVI = false, // ★ ĐÃ THÊM
+    this.ghostTranslation = false, // ★ ĐÃ THÊM
   });
 
   const _LineData.empty()
@@ -411,7 +411,7 @@ class _LineData {
         isSpeaking = false,
         analyzedWords = const [],
         isEmpty = true,
-        ghostVI = false; // ★ ĐÃ THÊM
+        ghostTranslation = false; // ★ ĐÃ THÊM
 
   @override
   bool operator ==(Object other) {
@@ -433,7 +433,7 @@ class _LineData {
         fontSize == other.fontSize &&
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking &&
-        ghostVI == other.ghostVI; // ★ ĐÃ THÊM
+        ghostTranslation == other.ghostTranslation; // ★ ĐÃ THÊM
   }
 
   @override
@@ -441,6 +441,7 @@ class _LineData {
       ? 0
       : Object.hash(
           content,
+          translation,
           isCurrentLine,
           isPlaying,
           isFocusCue,
@@ -450,6 +451,6 @@ class _LineData {
           fontSize,
           displayMode,
           isSpeaking,
-          ghostVI, // ★ ĐÃ THÊM
+          ghostTranslation, // ★ ĐÃ THÊM
         );
 }

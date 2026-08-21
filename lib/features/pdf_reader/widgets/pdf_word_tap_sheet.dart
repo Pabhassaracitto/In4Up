@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
@@ -12,6 +12,7 @@ import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
 
@@ -219,7 +220,7 @@ class _WordSheet extends StatelessWidget {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('✅ Đã lưu "$displayWord" vào Vườn Nhớ'),
+                        content: Text(context.uiText('✅ Đã lưu "$displayWord" vào Vườn Nhớ')),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -237,7 +238,7 @@ class _WordSheet extends StatelessWidget {
               // Tra từ điển online
               _IconActionBtn(
                 icon: Icons.open_in_new,
-                tooltip: 'Tra từ điển',
+                tooltip: context.uiText('Tra từ điển'),
                 onTap: () {
                   final url =
                       'https://www.oxfordlearnersdictionaries.com/definition/english/$displayWord';
@@ -280,7 +281,9 @@ class _WordSheet extends StatelessWidget {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('"$displayWord" → ${d.label}'),
+                          content: Text(
+                            '"$displayWord" → ${context.uiText(d.label)}',
+                          ),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
                         ),
@@ -360,7 +363,7 @@ Future<void> _showEditSavedNotesDialog(
             maxLines: 6,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Nhập ghi chú cá nhân cho từ này...',
+              hintText: context.uiText('Nhập ghi chú cá nhân cho từ này...'),
               hintStyle: TextStyle(color: Colors.grey[500]),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
@@ -458,6 +461,13 @@ class _SavedRecallCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          // READ-630-02: thông tin đầy đủ (IPA, loại, chủ đề, ngôn ngữ)
+          // + sửa ngay tại đây — không mất word/context
+          VocabEntryMetaInfo(
+            entry: entry,
+            onEdit: () => VocabEntryEditSheet.show(context, entry),
+          ),
           if (note.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
@@ -472,7 +482,14 @@ class _SavedRecallCard extends StatelessWidget {
           if (latestContext != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Ngữ cảnh gần nhất: ${latestContext.displaySource}',
+              context.uiText(
+                'Ngữ cảnh gần nhất: ${latestContext.composeDisplaySource(
+                  latestContext.hasGeneratedPositionLabel &&
+                          latestContext.pageOrPosition != null
+                      ? context.uiText(latestContext.pageOrPosition!)
+                      : latestContext.pageOrPosition,
+                )}',
+              ),
               style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
@@ -549,7 +566,7 @@ class _RecallChip extends StatelessWidget {
           Icon(icon, size: 12, color: Colors.white70),
           const SizedBox(width: 5),
           Text(
-            label,
+            context.uiText(label),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 11,
@@ -731,7 +748,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
             autofocus: true,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Nhập nghĩa...',
+              hintText: context.uiText('Nhập nghĩa...'),
               hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
@@ -989,7 +1006,7 @@ class _IconActionBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         child: Container(

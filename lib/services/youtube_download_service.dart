@@ -392,7 +392,7 @@ class YoutubeDownloadService {
     final buf = StringBuffer();
     buf.writeln('[ti:${info.title}]');
     buf.writeln('[ar:${info.author}]');
-    buf.writeln('[by:in2up YouTube]');
+    buf.writeln('[by:in4up YouTube]');
     buf.writeln();
     for (final c in captions) {
       buf.writeln(c.toLrc());

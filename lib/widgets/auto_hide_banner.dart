@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Banner thông minh: hiện vài giây rồi tự ẩn, có thể vuốt để tắt,

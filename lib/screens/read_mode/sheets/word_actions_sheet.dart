@@ -1,15 +1,15 @@
 // lib/screens/read_mode/sheets/word_actions_sheet.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
-// XÓA: import 'package:in2up_core/vocab_level_difficulty.dart';
+// XÓA: import 'package:in4up_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
 
 class WordActionsSheet {
@@ -288,7 +288,7 @@ class _WordActionsContent extends StatelessWidget {
                               color: level.color, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '"${word.word}" → ${level.label} (${level.repeatCount}x)',
+                            '"${word.word}" → ${context.uiText(level.label)} (${level.repeatCount}x)',
                           ),
                         ],
                       ),
@@ -327,7 +327,7 @@ class _WordActionsContent extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${level.repeatCount}x lặp',
+                        context.uiText('${level.repeatCount}x lặp'),
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white70
@@ -395,7 +395,7 @@ class _WordActionsContent extends StatelessWidget {
                               const Icon(Icons.bookmark_added,
                                   color: Color(0xFF4CAF50), size: 18),
                               const SizedBox(width: 8),
-                              Text('"${word.word}" đã lưu'),
+                              Text(context.uiText('"${word.word}" đã lưu')),
                             ],
                           ),
                           behavior: SnackBarBehavior.floating,
@@ -665,7 +665,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
                 autofocus: true,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: 'Nhập nghĩa tiếng Việt...',
+                  hintText: context.uiText('Nhập nghĩa tiếng Việt...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
@@ -702,7 +702,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Nhập nghĩa tiếng Việt...',
+                        hintText: context.uiText('Nhập nghĩa tiếng Việt...'),
                         hintStyle:
                             TextStyle(color: Colors.grey[600], fontSize: 12),
                         filled: true,
@@ -799,7 +799,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('📌 Đã thêm ngữ cảnh mới cho "${widget.word.word}"'),
+          content: Text(context.uiText('📌 Đã thêm ngữ cảnh mới cho "${widget.word.word}"')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF2A2A3E),
           duration: const Duration(seconds: 2),
@@ -849,7 +849,7 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
             const Icon(Icons.bookmark_added,
                 color: Color(0xFF4CAF50), size: 18),
             const SizedBox(width: 8),
-            Text('"$word" đã lưu vào Wordlist'),
+            Text(context.uiText('"$word" đã lưu vào Wordlist')),
           ],
         ),
         behavior: SnackBarBehavior.floating,

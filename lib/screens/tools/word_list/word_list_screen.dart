@@ -4,12 +4,11 @@
 // New: Hierarchy, type filter, contexts, relationships, decompose
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
-import '../../../features/tts/tts_service.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
@@ -22,6 +21,7 @@ import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
+import 'wordlist_playback_service.dart';
 import 'youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -34,10 +34,8 @@ class WordListScreen extends StatefulWidget {
 }
 
 class _WordListScreenState extends State<WordListScreen> {
-  static const double _kWordListSpeakSpeed = 0.82;
-
   // ── Services ──
-  final _tts = TtsService();
+  final _playbackService = WordlistPlaybackService();
 
   // ── UI state ──
   final _searchCtrl = TextEditingController();
@@ -47,23 +45,26 @@ class _WordListScreenState extends State<WordListScreen> {
   WordListSortMode _sortMode = WordListSortMode.addTime;
   WordListSettings _settings = const WordListSettings();
 
-  // ── Playback state ──
-  bool _isPlaying = false;
-  int _playingIndex = -1;
-  int _playingRepeatCurrent = 0;
-  bool _stopRequested = false;
-  int _listRepeatCount = 1;
-  int _listRepeatCurrent = 0;
-  final Map<String, int> _repeatOverrides = {};
-
   // ── Selection state ──
   bool _isSelecting = false;
   final Set<String> _selectedIds = {};
 
   @override
+  void initState() {
+    super.initState();
+    _playbackService.setWordlistScreenActive(true);
+    _playbackService.addListener(_onPlaybackChanged);
+  }
+
+  void _onPlaybackChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
-    _stopRequested = true;
-    _tts.stop();
+    _playbackService.removeListener(_onPlaybackChanged);
+    _playbackService.setWordlistScreenActive(false);
+    // Do NOT stop playback here – persistent across tabs, bubble will handle mute
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -102,7 +103,7 @@ class _WordListScreenState extends State<WordListScreen> {
     }
   }
 
-  int _getRepeatCount(String id) => (_repeatOverrides[id] ?? 1).clamp(1, 999);
+  int _getRepeatCount(String id) => _playbackService.getRepeatCount(id);
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +231,7 @@ class _WordListScreenState extends State<WordListScreen> {
                       autofocus: true,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Tìm từ, cụm từ, câu...',
+                        hintText: context.uiText('Tìm từ, cụm từ, câu...'),
                         hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
                         prefixIcon:
                             Icon(Icons.search, color: Colors.grey[600], size: 16),
@@ -673,7 +674,7 @@ class _WordListScreenState extends State<WordListScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)',
+            hintText: context.uiText('Nhập mã/tên ngôn ngữ (VD: Pali, Sanskrit...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
@@ -712,7 +713,7 @@ class _WordListScreenState extends State<WordListScreen> {
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)',
+            hintText: context.uiText('Nhập chủ đề (VD: Phật Pháp/Kinh Đoạn, Đời Sống...)'),
             hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[800]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF42A5F5))),
@@ -743,6 +744,7 @@ class _WordListScreenState extends State<WordListScreen> {
   // SUB BAR (Sort + Play All + Repeat)
   // ═══════════════════════════════════════════════════════
   Widget _buildSubBar(VocabularyProvider p, List<WordEntry> items) {
+    final isPlaying = _playbackService.isPlaying;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
@@ -752,7 +754,6 @@ class _WordListScreenState extends State<WordListScreen> {
       ),
       child: Row(
         children: [
-          // Sort
           _DropdownChip(
             icon: _sortMode.icon,
             label: _sortMode.label,
@@ -764,17 +765,15 @@ class _WordListScreenState extends State<WordListScreen> {
             onTap: () => _showSortSheet(),
           ),
           const Spacer(),
-          // List repeat
           _ListRepeatButton(
-            count: _listRepeatCount,
-            current: _listRepeatCurrent,
-            onChanged: (v) => setState(() => _listRepeatCount = v),
+            count: _playbackService.listRepeatCount,
+            current: _playbackService.listRepeatCurrent,
+            onChanged: (v) => _playbackService.setListRepeatCount(v),
           ),
           const SizedBox(width: 8),
-          // Play All
           _PlayAllButton(
-            isPlaying: _isPlaying,
-            onTap: () => _isPlaying ? _stopPlayback() : _playAll(items),
+            isPlaying: isPlaying,
+            onTap: () => isPlaying ? _stopPlayback() : _playAll(items),
           ),
         ],
       ),
@@ -790,18 +789,16 @@ class _WordListScreenState extends State<WordListScreen> {
 
     return Column(
       children: [
-        // Selection action bar
         if (_isSelecting && _selectedIds.isNotEmpty) _buildSelectionBar(),
-        // Stats strip
         _buildStatsStrip(p),
-        // List
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
             itemCount: items.length,
             itemBuilder: (_, i) {
               final entry = items[i];
-              final isPlaying = _isPlaying && _playingIndex == i;
+              final isPlaying = _playbackService.isPlaying &&
+                  _playbackService.playingIndex == i;
               final isSelected = _selectedIds.contains(entry.id);
               final isExpanded =
                   _expandedId == entry.id || _settings.definitionsExpanded;
@@ -818,7 +815,8 @@ class _WordListScreenState extends State<WordListScreen> {
                     sownWords.contains(entry.word.trim().toLowerCase()),
                 provider: p,
                 repeatCount: _getRepeatCount(entry.id),
-                playingRepeat: isPlaying ? _playingRepeatCurrent : 0,
+                playingRepeat:
+                    isPlaying ? _playbackService.playingRepeatCurrent : 0,
                 onTap: _isSelecting
                     ? () => setState(() {
                           _selectedIds.contains(entry.id)
@@ -835,9 +833,9 @@ class _WordListScreenState extends State<WordListScreen> {
                   setState(() => _selectedIds.add(entry.id));
                 },
                 onRepeatChanged: (v) =>
-                    setState(() => _repeatOverrides[entry.id] = v),
+                    _playbackService.setRepeatCount(entry.id, v),
                 onEdit: () => _showEditSheet(entry, p),
-                onSpeak: () => _speakWord(entry.word),
+                onSpeak: () => _speakWord(entry),
               );
             },
           ),
@@ -879,7 +877,7 @@ class _WordListScreenState extends State<WordListScreen> {
       color: const Color(0xFF1A1A2E),
       child: Row(
         children: [
-          Text('${_selectedIds.length} đã chọn',
+          Text(context.uiText('${_selectedIds.length} đã chọn'),
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -917,9 +915,9 @@ class _WordListScreenState extends State<WordListScreen> {
               size: 52, color: Colors.grey[800]),
           const SizedBox(height: 16),
           Text(
-              isSearching
+              context.uiText(isSearching
                   ? 'Không tìm thấy "${p.searchQuery}"'
-                  : 'Chưa có từ vựng',
+                  : 'Chưa có từ vựng'),
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 15,
@@ -951,13 +949,14 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   void _addAndSaveNow(VocabularyProvider p, String text) {
-    VocabContext? context;
+    final ui = context;
+    VocabContext? vocabContext;
     try {
-      final textProvider = this.context.read<TextProvider>();
+      final textProvider = ui.read<TextProvider>();
       if (textProvider.currentDocument != null &&
           textProvider.currentLineIndex >= 0) {
         final line = textProvider.lines[textProvider.currentLineIndex].content;
-        context = VocabContext.fromStory(
+        vocabContext = VocabContext.fromStory(
           storyTitle: textProvider.currentDocument!.title,
           lineIndex: textProvider.currentLineIndex,
           surroundingText: line,
@@ -969,7 +968,7 @@ class _WordListScreenState extends State<WordListScreen> {
 
     final entry = p.addWithAutoClassify(
       text: text,
-      context: context,
+      context: vocabContext,
     );
 
     HapticFeedback.mediumImpact();
@@ -986,7 +985,7 @@ class _WordListScreenState extends State<WordListScreen> {
             ? 'Cụm từ'
             : 'Câu';
 
-    ScaffoldMessenger.of(this.context).showSnackBar(
+    ScaffoldMessenger.of(ui).showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -994,7 +993,9 @@ class _WordListScreenState extends State<WordListScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Đã lưu $typeLabel: $text',
+                ui.uiText(
+                  'Đã lưu ${ui.uiText(typeLabel)}: $text',
+                ),
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
@@ -1003,7 +1004,7 @@ class _WordListScreenState extends State<WordListScreen> {
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'SỬA',
+          label: ui.uiText('SỬA'),
           textColor: Colors.white,
           onPressed: () => _showEditSheet(entry, p),
         ),
@@ -1011,13 +1012,16 @@ class _WordListScreenState extends State<WordListScreen> {
     );
   }
 
-  Future<void> _speakWord(String text) async {
-    final previousSpeed = _tts.speed;
-    _tts.configure(speed: _kWordListSpeakSpeed);
-    try {
-      await _tts.speak(text);
-    } finally {
-      _tts.configure(speed: previousSpeed);
+  Future<void> _speakWord(WordEntry entry) async {
+    await _playbackService.playSingle(entry);
+  }
+
+  Future<void> _speakWordLegacy(String text) async {
+    // For cases where only text is available
+    final vocab = context.read<VocabularyProvider>();
+    final match = vocab.allWords.where((w) => w.word == text).toList();
+    if (match.isNotEmpty) {
+      await _playbackService.playSingle(match.first);
     }
   }
 
@@ -1117,10 +1121,11 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   // ═══════════════════════════════════════════════════════
-  // PLAY BAR
+  // PLAY BAR – now uses persistent service
   // ═══════════════════════════════════════════════════════
   Widget _buildPlayBar(List<WordEntry> items) {
-    if (!_isPlaying && !(_isSelecting && _selectedIds.isNotEmpty))
+    final isPlaying = _playbackService.isPlaying;
+    if (!isPlaying && !(_isSelecting && _selectedIds.isNotEmpty))
       return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -1129,19 +1134,17 @@ class _WordListScreenState extends State<WordListScreen> {
         border: Border(
             top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
       ),
-      child:
-          _isPlaying ? _buildPlayingBar(items) : _buildSelectingPlayBar(items),
+      child: isPlaying ? _buildPlayingBar(items) : _buildSelectingPlayBar(items),
     );
   }
 
   Widget _buildPlayingBar(List<WordEntry> items) {
-    final current = _playingIndex >= 0 && _playingIndex < items.length
-        ? items[_playingIndex]
-        : null;
-    final listInfo = _listRepeatCount == 0
-        ? 'Vòng $_listRepeatCurrent/∞'
-        : _listRepeatCount > 1
-            ? 'Vòng $_listRepeatCurrent/$_listRepeatCount'
+    final current = _playbackService.currentWord;
+    final listInfo = _playbackService.listRepeatCount == 0
+        ? context.uiText('Vòng ${_playbackService.listRepeatCurrent}/∞')
+        : _playbackService.listRepeatCount > 1
+            ? context.uiText(
+                'Vòng ${_playbackService.listRepeatCurrent}/${_playbackService.listRepeatCount}')
             : '';
     return Row(
       children: [
@@ -1149,7 +1152,7 @@ class _WordListScreenState extends State<WordListScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-                color: Color(0xFF6C63FF).withValues(alpha: 0.2),
+                color: const Color(0xFF6C63FF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.volume_up,
                 color: Color(0xFF9C8FFF), size: 18)),
@@ -1165,8 +1168,8 @@ class _WordListScreenState extends State<WordListScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w700)),
               Text(
-                  '${_playingIndex + 1}/${items.length}'
-                  '${_playingRepeatCurrent > 1 ? ' · lần $_playingRepeatCurrent' : ''}'
+                  '${_playbackService.playingIndex + 1}/${items.length}'
+                  '${_playbackService.playingRepeatCurrent > 1 ? context.uiText(' · lần ${_playbackService.playingRepeatCurrent}') : ''}'
                   '${listInfo.isNotEmpty ? '  $listInfo' : ''}',
                   style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             ])),
@@ -1186,7 +1189,7 @@ class _WordListScreenState extends State<WordListScreen> {
   Widget _buildSelectingPlayBar(List<WordEntry> items) {
     return Row(
       children: [
-        Text('${_selectedIds.length} đã chọn',
+        Text(context.uiText('${_selectedIds.length} đã chọn'),
             style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -1220,78 +1223,23 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   // ═══════════════════════════════════════════════════════
-  // TTS PLAYBACK
+  // TTS PLAYBACK – delegated to persistent service
   // ═══════════════════════════════════════════════════════
 
   Future<void> _playAll(List<WordEntry> items) async {
-    if (_isPlaying) {
-      _stopPlayback();
+    if (_playbackService.isPlaying) {
+      await _stopPlayback();
       return;
     }
     if (items.isEmpty) return;
-    HapticFeedback.mediumImpact();
-    _stopRequested = false;
-    final previousSpeed = _tts.speed;
-    _tts.configure(speed: _kWordListSpeakSpeed);
-    setState(() {
-      _isPlaying = true;
-      _listRepeatCurrent = 0;
-    });
-
-    try {
-      int listPass = 0;
-      while (!_stopRequested && mounted) {
-        listPass++;
-        setState(() => _listRepeatCurrent = listPass);
-
-        for (int i = 0; i < items.length; i++) {
-          if (_stopRequested || !mounted) break;
-          setState(() => _playingIndex = i);
-          final entry = items[i];
-          final repeat = _getRepeatCount(entry.id);
-          for (int r = 0; r < repeat; r++) {
-            if (_stopRequested || !mounted) break;
-            setState(() => _playingRepeatCurrent = r + 1);
-            await _tts.speak(entry.word);
-            if (r < repeat - 1 && !_stopRequested && mounted) {
-              await Future.delayed(const Duration(milliseconds: 700));
-            }
-          }
-          if (!_stopRequested && mounted && i < items.length - 1) {
-            await Future.delayed(const Duration(milliseconds: 500));
-          }
-        }
-
-        if (_stopRequested || !mounted) break;
-        if (_listRepeatCount != 0 && listPass >= _listRepeatCount) break;
-        if (!_stopRequested && mounted) {
-          await Future.delayed(const Duration(milliseconds: 1200));
-        }
-      }
-    } finally {
-      _tts.configure(speed: previousSpeed);
-      if (mounted) {
-        setState(() {
-          _isPlaying = false;
-          _playingIndex = -1;
-          _playingRepeatCurrent = 0;
-          _listRepeatCurrent = 0;
-          _stopRequested = false;
-        });
-      }
-    }
+    await _playbackService.playAll(
+      items,
+      listRepeatCount: _playbackService.listRepeatCount,
+    );
   }
 
-  void _stopPlayback() {
-    _stopRequested = true;
-    _tts.stop();
-    if (mounted)
-      setState(() {
-        _isPlaying = false;
-        _playingIndex = -1;
-        _playingRepeatCurrent = 0;
-        _listRepeatCurrent = 0;
-      });
+  Future<void> _stopPlayback() async {
+    await _playbackService.stopPlayback();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1471,8 +1419,8 @@ class _WordListScreenState extends State<WordListScreen> {
 
   InputDecoration _inputDeco(String label, String hint, Color color) =>
       InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: context.uiText(label),
+        hintText: context.uiText(hint),
         hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
         labelStyle: TextStyle(color: color, fontSize: 12),
         filled: true,
@@ -1514,7 +1462,7 @@ class _WordListScreenState extends State<WordListScreen> {
                           fontWeight: FontWeight.bold)),
                 ]),
                 const SizedBox(height: 6),
-                Text('Chọn từ/cụm muốn lưu riêng từ "${parent.word}"',
+                Text(context.uiText('Chọn từ/cụm muốn lưu riêng từ "${parent.word}"'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                 const SizedBox(height: 16),
                 if (result.words.isNotEmpty) ...[
@@ -1590,14 +1538,14 @@ class _WordListScreenState extends State<WordListScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(
-                                '✅ Đã tạo ${selWords.length + selPhrases.length} entry con'),
+                                context.uiText('✅ Đã tạo ${selWords.length + selPhrases.length} entry con')),
                             backgroundColor: const Color(0xFF4CAF50),
                             behavior: SnackBarBehavior.floating));
                       },
                       style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6C63FF)),
                       child: Text(
-                          'Lưu ${selWords.length + selPhrases.length} mục'),
+                          context.uiText('Lưu ${selWords.length + selPhrases.length} mục')),
                     ),
                 ]),
               ]),
@@ -1612,7 +1560,13 @@ class _WordListScreenState extends State<WordListScreen> {
     final ipaC = TextEditingController(text: entry.phonetic ?? '');
     final noteC = TextEditingController(text: entry.personalNotes ?? '');
     final topicC = TextEditingController(text: entry.topic ?? '');
-    String selectedLang = entry.language;
+    // READ-630-02: multi-topic / multi-language — thêm/bớt tag,
+    // từ + ngữ cảnh giữ nguyên (xóa tag chỉ "mất 1 tab").
+    final Set<String> extraTopics = entry.topics.skip(1).toSet();
+    final Set<String> selectedLangs = entry.languages.toSet();
+    final Set<String> baseLangs = {'en', 'vi', 'pali', 'my'};
+    final Set<String> allLangOptions = {...baseLangs, ...p.allLanguages};
+    final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
 
     showModalBottomSheet(
@@ -1658,8 +1612,45 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
-                    _editField(topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
-                    
+                    _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final t in List<String>.of(extraTopics))
+                          ActionChip(
+                            avatar: const Icon(Icons.close, size: 12),
+                            label: Text(t,
+                                style: const TextStyle(
+                                    color: Color(0xFFFFB74D), fontSize: 11)),
+                            backgroundColor:
+                                const Color(0xFFFFB74D).withValues(alpha: 0.14),
+                            side: BorderSide(
+                                color: const Color(0xFFFFB74D).withValues(alpha: 0.35)),
+                            onPressed: () =>
+                                setS(() => extraTopics.remove(t)),
+                          ),
+                        for (final t in allTopicOptions
+                            .where((t) =>
+                                t.trim().isNotEmpty &&
+                                t != topicC.text.trim() &&
+                                !extraTopics.contains(t))
+                            .toList()
+                              ..sort())
+                          ChoiceChip(
+                            label: Text('+ $t',
+                                style: const TextStyle(
+                                    color: Colors.white54, fontSize: 11)),
+                            selected: false,
+                            backgroundColor: Colors.white.withValues(alpha: 0.04),
+                            side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.1)),
+                            onSelected: (_) => setS(() => extraTopics.add(t)),
+                          ),
+                      ],
+                    ),
+
                     const SizedBox(height: 12),
                     const Text('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
@@ -1688,30 +1679,32 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
 
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Ngôn ngữ (chọn 1–n — đầu danh sách = chính)', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final lang in ['en', 'vi', 'pali', 'my'])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
-                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
-                                ),
-                                selected: selectedLang == lang,
-                                selectedColor: const Color(0xFF42A5F5),
-                                backgroundColor: Colors.white.withValues(alpha: 0.05),
-                                onSelected: (val) {
-                                  if (val) setS(() => selectedLang = lang);
-                                },
-                              ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final lang in List<String>.of(allLangOptions)..sort())
+                          ChoiceChip(
+                            label: Text(
+                              '${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}',
+                              style: TextStyle(color: selectedLangs.contains(lang) ? Colors.white : Colors.grey, fontSize: 11),
                             ),
-                        ],
-                      ),
+                            selected: selectedLangs.contains(lang),
+                            selectedColor: const Color(0xFF42A5F5),
+                            backgroundColor: Colors.white.withValues(alpha: 0.05),
+                            onSelected: (val) {
+                              setS(() {
+                                if (val) {
+                                  selectedLangs.add(lang);
+                                } else if (selectedLangs.length > 1) {
+                                  selectedLangs.remove(lang);
+                                }
+                              });
+                            },
+                          ),
+                      ],
                     ),
 
                     const SizedBox(height: 20),
@@ -1724,8 +1717,12 @@ class _WordListScreenState extends State<WordListScreen> {
                               word: wordC.text.trim(),
                               meaning: meanC.text.trim(),
                               phonetic: ipaC.text.trim(),
-                              language: selectedLang,
-                              topic: topicC.text.trim(),
+                              topics: [
+                                if (topicC.text.trim().isNotEmpty)
+                                  topicC.text.trim(),
+                                ...extraTopics,
+                              ],
+                              languages: selectedLangs.toList(),
                               vocabType: selectedType,
                             );
                             if (noteC.text.trim().isNotEmpty) {
@@ -1758,7 +1755,7 @@ class _WordListScreenState extends State<WordListScreen> {
         maxLines: maxLines,
         style: const TextStyle(color: Colors.white, fontSize: 14),
         decoration: InputDecoration(
-            labelText: label,
+            labelText: context.uiText(label),
             labelStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
             prefixIcon: Icon(icon, color: Colors.grey[500], size: 16),
             filled: true,
@@ -1971,7 +1968,7 @@ class _CompactListItem extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                            '🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!'),
+                            context.uiText('🌱 "${entry.word}" đã được gieo trong vườn nhớ rồi!')),
                         backgroundColor: const Color(0xFF4CAF50),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -1990,7 +1987,7 @@ class _CompactListItem extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                              '🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!'),
+                              context.uiText('🌱 Đã gieo mầm "${entry.word}" vào vườn trí nhớ!')),
                           backgroundColor: const Color(0xFF4CAF50),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
@@ -2134,7 +2131,13 @@ class _CompactListItem extends StatelessWidget {
                                 height: 1.4)),
                       if (c.sourceName != null) ...[
                         const SizedBox(height: 4),
-                        Text('${c.sourceIcon} ${c.displaySource}',
+                        Text(
+                            '${c.sourceIcon} ${c.composeDisplaySource(
+                              c.hasGeneratedPositionLabel &&
+                                      c.pageOrPosition != null
+                                  ? ctx.uiText(c.pageOrPosition!)
+                                  : c.pageOrPosition,
+                            )}',
                             style: TextStyle(
                                 color: Colors.grey[600], fontSize: 10))
                       ],
@@ -2203,9 +2206,9 @@ class _CompactListItem extends StatelessWidget {
         if (entry.nextReview != null) ...[
           const SizedBox(height: 4),
           Text(
-              entry.isDue
+              ctx.uiText(entry.isDue
                   ? '⏰ Cần ôn tập!'
-                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa',
+                  : '📅 Lần tới: ${entry.daysUntilDue} ngày nữa'),
               style: TextStyle(
                   color:
                       entry.isDue ? const Color(0xFFFF5722) : Colors.grey[600],
@@ -2812,7 +2815,7 @@ Future<void> _showRepeatCountMenu(
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'VD: 12',
+              hintText: context.uiText('VD: 12'),
             hintStyle: TextStyle(color: Colors.grey[600]),
           ),
         ),
@@ -2868,8 +2871,18 @@ class _RepeatMenuItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-              Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              Text(
+                context.uiText(label),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                context.uiText(subtitle),
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              ),
             ],
           ),
         ),
@@ -2976,7 +2989,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Icon(icon, size: 13, color: Colors.grey[500]),
         const SizedBox(width: 6),
-        Text(label,
+        Text(context.uiText(label),
             style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 11,

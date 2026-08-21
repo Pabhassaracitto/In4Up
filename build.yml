@@ -48,7 +48,7 @@ jobs:
           if [ -s android/app/google-services.json ] && [ $(stat -c%s "android/app/google-services.json") -gt 10 ]; then
             echo "✅ File google-services.json đã được tạo. Kích thước: $(stat -c%s "android/app/google-services.json") bytes."
             cat android/app/google-services.json | grep -o '"package_name": "[^"]*"' | sort | uniq
-            # Copy file vào tất cả flavor directories để tránh lỗi No matching client found for com.in2up.beta
+            # Copy file vào tất cả flavor directories để tránh lỗi No matching client found for com.in4up.beta
             for flavor in dev beta stable main; do
               mkdir -p android/app/src/$flavor
               cp android/app/google-services.json android/app/src/$flavor/google-services.json
@@ -75,20 +75,20 @@ jobs:
           ls build/app/outputs/flutter-apk/
           # Try to find stable apk
           if [ -f build/app/outputs/flutter-apk/app-stable-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-release.apk build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+            mv build/app/outputs/flutter-apk/app-stable-release.apk build/app/outputs/flutter-apk/in4up-Android-${{ github.ref_name }}.apk
           elif [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in4up-Android-${{ github.ref_name }}.apk
           else
             # Fallback: rename first apk found
             first=$(ls build/app/outputs/flutter-apk/*.apk | head -n1)
-            mv "$first" build/app/outputs/flutter-apk/in2up-Android-${{ github.ref_name }}.apk
+            mv "$first" build/app/outputs/flutter-apk/in4up-Android-${{ github.ref_name }}.apk
           fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/in2up-Android-*.apk
+          path: build/app/outputs/flutter-apk/in4up-Android-*.apk
 
   # JOB 2: BUILD WINDOWS
   build-windows:
@@ -138,13 +138,13 @@ jobs:
         shell: powershell
         run: |
           $absolutePath = "${GITHUB_WORKSPACE}\build\windows\runner\Release\*"
-          Compress-Archive -Path $absolutePath -DestinationPath in2up-Windows-${{ github.ref_name }}.zip
+          Compress-Archive -Path $absolutePath -DestinationPath in4up-Windows-${{ github.ref_name }}.zip
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: in2up-Windows-*.zip
+          path: in4up-Windows-*.zip
 
   # JOB 3: BUILD iOS IPA (cho sideload)
   build-ios:
@@ -171,14 +171,14 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r in2up-iOS-${{ github.ref_name }}.ipa Payload
+          zip -r in4up-iOS-${{ github.ref_name }}.ipa Payload
           rm -rf Payload
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: in2up-iOS-*.ipa
+          path: in4up-iOS-*.ipa
 
   # JOB 4: TẠO RELEASE VỚI TẤT CẢ FILE
   create-release:

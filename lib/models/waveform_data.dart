@@ -1,4 +1,4 @@
-// in2up1.0 — Canonical WaveformData model
+// in4up1.0 — Canonical WaveformData model
 // Import duy nhất cho WaveformProvider + RollingWaveformPainter + Controller
 
 import 'package:flutter/material.dart';
@@ -21,7 +21,7 @@ class LoopRegion {
 
 /// Tham chiếu nhẹ tới SttSegment — chỉ chứa data cần cho painter
 /// Tách khỏi SttSegment để tránh circular dependency
-/// lib/ → packages/in2up_stt/
+/// lib/ → packages/in4up_stt/
 class WaveformSegmentRef {
   final String uid; // ContentId.segmentUid(...)
   final String joinKey; // startMs|textNorm — bridge tới SpeakerAnnotation

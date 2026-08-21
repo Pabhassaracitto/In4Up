@@ -1,4 +1,4 @@
-name: in2up
+name: in4up
 description: In4Up - Read, remember, learn, and listen with the UltraTimeStretch Engine
 
 publish_to: 'none'
@@ -11,12 +11,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  in2up_stt:
-    path: ./packages/in2up_stt
-  in2up_core:
-    path: ./packages/in2up_core
-  in2up_ai:
-    path: ./packages/in2up_ai
+  in4up_stt:
+    path: ./packages/in4up_stt
+  in4up_core:
+    path: ./packages/in4up_core
+  in4up_ai:
+    path: ./packages/in4up_ai
   # UI
   flutter_localizations:
     sdk: flutter
@@ -36,6 +36,7 @@ dependencies:
 
   # File & Storage
   file_picker: ^11.0.2 # change from 8.1.2
+  path: ^1.9.0
   path_provider: ^2.1.4
   permission_handler: ^12.0.1
 

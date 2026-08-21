@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 /// Sheet chọn số lần phát mỗi từ
@@ -123,7 +123,7 @@ class _LoopCountPickerSheetState extends State<LoopCountPickerSheet> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'VD: 7, 10, 20...',
+                    hintText: context.uiText('VD: 7, 10, 20...'),
                     hintStyle:
                         TextStyle(color: Colors.grey[600], fontSize: 14),
                     filled: true,

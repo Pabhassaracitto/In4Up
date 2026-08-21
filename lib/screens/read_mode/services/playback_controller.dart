@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/language/app_ui_translations.dart';
 import '../../../models/text_item.dart'; // ← THÊM
 import '../models/playback_anchor.dart';
 import '../models/playback_event.dart';
@@ -20,27 +21,40 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   final PlaybackEngine _engine;
   final SharedPreferences _prefs;
   final TtsNotificationService _notification;
+  final String Function() _uiLocaleCode;
 
   final ValueNotifier<int> activeLineNotifier = ValueNotifier(-1);
-  final ValueNotifier<bool> isENNotifier = ValueNotifier(true);
+  final ValueNotifier<bool> isSourceNotifier = ValueNotifier(true);
 
   PlaybackRecipe _recipe = PlaybackRecipe.bilingual;
   PlaybackSnapshot? snapshot;
+  String? _lastError;
   PlaybackRunToken? _activeToken;
   Timer? _snapBackTimer;
 
   // ★ TextItem thay TextLine
   List<TextItem>? _currentLines;
   String? _currentFileId;
+  String _sourceLanguageCode = 'EN';
+  String _targetLanguageCode = 'VI';
   bool _disposed = false;
 
   bool get isRunning => _activeToken != null;
   PlaybackRecipe get recipe => _recipe;
+  String? get lastError => _lastError;
 
-  PlaybackController(this._engine, this._prefs, this._notification) {
+  PlaybackController(
+    this._engine,
+    this._prefs,
+    this._notification,
+    this._uiLocaleCode,
+  ) {
     WidgetsBinding.instance.addObserver(this);
     _loadRecipe();
   }
+
+  String _uiText(String sourceText) =>
+      AppUITranslations.translate(sourceText, _uiLocaleCode());
 
   // ── Lifecycle ─────────────────────────────────────────────
 
@@ -62,14 +76,18 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> start(
     List<TextItem> lines, {
-    // ← TextItem
     required String fileId,
+    required String sourceLanguageCode,
+    required String targetLanguageCode,
     PlaybackAnchor? anchor,
   }) async {
     if (_disposed) return;
 
     _currentLines = lines;
     _currentFileId = fileId;
+    _sourceLanguageCode = sourceLanguageCode;
+    _targetLanguageCode = targetLanguageCode;
+    _lastError = null;
 
     _activeToken = null;
     _engine.stop();
@@ -79,10 +97,12 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _activeToken = token;
 
     unawaited(_notification.activate(
-      title: 'in2up đang phát',
-      subtitle: anchor != null
-          ? 'Tiếp tục từ câu ${anchor.lineIndex + 1}'
-          : 'Bắt đầu từ đầu',
+      title: _uiText('In4Up đang phát'),
+      subtitle: _uiText(
+        anchor != null
+            ? 'Tiếp tục từ câu ${anchor.lineIndex + 1}'
+            : 'Bắt đầu từ đầu',
+      ),
     ));
 
     _safeNotify();
@@ -91,6 +111,8 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       token: token,
       lines: lines,
       recipe: _recipe,
+      sourceLanguageCode: _sourceLanguageCode,
+      targetLanguageCode: _targetLanguageCode,
       resumeFrom: anchor,
       onEvent: (e) {
         if (_disposed) return;
@@ -105,7 +127,10 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       onError: (err) {
         if (_disposed) return;
         if (_activeToken?.id != token.id) return;
-        debugPrint('[PlaybackController] ${err.message}: ${err.cause}');
+        _lastError = err.message;
+        debugPrint(
+          '[PlaybackController] $_lastError${err.cause == null ? '' : ': ${err.cause}'}',
+        );
         _cleanupAfterRun();
       },
     );
@@ -132,7 +157,13 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       lineRepeatIndex: 0,
       savedAt: DateTime.now(),
     );
-    await start(_currentLines!, fileId: fileId, anchor: anchor);
+    await start(
+      _currentLines!,
+      fileId: fileId,
+      sourceLanguageCode: _sourceLanguageCode,
+      targetLanguageCode: _targetLanguageCode,
+      anchor: anchor,
+    );
   }
 
   Future<void> adjustSpeed(double delta) async {
@@ -160,6 +191,12 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
 
   void cancelSnapBack() => _snapBackTimer?.cancel();
 
+  void clearError() {
+    if (_lastError == null) return;
+    _lastError = null;
+    _safeNotify();
+  }
+
   PlaybackAnchor? loadAnchor(String fileId) {
     final raw = _prefs.getString('anchor_$fileId');
     if (raw == null) return null;
@@ -183,20 +220,23 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       case PlaybackEventType.lineStart:
         HapticFeedback.lightImpact();
         activeLineNotifier.value = event.snapshot.line;
-        isENNotifier.value = event.snapshot.isEN;
+        isSourceNotifier.value = event.snapshot.isSource;
         unawaited(_notification.updateNotification(
-          title: 'Câu ${event.snapshot.line + 1}/${event.snapshot.totalLines}',
-          subtitle: event.snapshot.statusText,
+          title: _uiText(
+            'Câu ${event.snapshot.line + 1}/${event.snapshot.totalLines}',
+          ),
+          subtitle: _uiText(event.snapshot.statusText),
         ));
         break;
 
       case PlaybackEventType.languageSwitch:
         HapticFeedback.selectionClick();
-        isENNotifier.value = event.snapshot.isEN;
+        isSourceNotifier.value = event.snapshot.isSource;
         break;
 
       case PlaybackEventType.phase:
-        break; // chỉ update snapshot
+        isSourceNotifier.value = event.snapshot.isSource;
+        break;
     }
 
     _safeNotify();
@@ -223,6 +263,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _activeToken = null;
     _snapBackTimer?.cancel();
     activeLineNotifier.value = -1;
+    isSourceNotifier.value = true;
     unawaited(_notification.deactivate());
     _safeNotify();
   }
@@ -254,7 +295,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _snapBackTimer?.cancel();
     _engine.stop();
     activeLineNotifier.dispose();
-    isENNotifier.dispose();
+    isSourceNotifier.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

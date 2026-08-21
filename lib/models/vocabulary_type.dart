@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:in2up/l10n/app_localizations.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
 /// Phân loại thực thể từ vựng theo cấp bậc:
 ///   Sentence ⊃ Phrase ⊃ Word

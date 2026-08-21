@@ -25,7 +25,31 @@ class VocabSyncService {
   factory VocabSyncService() => _instance;
   VocabSyncService._();
 
-  final _db = FirebaseFirestore.instance;
+  FirebaseFirestore? _db;
+  FirebaseFirestore get db {
+    _db ??= _tryGetFirestore();
+    return _db!;
+  }
+
+  bool get hasDb {
+    try {
+      if (_db != null) return true;
+      _db = FirebaseFirestore.instance;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  FirebaseFirestore? _tryGetFirestore() {
+    try {
+      return FirebaseFirestore.instance;
+    } catch (e) {
+      debugPrint('⚠️ VocabSyncService: FirebaseFirestore not available (Linux offline): $e');
+      return null;
+    }
+  }
+
   static const _pendingBoxName = 'vocab_sync_pending';
   static const _vocabBoxName = 'vocabulary_v2';
 
@@ -38,6 +62,10 @@ class VocabSyncService {
   final ValueNotifier<DateTime?> lastSyncedAt = ValueNotifier(null);
 
   Future<void> initialize(String uid) async {
+    if (!hasDb) {
+      debugPrint('⚠️ VocabSyncService.initialize: no Firestore, skip sync');
+      return;
+    }
     _currentUid = uid;
     if (!Hive.isBoxOpen(_pendingBoxName)) {
       await Hive.openBox<String>(_pendingBoxName);
@@ -57,9 +85,10 @@ class VocabSyncService {
   }
 
   Future<void> _loadCheckpoint() async {
-    if (_currentUid == null) return;
+    if (_currentUid == null || !hasDb) return;
     try {
-      final doc = await _db
+      final firestore = db;
+      final doc = await firestore
           .collection('users')
           .doc(_currentUid)
           .collection('vocab_meta')
@@ -91,7 +120,7 @@ class VocabSyncService {
   void markDeleted(String wordId) => markDirty('__del__$wordId');
 
   Future<void> flushPending() async {
-    if (_isSyncing || _currentUid == null) return;
+    if (_isSyncing || _currentUid == null || !hasDb) return;
     if (!Hive.isBoxOpen(_pendingBoxName)) return;
 
     final pendingBox = Hive.box<String>(_pendingBoxName);
@@ -115,12 +144,13 @@ class VocabSyncService {
           : null;
       if (vocabBox == null) return;
 
+      final firestore = db;
       final col =
-          _db.collection('users').doc(_currentUid).collection('vocabulary');
+          firestore.collection('users').doc(_currentUid).collection('vocabulary');
       final ids = pendingBox.keys.toList();
 
       for (int i = 0; i < ids.length; i += 400) {
-        final batch = _db.batch();
+        final batch = firestore.batch();
         final chunk = ids.skip(i).take(400);
         for (final id in chunk) {
           final sid = id.toString();
@@ -144,7 +174,7 @@ class VocabSyncService {
       }
 
       final now = DateTime.now();
-      await _db
+      await firestore
           .collection('users')
           .doc(_currentUid)
           .collection('vocab_meta')
@@ -168,7 +198,7 @@ class VocabSyncService {
   }
 
   Future<int> pullFromFirestore({bool forceAll = false}) async {
-    if (_currentUid == null || _isSyncing) return 0;
+    if (_currentUid == null || _isSyncing || !hasDb) return 0;
     try {
       final conn = await Connectivity().checkConnectivity();
       if (!conn.any((r) =>
@@ -183,7 +213,8 @@ class VocabSyncService {
 
       status.value = SyncStatus.syncing;
 
-      final meta = await _db
+      final firestore = db;
+      final meta = await firestore
           .collection('users')
           .doc(_currentUid)
           .collection('vocab_meta')
@@ -191,7 +222,7 @@ class VocabSyncService {
           .get();
 
       Query<Map<String, dynamic>> query =
-          _db.collection('users').doc(_currentUid).collection('vocabulary');
+          firestore.collection('users').doc(_currentUid).collection('vocabulary');
 
       final lastSync = meta.data()?['lastSyncedAt'] as Timestamp?;
       if (lastSync != null && !forceAll && vocabBox.isNotEmpty) {

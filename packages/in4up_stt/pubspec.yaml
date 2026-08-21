@@ -1,0 +1,47 @@
+name: in4up_stt
+publish_to: none
+description: Hybrid STT module for in4up - Native + Whisper AI engines
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Engine 1: Native STT (fast, offline)
+  speech_to_text: ^7.3.0
+  
+  # Engine 2: Whisper AI (accurate, offline)
+  # whisper_flutter_new only supports Android/iOS/macOS — on Windows,
+  # we fallback to FFI (whisper.dll) or CLI (whisper.exe) via stt_engine_whisper.dart
+  whisper_flutter_new: ^1.0.1
+  # Engine 3: Sherpa-ONNX (PoC from branch 019fe27a, Strategy Pattern Step2)
+  # sherpa_onnx ^1.13.4 — next-gen Kaldi, offline file + streaming, .onnx 2-5MB VAD
+  sherpa_onnx: ^1.13.4
+
+  # Audio conversion: mobile uses FFmpegKit (native lib bundled),
+  # desktop uses `ffmpeg` binary via Process (see audio_converter.dart)
+  # NOTE: ffmpeg_kit_flutter_new 4.2.1 has broken Windows header (C1083).
+  # Fixed in 4.6.2+ (see https://github.com/sk3llo/ffmpeg_kit_flutter/commit/c83a702)
+  # On Windows we ALSO patch CMake to exclude the plugin entirely, since
+  # Dart code already guards _useFFmpegKit to Android/iOS only.
+  ffmpeg_kit_flutter_new: ^4.6.2  
+
+  # Storage & networking
+  path_provider: ^2.1.4
+  dio: ^5.4.0
+
+  firebase_storage: ^12.4.0 #13.3.0 #change from ^13.0.0
+
+  path: ^1.9.0
+  # Utilities
+  rxdart: ^0.28.0
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

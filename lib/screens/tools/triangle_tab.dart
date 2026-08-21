@@ -9,7 +9,7 @@
 //  ✅ Tab "Đánh giá nhanh" để tự test từng chiều
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -48,11 +48,15 @@ class _TriangleTabState extends State<TriangleTab>
           indicatorColor: const Color(0xFFFFA726),
           labelColor: const Color(0xFFFFA726),
           unselectedLabelColor: Colors.grey,
-          tabs: const [
+          tabs: [
             Tab(
-                icon: Icon(Icons.change_history_rounded),
-                text: 'Bản đồ tam giác'),
-            Tab(icon: Icon(Icons.quiz_outlined), text: 'Đánh giá nhanh'),
+              icon: const Icon(Icons.change_history_rounded),
+              text: context.uiText('Bản đồ tam giác'),
+            ),
+            Tab(
+              icon: const Icon(Icons.quiz_outlined),
+              text: context.uiText('Đánh giá nhanh'),
+            ),
           ],
         ),
         Expanded(
@@ -250,7 +254,7 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
             color: labels[i].$2,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(labels[i].$1,
+          child: Text(context.uiText(labels[i].$1),
               style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -418,10 +422,19 @@ class _AssessmentViewState extends State<_AssessmentView>
               indicatorColor: _skillColor,
               labelColor: _skillColor,
               unselectedLabelColor: Colors.grey,
-              tabs: const [
-                Tab(icon: Icon(Icons.lightbulb_outline), text: 'HIỂU'),
-                Tab(icon: Icon(Icons.hearing), text: 'NGHE'),
-                Tab(icon: Icon(Icons.auto_stories), text: 'ĐỌC'),
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.lightbulb_outline),
+                  text: context.uiText('HIỂU'),
+                ),
+                Tab(
+                  icon: const Icon(Icons.hearing),
+                  text: context.uiText('NGHE'),
+                ),
+                Tab(
+                  icon: const Icon(Icons.auto_stories),
+                  text: context.uiText('ĐỌC'),
+                ),
               ],
             ),
             if (!_isComplete && _queue.isNotEmpty)
@@ -639,7 +652,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
                   color: _skillColor)),
-          Text('$_correct / $_total đúng',
+          Text(context.uiText('$_correct / $_total đúng'),
               style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 24),
           ElevatedButton.icon(

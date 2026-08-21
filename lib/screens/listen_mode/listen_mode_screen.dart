@@ -1,5 +1,5 @@
 // lib/screens/listen_mode/listen_mode_screen.dart
-// in2up – Listen Mode (v11 LRC Fix)
+// in4up – Listen Mode (v11 LRC Fix)
 //
 // CHANGELOG v11:
 //   1. Double-tap: không ẩn waveform (sửa ở rolling_waveform_view.dart)
@@ -10,28 +10,31 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:in2up_stt/models/stt_config.dart';
-import 'package:in2up_stt/models/stt_model_info.dart';
-import 'package:in2up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/models/stt_config.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/screens/understand_mode/understand_provider.dart';
-import 'package:in2up/providers/karaoke_settings_provider.dart';
-import 'package:in2up/widgets/karaoke_lyrics_line.dart';
-import 'package:in2up/widgets/karaoke_settings_sheet.dart';
-import 'package:in2up/widgets/lrc_editor_panel.dart';
+import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/providers/karaoke_settings_provider.dart';
+import 'package:in4up/widgets/karaoke_lyrics_line.dart';
+import 'package:in4up/widgets/karaoke_settings_sheet.dart';
+import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
+import '../../providers/soundlist_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../widgets/ab_loop_controls.dart';
+import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
+import 'widgets/soundlist_panel.dart';
 
 enum _InlinePanel { repeat, speed, sleep, ab, ai }
 
@@ -64,6 +67,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   static const double _lrcMinHeight = 64.0; // when collapsed, show handle
   static const double _lrcDefaultHeight = 220.0;
   double _lrcDragStartHeight = 320.0;
+
+  // LISTEN-630-01: panel inline (AB loop / tốc độ / AI) đang mở —
+  // rèm LRC phải nhường chỗ để không bottom overflow che thanh điều hướng
+  bool _inlinePanelOpen = false;
 
   // LRC ScrollController for sophisticated LRC display
   late ScrollController _lrcScrollController;
@@ -138,6 +145,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    // FIX OOM v4: neu dang transcribe thi KHONG reload waveform de tranh double FFmpeg + ExoPlayer ton RAM
+    try {
+      if (player.isGeneratingLrc) {
+        debugPrint('⏭️ Skip waveform reload during transcription to save RAM');
+        return;
+      }
+    } catch (_) {}
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
@@ -219,27 +234,16 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
       const estimatedLineHeight = 52.0;
       final targetOffset = index * estimatedLineHeight;
-      final desiredCenter = viewportHeight * 0.35;
+      // Karaoke centered in middle for best visibility (was 0.35 top, hidden above)
+      final desiredCenter = viewportHeight * 0.5;
       final centerOffset =
           targetOffset - desiredCenter + (estimatedLineHeight / 2);
 
       if (position.maxScrollExtent <= 0) return;
       final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
 
-      const visibleBuffer = 48.0;
-      final inView = targetOffset >= position.pixels - visibleBuffer &&
-          targetOffset <=
-              position.pixels +
-                  viewportHeight -
-                  estimatedLineHeight -
-                  visibleBuffer;
-
-      if (inView && (position.pixels - clamped).abs() < 32) {
-        return;
-      }
-
-      // Chỉ animate khi cách xa đủ lớn để tránh giật liên tục
-      if ((position.pixels - clamped).abs() > 24) {
+      // Luôn scroll để dòng karaoke ở giữa, không skip khi inView (fix ẩn trên nhiều)
+      if ((position.pixels - clamped).abs() > 8) {
         _lrcScrollController.animateTo(
           clamped,
           duration: const Duration(milliseconds: 320),
@@ -252,7 +256,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   }
 
   String _normalizePath(String path) {
-    return Uri.decodeFull(path.replaceAll('\\', '/').toLowerCase().trim());
+    try {
+      return Uri.decodeFull(path.replaceAll("\\", "/").toLowerCase().trim());
+    } catch (_) {
+      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
+      return path.replaceAll("\\", "/").toLowerCase().trim();
+    }
   }
 
   void _onPlayerChange() {
@@ -262,6 +271,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
@@ -443,7 +454,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             child: Row(children: [
               const Text('📍', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text('Tại ${_fmtDuration(position)}',
+              Text(context.uiText('Tại ${_fmtDuration(position)}'),
                   style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -508,7 +519,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(context.uiText(message)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -561,9 +572,36 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
                         final hasLines = understand!.lrcLines.isNotEmpty;
-                        // Tính max height responsive: 45% màn nhỏ, 62% màn lớn, tránh overflow 1100-1140
+                        // LISTEN-630-01: budget chiều cao rèm LRC = màn hình
+                        // trừ (song info + controls + panel inline đang mở +
+                        // bottom padding + waveform tối thiểu) — hết bottom
+                        // overflow che thanh điều hướng khi bật lặp AB.
                         final screenH = MediaQuery.of(context).size.height;
-                        final maxH = (screenH * (screenH < 700 ? 0.45 : 0.55)).clamp(180.0, 420.0);
+                        final bottomPad = MediaQuery.of(context).padding.bottom + 4;
+                        const controlsBase = 178.0;
+                        const waveformMin = 64.0;
+                        const songInfoH = 68.0;
+                        final panelReserve = _inlinePanelOpen
+                            ? (screenH < 700
+                                    ? screenH * 0.26
+                                    : screenH < 900
+                                        ? screenH * 0.28
+                                        : screenH * 0.32) +
+                                14
+                            : 0.0;
+                        final maxH = (screenH -
+                                songInfoH -
+                                controlsBase -
+                                panelReserve -
+                                bottomPad -
+                                waveformMin)
+                            .clamp(120.0, 650.0);
+                        final dragAction = context.uiText(
+                          _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
+                        );
+                        final tapAction = context.uiText(
+                          _lrcHeight < maxH * 0.9 ? 'mở toàn màn hình' : 'thu gọn',
+                        );
 
                         // Clamp current height
                         if (_lrcHeight > maxH) _lrcHeight = maxH;
@@ -687,7 +725,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            "Kéo để ${ _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng'} • chạm để ${_lrcHeight < maxH * 0.9 ? 'full' : 'thu gọn'}",
+                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
                                             style: TextStyle(
                                               color: Colors.grey[600],
                                               fontSize: 10,
@@ -725,7 +763,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 5),
                                     Flexible(
                                       child: Text(
-                                        "LRC ${understand.lrcLines.length} dòng",
+                                        context.uiText("LRC ${understand.lrcLines.length} dòng"),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
@@ -786,13 +824,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 4),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
-                                      tooltip: 'Tuỳ chỉnh',
+                                      tooltip: context.uiText('Tuỳ chỉnh'),
                                       onTap: () =>
                                           KaraokeSettingsSheet.show(context),
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close_fullscreen_rounded,
-                                      tooltip: 'Thu nhỏ',
+                                      tooltip: context.uiText('Thu nhỏ'),
                                       onTap: () {
                                         setState(() {
                                           if (_lrcHeight > 140) {
@@ -806,7 +844,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close,
-                                      tooltip: 'Ẩn',
+                                      tooltip: context.uiText('Ẩn'),
                                       onTap: () => setState(() {
                                         _showLrcOnMain = false;
                                         _lrcHeight = _lrcDefaultHeight;
@@ -1012,7 +1050,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     size: 16, color: Color(0xFF8B83FF)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở",
+                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
                                   style: const TextStyle(
                                     color: Color(0xFF8B83FF),
                                     fontSize: 12,
@@ -1035,6 +1073,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     builder: (_, p, __) => _CorePlayerControls(
                       player: p,
                       onOpenSheet: _openSheet,
+                      onPanelChanged: (open) {
+                        if (mounted && _inlinePanelOpen != open) {
+                          setState(() => _inlinePanelOpen = open);
+                        }
+                      },
                     ),
                   ),
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
@@ -1469,10 +1512,12 @@ class _SongInfoBar extends StatelessWidget {
 class _CorePlayerControls extends StatelessWidget {
   final PlayerProvider player;
   final VoidCallback onOpenSheet;
+  final ValueChanged<bool>? onPanelChanged;
 
   const _CorePlayerControls({
     required this.player,
     required this.onOpenSheet,
+    this.onPanelChanged,
   });
 
   @override
@@ -1487,7 +1532,11 @@ class _CorePlayerControls extends StatelessWidget {
         const SizedBox(height: 6),
         _SeekAndPlayRow(player: player),
         const SizedBox(height: 2),
-        _SmartActionBar(player: player, onOpenSheet: onOpenSheet),
+        _SmartActionBar(
+          player: player,
+          onOpenSheet: onOpenSheet,
+          onPanelChanged: onPanelChanged,
+        ),
       ],
     );
   }
@@ -1644,7 +1693,7 @@ class _SleepPanel extends StatelessWidget {
           min: 5,
           max: 120,
           divisions: 23,
-          label: '$minutes phút',
+          label: context.uiText('$minutes phút'),
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
         ),
@@ -1656,7 +1705,7 @@ class _SleepPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child:
-                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
+                Text(context.uiText('Đặt $minutes phút'), style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
@@ -1832,9 +1881,14 @@ class _SmartActionBar extends StatefulWidget {
   final PlayerProvider player;
   final VoidCallback onOpenSheet;
 
+  /// LISTEN-630-01: báo ra màn hình khi panel inline mở/đóng để rèm
+  /// LRC nhường chiều cao (tránh bottom overflow).
+  final ValueChanged<bool>? onPanelChanged;
+
   const _SmartActionBar({
     required this.player,
     required this.onOpenSheet,
+    this.onPanelChanged,
   });
 
   @override
@@ -1877,13 +1931,16 @@ class _SmartActionBarState extends State<_SmartActionBar> {
     }
 
     if (needsUpdate) {
+      widget.onPanelChanged?.call(true);
       setState(() {});
     }
   }
 
   void _togglePanel(_InlinePanel panel) {
     HapticFeedback.selectionClick();
+    final willOpen = _openPanel != panel;
     setState(() => _openPanel = _openPanel == panel ? null : panel);
+    widget.onPanelChanged?.call(willOpen);
   }
 
   @override
@@ -1946,11 +2003,16 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     label: 'Dấu',
                     color: const Color(0xFFFFB300),
                     isActive: false,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      _showSnack(
-                          '📌 Đã đánh dấu ${_fmt(player.state.position)}');
-                    },
+                    onTap: () => _saveMark(player),
+                    onLongPress: () => showSoundlistPanel(context),
+                  ),
+                  const SizedBox(width: 6),
+                  _ActionTile(
+                    icon: Icons.menu_book_outlined,
+                    label: 'Âm mục',
+                    color: const Color(0xFF26C6DA),
+                    isActive: false,
+                    onTap: () => showSoundlistPanel(context),
                   ),
                   const SizedBox(width: 6),
                   _ActionTile(
@@ -1979,6 +2041,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     isActive: false,
                     onTap: () {
                       setState(() => _openPanel = null);
+                      widget.onPanelChanged?.call(false);
                       widget.onOpenSheet();
                     },
                   ),
@@ -2063,13 +2126,56 @@ class _SmartActionBarState extends State<_SmartActionBar> {
     return 'A─B';
   }
 
+  /// 📌 Lưu một "Điểm" vào Âm mục tại vị trí đang phát.
+  /// Giữ lâu nút này → mở panel Âm mục.
+  Future<void> _saveMark(PlayerProvider player) async {
+    final path = player.currentSongPath;
+    if (path == null) {
+      _showSnack('⚠️ Chưa có file âm thanh nào');
+      return;
+    }
+    HapticFeedback.lightImpact();
+    final soundlist = context.read<SoundlistProvider>();
+    if (!soundlist.isLoaded) {
+      await soundlist.load();
+    }
+    final mark = await soundlist.addMark(
+      audioPath: path,
+      position: player.state.position,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('📌 Đã đánh dấu ${_fmt(player.state.position)}'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFFFFB300),
+          duration: const Duration(milliseconds: 2600),
+          action: SnackBarAction(
+            label: 'Ghi chú',
+            textColor: Colors.black,
+            onPressed: () {
+              showEditMarkSheet(
+                context,
+                soundlist: soundlist,
+                mark: mark,
+              );
+            },
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+  }
+
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(msg),
+          content: Text(context.uiText(msg)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -2228,6 +2334,15 @@ class _PlayButton extends StatelessWidget {
 class GenerateLrcButton extends StatelessWidget {
   const GenerateLrcButton({super.key});
 
+  String _formatEta(int chunkIndex, int chunkCount, double progress) {
+    if (chunkCount <= 0 || chunkIndex < 0) return '';
+    final done = chunkIndex + 1;
+    if (done <= 0) return '';
+    final percent = (done / chunkCount * 100).toStringAsFixed(1);
+    final remaining = chunkCount - done;
+    return 'Chunk $done/$chunkCount ($percent%) - $remaining left';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
@@ -2238,6 +2353,7 @@ class GenerateLrcButton extends StatelessWidget {
           builder: (context, snapshot) {
             final progress = snapshot.data ?? SttProgress.idle;
             final isActive = progress.isActive;
+            final hasChunkInfo = progress.chunkCount > 0;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -2247,24 +2363,81 @@ class GenerateLrcButton extends StatelessWidget {
                   firstChild: const SizedBox(height: 4),
                   secondChild: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LinearProgressIndicator(
-                        value: progress.progress,
-                        backgroundColor: Colors.grey.shade800,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progress.status == SttFacadeStatus.error
-                              ? Colors.red
-                              : Colors.blue.shade400,
-                        ),
+                      // Progress bar with chunk info
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: hasChunkInfo
+                                  ? (progress.chunkIndex + 1) / progress.chunkCount
+                                  : progress.progress,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                progress.status == SttFacadeStatus.error
+                                    ? Colors.red
+                                    : Colors.blue.shade400,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (hasChunkInfo)
+                            Text(
+                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: Colors.blue.shade300,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(progress.message,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey[400]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      // Main message
+                      Text(
+                        progress.message,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[300], fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasChunkInfo) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.hourglass_top, size: 14, color: Colors.blue),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _formatEta(progress.chunkIndex, progress.chunkCount, progress.progress),
+                                  style: TextStyle(
+                                    color: Colors.blue.shade300,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.memory, size: 12, color: Colors.orange),
+                              const SizedBox(width: 2),
+                              Text(
+                                'RAM safe: lazy chunk',
+                                style: TextStyle(color: Colors.orange.shade300, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   crossFadeState: isActive

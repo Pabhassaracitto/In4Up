@@ -10,7 +10,7 @@
 //  ✅ Tap để xem chi tiết; filter theo vùng
 // ═══════════════════════════════════════════════════════════════
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -93,7 +93,7 @@ class _MapTabState extends State<MapTab> {
             // Zone filters
             ...MasteryZone.values.map((z) => Padding(
                   padding: const EdgeInsets.only(right: 6),
-                  child: _filterChip(z, z.label, z.icon, z.color),
+                  child: _filterChip(z, context.uiText(z.label), z.icon, z.color),
                 )),
           ],
         ),
@@ -151,7 +151,7 @@ class _MapTabState extends State<MapTab> {
             child: Stack(
               children: [
                 // Axis labels
-                _buildAxesDecor(w, h),
+                _buildAxesDecor(context, w, h),
 
                 // Word bubbles
                 ...words.map((word) {
@@ -218,10 +218,15 @@ class _MapTabState extends State<MapTab> {
     return Offset(x, y);
   }
 
-  Widget _buildAxesDecor(double w, double h) {
+  Widget _buildAxesDecor(BuildContext context, double w, double h) {
     return CustomPaint(
       size: Size(w, h),
-      painter: _MapAxesPainter(),
+      painter: _MapAxesPainter(
+        needsLearningLabel: context.uiText('← Cần học'),
+        masteredLabel: context.uiText('Thành thạo →'),
+        imbalancedLabel: context.uiText('Mất cân bằng ↑'),
+        balancedLabel: context.uiText('Cân bằng ↓'),
+      ),
     );
   }
 
@@ -323,6 +328,18 @@ class _MapTabState extends State<MapTab> {
 }
 
 class _MapAxesPainter extends CustomPainter {
+  final String needsLearningLabel;
+  final String masteredLabel;
+  final String imbalancedLabel;
+  final String balancedLabel;
+
+  const _MapAxesPainter({
+    required this.needsLearningLabel,
+    required this.masteredLabel,
+    required this.imbalancedLabel,
+    required this.balancedLabel,
+  });
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -342,35 +359,39 @@ class _MapAxesPainter extends CustomPainter {
     // Axis labels
     final tp = TextPainter(textDirection: TextDirection.ltr);
 
-    tp.text = const TextSpan(
-      text: '← Cần học',
-      style: TextStyle(fontSize: 10, color: Color(0x88EF5350)),
+    tp.text = TextSpan(
+      text: needsLearningLabel,
+      style: const TextStyle(fontSize: 10, color: Color(0x88EF5350)),
     );
     tp.layout();
     tp.paint(canvas, Offset(8, size.height - 18));
 
-    tp.text = const TextSpan(
-      text: 'Thành thạo →',
-      style: TextStyle(fontSize: 10, color: Color(0x8866BB6A)),
+    tp.text = TextSpan(
+      text: masteredLabel,
+      style: const TextStyle(fontSize: 10, color: Color(0x8866BB6A)),
     );
     tp.layout();
     tp.paint(canvas, Offset(size.width - tp.width - 8, size.height - 18));
 
-    tp.text = const TextSpan(
-      text: 'Mất cân bằng ↑',
-      style: TextStyle(fontSize: 9, color: Color(0x88FFA726)),
+    tp.text = TextSpan(
+      text: imbalancedLabel,
+      style: const TextStyle(fontSize: 9, color: Color(0x88FFA726)),
     );
     tp.layout();
     tp.paint(canvas, const Offset(4, 4));
 
-    tp.text = const TextSpan(
-      text: 'Cân bằng ↓',
-      style: TextStyle(fontSize: 9, color: Color(0x8826C6DA)),
+    tp.text = TextSpan(
+      text: balancedLabel,
+      style: const TextStyle(fontSize: 9, color: Color(0x8826C6DA)),
     );
     tp.layout();
     tp.paint(canvas, Offset(4, size.height - 34));
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MapAxesPainter oldDelegate) =>
+      oldDelegate.needsLearningLabel != needsLearningLabel ||
+      oldDelegate.masteredLabel != masteredLabel ||
+      oldDelegate.imbalancedLabel != imbalancedLabel ||
+      oldDelegate.balancedLabel != balancedLabel;
 }

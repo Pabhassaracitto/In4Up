@@ -131,3 +131,82 @@
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue 8 + handover SECTION1+2
 
+
+### PLAN-006 — Check chéo đa chiều Hiểu ↔ Nghe ↔ Viết (cross-modal mastery)
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/019fe630-vipsound)
+- Trạng thái: proposed
+- Milestone đề xuất: M2 / M3 (sau INTEGRATE-1)
+- Chi tiết:
+  - Nguyên lý: Hiểu nối với âm thanh 2 chiều qua lại, âm thanh nối với chữ viết 2 chiều, mở rộng hiểu nối với chữ viết 2 chiều → ma trận 3x3 = 9 hướng kiểm tra nhanh cho 1 từ/cụm/câu
+  - Các chế độ check nhanh đề xuất (tận dụng pipeline đã có):
+    - **Hiểu → Nghe (mô tả nghĩa → nói từ):** hiện nghĩa/định nghĩa → user phải nói được từ/cụm đó càng sớm càng tốt, STT (whisper.cpp / sherpa streaming) check đúng đáp án → pass. Nếu sai, AI gợi ý như phần Viết (summary + action_items)
+    - **Nghe → Hiểu (nghe từ → mô tả nghĩa):** phát âm từ → user phải mô tả nghĩa bằng lời nói (STT) hoặc gõ, AI chấm điểm như đã có ở WriteStudio (summary + topics + grammar)
+    - **Nghe → Viết (nghe → gõ / viết tay):** nghe từ/câu → gõ lại hoặc dùng Android pen viết xuống, AI chấm chính tả + thứ tự + gợi ý tức thì
+    - **Viết → Nghe (thấy từ → đọc đúng):** hiện từ → user đọc, STT check phát âm + shadowing score
+    - **Hiểu ↔ Viết:** cho nghĩa → viết câu chứa từ đó, hoặc cho câu → tóm tắt ý → AI chấm như rewrite/summary hiện tại
+  - Mục đích: hình thành đa chiều thông tin, thông suốt mọi khía cạnh của từ/cụm, làm chủ hoàn toàn (mastery)
+  - Kiến trúc:
+    - Tận dụng `VadWhisperPipeline` + `SttServiceFacade` đã có cho STT check
+    - Tận dụng `AiServiceFacade` (local GGUF) cho chấm điểm mô tả nghĩa / viết
+    - Mỗi lượt check là 1 `ReviewEvent` append-only → đưa vào SM-2 lifecycle (MVA-T5/T6) để tính Attention Score
+    - UI: thêm tab `ReviewTab` mở rộng với 9 nút chế độ, mỗi chế độ có bubble riêng (kế thừa PLAN-001)
+  - Tư vấn agent:
+    - Ý tưởng rất đúng với khoa học ghi nhớ: **cross-modal retrieval** mạnh hơn single-modal. Nên làm!
+    - Không nên làm 9 chế độ cùng lúc — bắt đầu với 4 cốt lõi: Hiểu→Nói, Nghe→Hiểu, Nghe→Viết, Nhìn→Nói (đã có 70% nền)
+    - Thêm pen viết tay là điểm mạnh trên tablet — cần lưu ý `RECORD_AUDIO` + `WRITE_EXTERNAL_STORAGE` đã có, và cần thêm `android:largeHeap`
+    - Tránh OOM: mỗi lần check chỉ load 1 từ/cụm, không load cả list, dùng singleton TTS/STT pointer
+- Lịch sử:
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 1 + tư vấn agent
+
+### PLAN-007 — Tab Viết mở rộng: nhật ký, sáng tác, bóng đổ (trace writing)
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/019fe630-vipsound)
+- Trạng thái: proposed
+- Milestone đề xuất: M3
+- Chi tiết:
+  - Thêm vào tab Viết:
+    - **Nhật ký / sáng tác / viết văn:** user viết tự do, có gợi ý AI nếu không rành tiếng Anh thì cứ viết tiếng Việt rồi AI chuyển hoặc dạy cách chuyển sang tiếng Anh
+    - **Gợi ý bằng từ khóa:** AI đưa 3-5 từ khóa, user viết đoạn văn chứa chúng
+    - **Bóng đổ / trace writing:** hiện chữ xám mờ (ghost text) rồi user viết theo dấu chân chữ viết ấy — như luyện chữ
+    - **Dịch Việt→Anh có hướng dẫn:** user viết tiếng Việt → AI local (gemma GGUF) chuyển sang tiếng Anh + giải thích từng bước chuyển (grammar pattern, subject/verb/object) như đã có ở `_buildAiReviewCard`
+  - Kiến trúc:
+    - Tận dụng `WritingAssignment` + `WritingDraftStore` đã có
+    - Thêm `WritingTaskType.journal`, `WritingTaskType.composition`, `WritingTaskType.trace`
+    - Ghost text dùng `TextStyle(color: Colors.white.withAlpha(60))` + `Stack` + `TextField` transparent overlay
+    - AI Việt→Anh dùng `AiServiceFacade.analyzeSentence()` với prompt dạng `in4up_TRANSLATE_VI_EN` tương tự `in4up_WRITE_REVIEW`
+- Lịch sử:
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 2
+
+### PLAN-008 — Sẵn sàng tích hợp sherpa (live stream, cabin dịch STS EL)
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/019fe630-vipsound)
+- Trạng thái: proposed
+- Milestone đề xuất: M3 — Sherpa Integration
+- Chi tiết:
+  - **Mục tiêu:** Live Streaming STT + Speech Translation (STS) cabin:
+    - Sound EL (English Listening) → text ngôn ngữ đích (VI/EN) hiện ra màn hình theo thời gian thực
+    - Có lựa chọn phát âm thanh dịch nếu muốn (TTS via sherpa-onnx VITS/Piper)
+    - Nhắc thông minh: ví dụ đeo tai nghe để tránh làm ồn phòng họp/lớp giảng (detect headphone plugged + show banner)
+  - **Sẵn sàng hiện tại:**
+    - `SherpaVadService` đã tạo singleton, absolute path, verification, chỉ load VAD module nhẹ 2-5MB
+    - `VadWhisperPipeline` đã chạy trong Isolate, cleanup chunk ngay, tránh OOM
+    - `ChunkAudioExtractor` + `VadPipelineIntegration` đã sẵn sàng cho chunk streaming
+    - AndroidManifest đã thêm `RECORD_AUDIO`
+    - Đã có `lib/features/vad/README_VAD_TTS_STREAMING.md` định hướng format: Whisper .bin, Sherpa .onnx
+  - **Khi bạn đưa thông tin dự án có sẵn liên quan:**
+    - Agent sẽ lấy tinh túy thừa kế: copy VAD model `silero_vad.onnx`, Zipformer/RNN-T streaming model, VITS TTS model vào `getApplicationDocumentsDirectory()/sherpa_vad_models/` với verification >1MB
+    - Thay `EnergyVad` fallback bằng `sherpa_onnx.Vad` thật trong `_ensureInitialized()`
+    - Thêm `SherpaSttStreamingService` singleton giữ Pointer C-struct (tránh re-init liên tục, tránh xung đột FFI với whisper.cpp)
+    - Thêm `SttsCabinService` (Speech Translation): audio EL → Whisper/Sherpa STT → TranslationService → TTS (sherpa-onnx) → UI stream
+    - UI: thêm `LiveCaptionBubble` (kế thừa bubble wordlist) hiển thị 1 chữ hiện thời / 1 dòng hiện thời / full transcript, có nút phát âm + nhắc đeo tai nghe
+  - **Đề xuất hay hơn nếu có:**
+    - Thay vì STS 2 bước (STT → Translation → TTS), thử **direct speech-to-speech translation** với sherpa-onnx nếu model có (giảm latency)
+    - Dùng `sherpa_onnx` offline TTS trước (VITS) thay vì Google TTS để giữ offline hoàn toàn, phù hợp cabin họp
+    - Thêm `auto_hide_banner` (đã có widget) để nhắc tai nghe: khi phát TTS mà không có headphone → hiện banner 3s
+    - Triết lý bạn nói rất hay: đãi cát tìm đồng, đãi đồng tìm vàng, luyện thành ngọc/kim cương — nên đi theo lộ trình: **VAD (xong) → Live STT (streaming) → TTS (VITS) → STS cabin** mỗi bước 1 milestone, mỗi milestone có AT riêng, không gộp
+  - **Checklist sẵn sàng:**
+    - [x] VAD singleton + absolute path + verification
+    - [x] Pipeline Isolate + cleanup
+    - [x] RECORD_AUDIO permission
+    - [ ] Bạn cung cấp branch sherpa mẫu + model .onnx (vad, zipformer, vits)
+    - [ ] Agent tích hợp và chạy `ci_check.sh` xác nhận xanh
+- Lịch sử:
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + handover Section3

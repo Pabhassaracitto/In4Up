@@ -36,6 +36,19 @@ class WhisperSttEngine implements SttEngine {
   @override
   Future<void> initialize() async {}
 
+  /// Whisper là engine FILE (không live mic — capabilities.supportsLiveMic
+  /// = false). Implement tường minh theo đúng ngữ nghĩa interface (engine
+  /// không hỗ trợ: Stream.empty / false) để tương thích mọi bản
+  /// SttEngine — kể cả bản khai báo các member này là abstract.
+  @override
+  Stream<SttResult> get liveResultStream => const Stream.empty();
+
+  @override
+  Future<bool> startListening({String language = 'en-US'}) async => false;
+
+  @override
+  Future<void> stopListening() async {}
+
   @override
   Future<SttResult> transcribeFile(
     String audioPath, {

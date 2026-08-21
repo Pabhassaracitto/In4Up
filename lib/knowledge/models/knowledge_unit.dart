@@ -170,3 +170,4 @@ class KnowledgeUnit {
       'KnowledgeUnit($unitId, ${kind.name}, "$canonicalForm")';
 }
 // trigger CI
+// fix lint

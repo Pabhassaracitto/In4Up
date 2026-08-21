@@ -21,6 +21,22 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../.." ABSOLUTE)
 set(LLAMA_DIR "${REPO_ROOT}/third_party/llama.cpp")
 
+# Tự init submodule nếu thiếu (git có sẵn). Lý do: token GitHub App của repo
+# không có quyền `workflows` nên KHÔNG thể sửa .github/workflows để thêm bước
+# "git submodule update"; tự chữa tại configure giúp CI (chạy workflow gốc)
+# vẫn build + kiểm chứng được native backend, và dev local khỏi cần lệnh tay.
+if(NOT EXISTS "${LLAMA_DIR}/CMakeLists.txt")
+    find_program(GIT_EXECUTABLE git)
+    if(GIT_EXECUTABLE AND EXISTS "${REPO_ROOT}/.git")
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" submodule update --init --depth 1 -- third_party/llama.cpp
+            WORKING_DIRECTORY "${REPO_ROOT}"
+            RESULT_VARIABLE _IN4UP_GIT_RC
+            OUTPUT_QUIET ERROR_QUIET
+        )
+    endif()
+endif()
+
 if(NOT EXISTS "${LLAMA_DIR}/CMakeLists.txt")
     message(WARNING "[in4up-ai] third_party/llama.cpp missing. Run: git submodule update --init --depth 1. AI native backend disabled; Dart falls back to mock.")
     return()

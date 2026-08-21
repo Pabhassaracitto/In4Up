@@ -81,6 +81,24 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Dart FFI mở in4up_ai_native.dll lúc runtime; nếu thiếu submodule, configure
 # vẫn thành công (chỉ WARNING) và Dart engine fallback về mock.
 set(_IN4UP_LLAMA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/llama.cpp")
+
+# Tự init submodule nếu thiếu (git có sẵn). Lý do: token GitHub App của repo
+# không có quyền `workflows` nên KHÔNG thể sửa .github/workflows để thêm bước
+# "git submodule update"; tự chữa tại configure giúp CI (chạy workflow gốc)
+# vẫn build + kiểm chứng được native backend, và dev local khỏi cần lệnh tay.
+if(NOT EXISTS "${_IN4UP_LLAMA_DIR}/CMakeLists.txt")
+  get_filename_component(_IN4UP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+  find_program(GIT_EXECUTABLE git)
+  if(GIT_EXECUTABLE AND EXISTS "${_IN4UP_ROOT}/.git")
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" submodule update --init --depth 1 -- third_party/llama.cpp
+      WORKING_DIRECTORY "${_IN4UP_ROOT}"
+      RESULT_VARIABLE _IN4UP_GIT_RC
+      OUTPUT_QUIET ERROR_QUIET
+    )
+  endif()
+endif()
+
 if(EXISTS "${_IN4UP_LLAMA_DIR}/CMakeLists.txt")
   set(LLAMA_BUILD_COMMON    OFF CACHE BOOL "" FORCE)
   set(LLAMA_BUILD_TESTS     OFF CACHE BOOL "" FORCE)

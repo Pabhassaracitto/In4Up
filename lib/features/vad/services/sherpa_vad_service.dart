@@ -184,7 +184,7 @@ class SherpaVadService implements VadService {
       // readWave chỉ ăn WAV 16k mono — convertToWhisperCompatible đã chuẩn
       // .wav input được trả nguyên (nếu wav không phải 16k, detect trả []
       // → fallback, đúng nghĩa "sai chuẩn thì an toàn")
-      final segments = core.detect(convertedPath);
+      final segments = core.detect(convertedPath!);
       if (segments.isEmpty) return null;
 
       // Duration thật của file (probe) — chuẩn hơn last-segment end

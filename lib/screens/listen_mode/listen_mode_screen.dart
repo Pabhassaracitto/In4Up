@@ -54,6 +54,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   String? _lastSyncedPath;
   PlayerProvider? _playerProvider;
   WaveformProvider? _waveformProvider;
+  SoundlistProvider? _soundlistProvider;
+  bool _prevAutoTocRunning = false;
 
   bool _isAppVisible = true;
   bool _isUserSeeking = false;
@@ -110,19 +112,58 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     setState(() => _isAppVisible = state == AppLifecycleState.resumed);
   }
 
+  /// Theo dõi job "Tự tạo mục lục" chạy nền → snackbar khi hoàn tất.
+  void _onSoundlistChange() {
+    final soundlist = _soundlistProvider;
+    if (soundlist == null) return;
+    final running = soundlist.autoTocRunning;
+    if (_prevAutoTocRunning && !running) {
+      final err = soundlist.autoTocError;
+      final result = soundlist.lastAutoTocResult;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      if (err != null) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('⚠️ Không tạo được mục lục: $err'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFFEF5350),
+        ));
+      } else if (result != null && result.chapters.isNotEmpty) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('✅ Đã tạo ${result.chapters.length} mục lục'
+              '${result.usedWhisper ? ' (Whisper tự đặt tên)' : ''}'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
+          backgroundColor: const Color(0xFF26C6DA),
+        ));
+      } else {
+        messenger.showSnackBar(const SnackBar(
+          content: Text('⚠️ Không tạo được mục lục (không rõ nguyên nhân)'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFEF5350),
+        ));
+      }
+    }
+    _prevAutoTocRunning = running;
+  }
+
   void _setupListeners() {
     if (_listenersSetup) return;
 
     final player = context.read<PlayerProvider>();
     final waveform = context.read<WaveformProvider>();
     final understand = context.read<UnderstandProvider>();
+    final soundlist = context.read<SoundlistProvider>();
 
     _playerProvider = player;
     _waveformProvider = waveform;
+    _soundlistProvider = soundlist;
 
     player.addListener(_onPlayerChange);
     waveform.addListener(_onWaveformChange);
     understand.addListener(_onUnderstandChange);
+    soundlist.addListener(_onSoundlistChange);
 
     _listenersSetup = true;
 
@@ -197,6 +238,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _playerProvider?.removeListener(_onPlayerChange);
     _waveformProvider?.removeListener(_onWaveformChange);
+    _soundlistProvider?.removeListener(_onSoundlistChange);
     try {
       context.read<UnderstandProvider>().removeListener(_onUnderstandChange);
     } catch (_) {}
@@ -1086,6 +1128,20 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   },
                 ),
               ],
+
+              // Bong bóng tiến trình "Tự tạo mục lục" (chạy nền — không block)
+              Consumer<SoundlistProvider>(
+                builder: (_, soundlist, __) {
+                  if (!soundlist.autoTocRunning) {
+                    return const SizedBox.shrink();
+                  }
+                  return _AutoTocBubble(
+                    status: soundlist.autoTocStatus,
+                    progress: soundlist.autoTocProgress,
+                    onTap: () => showSoundlistPanel(context),
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -2633,6 +2689,87 @@ class _SheetDivider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: Colors.white.withValues(alpha: 0.06),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BONG BÓNG TIẾN TRÌNH TỰ TẠO MỤC LỤC (chạy nền)
+// ═══════════════════════════════════════════════════════════════
+
+class _AutoTocBubble extends StatelessWidget {
+  final String status;
+  final double progress;
+  final VoidCallback onTap;
+
+  const _AutoTocBubble({
+    required this.status,
+    required this.progress,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 52),
+          child: Material(
+            color: const Color(0xFF0E4D5C),
+            borderRadius: BorderRadius.circular(20),
+            elevation: 4,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF26C6DA).withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF26C6DA),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '⚡ $status',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (progress > 0) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '${(progress * 100).round()}%',
+                        style: const TextStyle(
+                          color: Color(0xFF26C6DA),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 6),
+                    const Icon(Icons.menu_book, color: Color(0xFF26C6DA), size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

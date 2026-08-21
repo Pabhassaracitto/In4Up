@@ -1,9 +1,13 @@
 package com.in4up
 
+import android.content.ContentResolver
+import android.net.Uri
 import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.io.FileOutputStream
 
 /**
  * MainActivity — đăng ký MethodChannel "in4up/audiolib" cho Thư viện âm thanh (P1).
@@ -12,11 +16,12 @@ import io.flutter.plugin.common.MethodChannel
  *  - scanMediaStore(): quét MediaStore.Audio (Android) → trả List<Map>:
  *      { id, uri (content://media/external/audio/media/<id>), title, displayName,
  *        artist, durationMs, sizeBytes, dateAddedSec }
- *    Dùng content URI (không dùng DATA — bị chặn trên scoped storage API 29+);
- *    ExoPlayer/just_audio phát được content://.
+ *    Dùng content URI (không dùng DATA — bị chặn trên scoped storage API 29+).
+ *  - copyContentToCache(contentUri): copy content:// sang cache dir → trả path
+ *    (VAD/waveform/ffmpeg dùng File-based, không đọc được content://).
  *
  * Runtime permission (READ_MEDIA_AUDIO / READ_EXTERNAL_STORAGE) do phía Dart
- * xử lý qua permission_handler (đã có sẵn trong dự án) — native chỉ query.
+ * xử lý qua permission_handler (đã có sẵn) — native chỉ query/copy.
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
@@ -27,9 +32,45 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "scanMediaStore" -> result.success(scanMediaStore())
+                    "copyContentToCache" -> {
+                        val uri = call.argument<String>("uri")
+                        result.success(uri?.let { copyContentToCache(it) })
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun copyContentToCache(contentUri: String): String? {
+        return try {
+            val resolver: ContentResolver = contentResolver
+            val uri = Uri.parse(contentUri)
+            val input = resolver.openInputStream(uri) ?: return null
+
+            // Tên file tạm: giữ extension nếu lấy được từ OpenableColumns.
+            val name = queryDisplayName(resolver, uri) ?: "audio_${System.currentTimeMillis()}.bin"
+            val outFile = File(cacheDir, "in4up_$name")
+            FileOutputStream(outFile).use { output ->
+                input.use { inputStream ->
+                    inputStream.copyTo(output)
+                }
+            }
+            outFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun queryDisplayName(resolver: ContentResolver, uri: Uri): String? {
+        return try {
+            val cols = arrayOf(MediaStore.Audio.Media.DISPLAY_NAME)
+            resolver.query(uri, cols, null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun scanMediaStore(): List<Map<String, Any?>> {

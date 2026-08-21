@@ -24,4 +24,20 @@ class AudioLibraryChannel {
       return const [];
     }
   }
+
+  /// Copy content:// sang cache dir → trả path file thật (để VAD/waveform/ffmpeg).
+  /// Nếu [uri] không phải content:// → trả nguyên uri. Lỗi → null.
+  static Future<String?> copyContentToCache(String uri) async {
+    if (!uri.startsWith('content://')) return uri;
+    try {
+      final path = await _channel.invokeMethod<String>(
+        'copyContentToCache',
+        {'uri': uri},
+      );
+      return path;
+    } catch (e) {
+      debugPrint('[AudioLibrary] copyContentToCache error: $e');
+      return null;
+    }
+  }
 }

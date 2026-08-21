@@ -36,6 +36,20 @@ class SoundlistProvider extends ChangeNotifier {
   String? _lastLoopKey;
   int _lastLoopCount = 0;
 
+  // ── Trạng thái job "Tự tạo mục lục" (chạy nền, UI không block) ──
+  bool _autoTocRunning = false;
+  String _autoTocStatus = '';
+  double _autoTocProgress = 0.0;
+  String? _autoTocError;
+  SoundAutoTocResult? _lastAutoTocResult;
+  StreamSubscription<SttProgress>? _autoTocProgressSub;
+
+  bool get autoTocRunning => _autoTocRunning;
+  String get autoTocStatus => _autoTocStatus;
+  double get autoTocProgress => _autoTocProgress;
+  String? get autoTocError => _autoTocError;
+  SoundAutoTocResult? get lastAutoTocResult => _lastAutoTocResult;
+
   List<SoundMark> get marks => List.unmodifiable(_marks);
   List<SoundChapter> get chapters => List.unmodifiable(_chapters);
   VadSettings get vadSettings => _vadSettings;
@@ -401,6 +415,61 @@ class SoundlistProvider extends ChangeNotifier {
       transcriptText: stt?.fullText,
       error: error,
     );
+  }
+
+  /// 🏃 Chạy "Tự tạo mục lục" ở CHẾ ĐỘ NỀN (không block UI):
+  /// - Cập nhật autoTocRunning/autoTocStatus/autoTocProgress (UI hiện chip/bubble).
+  /// - Theo dõi progress từ SttServiceFacade (Whisper) để cập nhật %.
+  /// - Khi xong: lưu lastAutoTocResult + error, tắt cờ, hủy subscription.
+  /// - Người dùng có thể đóng dialog/đi dùng chỗ khác — job vẫn chạy.
+  Future<void> startAutoTocBackground({
+    required String audioPath,
+    Duration? totalDuration,
+    required bool useWhisper,
+    String language = 'auto',
+  }) async {
+    if (_autoTocRunning) return;
+    _autoTocRunning = true;
+    _autoTocStatus = useWhisper
+        ? 'Đang nhận diện giọng nói…'
+        : 'Đang phân tích khoảng lặng…';
+    _autoTocProgress = 0.0;
+    _autoTocError = null;
+    _lastAutoTocResult = null;
+    notifyListeners();
+
+    _autoTocProgressSub?.cancel();
+    _autoTocProgressSub =
+        SttServiceFacade().progressStream.listen((p) {
+      if (p.progress > _autoTocProgress) {
+        _autoTocProgress = p.progress.clamp(0.0, 1.0).toDouble();
+      }
+      if (p.message.isNotEmpty) _autoTocStatus = p.message;
+      notifyListeners();
+    });
+
+    try {
+      final result = await autoGenerateToc(
+        audioPath: audioPath,
+        totalDuration: totalDuration,
+        useWhisper: useWhisper,
+        language: language,
+        onStatus: (msg) {
+          _autoTocStatus = msg;
+          notifyListeners();
+        },
+      );
+      _lastAutoTocResult = result;
+      _autoTocError = result.error;
+    } catch (e) {
+      _autoTocError = e.toString();
+    } finally {
+      await _autoTocProgressSub?.cancel();
+      _autoTocProgressSub = null;
+      _autoTocRunning = false;
+      _autoTocProgress = 1.0;
+      notifyListeners();
+    }
   }
 
   /// Thay toàn bộ chương/mục của một file bằng danh sách mới.

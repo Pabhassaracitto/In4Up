@@ -2,6 +2,7 @@
 // Test logic thuần của bộ máy tự tạo mục lục (không cần thiết bị/audio).
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/models/vad_settings.dart';
 import 'package:in4up/providers/soundlist_provider.dart';
 import 'package:in4up/services/sound_auto_toc_service.dart';
 import 'package:in4up_stt/in4up_stt.dart';
@@ -141,6 +142,36 @@ void main() {
     test('returns null for empty lines', () {
       final provider = SoundlistProvider();
       expect(provider.transcriptFromLrcLines('/a.mp3', const []), isNull);
+    });
+  });
+
+  group('SoundAutoTocService.computeBoundaryMs', () {
+    test('phát hiện ranh giới ở giữa khoảng lặng dài', () {
+      // 600 mẫu = 60s (1 mẫu = 100ms): nói 20s, lặng 8s (200..280), nói tiếp.
+      final peaks = List<double>.generate(600, (i) {
+        if (i >= 200 && i < 280) return 0.01; // im lặng
+        return 0.7; // có tiếng
+      });
+
+      final boundaries = SoundAutoTocService.computeBoundaryMs(
+        peaks,
+        60000,
+        settings: VadSettings.normal, // minSilence 0.9s
+      );
+
+      expect(boundaries, isNotEmpty);
+      // Ranh giới ~ giữa khoảng lặng: (200+280)/2 = 240 → 24000ms.
+      expect(boundaries.first, closeTo(24000, 2000));
+    });
+
+    test('không có im lặng → không có ranh giới (UI sẽ dùng fallback chia đều)', () {
+      final peaks = List<double>.filled(600, 0.8);
+      final boundaries = SoundAutoTocService.computeBoundaryMs(
+        peaks,
+        60000,
+        settings: VadSettings.normal,
+      );
+      expect(boundaries, isEmpty);
     });
   });
 }

@@ -1,3 +1,4 @@
+// ignore_for_file: curly_braces_in_flow_control_structures, unnecessary_non_null_assertion, unnecessary_null_comparison
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -94,7 +95,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     final receivedNewRequest = writingRequest != null &&
         _handledWritingSourceVersion != textProvider.writingSourceVersion;
     if (receivedNewRequest) {
-      _exerciseType = switch (writingRequest!.task) {
+      _exerciseType = switch (writingRequest.task) {
         WritingTaskType.dictation => _WriteExerciseType.dictation,
         WritingTaskType.cloze => _WriteExerciseType.clozeInput,
         WritingTaskType.rewrite => _WriteExerciseType.rewrite,
@@ -949,8 +950,13 @@ Hãy trả về JSON hợp lệ với:
 
   bool _hasMatchingAiAnalysis(AiServiceFacade facade) {
     final analysis = facade.currentAnalysis;
-    if (analysis == null) return false;
-    return analysis.inputText == _lastAiPromptKey;
+    if (analysis == null || _lastAiPromptKey.isEmpty) return false;
+    if (analysis.inputText == _lastAiPromptKey) return true;
+    // Old mapper left inputText empty — still show the turn we just requested.
+    if (analysis.inputText.isEmpty && analysis.success) return true;
+    return _lastAiPromptKey.contains('in4up_WRITE_REVIEW') ||
+        _lastAiPromptKey.contains('in4up_REWRITE_REVIEW') ||
+        _lastAiPromptKey.contains('in4up_SUMMARY_REVIEW');
   }
 
   Future<void> _showAiModelSetupDialog(AiServiceFacade facade) async {
@@ -1065,6 +1071,8 @@ Hãy trả về JSON hợp lệ với:
                       onOpenPdfReader: widget.onOpenPdfReader,
                     )
                   else ...[
+                    // hasText=true ⇒ _assignment đã auto-create
+                    // (_ensureExerciseState) ⇒ an toàn dùng !
                     _buildContextCard(
                       assignment: assignment!,
                       totalLines: textProvider.lines.length,
@@ -1593,7 +1601,7 @@ Hãy trả về JSON hợp lệ với:
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  facade.hasModel ? 'AI local sẵn sàng' : 'Chỉ tầng cục bộ',
+                  facade.hasModel ? 'Model thật sẵn sàng' : 'Tầng 2 mẫu / chưa có .gguf',
                   style: TextStyle(
                     color: facade.hasModel
                         ? const Color(0xFF81C784)
@@ -1667,13 +1675,14 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed:
-                      !facade.hasModel || !hasTextInput || isLoadingCurrent
-                          ? null
-                          : () => _runAiReview(
-                              currentLine: currentLine, result: result),
+                  onPressed: !hasTextInput || isLoadingCurrent
+                      ? null
+                      : () => _runAiReview(
+                          currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
-                  label: const Text('Tầng 2 · AI local'),
+                  label: Text(
+                    facade.hasModel ? 'Tầng 2 · AI local' : 'Tầng 2 · phản hồi',
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -2005,11 +2014,10 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed:
-                      !facade.hasModel || !hasTextInput || isLoadingCurrent
-                          ? null
-                          : () => _runRewriteAiReview(
-                              currentLine: currentLine, result: result),
+                  onPressed: !hasTextInput || isLoadingCurrent
+                      ? null
+                      : () => _runRewriteAiReview(
+                          currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Phân tích rewrite'),
                 ),
@@ -2361,11 +2369,10 @@ Hãy trả về JSON hợp lệ với:
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed:
-                      !facade.hasModel || !hasTextInput || isLoadingCurrent
-                          ? null
-                          : () => _runSummaryAiReview(
-                              currentLine: currentLine, result: result),
+                  onPressed: !hasTextInput || isLoadingCurrent
+                      ? null
+                      : () => _runSummaryAiReview(
+                          currentLine: currentLine, result: result),
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('Phân tích tóm tắt'),
                 ),

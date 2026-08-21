@@ -1,4 +1,5 @@
-// v11.0-final — fix param analysisType (không phải type)
+// packages/in4up_ai/lib/src/engine/ai_engine_gemma.dart
+// Isolate + native GGUF when available; write-aware mock fallback.
 
 import 'dart:async';
 import 'dart:convert';
@@ -9,7 +10,6 @@ import 'package:flutter/foundation.dart';
 
 import 'ai_engine.dart';
 import 'ai_native_bindings.dart';
-import '../mapper/ai_model_mapper.dart';
 import '../prompts/ai_prompts_library.dart';
 
 class AiEngineGemma implements AiEngine {
@@ -21,13 +21,22 @@ class AiEngineGemma implements AiEngine {
   SendPort? _sendPort;
   ReceivePort? _receivePort;
   bool _disposed = false;
+  String? _modelPath;
 
   @override
   Future<bool> initialize({required String modelPath}) async {
-    if (_state == AiEngineState.ready) return true;
+    if (_state == AiEngineState.ready && _modelPath == modelPath) {
+      return true;
+    }
+    if (_isolate != null || _state == AiEngineState.ready) {
+      await dispose();
+      _disposed = false;
+      _state = AiEngineState.uninitialized;
+    }
     _state = AiEngineState.loading;
     try {
       await _spawnIsolate(modelPath);
+      _modelPath = modelPath;
       _state = AiEngineState.ready;
       debugPrint('[AiEngineGemma] ✅ Ready: $modelPath');
       return true;
@@ -49,6 +58,7 @@ class AiEngineGemma implements AiEngine {
       yield AiAnalysis.fallback(
         text,
         errorReason: 'Engine not ready',
+        analysisType: type,
       );
       return;
     }
@@ -73,10 +83,10 @@ class AiEngineGemma implements AiEngine {
 
       if (msg is _IsolateResponse && msg.isComplete) {
         engine._state = AiEngineState.ready;
-        yield AiModelMapper.parse(
-          rawOutput: msg.fullText,
+        yield AiAnalysis.fromGemmaJson(
+          msg.fullText,
+          analysisType: type,
           inputText: text,
-          type: type,
         );
         responsePort.close();
         break;
@@ -85,6 +95,7 @@ class AiEngineGemma implements AiEngine {
         yield AiAnalysis.fallback(
           text,
           errorReason: msg.error,
+          analysisType: type,
         );
         responsePort.close();
         break;
@@ -112,6 +123,7 @@ class AiEngineGemma implements AiEngine {
     _receivePort?.close();
     _isolate = null;
     _sendPort = null;
+    _modelPath = null;
     _state = AiEngineState.disposed;
   }
 
@@ -136,7 +148,9 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
-    final native = AiNativeBindings.tryLoad();
+    final native = init.modelPath.trim().isEmpty
+        ? null
+        : AiNativeBindings.tryLoad();
     ffi.Pointer<ffi.Void>? nativeHandle;
     if (native != null) {
       nativeHandle = native.create(init.modelPath);
@@ -148,7 +162,7 @@ class AiEngineGemma implements AiEngine {
         try {
           final nativeOutput = native != null && nativeHandle != null
               ? native.generate(
-                  nativeHandle!,
+                  nativeHandle,
                   msg.prompt,
                   temperature: msg.temperature,
                 )
@@ -162,7 +176,9 @@ class AiEngineGemma implements AiEngine {
         }
       }
     }
-    if (native != null && nativeHandle != null) native.destroy(nativeHandle!);
+    if (native != null && nativeHandle != null) {
+      native.destroy(nativeHandle);
+    }
   }
 
   static String _mockInference(String prompt) {

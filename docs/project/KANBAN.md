@@ -30,6 +30,8 @@
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
+| SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
+| SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | 🔄 doing | SherpaPiperTtsCore + PiperTtsEngine code xong (chờ CI/build) |
 
 ---
 
@@ -310,3 +312,35 @@
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat (item 5)
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | docx thật (deflate) + md + json mô phỏng pass
+
+### SHERPA-001 — Silero VAD (sherpa_onnx) thay EnergyVad fallback
+- **Trạng thái:** done (code; chờ nghiệm thu trên thiết bị)
+- **Nội dung:** `SherpaVadCore` (in4up_stt, API sherpa_onnx v1.13.4 verify
+  từ source k2-fsa) gọi Silero VAD thật trước; `EnergyVad` chỉ còn là
+  fallback khi thiếu `silero_vad.onnx` hoặc sherpa lỗi. Singleton +
+  absolute path + verification (Section 3 handover). Model:
+  `<app documents>/sherpa_vad_models/silero_vad.onnx`.
+- **Bằng chứng:** commit 4a50a77 (VAD core + service) + cd9cccf (fix
+  non-null convertedPath); CI App Analyze xanh (run 32519596464).
+- **Lịch sử:**
+  - 2026-08-21 | created | PLAN-008 (owner via arena/019fe630-vipsound)
+  - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code + CI xanh; còn chờ user push model lên thiết bị + log "Silero VAD: N segments"
+
+### SHERPA-002 — TTS Piper offline (sherpa_onnx) — bước kế tiếp lộ trình PLAN-008/009
+- **Trạng thái:** doing
+- **Nội dung:** `SherpaPiperTtsCore` (in4up_stt) bọc `OfflineTts` Piper
+  (FastSpeech2 + HiFiGAN) — discover giọng trong
+  `<documents>/sherpa_piper_models/` (`<voice>.onnx` + `<voice>_tokens.txt`
+  + `espeak-ng-data/` dùng chung), sinh PCM float32 → WAV bytes.
+  `PiperTtsEngine` (app) implement `TtsEngine` — engine offline sinh BYTES:
+  TtsService thử Piper trước giọng máy (offlineFirst/offlineOnly) và làm
+  fallback sau engine online (onlineFirst/onlineOnly); cache riêng
+  `piper_tts`; voice khớp language từ tên file (quy ước Piper
+  `xx_XX-...`, tên không có locale = universal); toggle trong settings.
+  FFI: `ensureSherpaBindings()` singleton dùng chung VAD/TTS/STT —
+  KHÔNG re-init, tránh xung đột whisper.cpp + sherpa_onnx.
+- **Bằng chứng:** code xong (chờ CI App Analyze + build nghiệm thu của owner;
+  model Piper user push vào thiết bị như SHERPA-001).
+- **Lịch sử:**
+  - 2026-08-22 | created | lộ trình PLAN-008 "VAD (xong) → Live STT → TTS VITS" + PLAN-009 "offline-first như Gemma Translator"
+  - 2026-08-22 | doing | agent arena/01a0251e-in4up | core + engine + tích hợp TtsService; API verify từ source k2-fsa v1.13.4 + pub.dev docs 1.13.6 (khớp pubspec.lock)

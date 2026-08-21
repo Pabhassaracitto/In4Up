@@ -178,7 +178,7 @@
 
 ### PLAN-008 — Sẵn sàng tích hợp sherpa (live stream, cabin dịch STS EL)
 - Nguồn: người sở hữu (2026-08-21, qua agent arena/019fe630-vipsound)
-- Trạng thái: proposed
+- Trạng thái: doing (VAD + TTS xong, còn Zipformer streaming + STS cabin)
 - Milestone đề xuất: M3 — Sherpa Integration
 - Chi tiết:
   - **Mục tiêu:** Live Streaming STT + Speech Translation (STS) cabin:
@@ -214,9 +214,11 @@
       (in4up_stt, API v1.13.4 verify từ source k2-fsa) + SherpaVadService
       gọi Silero VAD trước, EnergyVad chỉ còn là fallback
     - [ ] User chạy trên thiết bị: push model → log "Silero VAD: N segments"
-    - [ ] Zipformer streaming + VITS (step kế tiếp lộ trình)
+    - [x] TTS VITS/Piper — `SherpaPiperTtsCore` + `PiperTtsEngine` (SHERPA-002)
+    - [ ] Zipformer streaming (step kế tiếp lộ trình)
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + handover Section3
+  - 2026-08-22 | VAD done (SHERPA-001, 4a50a77+cd9cccf) + TTS Piper done code (SHERPA-002) | agent arena/01a0251e-in4up | còn chờ build nghiệm thu + Zipformer streaming
 
 ### PLAN-009 — Học tinh hoa Google dịch cabin mới (Gemini 3.5 Live + Gemma Translator offline) → bộ vượt trội
 - Nguồn: người sở hữu (2026-08-21) + web search Google 2026 + branch sherpa 019fe27a
@@ -244,6 +246,7 @@
     - Mỗi bước có AT riêng, không gộp, CI check qua `ci_check.sh`
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound + agent web search | học Google cabin mới + sherpa branch 27
+  - 2026-08-22 | lộ trình step "TTS VITS" done (code) | agent arena/01a0251e-in4up | SHERPA-002 — Piper offline hoàn toàn; step kế: Zipformer streaming live STT
 ### PLAN-010 — Tab Đọc: chủ đề + ngôn ngữ xuyên suốt lưu từ (READ-630-01/02)
 - Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
 - Trạng thái: done (code 2026-08-21, chờ nghiệm thu build)

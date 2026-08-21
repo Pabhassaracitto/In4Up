@@ -237,3 +237,52 @@
     - Mỗi bước có AT riêng, không gộp, CI check qua `ci_check.sh`
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound + agent web search | học Google cabin mới + sherpa branch 27
+### PLAN-010 — Tab Đọc: chủ đề + ngôn ngữ xuyên suốt lưu từ (READ-630-01/02)
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
+- Trạng thái: proposed
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Model: `WordEntry` thêm `topics: List<String>` + `languages: List<String>`
+    (từ/cụm/câu thuộc N chủ đề, M ngôn ngữ). Migration lossless từ `topic`/`language`
+    cũ; filter WordList dùng `.contains()`; xóa tag không xóa từ + ngữ cảnh.
+  - `SelectionSaveSheet` chung PDF + Web cho đoạn chọn nhiều dòng (mode không màu):
+    lưu nguyên cụm/câu HOẶC lưu thông minh (hàng loạt), đều có chọn/tạo topic +
+    language (chip có sẵn + ô nhập mới).
+  - Tap/long-press sheet (các mode wordType/CEFR/difficulty): hiện đủ IPA,
+    từ/cụm/câu, topic, language của entry đã lưu; nút "Sửa thông tin" mở
+    `VocabEntryEditSheet` (IPA, loại, thêm/bớt topic, thêm/bớt language) —
+    chỉ sửa tag + meta, KHÔNG đụng word/context/SM-2.
+- Lịch sử:
+  - 2026-08-21 | created | owner via chat | issue tab đọc #1, #2 (+ rà soát #2)
+
+### PLAN-011 — Tab Đọc: marker "từ đã lưu" theo nhu cầu + lưu hàng loạt (READ-630-03/04)
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
+- Trạng thái: proposed
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Marker bao quanh từ đã lưu (green = đã lưu, amber = có ghi chú, red = đến kỳ ôn):
+    MẶC ĐỊNH TẮT (đọc sạch, "đơn giản mặc định"), nút toggle trong toolbar PDF + Web
+    ("sẵn sàng phức tạp khi cần"), khi bật kèm legend giải thích. Persist
+    SharedPreferences key `reader_show_recall_markers`.
+  - Lưu hàng loạt thông minh: tách extractor/model/importer sang
+    `lib/services/vocab_batch/` (dùng chung); Web batch sheet thêm field
+    **language** (bulk apply + edit + import); PDF thêm nút "Lưu hàng loạt" từ
+    đoạn chọn / cả trang (từ + cụm + câu → 1 topic + language cùng lúc).
+- Lịch sử:
+  - 2026-08-21 | created | owner via chat | issue tab đọc #3 + lưu hàng loạt
+
+### PLAN-012 — Tab Nghe: sửa AB loop bottom overflow + lặp câu tiếp theo (LISTEN-630-01)
+- Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
+- Trạng thái: proposed
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Bug: audio + chữ tiny + bật lặp AB → bottom overflow 24px che thanh điều hướng
+    (Lặp bài, Lặp AB, tốc độ, AI...) và che 1/2 nút "Looping passage"
+    (Next loop; Save; Delete). Sửa layout (Flexible/ConstrainedBox/safe area).
+  - Tính năng: nút "Lặp câu tiếp theo" — sau khi xong chu kỳ AB ở câu hiện,
+    tự chuyển sang câu kế tiếp rồi lặp (giúp người học "lười vận động thân
+    mà nhận được tâm" — dưỡng chất tự thấm, không cần mò xa). Đặt cạnh
+    Next loop / Save / Delete.
+  - Owner chỉ đạo: làm SAU khi READ-630-* hoàn tất và đã push.
+- Lịch sử:
+  - 2026-08-21 | created | owner via chat | "Trước khi làm phần này... hoàn tất các task trước và push"

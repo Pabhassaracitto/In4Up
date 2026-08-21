@@ -22,6 +22,11 @@
 | PR-1 | PR #6 (knowledge-work) chờ chiến lược lineage | 🚫 blocked | xem LINEAGE-1 |
 | LINEAGE-1 | Quyết định 2 dòng codebase (In4Up vs vipsound-main) | ✅ done | main=62ce24a (vipsound+governance) |
 | INTEGRATE-1 | Tích hợp knowledge-work (PR #6) vào main mới | 📋 proposed | sau khi main cập nhật xong |
+| READ-630-01 | Lưu cụm/câu nhiều dòng (mode không màu): chọn/tạo topic + language | 📋 proposed | owner 2026-08-21 |
+| READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | 📋 proposed | owner 2026-08-21 |
+| READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | 📋 proposed | owner 2026-08-21 |
+| READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | 📋 proposed | owner 2026-08-21 |
+| LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | 📋 proposed | owner 2026-08-21 (xếp sau READ-630-*) |
 
 ---
 
@@ -208,3 +213,51 @@
 - **Nội dung:** EL sound → text đích real-time, TTS nếu muốn, nhắc đeo tai nghe. Đã xong VAD singleton, pipeline isolate, RECORD_AUDIO. Chờ bạn đưa branch sherpa mẫu + .onnx model để thay EnergyVad fallback bằng sherpa_onnx thật.
 - **Lịch sử:**
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + Section3 handover
+
+### READ-630-01 — Tab Đọc: lưu cụm/câu (mode không màu) kèm chọn/tạo topic + language
+- **Trạng thái:** proposed
+- **Nội dung:** Ở mode không màu, bôi chọn nhiều dòng → "Lưu vào WordList" hiện tại KHÔNG
+  có bước chọn/tạo chủ đề & ngôn ngữ. Thêm `SelectionSaveSheet` chung (PDF + Web):
+  (a) Lưu nguyên cụm/câu; (b) Lưu thông minh (hàng loạt) — chọn/tạo topic + language
+  (chip có sẵn + ô tạo mới), áp cho cả mục đã tồn tại (chỉ bổ sung, không ghi đè).
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat (message "Thêm nữa" #1) | thiếu topic/language khi save full phrase
+
+### READ-630-02 — Tap/long-press sheet: hiện đủ + sửa được IPA, loại, topic, language
+- **Trạng thái:** proposed
+- **Nội dung:** Ở các mode (wordType/CEFR/difficulty), chạm giữ từ đã có sẵn → bảng
+  phải hiện ĐẦY ĐỦ: IPA, từ/cụm/câu, chủ đề, ngôn ngữ; cho thêm/bớt chủ đề & ngôn
+  ngữ ngay tại đó. BẢO ĐẢM: xóa topic/language chỉ gỡ tag, từ + ngữ cảnh vẫn giữ
+  ("mất đi 1 tab mà thôi"). Model: WordEntry thêm `topics: List<String>` +
+  `languages: List<String>` (migration tự động từ `topic`/`language` cũ, lossless).
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat | thiếu info đã lưu + không sửa được topic/language
+
+### READ-630-03 — Marker "từ đã lưu" (outline/chấm) tắt mặc định, bật khi cần
+- **Trạng thái:** proposed
+- **Nội dung:** Marker bao quanh từ đã lưu (green outline = đã lưu, amber = có ghi chú,
+  red = đến kỳ ôn) đang LUÔN hiển thị → nhiễu thị giác. Thêm toggle trong toolbar
+  (PDF + Web), mặc định TẮT (đọc sạch), BẬT khi cần + hiện legend giải thích marker.
+  Persist qua SharedPreferences (`reader_show_recall_markers`).
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat | "Tốt khi cần nhưng bình thường gây nhiễu thị giác"
+
+### READ-630-04 — Lưu hàng loạt thông minh: nhiều từ/cụm/câu → 1 topic + language
+- **Trạng thái:** proposed
+- **Nội dung:** Web đã có `WebExtractionBatchSheet` (audit: có chọn nhiều mục, bulk
+  topic, AI enrich, import — THiếu field language). PDF chưa có batch. Kế hoạch:
+  (a) tách extractor + model + importer sang `lib/services/vocab_batch/` dùng chung;
+  (b) web: thêm language vào bulk apply/edit/import; (c) PDF: nút "Lưu hàng loạt"
+  từ đoạn chọn hoặc cả trang, dùng cùng extractor + SelectionSaveSheet.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat | "lưu 1 lần cho nhiều đối tượng từ, cụm, câu"
+
+### LISTEN-630-01 — Tab Nghe: AB loop bottom overflow 24px + lặp câu tiếp theo
+- **Trạng thái:** proposed
+- **Nội dung:** (1) Sau khi có audio + chữ (tiny) và bật lặp AB → bottom overflow
+  24px che thanh điều hướng (Lặp bài, Lặp AB, tốc độ, AI...) và che một nửa nút
+  trong "Looping passage" (Next loop; Save; Delete). (2) Thêm nút "lặp câu tiếp
+  theo" (auto-forward sang câu kế rồi loop) — đặt cạnh Next loop/Save/Delete.
+  Owner yêu cầu: hoàn tất READ-630-* trước, ghi vào đây, rồi làm sau.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via chat | "Trước khi làm phần này: ... Hãy hoàn tất các task trước và push"

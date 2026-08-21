@@ -31,7 +31,7 @@
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
-| SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | 🔄 doing | SherpaPiperTtsCore + PiperTtsEngine code xong (chờ CI/build) |
+| SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 
 ---
 
@@ -327,7 +327,7 @@
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | code + CI xanh; còn chờ user push model lên thiết bị + log "Silero VAD: N segments"
 
 ### SHERPA-002 — TTS Piper offline (sherpa_onnx) — bước kế tiếp lộ trình PLAN-008/009
-- **Trạng thái:** doing
+- **Trạng thái:** done (chờ nghiệm thu build)
 - **Nội dung:** `SherpaPiperTtsCore` (in4up_stt) bọc `OfflineTts` Piper
   (FastSpeech2 + HiFiGAN) — discover giọng trong
   `<documents>/sherpa_piper_models/` (`<voice>.onnx` + `<voice>_tokens.txt`
@@ -339,8 +339,9 @@
   `xx_XX-...`, tên không có locale = universal); toggle trong settings.
   FFI: `ensureSherpaBindings()` singleton dùng chung VAD/TTS/STT —
   KHÔNG re-init, tránh xung đột whisper.cpp + sherpa_onnx.
-- **Bằng chứng:** code xong (chờ CI App Analyze + build nghiệm thu của owner;
-  model Piper user push vào thiết bị như SHERPA-001).
+- **Bằng chứng:** CI App Analyze xanh run 32524455212 (analyze + locale test);
+  còn chờ build nghiệm thu của owner + model Piper push vào thiết bị (như SHERPA-001).
 - **Lịch sử:**
   - 2026-08-22 | created | lộ trình PLAN-008 "VAD (xong) → Live STT → TTS VITS" + PLAN-009 "offline-first như Gemma Translator"
   - 2026-08-22 | doing | agent arena/01a0251e-in4up | core + engine + tích hợp TtsService; API verify từ source k2-fsa v1.13.4 + pub.dev docs 1.13.6 (khớp pubspec.lock)
+  - 2026-08-22 | doing→done | agent arena/01a0251e-in4up | CI App Analyze xanh run 32524455212 (commit 4e1df4e + d4a3dc1); chờ build nghiệm thu của owner + model Piper trên thiết bị

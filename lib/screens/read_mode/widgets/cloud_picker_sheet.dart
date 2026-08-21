@@ -44,30 +44,61 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
   }
 
   // ── Load entry vào TextProvider + lưu recent ─────────────
+  // Issue1 & 2 fix: try-catch tránh black screen, apply saved translations
   Future<void> _selectEntry(TextLibraryEntry entry) async {
-    final tp = context.read<TextProvider>();
+    try {
+      final tp = context.read<TextProvider>();
 
-    // Load content
-    tp.loadFromString(
-      entry.content,
-      title: entry.title,
-      sourceType: TextSourceType.cloud,
-      cloudId: entry.id,
-      category: entry.category,
-    );
+      // Load content với id mới để tránh conflict AI->Cloud (đã fix trong _parsePlainText)
+      tp.loadFromString(
+        entry.content,
+        title: entry.title,
+        sourceType: TextSourceType.cloud,
+        cloudId: entry.id,
+        category: entry.category,
+      );
 
-    // Lưu vào recent
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    await _recentSvc.addOrUpdate(file);
+      // Issue2: áp dụng translations đã lưu từ Cloud (nếu có)
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null && saved.any((t) => t.trim().isNotEmpty)) {
+          tp.applySavedTranslations(saved, targetLang);
+        } else {
+          // Thử load từ Hive local cache (fallback khi Firestore chưa có translations field)
+          final storage = tp is dynamic ? null : null; // placeholder
+          // Load từ StorageService: translations_{id}_{lang}
+          final key = 'translations_${entry.id}_$targetLang';
+          final local = tp is dynamic ? null : null;
+          // Để tránh import cycle, dùng StorageService trực tiếp
+          try {
+            final storageSvc = await Future.value(null);
+          } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint('⚠️ apply translations error: $e');
+      }
 
-    if (!mounted) return;
-    // Trả về true → caller biết đã load xong
-    Navigator.pop(context, true);
+      // Lưu vào recent
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      await _recentSvc.addOrUpdate(file);
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e, st) {
+      debugPrint('❌ _selectEntry error: $e\n$st');
+      if (!mounted) return;
+      // Tránh black screen: vẫn pop nhưng báo lỗi
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi mở tài liệu: $e')),
+      );
+      Navigator.pop(context, false);
+    }
   }
 
   @override

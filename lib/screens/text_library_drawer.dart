@@ -687,29 +687,49 @@ class _CloudTabState extends State<_CloudTab> {
   }
 
   // ── Load văn bản vào TextProvider ─────────────────────────
+  // Issue1 fix: try-catch tránh black screen khi AI doc -> Cloud
   void _loadEntry(BuildContext context, TextLibraryEntry entry) {
-    HapticFeedback.mediumImpact();
+    try {
+      HapticFeedback.mediumImpact();
 
-    // Load text vào TextProvider
-    context.read<TextProvider>().loadFromString(
-          entry.content,
-          title: entry.title,
-          sourceType: TextSourceType.cloud,
-          cloudId: entry.id,
-          category: entry.category,
+      final tp = context.read<TextProvider>();
+      tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
+
+      // Issue2: apply saved translations
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null) {
+          tp.applySavedTranslations(saved, targetLang);
+        }
+      } catch (e) {
+        debugPrint('⚠️ _loadEntry apply translations error: $e');
+      }
+
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      RecentFilesService().addOrUpdate(file);
+
+      widget.onClose();
+    } catch (e, st) {
+      debugPrint('❌ _loadEntry error: $e\n$st');
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi mở Cloud: $e')),
         );
-
-    // ★ THÊM: Lưu vào RecentFiles để hiện trong thư viện đọc
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    // Fire-and-forget
-    RecentFilesService().addOrUpdate(file);
-
-    widget.onClose();
+      } catch (_) {}
+      widget.onClose();
+    }
   }
 
   // ── Mở dialog thêm mới ────────────────────────────────────

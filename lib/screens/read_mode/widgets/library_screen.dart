@@ -991,27 +991,45 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   }
 
   Future<void> _loadCloudEntry(TextLibraryEntry entry) async {
-    final tp = context.read<TextProvider>();
-    tp.loadFromString(
-      entry.content,
-      title: entry.title,
-      sourceType: TextSourceType.cloud,
-      cloudId: entry.id,
-      category: entry.category,
-    );
+    try {
+      final tp = context.read<TextProvider>();
+      tp.loadFromString(
+        entry.content,
+        title: entry.title,
+        sourceType: TextSourceType.cloud,
+        cloudId: entry.id,
+        category: entry.category,
+      );
 
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    await _service.addOrUpdate(file);
-    if (!mounted) return;
+      // Issue2: apply saved translations
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null) {
+          tp.applySavedTranslations(saved, targetLang);
+        }
+      } catch (e) {
+        debugPrint('⚠️ _loadCloudEntry apply translations error: $e');
+      }
 
-    // Switch sang Recent tab để thấy file vừa load
-    _tabCtrl.animateTo(0);
-    await _load();
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      await _service.addOrUpdate(file);
+      if (!mounted) return;
+
+      _tabCtrl.animateTo(0);
+      await _load();
+    } catch (e, st) {
+      debugPrint('❌ _loadCloudEntry error: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi mở Cloud: $e')),
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════

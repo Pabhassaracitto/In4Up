@@ -263,6 +263,17 @@ mixin TranslationMixin on ChangeNotifier {
           translatedLineCount > 0) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }
+
+      // Issue2: tự động lưu translations vào cache/cloud sau khi dịch xong
+      try {
+        // Gọi qua dynamic để tránh import cycle với TextProvider
+        final self = this as dynamic;
+        if (self.saveCurrentTranslationsToCloud != null) {
+          await self.saveCurrentTranslationsToCloud();
+        }
+      } catch (e) {
+        debugPrint('⚠️ auto-save translations error: $e');
+      }
     } catch (error) {
       _translationError = error.toString();
     } finally {
@@ -291,5 +302,31 @@ mixin TranslationMixin on ChangeNotifier {
     _translationError = null;
     _currentEngine = '';
     notifyListeners();
+  }
+
+  /// Handover fix cho issue 1 & 2: khi load tài liệu mới (AI -> Cloud) phải reset
+  /// translation state để tránh black screen do runId cũ còn chạy, và để chuẩn bị
+  /// lưu translations mới.
+  void resetTranslationForNewDocument() {
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    _currentEngine = '';
+    _translationDisplayMode = TranslationDisplayMode.hidden;
+    // Không notify ở đây — caller sẽ notify sau khi parse lines
+  }
+
+  /// Lưu translations hiện tại vào cache để issue 2 không phải dịch lại
+  /// Trả về Map<lineIndex, translation>
+  Map<int, String> exportCurrentTranslations() {
+    final map = <int, String>{};
+    for (var i = 0; i < lines.length; i++) {
+      final t = lines[i].translation;
+      if (t != null && t.trim().isNotEmpty) {
+        map[i] = t;
+      }
+    }
+    return map;
   }
 }

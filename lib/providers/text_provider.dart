@@ -585,43 +585,134 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parsePlainText(String content, {String? title}) {
-    _fullText = content;
+    try {
+      // Issue1 fix: reset translation state để tránh black screen khi AI doc -> Cloud doc
+      try {
+        resetTranslationForNewDocument();
+      } catch (_) {}
+      
+      _fullText = content;
 
-    List<String> lineStrings;
-    if (_useAutoSplit) {
-      // Mặc định tách dòng thông minh
-      lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
-    } else {
-      // Hiển thị nguyên bản (theo dòng trong file)
-      lineStrings =
-          content.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    }
+      List<String> lineStrings;
+      if (_useAutoSplit) {
+        lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
+      } else {
+        lineStrings =
+            content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      }
 
-    _lines = lineStrings.asMap().entries.map((entry) {
-      return TextItem(
-        id: 'line_${entry.key}',
-        content: entry.value.trim(),
+      // Guard: nếu content rỗng hoặc chỉ whitespace, tránh black screen
+      if (lineStrings.isEmpty) {
+        _lines = [];
+        _analyzedLines = [];
+        _currentDocument = TextDocument(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: title ?? 'Untitled',
+          lines: _lines,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        _currentLineIndex = -1;
+        _focusCueLineIndex = null;
+        _selectedTextInfo = null;
+        _selectedText = null;
+        notifyListeners();
+        return;
+      }
+
+      _lines = lineStrings.asMap().entries.map((entry) {
+        return TextItem(
+          id: 'line_${entry.key}',
+          content: entry.value.trim(),
+        );
+      }).toList();
+
+      // Guard analyzedLines với try-catch để không crash
+      try {
+        _analyzedLines = SyntaxHighlighterService.analyzeLines(
+          _lines.map((l) => l.content).toList(),
+        );
+      } catch (e) {
+        debugPrint('⚠️ _parsePlainText analyzeLines error: $e — fallback empty');
+        _analyzedLines = List.generate(_lines.length, (_) => []);
+      }
+
+      _currentDocument = TextDocument(
+        id: DateTime.now().millisecondsSinceEpoch.toString(), // luôn tạo id mới để tránh conflict AI->Cloud
+        title: title ?? _currentDocument?.title ?? 'Untitled',
+        lines: _lines,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
-    }).toList();
 
-    _analyzedLines = SyntaxHighlighterService.analyzeLines(
-      _lines.map((l) => l.content).toList(),
-    );
+      _currentLineIndex = -1;
+      _focusCueLineIndex = null;
+      _selectedTextInfo = null;
+      _selectedText = null;
+      notifyListeners();
+    } catch (e, st) {
+      debugPrint('❌ _parsePlainText fatal error: $e\n$st');
+      // Fallback an toàn tránh black screen
+      _lines = [];
+      _analyzedLines = [];
+      _currentDocument = null;
+      _currentLineIndex = -1;
+      _focusCueLineIndex = null;
+      _selectedTextInfo = null;
+      _selectedText = null;
+      _fullText = '';
+      notifyListeners();
+    }
+  }
 
-    _currentDocument = TextDocument(
-      id: _currentDocument?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title ?? _currentDocument?.title ?? 'Untitled',
-      lines: _lines,
-      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+  /// Issue2: áp dụng translations đã lưu từ Cloud entry vào lines hiện tại
+  void applySavedTranslations(List<String>? savedTranslations, String langCode) {
+    if (savedTranslations == null || savedTranslations.isEmpty) return;
+    if (_lines.isEmpty) return;
+    
+    try {
+      for (var i = 0; i < _lines.length && i < savedTranslations.length; i++) {
+        final t = savedTranslations[i];
+        if (t.trim().isNotEmpty) {
+          _lines[i] = _lines[i].copyWith(
+            translation: t.trim(),
+            translationLanguageCode: langCode,
+          );
+        }
+      }
+      debugPrint('✅ Applied ${savedTranslations.where((t) => t.trim().isNotEmpty).length} saved translations for $langCode');
+      notifyListeners();
+      
+      // Tự động hiện translation toolbar nếu có bản dịch
+      if (translatedLineCount > 0 && translationDisplayMode == TranslationDisplayMode.hidden) {
+        setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+      }
+    } catch (e) {
+      debugPrint('⚠️ applySavedTranslations error: $e');
+    }
+  }
 
-    _currentLineIndex = -1;
-    _focusCueLineIndex = null;
-    _selectedTextInfo = null;
-    _selectedText = null;
-    notifyListeners();
+  /// Issue2: lưu translations hiện tại vào Cloud nếu đang đọc file Cloud
+  Future<void> saveCurrentTranslationsToCloud() async {
+    if (!isCurrentTextFromCloud || _currentCloudId == null) return;
+    if (_lines.isEmpty) return;
+    
+    try {
+      final targetLang = translationTargetLanguage.translationCode;
+      final translationsList = _lines.map((l) => l.translation ?? '').toList();
+      final hasAny = translationsList.any((t) => t.trim().isNotEmpty);
+      if (!hasAny) return;
+      
+      // Lưu vào Hive local trước để nhanh
+      final docId = _currentCloudId!;
+      final storageKey = 'translations_${docId}_$targetLang';
+      await _storage.saveSetting(storageKey, translationsList);
+      
+      // TODO: Đồng bộ lên Firestore (cần mở rộng TextLibraryService.updateTranslations)
+      debugPrint('💾 Saved translations locally for $docId lang=$targetLang count=${translationsList.where((t) => t.trim().isNotEmpty).length}');
+    } catch (e) {
+      debugPrint('⚠️ saveCurrentTranslationsToCloud error: $e');
+    }
   }
 
   // ★ THÊM: Phương thức để load kết quả từ STT

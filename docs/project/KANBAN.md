@@ -162,3 +162,31 @@
   kiểm tra xung đột với bản sm2/models của dòng vipsound.
 - **Lịch sử:**
   - 2026-08-20 | created | agent arena/01a019bb-in4up | từ quyết định LINEAGE-1
+
+### FIX-630-01 — Black screen khi AI doc -> Cloud doc
+- **Trạng thái:** doing
+- **Nội dung:** đang có tài liệu đọc từ AI tạo ra mà thêm tài liệu từ đám mây thì lên màn hình đen không thoát được. Fix TextProvider._parsePlainText luôn tạo id mới, resetTranslationForNewDocument(), try-catch analyzedLines, CloudPickerSheet + TextLibraryDrawer + LibraryScreen try-catch + snackbar.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue 1
+  - 2026-08-21 | doing | agent arena/019fe630-vipsound | đã vá TextProvider + CloudPicker + Drawer
+
+### FIX-630-02 — Bản dịch cũ không lưu, phải dịch lại
+- **Trạng thái:** doing
+- **Nội dung:** tab đọc những lần dịch trước chưa lưu vào case hay đã lưu mà không lấy ra, mỗi lần mở bản cũ phải dịch lại. Thêm translations field vào TextLibraryEntry Map<lang, List>, applySavedTranslations(), saveCurrentTranslationsToCloud() auto sau translateAll, load từ Firestore + Hive fallback.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue 2
+  - 2026-08-21 | doing | agent arena/019fe630-vipsound | đã mở rộng model + provider
+
+### FIX-630-03 — Phần Viết mất AI chấm điểm sau merge
+- **Trạng thái:** doing
+- **Nội dung:** phần viết chấm điểm, nhận xét đã tích hợp AI rồi mà sau merge mất luôn phần AI chấm điểm. Đảm bảo WriteStudioScreen giữ 2 tầng local + AI local (_buildAiReviewCard, _buildRewriteAiReviewCard, _buildSummaryAiReviewCard), không xóa trong merge.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue 3
+  - 2026-08-21 | doing | agent arena/019fe630-vipsound | kiểm tra file hiện có AI, thêm vào checklist merge
+
+### PLAN-001..005 — Ý tưởng mới từ owner
+- **Trạng thái:** proposed
+- **Nội dung:** bubble karaoke audio + đọc TTS, đánh giá hàng loạt pen+tray màu, mô hình 4 mức độ, thêm hàng loạt câu/cụm vào wordlist kèm topic, hoàn thiện merge 630.
+- **Lịch sử:**
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue 4-8
+

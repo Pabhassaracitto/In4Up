@@ -1626,8 +1626,8 @@ class _WordListScreenState extends State<WordListScreen> {
                                     color: Color(0xFFFFB74D), fontSize: 11)),
                             backgroundColor:
                                 const Color(0xFFFFB74D).withValues(alpha: 0.14),
-                            side: const BorderSide(
-                                color: Color(0xFFFFB74D).withValues(alpha: 0.35)),
+                            side: BorderSide(
+                                color: const Color(0xFFFFB74D).withValues(alpha: 0.35)),
                             onPressed: () =>
                                 setS(() => extraTopics.remove(t)),
                           ),

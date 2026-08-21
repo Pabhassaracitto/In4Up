@@ -210,3 +210,30 @@
     - [ ] Agent tích hợp và chạy `ci_check.sh` xác nhận xanh
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + handover Section3
+
+### PLAN-009 — Học tinh hoa Google dịch cabin mới (Gemini 3.5 Live + Gemma Translator offline) → bộ vượt trội
+- Nguồn: người sở hữu (2026-08-21) + web search Google 2026 + branch sherpa 019fe27a
+- Trạng thái: proposed
+- Milestone đề xuất: M3 — Sherpa Integration + Google Cabin Essence
+- Chi tiết:
+  - **Thông tin Google mới 2026 đã học (từ web search):**
+    - **Gemini 3.5 Live Translate (09/06/2026):** model audio mới nhất, speech-to-speech near real-time 70+ ngôn ngữ, tự động detect không cần config tay, giữ nguyên intonation/pacing/pitch của người nói, generate liên tục (continuous) cân bằng giữa chờ context để tăng quality và dịch ngay để đồng bộ, chỉ chậm vài giây sau người nói, noise robustness cho môi trường ồn, dùng cho multilingual calls/meetings/lessons/broadcasts. Đang rollout: Gemini Live API + AI Studio (public preview), Google Meet private preview cho Workspace business, Google Translate app Android/iOS. Đối tác Grab test với 10M voice calls/tháng driver-traveler.
+    - **Live Translate upgrade cho travelers (31/03/2026):** trong Google Translate app, Live Translate + Listening mode qua tai nghe, giữ emotional tone (vui, bực, thì thầm), xử lý idioms/slang/local expressions thay vì dịch từng từ, hỗ trợ 70+ languages, markets: US, India, Mexico beta 12/2025 → mở rộng FR, DE, IT, JP, ES, TH, UK.
+    - **Gemma Translator offline (10/08/2026):** Raspberry Pi 5 + mic/speaker portable, chạy Gemma 4 E2B lightweight LLM, màn hình cảm ứng nhỏ hiện text, núm xoay chọn ngôn ngữ, nút push-to-talk, chassis in 3D, open-source trên GitHub, cho phép real-time voice translation không cần WiFi/cellular. Khác Timekettle Fluentalk T1 ở chỗ open-source + hardware rẻ → mở cửa cho creators/startups.
+    - **TranslateGemma (15/01/2026):** family open translation models trên Gemma 3, 4B/12B/27B, 55 ngôn ngữ, SFT trên parallel data human + synthetic từ Gemini + RL phase, 12B vượt Gemma 3 27B với <50% params, giữ multimodal (dịch text trong ảnh).
+    - **Google Meet speech translation GA (27/01/2026):** general availability cho business, bidirectional EN <-> ES, FR, DE, PT, IT, dubbed audio đè lên giọng gốc mô phỏng tone/cadence, 1 language pair per meeting, không có trong recording, admin ON by default. Với Gemini 3.5 private preview: 70+ languages, 2000+ combos trong 1 meeting (trước chỉ EN<->X).
+  - **Tinh hoa sẵn có của mình (đã có):**
+    - Whisper.cpp offline .bin GGML q4_0 (37MB) đã chạy, VAD pipeline đã xong (SherpaVadService singleton absolute path, ChunkAudioExtractor lazy delete ngay, VadWhisperPipeline Isolate + offset corrector)
+    - Sherpa-ONNX spike PoC từ branch 019fe27a (6d26aaa): SherpaSttEngine OfflineRecognizer + OnlineRecognizer, Strategy Pattern, registry SttEngineType.sherpa, model .onnx nhẹ 2-5MB VAD
+    - Wordlist bubble persistent playback đã làm (draggable, auto-hide 4s, tap mute, hide khi về tab gốc) — kế thừa cho karaoke bubble
+    - Cross-modal mastery PLAN-006 (Hiểu↔Nghe↔Viết 9 hướng) + bulk evaluation pen+tray màu PLAN-002
+  - **Tích hợp thành bộ vượt trội (đề xuất):**
+    - **Offline-first như Gemma Translator:** dùng sherpa_onnx VAD (2-5MB) + Whisper tiny q4_0 (37MB) cho file → LRC karaoke, sherpa streaming Zipformer cho live mic (<100ms), TranslateGemma 4B cho text translation 55 languages (thay Google Free/Libre/MyMemory), VITS/Piper TTS cho output → chạy hoàn toàn offline trên tablet ARM64, giống Gemma Translator open-source trên Pi5
+    - **Online-enhanced như Gemini 3.5 Live:** khi có mạng, switch sang Gemini Live API để có tone/emotion preservation, 70+ languages, continuous generation (không turn-by-turn), noise robustness, auto detect
+    - **Cabin mode như Google Meet + Cabin AI:** UI side-by-side (original | translation) + dubbed audio giữ tone, listening mode (đưa phone lên tai như call thường) + headphone mode, per-viewer language setting, 1 pair per meeting nhưng hỗ trợ 2000+ combos khi dùng Gemini 3.5, reminder đeo tai nghe (auto_hide_banner) khi phát TTS mà không có headphone để tránh ồn phòng họp/lớp
+    - **Học thêm cho cộng đồng:** open-source model paths, dynamic download (giống SttModelManager) thay vì đóng gói APK tránh phình, giữ Pointer singleton tránh xung đột FFI whisper.cpp + sherpa_onnx, cung cấp STL 3D print chassis như Gemma Translator để makers tự build device dịch offline giá rẻ
+  - **Lộ trình đãi cát tìm vàng:**
+    - VAD (xong) → Live STT streaming (Zipformer) → TTS VITS → TranslateGemma 4B → STS cabin (STT→Translation→TTS) → S2S direct nếu có model → bundle thành In4Up Super Translator Device (tablet + bubble karaoke 1 chữ/1 dòng/full)
+    - Mỗi bước có AT riêng, không gộp, CI check qua `ci_check.sh`
+- Lịch sử:
+  - 2026-08-21 | created | owner via arena/019fe630-vipsound + agent web search | học Google cabin mới + sherpa branch 27

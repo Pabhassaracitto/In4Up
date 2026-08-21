@@ -227,6 +227,31 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 writingMode: widget.writingMode,
               ),
             ),
+          // Legend marker "từ đã lưu" — chỉ khi BẬT (READ-630-03)
+          if (_controller.showRecallMarkers &&
+              _controller.viewMode == PdfViewMode.pdfView)
+            Positioned(
+              left: 12,
+              bottom: 88,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RecallLegendSwatch(color: Color(0xFF4CAF50), label: 'đã lưu'),
+                    _RecallLegendSwatch(color: Color(0xFFFFC107), label: 'ghi chú'),
+                    _RecallLegendSwatch(color: Color(0xFFF44336), label: 'đến kỳ ôn'),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
       floatingActionButton: AnimatedScale(
@@ -347,7 +372,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             if ((_controller.colorMode != ColorMode.none ||
                     _controller.focusWordCue != null ||
                     _controller.focusRectCue != null ||
-                    _controller.focusTextStartOffsetCue != null) &&
+                    _controller.focusTextStartOffsetCue != null ||
+                    _controller.showRecallMarkers) &&
                 (words.isNotEmpty || _controller.focusRectCue != null))
               Positioned.fill(
                 child: PdfWordOverlay(
@@ -363,6 +389,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   focusPageIndexCue: _controller.focusPageIndexCue,
                   focusTextStartOffsetCue: _controller.focusTextStartOffsetCue,
                   focusTextEndOffsetCue: _controller.focusTextEndOffsetCue,
+                  showRecallMarkers: _controller.showRecallMarkers,
                 ),
               ),
 
@@ -1296,6 +1323,37 @@ class _PdfAnnotationManager extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Recall legend (READ-630-03) ───────────────────────────
+class _RecallLegendSwatch extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _RecallLegendSwatch({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: color, width: 1.2),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        ],
       ),
     );
   }

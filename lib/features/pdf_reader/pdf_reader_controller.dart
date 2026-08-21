@@ -17,6 +17,7 @@ import '../../models/vocab_context.dart';
 import '../../models/vocabulary_type.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
+import '../../services/reader_display_settings.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
 import 'services/pdf_annotation_storage.dart';
@@ -31,10 +32,6 @@ class PdfReaderController extends ChangeNotifier {
   final PdfAnnotationStorage _storage = PdfAnnotationStorage();
   final PdfTextExtractor _extractor = PdfTextExtractor();
   final TtsService _tts = TtsService();
-
-  PdfReaderController({required this.pdfPath}) {
-    _init();
-  }
 
   // ─── Document ───────────────────────────────────────────
   PdfDocument? _document;
@@ -72,6 +69,26 @@ class PdfReaderController extends ChangeNotifier {
 
   List<PdfWordInfo> getWordsForPage(int pageIndex) =>
       _pageWords[pageIndex] ?? [];
+
+  // ─── Recall markers (READ-630-03) ────────────────────────
+  /// Marker bao quanh từ đã lưu (green/amber/red). MẶC ĐỊNH TẮT —
+  /// chỉ hiện khi người dùng bật (đọc sạch khi không cần).
+  bool _showRecallMarkers = ReaderDisplaySettings().showRecallMarkers;
+  bool get showRecallMarkers => _showRecallMarkers;
+
+  PdfReaderController({required this.pdfPath}) {
+    _init();
+    ReaderDisplaySettings().addListener(_onDisplaySettingsChanged);
+  }
+
+  void _onDisplaySettingsChanged() {
+    _showRecallMarkers = ReaderDisplaySettings().showRecallMarkers;
+    notifyListeners();
+  }
+
+  void toggleRecallMarkers() {
+    ReaderDisplaySettings().setShowRecallMarkers(!_showRecallMarkers);
+  }
 
   // ─── TTS ────────────────────────────────────────────────
   PdfTtsState _ttsState = PdfTtsState.idle;

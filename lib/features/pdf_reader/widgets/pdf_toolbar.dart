@@ -89,6 +89,11 @@ class PdfToolbar extends StatelessWidget {
                 onUserInteraction: onUserInteraction,
               ),
               const SizedBox(width: 4),
+              _RecallMarkersButton(
+                controller: controller,
+                onUserInteraction: onUserInteraction,
+              ),
+              const SizedBox(width: 4),
               _ViewModeButton(
                 controller: controller,
                 onUserInteraction: onUserInteraction,
@@ -226,6 +231,63 @@ class _ColorModeButton extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Recall Markers Button (READ-630-03) ───────────────────
+/// Bật/tắt marker bao quanh từ đã lưu. Mặc định TẮT (đọc sạch);
+/// bật khi cần xem nhanh từ nào đã lưu / có ghi chú / đến kỳ ôn.
+class _RecallMarkersButton extends StatelessWidget {
+  final PdfReaderController controller;
+  final VoidCallback? onUserInteraction;
+
+  const _RecallMarkersButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = controller.showRecallMarkers;
+    return GestureDetector(
+      onTap: () {
+        onUserInteraction?.call();
+        HapticFeedback.selectionClick();
+        controller.toggleRecallMarkers();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14),
+          border: isActive
+              ? Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.45))
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? Icons.visibility : Icons.visibility_outlined,
+              size: 13,
+              color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              context.uiText(isActive ? 'Đánh dấu: BẬT' : 'Đánh dấu: TẮT'),
+              style: TextStyle(
+                fontSize: 10,
+                color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

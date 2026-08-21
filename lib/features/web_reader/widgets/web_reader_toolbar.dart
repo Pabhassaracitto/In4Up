@@ -189,6 +189,23 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
               ),
               const SizedBox(width: 4),
               _ColorModeButton(controller: ctrl, enabled: pageActionsEnabled),
+              _ToolbarBtn(
+                icon: ctrl.showRecallMarkers
+                    ? Icons.visibility
+                    : Icons.visibility_outlined,
+                size: 16,
+                enabled: true,
+                isActive: ctrl.showRecallMarkers,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  ctrl.toggleRecallMarkers();
+                },
+                activeThumbColor: const Color(0xFF66BB6A),
+                tooltip: context.uiText(
+                  'Đánh dấu từ đã lưu (bật/tắt marker: xanh = đã lưu, '
+                  'vàng = có ghi chú, đỏ = đến kỳ ôn)',
+                ),
+              ),
               if (pageActionsEnabled && ctrl.colorMode == ColorMode.wordType)
                 _ToolbarBtn(
                   icon: Icons.auto_awesome_motion,

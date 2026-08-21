@@ -87,12 +87,18 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     if (colorModeChanged || highlightChanged) {
       _lastColorMode = _controller.colorMode;
       _lastHighlightVersion = _controller.highlightVersion;
-      if (_controller.colorMode == ColorMode.none) {
-        _removeHighlight();
-      } else {
+      // READ-630-03: recall markers bật cũng cần inject script (marker + tap)
+      final shouldApply =
+          _controller.colorMode != ColorMode.none || _controller.showRecallMarkers;
+      if (shouldApply) {
         _applyHighlight();
+      } else {
+        _removeHighlight();
       }
       _updateFab();
+      // READ-630-03: rebuild toolbar + legend khi toggle recall markers
+      // (highlightVersion tăng khi bật/tắt marker)
+      if (mounted) setState(() {});
     }
   }
 
@@ -251,7 +257,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     await _runJS(WebReaderJS.setupReadingProgressListenerScript);
     await _restoreReadingProgress(url);
 
-    if (_controller.colorMode != ColorMode.none) await _applyHighlight();
+    if (_controller.colorMode != ColorMode.none ||
+        _controller.showRecallMarkers) await _applyHighlight();
     await _updateFab();
     await _applyFocusCue();
   }
@@ -275,7 +282,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     await _runJS(WebReaderJS.setupReadingProgressListenerScript);
     await _restoreReadingProgress(url);
 
-    if (_controller.colorMode != ColorMode.none) await _applyHighlight();
+    if (_controller.colorMode != ColorMode.none ||
+        _controller.showRecallMarkers) await _applyHighlight();
     await _updateFab();
     await _applyFocusCue();
   }
@@ -1171,6 +1179,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                       if (_controller.state == WebReaderState.error)
                         _buildErrorOverlay(),
                       if (_controller.isHighlightActive) _buildColorLegend(),
+                      if (_controller.showRecallMarkers) _buildRecallLegend(),
                     ],
                   ),
           ),
@@ -1231,6 +1240,29 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                     : 'Loại từ: N V Adj Adv',
           ),
           style: const TextStyle(color: Colors.white, fontSize: 11),
+        ),
+      ),
+    );
+  }
+
+  /// Legend marker "từ đã lưu" — chỉ hiện khi BẬT (READ-630-03).
+  Widget _buildRecallLegend() {
+    return Positioned(
+      bottom: _controller.isHighlightActive ? 48 : 16,
+      left: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.87),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _RecallLegendDot(color: Color(0xFF4CAF50), label: 'đã lưu'),
+            _RecallLegendDot(color: Color(0xFFFFC107), label: 'ghi chú'),
+            _RecallLegendDot(color: Color(0xFFF44336), label: 'đến kỳ ôn'),
+          ],
         ),
       ),
     );
@@ -1435,6 +1467,36 @@ class _SelectionMoreButton extends StatelessWidget {
             value: 'batch',
             child: Text('Tạo batch WordList từ đoạn chọn'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecallLegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _RecallLegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: color, width: 1.2),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
         ],
       ),
     );

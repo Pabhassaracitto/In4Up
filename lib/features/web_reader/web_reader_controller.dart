@@ -19,6 +19,7 @@ import '../../models/vocabulary_type.dart';
 import '../../models/word_analysis.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
+import '../../services/reader_display_settings.dart';
 import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
 import 'models/web_extraction_candidate.dart';
@@ -151,6 +152,23 @@ class WebReaderController extends ChangeNotifier {
   ColorMode get colorMode => _colorMode;
   bool get isHighlightActive => _colorMode != ColorMode.none;
   int get highlightVersion => _highlightVersion;
+
+  // ─── Recall markers (READ-630-03) ────────────────────────
+  /// Marker "từ đã lưu" — MẶC ĐỊNH TẮT, bật khi cần (đọc sạch mặc định).
+  bool _showRecallMarkers = ReaderDisplaySettings().showRecallMarkers;
+  bool get showRecallMarkers => _showRecallMarkers;
+
+  void _onReaderDisplaySettingsChanged() {
+    final next = ReaderDisplaySettings().showRecallMarkers;
+    if (next == _showRecallMarkers) return;
+    _showRecallMarkers = next;
+    _highlightVersion++;
+    notifyListeners();
+  }
+
+  void toggleRecallMarkers() {
+    ReaderDisplaySettings().setShowRecallMarkers(!_showRecallMarkers);
+  }
   GrammarHighlightSettings get grammarSettings => _grammarSettings;
   List<GrammarHighlightPreset> get availableGrammarPresets =>
       List.unmodifiable(_availableGrammarPresets);
@@ -277,6 +295,7 @@ class WebReaderController extends ChangeNotifier {
     _loadLastOpenedUrl();
     _loadGrammarPresetLibrary();
     _loadGrammarSettings();
+    ReaderDisplaySettings().addListener(_onReaderDisplaySettingsChanged);
   }
 
   // ─── URL Navigation ──────────────────────────────────────
@@ -564,6 +583,8 @@ class WebReaderController extends ChangeNotifier {
       'mode': _colorMode.name,
       'cefrDictionary': cefrMap,
       'difficultyDictionary': VocabularyBridge.exportDifficultyMap(),
+      // READ-630-03: recall marker chỉ áp khi người dùng BẬT
+      'showRecallMarkers': _showRecallMarkers,
       'recallDictionary': VocabularyBridge.exportRecallMetadata(),
       'visibleWordTypes': visibleWordTypes,
       'hideAllWordTypes': _grammarSettings.visibleCategories.isEmpty,
@@ -1984,6 +2005,7 @@ class WebReaderController extends ChangeNotifier {
 
   @override
   void dispose() {
+    ReaderDisplaySettings().removeListener(_onReaderDisplaySettingsChanged);
     _tts.stop();
     super.dispose();
   }

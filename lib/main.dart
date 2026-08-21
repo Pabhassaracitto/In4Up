@@ -37,6 +37,7 @@ import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
@@ -258,6 +259,7 @@ class _MyAppState extends State<MyApp> {
           create: (_) {
             final prov = VocabularyProvider();
             prov.loadData(); // Nạp danh sách từ cục bộ từ Hive
+            unawaited(ReaderDisplaySettings().init()); // READ-630-03
 
             // Tự động kích hoạt sync khi có User đăng nhập - chỉ khi Firebase sẵn sàng (fix Linux no-app)
             if (isFirebaseAvailable) {

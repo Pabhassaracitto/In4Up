@@ -1560,7 +1560,13 @@ class _WordListScreenState extends State<WordListScreen> {
     final ipaC = TextEditingController(text: entry.phonetic ?? '');
     final noteC = TextEditingController(text: entry.personalNotes ?? '');
     final topicC = TextEditingController(text: entry.topic ?? '');
-    String selectedLang = entry.language;
+    // READ-630-02: multi-topic / multi-language — thêm/bớt tag,
+    // từ + ngữ cảnh giữ nguyên (xóa tag chỉ "mất 1 tab").
+    final Set<String> extraTopics = entry.topics.skip(1).toSet();
+    final Set<String> selectedLangs = entry.languages.toSet();
+    final Set<String> baseLangs = {'en', 'vi', 'pali', 'my'};
+    final Set<String> allLangOptions = {...baseLangs, ...p.allLanguages};
+    final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
 
     showModalBottomSheet(
@@ -1606,8 +1612,45 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
-                    _editField(topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
-                    
+                    _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final t in List<String>.of(extraTopics))
+                          ActionChip(
+                            avatar: const Icon(Icons.close, size: 12),
+                            label: Text(t,
+                                style: const TextStyle(
+                                    color: Color(0xFFFFB74D), fontSize: 11)),
+                            backgroundColor:
+                                const Color(0xFFFFB74D).withValues(alpha: 0.14),
+                            side: const BorderSide(
+                                color: Color(0xFFFFB74D).withValues(alpha: 0.35)),
+                            onPressed: () =>
+                                setS(() => extraTopics.remove(t)),
+                          ),
+                        for (final t in allTopicOptions
+                            .where((t) =>
+                                t.trim().isNotEmpty &&
+                                t != topicC.text.trim() &&
+                                !extraTopics.contains(t))
+                            .toList()
+                              ..sort())
+                          ChoiceChip(
+                            label: Text('+ $t',
+                                style: const TextStyle(
+                                    color: Colors.white54, fontSize: 11)),
+                            selected: false,
+                            backgroundColor: Colors.white.withValues(alpha: 0.04),
+                            side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.1)),
+                            onSelected: (_) => setS(() => extraTopics.add(t)),
+                          ),
+                      ],
+                    ),
+
                     const SizedBox(height: 12),
                     const Text('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
@@ -1636,30 +1679,32 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
 
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Ngôn ngữ (chọn 1–n — đầu danh sách = chính)', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final lang in ['en', 'vi', 'pali', 'my'])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
-                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
-                                ),
-                                selected: selectedLang == lang,
-                                selectedColor: const Color(0xFF42A5F5),
-                                backgroundColor: Colors.white.withValues(alpha: 0.05),
-                                onSelected: (val) {
-                                  if (val) setS(() => selectedLang = lang);
-                                },
-                              ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final lang in List<String>.of(allLangOptions)..sort())
+                          ChoiceChip(
+                            label: Text(
+                              '${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}',
+                              style: TextStyle(color: selectedLangs.contains(lang) ? Colors.white : Colors.grey, fontSize: 11),
                             ),
-                        ],
-                      ),
+                            selected: selectedLangs.contains(lang),
+                            selectedColor: const Color(0xFF42A5F5),
+                            backgroundColor: Colors.white.withValues(alpha: 0.05),
+                            onSelected: (val) {
+                              setS(() {
+                                if (val) {
+                                  selectedLangs.add(lang);
+                                } else if (selectedLangs.length > 1) {
+                                  selectedLangs.remove(lang);
+                                }
+                              });
+                            },
+                          ),
+                      ],
                     ),
 
                     const SizedBox(height: 20),
@@ -1672,8 +1717,12 @@ class _WordListScreenState extends State<WordListScreen> {
                               word: wordC.text.trim(),
                               meaning: meanC.text.trim(),
                               phonetic: ipaC.text.trim(),
-                              language: selectedLang,
-                              topic: topicC.text.trim(),
+                              topics: [
+                                if (topicC.text.trim().isNotEmpty)
+                                  topicC.text.trim(),
+                                ...extraTopics,
+                              ],
+                              languages: selectedLangs.toList(),
                               vocabType: selectedType,
                             );
                             if (noteC.text.trim().isNotEmpty) {

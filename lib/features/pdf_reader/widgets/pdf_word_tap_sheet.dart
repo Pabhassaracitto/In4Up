@@ -12,6 +12,7 @@ import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
 
@@ -459,6 +460,13 @@ class _SavedRecallCard extends StatelessWidget {
                 label: '$pdfFileName · trang ${pageIndex + 1}',
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          // READ-630-02: thông tin đầy đủ (IPA, loại, chủ đề, ngôn ngữ)
+          // + sửa ngay tại đây — không mất word/context
+          VocabEntryMetaInfo(
+            entry: entry,
+            onEdit: () => VocabEntryEditSheet.show(context, entry),
           ),
           if (note.isNotEmpty) ...[
             const SizedBox(height: 10),

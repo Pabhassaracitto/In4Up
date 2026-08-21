@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../web_reader_controller.dart';
 
 /// Bottom sheet hiện khi tap vào từ trong Web Reader
@@ -239,6 +240,23 @@ class WebWordTapSheet extends StatelessWidget {
           ],
 
           if (existing != null) ...[
+            const SizedBox(height: 10),
+            // READ-630-02: thông tin đầy đủ (IPA, loại, chủ đề, ngôn ngữ)
+            // + sửa ngay tại đây — không mất word/context
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                ),
+              ),
+              child: VocabEntryMetaInfo(
+                entry: existing,
+                onEdit: () => VocabEntryEditSheet.show(context, existing),
+              ),
+            ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,

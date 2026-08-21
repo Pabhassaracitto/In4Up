@@ -77,6 +77,13 @@ class SherpaSttEngine implements SttEngine {
         supportsChunking: true,
       );
 
+  /// Engine sherpa khởi tạo theo model paths ở mỗi lần transcribe/live —
+  /// implement tường minh để tương thích mọi bản interface SttEngine
+  /// (tránh "Missing concrete implementation" khi interface khai báo
+  /// initialize là abstract).
+  @override
+  Future<void> initialize() async {}
+
   /// Khởi tạo offline recognizer từ model paths.
   Future<void> _initOffline(SherpaModelPaths paths) async {
     if (_offline != null) return;

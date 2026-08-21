@@ -16,3 +16,4 @@ export 'diarization/speaker_sidecar.dart';
 export 'meetily/meetily_adapter.dart';
 
 export 'stt_engine_sherpa.dart';
+export 'vad/sherpa_vad_core.dart';

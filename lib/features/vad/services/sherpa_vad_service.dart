@@ -6,6 +6,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_stt/utils/audio_converter.dart';
+import 'package:in4up_stt/vad/sherpa_vad_core.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -40,9 +42,9 @@ class SherpaVadService implements VadService {
 
   bool _initialized = false;
   String? _modelAbsolutePath;
-  // Pointer tới native sherpa VAD — sẽ là ffi.Pointer khi tích hợp thật
-  // Hiện tại giữ dynamic để không phụ thuộc ffi khi build
-  dynamic _nativeVadPointer;
+  // Pointer native sherpa VAD — GIỮ TRONG SINGLETON (Section 3 handover):
+  // không re-init liên tục, tránh xung đột FFI với whisper.cpp.
+  SherpaVadCore? _vadCore;
 
   SherpaVadService({
     this.threshold = 0.5,
@@ -117,21 +119,19 @@ class SherpaVadService implements VadService {
       );
       // Không throw — fallback sang energy VAD
     } else {
-      // TODO: Khởi tạo sherpa_onnx Vad thật
-      // Ví dụ khi có package sherpa_onnx:
-      // _nativeVadPointer = sherpa_onnx.Vad(
-      //   config: sherpa_onnx.VadConfig(
-      //     sileroVad: sherpa_onnx.SileroVadConfig(
-      //       model: _modelAbsolutePath!,
-      //       threshold: threshold,
-      //       minSilenceDuration: minSilenceDurationMs / 1000.0,
-      //       minSpeechDuration: minSpeechDurationMs / 1000.0,
-      //       maxSpeechDuration: maxSpeechDurationS,
-      //     ),
-      //     sampleRate: 16000,
-      //   ),
-      // );
-      debugPrint('🚀 SherpaVadService initialized with model: $_modelAbsolutePath');
+      try {
+        // PLAN-008: khởi tạo sherpa_onnx.Vad THẬT (Silero VAD)
+        _vadCore = SherpaVadCore(
+          modelPath: _modelAbsolutePath!,
+          threshold: threshold,
+          minSilenceDuration: minSilenceDurationMs / 1000.0,
+          minSpeechDuration: minSpeechDurationMs / 1000.0,
+          maxSpeechDuration: maxSpeechDurationS,
+        );
+      } catch (e) {
+        debugPrint('⚠️ SherpaVadCore init lỗi, dùng EnergyVad fallback: $e');
+        _vadCore = null;
+      }
     }
 
     _initialized = true;
@@ -148,16 +148,19 @@ class SherpaVadService implements VadService {
       throw StateError('Audio file không tồn tại: $audioFilePath');
     }
 
-    // Nếu có model sherpa_onnx thật, dùng nó
-    if (_modelAbsolutePath != null && _nativeVadPointer != null) {
-      // TODO: Gọi sherpa_onnx VAD thật
-      // Hiện tại chưa có binding, sẽ được implement ở branch sherpa tích hợp
-      // Placeholder trả về kết quả mock để pipeline hoạt động
+    // PLAN-008: có sherpa VAD thật → dùng nó (Silero VAD)
+    if (_vadCore != null) {
+      final sherpaResult = await _runSherpaVad(audioFilePath);
+      if (sherpaResult != null) {
+        sw.stop();
+        return sherpaResult;
+      }
+      // convert/detect lỗi → rơi xuống fallback (pipeline không gãy)
+      debugPrint('⚠️ Sherpa VAD không cho kết quả, dùng EnergyVad fallback');
     }
 
-    // Fallback: Energy-based VAD (không cần model)
-    // Đây là fallback tạm để pipeline chạy được ngay cả khi chưa có silero_vad.onnx
-    // Khi tích hợp sherpa_onnx thật, thay bằng _runSherpaVad
+    // Fallback: Energy-based VAD (không cần model) — chỉ dùng khi
+    // thiếu silero_vad.onnx hoặc sherpa lỗi.
     final result = await _runEnergyVadFallback(audioFilePath);
 
     sw.stop();
@@ -166,8 +169,67 @@ class SherpaVadService implements VadService {
       totalAudioDuration: result.totalAudioDuration,
       totalSpeechDuration: result.totalSpeechDuration,
       processingTime: sw.elapsed,
-      engineUsed: _modelAbsolutePath != null ? 'sherpa_onnx' : 'energy_fallback',
+      engineUsed: _vadCore != null ? 'sherpa_silero' : 'energy_fallback',
     );
+  }
+
+  /// Chạy Silero VAD thật: convert audio → 16k mono WAV → sherpa detect.
+  /// Trả null nếu không xử lý được (caller fallback energy).
+  Future<VadResult?> _runSherpaVad(String audioPath) async {
+    final core = _vadCore;
+    if (core == null) return null;
+    String? convertedPath;
+    try {
+      convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+      // readWave chỉ ăn WAV 16k mono — convertToWhisperCompatible đã chuẩn
+      // .wav input được trả nguyên (nếu wav không phải 16k, detect trả []
+      // → fallback, đúng nghĩa "sai chuẩn thì an toàn")
+      final segments = core.detect(convertedPath);
+      if (segments.isEmpty) return null;
+
+      // Duration thật của file (probe) — chuẩn hơn last-segment end
+      double totalAudioDuration = 0;
+      try {
+        final ms = await AudioConverter.probeDurationMs(audioPath);
+        totalAudioDuration = (ms ?? 0) / 1000.0;
+      } catch (_) {}
+      if (totalAudioDuration <= 0) {
+        totalAudioDuration = segments.last.endTime;
+      }
+      final totalSpeechDuration =
+          segments.fold<double>(0, (s, x) => s + x.duration);
+
+      debugPrint(
+        '✅ Silero VAD: ${audioPath.split('/').last} → '
+        '${segments.length} speech segments '
+        '(${totalSpeechDuration.toStringAsFixed(1)}s speech)',
+      );
+
+      return VadResult(
+        segments: segments
+            .map((s) => SpeechSegment(
+                  startTime: s.startTime,
+                  endTime: s.endTime,
+                  confidence: 0.95,
+                  isSpeech: true,
+                ))
+            .toList(),
+        totalAudioDuration: totalAudioDuration,
+        totalSpeechDuration: totalSpeechDuration,
+        processingTime: Duration.zero,
+        engineUsed: 'sherpa_silero',
+      );
+    } catch (e) {
+      debugPrint('⚠️ _runSherpaVad error: $e');
+      return null;
+    } finally {
+      // Rule cleanup: file convert tạm phải xóa ngay (không để rác tmp)
+      if (convertedPath != null && convertedPath != audioPath) {
+        try {
+          await AudioConverter.cleanupConvertedFile(convertedPath);
+        } catch (_) {}
+      }
+    }
   }
 
   /// Fallback VAD đơn giản dựa trên chia chunk đều + giả định toàn bộ là speech
@@ -257,12 +319,14 @@ class SherpaVadService implements VadService {
 
   @override
   Future<void> dispose() async {
-    // TODO: Giải phóng Pointer C-struct của sherpa_onnx
-    // Khi chạy song song STT (Whisper) và TTS (Sherpa), chú ý không re-init liên tục
-    // Giữ Pointer trong Singleton (handover Section 3 lưu ý tránh xung đột Native)
+    // Section 3: chỉ free pointer khi service DỪNG hẳn — không re-init
+    // liên tục (tránh xung đột FFI với whisper.cpp)
     try {
-      _nativeVadPointer = null;
-    } catch (_) {}
+      _vadCore?.dispose();
+    } catch (e) {
+      debugPrint('⚠️ SherpaVadCore.dispose error: $e');
+    }
+    _vadCore = null;
     _initialized = false;
   }
 

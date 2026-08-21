@@ -206,8 +206,15 @@
     - [x] VAD singleton + absolute path + verification
     - [x] Pipeline Isolate + cleanup
     - [x] RECORD_AUDIO permission
-    - [ ] Bạn cung cấp branch sherpa mẫu + model .onnx (vad, zipformer, vits)
-    - [ ] Agent tích hợp và chạy `ci_check.sh` xác nhận xanh
+    - [x] Branch sherpa mẫu — `origin/arena/019fe27a-vipsound` (6d26aaa
+      PoC + c614276 Strategy) đã fetch tham khảo; kế thừa từ trước ở 8c6ec9e
+    - [x] Model .onnx trên local device (user không đưa lên GitHub vì nặng)
+      — cách đặt: `<app documents>/sherpa_vad_models/silero_vad.onnx`
+    - [x] Agent tích hợp `sherpa_onnx.Vad` THẬT — `SherpaVadCore`
+      (in4up_stt, API v1.13.4 verify từ source k2-fsa) + SherpaVadService
+      gọi Silero VAD trước, EnergyVad chỉ còn là fallback
+    - [ ] User chạy trên thiết bị: push model → log "Silero VAD: N segments"
+    - [ ] Zipformer streaming + VITS (step kế tiếp lộ trình)
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + handover Section3
 

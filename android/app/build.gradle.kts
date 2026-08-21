@@ -68,6 +68,17 @@ android {
             useLegacyPackaging = true
         }
     }
+
+    // Native backend AI chat (llama.cpp) — file CMake riêng, không đụng
+    // CMakeLists của UltraTimeStretch. Nếu thiếu submodule third_party/llama.cpp
+    // thì configure chỉ WARNING (không fail) và app fallback mock AI.
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/ai/CMakeLists.txt")
+            version = "3.22.1"
+            arguments("-DANDROID_STL=c++_static")
+        }
+    }
 }
 
 configurations.all {

@@ -1085,7 +1085,7 @@ Hãy trả về JSON hợp lệ với:
                     ],
                     if (assignment!.needsContextPreview) ...[
                       const SizedBox(height: 16),
-                      _buildReferenceContextCard(assignment),
+                      _buildReferenceContextCard(assignment!),
                     ],
                     const SizedBox(height: 16),
                     if (_exerciseType == _WriteExerciseType.dictation)

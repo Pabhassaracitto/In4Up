@@ -38,11 +38,15 @@ class SoundAutoTocResult {
   final bool usedWhisper;
   final String? transcriptText;
 
+  /// Lý do không tạo được mục lục (null = thành công) — hiển thị cho người dùng.
+  final String? error;
+
   const SoundAutoTocResult({
     required this.chapters,
     required this.sliceCount,
     required this.usedWhisper,
     this.transcriptText,
+    this.error,
   });
 }
 
@@ -170,6 +174,29 @@ class SoundAutoTocService {
           ));
         }
 
+        // Fallback: audio liền mạch (không có khoảng lặng đủ) → chia đều
+        // theo thời lượng (~60s/đoạn, tối đa 8 đoạn) để vẫn có "mục lục thô".
+        // (Fix: trước đây trả [] → "không tạo được mục lục" dù file nghe bình thường.)
+        if (slices.length < 2 && durationMs >= minSegmentSec * 1000 * 2) {
+          const targetSec = 60;
+          var n = (durationMs / (targetSec * 1000)).ceil();
+          if (n < 2) n = 2;
+          if (n > 8) n = 8;
+          final stepMs = durationMs ~/ n;
+          final fallback = <AudioSlice>[];
+          for (int i = 0; i < n; i++) {
+            final s = i * stepMs;
+            final e = i == n - 1 ? durationMs : (i + 1) * stepMs;
+            if (e - s >= minSegmentSec * 1000) {
+              fallback.add(AudioSlice(
+                start: Duration(milliseconds: s),
+                end: Duration(milliseconds: e),
+              ));
+            }
+          }
+          if (fallback.length >= 2) return fallback;
+        }
+
         if (slices.length < 2) return const <AudioSlice>[];
         return slices;
       } catch (e) {
@@ -186,6 +213,11 @@ class SoundAutoTocService {
   /// [language]: 'vi' | 'en' | 'auto' (D16). Lưu ý: in4up_stt chưa hỗ trợ
   /// auto-detect qua SttConfig.language='auto' (whisper.cpp nhận mã ngôn ngữ
   /// cụ thể) — nên 'auto' được map về 'en' (giữ hành vi cũ), không đổi package.
+  ///
+  /// [level] null → dùng `transcribeAuto` (tự chọn model TỐT NHẤT có sẵn:
+  /// base→tiny→small→medium→large, giống luồng Tạo lời thoại LRC). Trước đây
+  /// cứng `WhisperModelLevel.base` + `transcribeFile` → máy không có model base
+  /// (chỉ tiny/small) thì Whisper fail → "không tạo được mục lục".
   static Future<SttResult?> transcribe(
     String audioPath, {
     WhisperModelLevel? level,
@@ -195,17 +227,27 @@ class SoundAutoTocService {
     try {
       final facade = SttServiceFacade();
       final effectiveLanguage = language == 'auto' ? 'en' : language;
-      final cfg = SttConfig.deepLearning.copyWith(
-        whisperModel: level ?? WhisperModelLevel.base,
-        language: effectiveLanguage,
-        generateLrc: false,
-        grouping: grouping,
-      );
-      final output = await facade.transcribeFile(
-        audioPath,
-        config: cfg,
-        generateLrc: false,
-      );
+      final SttTranscribeOutput output;
+      if (level == null) {
+        output = await facade.transcribeAuto(
+          audioPath,
+          language: effectiveLanguage,
+          generateLrc: false,
+          grouping: grouping,
+        );
+      } else {
+        final cfg = SttConfig.deepLearning.copyWith(
+          whisperModel: level,
+          language: effectiveLanguage,
+          generateLrc: false,
+          grouping: grouping,
+        );
+        output = await facade.transcribeFile(
+          audioPath,
+          config: cfg,
+          generateLrc: false,
+        );
+      }
       if (output.success && output.result.fullText.isNotEmpty) {
         return output.result;
       }

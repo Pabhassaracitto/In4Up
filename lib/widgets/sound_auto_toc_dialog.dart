@@ -77,11 +77,11 @@ Future<void> runSoundAutoToc(
   }
 
   if (chapters.isEmpty) {
-    messenger.showSnackBar(const SnackBar(
-      content: Text('⚠️ Không tạo được mục lục (không đủ khoảng lặng hoặc '
-          'không nhận diện được giọng nói).'),
+    final reason = result?.error ?? 'không rõ nguyên nhân';
+    messenger.showSnackBar(SnackBar(
+      content: Text('⚠️ Không tạo được mục lục: $reason'),
       behavior: SnackBarBehavior.floating,
-      backgroundColor: Color(0xFFEF5350),
+      backgroundColor: const Color(0xFFEF5350),
     ));
     return;
   }

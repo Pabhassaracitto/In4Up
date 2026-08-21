@@ -353,6 +353,23 @@ class SoundlistProvider extends ChangeNotifier {
       await _replaceChaptersForFile(audioPath, chapters);
     }
 
+    // Lý do fail chi tiết (hiển thị trong dialog thay vì thông báo chung chung).
+    String? error;
+    if (chapters.isEmpty) {
+      final reasons = <String>[];
+      if (slices.isEmpty) {
+        reasons.add('không tách được đoạn theo khoảng lặng (audio liền mạch '
+            'hoặc quá ngắn)');
+      }
+      if (useWhisper && stt == null) {
+        reasons.add('Whisper không nhận diện được — kiểm tra model trong '
+            'Cài đặt → AI Model');
+      }
+      error = reasons.isEmpty
+          ? 'không rõ nguyên nhân'
+          : reasons.join('; ');
+    }
+
     // Lưu transcript (nếu Whisper chạy thành công) để dùng cho "Tìm trong audio".
     if (stt != null && stt.segments.isNotEmpty) {
       final tLines = <TranscriptLine>[];
@@ -382,6 +399,7 @@ class SoundlistProvider extends ChangeNotifier {
       sliceCount: slices.length,
       usedWhisper: useWhisper && stt != null,
       transcriptText: stt?.fullText,
+      error: error,
     );
   }
 

@@ -74,7 +74,8 @@ class LanguageRollout {
   /// Bản sao sàn độ phủ của `tool/lang_rollout_floors.json`.
   ///
   /// CHỈ ĐƯỢC RA LÊN khi độ phủ tăng (ratchet); không được hạ.
-  /// `test/language_rollout_test.dart` fail nếu lệch JSON.
+  /// Group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`
+  /// fail nếu lệch JSON.
   static const Map<String, double> coverageFloors = {
     'ar': 0.41,
     'bn': 0.14,

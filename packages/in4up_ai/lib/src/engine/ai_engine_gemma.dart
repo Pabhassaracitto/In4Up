@@ -148,15 +148,25 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
+    // Báo sẵn sàng ngay — load GGUF có thể mất vài giây. Message tới trong lúc
+    // load nằm queue ở ReceivePort (02601). Mock viết 2 tầng vẫn giữ (251e).
+    init.mainSendPort.send(port.sendPort);
+
     final native = init.modelPath.trim().isEmpty
         ? null
         : AiNativeBindings.tryLoad();
     ffi.Pointer<ffi.Void>? nativeHandle;
     if (native != null) {
       nativeHandle = native.create(init.modelPath);
-      if (nativeHandle == ffi.nullptr) nativeHandle = null;
+      if (nativeHandle == ffi.nullptr) {
+        debugPrint('[AiEngineGemma] Native model load failed — mock fallback.');
+        nativeHandle = null;
+      } else {
+        debugPrint('[AiEngineGemma] Native llama.cpp backend ready.');
+      }
+    } else if (init.modelPath.trim().isNotEmpty) {
+      debugPrint('[AiEngineGemma] Native lib not found — mock fallback.');
     }
-    init.mainSendPort.send(port.sendPort);
     await for (final msg in port) {
       if (msg is _IsolateMessage) {
         try {

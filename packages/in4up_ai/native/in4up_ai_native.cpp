@@ -23,7 +23,7 @@ static std::string generate_text(In4upAiContext * ai, const char * prompt, int m
     std::vector<llama_token> tokens(static_cast<size_t>(n_prompt));
     if (llama_tokenize(ai->vocab, prompt, prompt_len, tokens.data(), n_prompt, true, true) < 0) return {};
 
-    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
+    llama_batch batch = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
     if (llama_decode(ai->context, batch) != 0) return {};
 
     std::string result;
@@ -32,7 +32,7 @@ static std::string generate_text(In4upAiContext * ai, const char * prompt, int m
         if (llama_vocab_is_eog(ai->vocab, token)) break;
 
         char piece[256];
-        const int n = llama_token_to_piece(ai->vocab, token, piece, sizeof(piece), 0, true);
+        const int n = llama_token_to_piece(ai->vocab, token, piece, static_cast<int32_t>(sizeof(piece)), 0, true);
         if (n > 0) result.append(piece, static_cast<size_t>(n));
         batch = llama_batch_get_one(const_cast<llama_token *>(&token), 1);
         if (llama_decode(ai->context, batch) != 0) break;

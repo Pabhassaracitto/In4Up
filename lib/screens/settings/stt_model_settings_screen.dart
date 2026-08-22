@@ -1,7 +1,6 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
-import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
@@ -59,26 +58,25 @@ class _SourceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.orange.shade900.withValues(alpha: 0.3),
+      color: Colors.teal.shade900.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Icon(Icons.folder_special, color: Colors.orange),
+            const Icon(Icons.cloud_download, color: Colors.teal),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Chế độ Local Only (Fix HttpException)',
+                    'Tải khi bạn bấm — không tự tải lúc mở app',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    'Auto-download từ HuggingFace đã TẮT theo Handover Rule 2 '
-                    'để tránh Connection closed trên Android Tablet. '
-                    'Hãy chép file .bin thủ công vào Documents/in4up_whisper_models/ '
-                    'và đảm bảo size >1MB (Rule 3).',
+                    'Bấm Tải về để lấy model từ mạng (HuggingFace, rồi GitHub). '
+                    'App không tự tải khi khởi động — tránh lỗi Connection closed '
+                    'trên tablet. Import file .bin nếu bạn đã có sẵn.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -191,14 +189,12 @@ class _ModelCard extends StatelessWidget {
                         onPressed: () => manager.cancelDownload(level),
                       ),
                     ] else if (info.isReady) ...[
-                      // Nút Import (chỉ debug)
-                      if (kDebugMode)
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 16),
-                          label: const Text('Import'),
-                          onPressed: () =>
-                              _importModel(context, manager, level),
-                        ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () =>
+                            _importModel(context, manager, level),
+                      ),
                       // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
@@ -210,14 +206,12 @@ class _ModelCard extends StatelessWidget {
                             _confirmDelete(context, manager, level),
                       ),
                     ] else ...[
-                      // Nút Import (chỉ debug)
-                      if (kDebugMode)
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 16),
-                          label: const Text('Import'),
-                          onPressed: () =>
-                              _importModel(context, manager, level),
-                        ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () =>
+                            _importModel(context, manager, level),
+                      ),
                       // Size label + Nút Tải
                       Text(
                         '${level.sizeInMB}MB',
@@ -246,38 +240,33 @@ class _ModelCard extends StatelessWidget {
     SttModelManager manager,
     WhisperModelLevel level,
   ) async {
-    // Rule 2: Auto-download disabled — hướng dẫn chép thủ công
-    await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Auto-download đã tắt (Fix HttpException)'),
-        content: Text(
-          'Theo handover SECTION 1 Rule 2, auto-download từ HuggingFace CDN đã bị '
-          'tắt để tránh lỗi HttpException: Connection closed trên Android Tablet.\n\n'
-          'Cách đúng:\n'
-          '1. Dùng path_provider: getApplicationDocumentsDirectory()\n'
-          '2. Chép file ${level.fileName} hoặc ggml-tiny-q4_0.bin vào:\n'
-          '   Documents/in4up_whisper_models/\n'
-          '3. Đảm bảo File.existsSync() && lengthSync() > 1_000_000\n'
-          '4. App sẽ tự scan và dùng luôn, không tải lại.\n\n'
-          'Nút Import bên dưới vẫn hoạt động để chọn file .bin từ bộ nhớ.',
+    if (level.sizeInMB >= 100) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('Tải Whisper ${level.name.toUpperCase()}?'),
+          content: Text(
+            'Dung lượng khoảng ${level.sizeInMB}MB.\n\n'
+            'Nên dùng Wi-Fi và giữ app mở trong lúc tải. '
+            'Nếu mạng đứt, bấm Tải về lại — app thử HuggingFace rồi GitHub.\n\n'
+            'Hoặc Import nếu bạn đã có file ${level.fileName}.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Tải về'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đã hiểu'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-              // Mở picker import thay vì download
-              _importModel(context, manager, level);
-            },
-            child: const Text('Chọn file thủ công'),
-          ),
-        ],
-      ),
-    );
+      );
+      if (confirm != true) return;
+    }
+
+    manager.downloadModel(level);
   }
 
   Future<void> _importModel(

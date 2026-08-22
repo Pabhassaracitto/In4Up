@@ -119,15 +119,20 @@ class SttModelManager {
     await _scanExistingModels();
   }
 
-  /// Rule 2 — Disable Auto-Download (Handover SECTION 1)
-  /// Nguyên nhân gốc: sai filePath -> fallback tự động gọi HTTP GET HuggingFace CDN
-  /// -> HttpException: Connection closed.
-  /// Directive: Xóa/disable hoàn toàn downloadModel() tự động từ URL xa.
-  /// App chỉ được nạp file đã chép sẵn tại modelPath (absolute path).
-  static const bool _kDisableAutoDownload = true;
-
+  /// Auto-download (startup / ensureModel / lần STT đầu) vẫn TẮT.
+  /// Lý do tablet đen màn hình: sai filePath → HTTP GET HuggingFace lúc
+  /// bootstrap → Battery Saver đóng kết nối → HttpException không bắt.
+  /// User bấm "Tải về" thì được phép gọi [downloadModel].
   Future<bool> ensureModel(WhisperModelLevel level) async {
-    _ensureInitialized();
+    _ensureSubjects();
+    if (_modelDirectory == null) {
+      _emitState(
+        level,
+        ModelStatus.notDownloaded,
+        errorMessage: 'Đang khởi tạo kho model. Thử lại sau vài giây.',
+      );
+      return false;
+    }
 
     final existing = await _findExistingModelFile(level);
     if (existing != null) {
@@ -144,14 +149,12 @@ class SttModelManager {
       }
     }
 
-    // Không auto-download nữa — báo lỗi thân thiện
     _emitState(
       level,
       ModelStatus.notDownloaded,
       errorMessage:
-          'Model ${level.name} chưa có tại ${_modelDirectory}. '
-          'Hãy chép file ${level.fileName} vào thư mục trên (Rule 2: disable auto-download, '
-          'tránh HttpException HuggingFace CDN)',
+          'Chưa có model ${level.name}. '
+          'Mở Home → Quản lý Model AI rồi bấm Tải về, hoặc Import file .bin.',
     );
     return false;
   }
@@ -160,26 +163,17 @@ class SttModelManager {
     WhisperModelLevel level, {
     int maxRetries = 2,
   }) async {
-    _ensureInitialized();
-
-    if (isModelReady(level)) return true;
-
-    if (_kDisableAutoDownload) {
-      debugPrint(
-        '⛔️ Auto-download DISABLED by handover Rule 2 — model ${level.name} '
-        'must be manually placed at ${_modelDirectory}. '
-        'Blocking HuggingFace CDN call that caused HttpException.',
-      );
+    _ensureSubjects();
+    if (_modelDirectory == null) {
       _emitState(
         level,
         ModelStatus.notDownloaded,
-        errorMessage:
-            'Auto-download đã tắt (fix HttpException). '
-            'Vui lòng chép thủ công file ${level.fileName} hoặc ggml-tiny-q4_0.bin '
-            'vào ${_modelDirectory}.',
+        errorMessage: 'Đang khởi tạo kho model. Thử lại sau vài giây.',
       );
       return false;
     }
+
+    if (isModelReady(level)) return true;
 
     if (_activeDownloads.containsKey(level)) return false;
 
@@ -234,7 +228,8 @@ class SttModelManager {
         level,
         ModelStatus.notDownloaded,
         errorMessage:
-            'Không tải được model ${level.name} từ tất cả nguồn đã cấu hình',
+            'Không tải được ${level.name} (mạng đứt hoặc CDN đóng kết nối). '
+            'Giữ app mở, thử lại khi Wi-Fi ổn định, hoặc Import file ${level.fileName}.',
       );
       return false;
     } catch (e) {
@@ -242,7 +237,8 @@ class SttModelManager {
       _emitState(
         level,
         ModelStatus.notDownloaded,
-        errorMessage: e.toString(),
+        errorMessage:
+            'Không tải được ${level.name}. Thử lại hoặc Import file .bin. ($e)',
       );
       return false;
     }
@@ -476,11 +472,20 @@ class SttModelManager {
   }
 
   List<String> _urlsFor(WhisperModelLevel level) {
+    final defaults = <String>[
+      '${level.downloadUrl}?download=true',
+      level.mirrorUrl,
+    ];
     final override = _urlOverrides[level];
-    if (override != null && override.isNotEmpty) {
-      return override;
+    if (override == null || override.isEmpty) return defaults;
+
+    // URL cấu hình trước, HuggingFace + GitHub làm dự phòng.
+    final seen = <String>{};
+    final urls = <String>[];
+    for (final url in [...override, ...defaults]) {
+      if (seen.add(url)) urls.add(url);
     }
-    return [level.downloadUrl, level.mirrorUrl];
+    return urls;
   }
 
   Future<List<File>> _listLocalBinFiles() async {
@@ -855,12 +860,16 @@ class SttModelManager {
     String? errorMessage,
   }) {
     final current = _modelStates[level]!.value;
+    final clearError = status == ModelStatus.downloading ||
+        status == ModelStatus.downloaded ||
+        (status == ModelStatus.notDownloaded && errorMessage == null);
     _modelStates[level]!.add(
       current.copyWith(
         status: status,
         localPath: localPath,
         downloadProgress: progress,
         errorMessage: errorMessage,
+        clearErrorMessage: clearError,
       ),
     );
   }

@@ -29,7 +29,7 @@ git show origin/arena/01a0251e-in4up:SO_TAY_CHU.md
 |---|---|---|---|
 | Ổn định | `main` | Tag `vA.B.C`, hotfix, release | Agent không push trực tiếp. Không force-push / squash-rewrite main |
 | DEV / leader | `arena/01a0251e-in4up` | Nơi **duy nhất** chức năng mới đáp | Không dùng làm nhánh session của một agent |
-| Beta | tạo mới từ tip 251e, ví dụ `beta` | Chỉ nhận **từ 251e** khi đã xanh + chủ smoke được. Build APK | Không hứng hàng từ 580, 18e, 2601… |
+| Beta | `arena/01a02a12-in4up` | Chỉ nhận **từ 251e** khi đã xanh + chủ smoke được. Build APK | Không hứng hàng từ 580, 18e, 2601… |
 
 - **630** (`arena/019fe630-vipsound`) = leader cũ, **đóng băng** (hết lưu lượng / không trả lời). 251e = 630 + ~27 commit. Không PR vào 630.
 - **580** (`arena/01a01580-in4up`) = khay vá của trợ lý này. **Không** phải Beta. Không merge cả 580 vào 251e/630.
@@ -59,28 +59,37 @@ Nỗi lo đúng: merge khi lệch hàng trăm commit → không biết giữ gì
 
 **Làm:** lấy đúng blob file (rule 630 `8ae1022`, vẫn dùng cho 251e).
 
+Git Bash (MINGW64) dùng `\` nối dòng. **PowerShell** không được — `\` bị Git hiểu là path. PowerShell: một dòng, hoặc backtick `` ` ``.
+
 ```bash
-# đứng trên 251e
+# đứng trên leader 251e
 git fetch origin arena/01a01580-in4up
 
 # Vá 1 — STT: tải khi bấm, không tự tải lúc mở app
-git checkout 928525a2404d1c99e008577aad9572e3e6bde125 -- \
+git checkout 928525a -- \
   lib/screens/settings/stt_model_settings_screen.dart \
   packages/in4up_stt/lib/stt_model_manager.dart \
   packages/in4up_stt/lib/stt_service_facade.dart \
   packages/in4up_stt/lib/models/stt_model_info.dart
 
 # Vá 2 — Viết: chấm 2 tầng + reload engine khi import .gguf
-git checkout e4b51ffa27905703cb7db8f5f1f3c370cf3f8416 -- \
+git checkout e4b51ff -- \
   lib/screens/read_mode/write_studio_screen.dart \
   packages/in4up_ai/lib/src/engine/ai_engine_gemma.dart \
   packages/in4up_ai/lib/src/engine/ai_engine_mock.dart \
   packages/in4up_ai/lib/src/facade/ai_service_facade.dart \
   packages/in4up_ai/lib/src/models/ai_analysis.dart
 
-git diff --stat    # chỉ 9 file
-git commit -m "sync(580): tai model khi bam + cham viet 2 tang"
+# Sổ tay chủ
+git checkout e0891de -- SO_TAY_CHU.md
+
+git status
+git diff --stat
+git commit -m "sync(580): tai model khi bam + cham viet 2 tang + so tay chu"
+git push origin arena/01a0251e-in4up
 ```
+
+**2026-08-22:** lệnh Vá 1 đã chạy trên worktree leader (Git Bash) nhưng **chưa commit/push** — `origin/251e` và BETA vẫn file khóa cũ. Phải `git status` trên leader: nếu 4 file STT staged/modified thì commit ngay, rồi làm Vá 2 + sổ tay.
 
 Khi conflict kiểu khác (hai nhánh cùng sửa 1 file sống):
 
@@ -181,13 +190,14 @@ Không áp cho: văn bản user, lyric, vocab, output AI, STT, tiêu đề auto-
 
 ## 6. Việc chủ còn cầm (không giao agent «xong trên giấy»)
 
-- Path-checkout 9 file 580 → **251e**, rồi smoke tablet.  
-- Tạo nhánh `beta` từ tip 251e khi đã tin.  
-- Đổi base PR Soundlist #7 từ `main` → `251e` nếu muốn vào app đang sống.  
-- LRC tiếng Việt: bảo agent Soundlist/251e sửa hardcode `'en'`.  
-- Appendix B auto-TOC tiếng Việt: chỉ chủ có máy/âm thanh.  
-- Đồng bộ `pubspec` + gradle version.  
-- Một dòng đầu `AGENTS.md` 251e: leader = 251e, 630 archived.
+- [ ] Leader: commit + push Vá 1 (STT) nếu `git status` còn 4 file. Rồi Vá 2 + `SO_TAY_CHU.md`.  
+- [ ] Kéo 2 file governance từ BETA `9b4fb41` về 251e (`AGENTS.md`, `docs/GOVERNANCE.md` mục 2a — sandbox fetch thiếu `arena/*`).  
+- [ ] BETA chỉ FF/merge từ 251e sau khi leader đã có 9 file + sổ tay. Không checkout 580 thẳng vào BETA.  
+- [ ] Đổi base PR Soundlist #7 `main` → `251e`.  
+- [ ] LRC tiếng Việt: agent 251e/Soundlist sửa hardcode `'en'`.  
+- [ ] Appendix B auto-TOC tiếng Việt: chủ cầm máy.  
+- [ ] Đồng bộ `pubspec` + gradle version.  
+- [ ] Một dòng đầu `AGENTS.md` 251e: leader = 251e, BETA = `01a02a12`, 630 archived.
 
 Sandbox Arena thường **không có Flutter** — agent không được nhận đã `flutter analyze` / chạy app.
 

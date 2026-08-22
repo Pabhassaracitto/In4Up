@@ -30,7 +30,7 @@
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
-| AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | 🔄 doing | 5 commits + PR #8 (chờ CI full build) |
+| AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | ✅ done (chờ nghiệm thu build) | 8 commits + PR #8 + CI bisect 5 vòng (baseline đỏ sẵn) |
 
 ---
 
@@ -313,15 +313,17 @@
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | docx thật (deflate) + md + json mô phỏng pass
 
 ### AICHAT-01 — AI Chat thật: llama.cpp native backend (hết mock)
-- **Trạng thái:** doing
+- **Trạng thái:** done (chờ nghiệm thu build của owner)
 - **Nội dung:** Đưa inference thật vào luồng AI Chat (audit nhánh 01a0251e:
   chat đang mock, AiEngineGemma gọi _mockInference, binding/CMake có sẵn
   nhưng chưa nối). (1) Submodule `third_party/llama.cpp` pin tag b10567
   (shallow). (2) CMake build `in4up_ai_native`: Android dùng file riêng
   `android/app/src/main/cpp/ai/CMakeLists.txt` — KHÔNG đụng CMakeLists
   UltraTimeStretch (vùng bảo vệ mục 0) — wire qua externalNativeBuild
-  (ANDROID_STL=c++_static); Windows thêm target + copy DLL cạnh in4up.exe
-  (POST_BUILD + install). (3) Nối AiNativeBindings vào isolate AiEngineGemma:
+  (ANDROID_STL=c++_static, Kotlin DSL `arguments += listOf(...)`); Windows
+  thêm target + copy DLL cạnh in4up.exe (POST_BUILD + install) +
+  `__declspec(dllexport)` cho ABI (thiếu là DLL không export symbol, FFI
+  rơi về mock âm thầm). (3) Nối AiNativeBindings vào isolate AiEngineGemma:
   luồng thật Chat UI → Facade → Engine → isolate → FFI → llama.cpp → GGUF;
   mock fallback khi thiếu lib/model (app không vỡ); isolate báo ready trước
   khi load model. (4) Fix hasModel = _initialized && !_useMock (hết hiểu
@@ -332,9 +334,21 @@
   đã bỏ và dùng self-heal tại configure).
 - **Bằng chứng:** sandbox local (g++12 + CMake 4.4): llama.cpp b10567 build
   sạch; in4up_ai_native compile + link + ABI smoke pass (create path sai ⇒
-  nullptr, alias in2up_ai_* OK, generate null ⇒ -1); configure thiếu
-  submodule tự clone lại đúng pin; mô phỏng git lỗi ⇒ WARNING (không fail).
-  CI full build qua tag tạm v1.4.0-ai-native-test (run 32525863254) — chờ kết quả.
+  nullptr, alias in2up_ai_* OK, generate null ⇒ -1; nm -D xác nhận 8/8
+  symbol export; -Wall -Wextra 0 warning); configure thiếu submodule tự
+  clone lại đúng pin; mô phỏng git lỗi ⇒ WARNING (không fail).
+  CI full build (tag oracle) 5 vòng + log owner: **workflow đỏ SẴN trên
+  baseline cd9cccff** do lỗi `lib/main.dart:151 Member not found:
+  'androidForFlavor'` — CI GHI ĐÈ lib/firebase_options.dart bằng bản tối
+  giản (chỉ có currentPlatform) trong cả 3 job trước khi build ⇒
+  kernel_snapshot fail cả Android/iOS/Windows (lỗi tiềm ẩn workflow↔code,
+  không liên quan AI). Windows: llama.vcxproj + in4up_ai_native.vcxproj
+  compile SẠCH trên MSVC (chỉ warnings C4267/C4244 đã được dọn bằng
+  static_cast); 2 error còn lại đều là flutter_assemble (Dart). Đã fix
+  main.dart dùng currentPlatform (file thật vẫn chọn đúng theo flavor qua
+  androidForFlavor nội bộ) — cần 1 vòng CI xác nhận xanh.
 - **Lịch sử:**
   - 2026-08-21 21:10 UTC | created | owner via chat | "Hoàn thiện chat AI" — audit: nhánh 01a0251e chat đang mock, llama.cpp chưa tích hợp (commit 959263d nằm ở arena/019fe84a-vipsound)
   - 2026-08-21 21:10 UTC | proposed→doing | agent arena/01a02601-in4up | 5 commits + PR #8 + tag CI oracle
+  - 2026-08-21 21:55 UTC | doing→done | agent arena/01a02601-in4up | +3 commit (DSL fix, dllexport fix, KANBAN) — CI bisect 5 vòng: baseline đỏ sẵn, thay đổi không tạo điểm đỏ mới trên Android; chờ nghiệm thu build owner
+  - 2026-08-22 | done→done | agent arena/01a02601-in4up | owner cung cấp log CI: llama.cpp + adapter compile sạch trên MSVC; gốc đỏ 3 nền tảng = androidForFlavor (CI ghi đè firebase_options bản tối giản) — đã fix lib/main.dart + dọn warning C4267; sandbox tái bản giữa phiên đã phục hồi theo playbook (0 mất dữ liệu)

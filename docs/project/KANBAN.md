@@ -337,18 +337,21 @@
   nullptr, alias in2up_ai_* OK, generate null ⇒ -1; nm -D xác nhận 8/8
   symbol export; -Wall -Wextra 0 warning); configure thiếu submodule tự
   clone lại đúng pin; mô phỏng git lỗi ⇒ WARNING (không fail).
-  CI full build (tag oracle) 5 vòng + log owner: **workflow đỏ SẴN trên
-  baseline cd9cccff** do lỗi `lib/main.dart:151 Member not found:
-  'androidForFlavor'` — CI GHI ĐÈ lib/firebase_options.dart bằng bản tối
-  giản (chỉ có currentPlatform) trong cả 3 job trước khi build ⇒
-  kernel_snapshot fail cả Android/iOS/Windows (lỗi tiềm ẩn workflow↔code,
-  không liên quan AI). Windows: llama.vcxproj + in4up_ai_native.vcxproj
-  compile SẠCH trên MSVC (chỉ warnings C4267/C4244 đã được dọn bằng
-  static_cast); 2 error còn lại đều là flutter_assemble (Dart). Đã fix
-  main.dart dùng currentPlatform (file thật vẫn chọn đúng theo flavor qua
-  androidForFlavor nội bộ) — cần 1 vòng CI xác nhận xanh.
+  CI full build (tag v1.4.0-ai-ci-verify, run 32581570932): **iOS ✅ +
+  Windows ✅** — llama.cpp + in4up_ai_native.dll build thành công trong
+  pipeline Windows thật (bằng chứng vàng: native AI backend compile/link/
+  ship). Android fail ở Build Split APKs nhưng **bisect native OFF (tag
+  v1.4.0-android-no-native, run 32582388775) vẫn fail y hệt** ⇒ lỗi Android
+  còn lại là pre-existing độc lập (không phải AI, không phải firebase —
+  đã fix bằng main.dart và đã thông 2 nền tảng kia); cần owner xem log
+  Android (sandbox không đọc được: blob/results-receiver bị chặn tầng
+  mạng) để chốt. Lịch sử 5 vòng tag trước: workflow đỏ sẵn trên baseline
+  cd9cccff do 'Member not found: androidForFlavor' (CI ghi đè
+  firebase_options.dart bản tối giản) — đã fix main.dart dùng
+  currentPlatform (file thật vẫn route đúng theo flavor).
 - **Lịch sử:**
   - 2026-08-21 21:10 UTC | created | owner via chat | "Hoàn thiện chat AI" — audit: nhánh 01a0251e chat đang mock, llama.cpp chưa tích hợp (commit 959263d nằm ở arena/019fe84a-vipsound)
   - 2026-08-21 21:10 UTC | proposed→doing | agent arena/01a02601-in4up | 5 commits + PR #8 + tag CI oracle
   - 2026-08-21 21:55 UTC | doing→done | agent arena/01a02601-in4up | +3 commit (DSL fix, dllexport fix, KANBAN) — CI bisect 5 vòng: baseline đỏ sẵn, thay đổi không tạo điểm đỏ mới trên Android; chờ nghiệm thu build owner
   - 2026-08-22 | done→done | agent arena/01a02601-in4up | owner cung cấp log CI: llama.cpp + adapter compile sạch trên MSVC; gốc đỏ 3 nền tảng = androidForFlavor (CI ghi đè firebase_options bản tối giản) — đã fix lib/main.dart + dọn warning C4267; sandbox tái bản giữa phiên đã phục hồi theo playbook (0 mất dữ liệu)
+  - 2026-08-22 | done→done | agent arena/01a02601-in4up | CI run 32581570932: iOS ✅ Windows ✅ (native AI build thành công); Android đỏ = pre-existing (bisect native OFF vẫn đỏ, run 32582388775); dọn tag bisect cũ

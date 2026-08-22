@@ -32,7 +32,7 @@
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
-| LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | ✅ done | CI run 32573825623 (analyze + rule5/ADR-0002 test xanh) |
+| LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | ✅ done | merge 81dc2c8; CI run 32593596431 (chờ nghiệm thu bản dịch HI/ZH/SI) |
 
 ---
 
@@ -348,7 +348,7 @@
   - 2026-08-22 | doing→done | agent arena/01a0251e-in4up | CI App Analyze xanh run 32524455212 (commit 4e1df4e + d4a3dc1); chờ build nghiệm thu của owner + model Piper trên thiết bị
 
 ### LANG-630-01 — Sứ giả ngôn ngữ: EN chuẩn fallback + lộ trình bậc vi→en→hi/zh/si→…
-- **Trạng thái:** done (chờ CI + nghiệm thu bản dịch của owner)
+- **Trạng thái:** done (chờ nghiệm thu bản dịch HI/ZH/SI của owner)
 - **Nguồn:** người sở hữu (2026-08-22, qua agent arena/01a0296a-in4up —
   "I4U | Language EL HIN CH SH": (1) locale ≠ vi không còn tiếng Việt, thiếu
   dịch → English; (2) triển khai đặc biệt Hindi + Chinese + Sinhala phủ dần
@@ -380,3 +380,4 @@
   - 2026-08-22 | doing | agent arena/01a0296a-in4up | wave 1 + hạ tầng tier/ratchet + ADR-0002
   - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | mọi check local xanh (ARB parity, không ký tự Việt, floors đồng bộ, T2=100%); chờ CI
   - 2026-08-22 | done (xác nhận CI) | agent arena/01a0296a-in4up | CI App Analyze xanh run 32573825623 (analyze + locale/rollout test); chờ owner nghiệm thu bản dịch HI/ZH/SI
+  - 2026-08-23 | thu hoạch vào arena/01a0251e-in4up | agent arena/01a0251e-in4up | review OK → merge 81dc2c8 (không xung đột với SHERPA-001/002); bổ sung file `docs/adr/0002-language-rollout-tiers.md` (commit gốc thiếu file, chỉ tham chiếu) + sửa 3 comment ref test; CI post-merge xanh run 32593596431

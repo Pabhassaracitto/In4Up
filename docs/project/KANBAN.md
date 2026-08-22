@@ -31,6 +31,8 @@
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | ✅ done (chờ nghiệm thu build) | 8 commits + PR #8 + CI bisect 5 vòng (baseline đỏ sẵn) |
+| CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🚫 blocked (chờ owner) | chẩn đoán + patch 4 chỗ trong card (cần quyền workflows) |
+| CI-ANDROID-02 | Build llama.cpp cho Android trong CI (pin CMake 3.31.5 trên CI) | 🔄 doing | build_final_complete: no-native ✅ / with-native ❌ ⇒ stage CMake |
 
 ---
 
@@ -355,3 +357,78 @@
   - 2026-08-21 21:55 UTC | doing→done | agent arena/01a02601-in4up | +3 commit (DSL fix, dllexport fix, KANBAN) — CI bisect 5 vòng: baseline đỏ sẵn, thay đổi không tạo điểm đỏ mới trên Android; chờ nghiệm thu build owner
   - 2026-08-22 | done→done | agent arena/01a02601-in4up | owner cung cấp log CI: llama.cpp + adapter compile sạch trên MSVC; gốc đỏ 3 nền tảng = androidForFlavor (CI ghi đè firebase_options bản tối giản) — đã fix lib/main.dart + dọn warning C4267; sandbox tái bản giữa phiên đã phục hồi theo playbook (0 mất dữ liệu)
   - 2026-08-22 | done→done | agent arena/01a02601-in4up | CI run 32581570932: iOS ✅ Windows ✅ (native AI build thành công); Android đỏ = pre-existing (bisect native OFF vẫn đỏ, run 32582388775); dọn tag bisect cũ
+  - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | owner dán log Android (processBetaReleaseGoogleServices / No matching client com.in4up.beta). CHẨN DOÁN CHUYỂN HƯỚNG: (1) run 32582388796 (build_final_complete, no-native tag v1.4.0-android-no-native) job Android **XANH 16m30s + artifact android-apk** — run bisect trước chỉ nhìn job build.yml (32582388775) nên kết luận "Android đỏ pre-existing" chưa đầy đủ; (2) build_final_complete với native ĐỎ ở "Build Split APKs" (run 32581570950) ⇒ riêng workflow này, native chính là điểm chặn; (3) tách 2 card CI-ANDROID-01 (build.yml — cần owner sửa workflow) + CI-ANDROID-02 (native build trong CI — pin CMake 3.31.5). Bỏ approach lách trong repo (inject client / alias tên APK / tắt flavor khi CI) — phá build_final_complete (dùng `--flavor stable`) và che secret thật, đã thống nhất với branch 01a01580
+
+### CI-ANDROID-01 — Fix job Android của build.yml (chỉ ship stable + rename đúng tên)
+- **Trạng thái:** blocked (chờ owner: dán patch vào `.github/workflows/build.yml` HOẶC reconnect GitHub cho token agent với quyền `workflows`)
+- **Nội dung:** Job Build Android APK của `build.yml` đỏ vì 2 lỗi chồng, ĐỀU không liên quan code AI:
+  1. `flutter build apk --release --split-per-abi` (không `--flavor`) build **cả 3 flavor** →
+     `:app:processBetaReleaseGoogleServices` chết: "No matching client found for package name
+     'com.in4up.beta'" — secret `ANDROID_GOOGLE_SERVICES` chỉ có client `com.in4up` (log do
+     owner dán 2026-08-22). CI chưa từng ship beta/dev.
+  2. Dù secret đủ client thì bước "Rename All APKs" vẫn fail: workflow chờ tên KHÔNG-flavor
+     (`app-arm64-v8a-release.apk`) trong khi flutter 3.44.1 đặt tên
+     `app-<abi>-<flavor>-release.apk` (ABI TRƯỚC, flavor SAU — verify từ source
+     `FlutterPlugin.kt` + `listApkPaths()` trong `gradle.dart` tag 3.44.1). `build_final_complete.yml`
+     cũng check sai 2 thứ tự (`app-stable-<abi>-...` rồi `app-<abi>-release`) ⇒ split APKs của nó
+     bị skip im lặng, chỉ universal (`app-stable-release.apk`) khớp — artifact hiện tại chỉ có 1 APK.
+  Cách sửa đúng (option A, thống nhất với branch 01a01580): CI chỉ build stable →
+  `--flavor stable` + rename đúng tên thật. KHÔNG lách trong repo: tắt flavor khi CI=true phá
+  `build_final_complete.yml`; inject mock client / commit mock google-services.json che secret thật,
+  lệch convention.
+- **Patch chính xác (4 chỗ trong `.github/workflows/build.yml`):**
+  ```diff
+  -          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation \
+  +          flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+
+  -          flutter build apk --release --android-skip-build-dependency-validation \
+  +          flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+  ```
+  ```diff
+  -          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+  +          mv build/app/outputs/flutter-apk/app-armeabi-v7a-stable-release.apk \
+             build/app/outputs/flutter-apk/in4up-Android-armv7-${{ ... }}.apk
+  -          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+  +          mv build/app/outputs/flutter-apk/app-arm64-v8a-stable-release.apk \
+             build/app/outputs/flutter-apk/in4up-Android-arm64-${{ ... }}.apk
+  -          mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
+  +          mv build/app/outputs/flutter-apk/app-x86_64-stable-release.apk \
+             build/app/outputs/flutter-apk/in4up-Android-x64-${{ ... }}.apk
+  -          mv build/app/outputs/flutter-apk/app-release.apk \
+  +          mv build/app/outputs/flutter-apk/app-stable-release.apk \
+             build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-${{ ... }}.apk
+  ```
+  ⚠️ Tên `app-<abi>-stable-release.apk` (ABI trước) là TÊN THẬT do flutter plugin sinh — bản draft
+  patch `app-stable-<abi>-release.apk` (flavor trước) của branch 01a01580 sai thứ tự, dán nguyên
+  sẽ đỏ ở chính bước Rename.
+- **Bằng chứng:** log owner (processBetaReleaseGoogleServices); run 32581570932/32582388775
+  (build.yml Android đỏ cả khi native OFF); source flutter 3.44.1 (tên APK).
+- **Lịch sử:**
+  - 2026-08-22 | created | agent arena/01a02a4a-in4up | owner dán log Android
+  - 2026-08-22 | proposed→blocked | agent arena/01a02a4a-in4up | chẩn đoán xong + option A chốt với branch 01a01580; token thiếu quyền workflows ⇒ owner dán patch (bên trên) hoặc reconnect GitHub với permission `workflows` để agent tự áp; patch đã chỉnh lại thứ tự tên rename
+
+### CI-ANDROID-02 — Build llama.cpp cho Android trong CI (pin CMake 3.31.5 trên CI)
+- **Trạng thái:** doing
+- **Nội dung:** Job Android của `build_final_complete.yml` (chỉ build `--flavor stable`,
+  google-services ổn) XANH khi tắt native nhưng ĐỎ khi bật native ⇒ điểm chặn nằm ở stage
+  CMake/NDK của llama.cpp, KHÔNG phải lỗi Dart/google-services. Bằng chứng timing:
+  run 32582388796 (no-native): Build Android APK ✓ 16m30s + artifact android-apk;
+  run 32581570950 (with-native): ✗ "Build Split APKs" chỉ 12m35s — chết SỚM hơn build
+  không-native ⇒ lỗi ở stage configure, chưa tới compile dài. Gốc: runner ubuntu-latest
+  (image 24.04/26.04, verify toolset actions/runner-images) preinstall NDK 27/28/29 +
+  cmake 3.31.5/4.1.2 — **KHÔNG có cmake 3.22.1**; `build.gradle.kts` pin 3.22.1; bước
+  `sdkmanager --install "cmake;3.22.1" || true` của workflow fail âm thầm (nếu fail) ⇒
+  AGP chết "CMake version '3.22.1' not found". Fix trong repo (legal, không đụng workflow):
+  `version = if (System.getenv("CI") == "true") "3.31.5" else "3.22.1"` — llama.cpp pin
+  d7fa69b7 khai báo `cmake_minimum_required(VERSION 3.14...3.28)` ⇒ 3.31.5 chạy tốt;
+  NDK 28.2.13676358 (=NDK 28 của image) giữ nguyên theo yêu cầu owner. Build local không đổi.
+- **Verify (oracle 1-bit):** tag `v1.4.0-android-cmake` → xem job **Build Android APK** của
+  `build_final_complete.yml` (KHÔNG phải build.yml — job đó vẫn đỏ google-services cho tới
+  khi CI-ANDROID-01 được owner áp, đó là trạng thái ĐÚNG, không phải điểm đỏ mới).
+  Xanh ⇒ llama.cpp build cho Android trong CI thành công (bằng chứng vàng thứ 3 sau
+  Windows/... — Android là nền tảng cuối). ĐỎ ⇒ xin owner dán ~30 dòng cuối của step
+  "Build Split APKs" trong run mới (sandbox không đọc được log CI).
+- **Lịch sử:**
+  - 2026-08-22 | created→doing | agent arena/01a02a4a-in4up | commit CMake pin + tag oracle (sha cập nhật khi push)

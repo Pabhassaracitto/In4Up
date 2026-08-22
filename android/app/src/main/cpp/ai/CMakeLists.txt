@@ -51,6 +51,16 @@ set(LLAMA_BUILD_SERVER   OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_LLAMA_CLI OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP          OFF CACHE BOOL "" FORCE)
 set(GGML_NATIVE          OFF CACHE BOOL "" FORCE)
+# GGML_LLAMAFILE: llama.cpp bật ON mặc định (CMakeLists gốc). TẮT vì file
+# ggml-cpu/llamafile/sgemm.cpp dùng intrinsics FP16 NEON (vld1q_f16/vld1_f16)
+# MÀ KHÔNG check __ARM_FEATURE_FP16_VECTOR_ARITHMETIC — upstream ghi thẳng
+# "FIXME: this should check for __ARM_FEATURE_FP16_VECTOR_ARITHMETIC". Target
+# armeabi-v7a của NDK không có extension +fp16 ⇒ CI chết (run 32586625020):
+#   sgemm.cpp:311: error: use of undeclared identifier 'vld1q_f16'
+# (arm64 không ảnh hưởng vì NDK arm64 mặc định có fp16). Tắt OFF giữ nguyên
+# inference hoàn chỉnh — ggml dùng bộ kernel CPU chuẩn, chỉ mất fast path
+# llamafile cho model f16.
+set(GGML_LLAMAFILE       OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(${LLAMA_DIR} ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp EXCLUDE_FROM_ALL)
 

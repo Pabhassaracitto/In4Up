@@ -16,7 +16,6 @@ import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
-import '../prompts/ai_prompts_library.dart';
 
 /// Facade duy nhất cho toàn bộ AI module — UI và Provider chỉ tương tác qua class này
 /// Kết hợp: Word Lookup + Sentence Parse + Summarize + TermExtract + PAO + Chat
@@ -39,7 +38,9 @@ class AiServiceFacade extends ChangeNotifier {
   AiFacadeState get facadeState => _facadeState;
   bool get isLoading => _facadeState == AiFacadeState.loading;
   bool get isChatLoading => _facadeState == AiFacadeState.chatting;
-  bool get hasModel => _initialized;
+  /// True only when a real .gguf is loaded — not mock/startup fallback.
+  bool get hasModel =>
+      !_useMock && _loader.hasModel && isReady;
   String? _lastError;
   String? get lastError => _lastError;
   bool get isReady => _initialized && (_engine?.state == AiEngineState.ready);
@@ -151,13 +152,21 @@ class AiServiceFacade extends ChangeNotifier {
     }
   }
 
-  Future<bool> initialize({required String modelPath, bool useMock = false}) async {
-    if (_initialized) return true;
+  Future<bool> initialize({
+    required String modelPath,
+    bool useMock = false,
+    bool forceReload = false,
+  }) async {
+    if (_initialized && !forceReload) return true;
     _useMock = useMock;
 
-    if (useMock) {
+    await _engine?.dispose();
+    _engine = null;
+
+    if (useMock || modelPath.trim().isEmpty) {
       _engine = AiEngineMock();
       await _engine!.initialize(modelPath: modelPath);
+      _useMock = true;
       _initialized = true;
       debugPrint('[AiServiceFacade] Mock mode');
       if (!_disposed) notifyListeners();
@@ -167,6 +176,13 @@ class AiServiceFacade extends ChangeNotifier {
     _engine = AiEngineGemma();
     final ok = await _engine!.initialize(modelPath: modelPath);
     _initialized = ok;
+    _useMock = !ok;
+    if (!ok) {
+      _engine = AiEngineMock();
+      await _engine!.initialize(modelPath: '');
+      _initialized = true;
+      debugPrint('[AiServiceFacade] Gemma init failed → mock fallback');
+    }
     if (!_disposed) notifyListeners();
     return ok;
   }
@@ -389,10 +405,16 @@ class AiServiceFacade extends ChangeNotifier {
 
   Future<bool> importModelFromUser() async {
     try {
-      final loader = AiModelLoader();
-      final result = await loader.importModelFromUser();
+      final result = await _loader.importModelFromUser();
+      _modelStatus = result;
       if (result.success && result.modelPath != null) {
-        return await initialize(modelPath: result.modelPath!);
+        final ok = await initialize(
+          modelPath: result.modelPath!,
+          useMock: false,
+          forceReload: true,
+        );
+        if (!_disposed) notifyListeners();
+        return ok;
       }
       return false;
     } catch (e) {

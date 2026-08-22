@@ -1,5 +1,5 @@
-// packages/vipsound_ai/lib/src/engine/ai_engine_mock.dart
-// v11.0-final — fix AiAnalysis() constructor (required fields)
+// packages/in4up_ai/lib/src/engine/ai_engine_mock.dart
+// Offline fallback when no real .gguf is loaded.
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -26,12 +26,13 @@ class AiEngineMock implements AiEngine {
     await Future.delayed(const Duration(milliseconds: 300));
 
     yield AiAnalysis(
+      inputText: text,
       summary: _mockSummary(type, text),
-      topics: _mockTopics(type),
+      topics: _mockTopics(type, text),
       terms: _mockTerms(type, text),
       success: true,
-      actionItems: const [],
-      language: 'en',
+      actionItems: _mockActions(text),
+      language: 'vi',
       analysisType: type,
       generatedAt: DateTime.now(),
       wordDetail: type == AiAnalysisType.wordLookup
@@ -65,20 +66,27 @@ class AiEngineMock implements AiEngine {
     debugPrint('[AiEngineMock] disposed');
   }
 
-  // ── Mock helpers ──────────────────────────────────────────
-
   String _mockSummary(AiAnalysisType type, String text) {
+    if (text.contains('in4up_WRITE_REVIEW')) {
+      return 'Tầng 2 đã nhận bài chép. Đây là phản hồi mẫu khi chưa có model .gguf — điểm Tầng 1 ở phía trên; import model để AI chấm thật.';
+    }
+    if (text.contains('in4up_REWRITE_REVIEW')) {
+      return 'Tầng 2 đã nhận bài viết lại. Phản hồi mẫu: giữ ý chính, đổi cấu trúc câu, tránh chép sát câu gốc.';
+    }
+    if (text.contains('in4up_SUMMARY_REVIEW')) {
+      return 'Tầng 2 đã nhận bản tóm tắt. Phản hồi mẫu: giữ 2–3 từ khóa cốt lõi và rút gọn thành một câu rõ.';
+    }
     switch (type) {
       case AiAnalysisType.wordLookup:
         return 'Tra cứu từ: "$text"';
       case AiAnalysisType.sentenceParse:
-        return 'Phân tích câu: "$text"';
+        return 'Phân tích câu đã nhận. Import model .gguf để có nhận xét ngữ pháp sâu hơn.';
       case AiAnalysisType.summarize:
         return 'Tóm tắt nội dung transcript.';
       case AiAnalysisType.termExtract:
         return 'Trích xuất thuật ngữ từ transcript.';
       case AiAnalysisType.conversation:
-        return 'Phân tích hội thoại.';
+        return 'Mình đã nhận tin nhắn. Import model .gguf để chat bằng model thật.';
       case AiAnalysisType.paoGeneration:
         return 'Tạo PAO memory story cho "$text".';
       case AiAnalysisType.error:
@@ -86,7 +94,12 @@ class AiEngineMock implements AiEngine {
     }
   }
 
-  List<String> _mockTopics(AiAnalysisType type) {
+  List<String> _mockTopics(AiAnalysisType type, [String text = '']) {
+    if (text.contains('in4up_WRITE_REVIEW')) return ['Writing', 'Recall'];
+    if (text.contains('in4up_REWRITE_REVIEW')) return ['Rewrite', 'Output'];
+    if (text.contains('in4up_SUMMARY_REVIEW')) {
+      return ['Summary', 'Compression'];
+    }
     switch (type) {
       case AiAnalysisType.wordLookup:
         return ['Vocabulary'];
@@ -103,6 +116,18 @@ class AiEngineMock implements AiEngine {
       case AiAnalysisType.error:
         return ['Error'];
     }
+  }
+
+  List<String> _mockActions(String text) {
+    if (text.contains('in4up_WRITE_REVIEW') ||
+        text.contains('in4up_REWRITE_REVIEW') ||
+        text.contains('in4up_SUMMARY_REVIEW')) {
+      return [
+        'Xem điểm Tầng 1 (Chấm nhanh) ngay phía trên.',
+        'Import file .gguf trong Cài AI local để Tầng 2 dùng model thật.',
+      ];
+    }
+    return const [];
   }
 
   List<AiTerm> _mockTerms(AiAnalysisType type, String text) {

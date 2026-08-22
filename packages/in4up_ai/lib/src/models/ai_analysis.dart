@@ -205,15 +205,26 @@ class AiAnalysis {
     );
   }
 
-  factory AiAnalysis.fromGemmaJson(String rawJson, {AiAnalysisType? analysisType}) {
+  factory AiAnalysis.fromGemmaJson(
+    String rawJson, {
+    AiAnalysisType? analysisType,
+    String? inputText,
+  }) {
     try {
       final map = jsonDecode(rawJson) as Map<String, dynamic>;
       if (analysisType != null && map['analysisType'] == null) {
         map['analysisType'] = analysisType.name;
       }
-      return AiAnalysis.fromJson(map, map['inputText'] as String? ?? '');
+      final resolved = (inputText != null && inputText.isNotEmpty)
+          ? inputText
+          : map['inputText'] as String? ?? '';
+      return AiAnalysis.fromJson(map, resolved);
     } catch (_) {
-      return AiAnalysis.fallback('', errorReason: 'Invalid Gemma JSON', analysisType: analysisType);
+      return AiAnalysis.fallback(
+        inputText ?? '',
+        errorReason: 'Invalid Gemma JSON',
+        analysisType: analysisType,
+      );
     }
   }
 

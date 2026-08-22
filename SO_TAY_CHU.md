@@ -336,6 +336,36 @@ git push origin arena/01a02a12-in4up
 
 App Analyze 251e đã xanh. Full APK Android trên GitHub (tag `v*`) lần cuối vẫn đỏ google-services/`com.in4up.beta` — sửa `build.yml` `--flavor stable` (quyền workflows), không tắt flavor trong Gradle.
 
+### Tên APK Flutter 3.44.1 (đừng đảo)
+
+Source `packages/flutter_tools/lib/src/android/gradle.dart` hàm `_apkFilesFor`:
+
+```
+app$flavorString-$abi-$buildType.apk
+→ app-stable-arm64-v8a-release.apk
+```
+
+**Đúng:** `app-<flavor>-<abi>-release.apk` và universal `app-stable-release.apk`.  
+**Sai** (nhánh `02a4a` đảo): `app-arm64-v8a-stable-release.apk`.
+
+`build_final_complete.yml` bước Rename **đã đúng** flavor-trước. Chỉ ra 1 APK universal vì bước Split có `||` — split đỏ thì im lặng build fat, không phải vì tên ABI-trước.
+
+Patch `build.yml` (chủ dán, quyền `workflows`) — GitHub web editor:
+
+```yaml
+# Build Split + Build Universal: thêm --flavor stable
+flutter build apk --release --flavor stable --split-per-abi ...
+flutter build apk --release --flavor stable ...
+
+# Rename All APKs — 4 dòng mv nguồn:
+app-armeabi-v7a-release.apk  → app-stable-armeabi-v7a-release.apk
+app-arm64-v8a-release.apk    → app-stable-arm64-v8a-release.apk
+app-x86_64-release.apk       → app-stable-x86_64-release.apk
+app-release.apk              → app-stable-release.apk
+```
+
+`02a4a` (PR #9 → **main**, 214 file): đã bỏ lách Gradle (đúng). Pin CMake 3.31.5 khi `CI=true` (`5995183`) hợp lý nhưng oracle `32586625020` Android vẫn đỏ Split APKs — cần log, đừng đoán. **Đừng merge PR #9 vào main.** Base đúng = 251e (như PR #8). CMake pin path-checkout 1 file `android/app/build.gradle.kts` sau Lần 1.
+
 ---
 
 ## Nhật ký

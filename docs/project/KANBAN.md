@@ -32,7 +32,8 @@
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | ✅ done (chờ nghiệm thu build) | 8 commits + PR #8 + CI bisect 5 vòng (baseline đỏ sẵn) |
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🚫 blocked (chờ owner) | chẩn đoán + patch 4 chỗ trong card (cần quyền workflows) |
-| CI-ANDROID-02 | Build llama.cpp cho Android trong CI (pin CMake 3.31.5 trên CI) | 🔄 doing | build_final_complete: no-native ✅ / with-native ❌ ⇒ stage CMake |
+| CI-ANDROID-02 | Build llama.cpp cho Android trong CI | 🔄 doing (cần log) | oracle 32586625020: pin CMake chưa đủ — vẫn đỏ "Build Split APKs" |
+| CI-LINUX-01 | Fix job Linux của build_final_complete.yml (Build Linux Release) | 📋 proposed | đỏ mọi run (pre-existing, riêng rẽ) |
 
 ---
 
@@ -431,4 +432,16 @@
   Windows/... — Android là nền tảng cuối). ĐỎ ⇒ xin owner dán ~30 dòng cuối của step
   "Build Split APKs" trong run mới (sandbox không đọc được log CI).
 - **Lịch sử:**
-  - 2026-08-22 | created→doing | agent arena/01a02a4a-in4up | commit CMake pin + tag oracle (sha cập nhật khi push)
+  - 2026-08-22 | created→doing | agent arena/01a02a4a-in4up | commit 5995183 + tag oracle v1.4.0-android-cmake
+  - 2026-08-22 | doing→doing | agent arena/01a02a4a-in4up | ORACLE run 32586625020 (tag v1.4.0-android-cmake): iOS ✅ 8m0s, Windows ✅ 16m02s, Android ❌ 10m36s — vẫn chết "Build Split APKs" (annotation .github#248) ⇒ giả thuyết "thiếu CMake 3.22.1" CHƯA đủ giải thích (pin 3.31.5 đã có hiệu lực trên CI). Còn 2 nhóm nghi phạm: (a) CMake/NDK vẫn không resolve đúng (lỗi "version not found" khác / NDK patch), (b) compile error của llama.cpp b10567 trên NDK clang (MSVC + g++ host đã build sạch — NDK là toolchain duy nhất chưa verify). Sandbox không đọc được log (results-receiver bị chặn) ⇒ ĐỀ NGHỊ OWNER DÁN ~30–50 dòng cuối step "Build Split APKs" (đoạn FAILURE) từ run 32586625020 / job 97063853155: https://github.com/Pabhassaracitto/In4Up/actions/runs/32586625020/job/97063853155
+
+### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
+- **Trạng thái:** proposed
+- **Nội dung:** Job Build Linux App của `build_final_complete.yml` ĐỎ ở bước
+  "Build Linux Release" trong MỌI run (32581570950: 2m06s; 32586625020: 1m57s —
+  chết sớm sau khi pub get). Pre-existing, riêng rẽ với Android/AI (Linux build
+  không dùng llama.cpp native — CMake Android-only). Cần: log step đỏ để chẩn
+  đoán (khả năng: thiếu lib cho plugin, hoặc lỗi code desktop). Chưa can thiệp —
+  ưu tiên Android theo yêu cầu owner.
+- **Lịch sử:**
+  - 2026-08-22 | created | agent arena/01a02a4a-in4up | phát hiện khi soi run oracle (job Linux đỏ mọi vòng)

@@ -32,8 +32,8 @@
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | ✅ done (chờ nghiệm thu build) | 8 commits + PR #8 + CI bisect 5 vòng (baseline đỏ sẵn) |
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🚫 blocked (chờ owner) | chẩn đoán + patch 4 chỗ trong card (cần quyền workflows) |
-| CI-ANDROID-02 | Build llama.cpp cho Android trong CI | 🔄 doing (cần log) | oracle 32586625020: pin CMake chưa đủ — vẫn đỏ "Build Split APKs" |
-| CI-LINUX-01 | Fix job Linux của build_final_complete.yml (Build Linux Release) | 📋 proposed | đỏ mọi run (pre-existing, riêng rẽ) |
+| CI-ANDROID-02 | Build llama.cpp cho Android trong CI | 🔄 doing (oracle chờ chạy) | root cause chốt: sgemm.cpp FP16 NEON thiếu guard armv7 — fix GGML_LLAMAFILE OFF (c13be66) |
+| CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 
 ---
 
@@ -359,6 +359,7 @@
   - 2026-08-22 | done→done | agent arena/01a02601-in4up | owner cung cấp log CI: llama.cpp + adapter compile sạch trên MSVC; gốc đỏ 3 nền tảng = androidForFlavor (CI ghi đè firebase_options bản tối giản) — đã fix lib/main.dart + dọn warning C4267; sandbox tái bản giữa phiên đã phục hồi theo playbook (0 mất dữ liệu)
   - 2026-08-22 | done→done | agent arena/01a02601-in4up | CI run 32581570932: iOS ✅ Windows ✅ (native AI build thành công); Android đỏ = pre-existing (bisect native OFF vẫn đỏ, run 32582388775); dọn tag bisect cũ
   - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | owner dán log Android (processBetaReleaseGoogleServices / No matching client com.in4up.beta). CHẨN DOÁN CHUYỂN HƯỚNG: (1) run 32582388796 (build_final_complete, no-native tag v1.4.0-android-no-native) job Android **XANH 16m30s + artifact android-apk** — run bisect trước chỉ nhìn job build.yml (32582388775) nên kết luận "Android đỏ pre-existing" chưa đầy đủ; (2) build_final_complete với native ĐỎ ở "Build Split APKs" (run 32581570950) ⇒ riêng workflow này, native chính là điểm chặn; (3) tách 2 card CI-ANDROID-01 (build.yml — cần owner sửa workflow) + CI-ANDROID-02 (native build trong CI — pin CMake 3.31.5). Bỏ approach lách trong repo (inject client / alias tên APK / tắt flavor khi CI) — phá build_final_complete (dùng `--flavor stable`) và che secret thật, đã thống nhất với branch 01a01580
+  - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | owner dán log step "Build Split APKs" ⇒ **root cause Android native chốt: sgemm.cpp (llamafile) dùng FP16 NEON thiếu guard trên armv7** (upstream FIXME); fix GGML_LLAMAFILE OFF (c13be66) + pin CMake 3.31.5 (5995183) — cả 2 đúng (log xác nhận toolchain resolve đúng, sai ở compile). Chờ oracle tag v1.4.0-android-fp16. Log Linux cùng lúc chốt webkit2gtk (CI-LINUX-01)
 
 ### CI-ANDROID-01 — Fix job Android của build.yml (chỉ ship stable + rename đúng tên)
 - **Trạng thái:** blocked (chờ owner: dán patch vào `.github/workflows/build.yml` HOẶC reconnect GitHub cho token agent với quyền `workflows`)
@@ -434,14 +435,25 @@
 - **Lịch sử:**
   - 2026-08-22 | created→doing | agent arena/01a02a4a-in4up | commit 5995183 + tag oracle v1.4.0-android-cmake
   - 2026-08-22 | doing→doing | agent arena/01a02a4a-in4up | ORACLE run 32586625020 (tag v1.4.0-android-cmake): iOS ✅ 8m0s, Windows ✅ 16m02s, Android ❌ 10m36s — vẫn chết "Build Split APKs" (annotation .github#248) ⇒ giả thuyết "thiếu CMake 3.22.1" CHƯA đủ giải thích (pin 3.31.5 đã có hiệu lực trên CI). Còn 2 nhóm nghi phạm: (a) CMake/NDK vẫn không resolve đúng (lỗi "version not found" khác / NDK patch), (b) compile error của llama.cpp b10567 trên NDK clang (MSVC + g++ host đã build sạch — NDK là toolchain duy nhất chưa verify). Sandbox không đọc được log (results-receiver bị chặn) ⇒ ĐỀ NGHỊ OWNER DÁN ~30–50 dòng cuối step "Build Split APKs" (đoạn FAILURE) từ run 32586625020 / job 97063853155: https://github.com/Pabhassaracitto/In4Up/actions/runs/32586625020/job/97063853155
+  - 2026-08-22 | doing→doing | agent arena/01a02a4a-in4up | **ROOT CAUSE CHỐT** (owner dán log): `sgemm.cpp:311: error: use of undeclared identifier 'vld1q_f16'` (+ :314 vld1_f16) trên target armv7 — upstream ggml-cpu/llamafile/sgemm.cpp dùng intrinsics FP16 NEON cho mọi `__ARM_NEON` (non-MSVC) mà THƯA guard `__ARM_FEATURE_FP16_VECTOR_ARITHMETIC` (có FIXME thẳng trong code); armv7 NDK không có +fp16. Log đồng thời xác nhận: NDK 28.2.13676358 + CMake 3.31.5 resolve ĐÚNG (ninja chạy từ sdk/cmake/3.31.5) — pin CMake trước đó đúng hướng, chỉ chưa đủ. FIX: `set(GGML_LLAMAFILE OFF CACHE BOOL "" FORCE)` trong ai/CMakeLists.txt (commit c13be66) — file sgemm.cpp không còn được compile; inference nguyên vẹn (kernel CPU chuẩn). Oracle mới: tag v1.4.0-android-fp16
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
-- **Trạng thái:** proposed
+- **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)
 - **Nội dung:** Job Build Linux App của `build_final_complete.yml` ĐỎ ở bước
   "Build Linux Release" trong MỌI run (32581570950: 2m06s; 32586625020: 1m57s —
   chết sớm sau khi pub get). Pre-existing, riêng rẽ với Android/AI (Linux build
-  không dùng llama.cpp native — CMake Android-only). Cần: log step đỏ để chẩn
-  đoán (khả năng: thiếu lib cho plugin, hoặc lỗi code desktop). Chưa can thiệp —
-  ưu tiên Android theo yêu cầu owner.
+  không dùng llama.cpp native — CMake Android-only).
+  **ROOT CAUSE CHỐT (owner dán log):** `Configuring incomplete, errors occurred!`
+  tại `webview_win_floating/linux/CMakeLists.txt:42` — plugin (dùng thật ở 5
+  screen: web_reader, youtube ×2, youglish ×2 — KHÔNG gỡ được khỏi pubspec) khai
+  `pkg_search_module(WebKit REQUIRED webkit2gtk-4.1 webkit2gtk-4.2 webkit2gtk-4.3)`
+  mà runner ubuntu-latest không cài webkit2gtk (apt list trong workflow thiếu).
+  **Fix (1 dòng, cần quyền workflows):** thêm `libwebkit2gtk-4.1-dev` vào step
+  "Install Linux dependencies":
+  ```diff
+  -          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
+  +          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev libwebkit2gtk-4.1-dev
+  ```
 - **Lịch sử:**
   - 2026-08-22 | created | agent arena/01a02a4a-in4up | phát hiện khi soi run oracle (job Linux đỏ mọi vòng)
+  - 2026-08-22 | proposed→blocked | agent arena/01a02a4a-in4up | owner dán log Linux ⇒ root cause webkit2gtk (CMake plugin REQUIRED); fix = 1 apt package, chờ owner áp (token thiếu quyền workflows)

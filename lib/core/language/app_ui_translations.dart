@@ -93,7 +93,13 @@ class AppUITranslations {
     Map<String, String> translations,
     String locale,
   ) {
-    return translations[locale] ?? translations['en']!;
+    final localized = translations[locale];
+    if (localized != null && localized.trim().isNotEmpty) {
+      return localized;
+    }
+    // Canonical English fallback — không bao giờ trả tiếng Việt cho locale
+    // ≠ vi (rule #5, ADR-0002). Test catalog đảm bảo mọi entry có 'en'.
+    return translations['en'] ?? localized ?? '';
   }
 }
 

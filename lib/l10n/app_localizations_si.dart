@@ -155,7 +155,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get typeParagraph => 'ඡේදය';
 
   @override
-  String get typeDharma => 'Dharma';
+  String get typeDharma => 'ධර්මය';
 
   @override
   String get typeGrammar => 'ව්‍යාකරණ';
@@ -182,1005 +182,1005 @@ class AppLocalizationsSi extends AppLocalizations {
   String get vocabParagraph => 'ඡේදය';
 
   @override
-  String get commonCancel => 'Cancel';
+  String get commonCancel => 'අවලංගු කරන්න';
 
   @override
-  String get commonSave => 'Save';
+  String get commonSave => 'සුරකින්න';
 
   @override
-  String get commonDelete => 'Delete';
+  String get commonDelete => 'මකන්න';
 
   @override
-  String get commonClose => 'Close';
+  String get commonClose => 'වසන්න';
 
   @override
-  String get commonConfirm => 'Confirm';
+  String get commonConfirm => 'තහවුරු කරන්න';
 
   @override
-  String get commonRetry => 'Retry';
+  String get commonRetry => 'නැවත උත්සාහ කරන්න';
 
   @override
-  String get commonEdit => 'Edit';
+  String get commonEdit => 'සංස්කරණය කරන්න';
 
   @override
-  String get commonAdd => 'Add';
+  String get commonAdd => 'එක් කරන්න';
 
   @override
-  String get commonRemove => 'Remove';
+  String get commonRemove => 'ඉවත් කරන්න';
 
   @override
-  String get commonShare => 'Share';
+  String get commonShare => 'බෙදාගන්න';
 
   @override
-  String get commonCopy => 'Copy';
+  String get commonCopy => 'පිටපත් කරන්න';
 
   @override
-  String get commonCopied => 'Copied';
+  String get commonCopied => 'පිටපත් විය';
 
   @override
-  String get commonSearch => 'Search';
+  String get commonSearch => 'සොයන්න';
 
   @override
-  String get commonFilter => 'Filter';
+  String get commonFilter => 'පෙරීම';
 
   @override
-  String get commonSort => 'Sort';
+  String get commonSort => 'අනුපිළිවෙල';
 
   @override
-  String get commonSettings => 'Settings';
+  String get commonSettings => 'සැකසුම්';
 
   @override
-  String get commonLoading => 'Loading...';
+  String get commonLoading => 'පූරණය වෙමින්...';
 
   @override
-  String get commonNoData => 'No data';
+  String get commonNoData => 'දත්ත නැත';
 
   @override
-  String get commonError => 'Error';
+  String get commonError => 'දෝෂයකි';
 
   @override
-  String get commonSuccess => 'Success';
+  String get commonSuccess => 'සාර්ථකයි';
 
   @override
-  String get commonFailed => 'Failed';
+  String get commonFailed => 'අසාර්ථකයි';
 
   @override
-  String get commonComingSoon => 'Coming soon';
+  String get commonComingSoon => 'ඉක්මනට එයි';
 
   @override
-  String get commonUndo => 'Undo';
+  String get commonUndo => 'අහෝසි කරන්න';
 
   @override
-  String get commonRedo => 'Redo';
+  String get commonRedo => 'නැවත කරන්න';
 
   @override
-  String get commonNext => 'Next';
+  String get commonNext => 'ඊළඟ';
 
   @override
-  String get commonPrevious => 'Previous';
+  String get commonPrevious => 'පෙර';
 
   @override
-  String get commonBack => 'Back';
+  String get commonBack => 'ආපසු';
 
   @override
-  String get commonDone => 'Done';
+  String get commonDone => 'අවසන්';
 
   @override
-  String get commonApply => 'Apply';
+  String get commonApply => 'යොදන්න';
 
   @override
-  String get commonReset => 'Reset';
+  String get commonReset => 'යළි සකසන්න';
 
   @override
-  String get commonClear => 'Clear';
+  String get commonClear => 'පිරිසිදු කරන්න';
 
   @override
-  String get commonSelectAll => 'Select all';
+  String get commonSelectAll => 'සියල්ල තෝරන්න';
 
   @override
-  String get commonDeselect => 'Deselect';
+  String get commonDeselect => 'තේරීම අවලංගු කරන්න';
 
   @override
-  String get commonSaveNote => 'Save note';
+  String get commonSaveNote => 'සටහන සුරකින්න';
 
   @override
-  String get commonAddNote => 'Add note';
+  String get commonAddNote => 'සටහනක් එක් කරන්න';
 
   @override
-  String get commonEditNote => 'Edit note';
+  String get commonEditNote => 'සටහන සංස්කරණය කරන්න';
 
   @override
-  String get commonDeleteNote => 'Delete note';
+  String get commonDeleteNote => 'සටහන මකන්න';
 
   @override
-  String get commonNote => 'Note';
+  String get commonNote => 'සටහන';
 
   @override
-  String get commonNotes => 'Notes';
+  String get commonNotes => 'සටහන්';
 
   @override
-  String get commonReading => 'Reading';
+  String get commonReading => 'කියවීම';
 
   @override
-  String get commonListening => 'Listening';
+  String get commonListening => 'ඇසීම';
 
   @override
-  String get commonSpeaking => 'Speaking';
+  String get commonSpeaking => 'කථනය';
 
   @override
-  String get commonWriting => 'Writing';
+  String get commonWriting => 'ලිවීම';
 
   @override
-  String get commonUnderstanding => 'Understanding';
+  String get commonUnderstanding => 'තේරුම් ගැනීම';
 
   @override
-  String get commonRemembering => 'Remembering';
+  String get commonRemembering => 'මතක තබා ගැනීම';
 
   @override
-  String get commonLearn => 'Learn';
+  String get commonLearn => 'ඉගෙන ගන්න';
 
   @override
-  String get commonStudy => 'Study';
+  String get commonStudy => 'අධ්‍යයනය';
 
   @override
-  String get commonReview => 'Review';
+  String get commonReview => 'සමාලෝචනය';
 
   @override
-  String get commonPractice => 'Practice';
+  String get commonPractice => 'පුහුණුව';
 
   @override
-  String get commonTranslate => 'Translate';
+  String get commonTranslate => 'පරිවර්තනය කරන්න';
 
   @override
-  String get commonPronunciation => 'Pronunciation';
+  String get commonPronunciation => 'උච්චාරණය';
 
   @override
-  String get commonVocabulary => 'Vocabulary';
+  String get commonVocabulary => 'වචන මාලාව';
 
   @override
-  String get commonGrammar => 'Grammar';
+  String get commonGrammar => 'ව්‍යාකරණය';
 
   @override
-  String get commonExample => 'Example';
+  String get commonExample => 'උදාහරණය';
 
   @override
-  String get commonMeaning => 'Meaning';
+  String get commonMeaning => 'තේරුම';
 
   @override
-  String get commonDefinition => 'Definition';
+  String get commonDefinition => 'අර්ථ දැක්වීම';
 
   @override
-  String get commonSynonym => 'Synonym';
+  String get commonSynonym => 'සමානාර්ථ පදය';
 
   @override
-  String get commonAntonym => 'Antonym';
+  String get commonAntonym => 'විරුද්ධ පදය';
 
   @override
-  String get readMode => 'Read Mode';
+  String get readMode => 'කියවීමේ ප්‍රකාරය';
 
   @override
-  String get readLibrary => 'Reading Library';
+  String get readLibrary => 'කියවීමේ පුස්තකාලය';
 
   @override
-  String get readEmpty => 'Add text to start reading\nSupports TXT, LRC, SRT';
+  String get readEmpty => 'කියවීම ආරම්භ කිරීමට පෙළක් එක් කරන්න\nTXT, LRC, SRT සහාය දක්වයි';
 
   @override
-  String get readAddDocument => 'Add document';
+  String get readAddDocument => 'ලේඛනයක් එක් කරන්න';
 
   @override
-  String get readOpenFile => 'Open file';
+  String get readOpenFile => 'ගොනුව විවෘත කරන්න';
 
   @override
-  String get readPasteText => 'Paste text';
+  String get readPasteText => 'පෙළ අලවන්න';
 
   @override
-  String get readTextStudio => 'Text Studio';
+  String get readTextStudio => 'පෙළ ස්ටූඩියෝව';
 
   @override
-  String get readNoDocument => 'No document';
+  String get readNoDocument => 'ලේඛනයක් නැත';
 
   @override
-  String get readLine => 'Line';
+  String get readLine => 'පේළිය';
 
   @override
-  String get readTranslate => 'Show translation';
+  String get readTranslate => 'පරිවර්තනය පෙන්වන්න';
 
   @override
-  String get readHideTranslation => 'Hide translation';
+  String get readHideTranslation => 'පරිවර්තනය සඟවන්න';
 
   @override
-  String get readTts => 'Text-to-Speech';
+  String get readTts => 'පෙළ-සිට-කථනය';
 
   @override
-  String get readSpeed => 'Speed';
+  String get readSpeed => 'වේගය';
 
   @override
-  String get readVoice => 'Voice';
+  String get readVoice => 'හඬ';
 
   @override
-  String get readAutoScroll => 'Auto scroll';
+  String get readAutoScroll => 'ස්වයංක්‍රීය අනුචලනය';
 
   @override
-  String get readFontSize => 'Font size';
+  String get readFontSize => 'අකුරු ප්‍රමාණය';
 
   @override
-  String get listenMode => 'Listen Mode';
+  String get listenMode => 'ඇසීමේ ප්‍රකාරය';
 
   @override
-  String get listenLibrary => 'Audio Library';
+  String get listenLibrary => 'ශ්‍රව්‍ය පුස්තකාලය';
 
   @override
-  String get listenNoAudio => 'No audio yet';
+  String get listenNoAudio => 'තවම ඕඩියෝ නැත';
 
   @override
-  String get listenAddAudio => 'Add audio';
+  String get listenAddAudio => 'ඕඩියෝවක් එක් කරන්න';
 
   @override
-  String get listenNowPlaying => 'Now Playing';
+  String get listenNowPlaying => 'දැන් වාදනය වේ';
 
   @override
-  String get listenPlay => 'Play';
+  String get listenPlay => 'වාදනය කරන්න';
 
   @override
-  String get listenPause => 'Pause';
+  String get listenPause => 'විරාමය';
 
   @override
-  String get listenStop => 'Stop';
+  String get listenStop => 'නවත්වන්න';
 
   @override
   String listenContinue(Object time) {
-    return 'Continue from $time';
+    return '$time සිට දිගටම';
   }
 
   @override
-  String get listenFromStart => 'From start';
+  String get listenFromStart => 'ආරම්භයෙන්';
 
   @override
-  String get listenLoop => 'Loop';
+  String get listenLoop => 'ලූප්';
 
   @override
-  String get listenNoContent => 'No content\nCreate LRC from STT';
+  String get listenNoContent => 'අන්තර්ගතයක් නැත\nSTT සිට LRC සාදන්න';
 
   @override
-  String get understandMode => 'Understand Mode';
+  String get understandMode => 'තේරුම් ගැනීමේ ප්‍රකාරය';
 
   @override
-  String get understandSync => 'Sync';
+  String get understandSync => 'සමමුහූර්තනය';
 
   @override
-  String get understandShadowing => 'Shadowing';
+  String get understandShadowing => 'සෙවනැලි අභ්‍යාසය';
 
   @override
-  String get understandKaraoke => 'Karaoke lyrics';
+  String get understandKaraoke => 'කරඕකේ පද';
 
   @override
   String get understandNoSync =>
-      'Long press a sentence in Sync tab\nor use Set Loop button';
+      'Sync පිටුවේ වාක්‍යයක් දිගුව ඔබන්න\nනැතහොත් Set Loop බොත්තම භාවිත කරන්න';
 
   @override
-  String get memoryGarden => 'Memory Garden';
+  String get memoryGarden => 'මතක උද්‍යානය';
 
   @override
-  String get memoryDue => 'Due';
+  String get memoryDue => 'සමාලෝචනයට සූදානම්';
 
   @override
-  String get memoryTotalWords => 'Total words';
+  String get memoryTotalWords => 'මුළු වචන';
 
   @override
-  String get memoryNeedReview => 'Need review';
+  String get memoryNeedReview => 'සමාලෝචනය අවශ්‍යයි';
 
   @override
-  String get memoryMastered => 'Mastered';
+  String get memoryMastered => 'දක්ෂ';
 
   @override
-  String get memorySeed => 'Seed';
+  String get memorySeed => 'බීජය';
 
   @override
-  String get memorySprout => 'Sprout';
+  String get memorySprout => 'පැළය';
 
   @override
-  String get memoryBloom => 'Bloom';
+  String get memoryBloom => 'මල';
 
   @override
   String get memoryEmptyDesc =>
-      'Save vocabulary from Read tab\nto start growing your knowledge garden';
+      'කියවීම් පිටුවෙන් වචන මාලාව සුරකින්න\nඔබේ දැනුම් උද්‍යානය වැඩෙන්න පටන් ගන්න';
 
   @override
-  String get memoryOpenWordlist => 'Open Wordlist to add new words';
+  String get memoryOpenWordlist => 'නව වචන එක් කිරීමට වචන ලැයිස්තුව විවෘත කරන්න';
 
   @override
-  String get wordListEmpty => 'No vocabulary yet';
+  String get wordListEmpty => 'තවම වචන මාලාවක් නැත';
 
   @override
-  String get wordListSearchHint => 'Search words, phrases...';
+  String get wordListSearchHint => 'වචන, වාක්‍ය ඛණ්ඩ සොයන්න...';
 
   @override
-  String get wordListFilterStatus => 'Filter by status';
+  String get wordListFilterStatus => 'තත්ත්වය අනුව පෙරන්න';
 
   @override
-  String get wordListSort => 'Sort';
+  String get wordListSort => 'අනුපිළිවෙල';
 
   @override
-  String get wordListAddManual => 'Add manually';
+  String get wordListAddManual => 'අතින් එක් කරන්න';
 
   @override
-  String get wordListImport => 'Bulk import';
+  String get wordListImport => 'සමූහ ආයාතය';
 
   @override
-  String get wordListPlayAll => 'Play all';
+  String get wordListPlayAll => 'සියල්ල වාදනය කරන්න';
 
   @override
-  String get wordListDue => 'Due';
+  String get wordListDue => 'සමාලෝචනයට සූදානම්';
 
   @override
-  String get wordListLearning => 'Learning';
+  String get wordListLearning => 'ඉගෙනුම්';
 
   @override
-  String get wordListBlindSpot => 'Blind spot';
+  String get wordListBlindSpot => 'අන්ධ ස්ථානය';
 
   @override
-  String get webReaderDashboard => 'Dashboard Home';
+  String get webReaderDashboard => 'පාලක පුවරු මුල් පිටුව';
 
   @override
-  String get webReaderGoBack => 'Go back';
+  String get webReaderGoBack => 'ආපසු යන්න';
 
   @override
-  String get webReaderGoForward => 'Go forward';
+  String get webReaderGoForward => 'ඉදිරියට යන්න';
 
   @override
-  String get webReaderUrlHint => 'URL or search to open quickly...';
+  String get webReaderUrlHint => 'ඉක්මන් විවෘත කිරීමට URL හෝ සෙවුම් පදය...';
 
   @override
-  String get webReaderSaveToGroup => 'Save current page to group';
+  String get webReaderSaveToGroup => 'මෙම පිටුව කණ්ඩායමට සුරකින්න';
 
   @override
-  String get webReaderBookmark => 'Bookmark current page';
+  String get webReaderBookmark => 'මෙම පිටුව සලකුණු කරන්න';
 
   @override
-  String get webReaderInTextStudio => 'Open in Text Studio';
+  String get webReaderInTextStudio => 'පෙළ ස්ටූඩියෝවේ විවෘත කරන්න';
 
   @override
-  String get webReaderNoResult => 'No matching results';
+  String get webReaderNoResult => 'ගැළපෙන ප්‍රතිඵල නැත';
 
   @override
-  String get webReaderContinueReading => 'Continue reading';
+  String get webReaderContinueReading => 'කියවීම දිගටම කරගෙන යන්න';
 
   @override
-  String get webReaderPinned => 'Pinned';
+  String get webReaderPinned => 'පින් කර ඇත';
 
   @override
-  String get webReaderWithNotes => 'With notes';
+  String get webReaderWithNotes => 'සටහන් සමඟ';
 
   @override
-  String get webReaderCreateGroup => 'Create group';
+  String get webReaderCreateGroup => 'කණ්ඩායමක් සාදන්න';
 
   @override
-  String get webReaderAddLink => 'Add link';
+  String get webReaderAddLink => 'සබැඳියක් එක් කරන්න';
 
   @override
-  String get webReaderEditGroup => 'Edit group';
+  String get webReaderEditGroup => 'කණ්ඩායම සංස්කරණය කරන්න';
 
   @override
-  String get webReaderDeleteGroup => 'Delete group';
+  String get webReaderDeleteGroup => 'කණ්ඩායම මකන්න';
 
   @override
-  String get webReaderGroupName => 'Group name';
+  String get webReaderGroupName => 'කණ්ඩායමේ නම';
 
   @override
-  String get webReaderGroupDesc => 'Description';
+  String get webReaderGroupDesc => 'විස්තරය';
 
   @override
-  String get webReaderCreateMyGroup => 'Create my group';
+  String get webReaderCreateMyGroup => 'මගේ කණ්ඩායම සාදන්න';
 
   @override
-  String get webReaderAddLinkToGroup => 'Add link to group';
+  String get webReaderAddLinkToGroup => 'සබැඳිය කණ්ඩායමට එක් කරන්න';
 
   @override
-  String get webReaderLinkName => 'Link name';
+  String get webReaderLinkName => 'සබැඳියේ නම';
 
   @override
   String get webReaderUrl => 'URL';
 
   @override
-  String get webReaderCreateAndSave => 'Create & save';
+  String get webReaderCreateAndSave => 'සාදා සුරකින්න';
 
   @override
-  String get webReaderPinnedArticle => 'Pinned article';
+  String get webReaderPinnedArticle => 'පින් කළ ලිපිය';
 
   @override
-  String get webReaderReadNotes => 'Reading notes';
+  String get webReaderReadNotes => 'කියවීමේ සටහන්';
 
   @override
-  String get webReaderYourNote => 'Your note';
+  String get webReaderYourNote => 'ඔබේ සටහන';
 
   @override
-  String get webReaderDeleteNote => 'Delete note';
+  String get webReaderDeleteNote => 'සටහන මකන්න';
 
   @override
-  String get webReaderSaveNoteBtn => 'Save note';
+  String get webReaderSaveNoteBtn => 'සටහන සුරකින්න';
 
   @override
-  String get webReaderMarkUnread => 'Mark as unread';
+  String get webReaderMarkUnread => 'නොකියවූ ලෙස සලකුණු කරන්න';
 
   @override
-  String get webReaderMarkRead => 'Mark as read';
+  String get webReaderMarkRead => 'කියවූ ලෙස සලකුණු කරන්න';
 
   @override
-  String get webReaderPin => 'Pin';
+  String get webReaderPin => 'පින් කරන්න';
 
   @override
-  String get webReaderUnpin => 'Unpin';
+  String get webReaderUnpin => 'පින් ඉවත් කරන්න';
 
   @override
-  String get pdfOpening => 'Opening PDF...';
+  String get pdfOpening => 'PDF විවෘත වෙමින්...';
 
   @override
-  String get pdfExtracting => 'Extracting text...';
+  String get pdfExtracting => 'පෙළ නිස්සාරණය වෙමින්...';
 
   @override
   String get pdfCannotExtract =>
-      'Cannot extract text from this PDF.\nIt may be a scanned PDF (image).';
+      'මෙම PDF වෙතින් පෙළ නිස්සාරණය කළ නොහැක.\nඑය පරිලෝකිත PDF (රූපයක්) විය හැක.';
 
   @override
-  String get pdfTextMode => 'Text mode — full highlighting & TTS features';
+  String get pdfTextMode => 'පෙළ ප්‍රකාරය — සම්පූර්ණ උද්දීපනය සහ TTS විශේෂාංග';
 
   @override
-  String get pdfOpenInReadMode => 'Open in Read Mode →';
+  String get pdfOpenInReadMode => 'කියවීමේ ප්‍රකාරයෙන් විවෘත කරන්න →';
 
   @override
-  String get pdfNoteForSelection => 'Note for selection';
+  String get pdfNoteForSelection => 'තෝරාගත් කොටසට සටහන';
 
   @override
-  String get pdfEnterNote => 'Enter note / translation / insight...';
+  String get pdfEnterNote => 'සටහන / පරිවර්තනය / අදහස ඇතුල් කරන්න...';
 
   @override
-  String get pdfSavedSelectionNote => '📝 Saved note for selection';
+  String get pdfSavedSelectionNote => '📝 තෝරාගත් කොටසට සටහන සුරකින ලදී';
 
   @override
-  String get pdfSelectionOpened => '✅ Opened selection in Text Studio';
+  String get pdfSelectionOpened => '✅ තේරීම පෙළ ස්ටූඩියෝවේ විවෘත විය';
 
   @override
-  String get pdfReaderDeepPos => 'PDF Reader · Deep POS';
+  String get pdfReaderDeepPos => 'PDF කියවනය · ගැඹුරු POS';
 
   @override
-  String get pdfLoadedToStudio => 'Loaded into Text Studio';
+  String get pdfLoadedToStudio => 'පෙළ ස්ටූඩියෝවට පූරණය විය';
 
   @override
-  String get pdfCannotOpen => 'Cannot open PDF';
+  String get pdfCannotOpen => 'PDF විවෘත කළ නොහැක';
 
   @override
-  String get pdfViewSavedNotes => 'View saved notes';
+  String get pdfViewSavedNotes => 'සුරකින ලද සටහන් බලන්න';
 
   @override
-  String get pdfNoteSelection => 'Note selection';
+  String get pdfNoteSelection => 'සටහන තෝරාගැනීම';
 
   @override
-  String get pdfSavedToWordlist => 'Saved to WordList';
+  String get pdfSavedToWordlist => 'වචන ලැයිස්තුවට සුරකින ලදී';
 
   @override
-  String get pdfContextAdded => 'Context added to WordList';
+  String get pdfContextAdded => 'පසුබිම වචන ලැයිස්තුවට එක් විය';
 
   @override
-  String get pdfSaveToMemory => 'Save to Memory Garden';
+  String get pdfSaveToMemory => 'මතක උද්‍යානයට සුරකින්න';
 
   @override
-  String get pdfSavedToMemory => 'Saved to Memory Garden';
+  String get pdfSavedToMemory => 'මතක උද්‍යානයට සුරකින ලදී';
 
   @override
-  String get pdfNoNotes => 'No notes yet';
+  String get pdfNoNotes => 'තවම සටහන් නැත';
 
   @override
   String get pdfLongPressHint =>
-      'Long-press a word on PDF or add note from selection in Text Mode.';
+      'PDF හි වචනයක් දිගුව ඔබන්න, නැතහොත් පෙළ ප්‍රකාරයේ තෝරාගැනීමකින් සටහනක් එක් කරන්න.';
 
   @override
-  String get translationEngineSettings => 'Translation engine settings';
+  String get translationEngineSettings => 'පරිවර්තන එන්ජිම් සැකසුම්';
 
   @override
   String translationError(Object error) {
-    return 'Error: $error';
+    return 'දෝෂය: $error';
   }
 
   @override
   String translationChangedTo(Object flag, Object language) {
-    return '$flag Changed translation and voice to $language';
+    return '$flag පරිවර්තනය සහ හඬ $language වෙත වෙනස් විය';
   }
 
   @override
-  String get translationTranslateAll => 'Translate all (skip existing)';
+  String get translationTranslateAll => 'සියල්ල පරිවර්තනය කරන්න (ඇති ඒවා මඟහරින්න)';
 
   @override
-  String get translationRetranslateAll => 'Retranslate all';
+  String get translationRetranslateAll => 'සියල්ල නැවත පරිවර්තනය කරන්න';
 
   @override
-  String get translationClearAll => 'Clear all translations';
+  String get translationClearAll => 'සියලු පරිවර්තන මකන්න';
 
   @override
-  String get translationEngine => 'Translation engine';
+  String get translationEngine => 'පරිවර්තන එන්ජිම';
 
   @override
-  String get translationDeepLXUrl => 'DeepLX Server URL (optional)';
+  String get translationDeepLXUrl => 'DeepLX සේවාදායක URL (විකල්ප)';
 
   @override
-  String get translationLeaveEmpty => 'Leave empty → use Google Free';
+  String get translationLeaveEmpty => 'හිස්ව තබන්න → Google Free භාවිත වේ';
 
   @override
   String get translationTargetViaFlag =>
-      'Target language is selected via flag button on translation bar.';
+      'ඉලක්ක භාෂාව පරිවර්තන තීරුවේ කොඩි බොත්තමෙන් තෝරනු ලැබේ.';
 
   @override
-  String get translationStop => 'Stop';
+  String get translationStop => 'නවත්වන්න';
 
   @override
-  String get translationSelectTarget => 'Select target';
+  String get translationSelectTarget => 'ඉලක්කය තෝරන්න';
 
   @override
-  String get translationTranslated => 'Translated';
+  String get translationTranslated => 'පරිවර්තනය කර ඇත';
 
   @override
-  String get translationTranslate => 'Translate';
+  String get translationTranslate => 'පරිවර්තනය කරන්න';
 
   @override
-  String get translationHide => 'Hide';
+  String get translationHide => 'සඟවන්න';
 
   @override
-  String get translationBelow => 'Below';
+  String get translationBelow => 'පහළ';
 
   @override
-  String get translationColumn => 'Column';
+  String get translationColumn => 'තීරුව';
 
   @override
-  String get translationLanguage => 'Translation language';
+  String get translationLanguage => 'පරිවර්තන භාෂාව';
 
   @override
-  String get translationSearchLang => 'Search languages…';
+  String get translationSearchLang => 'භාෂා සොයන්න…';
 
   @override
   String get translationSourceIsTarget =>
-      'Source and target languages are the same.';
+      'මූල සහ ඉලක්ක භාෂාව එකමයි.';
 
   @override
-  String get ttsReadingSpeed => 'Reading speed';
+  String get ttsReadingSpeed => 'කියවීමේ වේගය';
 
   @override
-  String get ttsVoice => 'Voice';
+  String get ttsVoice => 'හඬ';
 
   @override
-  String get ttsAutoSplit => 'Auto split lines';
+  String get ttsAutoSplit => 'පේළි ස්වයංක්‍රීයව බෙදන්න';
 
   @override
-  String get ttsSplitMode => 'Split mode';
+  String get ttsSplitMode => 'බෙදීමේ ප්‍රකාරය';
 
   @override
   String ttsMinWords(Object count) {
-    return 'Min $count words before split';
+    return 'බෙදීමට පෙර අවම $count වචන';
   }
 
   @override
   String ttsMaxWords(Object count) {
-    return 'Max $count words/line';
+    return 'පේළියකට උපරිම $count වචන';
   }
 
   @override
-  String get ttsPreview => 'Preview';
+  String get ttsPreview => 'පෙරදසුන';
 
   @override
   String ttsApply(Object count) {
-    return 'Apply ($count lines)';
+    return 'යොදන්න ($count පේළි)';
   }
 
   @override
-  String get ttsMode => 'Playback mode';
+  String get ttsMode => 'ධාවන ප්‍රකාරය';
 
   @override
-  String get ttsOrder => 'Playback order';
+  String get ttsOrder => 'ධාවන අනුපිළිවෙල';
 
   @override
-  String get ttsDragToSort => 'Drag to reorder';
+  String get ttsDragToSort => 'අනුපිළිවෙල වෙනස් කිරීමට ඇදගෙන යන්න';
 
   @override
-  String get ttsApiKeys => 'API Keys (optional, free)';
+  String get ttsApiKeys => 'API යතුරු (විකල්ප, නොමිලේ)';
 
   @override
-  String get ttsClearCache => 'Clear TTS cache!';
+  String get ttsClearCache => 'TTS කෑෂ් මකන්න!';
 
   @override
-  String get ttsClear => 'Clear';
+  String get ttsClear => 'පිරිසිදු කරන්න';
 
   @override
-  String get shadowingReady => 'Ready for shadowing practice';
+  String get shadowingReady => 'සෙවනැලි පුහුණුවට සූදානම්';
 
   @override
-  String get shadowingSelectSegment => 'Select an A-B Loop segment to start';
+  String get shadowingSelectSegment => 'ආරම්භ කිරීමට A-B ලූප් කොටසක් තෝරන්න';
 
   @override
-  String get shadowingStartPractice => 'Start Practice';
+  String get shadowingStartPractice => 'පුහුණුව ආරම්භ කරන්න';
 
   @override
   String get shadowingSteps =>
-      '1. Listen to sample\n2. Press record\n3. Repeat after sample';
+      '1. සාම්පලය අසන්න\n2. පටිගරණය ඔබන්න\n3. සාම්පලයට පසුව නැවත කියන්න';
 
   @override
-  String get shadowingListeningSample => 'Listening to sample...';
+  String get shadowingListeningSample => 'සාම්පලය ඇසෙමින්...';
 
   @override
-  String get shadowingListenCarefully => 'Listen carefully...';
+  String get shadowingListenCarefully => 'හොඳින් අසන්න...';
 
   @override
-  String get shadowingReadyEx => 'Ready!';
+  String get shadowingReadyEx => 'සූදානම්!';
 
   @override
-  String get shadowingRecording => 'Recording...';
+  String get shadowingRecording => 'පටිගත වෙමින්...';
 
   @override
   String shadowingMax(Object seconds) {
-    return 'Max: ${seconds}s';
+    return 'උපරිම: $seconds තත්පර';
   }
 
   @override
-  String get shadowingAnalyzing => 'Analyzing...';
+  String get shadowingAnalyzing => 'විශ්ලේෂණය වෙමින්...';
 
   @override
-  String get shadowingRhythm => 'Rhythm';
+  String get shadowingRhythm => 'තාලය';
 
   @override
-  String get shadowingPitch => 'Pitch';
+  String get shadowingPitch => 'ස්වර උස';
 
   @override
-  String get shadowingEnergy => 'Energy';
+  String get shadowingEnergy => 'ශක්තිය';
 
   @override
-  String get shadowingPlaySample => 'Play sample';
+  String get shadowingPlaySample => 'සාම්පලය වාදනය කරන්න';
 
   @override
-  String get shadowingStopSample => 'Stop sample';
+  String get shadowingStopSample => 'සාම්පලය නවත්වන්න';
 
   @override
-  String get shadowingCancelCountdown => 'Cancel countdown';
+  String get shadowingCancelCountdown => 'කවුන්ට්ඩවුනය අවලංගු කරන්න';
 
   @override
-  String get shadowingStopRecording => 'Stop recording';
+  String get shadowingStopRecording => 'පටිගරණය නවත්වන්න';
 
   @override
-  String get shadowingRetry => 'Retry';
+  String get shadowingRetry => 'නැවත උත්සාහ කරන්න';
 
   @override
-  String get shadowingFinish => 'Finish';
+  String get shadowingFinish => 'අවසන් කරන්න';
 
   @override
-  String get shadowingSelectToPractice => 'Select segment to practice';
+  String get shadowingSelectToPractice => 'පුහුණු වීමට කොටසක් තෝරන්න';
 
   @override
-  String get grammarPos => 'Part of speech';
+  String get grammarPos => 'පද වර්ගය';
 
   @override
-  String get grammarCefr => 'CEFR level';
+  String get grammarCefr => 'CEFR මට්ටම';
 
   @override
-  String get grammarDifficultyUser => 'Difficulty (your tags)';
+  String get grammarDifficultyUser => 'දුෂ්කරතාව (ඔබේ ටැග්)';
 
   @override
-  String get grammarPresetSuggestions => 'Suggested presets';
+  String get grammarPresetSuggestions => 'යෝග්‍ය පෙරනිමිති';
 
   @override
-  String get grammarYourPresets => 'Your presets';
+  String get grammarYourPresets => 'ඔබේ පෙරනිමිති';
 
   @override
-  String get grammarShowMiniLegend => 'Show mini legend in reading area';
+  String get grammarShowMiniLegend => 'කියවීමේ ප්‍රදේශයේ කුඩා දර්ශකය පෙන්වන්න';
 
   @override
-  String get grammarComparePalette => 'Compare palettes visually';
+  String get grammarComparePalette => 'වර්ණ ඵලක සංසන්දනය කරන්න';
 
   @override
-  String get grammarColorStyle => 'Color style';
+  String get grammarColorStyle => 'වර්ණ ශෛලිය';
 
   @override
-  String get grammarPosGroups => 'POS groups';
+  String get grammarPosGroups => 'පද වර්ග කණ්ඩායම්';
 
   @override
   String grammarUsingPreset(Object name) {
-    return 'Using preset: $name';
+    return 'පෙරනිමිත්ත: $name';
   }
 
   @override
   String grammarCustomizingFrom(Object name) {
-    return 'Customizing from nearest preset: $name';
+    return 'ආසන්නම පෙරනිමිත්තෙන් අභිරුචිකරණය වෙමින්: $name';
   }
 
   @override
   String grammarHiddenGroups(Object count) {
-    return '$count groups hidden';
+    return '$count කණ්ඩායම් සඟවා ඇත';
   }
 
   @override
-  String get grammarSavePreset => 'Save custom preset';
+  String get grammarSavePreset => 'අභිරුචි පෙරනිමිත්ත සුරකින්න';
 
   @override
   String grammarRestore(Object name) {
-    return 'Restore $name';
+    return '$name ප්‍රතිස්ථාපනය කරන්න';
   }
 
   @override
   String grammarHiddenDesc(Object count) {
-    return '$count POS groups hidden. You can re-enable them.';
+    return '$count පද වර්ග කණ්ඩායම් සඟවා ඇත. ඒවා නැවත සක්‍රීය කළ හැක.';
   }
 
   @override
-  String get grammarEnableAll => 'Enable all';
+  String get grammarEnableAll => 'සියල්ල සක්‍රීය කරන්න';
 
   @override
-  String get grammarExperienceMode => 'Experience mode';
+  String get grammarExperienceMode => 'අත්දැකීම් ප්‍රකාරය';
 
   @override
-  String get grammarTextAlign => 'Text alignment';
+  String get grammarTextAlign => 'පෙළ පෙළගැස්ම';
 
   @override
-  String get grammarFontSize => 'Font size';
+  String get grammarFontSize => 'අකුරු ප්‍රමාණය';
 
   @override
-  String get grammarTranslationBilingual => 'Translation & bilingual';
+  String get grammarTranslationBilingual => 'පරිවර්තනය සහ ද්විභාෂා';
 
   @override
-  String get grammarColorMode => 'Color mode';
+  String get grammarColorMode => 'වර්ණ ප්‍රකාරය';
 
   @override
-  String get grammarDisplay => 'Display';
+  String get grammarDisplay => 'සංදර්ශනය';
 
   @override
-  String get grammarShowTranslation => 'Show translation';
+  String get grammarShowTranslation => 'පරිවර්තනය පෙන්වන්න';
 
   @override
-  String get grammarShowLineNumbers => 'Show line numbers';
+  String get grammarShowLineNumbers => 'පේළි අංක පෙන්වන්න';
 
   @override
-  String get grammarSmartSplit => 'Smart line split';
+  String get grammarSmartSplit => 'බුද්ධිමත් පේළි බෙදීම';
 
   @override
-  String get grammarReadingMode => 'Reading Mode';
+  String get grammarReadingMode => 'කියවීමේ ප්‍රකාරය';
 
   @override
-  String get grammarListeningMode => 'Listening Mode (TTS)';
+  String get grammarListeningMode => 'ඇසීමේ ප්‍රකාරය (TTS)';
 
   @override
-  String get grammarTranslationMode => 'Translation Mode';
+  String get grammarTranslationMode => 'පරිවර්තන ප්‍රකාරය';
 
   @override
-  String get grammarDrivingMode => 'Driving Mode';
+  String get grammarDrivingMode => 'රියදැවීමේ ප්‍රකාරය';
 
   @override
-  String get ytAudioCaptionsHistory => 'Audio · Captions · History';
+  String get ytAudioCaptionsHistory => 'ඕඩියෝ · උපසිරැසි · ඉතිහාසය';
 
   @override
-  String get ytPasteUrl => 'Paste YouTube URL...';
+  String get ytPasteUrl => 'YouTube URL අලවන්න...';
 
   @override
-  String get ytHistory => 'History';
+  String get ytHistory => 'ඉතිහාසය';
 
   @override
-  String get ytNoHistory => 'No history yet';
+  String get ytNoHistory => 'තවම ඉතිහාසයක් නැත';
 
   @override
-  String get ytAddChannel => 'Add channel';
+  String get ytAddChannel => 'නාලිකාවක් එක් කරන්න';
 
   @override
-  String get ytChannelIdHint => 'Channel ID or URL...';
+  String get ytChannelIdHint => 'නාලිකා ID හෝ URL...';
 
   @override
-  String get ytVocabLevel => 'Vocabulary level';
+  String get ytVocabLevel => 'වචන මට්ටම';
 
   @override
-  String get ytSortBy => 'Sort by';
+  String get ytSortBy => 'අනුපිළිවෙල අනුව';
 
   @override
-  String get ytDate => 'Date';
+  String get ytDate => 'දිනය';
 
   @override
-  String get ytViews => 'Views';
+  String get ytViews => 'නැරඹුම්';
 
   @override
-  String get ytChannel => 'Channel';
+  String get ytChannel => 'නාලිකාව';
 
   @override
-  String get ytAllChannels => 'All channels';
+  String get ytAllChannels => 'සියලු නාලිකා';
 
   @override
-  String get ytNoVideos => 'No videos';
+  String get ytNoVideos => 'වීඩියෝ නැත';
 
   @override
   String get ytSampleData =>
-      'Using sample data.\nSet YouTube Data API v3 key for real videos.';
+      'සාම්පල් දත්ත භාවිත වෙමින්.\nසැබෑ වීඩියෝ සඳහා YouTube Data API v3 යතුර සකසන්න.';
 
   @override
-  String get ytGetInfo => 'Get info';
+  String get ytGetInfo => 'තොරතුරු ලබාගන්න';
 
   @override
-  String get ytDownloadAudio => 'Download Audio';
+  String get ytDownloadAudio => 'ඕඩියෝව බාගන්න';
 
   @override
-  String get ytDownloadLyrics => 'Download Lyrics';
+  String get ytDownloadLyrics => 'පද බාගන්න';
 
   @override
-  String get ytSubtitleLang => 'Subtitle language';
+  String get ytSubtitleLang => 'උපසිරැසි භාෂාව';
 
   @override
-  String get ytDownloadingAudio => 'Downloading audio...';
+  String get ytDownloadingAudio => 'ඕඩියෝව බාගෙනිමින්...';
 
   @override
-  String get ytProcessing => 'Processing...';
+  String get ytProcessing => 'සැකසෙමින්...';
 
   @override
-  String get ytDownloadingSubs => 'Downloading subtitles...';
+  String get ytDownloadingSubs => 'උපසිරැසි බාගෙනිමින්...';
 
   @override
-  String get ytNoSubs => 'No subtitles';
+  String get ytNoSubs => 'උපසිරැසි නැත';
 
   @override
-  String get ytIknow => '✓ Known';
+  String get ytIknow => '✓ දන්නා';
 
   @override
-  String get ytLearning => '📖 Learning';
+  String get ytLearning => '📖 ඉගෙනුම්';
 
   @override
-  String get ytSkip => '⊘ Skip';
+  String get ytSkip => '⊘ මඟහරින්න';
 
   @override
-  String get ytKnownAll => 'Know all';
+  String get ytKnownAll => 'සියල්ල දන්නා ලෙස සලකුණු කරන්න';
 
   @override
-  String get ytLearnSentence => 'Learn whole sentence';
+  String get ytLearnSentence => 'සම්පූර්ණ වාක්‍යය ඉගෙන ගන්න';
 
   @override
-  String get ytNoDict => '(not in dictionary)';
+  String get ytNoDict => '(ශබ්දකෝෂයේ නැත)';
 
   @override
-  String get ytQualityHighest => 'Highest';
+  String get ytQualityHighest => 'ඉහළම';
 
   @override
-  String get ytQualityMedium => 'Medium (128kbps)';
+  String get ytQualityMedium => 'මධ්‍යම (128kbps)';
 
   @override
-  String get ytQualityLow => 'Low / Small (64kbps)';
+  String get ytQualityLow => 'අඩු / කුඩා (64kbps)';
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return 'Preparing · ${kbps}kbps · $size';
+    return 'සූදානම් වෙමින් · $kbpskbps · $size';
   }
 
   @override
-  String get ytVideoUnavailable => 'Video unavailable';
+  String get ytVideoUnavailable => 'වීඩියෝව නොමැත';
 
   @override
-  String get ytNetworkError => 'Network error — check connection';
+  String get ytNetworkError => 'ජාල දෝෂයක් — සම්බන්ධතාව පරීක්ෂා කරන්න';
 
   @override
-  String get ytQualityList => 'Fetching quality list...';
+  String get ytQualityList => 'තත්ත්ව ලැයිස්තුව ගෙන එමින්...';
 
   @override
-  String get ytDownloadedPlaying => 'Downloaded! Playing...';
+  String get ytDownloadedPlaying => 'බාගත්! වාදනය වෙමින්...';
 
   @override
   String ytQualityLabel(Object quality) {
-    return 'Quality: $quality';
+    return 'තත්ත්වය: $quality';
   }
 
   @override
-  String get ytDownloadAnother => 'Download another video';
+  String get ytDownloadAnother => 'වෙනත් වීඩියෝවක් බාගන්න';
 
   @override
-  String get ytFetchingInfo => 'Fetching info...';
+  String get ytFetchingInfo => 'තොරතුරු ගෙන එමින්...';
 
   @override
-  String get ytPasteToStart => 'Paste YouTube URL above to start';
+  String get ytPasteToStart => 'ආරම්භ කිරීමට ඉහළින් YouTube URL අලවන්න';
 
   @override
-  String get ytSelectQuality => 'Select audio quality';
+  String get ytSelectQuality => 'ඕඩියෝ තත්ත්වය තෝරන්න';
 
   @override
-  String get ytHigherBigger => 'Higher quality = bigger file';
+  String get ytHigherBigger => 'උසස් තත්ත්වය = විශාල ගොනුව';
 
   @override
-  String get ytHighDesc => 'Highest bitrate, prefer mp4/aac';
+  String get ytHighDesc => 'ඉහළම බිට්රේට්, mp4/aac මනාප';
 
   @override
-  String get ytMediumDesc => '~128kbps – balanced quality/size';
+  String get ytMediumDesc => '~128kbps – සමබර තත්ත්ව/ප්‍රමාණය';
 
   @override
-  String get ytLowDesc => '~64kbps – smallest, for slow network';
+  String get ytLowDesc => '~64kbps – කුඩාම, මන්දගාමී ජාල සඳහා';
 
   @override
-  String get ytChooseSpecific => 'Choose specific';
+  String get ytChooseSpecific => 'නිශ්චිත තෝරන්න';
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return 'No captions for \"$lang\".\nTry another language.';
+    return '"$lang" සඳහා උපසිරැසි නැත.\nවෙනත් භාෂාවක් උත්සාහ කරන්න.';
   }
 
   @override
-  String get ytLang => 'Language:';
+  String get ytLang => 'භාෂාව:';
 
   @override
   String ytGetCaptions(Object lang) {
-    return 'Get captions ($lang)';
+    return 'උපසිරැසි ලබාගන්න ($lang)';
   }
 
   @override
   String ytLines(Object count) {
-    return '$count lines';
+    return '$count පේළි';
   }
 
   @override
   String ytMoreLines(Object count) {
-    return '... and $count more lines';
+    return '... තවත් $count පේළි';
   }
 
   @override
-  String get ytLoadedToStudio => '✅ Loaded into Text Studio';
+  String get ytLoadedToStudio => '✅ පෙළ ස්ටූඩියෝවට පූරණය විය';
 
   @override
-  String get ytLinkPlay => 'Link + Play';
+  String get ytLinkPlay => 'සබැඳීම + වාදනය';
 
   @override
-  String get ytLinkPlayDone => 'Link + Play ✅';
+  String get ytLinkPlayDone => 'සබැඳීම + වාදනය ✅';
 
   @override
-  String get ytNeedAudioFirst => 'Please download audio in \"Audio\" tab first';
+  String get ytNeedAudioFirst => 'කරුණාකර පළමුව "ඕඩියෝ" පිටුවෙන් ඕඩියෝව බාගන්න';
 
   @override
-  String get ytAudioLyricsLinked => '🎵 Audio + Lyrics linked!';
+  String get ytAudioLyricsLinked => '🎵 ඕඩියෝ + පද යා විය!';
 
   @override
-  String get msgCopied => '📋 Copied!';
+  String get msgCopied => '📋 පිටපත් විය!';
 
   @override
-  String get msgSaved => 'Saved';
+  String get msgSaved => 'සුරකින ලදී';
 
   @override
-  String get msgDeleted => 'Deleted';
+  String get msgDeleted => 'මකා දමන ලදී';
 
   @override
   String msgError(Object error) {
-    return 'Error: $error';
+    return 'දෝෂය: $error';
   }
 
   @override
-  String get msgNetworkError => 'Network error, please check connection';
+  String get msgNetworkError => 'ජාල දෝෂයකි, කරුණාකර සම්බන්ධතාව පරීක්ෂා කරන්න';
 
   @override
-  String get msgLoginNeeded => 'Please login';
+  String get msgLoginNeeded => 'කරුණාකර පිවිසෙන්න';
 
   @override
-  String get msgNotLoggedIn => 'Not logged in';
+  String get msgNotLoggedIn => 'පිවිසී නැත';
 
   @override
   String msgPleaseEnter(Object field) {
-    return 'Please enter $field';
+    return 'කරුණාකර $field ඇතුල් කරන්න';
   }
 
   @override
-  String get msgInvalidInput => 'Invalid input';
+  String get msgInvalidInput => 'වලංගු නොවන ආදානය';
 
   @override
-  String get toolsTitle => 'Tools';
+  String get toolsTitle => 'මෙවලම්';
 
   @override
   String toolsFeaturesCount(Object count) {
-    return '$count features';
+    return '$count විශේෂාංග';
   }
 
   @override
-  String get toolsMoreComing => 'More features coming';
+  String get toolsMoreComing => 'තව විශේෂාංග එයි';
 
   @override
-  String get toolsProgress => 'Learning Progress';
+  String get toolsProgress => 'ඉගෙනුම් ප්‍රගතිය';
 
   @override
-  String get toolsWordMap => 'Word Map';
+  String get toolsWordMap => 'වචන සිතියම';
 
   @override
-  String get toolsTriangle => 'Triangle';
+  String get toolsTriangle => 'ත්‍රිකෝණය';
 
   @override
-  String get toolsVenn => 'Venn Diagram';
+  String get toolsVenn => 'වෙන් රූපය';
 
   @override
   String get demoWordHello => 'hello';

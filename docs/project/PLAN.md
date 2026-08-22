@@ -313,3 +313,23 @@
 - Lịch sử:
   - 2026-08-21 | created | owner via chat
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | 3 commit (rule, import, loader)
+
+### PLAN-014 — Sứ giả ngôn ngữ: lộ trình bậc vi → en → hi/zh/si → … (LANG-630-01)
+- Nguồn: người sở hữu (2026-08-22, qua agent arena/01a0296a-in4up — "EL HIN CH SH")
+- Trạng thái: done (code + ADR-0002 + máy bắt; chờ CI + nghiệm thu bản dịch)
+- Chi tiết:
+  - Bất biến rule #5 mở rộng xuống tầng ARB: locale ≠ vi thiếu dịch → English
+    (không bao giờ vi); mọi ARB giữ key parity với template `app_en.arb`.
+  - Tier lộ trình + sàn ratchet: `lib/core/language/language_roadmap.dart`,
+    `tool/lang_rollout_floors.json`, chính sách giữ-English
+    `tool/lang_keep_english.json`, báo cáo `tool/lang_rollout_report.py`,
+    máy bắt group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`
+    (CI app_analyze.yml đã chạy file này sẵn).
+  - Wave 1 (2026-08-22): hi/zh/zh_TW/si phủ 100% message chrome; vá word-salad
+    cũ; key ARB mới phải dịch đủ 4 locale T2 ngay trong cùng PR.
+  - Bước sau (đề xuất, chờ owner chọn): nâng locale T3 tiếp theo lên T2
+    (ứng viên theo độ phủ: ar/ru 41.7%, ja/ko/th 41.4%) — làm bằng wave mới,
+    nâng sàn, không đổi ADR này.
+- Lịch sử:
+  - 2026-08-22 | created | owner via chat | "I4U | Language EL HIN CH SH"
+  - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | ADR-0002 + wave 1 + ratchet test

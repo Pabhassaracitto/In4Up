@@ -32,6 +32,7 @@
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
+| LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | ✅ done | ADR-0002 + test language_rollout (chờ CI run) |
 
 ---
 
@@ -345,3 +346,36 @@
   - 2026-08-22 | created | lộ trình PLAN-008 "VAD (xong) → Live STT → TTS VITS" + PLAN-009 "offline-first như Gemma Translator"
   - 2026-08-22 | doing | agent arena/01a0251e-in4up | core + engine + tích hợp TtsService; API verify từ source k2-fsa v1.13.4 + pub.dev docs 1.13.6 (khớp pubspec.lock)
   - 2026-08-22 | doing→done | agent arena/01a0251e-in4up | CI App Analyze xanh run 32524455212 (commit 4e1df4e + d4a3dc1); chờ build nghiệm thu của owner + model Piper trên thiết bị
+
+### LANG-630-01 — Sứ giả ngôn ngữ: EN chuẩn fallback + lộ trình bậc vi→en→hi/zh/si→…
+- **Trạng thái:** done (chờ CI + nghiệm thu bản dịch của owner)
+- **Nguồn:** người sở hữu (2026-08-22, qua agent arena/01a0296a-in4up —
+  "I4U | Language EL HIN CH SH": (1) locale ≠ vi không còn tiếng Việt, thiếu
+  dịch → English; (2) triển khai đặc biệt Hindi + Chinese + Sinhala phủ dần
+  thay English; (3) lộ trình Việt → Anh → India + Chinese + Sinhala → …).
+- **Nội dung (ADR-0002):**
+  - Tier lộ trình T0 vi (nguồn) → T1 en (chuẩn fallback, không bao giờ về vi)
+    → T2 ưu tiên hi/zh/zh_TW/si → T3 còn lại — machine-checked trong
+    `lib/core/language/language_roadmap.dart`.
+  - Wave 1: dịch đủ 4 locale ưu tiên lên **100% message chrome** (hi 371/371,
+    zh 372/372, zh_TW 372/372, si 371/371 — trừ key keep-English theo chính
+    sách `tool/lang_keep_english.json`); vá ~50 message word-salad từng locale
+    (vd `hi.readLibrary "पढ़ना library"` → bản sạch); tái sinh
+    `generated_ui_translations.dart` + literal `app_localizations_*.dart`
+    (CI gen-l10n sẽ chuẩn hóa lại).
+  - Ratchet sàn độ phủ: `tool/lang_rollout_floors.json` ↔
+    `LanguageRollout.coverageFloors` (test chặn lệch); T2 = 1.0; T3 = độ phủ
+    hiện tại (chỉ tăng). Báo cáo: `python3 tool/lang_rollout_report.py`.
+  - Hardening runtime: `_valueForLocale` trả en khi giá trị locale thiếu/rỗng.
+  - Máy bỏ vào group ADR-0002 của `test/locale_chrome_no_vietnamese_test.dart`
+    (CI chạy sẵn; token agent không đổi được workflow GitHub).
+  - Vô hiệu hóa `generate_arbs.py` (bootstrap cũ 19 locale × ~50 key ghi đè
+    mất catalog) — biến thành guard exit-1.
+- **Bằng chứng:** group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`
+  (7 test machine-check) + báo cáo report 24/24 locale đạt sàn; CI App Analyze
+  chạy file test này sẵn (không đổi workflow — token agent không có quyền
+  `workflows`). Chờ owner nghiệm thu chất lượng bản dịch HI/ZH/SI.
+- **Lịch sử:**
+  - 2026-08-22 | created | owner via chat | yêu cầu "EL HIN CH SH"
+  - 2026-08-22 | doing | agent arena/01a0296a-in4up | wave 1 + hạ tầng tier/ratchet + ADR-0002
+  - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | mọi check local xanh (ARB parity, không ký tự Việt, floors đồng bộ, T2=100%); chờ CI

@@ -1,0 +1,17 @@
+{
+  "_comment": "Chính sách giữ nguyên English (không dịch) — dùng chung cho tool/lang_rollout_report.py và test/language_rollout_test.dart. Global: key giữ English ở MỌI locale. ByLocale: key giữ English ở locale cụ thể (từ mượn không có bản dịch tốt hơn). Các key này bị loại khỏi mẫu số khi đo độ phủ (coverage).",
+  "keepEnglish": [
+    "demoWordHello",
+    "demoWordWorld",
+    "youtube",
+    "youglish"
+  ],
+  "keepEnglishByLocale": {
+    "hi": [
+      "webReaderUrl"
+    ],
+    "si": [
+      "webReaderUrl"
+    ]
+  }
+}

@@ -55,9 +55,12 @@ class PiperTtsEngine implements TtsEngine {
         'fr-FR',
       ];
 
-  /// Language từ tên file giọng — delegate về core (1 nguồn duy nhất).
-  static String langFromVoiceName(String name) =>
-      SherpaPiperTtsCore.langFromVoiceName(name);
+  /// Language từ tên file giọng Piper; '' = universal (không có locale).
+  static String langFromVoiceName(String name) {
+    final m = RegExp(r'^([a-z]{2})[_-]([A-Za-z]{2})(?:[-_].*)?$').firstMatch(name);
+    if (m == null) return '';
+    return '${m.group(1)}-${m.group(2)!.toUpperCase()}';
+  }
 
   /// Chọn giọng: voiceId cụ thể (piper_<name>) → khớp language → universal.
   PiperTtsVoice? _pickVoice(
@@ -177,4 +180,3 @@ class PiperTtsEngine implements TtsEngine {
     }
   }
 }
-/// (bisect B2 trigger)

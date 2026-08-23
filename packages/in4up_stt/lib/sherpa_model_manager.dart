@@ -428,7 +428,7 @@ class SherpaModelManager {
   /// Trả về path file đã tải — UI hướng dẫn user GIẢI NÉN rồi Import.
   /// (App không tự giải nén .tar.bz2 để không thêm dependency nặng.)
   Future<String?> downloadPiperBundle({
-    String voice = defaultPiperVoice,
+    required String voice,
   }) async {
     if (piperInfo.isDownloading) return null;
 

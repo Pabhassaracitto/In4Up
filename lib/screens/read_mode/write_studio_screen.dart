@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -10,6 +11,7 @@ import '../../features/writing/models/writing_assignment.dart';
 import '../../features/writing/models/writing_source_request.dart';
 import '../../features/writing/services/document_summary_signal_service.dart';
 import '../../features/writing/services/writing_draft_store.dart';
+import '../../features/writing/services/writing_text_normalizer.dart';
 import '../../models/text_item.dart';
 import '../../providers/text_provider.dart';
 
@@ -43,6 +45,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   final TextEditingController _dictationController = TextEditingController();
   final TextEditingController _rewriteController = TextEditingController();
   final TextEditingController _summaryController = TextEditingController();
+  final TextEditingController _manualSourceController = TextEditingController();
   Timer? _draftSaveTimer;
 
   _WriteExerciseType _exerciseType = _WriteExerciseType.dictation;
@@ -71,6 +74,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     _dictationController.dispose();
     _rewriteController.dispose();
     _summaryController.dispose();
+    _manualSourceController.dispose();
     _disposeBlankControllers();
     super.dispose();
   }
@@ -255,6 +259,13 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
   void _cycleExercise(TextProvider textProvider, _WriteExerciseType type) {
     if (_exerciseType == type) return;
+    HapticFeedback.selectionClick();
+
+    if (!textProvider.hasLyrics) {
+      setState(() => _exerciseType = type);
+      return;
+    }
+
     _saveCurrentWorkspaceDraft();
     setState(() {
       _exerciseType = type;
@@ -264,6 +275,41 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
         saveCurrentDraft: false,
       );
     });
+  }
+
+  void _useManualSource(TextProvider textProvider) {
+    final text = _manualSourceController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hãy dán hoặc nhập ít nhất một câu để bắt đầu.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    textProvider.loadWritingSource(
+      text,
+      title: 'Nguồn viết nhanh',
+      task: _activeTask,
+      kind: WritingSourceKind.text,
+      sourceLabel: 'Văn bản nhập tại tab Viết',
+      isExcerpt: true,
+    );
+    _manualSourceController.clear();
+    HapticFeedback.mediumImpact();
+  }
+
+  void _showWriteMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(message)),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _generateCloze(TextProvider textProvider) {
@@ -347,7 +393,11 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     }
 
     if (selected.isEmpty && tokens.isNotEmpty) {
-      selected.add(0);
+      final fallbackIndex = tokens.indexWhere((token) {
+        final normalized = _normalizeWord(token);
+        return normalized.isNotEmpty && _containsLetters(normalized);
+      });
+      if (fallbackIndex >= 0) selected.add(fallbackIndex);
     }
 
     selected.sort();
@@ -365,15 +415,22 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
       );
     }
 
-    final pool =
-        _buildChoicePool(textProvider, prompts.map((e) => e.answer).toSet());
+    final pool = _buildChoicePool(textProvider);
     final options = prompts.map((prompt) {
       final distractors = pool.where((word) => word != prompt.answer).toList()
-        ..shuffle(_random);
+        ..sort((a, b) {
+          final aDistance = (a.length - prompt.answer.length).abs();
+          final bDistance = (b.length - prompt.answer.length).abs();
+          return aDistance.compareTo(bDistance);
+        });
       final set = <String>{prompt.answer};
       for (final word in distractors) {
         if (set.length >= 4) break;
         set.add(word);
+      }
+      for (final variant in _spellingDistractors(prompt.answer)) {
+        if (set.length >= 4) break;
+        set.add(variant);
       }
       final list = set.toList()..shuffle(_random);
       return list;
@@ -386,20 +443,43 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
         List.generate(prompts.length, (_) => TextEditingController());
   }
 
-  List<String> _buildChoicePool(
-      TextProvider textProvider, Set<String> excluded) {
+  List<String> _buildChoicePool(TextProvider textProvider) {
     final pool = <String>{};
     for (final line in textProvider.lines) {
       final words = line.content.split(RegExp(r'\s+'));
       for (final word in words) {
         final normalized = _normalizeWord(word);
-        if (normalized.length >= 3 && _containsLetters(normalized)) {
+        if (normalized.length >= 2 && _containsLetters(normalized)) {
           pool.add(normalized);
         }
       }
     }
-    pool.removeWhere(excluded.contains);
     return pool.toList();
+  }
+
+  List<String> _spellingDistractors(String answer) {
+    if (answer.length < 3) return const [];
+    final variants = <String>{};
+    final middle = answer.length ~/ 2;
+
+    variants.add(answer.substring(0, middle) + answer.substring(middle + 1));
+    variants.add(
+      answer.substring(0, middle) +
+          answer[middle] +
+          answer.substring(middle),
+    );
+    if (middle + 1 < answer.length) {
+      variants.add(
+        answer.substring(0, middle) +
+            answer[middle + 1] +
+            answer[middle] +
+            answer.substring(middle + 2),
+      );
+    }
+
+    variants.remove(answer);
+    variants.removeWhere((word) => word.isEmpty);
+    return variants.toList();
   }
 
   Future<void> _speakCurrentLine(TextProvider textProvider) async {
@@ -414,6 +494,10 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
     final expected = assignment.sourceText;
     final actual = _dictationController.text.trim();
+    if (actual.isEmpty) {
+      _showWriteMessage('Hãy nhập câu bạn nghe được trước khi chấm.');
+      return;
+    }
 
     final expectedTokens = _tokenizeNormalized(expected);
     final actualTokens = _tokenizeNormalized(actual);
@@ -443,7 +527,18 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   void _checkCloze() {
-    if (_blankPrompts.isEmpty) return;
+    if (_blankPrompts.isEmpty) {
+      _showWriteMessage('Câu nguồn chưa có từ phù hợp để tạo ô trống.');
+      return;
+    }
+
+    final hasAnyAnswer = _exerciseType == _WriteExerciseType.clozeChoice
+        ? _selectedChoices.any((answer) => answer != null)
+        : _blankControllers.any((controller) => controller.text.trim().isNotEmpty);
+    if (!hasAnyAnswer) {
+      _showWriteMessage('Hãy trả lời ít nhất một ô trước khi kiểm tra.');
+      return;
+    }
 
     int correct = 0;
     final userAnswers = <String>[];
@@ -469,19 +564,15 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   }
 
   String _normalizeWord(String input) {
-    return input.toLowerCase().replaceAll(RegExp(r"[^a-z0-9']"), '').trim();
+    return WritingTextNormalizer.normalizeWord(input);
   }
 
   bool _containsLetters(String input) {
-    return RegExp(r'[a-z]').hasMatch(input);
+    return WritingTextNormalizer.containsLetters(input);
   }
 
   List<String> _tokenizeNormalized(String input) {
-    return input
-        .split(RegExp(r'\s+'))
-        .map(_normalizeWord)
-        .where((word) => word.isNotEmpty)
-        .toList();
+    return WritingTextNormalizer.tokenize(input);
   }
 
   int _longestCommonSubsequence(List<String> a, List<String> b) {
@@ -671,7 +762,10 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     final expected = assignment.sourceText;
     final actual = _rewriteController.text.trim();
     final actualTokens = _tokenizeNormalized(actual);
-    if (actualTokens.isEmpty) return;
+    if (actualTokens.isEmpty) {
+      _showWriteMessage('Hãy viết lại câu nguồn trước khi phân tích.');
+      return;
+    }
 
     final keywords = _extractRewriteKeywords(textProvider, assignment);
     final usedKeywords = actualTokens.where(keywords.contains).toSet().toList()
@@ -733,7 +827,10 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
 
     final expected = assignment.sourceText;
     final actual = _summaryController.text.trim();
-    if (actual.isEmpty) return;
+    if (actual.isEmpty) {
+      _showWriteMessage('Hãy viết bản tóm tắt trước khi xem phản hồi.');
+      return;
+    }
 
     if (assignment.scoringProfile == ScoringProfile.documentSignals) {
       setState(() {
@@ -1065,11 +1162,10 @@ Hãy trả về JSON hợp lệ với:
                     ],
                   ),
                   const SizedBox(height: 20),
+                  _buildExerciseSelector(textProvider),
+                  const SizedBox(height: 16),
                   if (!hasText)
-                    _EmptyTextCard(
-                      onOpenWebReader: widget.onOpenWebReader,
-                      onOpenPdfReader: widget.onOpenPdfReader,
-                    )
+                    _buildSourceStarter(textProvider)
                   else ...[
                     // hasText=true ⇒ _assignment đã auto-create
                     // (_ensureExerciseState) ⇒ an toàn dùng !
@@ -1082,8 +1178,6 @@ Hãy trả về JSON hợp lệ với:
                               ? () => _jumpToCurrentLine(textProvider)
                               : null,
                     ),
-                    const SizedBox(height: 16),
-                    _buildExerciseSelector(textProvider),
                     if (assignment!.showLineNavigator) ...[
                       const SizedBox(height: 16),
                       _buildLineNavigator(textProvider),
@@ -1116,6 +1210,183 @@ Hãy trả về JSON hợp lệ với:
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSourceStarter(TextProvider textProvider) {
+    final config = switch (_exerciseType) {
+      _WriteExerciseType.dictation => (
+          label: 'Chép chính tả',
+          description: 'Nghe bằng TTS rồi gõ lại chính xác câu nguồn.',
+          icon: Icons.edit_note_rounded,
+          color: const Color(0xFF26C6DA),
+        ),
+      _WriteExerciseType.clozeInput => (
+          label: 'Điền từ',
+          description: 'Ứng dụng tự ẩn từ khóa; bạn gõ lại theo ngữ cảnh.',
+          icon: Icons.rule_folder_outlined,
+          color: const Color(0xFFFFB300),
+        ),
+      _WriteExerciseType.clozeChoice => (
+          label: 'Chọn đáp án',
+          description: 'Chọn từ đúng cho từng ô trống được tạo tự động.',
+          icon: Icons.quiz_outlined,
+          color: const Color(0xFFAB47BC),
+        ),
+      _WriteExerciseType.rewrite => (
+          label: 'Viết lại ý',
+          description: 'Diễn đạt lại câu nguồn bằng cách viết của riêng bạn.',
+          icon: Icons.edit_outlined,
+          color: const Color(0xFF4CAF50),
+        ),
+      _WriteExerciseType.summary => (
+          label: 'Tóm tắt ngắn',
+          description: 'Rút gọn nguồn nhưng vẫn giữ các ý quan trọng.',
+          icon: Icons.short_text_rounded,
+          color: const Color(0xFF81C784),
+        ),
+    };
+
+    return Container(
+      key: const ValueKey('write-source-starter'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: config.color.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: config.color.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(config.icon, color: config.color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Đang chọn · ${config.label}',
+                      key: const ValueKey('write-selected-exercise-label'),
+                      style: TextStyle(
+                        color: config.color,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      config.description,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Dán nội dung để dùng ngay',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey('write-manual-source-field'),
+            controller: _manualSourceController,
+            minLines: 4,
+            maxLines: 8,
+            style: const TextStyle(color: Colors.white, height: 1.4),
+            decoration: InputDecoration(
+              hintText:
+                  'Nhập một câu, một đoạn văn, hoặc dán nội dung bạn muốn luyện...',
+              hintStyle: TextStyle(color: Colors.grey[500]),
+              filled: true,
+              fillColor: Colors.black.withValues(alpha: 0.18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: config.color, width: 1.4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('write-use-manual-source'),
+              onPressed: () => _useManualSource(textProvider),
+              style: FilledButton.styleFrom(
+                backgroundColor: config.color,
+                foregroundColor: Colors.black87,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text('Bắt đầu ${config.label}'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  'hoặc lấy nguồn',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ),
+              Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: widget.onOpenWebReader,
+                icon: const Icon(Icons.language),
+                label: const Text('Web Reader'),
+              ),
+              OutlinedButton.icon(
+                onPressed: widget.onOpenPdfReader,
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text('PDF Reader'),
+              ),
+              TextButton.icon(
+                onPressed: widget.onOpenQuickActions,
+                icon: const Icon(Icons.folder_open_outlined),
+                label: const Text('Nguồn khác'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1277,26 +1548,31 @@ Hãy trả về JSON hợp lệ với:
       (
         label: 'Chép',
         type: _WriteExerciseType.dictation,
+        icon: Icons.edit_note_rounded,
         color: const Color(0xFF26C6DA),
       ),
       (
         label: 'Điền từ',
         type: _WriteExerciseType.clozeInput,
+        icon: Icons.rule_folder_outlined,
         color: const Color(0xFFFFB300),
       ),
       (
         label: 'Chọn đáp án',
         type: _WriteExerciseType.clozeChoice,
+        icon: Icons.quiz_outlined,
         color: const Color(0xFFAB47BC),
       ),
       (
         label: 'Viết lại ý',
         type: _WriteExerciseType.rewrite,
+        icon: Icons.edit_outlined,
         color: const Color(0xFF4CAF50),
       ),
       (
         label: 'Tóm tắt ngắn',
         type: _WriteExerciseType.summary,
+        icon: Icons.short_text_rounded,
         color: const Color(0xFF81C784),
       ),
     ];
@@ -1308,27 +1584,62 @@ Hãy trả về JSON hợp lệ với:
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = (constraints.maxWidth - 8) / 2;
-          return Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: items
-                .map(
-                  (item) => SizedBox(
-                    width: itemWidth,
-                    child: _ExerciseSelectorChip(
-                      label: item.label,
-                      selected: _exerciseType == item.type,
-                      color: item.color,
-                      onTap: () => _cycleExercise(textProvider, item.type),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(6, 4, 6, 10),
+            child: Row(
+              children: [
+                Icon(Icons.dashboard_customize_outlined,
+                    color: Color(0xFF80DEEA), size: 19),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Chọn dạng bài viết',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                )
-                .toList(),
-          );
-        },
+                ),
+                Text(
+                  'Chạm để đổi',
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth < 430 ? 1 : 2;
+              final itemWidth = columns == 1
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: items
+                    .map(
+                      (item) => SizedBox(
+                        width: itemWidth,
+                        child: _ExerciseSelectorChip(
+                          key: ValueKey('write-exercise-${item.type.name}'),
+                          label: item.label,
+                          icon: item.icon,
+                          selected: _exerciseType == item.type,
+                          color: item.color,
+                          onTap: () =>
+                              _cycleExercise(textProvider, item.type),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -2884,76 +3195,17 @@ class _WritingSourceHandoffCard extends StatelessWidget {
   }
 }
 
-class _EmptyTextCard extends StatelessWidget {
-  final VoidCallback onOpenWebReader;
-  final VoidCallback onOpenPdfReader;
-
-  const _EmptyTextCard({
-    required this.onOpenWebReader,
-    required this.onOpenPdfReader,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121827),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        children: [
-          const Icon(Icons.menu_book_outlined, size: 42, color: Colors.white54),
-          const SizedBox(height: 12),
-          const Text(
-            'Cần nguồn văn bản để bắt đầu luyện viết',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Bạn có thể nhập một bài web hoặc file PDF trước, sau đó các dạng bài viết sẽ dùng chính nội dung đó.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: onOpenWebReader,
-                icon: const Icon(Icons.language),
-                label: const Text('Mở Web Reader'),
-              ),
-              ElevatedButton.icon(
-                onPressed: onOpenPdfReader,
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('Mở PDF Reader'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ExerciseSelectorChip extends StatelessWidget {
   final String label;
+  final IconData icon;
   final bool selected;
   final Color color;
   final VoidCallback onTap;
 
   const _ExerciseSelectorChip({
+    super.key,
     required this.label,
+    required this.icon,
     required this.selected,
     required this.color,
     required this.onTap,
@@ -2961,30 +3213,68 @@ class _ExerciseSelectorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.04),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: context.uiText(label),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected
-                ? color.withValues(alpha: 0.35)
-                : Colors.white.withValues(alpha: 0.06),
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? color : Colors.grey[400],
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: selected
+                  ? color.withValues(alpha: 0.18)
+                  : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? color.withValues(alpha: 0.55)
+                    : Colors.white.withValues(alpha: 0.06),
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? color : Colors.grey[500],
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    context.uiText(label),
+                    style: TextStyle(
+                      color: selected ? color : Colors.grey[300],
+                      fontSize: 12,
+                      fontWeight:
+                          selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: selected
+                      ? Icon(
+                          Icons.check_circle_rounded,
+                          key: const ValueKey('selected'),
+                          color: color,
+                          size: 18,
+                        )
+                      : const Icon(
+                          Icons.chevron_right_rounded,
+                          key: ValueKey('idle'),
+                          color: Colors.white24,
+                          size: 18,
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

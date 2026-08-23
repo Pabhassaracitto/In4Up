@@ -4,6 +4,7 @@ import 'package:in4up/features/writing/models/writing_source_request.dart';
 import 'package:in4up/features/writing/services/document_summary_signal_service.dart';
 import 'package:in4up/features/writing/services/writing_draft_store.dart';
 import 'package:in4up/features/writing/services/writing_sentence_segmenter.dart';
+import 'package:in4up/features/writing/services/writing_text_normalizer.dart';
 
 void main() {
   const excerptRequest = WritingSourceRequest(
@@ -164,6 +165,20 @@ void main() {
 
       expect(sentences, hasLength(2));
       expect(sentences.first, 'The score was 3.5 points.');
+    });
+  });
+
+  group('WritingTextNormalizer', () {
+    test('preserves Vietnamese and non-Latin learning text', () {
+      expect(WritingTextNormalizer.normalizeWord('Viết!'), 'viết');
+      expect(WritingTextNormalizer.normalizeWord('हिन्दी।'), 'हिन्दी');
+      expect(WritingTextNormalizer.normalizeWord('한국어?'), '한국어');
+      expect(WritingTextNormalizer.containsLetters('ภาษาไทย'), isTrue);
+    });
+
+    test('normalizes apostrophes and removes emoji', () {
+      expect(WritingTextNormalizer.normalizeWord('don’t'), "don't");
+      expect(WritingTextNormalizer.normalizeWord('hello😊'), 'hello');
     });
   });
 

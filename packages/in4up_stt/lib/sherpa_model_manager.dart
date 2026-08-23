@@ -341,32 +341,6 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  /// Import TỪNG FILE (multi-pick: onnx + json + tokens).
-  Future<String> importPiperFiles(List<String> paths) async {
-    if (paths.isEmpty) return 'Chưa chọn file nào';
-    final destDir = await _piperDir();
-    var onnx = 0;
-    for (final path in paths) {
-      final src = File(path);
-      if (!await src.exists()) continue;
-      final name = p.basename(path).toLowerCase();
-      // Chỉ nhận đúng 3 loại file cần thiết
-      if (!name.endsWith('.onnx') &&
-          !name.endsWith('_tokens.txt') &&
-          name != 'tokens.txt' &&
-          !name.endsWith('.onnx.json')) {
-        continue;
-      }
-      await src.copy(p.join(destDir, p.basename(path)));
-      if (name.endsWith('.onnx')) onnx++;
-    }
-    if (onnx == 0) {
-      return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json])';
-    }
-    await rescan();
-    return '✅ Đã import $onnx file model';
-  }
-
   void dispose() {
     _vadToken?.cancel('Disposed');
     _piperToken?.cancel('Disposed');

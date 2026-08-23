@@ -36,6 +36,7 @@
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
 | SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang (chờ CI xanh + nghiệm thu) |
+| REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 (tích hợp 01a01580/d8486d3 + hoàn thiện 3 chỗ thiếu) — chờ CI + nghiệm thu |
 
 ---
 
@@ -471,3 +472,43 @@
   WordEntry.contexts để so context mới/trùng. Chi tiết: PLAN-015.
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat (đề xuất tính năng sắp tới)
+
+### REOPEN-001 — Mở lại file cũ dùng LRC + bản dịch đã lưu (không tạo/dịch lại)
+- **Trạng thái:** done (chờ CI + nghiệm thu trên thiết bị)
+- **Nguồn:** owner (2026-08-23) — "mở lại file mp3 cũ nhấn tạo lời thì nếu đã
+  có bản lưu stt và dịch từ trước nên nhắc nhở/gợi ý; mở mp3 cũ thì quét xem
+  đã từng tạo lời chưa, có thì mở luôn chứ mỗi lần mở phải tạo lời mất thời
+  gian". Fix gốc từ agent arena/01a01580-in4up (commit d8486d3, đã check trên
+  nhánh 251e).
+- **RCA (trên 251e trước fix):**
+  - STT ghi .lrc vào documents/.in4up_lrc/<tên>.lrc nhưng `findCachedLrcPath`
+    chỉ tìm file .lrc CẠNH file gốc + `{path.hashCode}.lrc` — Android thường
+    không ghi được cạnh file gốc (SAF), hashCode đổi sau restart → mở lại MP3
+    = không thấy lời → phải bấm Tạo lời (chạy Whisper lại), nút không hỏi.
+  - TranslationCache dùng `String.hashCode` → đổi mỗi VM session → mở lại
+    document, cùng câu bị coi chưa dịch → dịch lại từ mạng.
+  - Recent file/audio id dựa hashCode → cùng file thành 2 mục.
+- **Sửa (f5cd164):**
+  - `SourceArtifactStore` (mới): index LRC theo fingerprint
+    MD5(size|duration|tên) tại .in4up_lrc/index.json; `peekCachedLrc()`
+    quét index + .in4up_lrc + sidecar cạnh file.
+  - Sau mỗi lần tạo LRC (VAD pipeline + direct) → `_rememberGeneratedLrc()`
+    ghi index. Mở MP3 cũ: autoLoadCachedLrc tìm thấy → nạp luôn; bấm Tạo
+    lời khi có bản lưu → hộp thoại **Dùng bản đã lưu / Tạo lại / Hủy**
+    (`confirmAndGenerateLrc`); `generateLrcForCurrentAudio(forceRegenerate:)`.
+  - TranslationCache key MD5 ổn định + migration 1 lần từ key hashCode cũ;
+    `rehydrateTranslationsFromCache()` khi load document (text_provider) →
+    paint lại bản dịch, không gọi mạng.
+  - Recent audio/file: id MD5 + dedup theo path (không nhân bản).
+- **Hoàn thiện (d8486d3 thiếu, compile không được nếu ghép nguyên):**
+  `applyCachedLrc()`, body `_rememberGeneratedLrc()`, param
+  `forceRegenerate` + cache guard, legacy-key migration trong `get()`.
+- **Bằng chứng:** CI App Analyze (chờ run sau push f5cd164). Verify
+  on-device: tạo lời file MP3 → tắt app → mở lại → lời hiện ngay; bấm
+  Tạo lời → hiện hộp thoại hỏi; mở document cũ đã dịch → dịch hiện lại.
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via chat (gửi từ nhánh 01a01580) | fix d8486d3
+    đã check trên 251e, nhờ tích hợp sang nhánh 251e
+  - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | checkout 10 file từ
+    d8486d3 + 2 chỉnh tay (listen_mode_screen, text_provider) + hoàn thiện 3
+    chỗ thiếu; chờ CI + nghiệm thu

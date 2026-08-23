@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
+import 'package:in4up_stt/stt_service_facade.dart';
 
 import '../../../providers/player_provider.dart';
 
 /// If this audio already has a saved LRC, ask before running Whisper again.
-Future<void> confirmAndGenerateLrc(
+///
+/// Trả về [SttTranscribeOutput?] (null khi dùng bản đã lưu / hủy) — khớp
+/// kiểu closure `onGenerate` của _LrcModelSelector.
+Future<SttTranscribeOutput?> confirmAndGenerateLrc(
   BuildContext context,
   PlayerProvider provider,
   WhisperModelLevel? level,
@@ -41,13 +45,13 @@ Future<void> confirmAndGenerateLrc(
     );
     if (choice == 'reuse') {
       await provider.applyCachedLrc(hit: hit);
-      return;
+      return null;
     }
-    if (choice != 'redo') return;
+    if (choice != 'redo') return null;
     force = true;
   }
-  if (!context.mounted) return;
-  await provider.generateLrcForCurrentAudio(
+  if (!context.mounted) return null;
+  return provider.generateLrcForCurrentAudio(
     level: level,
     grouping: grouping,
     forceRegenerate: force,

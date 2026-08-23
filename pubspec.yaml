@@ -64,6 +64,10 @@ dependencies:
   http: ^1.2.2
   connectivity_plus: ^6.1.4 #7.1.0    # Check network
   crypto: ^3.0.6                 # MD5 hash cho cache key
+
+  # Dịch offline on-device (Android/iOS) — model CHỈ tải khi user bấm
+  # (màn Cài đặt engine dịch), không auto-download lúc mở app.
+  google_mlkit_translation: ^0.15.1
 # Firebase core (bắt buộc)
   firebase_core: ^3.15.2 #4.7.0 #change from 4.0.0
   
@@ -111,3 +115,4 @@ flutter:
     - assets/dictionary/ 
     - assets/icons/   
     - assets/whisper_models/
+    - assets/glossary/

@@ -55,7 +55,11 @@ class RecentFilesService {
     final files = List<RecentFile>.from(await getAll());
 
     // Xóa nếu đã có
-    files.removeWhere((f) => f.id == file.id);
+    files.removeWhere((f) =>
+        f.id == file.id ||
+        (file.localPath != null &&
+            f.localPath != null &&
+            f.localPath!.toLowerCase() == file.localPath!.toLowerCase()));
 
     // Thêm lên đầu với timestamp mới
     files.insert(

@@ -122,6 +122,9 @@ class PlayerProvider extends ChangeNotifier
   @override
   String? get currentSongPath => _currentSongPath;
 
+  @override
+  Duration get playbackDuration => _state.duration;
+
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
   bool get isPlaying => _state.status == PlaybackStatus.playing;

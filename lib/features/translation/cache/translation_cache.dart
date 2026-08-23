@@ -1,6 +1,9 @@
 // lib/features/translation/cache/translation_cache.dart
 
 import 'dart:collection';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,8 +27,17 @@ class TranslationCache {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  /// Tạo cache key
+  /// Stable across Dart VM sessions. `String.hashCode` is NOT — after
+  /// restart the same sentence looked like a new case and was re-translated.
   String _makeKey(String text, String sourceLang, String targetLang) {
+    final digest = md5
+        .convert(utf8.encode(text.trim().toLowerCase()))
+        .toString()
+        .substring(0, 12);
+    return '${sourceLang}_${targetLang}_$digest';
+  }
+
+  String _legacyKey(String text, String sourceLang, String targetLang) {
     final hash = text.trim().toLowerCase().hashCode;
     return '${sourceLang}_${targetLang}_$hash';
   }

@@ -26,6 +26,7 @@
 | READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | ✅ done | VocabEntryEditSheet (chờ nghiệm thu build) |
 | READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
+| READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
@@ -444,3 +445,15 @@
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat | 3 câu hỏi (hướng dẫn đặt model / quản lý 1 chỗ / Piper đỏ)
   - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | manager + 2 card UI + core layout + MODELS.md
+
+### READ-630-05 — Tab Đọc: nhận diện text đã lưu khi lưu nhiều text + gợi ý hành động
+- **Trạng thái:** proposed
+- **Nội dung:** khi lưu dạng nhiều text (lưu hàng loạt), text đã có trong
+  WordList phải được NHẬN DIỆN + THÔNG BÁO cho user + gợi ý hành động
+  tiếp: thêm ngữ cảnh (nếu ngữ cảnh mới) / cập nhật (nghĩa, note, tag) /
+  bỏ qua. Nền có sẵn: badge `đã có`/`mới` + "Chỉ chọn mục MỚI"
+  (SelectionSaveSheet, READ-630-04), smart-fill của
+  addWithAutoClassify (bổ sung context+tag, không ghi đè),
+  WordEntry.contexts để so context mới/trùng. Chi tiết: PLAN-015.
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via chat (đề xuất tính năng sắp tới)

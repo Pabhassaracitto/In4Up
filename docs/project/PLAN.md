@@ -333,3 +333,29 @@
 - Lịch sử:
   - 2026-08-22 | created | owner via chat | "I4U | Language EL HIN CH SH"
   - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | ADR-0002 + wave 1 + ratchet test
+
+### PLAN-015 — Tab Đọc: nhận diện text ĐÃ LƯU khi lưu + gợi ý hành động tiếp (READ-630-05)
+- Nguồn: người sở hữu (2026-08-23, qua agent arena/01a0251e-in4up)
+- Trạng thái: proposed
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Khi lưu dạng NHIỀU text (lưu hàng loạt / lưu thông minh), nếu đoạn text
+    ấy ĐÃ CÓ trong WordList:
+    1. **Nhận diện + cho người dùng biết** (không im lặng skip, không im lặng
+       ghi đè) — badge/khối báo "đã có" rõ ràng từng mục.
+    2. **Gợi ý hành động tiếp theo hợp lý**:
+       - **Thêm ngữ cảnh** nếu đó là ngữ cảnh MỚI (câu/chương/khoá học khác
+         với các context đã lưu của entry) — action một chạm.
+       - **Cập nhật** (bổ sung nghĩa/note/tag) nếu thông tin mới có giá trị.
+       - **Bỏ qua** nếu không có gì mới.
+  - Nền có sẵn (tận dụng, không làm lại):
+    - `SelectionSaveSheet` chế độ "Lưu thông minh (hàng loạt)" đã có badge
+      `đã có`/`mới` + nút "Chỉ chọn mục MỚI" (READ-630-04).
+    - `addWithAutoClassify` đã smart-fill entry cũ: bổ sung context + tag,
+      KHÔNG ghi đè nghĩa/IPA có sẵn.
+    - `WordEntry.contexts` (List<VocabContext>) — so sánh context mới với
+      context đã có để biết "ngữ cảnh mới hay trùng".
+  - Lưu ý: KHÔNG thay đổi chính sách "không ghi đè dữ liệu cũ"
+    (READ-630-02) — mọi cập nhật phải qua hành động người dùng chọn.
+- Lịch sử:
+  - 2026-08-23 | created | owner via chat | "khi lưu dạng nhiều text nếu đoạn đã có thì nhận diện + gợi ý hành động (cập nhật, thêm ngữ cảnh nếu mới)"

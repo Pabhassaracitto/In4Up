@@ -139,6 +139,47 @@ class AudioConverter {
     return null;
   }
 
+  /// Cat 1 doan theo thoi gian bat dau tuy y (VAD pipeline — segment khong nam
+  /// tren luoi index co dinh nhu cutSingleChunk). Mobile dung FFmpegKit,
+  /// desktop dung ffmpeg binary — CUNG mot duong da chug chung voi
+  /// convertToWhisperCompatible/cutSingleChunk.
+  static Future<bool> cutSegment({
+    required String inputPath,
+    required double startSeconds,
+    required double durationSeconds,
+    required String outputPath,
+  }) async {
+    final args = <String>[
+      '-ss',
+      startSeconds.toStringAsFixed(3),
+      '-i',
+      inputPath,
+      '-t',
+      durationSeconds.toStringAsFixed(3),
+      '-vn',
+      '-ar',
+      '16000',
+      '-ac',
+      '1',
+      '-c:a',
+      'pcm_s16le',
+      '-y',
+      outputPath,
+    ];
+    try {
+      if (_useFFmpegKit) {
+        await FfmpegRunner.runWithKit(args);
+      } else {
+        await FfmpegRunner.runWithProcess(args);
+      }
+      final f = File(outputPath);
+      return f.existsSync() && f.lengthSync() > 1000;
+    } catch (e) {
+      debugPrint('[AudioConverter] cutSegment error @${startSeconds}s: $e');
+      return false;
+    }
+  }
+
   /// Cu - van giu de tuong thich, nhung gio chi dung cho file ngan < 5 phut
   /// Voi file dai, hay dung cutSingleChunk + lazy loop trong transcribeMobileChunked
   static Future<({

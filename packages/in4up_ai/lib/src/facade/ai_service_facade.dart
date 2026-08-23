@@ -16,7 +16,6 @@ import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
-import '../prompts/ai_prompts_library.dart';
 
 /// Facade duy nhất cho toàn bộ AI module — UI và Provider chỉ tương tác qua class này
 /// Kết hợp: Word Lookup + Sentence Parse + Summarize + TermExtract + PAO + Chat
@@ -39,10 +38,11 @@ class AiServiceFacade extends ChangeNotifier {
   AiFacadeState get facadeState => _facadeState;
   bool get isLoading => _facadeState == AiFacadeState.loading;
   bool get isChatLoading => _facadeState == AiFacadeState.chatting;
-  /// Chỉ `true` khi đang chạy model THẬT (AiEngineGemma + modelPath hợp lệ).
-  /// Trong mock mode (chưa import .gguf) trả `false` để UI không hiểu nhầm
-  /// "model đã sẵn sàng" — vấn đề `hasModel` gây hiểu nhầm cũ đã được fix.
-  bool get hasModel => _initialized && !_useMock;
+  /// True only when a real .gguf is loaded — not mock/startup fallback.
+  /// (Merge 2026-08-22: giữ bản 01a0251e — chặt hơn bản `_initialized && !_useMock`
+  /// của 01a02601, tương thích `_loader.hasModel` + `isReady` đã có trong file.)
+  bool get hasModel =>
+      !_useMock && _loader.hasModel && isReady;
   String? _lastError;
   String? get lastError => _lastError;
   bool get isReady => _initialized && (_engine?.state == AiEngineState.ready);
@@ -154,13 +154,19 @@ class AiServiceFacade extends ChangeNotifier {
     }
   }
 
-  Future<bool> initialize({required String modelPath, bool useMock = false}) async {
+  Future<bool> initialize({
+    required String modelPath,
+    bool useMock = false,
+    bool forceReload = false,
+  }) async {
     // Cho phép chuyển backend giữa phiên chạy (VD: app khởi động ở mock mode,
     // người dùng import .gguf ⇒ cần re-init sang AiEngineGemma thật).
+    // forceReload (từ 01a0251e): ép init lại dù đã sẵn sàng cùng backend
+    // (VD: đổi file .gguf giữa phiên).
     if (_initialized) {
-      if (useMock == _useMock) return true;
+      if (!forceReload && useMock == _useMock) return true;
       debugPrint(
-          '[AiServiceFacade] Switching backend ${_useMock ? "mock" : "real"} → ${useMock ? "mock" : "real"}');
+          '[AiServiceFacade] (Re)initializing: ${_useMock ? "mock" : "real"} → ${useMock ? "mock" : "real"}');
       await _engine?.dispose();
       _engine = null;
       _initialized = false;
@@ -168,9 +174,13 @@ class AiServiceFacade extends ChangeNotifier {
     }
     _useMock = useMock;
 
-    if (useMock) {
+    await _engine?.dispose();
+    _engine = null;
+
+    if (useMock || modelPath.trim().isEmpty) {
       _engine = AiEngineMock();
       await _engine!.initialize(modelPath: modelPath);
+      _useMock = true;
       _initialized = true;
       debugPrint('[AiServiceFacade] Mock mode');
       if (!_disposed) notifyListeners();
@@ -180,6 +190,13 @@ class AiServiceFacade extends ChangeNotifier {
     _engine = AiEngineGemma();
     final ok = await _engine!.initialize(modelPath: modelPath);
     _initialized = ok;
+    _useMock = !ok;
+    if (!ok) {
+      _engine = AiEngineMock();
+      await _engine!.initialize(modelPath: '');
+      _initialized = true;
+      debugPrint('[AiServiceFacade] Gemma init failed → mock fallback');
+    }
     if (!_disposed) notifyListeners();
     return ok;
   }
@@ -402,10 +419,16 @@ class AiServiceFacade extends ChangeNotifier {
 
   Future<bool> importModelFromUser() async {
     try {
-      final loader = AiModelLoader();
-      final result = await loader.importModelFromUser();
+      final result = await _loader.importModelFromUser();
+      _modelStatus = result;
       if (result.success && result.modelPath != null) {
-        return await initialize(modelPath: result.modelPath!);
+        final ok = await initialize(
+          modelPath: result.modelPath!,
+          useMock: false,
+          forceReload: true,
+        );
+        if (!_disposed) notifyListeners();
+        return ok;
       }
       return false;
     } catch (e) {

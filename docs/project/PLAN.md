@@ -178,7 +178,7 @@
 
 ### PLAN-008 — Sẵn sàng tích hợp sherpa (live stream, cabin dịch STS EL)
 - Nguồn: người sở hữu (2026-08-21, qua agent arena/019fe630-vipsound)
-- Trạng thái: proposed
+- Trạng thái: doing (VAD + TTS xong, còn Zipformer streaming + STS cabin)
 - Milestone đề xuất: M3 — Sherpa Integration
 - Chi tiết:
   - **Mục tiêu:** Live Streaming STT + Speech Translation (STS) cabin:
@@ -214,9 +214,11 @@
       (in4up_stt, API v1.13.4 verify từ source k2-fsa) + SherpaVadService
       gọi Silero VAD trước, EnergyVad chỉ còn là fallback
     - [ ] User chạy trên thiết bị: push model → log "Silero VAD: N segments"
-    - [ ] Zipformer streaming + VITS (step kế tiếp lộ trình)
+    - [x] TTS VITS/Piper — `SherpaPiperTtsCore` + `PiperTtsEngine` (SHERPA-002)
+    - [ ] Zipformer streaming (step kế tiếp lộ trình)
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + handover Section3
+  - 2026-08-22 | VAD done (SHERPA-001, 4a50a77+cd9cccf) + TTS Piper done code (SHERPA-002) | agent arena/01a0251e-in4up | còn chờ build nghiệm thu + Zipformer streaming
 
 ### PLAN-009 — Học tinh hoa Google dịch cabin mới (Gemini 3.5 Live + Gemma Translator offline) → bộ vượt trội
 - Nguồn: người sở hữu (2026-08-21) + web search Google 2026 + branch sherpa 019fe27a
@@ -244,6 +246,7 @@
     - Mỗi bước có AT riêng, không gộp, CI check qua `ci_check.sh`
 - Lịch sử:
   - 2026-08-21 | created | owner via arena/019fe630-vipsound + agent web search | học Google cabin mới + sherpa branch 27
+  - 2026-08-22 | lộ trình step "TTS VITS" done (code) | agent arena/01a0251e-in4up | SHERPA-002 — Piper offline hoàn toàn; step kế: Zipformer streaming live STT
 ### PLAN-010 — Tab Đọc: chủ đề + ngôn ngữ xuyên suốt lưu từ (READ-630-01/02)
 - Nguồn: người sở hữu (2026-08-21, qua agent arena/01a0251e-in4up — kế thừa 019fe630)
 - Trạng thái: done (code 2026-08-21, chờ nghiệm thu build)
@@ -311,7 +314,10 @@
   - 2026-08-21 | created | owner via chat
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | 3 commit (rule, import, loader)
 
-### PLAN-014 — AI Chat thật: tích hợp llama.cpp native backend (hết mock)
+### PLAN-017 — AI Chat thật: tích hợp llama.cpp native backend (hết mock)
+- Ghi chú ID: từng ghi PLAN-014 trên nhánh 01a02601; đổi PLAN-017 khi merge
+  01a0251e vì PLAN-014 (Sứ giả ngôn ngữ) và PLAN-015 (READ-630-05) đã có sẵn —
+  tránh trùng ID.
 - Nguồn: người (2026-08-21) — yêu cầu "Hoàn thiện chat AI" kèm audit nhánh
   arena/01a0251e-in4up (chat UI/wiring chạy nhưng câu trả lời vẫn mock;
   native binding có sẵn nhưng chưa nối; llama.cpp chưa có submodule/CMake).
@@ -323,3 +329,64 @@
   isolate AiEngineGemma với mock fallback; hasModel trung thực; mock→real
   re-init; validate GGUF magic; CMake tự init submodule (token thiếu quyền
   workflows). Đã verify local (build + ABI smoke) và chờ CI full build.
+### PLAN-014 — Sứ giả ngôn ngữ: lộ trình bậc vi → en → hi/zh/si → … (LANG-630-01)
+- Nguồn: người sở hữu (2026-08-22, qua agent arena/01a0296a-in4up — "EL HIN CH SH")
+- Trạng thái: done (code + ADR-0002 + máy bắt; chờ CI + nghiệm thu bản dịch)
+- Chi tiết:
+  - Bất biến rule #5 mở rộng xuống tầng ARB: locale ≠ vi thiếu dịch → English
+    (không bao giờ vi); mọi ARB giữ key parity với template `app_en.arb`.
+  - Tier lộ trình + sàn ratchet: `lib/core/language/language_roadmap.dart`,
+    `tool/lang_rollout_floors.json`, chính sách giữ-English
+    `tool/lang_keep_english.json`, báo cáo `tool/lang_rollout_report.py`,
+    máy bắt group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`
+    (CI app_analyze.yml đã chạy file này sẵn).
+  - Wave 1 (2026-08-22): hi/zh/zh_TW/si phủ 100% message chrome; vá word-salad
+    cũ; key ARB mới phải dịch đủ 4 locale T2 ngay trong cùng PR.
+  - Bước sau (đề xuất, chờ owner chọn): nâng locale T3 tiếp theo lên T2
+    (ứng viên theo độ phủ: ar/ru 41.7%, ja/ko/th 41.4%) — làm bằng wave mới,
+    nâng sàn, không đổi ADR này.
+- Lịch sử:
+  - 2026-08-22 | created | owner via chat | "I4U | Language EL HIN CH SH"
+  - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | ADR-0002 + wave 1 + ratchet test
+
+### PLAN-015 — Tab Đọc: nhận diện text ĐÃ LƯU khi lưu + gợi ý hành động tiếp (READ-630-05)
+- Nguồn: người sở hữu (2026-08-23, qua agent arena/01a0251e-in4up)
+- Trạng thái: proposed
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Khi lưu dạng NHIỀU text (lưu hàng loạt / lưu thông minh), nếu đoạn text
+    ấy ĐÃ CÓ trong WordList:
+    1. **Nhận diện + cho người dùng biết** (không im lặng skip, không im lặng
+       ghi đè) — badge/khối báo "đã có" rõ ràng từng mục.
+    2. **Gợi ý hành động tiếp theo hợp lý**:
+       - **Thêm ngữ cảnh** nếu đó là ngữ cảnh MỚI (câu/chương/khoá học khác
+         với các context đã lưu của entry) — action một chạm.
+       - **Cập nhật** (bổ sung nghĩa/note/tag) nếu thông tin mới có giá trị.
+       - **Bỏ qua** nếu không có gì mới.
+  - Nền có sẵn (tận dụng, không làm lại):
+    - `SelectionSaveSheet` chế độ "Lưu thông minh (hàng loạt)" đã có badge
+      `đã có`/`mới` + nút "Chỉ chọn mục MỚI" (READ-630-04).
+    - `addWithAutoClassify` đã smart-fill entry cũ: bổ sung context + tag,
+      KHÔNG ghi đè nghĩa/IPA có sẵn.
+    - `WordEntry.contexts` (List<VocabContext>) — so sánh context mới với
+      context đã có để biết "ngữ cảnh mới hay trùng".
+  - Lưu ý: KHÔNG thay đổi chính sách "không ghi đè dữ liệu cũ"
+    (READ-630-02) — mọi cập nhật phải qua hành động người dùng chọn.
+- Lịch sử:
+  - 2026-08-23 | created | owner via chat | "khi lưu dạng nhiều text nếu đoạn đã có thì nhận diện + gợi ý hành động (cập nhật, thêm ngữ cảnh nếu mới)"
+
+### PLAN-016 — Tab Nghe: curtain LRC + AI sheet theo thói quen + dịch xuyên tab
+- Nguồn: người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up)
+- Trạng thái: done (code + CI, chờ nghiệm thu thiết bị)
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Khi STT/cached LRC hoàn tất, rèm lời thoại mở tối đa an toàn sát waveform.
+  - AI là bottom sheet riêng có một chuỗi gesture tự nhiên: cuộn nội dung; khi
+    nội dung về đầu thì kéo tiếp hạ cả sheet; kéo hết hoặc chạm ngoài để ẩn.
+  - Layout lấy chiều cao viewport thật của Listen trong shell để loại bỏ bottom
+    overflow khoảng 126px khi LRC + bộ chọn AI cùng xuất hiện.
+  - Tab Hiểu và Nghe dùng chung resolver bản dịch từ `TextProvider`, bảo đảm
+    bản dịch tạo/lưu ở tab Đọc xuất hiện theo cùng cài đặt karaoke.
+- Lịch sử:
+  - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | triển khai LISTEN-823-01, chờ CI + nghiệm thu
+  - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; App Analyze + Locale run 32659292077 xanh

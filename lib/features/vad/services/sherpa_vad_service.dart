@@ -17,7 +17,14 @@ import '../models/speech_segment.dart';
 abstract class VadService {
   /// Phát hiện các đoạn speech trong file audio
   /// Trả về List<SpeechSegment> với start_time, end_time
-  Future<VadResult> detectSpeechSegments(String audioFilePath);
+  ///
+  /// [onVadProgress] (tuỳ chọn): tiến độ quét VAD (0..1) — cho UI vẽ
+  /// thanh tiến độ trong khi file dài đang được quét (audit VAD 30p:
+  /// quét đồng bộ chặn main isolate gây đơ UI).
+  Future<VadResult> detectSpeechSegments(
+    String audioFilePath, {
+    void Function(double fraction)? onVadProgress,
+  });
 
   /// Release native resources
   Future<void> dispose();
@@ -138,7 +145,10 @@ class SherpaVadService implements VadService {
   }
 
   @override
-  Future<VadResult> detectSpeechSegments(String audioFilePath) async {
+  Future<VadResult> detectSpeechSegments(
+    String audioFilePath, {
+    void Function(double fraction)? onVadProgress,
+  }) async {
     await _ensureInitialized();
     final sw = Stopwatch()..start();
 
@@ -150,7 +160,10 @@ class SherpaVadService implements VadService {
 
     // PLAN-008: có sherpa VAD thật → dùng nó (Silero VAD)
     if (_vadCore != null) {
-      final sherpaResult = await _runSherpaVad(audioFilePath);
+      final sherpaResult = await _runSherpaVad(
+        audioFilePath,
+        onVadProgress: onVadProgress,
+      );
       if (sherpaResult != null) {
         sw.stop();
         return sherpaResult;
@@ -175,16 +188,27 @@ class SherpaVadService implements VadService {
 
   /// Chạy Silero VAD thật: convert audio → 16k mono WAV → sherpa detect.
   /// Trả null nếu không xử lý được (caller fallback energy).
-  Future<VadResult?> _runSherpaVad(String audioPath) async {
+  Future<VadResult?> _runSherpaVad(
+    String audioPath, {
+    void Function(double fraction)? onVadProgress,
+  }) async {
     final core = _vadCore;
     if (core == null) return null;
     String? convertedPath;
     try {
+      onVadProgress?.call(0.0);
       convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
       // readWave chỉ ăn WAV 16k mono — convertToWhisperCompatible đã chuẩn
       // .wav input được trả nguyên (nếu wav không phải 16k, detect trả []
       // → fallback, đúng nghĩa "sai chuẩn thì an toàn")
-      final segments = core.detect(convertedPath!);
+      // ★ detectAsync: yield event loop định kỳ — file 30p không đơ UI
+      //   (audit 2026-08-23), kèm tiến độ quét cho UI.
+      final segments = await core.detectAsync(
+        convertedPath!,
+        onProgress: (done, total) {
+          if (total > 0) onVadProgress?.call(done / total);
+        },
+      );
       if (segments.isEmpty) return null;
 
       // Duration thật của file (probe) — chuẩn hơn last-segment end

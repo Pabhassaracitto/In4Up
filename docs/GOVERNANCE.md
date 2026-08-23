@@ -27,6 +27,41 @@ git show origin/main:docs/project/PLAN.md
 
 Không bao giờ giả định bản trên branch mình là mới nhất.
 
+### 2a. Cạm bẫy sandbox: nhánh `arena/*` bị "mất" do clone single-branch
+
+> Ghi nhận 2026-08-22 (session Beta `arena/01a02a12-in4up`): agent được tạo từ
+> tip 251e nhưng `git branch -r` chỉ thấy `main`, và
+> `git show origin/arena/01a0251e-in4up:SO_TAY_CHU.md` báo `fatal: path ... does not exist`.
+> **KHÔNG phải nhánh gốc bị mất.** Nguyên nhân: sandbox clone có
+> `remote.origin.fetch = +refs/heads/main:refs/remotes/origin/main`
+> (single-branch), nên `git fetch origin` chỉ kéo `main` mà không kéo các
+> nhánh `arena/*` dù chúng vẫn tồn tại trên GitHub.
+
+Check nhanh:
+
+```bash
+git config --get remote.origin.fetch   # nếu chỉ có main ⇒ đúng bẫy này
+git branch -r                          # nếu chỉ origin/main ⇒ chưa fetch nhánh lineage
+gh api "repos/Pabhassaracitto/In4Up/branches?per_page=100"  # xác nhận nhánh tồn tại trên GitHub
+```
+
+Chạy để fetch đủ nhánh lineage trước khi đọc sổ tay / đối chiếu:
+
+```bash
+git fetch origin arena/01a0251e-in4up:refs/remotes/origin/arena/01a0251e-in4up
+git fetch origin arena/01a01580-in4up:refs/remotes/origin/arena/01a01580-in4up
+git fetch origin arena/019fe630-vipsound:refs/remotes/origin/arena/019fe630-vipsound
+git branch -a
+git show origin/arena/01a0251e-in4up:SO_TAY_CHU.md
+```
+
+Lưu ý thêm:
+
+- Sandbox này vẫn là **shallow clone**: lịch sử sâu phía sau tip có thể không
+  đầy đủ cho bisect, nhưng refs + blobs của tip thường đủ cho path-checkout.
+- Chỉ vì không thấy ref **không** được tự tạo/rebase/merge dựa trên giả định;
+  nếu không fetch được, dừng lại báo chủ.
+
 ## 3. Luật ghi (quy tắc status-only, append-only)
 
 1. **KHÔNG XÓA** dòng việc, dòng lịch sử, ADR, entry kế hoạch.

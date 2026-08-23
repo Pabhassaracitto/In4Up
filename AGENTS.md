@@ -36,6 +36,12 @@
    - **Không** áp dụng (giữ nguyên nguồn): nội dung user (văn bản, lyric, PDF/Web,
      ghi chú), từ vựng/nghĩa user nhập, output AI, transcript STT, tiêu đề chương
      auto-TOC.
+   - **Lộ trình phủ theo bậc (ADR-0002):** vi (nguồn) → en (chuẩn fallback) →
+     T2 ưu tiên hi/zh/zh_TW/si (đã 100% wave 1 — key ARB mới phải dịch đủ
+     4 locale ngay trong cùng PR) → T3 (sàn ratchet, chỉ tăng). Xem
+     `lib/core/language/language_roadmap.dart` + `tool/lang_rollout_report.py`
+     + group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`.
+     KHÔNG chạy `generate_arbs.py` (đã vô hiệu — ghi đè mất catalog).
    - Thứ tự: `locale có sẵn` → `en` → không đoán, không để `vi`.
    - Chuỗi UI mới: ARB **hoặc** `uiText('…')` + English trong
      `tool/legacy_ui_english_overrides.json`. KHÔNG hard-code tiếng Việt ra `Text`
@@ -57,6 +63,9 @@
 - `flutter analyze` trong CI coi info-lint là lỗi — nhưng flutter_lints 6.0 đã giảm
   mạnh rule set; kiểm rule thật trước khi "đoán lint" (mục 3 của skill ci-red-debugging).
 - Bẫy đã biết + quy trình hồi phục sandbox: mục 5 của skill ci-red-debugging.
+- Sandbox clone mới có thể **chỉ fetch `main`** (`remote.origin.fetch = +refs/heads/main:...`),
+  khiến `git branch -r` / `git show origin/arena/*:...` không thấy nhánh lineage.
+  Xem **GOVERNANCE mục 2a** để fetch đúng ref — ĐỪNG kết luận "nhánh gốc bị mất".
 - Commit nhỏ, push ngay — push là backup (sandbox có thể tái bản giữa phiên).
 
 ## Module mới (đang trên branch `arena/01a019bb-in4up`, chờ merge)

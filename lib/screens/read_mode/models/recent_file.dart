@@ -1,5 +1,9 @@
 // lib/screens/read_mode/models/recent_file.dart
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 enum RecentFileType { localText, localPdf, cloud }
 
 class RecentFile {
@@ -135,7 +139,7 @@ class RecentFile {
     final title =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
     return RecentFile(
-      id: 'local_${normalizedPath.toLowerCase().hashCode}',
+      id: 'local_${md5.convert(utf8.encode(normalizedPath.toLowerCase())).toString().substring(0, 12)}',
       title: title,
       subtitle: normalizedPath,
       type: RecentFileType.localText,
@@ -152,7 +156,7 @@ class RecentFile {
     final title =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
     return RecentFile(
-      id: 'pdf_${normalizedPath.toLowerCase().hashCode}',
+      id: 'pdf_${md5.convert(utf8.encode(normalizedPath.toLowerCase())).toString().substring(0, 12)}',
       title: title,
       subtitle: normalizedPath,
       type: RecentFileType.localPdf,

@@ -1,7 +1,8 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
-import 'package:flutter/foundation.dart'; // cho kDebugMode
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
@@ -30,7 +31,7 @@ class SttModelSettingsScreen extends StatelessWidget {
               ),
             ),
             Text(
-              'Whisper Speech-to-Text',
+              'STT · VAD · TTS offline — models 1 chỗ, tinh chỉnh ở tab chức năng',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -46,10 +47,35 @@ class SttModelSettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _SourceInfoCard(),
           const SizedBox(height: 16),
+          const _SectionLabel('1. STT — Whisper (bóc băng audio thành chữ)'),
           ...WhisperModelLevel.values.map(
             (level) => _ModelCard(level: level),
           ),
+          const SizedBox(height: 16),
+          const _SectionLabel(
+              '2. VAD — Silero (loại khoảng lặng, tạo lời file dài nhanh)'),
+          const _SileroVadCard(),
+          const SizedBox(height: 16),
+          const _SectionLabel(
+              '3. TTS — Piper (đọc chữ offline, giọng neural — cabin)'),
+          const _PiperModelCard(),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
       ),
     );
   }
@@ -59,26 +85,25 @@ class _SourceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.orange.shade900.withValues(alpha: 0.3),
+      color: Colors.teal.shade900.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Icon(Icons.folder_special, color: Colors.orange),
+            const Icon(Icons.cloud_download, color: Colors.teal),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Chế độ Local Only (Fix HttpException)',
+                    'Tải khi bạn bấm — không tự tải lúc mở app',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    'Auto-download từ HuggingFace đã TẮT theo Handover Rule 2 '
-                    'để tránh Connection closed trên Android Tablet. '
-                    'Hãy chép file .bin thủ công vào Documents/in4up_whisper_models/ '
-                    'và đảm bảo size >1MB (Rule 3).',
+                    'Bấm Tải về để lấy model từ mạng (HuggingFace, rồi GitHub). '
+                    'App không tự tải khi khởi động — tránh lỗi Connection closed '
+                    'trên tablet. Import file .bin nếu bạn đã có sẵn.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -191,14 +216,12 @@ class _ModelCard extends StatelessWidget {
                         onPressed: () => manager.cancelDownload(level),
                       ),
                     ] else if (info.isReady) ...[
-                      // Nút Import (chỉ debug)
-                      if (kDebugMode)
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 16),
-                          label: const Text('Import'),
-                          onPressed: () =>
-                              _importModel(context, manager, level),
-                        ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () =>
+                            _importModel(context, manager, level),
+                      ),
                       // Nút Xoá
                       TextButton.icon(
                         icon: const Icon(Icons.delete, size: 16),
@@ -210,14 +233,12 @@ class _ModelCard extends StatelessWidget {
                             _confirmDelete(context, manager, level),
                       ),
                     ] else ...[
-                      // Nút Import (chỉ debug)
-                      if (kDebugMode)
-                        TextButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 16),
-                          label: const Text('Import'),
-                          onPressed: () =>
-                              _importModel(context, manager, level),
-                        ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () =>
+                            _importModel(context, manager, level),
+                      ),
                       // Size label + Nút Tải
                       Text(
                         '${level.sizeInMB}MB',
@@ -246,38 +267,33 @@ class _ModelCard extends StatelessWidget {
     SttModelManager manager,
     WhisperModelLevel level,
   ) async {
-    // Rule 2: Auto-download disabled — hướng dẫn chép thủ công
-    await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Auto-download đã tắt (Fix HttpException)'),
-        content: Text(
-          'Theo handover SECTION 1 Rule 2, auto-download từ HuggingFace CDN đã bị '
-          'tắt để tránh lỗi HttpException: Connection closed trên Android Tablet.\n\n'
-          'Cách đúng:\n'
-          '1. Dùng path_provider: getApplicationDocumentsDirectory()\n'
-          '2. Chép file ${level.fileName} hoặc ggml-tiny-q4_0.bin vào:\n'
-          '   Documents/in4up_whisper_models/\n'
-          '3. Đảm bảo File.existsSync() && lengthSync() > 1_000_000\n'
-          '4. App sẽ tự scan và dùng luôn, không tải lại.\n\n'
-          'Nút Import bên dưới vẫn hoạt động để chọn file .bin từ bộ nhớ.',
+    if (level.sizeInMB >= 100) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('Tải Whisper ${level.name.toUpperCase()}?'),
+          content: Text(
+            'Dung lượng khoảng ${level.sizeInMB}MB.\n\n'
+            'Nên dùng Wi-Fi và giữ app mở trong lúc tải. '
+            'Nếu mạng đứt, bấm Tải về lại — app thử HuggingFace rồi GitHub.\n\n'
+            'Hoặc Import nếu bạn đã có file ${level.fileName}.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Tải về'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Đã hiểu'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-              // Mở picker import thay vì download
-              _importModel(context, manager, level);
-            },
-            child: const Text('Chọn file thủ công'),
-          ),
-        ],
-      ),
-    );
+      );
+      if (confirm != true) return;
+    }
+
+    manager.downloadModel(level);
   }
 
   Future<void> _importModel(
@@ -471,6 +487,579 @@ class _LanguageSettingCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SILERO VAD CARD — model detect khoảng lặng (tạo lời file dài nhanh)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SileroVadCard extends StatefulWidget {
+  const _SileroVadCard();
+
+  @override
+  State<_SileroVadCard> createState() => _SileroVadCardState();
+}
+
+class _SileroVadCardState extends State<_SileroVadCard> {
+  final _manager = SherpaModelManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _manager.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SherpaModelInfo>(
+      stream: _manager.watchVad(),
+      initialData: _manager.vadInfo,
+      builder: (context, snapshot) {
+        final info = snapshot.data!;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.hearing, color: Colors.teal),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Silero VAD (Silero Voice Activity)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'Loại bỏ khoảng lặng — tạo lời file 30p chỉ vài phút, không đơ UI',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _VadBadge(ready: info.isReady),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                if (info.isDownloading) ...[
+                  LinearProgressIndicator(
+                    value: info.downloadProgress,
+                    backgroundColor: Colors.grey.shade800,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~2MB',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                if (info.errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade900.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      info.errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (info.isDownloading)
+                      TextButton.icon(
+                        icon: const Icon(Icons.cancel, size: 16),
+                        label: const Text('Huỷ'),
+                        style:
+                            TextButton.styleFrom(foregroundColor: Colors.red),
+                        onPressed: _manager.cancelVadDownload,
+                      )
+                    else ...[
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import'),
+                        onPressed: () => _importVad(context),
+                      ),
+                      if (info.isReady)
+                        TextButton.icon(
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text('Xoá'),
+                          style: TextButton.styleFrom(
+                              foregroundColor: Colors.red),
+                          onPressed: () => _manager.deleteVad(),
+                        ),
+                      const Text('2-5MB',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.download, size: 16),
+                        label: const Text('Tải về'),
+                        onPressed: info.isReady
+                            ? null
+                            : () => _manager.downloadVad(),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _importVad(BuildContext context) async {
+    final result = await fp.FilePicker.pickFiles(
+      type: fp.FileType.custom,
+      allowedExtensions: ['onnx'],
+    );
+    final path = result?.files.single.path;
+    if (path == null || path.isEmpty) return;
+    final ok = await _manager.importVadFromPath(path);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? '✅ Import Silero VAD thành công!'
+            : '❌ Import thất bại — file cần là silero_vad.onnx (>1MB)'),
+      ),
+    );
+  }
+}
+
+class _VadBadge extends StatelessWidget {
+  final bool ready;
+  const _VadBadge({required this.ready});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) =
+        ready ? ('Sẵn sàng', Colors.green) : ('Chưa cài', Colors.grey);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(label, style: TextStyle(color: color, fontSize: 11)),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PIPER TTS CARD — giọng neural offline (cabin dịch, đọc chữ không cần mạng)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PiperModelCard extends StatefulWidget {
+  const _PiperModelCard();
+
+  @override
+  State<_PiperModelCard> createState() => _PiperModelCardState();
+}
+
+class _PiperModelCardState extends State<_PiperModelCard> {
+  final _manager = SherpaModelManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _manager.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SherpaPiperInfo>(
+      stream: _manager.watchPiper(),
+      initialData: _manager.piperInfo,
+      builder: (context, snapshot) {
+        final info = snapshot.data!;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.record_voice_over, color: Colors.teal),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Piper TTS (offline neural)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'Đọc chữ offline không cần mạng — giọng neural tự nhiên',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _PiperBadge(info: info),
+                  ],
+                ),
+
+                // Trạng thái espeak-ng-data (bắt buộc cho mọi giọng)
+                const SizedBox(height: 8),
+                _EspeakRow(
+                  installed: info.espeakInstalled,
+                  onDownload: info.espeakInstalled
+                      ? null
+                      : () => _downloadPiperBundle(context),
+                ),
+
+                // Danh sách giọng đã cài
+                if (info.voices.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...info.voices.map((v) => _PiperVoiceRow(
+                        voice: v,
+                        onDelete: () => _manager.deletePiperVoice(v.name),
+                      )),
+                ],
+
+                const SizedBox(height: 8),
+
+                if (info.isDownloading) ...[
+                  LinearProgressIndicator(
+                    value: info.downloadProgress,
+                    backgroundColor: Colors.grey.shade800,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Đang tải bundle Piper… ${(info.downloadProgress * 100).toStringAsFixed(1)}%',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                if (info.errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade900.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      info.errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // Hướng dẫn khi chưa có gì
+                if (info.voices.isEmpty && !info.isDownloading)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade900.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.amber.shade900.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: const Text(
+                      'Chưa có giọng Piper. Bấm "Tải giọng" (gợi ý) hoặc '
+                      'tải bundle vits-piper-*.tar.bz2 → giải nén → '
+                      '"Import thư mục".',
+                      style: TextStyle(fontSize: 12, color: Colors.amberAccent),
+                    ),
+                  ),
+
+                const SizedBox(height: 8),
+
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (info.isDownloading)
+                      TextButton.icon(
+                        icon: const Icon(Icons.cancel, size: 16),
+                        label: const Text('Huỷ'),
+                        style:
+                            TextButton.styleFrom(foregroundColor: Colors.red),
+                        onPressed: _manager.cancelPiperDownload,
+                      )
+                    else ...[
+                      TextButton.icon(
+                        icon: const Icon(Icons.folder_open, size: 16),
+                        label: const Text('Import thư mục'),
+                        onPressed: () => _importFolder(context),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.insert_drive_file, size: 16),
+                        label: const Text('Import file'),
+                        onPressed: () => _importFiles(context),
+                      ),
+                      if (info.voices.isNotEmpty)
+                        TextButton.icon(
+                          icon: const Icon(Icons.delete_sweep, size: 16),
+                          label: const Text('Xoá hết'),
+                          style: TextButton.styleFrom(
+                              foregroundColor: Colors.red),
+                          onPressed: () => _confirmDeleteAll(context),
+                        ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.download, size: 16),
+                        label: const Text('Tải giọng'),
+                        onPressed: () => _downloadPiperBundle(context),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _importFolder(BuildContext context) async {
+    final path = await fp.FilePicker.getDirectoryPath();
+    if (path == null || path.isEmpty) return;
+    final msg = await _manager.importPiperFolder(path);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _importFiles(BuildContext context) async {
+    final result = await fp.FilePicker.pickFiles(
+      type: fp.FileType.custom,
+      allowedExtensions: ['onnx', 'json', 'txt'],
+      allowMultiple: true,
+    );
+    final paths = result?.files.map((f) => f.path).whereType<String>().toList() ??
+        [];
+    if (paths.isEmpty) return;
+    final msg = await _manager.importPiperFiles(paths);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _downloadPiperBundle(BuildContext context) async {
+    const en = SherpaModelManager.defaultPiperVoice;
+    const vi = 'vi_VN-vais1000-medium';
+
+    final voice = await showDialog<String>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Tải giọng Piper (bundle ~75MB, gồm espeak)'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, en),
+            child: const Text('en_US-libritts_r-medium (Anh, nữ)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, vi),
+            child: const Text('vi_VN-vais1000-medium (Việt, nữ)'),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              'Còn 536 giọng khác: github.com/k2-fsa/sherpa-onnx/releases '
+              '→ tag tts-models → tải vits-piper-<giọng>.tar.bz2 → giải nén '
+              '→ Import thư mục.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (voice == null || !mounted) return;
+
+    final savedPath = await _manager.downloadPiperBundle(voice: voice);
+    if (!mounted) return;
+
+    if (savedPath != null) {
+      // File .tar.bz2 đã tải về — app KHÔNG tự giải nén (tránh thêm dep).
+      final file = File(savedPath);
+      final exists = file.existsSync();
+      final sizeMB =
+          exists ? (file.lengthSync() / 1024 / 1024).toStringAsFixed(1) : '?';
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Đã tải về bundle Piper'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'File: $savedPath\nKích thước: $sizeMB MB',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Bước tiếp theo:\n'
+                '1. Mở file này bằng app giải nén (ZArchiver / RAR / Files).\n'
+                '2. Chọn thư mục vừa giải nén (chứa *.onnx + tokens.txt + '
+                'espeak-ng-data/).\n'
+                '3. Quay lại đây bấm "Import thư mục" và chọn thư mục đó.',
+                style: TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+    // savedPath == null → lỗi đã được ghi vào info.errorMessage (hiện trong card)
+  }
+
+  Future<void> _confirmDeleteAll(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xoá toàn bộ model Piper?'),
+        content: const Text(
+            'Sẽ xoá mọi giọng + espeak-ng-data. Cần tải lại để dùng TTS offline.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xoá hết'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) _manager.deletePiperAll();
+  }
+}
+
+class _PiperBadge extends StatelessWidget {
+  final SherpaPiperInfo info;
+  const _PiperBadge({required this.info});
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = info.isReady;
+    final (label, color) = ready
+        ? ('${info.voices.length} giọng', Colors.green)
+        : ('Chưa cài', Colors.grey);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(label, style: TextStyle(color: color, fontSize: 11)),
+    );
+  }
+}
+
+class _EspeakRow extends StatelessWidget {
+  final bool installed;
+  final VoidCallback? onDownload;
+  const _EspeakRow({required this.installed, this.onDownload});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          installed ? Icons.check_circle : Icons.error_outline,
+          size: 16,
+          color: installed ? Colors.green : Colors.orange,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            installed
+                ? 'espeak-ng-data (phonemizer) — đã có'
+                : 'espeak-ng-data — CHƯA có (bắt buộc, đi kèm trong bundle tải về)',
+            style: TextStyle(
+              fontSize: 12,
+              color: installed ? Colors.green : Colors.orange,
+            ),
+          ),
+        ),
+        if (!installed && onDownload != null)
+          TextButton(
+            onPressed: onDownload,
+            child: const Text('Tải (qua bundle)'),
+          ),
+      ],
+    );
+  }
+}
+
+class _PiperVoiceRow extends StatelessWidget {
+  final PiperTtsVoice voice;
+  final VoidCallback onDelete;
+  const _PiperVoiceRow({required this.voice, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = SherpaPiperTtsCore.langFromVoiceName(voice.name);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade800),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.mic, size: 16, color: Colors.teal),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(voice.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  'language: ${lang.isEmpty ? 'auto' : lang} · '
+                  '${voice.sampleRate}Hz',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }

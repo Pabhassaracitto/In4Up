@@ -8,6 +8,7 @@ import '../../../models/vocab_context.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/create_segment_sheet.dart';
 
@@ -268,12 +269,20 @@ class _FullSaveSheet extends StatefulWidget {
 class _FullSaveSheetState extends State<_FullSaveSheet> {
   final _meaningCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  final _newTopicCtrl = TextEditingController();
   List<WordEntry> _related = [];
 
+  // READ-630 parity (txt source): chủ đề + ngôn ngữ như SelectionSaveSheet
+  String? _selectedTopic;
+  String _selectedLanguage = 'en';
+  WordEntry? _existing;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRelated());
+  void dispose() {
+    _meaningCtrl.dispose();
+    _noteCtrl.dispose();
+    _newTopicCtrl.dispose();
+    super.dispose();
   }
 
   void _loadRelated() {
@@ -291,7 +300,30 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
       }).toList();
 
       candidates.sort((a, b) => b.encounterCount.compareTo(a.encounterCount));
-      setState(() => _related = candidates.take(8).toList());
+
+      // Entry đã tồn tại → pre-fill nghĩa + note + tag (để update dễ)
+      final existing = vocab.findByWord(selLower);
+
+      setState(() {
+        _related = candidates.take(8).toList();
+        _existing = existing;
+        if (existing != null) {
+          if (existing.meaning.trim().isNotEmpty) {
+            _meaningCtrl.text = existing.meaning;
+          }
+          if ((existing.personalNotes ?? '').trim().isNotEmpty) {
+            _noteCtrl.text = existing.personalNotes!.trim();
+          }
+          if (existing.topics.isNotEmpty) {
+            _selectedTopic = existing.topics.first;
+          }
+          if (existing.languages.isNotEmpty) {
+            _selectedLanguage = existing.languages.first;
+          } else if (existing.language.isNotEmpty) {
+            _selectedLanguage = existing.language;
+          }
+        }
+      });
     } catch (_) {}
   }
 
@@ -318,30 +350,44 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
 
     final meaning = _meaningCtrl.text.trim();
     final note = _noteCtrl.text.trim();
+    final text = widget.selectedText.trim();
+    final existed = _existing != null;
 
+    // Topic + language áp giống SelectionSaveSheet (READ-630 parity):
+    // entry mới → ghi tag; entry cũ → BỔ SUNG tag, không ghi đè nghĩa cũ
+    // (smart-fill của addWithAutoClassify).
     vocabProvider.addWithAutoClassify(
-      text: widget.selectedText.trim(),
+      text: text,
       meaning: meaning,
       context: ctx,
+      language: _selectedLanguage,
+      topic: _selectedTopic,
     );
 
     if (note.isNotEmpty) {
-      final created = vocabProvider.findByWord(widget.selectedText.trim());
-      if (created != null) {
-        vocabProvider.updateNotes(created.id, note);
+      final entry = vocabProvider.findByWord(text);
+      if (entry != null) {
+        vocabProvider.updateNotes(entry.id, note);
       }
     }
 
     tp.clearSelection();
     Navigator.pop(context);
 
+    final shortText = text.length > 30 ? '${text.substring(0, 30)}…' : text;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.library_add_check, color: Color(0xFF9C27B0), size: 18),
             const SizedBox(width: 8),
-            Expanded(child: Text('\"${widget.selectedText}\" đã lưu đầy đủ')),
+            Expanded(
+              child: Text(
+                existed
+                    ? '"$shortText" đã có — bổ sung ngữ cảnh + tag'
+                    : '"$shortText" đã lưu đầy đủ',
+              ),
+            ),
           ],
         ),
         behavior: SnackBarBehavior.floating,
@@ -353,15 +399,16 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
   }
 
   @override
-  void dispose() {
-    _meaningCtrl.dispose();
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isPhrase = widget.selectedText.trim().split(RegExp(r'\s+')).length > 1;
+
+    // READ-630 parity (txt source): chủ đề + ngôn ngữ như SelectionSaveSheet
+    final vocabProvider = context.read<VocabularyProvider>();
+    final topicOptions = vocabProvider.allTopics.toList()..sort();
+    final languageOptions =
+        (vocabProvider.allLanguages.toList()..sort()).toSet()
+      ..addAll(['en', 'vi', 'pali', 'my']);
+    final sortedLangs = languageOptions.toList()..sort();
 
     return Padding(
       padding: EdgeInsets.only(
@@ -463,6 +510,133 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
               maxLines: 2,
             ),
             const SizedBox(height: 16),
+
+            // ── Entry đã có sẵn → người dùng biết (đủ thông tin để update) ──
+            if (_existing != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9800).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: const Color(0xFFFF9800).withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 16, color: Color(0xFFFF9800)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Đã có trong WordList — nghĩa/ghi chú đã điền sẵn. '
+                        'Lưu sẽ bổ sung ngữ cảnh + tag (không ghi đè nghĩa '
+                        'đang có).',
+                        style: const TextStyle(
+                            color: Color(0xFFFFB74D), fontSize: 11.5, height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Chủ đề (chọn có sẵn / tạo mới) — parity với web/PDF ──
+            const Text(
+              'Chủ đề',
+              style: TextStyle(
+                  color: Colors.white54, fontSize: 11.5, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final t in topicOptions)
+                  ChoiceChip(
+                    label: Text(
+                      t,
+                      style: TextStyle(
+                          color: _selectedTopic == t ? Colors.white : Colors.white54,
+                          fontSize: 11),
+                    ),
+                    selected: _selectedTopic == t,
+                    selectedColor: const Color(0xFFFF9800),
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    side: BorderSide(
+                        color: _selectedTopic == t
+                            ? const Color(0xFFFF9800)
+                            : Colors.white.withValues(alpha: 0.1)),
+                    onSelected: (value) => setState(() {
+                      _selectedTopic =
+                          value ? t : (_selectedTopic == t ? null : _selectedTopic);
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _newTopicCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Tạo chủ đề mới… (Enter để chọn)',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.04),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  borderSide: const BorderSide(color: Color(0xFFFF9800)),
+                ),
+              ),
+              onSubmitted: (value) {
+                final v = value.trim();
+                if (v.isEmpty) return;
+                setState(() => _selectedTopic = v);
+                _newTopicCtrl.clear();
+              },
+            ),
+            const SizedBox(height: 10),
+
+            // ── Ngôn ngữ — parity với web/PDF ─────────────────────────
+            const Text(
+              'Ngôn ngữ',
+              style: TextStyle(
+                  color: Colors.white54, fontSize: 11.5, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final lang in sortedLangs)
+                  ChoiceChip(
+                    label: Text(
+                      labelForLanguage(lang),
+                      style: TextStyle(
+                          color: _selectedLanguage == lang ? Colors.white : Colors.white54,
+                          fontSize: 11),
+                    ),
+                    selected: _selectedLanguage == lang,
+                    selectedColor: const Color(0xFF42A5F5),
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    side: BorderSide(
+                        color: _selectedLanguage == lang
+                            ? const Color(0xFF42A5F5)
+                            : Colors.white.withValues(alpha: 0.1)),
+                    onSelected: (value) {
+                      if (value) setState(() => _selectedLanguage = lang);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
             if (_related.isNotEmpty) ...[
               Row(
                 children: [
@@ -501,12 +675,20 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            e.word,
-                            style: TextStyle(
-                              color: e.vocabType.color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          // ★ FIX overflow sọc vàng-đen (48px): từ/cụm dài
+                          // không bị chặn width → RenderFlex overflow. Chặn
+                          // 140px + ellipsis (meaning chặn 100px bên cạnh).
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 140),
+                            child: Text(
+                              e.word,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: e.vocabType.color,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           if (e.meaning.trim().isNotEmpty) ...[
@@ -515,6 +697,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                               constraints: const BoxConstraints(maxWidth: 100),
                               child: Text(
                                 e.meaning,
+                                maxLines: 1,
                                 style: TextStyle(
                                   color: Colors.grey[400],
                                   fontSize: 10,

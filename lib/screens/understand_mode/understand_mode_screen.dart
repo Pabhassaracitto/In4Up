@@ -22,6 +22,7 @@ import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 // Import để dùng GenerateLrcButton
+import 'services/lrc_translation_resolver.dart';
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
 import 'widgets/auto_scroll_button.dart';
@@ -481,6 +482,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                                   ? provider.currentWordIndex
                                   : -1,
                               style: karaoke.style,
+                              translation: resolveLrcTranslation(
+                                textProvider.lines,
+                                line.text,
+                              ),
                             ),
                           ),
                         ),

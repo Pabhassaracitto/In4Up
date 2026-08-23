@@ -527,6 +527,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
       // ★ THÊM: Save last text path
       _storage.saveLastTextPath(path);
+
+      // ★ REOPEN FIX: mở lại document cũ → paint lại translations từ cache
+      //   (MD5 ổn định) — không dịch lại từ mạng như bài mới.
+      unawaited(rehydrateTranslationsFromCache());
       return true;
     } catch (e) {
       debugPrint('TextProvider.loadTextFile error: $e');

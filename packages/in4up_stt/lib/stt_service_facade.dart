@@ -431,7 +431,7 @@ class SttServiceFacade extends ChangeNotifier {
       _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
       return SttTranscribeOutput.failure(
         'Không có model Whisper nào được tải về. '
-        'Vào Settings → AI Model để tải model.',
+        'Mở Home → Quản lý Model AI rồi bấm Tải về.',
       );
     }
 
@@ -517,11 +517,9 @@ class SttServiceFacade extends ChangeNotifier {
 
     if (modelPath == null || modelPath.isEmpty) {
       throw StateError(
-        'Model "${config.whisperModel.name}" chưa có tại Documents. '
-        'Rule2: Auto-download đã tắt để fix HttpException HuggingFace. '
-        'Hãy chép file ${config.whisperModel.fileName} vào '
-        '/data/data/<pkg>/app_flutter/in4up_whisper_models/ '
-        'và đảm bảo size >1MB trước khi init.',
+        'Chưa có model Whisper ${config.whisperModel.name}. '
+        'Mở Home → Quản lý Model AI rồi bấm Tải về, hoặc Import file '
+        '${config.whisperModel.fileName}.',
       );
     }
 

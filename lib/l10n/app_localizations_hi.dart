@@ -155,7 +155,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get typeParagraph => 'अनुच्छेद';
 
   @override
-  String get typeDharma => 'Dharma';
+  String get typeDharma => 'धर्म';
 
   @override
   String get typeGrammar => 'व्याकरण';
@@ -194,7 +194,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonClose => 'बंद करें';
 
   @override
-  String get commonConfirm => 'Confirm';
+  String get commonConfirm => 'पुष्टि करें';
 
   @override
   String get commonRetry => 'पुनः प्रयास करें';
@@ -206,16 +206,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonAdd => 'जोड़ें';
 
   @override
-  String get commonRemove => 'Remove';
+  String get commonRemove => 'हटाएं';
 
   @override
-  String get commonShare => 'Share';
+  String get commonShare => 'साझा करें';
 
   @override
-  String get commonCopy => 'Copy';
+  String get commonCopy => 'कॉपी करें';
 
   @override
-  String get commonCopied => 'Copied';
+  String get commonCopied => 'कॉपी हो गया';
 
   @override
   String get commonSearch => 'खोजें';
@@ -242,16 +242,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonSuccess => 'सफलता';
 
   @override
-  String get commonFailed => 'Failed';
+  String get commonFailed => 'विफल';
 
   @override
-  String get commonComingSoon => 'Coming soon';
+  String get commonComingSoon => 'जल्द आ रहा है';
 
   @override
-  String get commonUndo => 'Undo';
+  String get commonUndo => 'पूर्ववत करें';
 
   @override
-  String get commonRedo => 'Redo';
+  String get commonRedo => 'दोबारा करें';
 
   @override
   String get commonNext => 'अगला';
@@ -269,16 +269,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonApply => 'लागू करें';
 
   @override
-  String get commonReset => 'Reset';
+  String get commonReset => 'रीसेट करें';
 
   @override
-  String get commonClear => 'Clear';
+  String get commonClear => 'साफ़ करें';
 
   @override
-  String get commonSelectAll => 'Select all';
+  String get commonSelectAll => 'सभी चुनें';
 
   @override
-  String get commonDeselect => 'Deselect';
+  String get commonDeselect => 'अचयनित करें';
 
   @override
   String get commonSaveNote => 'सहेजें नोट';
@@ -347,251 +347,252 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonMeaning => 'अर्थ';
 
   @override
-  String get commonDefinition => 'Definition';
+  String get commonDefinition => 'परिभाषा';
 
   @override
-  String get commonSynonym => 'Synonym';
+  String get commonSynonym => 'पर्यायवाची';
 
   @override
-  String get commonAntonym => 'Antonym';
+  String get commonAntonym => 'विलोम';
 
   @override
-  String get readMode => 'Read Mode';
+  String get readMode => 'पढ़ने का मोड';
 
   @override
-  String get readLibrary => 'पढ़ना library';
+  String get readLibrary => 'पढ़ने की लाइब्रेरी';
 
   @override
-  String get readEmpty => 'जोड़ें text to start पढ़ना supports txt, lrc, srt';
+  String get readEmpty =>
+      'पढ़ना शुरू करने के लिए टेक्स्ट जोड़ें\nTXT, LRC, SRT समर्थित';
 
   @override
-  String get readAddDocument => 'जोड़ें document';
+  String get readAddDocument => 'दस्तावेज़ जोड़ें';
 
   @override
-  String get readOpenFile => 'Open file';
+  String get readOpenFile => 'फ़ाइल खोलें';
 
   @override
-  String get readPasteText => 'Paste text';
+  String get readPasteText => 'टेक्स्ट पेस्ट करें';
 
   @override
-  String get readTextStudio => 'Text Studio';
+  String get readTextStudio => 'टेक्स्ट स्टूडियो';
 
   @override
-  String get readNoDocument => 'No document';
+  String get readNoDocument => 'कोई दस्तावेज़ नहीं';
 
   @override
-  String get readLine => 'Line';
+  String get readLine => 'पंक्ति';
 
   @override
-  String get readTranslate => 'Show translation';
+  String get readTranslate => 'अनुवाद दिखाएं';
 
   @override
-  String get readHideTranslation => 'Hide translation';
+  String get readHideTranslation => 'अनुवाद छिपाएं';
 
   @override
-  String get readTts => 'Text-to-Speech';
+  String get readTts => 'टेक्स्ट-टू-स्पीच';
 
   @override
-  String get readSpeed => 'Speed';
+  String get readSpeed => 'गति';
 
   @override
-  String get readVoice => 'Voice';
+  String get readVoice => 'आवाज़';
 
   @override
-  String get readAutoScroll => 'Auto scroll';
+  String get readAutoScroll => 'ऑटो स्क्रॉल';
 
   @override
-  String get readFontSize => 'Font size';
+  String get readFontSize => 'फ़ॉन्ट आकार';
 
   @override
-  String get listenMode => 'Listen Mode';
+  String get listenMode => 'सुनने का मोड';
 
   @override
-  String get listenLibrary => 'Audio Library';
+  String get listenLibrary => 'ऑडियो लाइब्रेरी';
 
   @override
-  String get listenNoAudio => 'No audio yet';
+  String get listenNoAudio => 'अभी कोई ऑडियो नहीं';
 
   @override
-  String get listenAddAudio => 'जोड़ें audio';
+  String get listenAddAudio => 'ऑडियो जोड़ें';
 
   @override
-  String get listenNowPlaying => 'Now Playing';
+  String get listenNowPlaying => 'अब बज रहा है';
 
   @override
-  String get listenPlay => 'Play';
+  String get listenPlay => 'चलाएं';
 
   @override
-  String get listenPause => 'Pause';
+  String get listenPause => 'रोकें';
 
   @override
-  String get listenStop => 'Stop';
+  String get listenStop => 'बंद करें';
 
   @override
   String listenContinue(Object time) {
-    return 'Continue from $time';
+    return '$time से जारी रखें';
   }
 
   @override
-  String get listenFromStart => 'From start';
+  String get listenFromStart => 'शुरुआत से';
 
   @override
-  String get listenLoop => 'Loop';
+  String get listenLoop => 'लूप';
 
   @override
-  String get listenNoContent => 'No content\nCreate LRC from STT';
+  String get listenNoContent => 'कोई सामग्री नहीं\nSTT से LRC बनाएं';
 
   @override
-  String get understandMode => 'Understand Mode';
+  String get understandMode => 'समझने का मोड';
 
   @override
-  String get understandSync => 'Sync';
+  String get understandSync => 'सिंक';
 
   @override
-  String get understandShadowing => 'Shadowing';
+  String get understandShadowing => 'शैडोइंग';
 
   @override
-  String get understandKaraoke => 'Karaoke lyrics';
+  String get understandKaraoke => 'कराओके बोल';
 
   @override
   String get understandNoSync =>
-      'Long press a sentence in Sync tab\nor use Set Loop button';
+      'Sync टैब में वाक्य पर देर तक दबाएं\nया Set Loop बटन उपयोग करें';
 
   @override
-  String get memoryGarden => 'Memory Garden';
+  String get memoryGarden => 'स्मृति उद्यान';
 
   @override
-  String get memoryDue => 'Due';
+  String get memoryDue => 'दोहराने योग्य';
 
   @override
-  String get memoryTotalWords => 'Total words';
+  String get memoryTotalWords => 'कुल शब्द';
 
   @override
-  String get memoryNeedReview => 'Need समीक्षा';
+  String get memoryNeedReview => 'समीक्षा आवश्यक';
 
   @override
-  String get memoryMastered => 'Mastered';
+  String get memoryMastered => 'महारत';
 
   @override
-  String get memorySeed => 'Seed';
+  String get memorySeed => 'बीज';
 
   @override
-  String get memorySprout => 'Sprout';
+  String get memorySprout => 'अंकुर';
 
   @override
-  String get memoryBloom => 'Bloom';
+  String get memoryBloom => 'फूल';
 
   @override
   String get memoryEmptyDesc =>
-      'सहेजें शब्दावली from read tab to start growing your knowledge garden';
+      'Read टैब से शब्दावली सहेजें\nऔर अपना ज्ञान उद्यान बढ़ाना शुरू करें';
 
   @override
-  String get memoryOpenWordlist => 'Open wordlist to जोड़ें new words';
+  String get memoryOpenWordlist => 'नए शब्द जोड़ने के लिए शब्द सूची खोलें';
 
   @override
-  String get wordListEmpty => 'No शब्दावली yet';
+  String get wordListEmpty => 'अभी कोई शब्दावली नहीं';
 
   @override
-  String get wordListSearchHint => 'खोजें words, phrases...';
+  String get wordListSearchHint => 'शब्द, वाक्यांश खोजें...';
 
   @override
-  String get wordListFilterStatus => 'फ़िल्टर by status';
+  String get wordListFilterStatus => 'स्थिति से छानें';
 
   @override
   String get wordListSort => 'क्रमबद्ध करें';
 
   @override
-  String get wordListAddManual => 'जोड़ें manually';
+  String get wordListAddManual => 'मैन्युअल रूप से जोड़ें';
 
   @override
-  String get wordListImport => 'Bulk import';
+  String get wordListImport => 'सामूहिक आयात';
 
   @override
-  String get wordListPlayAll => 'Play all';
+  String get wordListPlayAll => 'सभी चलाएं';
 
   @override
-  String get wordListDue => 'Due';
+  String get wordListDue => 'दोहराने योग्य';
 
   @override
-  String get wordListLearning => 'Learning';
+  String get wordListLearning => 'सीख रहे हैं';
 
   @override
-  String get wordListBlindSpot => 'Blind spot';
+  String get wordListBlindSpot => 'ब्लाइंड स्पॉट';
 
   @override
-  String get webReaderDashboard => 'Dashboard Home';
+  String get webReaderDashboard => 'डैशबोर्ड होम';
 
   @override
-  String get webReaderGoBack => 'Go वापस';
+  String get webReaderGoBack => 'वापस जाएं';
 
   @override
-  String get webReaderGoForward => 'Go forward';
+  String get webReaderGoForward => 'आगे जाएं';
 
   @override
-  String get webReaderUrlHint => 'Url or खोजें to open quickly...';
+  String get webReaderUrlHint => 'जल्दी खोलने के लिए URL या खोजें...';
 
   @override
-  String get webReaderSaveToGroup => 'सहेजें current page to group';
+  String get webReaderSaveToGroup => 'मौजूदा पृष्ठ समूह में सहेजें';
 
   @override
-  String get webReaderBookmark => 'Bookmark current page';
+  String get webReaderBookmark => 'मौजूदा पृष्ठ बुकमार्क करें';
 
   @override
-  String get webReaderInTextStudio => 'Open in Text Studio';
+  String get webReaderInTextStudio => 'टेक्स्ट स्टूडियो में खोलें';
 
   @override
-  String get webReaderNoResult => 'No matching results';
+  String get webReaderNoResult => 'कोई मिलान परिणाम नहीं';
 
   @override
-  String get webReaderContinueReading => 'Continue पढ़ना';
+  String get webReaderContinueReading => 'पढ़ना जारी रखें';
 
   @override
-  String get webReaderPinned => 'Pinned';
+  String get webReaderPinned => 'पिन किया गया';
 
   @override
-  String get webReaderWithNotes => 'With नोट्स';
+  String get webReaderWithNotes => 'नोट्स के साथ';
 
   @override
-  String get webReaderCreateGroup => 'Create group';
+  String get webReaderCreateGroup => 'समूह बनाएं';
 
   @override
-  String get webReaderAddLink => 'जोड़ें link';
+  String get webReaderAddLink => 'लिंक जोड़ें';
 
   @override
-  String get webReaderEditGroup => 'संपादित करें group';
+  String get webReaderEditGroup => 'समूह संपादित करें';
 
   @override
-  String get webReaderDeleteGroup => 'हटाएं group';
+  String get webReaderDeleteGroup => 'समूह हटाएं';
 
   @override
-  String get webReaderGroupName => 'Group name';
+  String get webReaderGroupName => 'समूह नाम';
 
   @override
-  String get webReaderGroupDesc => 'Description';
+  String get webReaderGroupDesc => 'विवरण';
 
   @override
-  String get webReaderCreateMyGroup => 'Create my group';
+  String get webReaderCreateMyGroup => 'मेरा समूह बनाएं';
 
   @override
-  String get webReaderAddLinkToGroup => 'जोड़ें link to group';
+  String get webReaderAddLinkToGroup => 'समूह में लिंक जोड़ें';
 
   @override
-  String get webReaderLinkName => 'Link name';
+  String get webReaderLinkName => 'लिंक नाम';
 
   @override
   String get webReaderUrl => 'URL';
 
   @override
-  String get webReaderCreateAndSave => 'Create & सहेजें';
+  String get webReaderCreateAndSave => 'बनाएं और सहेजें';
 
   @override
-  String get webReaderPinnedArticle => 'Pinned article';
+  String get webReaderPinnedArticle => 'पिन किया गया लेख';
 
   @override
   String get webReaderReadNotes => 'पढ़ना नोट्स';
 
   @override
-  String get webReaderYourNote => 'Your नोट';
+  String get webReaderYourNote => 'आपका नोट';
 
   @override
   String get webReaderDeleteNote => 'हटाएं नोट';
@@ -600,81 +601,81 @@ class AppLocalizationsHi extends AppLocalizations {
   String get webReaderSaveNoteBtn => 'सहेजें नोट';
 
   @override
-  String get webReaderMarkUnread => 'Mark as unread';
+  String get webReaderMarkUnread => 'अपठित चिह्नित करें';
 
   @override
-  String get webReaderMarkRead => 'Mark as read';
+  String get webReaderMarkRead => 'पढ़ा हुआ चिह्नित करें';
 
   @override
-  String get webReaderPin => 'Pin';
+  String get webReaderPin => 'पिन करें';
 
   @override
-  String get webReaderUnpin => 'Unpin';
+  String get webReaderUnpin => 'अनपिन करें';
 
   @override
-  String get pdfOpening => 'Opening PDF...';
+  String get pdfOpening => 'PDF खोला जा रहा है...';
 
   @override
-  String get pdfExtracting => 'Extracting text...';
+  String get pdfExtracting => 'टेक्स्ट निकाला जा रहा है...';
 
   @override
   String get pdfCannotExtract =>
-      'Cannot extract text from this PDF.\nIt may be a scanned PDF (image).';
+      'इस PDF से टेक्स्ट निकाला नहीं जा सका।\nयह स्कैन किया हुआ PDF (इमेज) हो सकता है।';
 
   @override
-  String get pdfTextMode => 'Text mode — full highlighting & TTS features';
+  String get pdfTextMode => 'टेक्स्ट मोड — पूर्ण हाइलाइट और TTS सुविधाएं';
 
   @override
-  String get pdfOpenInReadMode => 'Open in Read Mode →';
+  String get pdfOpenInReadMode => 'पढ़ने के मोड में खोलें →';
 
   @override
-  String get pdfNoteForSelection => 'नोट for selection';
+  String get pdfNoteForSelection => 'चयन के लिए नोट';
 
   @override
-  String get pdfEnterNote => 'Enter नोट / translation / insight...';
+  String get pdfEnterNote => 'नोट / अनुवाद / अंतर्दृष्टि दर्ज करें...';
 
   @override
-  String get pdfSavedSelectionNote => '📝 saved नोट for selection';
+  String get pdfSavedSelectionNote => '📝 चयन के लिए नोट सहेजा गया';
 
   @override
-  String get pdfSelectionOpened => '✅ Opened selection in Text Studio';
+  String get pdfSelectionOpened => '✅ चयन टेक्स्ट स्टूडियो में खुला';
 
   @override
-  String get pdfReaderDeepPos => 'PDF Reader · Deep POS';
+  String get pdfReaderDeepPos => 'PDF रीडर · डीप POS';
 
   @override
-  String get pdfLoadedToStudio => 'Loaded into Text Studio';
+  String get pdfLoadedToStudio => 'टेक्स्ट स्टूडियो में लोड हुआ';
 
   @override
-  String get pdfCannotOpen => 'Cannot open PDF';
+  String get pdfCannotOpen => 'PDF नहीं खोला जा सका';
 
   @override
-  String get pdfViewSavedNotes => 'View saved नोट्स';
+  String get pdfViewSavedNotes => 'सहेजे गए नोट्स देखें';
 
   @override
-  String get pdfNoteSelection => 'नोट selection';
+  String get pdfNoteSelection => 'नोट चयन';
 
   @override
-  String get pdfSavedToWordlist => 'Saved to WordList';
+  String get pdfSavedToWordlist => 'शब्द सूची में सहेजा गया';
 
   @override
-  String get pdfContextAdded => 'Context added to WordList';
+  String get pdfContextAdded => 'संदर्भ शब्द सूची में जोड़ा गया';
 
   @override
-  String get pdfSaveToMemory => 'सहेजें to memory garden';
+  String get pdfSaveToMemory => 'स्मृति उद्यान में सहेजें';
 
   @override
-  String get pdfSavedToMemory => 'Saved to Memory Garden';
+  String get pdfSavedToMemory => 'स्मृति उद्यान में सहेजा गया';
 
   @override
-  String get pdfNoNotes => 'No नोट्स yet';
+  String get pdfNoNotes => 'अभी कोई नोट नहीं';
 
   @override
   String get pdfLongPressHint =>
-      'Long-press a word on pdf or जोड़ें नोट from selection in text mode.';
+      'PDF पर किसी शब्द को देर तक दबाएं या टेक्स्ट मोड में चयन से नोट जोड़ें।';
 
   @override
-  String get translationEngineSettings => 'Translation engine सेटिंग्स';
+  String get translationEngineSettings => 'अनुवाद इंजन सेटिंग्स';
 
   @override
   String translationError(Object error) {
@@ -683,459 +684,459 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String translationChangedTo(Object flag, Object language) {
-    return '$flag Changed translation and voice to $language';
+    return '$flag अनुवाद और आवाज़ $language में बदल गए';
   }
 
   @override
-  String get translationTranslateAll => 'अनुवाद all (skip existing)';
+  String get translationTranslateAll => 'सभी अनुवाद करें (मौजूदा छोड़ें)';
 
   @override
-  String get translationRetranslateAll => 'Retranslate all';
+  String get translationRetranslateAll => 'सभी पुनः अनुवाद करें';
 
   @override
-  String get translationClearAll => 'Clear all translations';
+  String get translationClearAll => 'सभी अनुवाद साफ़ करें';
 
   @override
-  String get translationEngine => 'Translation engine';
+  String get translationEngine => 'अनुवाद इंजन';
 
   @override
-  String get translationDeepLXUrl => 'DeepLX Server URL (optional)';
+  String get translationDeepLXUrl => 'DeepLX सर्वर URL (वैकल्पिक)';
 
   @override
-  String get translationLeaveEmpty => 'Leave empty → use Google Free';
+  String get translationLeaveEmpty => 'खाली छोड़ें → Google Free उपयोग होगा';
 
   @override
   String get translationTargetViaFlag =>
-      'Target language is selected via flag button on translation bar.';
+      'लक्ष्य भाषा अनुवाद पट्टी पर झंडा बटन से चुनी जाती है।';
 
   @override
-  String get translationStop => 'Stop';
+  String get translationStop => 'रोकें';
 
   @override
-  String get translationSelectTarget => 'Select target';
+  String get translationSelectTarget => 'लक्ष्य चुनें';
 
   @override
-  String get translationTranslated => 'Translated';
+  String get translationTranslated => 'अनुवादित';
 
   @override
   String get translationTranslate => 'अनुवाद';
 
   @override
-  String get translationHide => 'Hide';
+  String get translationHide => 'छिपाएं';
 
   @override
-  String get translationBelow => 'Below';
+  String get translationBelow => 'नीचे';
 
   @override
-  String get translationColumn => 'Column';
+  String get translationColumn => 'कॉलम';
 
   @override
-  String get translationLanguage => 'Translation language';
+  String get translationLanguage => 'अनुवाद भाषा';
 
   @override
-  String get translationSearchLang => 'खोजें languages…';
+  String get translationSearchLang => 'भाषाएं खोजें…';
 
   @override
-  String get translationSourceIsTarget =>
-      'Source and target languages are the same.';
+  String get translationSourceIsTarget => 'स्रोत और लक्ष्य भाषा एक ही हैं।';
 
   @override
-  String get ttsReadingSpeed => 'पढ़ना speed';
+  String get ttsReadingSpeed => 'पढ़ने की गति';
 
   @override
-  String get ttsVoice => 'Voice';
+  String get ttsVoice => 'आवाज़';
 
   @override
-  String get ttsAutoSplit => 'Auto split lines';
+  String get ttsAutoSplit => 'पंक्तियां स्वतः विभाजित करें';
 
   @override
-  String get ttsSplitMode => 'Split mode';
+  String get ttsSplitMode => 'विभाजन मोड';
 
   @override
   String ttsMinWords(Object count) {
-    return 'Min $count words before split';
+    return 'विभाजन से पहले न्यूनतम $count शब्द';
   }
 
   @override
   String ttsMaxWords(Object count) {
-    return 'Max $count words/line';
+    return 'प्रति पंक्ति अधिकतम $count शब्द';
   }
 
   @override
-  String get ttsPreview => 'Preview';
+  String get ttsPreview => 'पूर्वावलोकन';
 
   @override
   String ttsApply(Object count) {
-    return 'लागू करें ($count lines)';
+    return 'लागू करें ($count पंक्तियां)';
   }
 
   @override
-  String get ttsMode => 'Playback mode';
+  String get ttsMode => 'प्लेबैक मोड';
 
   @override
-  String get ttsOrder => 'Playback order';
+  String get ttsOrder => 'प्लेबैक क्रम';
 
   @override
-  String get ttsDragToSort => 'Drag to reorder';
+  String get ttsDragToSort => 'क्रम बदलने के लिए खींचें';
 
   @override
-  String get ttsApiKeys => 'API Keys (optional, free)';
+  String get ttsApiKeys => 'API कुंजियां (वैकल्पिक, मुफ़्त)';
 
   @override
-  String get ttsClearCache => 'Clear TTS cache!';
+  String get ttsClearCache => 'TTS कैश साफ़ करें!';
 
   @override
-  String get ttsClear => 'Clear';
+  String get ttsClear => 'साफ़ करें';
 
   @override
-  String get shadowingReady => 'Ready for shadowing अभ्यास';
+  String get shadowingReady => 'शैडोइंग अभ्यास के लिए तैयार';
 
   @override
-  String get shadowingSelectSegment => 'Select an A-B Loop segment to start';
+  String get shadowingSelectSegment => 'शुरू करने के लिए A-B लूप खंड चुनें';
 
   @override
-  String get shadowingStartPractice => 'Start अभ्यास';
+  String get shadowingStartPractice => 'अभ्यास शुरू करें';
 
   @override
   String get shadowingSteps =>
-      '1. Listen to sample\n2. Press record\n3. Repeat after sample';
+      '1. सैंपल सुनें\n2. रिकॉर्ड दबाएं\n3. सैंपल के बाद दोहराएं';
 
   @override
-  String get shadowingListeningSample => 'सुनना to sample...';
+  String get shadowingListeningSample => 'सैंपल सुना जा रहा है...';
 
   @override
-  String get shadowingListenCarefully => 'Listen carefully...';
+  String get shadowingListenCarefully => 'ध्यान से सुनें...';
 
   @override
-  String get shadowingReadyEx => 'Ready!';
+  String get shadowingReadyEx => 'तैयार!';
 
   @override
-  String get shadowingRecording => 'Recording...';
+  String get shadowingRecording => 'रिकॉर्ड हो रहा है...';
 
   @override
   String shadowingMax(Object seconds) {
-    return 'Max: ${seconds}s';
+    return 'अधिकतम: $seconds सेकंड';
   }
 
   @override
-  String get shadowingAnalyzing => 'Analyzing...';
+  String get shadowingAnalyzing => 'विश्लेषण हो रहा है...';
 
   @override
-  String get shadowingRhythm => 'Rhythm';
+  String get shadowingRhythm => 'लय';
 
   @override
-  String get shadowingPitch => 'Pitch';
+  String get shadowingPitch => 'पिच';
 
   @override
-  String get shadowingEnergy => 'Energy';
+  String get shadowingEnergy => 'ऊर्जा';
 
   @override
-  String get shadowingPlaySample => 'Play sample';
+  String get shadowingPlaySample => 'सैंपल चलाएं';
 
   @override
-  String get shadowingStopSample => 'Stop sample';
+  String get shadowingStopSample => 'सैंपल रोकें';
 
   @override
-  String get shadowingCancelCountdown => 'रद्द करें countdown';
+  String get shadowingCancelCountdown => 'काउंटडाउन रद्द करें';
 
   @override
-  String get shadowingStopRecording => 'Stop recording';
+  String get shadowingStopRecording => 'रिकॉर्डिंग रोकें';
 
   @override
   String get shadowingRetry => 'पुनः प्रयास करें';
 
   @override
-  String get shadowingFinish => 'Finish';
+  String get shadowingFinish => 'समाप्त करें';
 
   @override
-  String get shadowingSelectToPractice => 'Select segment to अभ्यास';
+  String get shadowingSelectToPractice => 'अभ्यास के लिए खंड चुनें';
 
   @override
-  String get grammarPos => 'Part of speech';
+  String get grammarPos => 'शब्द भेद';
 
   @override
-  String get grammarCefr => 'CEFR level';
+  String get grammarCefr => 'CEFR स्तर';
 
   @override
-  String get grammarDifficultyUser => 'Difficulty (your tags)';
+  String get grammarDifficultyUser => 'कठिनाई (आपके टैग)';
 
   @override
-  String get grammarPresetSuggestions => 'Suggested presets';
+  String get grammarPresetSuggestions => 'सुझाए गए प्रीसेट';
 
   @override
-  String get grammarYourPresets => 'Your presets';
+  String get grammarYourPresets => 'आपके प्रीसेट';
 
   @override
-  String get grammarShowMiniLegend => 'Show mini legend in पढ़ना area';
+  String get grammarShowMiniLegend => 'पढ़ने के क्षेत्र में मिनी लेजेंड दिखाएं';
 
   @override
-  String get grammarComparePalette => 'Compare palettes visually';
+  String get grammarComparePalette => 'पैलेट की तुलना करें';
 
   @override
-  String get grammarColorStyle => 'Color style';
+  String get grammarColorStyle => 'रंग शैली';
 
   @override
-  String get grammarPosGroups => 'POS groups';
+  String get grammarPosGroups => 'शब्द भेद समूह';
 
   @override
   String grammarUsingPreset(Object name) {
-    return 'Using preset: $name';
+    return 'प्रीसेट उपयोग में: $name';
   }
 
   @override
   String grammarCustomizingFrom(Object name) {
-    return 'Customizing from nearest preset: $name';
+    return 'निकटतम प्रीसेट से अनुकूलित किया जा रहा है: $name';
   }
 
   @override
   String grammarHiddenGroups(Object count) {
-    return '$count groups hidden';
+    return '$count समूह छिपे हैं';
   }
 
   @override
-  String get grammarSavePreset => 'सहेजें custom preset';
+  String get grammarSavePreset => 'कस्टम प्रीसेट सहेजें';
 
   @override
   String grammarRestore(Object name) {
-    return 'Restore $name';
+    return '$name पुनर्स्थापित करें';
   }
 
   @override
   String grammarHiddenDesc(Object count) {
-    return '$count POS groups hidden. You can re-enable them.';
+    return '$count POS समूह छिपे हैं। आप उन्हें पुनः सक्षम कर सकते हैं।';
   }
 
   @override
-  String get grammarEnableAll => 'Enable all';
+  String get grammarEnableAll => 'सभी सक्षम करें';
 
   @override
-  String get grammarExperienceMode => 'Experience mode';
+  String get grammarExperienceMode => 'अनुभव मोड';
 
   @override
-  String get grammarTextAlign => 'Text alignment';
+  String get grammarTextAlign => 'पाठ संरेखण';
 
   @override
-  String get grammarFontSize => 'Font size';
+  String get grammarFontSize => 'फ़ॉन्ट आकार';
 
   @override
-  String get grammarTranslationBilingual => 'Translation & bilingual';
+  String get grammarTranslationBilingual => 'अनुवाद और द्विभाषी';
 
   @override
-  String get grammarColorMode => 'Color mode';
+  String get grammarColorMode => 'रंग मोड';
 
   @override
-  String get grammarDisplay => 'Display';
+  String get grammarDisplay => 'प्रदर्शन';
 
   @override
-  String get grammarShowTranslation => 'Show translation';
+  String get grammarShowTranslation => 'अनुवाद दिखाएं';
 
   @override
-  String get grammarShowLineNumbers => 'Show line numbers';
+  String get grammarShowLineNumbers => 'पंक्ति क्रमांक दिखाएं';
 
   @override
-  String get grammarSmartSplit => 'Smart line split';
+  String get grammarSmartSplit => 'स्मार्ट पंक्ति विभाजन';
 
   @override
-  String get grammarReadingMode => 'पढ़ना mode';
+  String get grammarReadingMode => 'पढ़ने का मोड';
 
   @override
-  String get grammarListeningMode => 'सुनना mode (tts)';
+  String get grammarListeningMode => 'सुनने का मोड (TTS)';
 
   @override
-  String get grammarTranslationMode => 'Translation Mode';
+  String get grammarTranslationMode => 'अनुवाद मोड';
 
   @override
-  String get grammarDrivingMode => 'Driving Mode';
+  String get grammarDrivingMode => 'ड्राइविंग मोड';
 
   @override
-  String get ytAudioCaptionsHistory => 'Audio · Captions · History';
+  String get ytAudioCaptionsHistory => 'ऑडियो · कैप्शन · इतिहास';
 
   @override
-  String get ytPasteUrl => 'Paste YouTube URL...';
+  String get ytPasteUrl => 'YouTube URL पेस्ट करें...';
 
   @override
-  String get ytHistory => 'History';
+  String get ytHistory => 'इतिहास';
 
   @override
-  String get ytNoHistory => 'No history yet';
+  String get ytNoHistory => 'अभी कोई इतिहास नहीं';
 
   @override
-  String get ytAddChannel => 'जोड़ें channel';
+  String get ytAddChannel => 'चैनल जोड़ें';
 
   @override
-  String get ytChannelIdHint => 'Channel ID or URL...';
+  String get ytChannelIdHint => 'चैनल ID या URL...';
 
   @override
-  String get ytVocabLevel => 'शब्दावली level';
+  String get ytVocabLevel => 'शब्दावली स्तर';
 
   @override
-  String get ytSortBy => 'क्रमबद्ध करें by';
+  String get ytSortBy => 'क्रमबद्ध अनुसार';
 
   @override
-  String get ytDate => 'Date';
+  String get ytDate => 'तारीख';
 
   @override
-  String get ytViews => 'Views';
+  String get ytViews => 'व्यूज़';
 
   @override
-  String get ytChannel => 'Channel';
+  String get ytChannel => 'चैनल';
 
   @override
-  String get ytAllChannels => 'All channels';
+  String get ytAllChannels => 'सभी चैनल';
 
   @override
-  String get ytNoVideos => 'No videos';
+  String get ytNoVideos => 'कोई वीडियो नहीं';
 
   @override
   String get ytSampleData =>
-      'Using sample data.\nSet YouTube Data API v3 key for real videos.';
+      'नमूना डेटा उपयोग में।\nवास्तविक वीडियो के लिए YouTube Data API v3 कुंजी सेट करें।';
 
   @override
-  String get ytGetInfo => 'Get info';
+  String get ytGetInfo => 'जानकारी प्राप्त करें';
 
   @override
-  String get ytDownloadAudio => 'Download Audio';
+  String get ytDownloadAudio => 'ऑडियो डाउनलोड करें';
 
   @override
-  String get ytDownloadLyrics => 'Download Lyrics';
+  String get ytDownloadLyrics => 'बोल डाउनलोड करें';
 
   @override
-  String get ytSubtitleLang => 'Subtitle language';
+  String get ytSubtitleLang => 'सबटाइटल भाषा';
 
   @override
-  String get ytDownloadingAudio => 'Downloading audio...';
+  String get ytDownloadingAudio => 'ऑडियो डाउनलोड हो रहा है...';
 
   @override
-  String get ytProcessing => 'Processing...';
+  String get ytProcessing => 'प्रोसेस हो रहा है...';
 
   @override
-  String get ytDownloadingSubs => 'Downloading subtitles...';
+  String get ytDownloadingSubs => 'सबटाइटल डाउनलोड हो रहे हैं...';
 
   @override
-  String get ytNoSubs => 'No subtitles';
+  String get ytNoSubs => 'कोई सबटाइटल नहीं';
 
   @override
-  String get ytIknow => '✓ Known';
+  String get ytIknow => '✓ ज्ञात';
 
   @override
-  String get ytLearning => '📖 Learning';
+  String get ytLearning => '📖 सीख रहे हैं';
 
   @override
-  String get ytSkip => '⊘ Skip';
+  String get ytSkip => '⊘ छोड़ें';
 
   @override
-  String get ytKnownAll => 'Know all';
+  String get ytKnownAll => 'सभी ज्ञात चिह्नित करें';
 
   @override
-  String get ytLearnSentence => 'सीखना whole sentence';
+  String get ytLearnSentence => 'पूरा वाक्य सीखें';
 
   @override
-  String get ytNoDict => '(not in dictionary)';
+  String get ytNoDict => '(शब्दकोश में नहीं)';
 
   @override
-  String get ytQualityHighest => 'Highest';
+  String get ytQualityHighest => 'सबसे उच्च';
 
   @override
-  String get ytQualityMedium => 'Medium (128kbps)';
+  String get ytQualityMedium => 'मध्यम (128kbps)';
 
   @override
-  String get ytQualityLow => 'Low / Small (64kbps)';
+  String get ytQualityLow => 'कम / छोटा (64kbps)';
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return 'Preparing · ${kbps}kbps · $size';
+    return 'तैयार हो रहा है · ${kbps}kbps · $size';
   }
 
   @override
-  String get ytVideoUnavailable => 'Video unavailable';
+  String get ytVideoUnavailable => 'वीडियो उपलब्ध नहीं';
 
   @override
-  String get ytNetworkError => 'Network त्रुटि — check connection';
+  String get ytNetworkError => 'नेटवर्क त्रुटि — कनेक्शन जांचें';
 
   @override
-  String get ytQualityList => 'Fetching quality list...';
+  String get ytQualityList => 'गुणवत्ता सूची लाई जा रही है...';
 
   @override
-  String get ytDownloadedPlaying => 'Downloaded! Playing...';
+  String get ytDownloadedPlaying => 'डाउनलोड हो गया! चल रहा है...';
 
   @override
   String ytQualityLabel(Object quality) {
-    return 'Quality: $quality';
+    return 'गुणवत्ता: $quality';
   }
 
   @override
-  String get ytDownloadAnother => 'Download another video';
+  String get ytDownloadAnother => 'दूसरा वीडियो डाउनलोड करें';
 
   @override
-  String get ytFetchingInfo => 'Fetching info...';
+  String get ytFetchingInfo => 'जानकारी लाई जा रही है...';
 
   @override
-  String get ytPasteToStart => 'Paste YouTube URL above to start';
+  String get ytPasteToStart => 'शुरू करने के लिए ऊपर YouTube URL पेस्ट करें';
 
   @override
-  String get ytSelectQuality => 'Select audio quality';
+  String get ytSelectQuality => 'ऑडियो गुणवत्ता चुनें';
 
   @override
-  String get ytHigherBigger => 'Higher quality = bigger file';
+  String get ytHigherBigger => 'उच्च गुणवत्ता = बड़ी फ़ाइल';
 
   @override
-  String get ytHighDesc => 'Highest bitrate, prefer mp4/aac';
+  String get ytHighDesc => 'सबसे उच्च बिटरेट, mp4/aac प्राथमिकता';
 
   @override
-  String get ytMediumDesc => '~128kbps – balanced quality/size';
+  String get ytMediumDesc => '~128kbps – संतुलित गुणवत्ता/आकार';
 
   @override
-  String get ytLowDesc => '~64kbps – smallest, for slow network';
+  String get ytLowDesc => '~64kbps – सबसे छोटा, धीमे नेटवर्क के लिए';
 
   @override
-  String get ytChooseSpecific => 'Choose specific';
+  String get ytChooseSpecific => 'विशिष्ट चुनें';
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return 'No captions for \"$lang\".\nTry another language.';
+    return '\"$lang\" के लिए कैप्शन नहीं हैं।\nदूसरी भाषा आज़माएं।';
   }
 
   @override
-  String get ytLang => 'Language:';
+  String get ytLang => 'भाषा:';
 
   @override
   String ytGetCaptions(Object lang) {
-    return 'Get captions ($lang)';
+    return 'कैप्शन प्राप्त करें ($lang)';
   }
 
   @override
   String ytLines(Object count) {
-    return '$count lines';
+    return '$count पंक्तियां';
   }
 
   @override
   String ytMoreLines(Object count) {
-    return '... and $count more lines';
+    return '... और $count पंक्तियां';
   }
 
   @override
-  String get ytLoadedToStudio => '✅ Loaded into Text Studio';
+  String get ytLoadedToStudio => '✅ टेक्स्ट स्टूडियो में लोड हुआ';
 
   @override
-  String get ytLinkPlay => 'Link + Play';
+  String get ytLinkPlay => 'लिंक + चलाएं';
 
   @override
-  String get ytLinkPlayDone => 'Link + Play ✅';
+  String get ytLinkPlayDone => 'लिंक + चलाएं ✅';
 
   @override
-  String get ytNeedAudioFirst => 'Please download audio in \"Audio\" tab first';
+  String get ytNeedAudioFirst =>
+      'कृपया पहले \"ऑडियो\" टैब में ऑडियो डाउनलोड करें';
 
   @override
-  String get ytAudioLyricsLinked => '🎵 Audio + Lyrics linked!';
+  String get ytAudioLyricsLinked => '🎵 ऑडियो + बोल जुड़ गए!';
 
   @override
-  String get msgCopied => '📋 Copied!';
+  String get msgCopied => '📋 कॉपी हो गया!';
 
   @override
-  String get msgSaved => 'Saved';
+  String get msgSaved => 'सहेजा गया';
 
   @override
-  String get msgDeleted => 'Deleted';
+  String get msgDeleted => 'हटा दिया गया';
 
   @override
   String msgError(Object error) {
@@ -1143,44 +1144,44 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
-  String get msgNetworkError => 'Network त्रुटि please check connection';
+  String get msgNetworkError => 'नेटवर्क त्रुटि, कृपया कनेक्शन जांचें';
 
   @override
-  String get msgLoginNeeded => 'Please login';
+  String get msgLoginNeeded => 'कृपया लॉगिन करें';
 
   @override
-  String get msgNotLoggedIn => 'Not logged in';
+  String get msgNotLoggedIn => 'लॉगिन नहीं है';
 
   @override
   String msgPleaseEnter(Object field) {
-    return 'Please enter $field';
+    return 'कृपया $field दर्ज करें';
   }
 
   @override
-  String get msgInvalidInput => 'Invalid input';
+  String get msgInvalidInput => 'अमान्य इनपुट';
 
   @override
-  String get toolsTitle => 'Tools';
+  String get toolsTitle => 'उपकरण';
 
   @override
   String toolsFeaturesCount(Object count) {
-    return '$count features';
+    return '$count सुविधाएं';
   }
 
   @override
-  String get toolsMoreComing => 'More features coming';
+  String get toolsMoreComing => 'और सुविधाएं आ रही हैं';
 
   @override
-  String get toolsProgress => 'Learning Progress';
+  String get toolsProgress => 'सीखने की प्रगति';
 
   @override
-  String get toolsWordMap => 'Word Map';
+  String get toolsWordMap => 'शब्द मानचित्र';
 
   @override
-  String get toolsTriangle => 'Triangle';
+  String get toolsTriangle => 'त्रिकोण';
 
   @override
-  String get toolsVenn => 'Venn Diagram';
+  String get toolsVenn => 'वेन आरेख';
 
   @override
   String get demoWordHello => 'hello';

@@ -250,7 +250,11 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ChangeNotifierProvider(
+          create: (context) => PlayerProvider(
+            understandProvider: context.read<UnderstandProvider>(),
+          ),
+        ),
         // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
         ChangeNotifierProvider(
           create: (ctx) => SoundlistProvider()

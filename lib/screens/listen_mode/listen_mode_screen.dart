@@ -65,6 +65,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       DraggableScrollableController();
 
   String? _lastSyncedPath;
+  String? _visibleAudioPath;
   PlayerProvider? _playerProvider;
   WaveformProvider? _waveformProvider;
 
@@ -138,6 +139,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     _playerProvider = player;
     _waveformProvider = waveform;
+    _visibleAudioPath = player.currentSongPath;
 
     player.addListener(_onPlayerChange);
     waveform.addListener(_onWaveformChange);
@@ -282,16 +284,31 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   void _onPlayerChange() {
     if (!mounted) return;
-    if (_isUserSeeking) return;
 
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
 
-    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
-
     final currentPath = player.currentSongPath;
-    if (currentPath == null) return;
+    final audioChanged = (_visibleAudioPath == null) != (currentPath == null) ||
+        (_visibleAudioPath != null &&
+            currentPath != null &&
+            _normalizePath(_visibleAudioPath!) != _normalizePath(currentPath));
+    if (audioChanged) {
+      _visibleAudioPath = currentPath;
+      // Dispose the old editor/panel state together with its transcript. This
+      // prevents an old AI editor from applying audio A's text to audio B.
+      setState(() {
+        _showLrcOnMain = false;
+        _lrcHeight = _lrcDefaultHeight;
+        _inlinePanelOpen = false;
+        _aiSheetOpen = false;
+        _aiSheetClosing = false;
+      });
+    }
+
+    if (_isUserSeeking || currentPath == null) return;
+    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
 
     final normalizedCurrent = _normalizePath(currentPath);
     final normalizedLoaded = _normalizePath(waveform.currentFilePath ?? '');
@@ -1114,6 +1131,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   // Controls
                   Consumer<PlayerProvider>(
                     builder: (_, p, __) => _CorePlayerControls(
+                      key: ValueKey('listen-controls-${p.currentSongPath}'),
                       player: p,
                       viewportHeight: listenViewportH,
                       aiPanelOpen: _aiSheetOpen,
@@ -1613,6 +1631,7 @@ class _CorePlayerControls extends StatelessWidget {
   final ValueChanged<bool>? onPanelChanged;
 
   const _CorePlayerControls({
+    super.key,
     required this.player,
     required this.viewportHeight,
     required this.aiPanelOpen,

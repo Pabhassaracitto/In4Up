@@ -28,7 +28,7 @@
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
-| LISTEN-823-01 | Tab Nghe: rèm LRC tối đa + AI sheet kéo/ẩn + hết overflow + dịch ở Hiểu | 🔄 doing | code + test resolver, chờ CI |
+| LISTEN-823-01 | Tab Nghe: rèm LRC tối đa + AI sheet kéo/ẩn + hết overflow + dịch ở Hiểu | ✅ done | bf83fdc; CI run 32659292077 xanh (chờ nghiệm thu thiết bị) |
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
@@ -519,7 +519,7 @@
     run 32650359097; chờ nghiệm thu thiết bị
 
 ### LISTEN-823-01 — Tab Nghe: rèm LRC tối đa, AI sheet linh hoạt, dịch ở Hiểu
-- **Trạng thái:** doing
+- **Trạng thái:** done (chờ nghiệm thu trên thiết bị)
 - **Nguồn:** người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up — thay
   nhánh quản lý Listen arena/019fe27a-vipsound bị lỗi).
 - **Nội dung:**
@@ -532,7 +532,9 @@
      cũng đóng.
   4. Tab Hiểu dùng cùng bộ ghép LRC↔TextProvider với tab Nghe, nên bản dịch đã
      tạo/lưu ở tab Đọc hiện khi bật "Hiện bản dịch" trong cài đặt karaoke.
-- **Bằng chứng:** `test/lrc_translation_resolver_test.dart`; parser Dart không lỗi;
-  `git diff --check` sạch; chờ App Analyze + Locale CI và nghiệm thu thiết bị.
+- **Bằng chứng:** `test/lrc_translation_resolver_test.dart`; commit `bf83fdc`;
+  App Analyze + Locale xanh run `32659292077`; chờ nghiệm thu gesture/layout
+  trên thiết bị thật.
 - **Lịch sử:**
   - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | nhận 4 yêu cầu từ owner, triển khai code + test
+  - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; CI 32659292077 xanh

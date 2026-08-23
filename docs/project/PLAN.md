@@ -362,7 +362,7 @@
 
 ### PLAN-016 — Tab Nghe: curtain LRC + AI sheet theo thói quen + dịch xuyên tab
 - Nguồn: người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up)
-- Trạng thái: doing
+- Trạng thái: done (code + CI, chờ nghiệm thu thiết bị)
 - Milestone đề xuất: M2
 - Chi tiết:
   - Khi STT/cached LRC hoàn tất, rèm lời thoại mở tối đa an toàn sát waveform.
@@ -374,3 +374,4 @@
     bản dịch tạo/lưu ở tab Đọc xuất hiện theo cùng cài đặt karaoke.
 - Lịch sử:
   - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | triển khai LISTEN-823-01, chờ CI + nghiệm thu
+  - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; App Analyze + Locale run 32659292077 xanh

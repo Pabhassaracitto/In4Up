@@ -348,7 +348,8 @@
   - 2026-08-22 | doing→done | agent arena/01a0251e-in4up | CI App Analyze xanh run 32524455212 (commit 4e1df4e + d4a3dc1); chờ build nghiệm thu của owner + model Piper trên thiết bị
 
 ### LANG-630-01 — Sứ giả ngôn ngữ: EN chuẩn fallback + lộ trình bậc vi→en→hi/zh/si→…
-- **Trạng thái:** done (chờ nghiệm thu bản dịch HI/ZH/SI của owner)
+- **Trạng thái:** reopened (origin/main mất wave 1 do merge của owner; branch
+  arena/01a0296a-in4up + arena/01a0251e-in4up NGUYÊN VẸN — build từ đây có đủ)
 - **Nguồn:** người sở hữu (2026-08-22, qua agent arena/01a0296a-in4up —
   "I4U | Language EL HIN CH SH": (1) locale ≠ vi không còn tiếng Việt, thiếu
   dịch → English; (2) triển khai đặc biệt Hindi + Chinese + Sinhala phủ dần
@@ -381,3 +382,35 @@
   - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | mọi check local xanh (ARB parity, không ký tự Việt, floors đồng bộ, T2=100%); chờ CI
   - 2026-08-22 | done (xác nhận CI) | agent arena/01a0296a-in4up | CI App Analyze xanh run 32573825623 (analyze + locale/rollout test); chờ owner nghiệm thu bản dịch HI/ZH/SI
   - 2026-08-23 | thu hoạch vào arena/01a0251e-in4up | agent arena/01a0251e-in4up | review OK → merge 81dc2c8 (không xung đột với SHERPA-001/002); bổ sung file `docs/adr/0002-language-rollout-tiers.md` (commit gốc thiếu file, chỉ tham chiếu) + sửa 3 comment ref test; CI post-merge xanh run 32593596431
+  - 2026-08-23 | reopened (merge lost) | agent arena/01a0296a-in4up | owner báo "build vẫn English ở HI/ZH/SI". Kiểm chứng origin/main sau merge của owner: commonConfirm(hi)="Confirm", 222/376 message vẫn EN, language_roadmap.dart + test locale + rule#5 AGENTS không tồn tại → bản build KHÔNG chứa wave 1 (không phải flutter clean). Branch này nguyên vẹn trên remote (CI xanh run 32573825623); hướng dẫn merge lại: xem ADR-0002 + nhánh này. English còn lại hợp lệ sau merge đúng: keep-English keys + 1625 entry legacy fallback (wave 2)
+
+### SHERPA-003 — VAD pipeline file dài 30p: cắt chunk Android + quét async + guard
+- **Trạng thái:** done (chờ nghiệm thu trên thiết bị)
+- **Nguồn:** owner (2026-08-23) — "chạy tạo lời file 30p bị đơ, crash trên
+  nhiều máy Android" + yêu cầu check chức năng VAD tiền xử lý khoảng lặng.
+- **RCA (audit VAD 30p):**
+  1. Routing + Silero VAD đã apply (file >5MB → pipeline; detect Silero thật)
+     nhưng **chuyển chunk trên Android BROKEN**: `ChunkAudioExtractor.
+     _cutWithFFmpeg` chỉ tìm ffmpeg CLI (`which`/`where`) — Android không có
+     binary → luôn false → MỖI segment dùng file GỐC → Whisper re-transcribe
+     TOÀN BỘ file 30p cho từng segment (chậm ×N + duplicate text + OOM).
+  2. UI đơ: `SherpaVadCore.detect()` đồng bộ chặn main isolate (readWave
+     11.5MB + ~9.400 frame Silero, 0 yield) với file 30p.
+  3. Pipeline "chạy Isolate riêng" (README) chưa đúng — VAD + extract chạy
+     trên main isolate.
+- **Sửa (43c3545):**
+  - `AudioConverter.cutSegment()` — cắt theo start-time qua FFmpegKit
+    (mobile)/Process (desktop) — cùng đường đã chứng minh.
+  - `ChunkAudioExtractor._cutWithFFmpeg` dùng `cutSegment` (hết phụ thuộc
+    ffmpeg CLI).
+  - `SherpaVadCore.detectAsync()` — yield mỗi 256 frame + onProgress;
+    `VadService.detectSpeechSegments(onVadProgress:)`; pipeline pump progress
+    ra stream → UI vẽ "Đang quét VAD… N%".
+  - GUARD pipeline: cut thất bại → BỎ QUA segment, không re-transcribe
+    toàn file.
+- **Bằng chứng:** CI App Analyze xanh run 32617775840 (analyze + locale/
+  rollout test). Chờ owner chạy lại file 30p trên Android (log verify: xem
+  AUDIT-2026-08-23 mục VAD).
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via chat | "file 30p bị đơ + crash nhiều máy; check VAD tiền xử lý khoảng lặng"
+  - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | RCA + fix 3 điểm; CI xanh; chờ nghiệm thu thiết bị

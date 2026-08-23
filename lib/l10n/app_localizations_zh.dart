@@ -454,8 +454,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get understandKaraoke => '卡拉OK歌词';
 
   @override
-  String get understandNoSync =>
-      '在同步页长按句子\n或使用设置循环按钮';
+  String get understandNoSync => '在同步页长按句子\n或使用设置循环按钮';
 
   @override
   String get memoryGarden => '记忆花园';
@@ -482,8 +481,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryBloom => '绽放';
 
   @override
-  String get memoryEmptyDesc =>
-      '从阅读页保存词汇\n开始培育你的知识花园';
+  String get memoryEmptyDesc => '从阅读页保存词汇\n开始培育你的知识花园';
 
   @override
   String get memoryOpenWordlist => '打开单词表添加新词';
@@ -618,8 +616,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pdfExtracting => '正在提取文本...';
 
   @override
-  String get pdfCannotExtract =>
-      '无法从该 PDF 提取文本。\n它可能是扫描版 PDF（图片）。';
+  String get pdfCannotExtract => '无法从该 PDF 提取文本。\n它可能是扫描版 PDF（图片）。';
 
   @override
   String get pdfTextMode => '文本模式 — 完整高亮与 TTS 功能';
@@ -670,8 +667,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pdfNoNotes => '暂无笔记';
 
   @override
-  String get pdfLongPressHint =>
-      '长按 PDF 上的单词，或在文本模式下从选区添加笔记。';
+  String get pdfLongPressHint => '长按 PDF 上的单词，或在文本模式下从选区添加笔记。';
 
   @override
   String get translationEngineSettings => '翻译引擎设置';
@@ -705,8 +701,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translationLeaveEmpty => '留空 → 使用 Google 免费翻译';
 
   @override
-  String get translationTargetViaFlag =>
-      '目标语言通过翻译栏上的旗帜按钮选择。';
+  String get translationTargetViaFlag => '目标语言通过翻译栏上的旗帜按钮选择。';
 
   @override
   String get translationStop => '停止';
@@ -736,8 +731,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translationSearchLang => '搜索语言…';
 
   @override
-  String get translationSourceIsTarget =>
-      '源语言与目标语言相同。';
+  String get translationSourceIsTarget => '源语言与目标语言相同。';
 
   @override
   String get ttsReadingSpeed => '阅读速度';
@@ -797,8 +791,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shadowingStartPractice => '开始练习';
 
   @override
-  String get shadowingSteps =>
-      '1. 听示例\n2. 按下录音\n3. 跟读示例';
+  String get shadowingSteps => '1. 听示例\n2. 按下录音\n3. 跟读示例';
 
   @override
   String get shadowingListeningSample => '正在听示例...';
@@ -987,8 +980,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ytNoVideos => '暂无视频';
 
   @override
-  String get ytSampleData =>
-      '正在使用示例数据。\n设置 YouTube Data API v3 密钥以获取真实视频。';
+  String get ytSampleData => '正在使用示例数据。\n设置 YouTube Data API v3 密钥以获取真实视频。';
 
   @override
   String get ytGetInfo => '获取信息';
@@ -1043,7 +1035,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return '准备中 · $kbpskbps · $size';
+    return '准备中 · ${kbps}kbps · $size';
   }
 
   @override
@@ -1092,7 +1084,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '没有"$lang"的字幕。\n请尝试其他语言。';
+    return '没有\"$lang\"的字幕。\n请尝试其他语言。';
   }
 
   @override
@@ -1123,7 +1115,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ytLinkPlayDone => '关联 + 播放 ✅';
 
   @override
-  String get ytNeedAudioFirst => '请先在"音频"标签页下载音频';
+  String get ytNeedAudioFirst => '请先在\"音频\"标签页下载音频';
 
   @override
   String get ytAudioLyricsLinked => '🎵 音频 + 歌词已关联！';
@@ -1639,8 +1631,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get understandKaraoke => '卡拉OK歌詞';
 
   @override
-  String get understandNoSync =>
-      '在同步分頁長按句子\n或使用設定循環按鈕';
+  String get understandNoSync => '在同步分頁長按句子\n或使用設定循環按鈕';
 
   @override
   String get memoryGarden => '記憶花園';
@@ -1667,8 +1658,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get memoryBloom => '綻放';
 
   @override
-  String get memoryEmptyDesc =>
-      '從閱讀頁儲存詞彙\n開始培育你的知識花園';
+  String get memoryEmptyDesc => '從閱讀頁儲存詞彙\n開始培育你的知識花園';
 
   @override
   String get memoryOpenWordlist => '開啟單字表新增單字';
@@ -1803,8 +1793,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get pdfExtracting => '正在擷取文字...';
 
   @override
-  String get pdfCannotExtract =>
-      '無法從此 PDF 擷取文字。\n它可能是掃描版 PDF（圖片）。';
+  String get pdfCannotExtract => '無法從此 PDF 擷取文字。\n它可能是掃描版 PDF（圖片）。';
 
   @override
   String get pdfTextMode => '文字模式 — 完整標記與 TTS 功能';
@@ -1855,8 +1844,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get pdfNoNotes => '尚無筆記';
 
   @override
-  String get pdfLongPressHint =>
-      '長按 PDF 上的單字，或在文字模式下從選取範圍新增筆記。';
+  String get pdfLongPressHint => '長按 PDF 上的單字，或在文字模式下從選取範圍新增筆記。';
 
   @override
   String get translationEngineSettings => '翻譯引擎設定';
@@ -1890,8 +1878,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get translationLeaveEmpty => '留空 → 使用 Google 免費翻譯';
 
   @override
-  String get translationTargetViaFlag =>
-      '目標語言透過翻譯列上的旗幟按鈕選擇。';
+  String get translationTargetViaFlag => '目標語言透過翻譯列上的旗幟按鈕選擇。';
 
   @override
   String get translationStop => '停止';
@@ -1921,8 +1908,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get translationSearchLang => '搜尋語言…';
 
   @override
-  String get translationSourceIsTarget =>
-      '來源與目標語言相同。';
+  String get translationSourceIsTarget => '來源與目標語言相同。';
 
   @override
   String get ttsReadingSpeed => '閱讀速度';
@@ -1982,8 +1968,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get shadowingStartPractice => '開始練習';
 
   @override
-  String get shadowingSteps =>
-      '1. 聽範例\n2. 按下錄音\n3. 跟著範例複誦';
+  String get shadowingSteps => '1. 聽範例\n2. 按下錄音\n3. 跟著範例複誦';
 
   @override
   String get shadowingListeningSample => '正在聽範例...';
@@ -2172,8 +2157,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get ytNoVideos => '尚無影片';
 
   @override
-  String get ytSampleData =>
-      '正在使用範例資料。\n設定 YouTube Data API v3 金鑰以取得真實影片。';
+  String get ytSampleData => '正在使用範例資料。\n設定 YouTube Data API v3 金鑰以取得真實影片。';
 
   @override
   String get ytGetInfo => '取得資訊';
@@ -2228,7 +2212,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return '準備中 · $kbpskbps · $size';
+    return '準備中 · ${kbps}kbps · $size';
   }
 
   @override

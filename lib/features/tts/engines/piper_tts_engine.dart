@@ -1,9 +1,3 @@
-// (bisect trigger 9)
-// (bisect trigger 8)
-// (bisect trigger 7)
-// (bisect trigger 6)
-// (bisect trigger 5)
-// (bisect trigger 4)
 // lib/features/tts/engines/piper_tts_engine.dart
 //
 // PiperTtsEngine — TTS offline Piper (FastSpeech2 + HiFiGAN) qua sherpa_onnx.

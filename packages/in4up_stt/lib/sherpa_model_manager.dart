@@ -187,7 +187,7 @@ class SherpaModelManager {
           vadFile.existsSync() && vadFile.lengthSync() > 1000000;
       _vadState.add(vadOk
           ? const SherpaModelInfo(
-              status: SherpaModelStatus.ready, localPath: '', clearError: true)
+              status: SherpaModelStatus.ready, localPath: '')
           : const SherpaModelInfo(status: SherpaModelStatus.notInstalled));
 
       // Piper
@@ -203,7 +203,6 @@ class SherpaModelManager {
         status: voices.isEmpty
             ? SherpaModelStatus.notInstalled
             : SherpaModelStatus.ready,
-        clearError: true,
       ));
     } catch (e) {
       debugPrint('⚠️ SherpaModelManager.rescan error: $e');
@@ -218,8 +217,7 @@ class SherpaModelManager {
 
     final token = CancelToken();
     _vadToken = token;
-    _vadState.add(const SherpaModelInfo(
-        status: SherpaModelStatus.downloading, clearError: true));
+    _vadState.add(const SherpaModelInfo(status: SherpaModelStatus.downloading));
 
     try {
       final dir = await _vadDir();
@@ -317,8 +315,7 @@ class SherpaModelManager {
   void cancelVadDownload() {
     _vadToken?.cancel('User cancelled');
     _vadToken = null;
-    _vadState.add(const SherpaModelInfo(
-        status: SherpaModelStatus.notInstalled, clearError: true));
+    _vadState.add(const SherpaModelInfo(status: SherpaModelStatus.notInstalled));
   }
 
   Future<void> deleteVad() async {
@@ -339,6 +336,207 @@ class SherpaModelManager {
         p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir.path;
+  }
+
+  /// Import THƯ MỤC giọng Piper (bundle k2-fsa đã giải nén, hoặc thư mục
+  /// giọng tự copy). Tự phát hiện: *.onnx, <name>_tokens.txt / tokens.txt,
+  /// *.onnx.json, espeak-ng-data/ (dùng chung, chỉ copy khi thiếu).
+  Future<String> importPiperFolder(String folderPath) async {
+    final dir = Directory(folderPath);
+    if (!await dir.exists()) return 'Thư mục không tồn tại';
+
+    final destDir = await _piperDir();
+    var copiedOnnx = 0;
+    var copiedTokens = 0;
+    var copiedJson = 0;
+
+    try {
+      for (final entity in dir.listSync(followLinks: true)) {
+        if (entity is! File) continue;
+        final name = p.basename(entity.path);
+        final rel = p.relative(entity.path, from: folderPath);
+        final relLower = rel.toLowerCase();
+
+        // espeak-ng-data: copy recursive vào chỗ dùng chung
+        if (relLower.startsWith('${SherpaPiperTtsCore.espeakDataFolder}${p.context.separator}')) {
+          final dest = File(p.join(destDir, rel));
+          if (!dest.existsSync()) {
+            await dest.parent.create(recursive: true);
+            await entity.copy(dest.path);
+          }
+          continue;
+        }
+
+        // Chỉ nhận file ở TẦNG GỐC của thư mục giọng
+        // (tránh chôn vùi file rác bên trong espeak-ng-data).
+        if (rel.contains(p.context.separator)) continue;
+
+        if (name.endsWith('.onnx')) {
+          await entity.copy(p.join(destDir, name));
+          copiedOnnx++;
+        } else if (name == 'tokens.txt' || name.endsWith('_tokens.txt')) {
+          await entity.copy(p.join(destDir, name));
+          copiedTokens++;
+        } else if (name.endsWith('.onnx.json')) {
+          await entity.copy(p.join(destDir, name));
+          copiedJson++;
+        }
+      }
+    } catch (e) {
+      return 'Lỗi đọc thư mục: $e';
+    }
+
+    if (copiedOnnx == 0) {
+      return 'Không tìm thấy file .onnx trong thư mục này';
+    }
+
+    await rescan();
+    debugPrint(
+        '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
+        '$copiedJson json');
+    return '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
+        '$copiedJson config';
+  }
+
+  /// Import TỪNG FILE (multi-pick: onnx + json + tokens).
+  Future<String> importPiperFiles(List<String> paths) async {
+    if (paths.isEmpty) return 'Chưa chọn file nào';
+    final destDir = await _piperDir();
+    var onnx = 0;
+    for (final path in paths) {
+      final src = File(path);
+      if (!await src.exists()) continue;
+      final name = p.basename(path).toLowerCase();
+      // Chỉ nhận đúng 3 loại file cần thiết
+      if (!name.endsWith('.onnx') &&
+          !name.endsWith('_tokens.txt') &&
+          name != 'tokens.txt' &&
+          !name.endsWith('.onnx.json')) {
+        continue;
+      }
+      await src.copy(p.join(destDir, p.basename(path)));
+      if (name.endsWith('.onnx')) onnx++;
+    }
+    if (onnx == 0) {
+      return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json])';
+    }
+    await rescan();
+    return '✅ Đã import $onnx file model';
+  }
+
+  /// Tải bundle giọng Piper (tar.bz2, gồm espeak-ng-data).
+  /// Trả về path file đã tải — UI hướng dẫn user GIẢI NÉN rồi Import.
+  /// (App không tự giải nén .tar.bz2 để không thêm dependency nặng.)
+  Future<String?> downloadPiperBundle({
+    String voice = defaultPiperVoice,
+  }) async {
+    if (piperInfo.isDownloading) return null;
+
+    final token = CancelToken();
+    _piperToken = token;
+    _piperState.add(_piperState.value.copyWith(
+        status: SherpaModelStatus.downloading, clearError: true));
+
+    try {
+      final docs = await _documents();
+      final downloadsDir = Directory(p.join(docs, 'downloads'));
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      final fileName = 'vits-piper-$voice.tar.bz2';
+      final savePath = p.join(downloadsDir.path, fileName);
+      final tmpPath = '$savePath.tmp';
+      final url = piperBundleUrl(voice);
+
+      debugPrint('📥 Download Piper bundle $voice từ: $url');
+      await _dio.download(
+        url,
+        tmpPath,
+        cancelToken: token,
+        deleteOnError: true,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            _piperState.add(_piperState.value
+                .copyWith(downloadProgress: received / total));
+          }
+        },
+      );
+
+      final tmp = File(tmpPath);
+      if (await tmp.exists()) {
+        final finalFile = File(savePath);
+        if (await finalFile.exists()) await finalFile.delete();
+        await tmp.rename(savePath);
+        debugPrint('✅ Download Piper bundle xong: $savePath');
+        return savePath;
+      }
+      return null;
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        _piperState.add(_piperState.value
+            .copyWith(status: SherpaModelStatus.notInstalled, clearError: true));
+        return null;
+      }
+      _piperState.add(SherpaPiperInfo(
+        espeakInstalled: _piperState.value.espeakInstalled,
+        voices: _piperState.value.voices,
+        errorMessage:
+            'Không tải được bundle Piper (mạng?) — thử lại hoặc tải tay '
+            '$url rồi Import thư mục đã giải nén.',
+      ));
+      return null;
+    } catch (e) {
+      _piperState.add(SherpaPiperInfo(
+        espeakInstalled: _piperState.value.espeakInstalled,
+        voices: _piperState.value.voices,
+        errorMessage: 'Lỗi tải Piper: $e',
+      ));
+      return null;
+    } finally {
+      _piperToken = null;
+      if (_piperState.value.isDownloading) {
+        _piperState.add(_piperState.value
+            .copyWith(status: SherpaModelStatus.notInstalled));
+      }
+    }
+  }
+
+  void cancelPiperDownload() {
+    _piperToken?.cancel('User cancelled');
+    _piperToken = null;
+    _piperState.add(_piperState.value
+        .copyWith(status: SherpaModelStatus.notInstalled, clearError: true));
+  }
+
+  Future<void> deletePiperVoice(String voiceName) async {
+    try {
+      final dir = await _piperDir();
+      for (final suffix in [
+        '$voiceName.onnx',
+        '$voiceName_tokens.txt',
+        '$voiceName.onnx.json',
+      ]) {
+        final f = File(p.join(dir, suffix));
+        if (await f.exists()) await f.delete();
+      }
+      // tokens.txt dùng chung: chỉ xóa khi không còn onnx nào khác
+      await rescan();
+      debugPrint('🗑️ Deleted Piper voice: $voiceName');
+    } catch (e) {
+      debugPrint('⚠️ Delete Piper voice error: $e');
+    }
+  }
+
+  Future<void> deletePiperAll() async {
+    try {
+      final dir = Directory(
+          p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
+      if (await dir.exists()) await dir.delete(recursive: true);
+      await rescan();
+      debugPrint('🗑️ Deleted all Piper models');
+    } catch (e) {
+      debugPrint('⚠️ Delete Piper all error: $e');
+    }
   }
 
   void dispose() {

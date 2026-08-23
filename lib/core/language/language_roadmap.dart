@@ -71,6 +71,19 @@ class LanguageRollout {
   /// Locale thuộc bậc rollout ưu tiên (T2) — phủ để thay English.
   static const List<String> priorityLocales = ['hi', 'zh', 'zh_TW', 'si'];
 
+  /// Sàn độ phủ catalog LEGACY (chuỗi hard-code chưa migrate ARB) — ADR-0003.
+  ///
+  /// Nguồn dữ liệu: `tool/legacy_ui_translations/<locale>.json` so với
+  /// `tool/legacy_ui_english_overrides.json` (bản sao mirror của
+  /// `legacyFloors` trong `tool/lang_rollout_floors.json`). Wave 2 lô 1
+  /// (2026-08-23): 698/1615 ≈ 43% — các lô sau chỉ được tăng.
+  static const Map<String, double> legacyCoverageFloors = {
+    'hi': 0.43,
+    'zh': 0.43,
+    'zh_TW': 0.43,
+    'si': 0.43,
+  };
+
   /// Bản sao sàn độ phủ của `tool/lang_rollout_floors.json`.
   ///
   /// CHỈ ĐƯỢC RA LÊN khi độ phủ tăng (ratchet); không được hạ.

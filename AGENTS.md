@@ -42,6 +42,11 @@
      `lib/core/language/language_roadmap.dart` + `tool/lang_rollout_report.py`
      + group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`.
      KHÔNG chạy `generate_arbs.py` (đã vô hiệu — ghi đè mất catalog).
+   - **Legacy (ADR-0003):** chuỗi hard-code cũ dịch qua
+     `tool/legacy_ui_translations/<locale>.json` (hi/zh/zh_TW/si; key = chuỗi
+     VI gốc). Sửa chuỗi legacy xong PHẢI chạy
+     `python3 tool/generate_legacy_ui_fallbacks.py` (strict) để tái sinh map.
+     Sàn `legacyFloors` chỉ được tăng. Wave 2 lô 1: 698/1615 ≈ 43%.
    - Thứ tự: `locale có sẵn` → `en` → không đoán, không để `vi`.
    - Chuỗi UI mới: ARB **hoặc** `uiText('…')` + English trong
      `tool/legacy_ui_english_overrides.json`. KHÔNG hard-code tiếng Việt ra `Text`

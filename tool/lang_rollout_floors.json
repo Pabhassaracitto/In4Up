@@ -1,5 +1,5 @@
 {
-  "_comment": "Sàn độ phủ (ratchet floor) theo locale — ADR-0002. Quy tắc: coverage thực tế >= sàn; chỉ được RA LÊN, không được hạ (kiểm bằng tool/lang_rollout_report.py và test/language_rollout_test.dart). T2 (hi, zh, zh_TW, si) = 1.0 sau wave 1 (2026-08-22): ngôn ngữ ưu tiên đã phủ 100% chữ (trừ key keep-English). T3 = sàn bằng độ phủ hiện tại, làm tròn XUỐNG 2 chữ số thập phân. (vi = nguồn, en = chuẩn fallback — không đo coverage.)",
+  "_comment": "Sàn độ phủ (ratchet floor) theo locale — ADR-0002/0003. Quy tắc: coverage thực tế >= sàn; chỉ được RA LÊN, không được hạ (kiểm bằng tool/lang_rollout_report.py và group ADR trong test/locale_chrome_no_vietnamese_test.dart). 'floors' = ARB message (T2 = 1.0 sau wave 1). 'legacyFloors' = catalog legacy hard-code (ADR-0003 wave 2, lô 1 ≤16 ký tự = 698/1615 ≈ 43%; các lô sau nâng dần). vi = nguồn, en = chuẩn fallback — không đo coverage.",
   "floors": {
     "ar": 0.41,
     "bn": 0.14,
@@ -25,5 +25,11 @@
     "th": 0.41,
     "zh": 1.0,
     "zh_TW": 1.0
+  },
+  "legacyFloors": {
+    "hi": 0.43,
+    "zh": 0.43,
+    "zh_TW": 0.43,
+    "si": 0.43
   }
 }

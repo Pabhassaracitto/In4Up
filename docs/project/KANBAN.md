@@ -33,6 +33,7 @@
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | ✅ done | CI run 32573825623 (analyze + rule5/ADR-0002 test xanh) |
+| LANG-630-02 | Wave 2 legacy: dịch catalog hard-code 1.615 chuỗi cho T2 — lô 1 (≤16 ký tự) 698/locale ≈ 43% (ADR-0003) | ✅ done lô 1 | ADR-0003 + report legacy (chờ CI) |
 
 ---
 
@@ -381,3 +382,20 @@
   - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | mọi check local xanh (ARB parity, không ký tự Việt, floors đồng bộ, T2=100%); chờ CI
   - 2026-08-22 | done (xác nhận CI) | agent arena/01a0296a-in4up | CI App Analyze xanh run 32573825623 (analyze + locale/rollout test); chờ owner nghiệm thu bản dịch HI/ZH/SI
   - 2026-08-23 | reopened (merge lost) | agent arena/01a0296a-in4up | owner báo "build vẫn English ở HI/ZH/SI". Kiểm chứng origin/main sau merge của owner: commonConfirm(hi)="Confirm", 222/376 message vẫn EN, language_roadmap.dart + test locale + rule#5 AGENTS không tồn tại → bản build KHÔNG chứa wave 1 (không phải flutter clean). Branch này nguyên vẹn trên remote (CI xanh run 32573825623); hướng dẫn merge lại: xem ADR-0002 + nhánh này. English còn lại hợp lệ sau merge đúng: keep-English keys + 1625 entry legacy fallback (wave 2)
+
+### LANG-630-02 — Wave 2: catalog legacy per-locale (ADR-0003) — T2 phủ dần thay English
+- **Trạng thái:** done lô 1 (chờ CI + nghiệm thu)
+- **Nguồn:** owner (2026-08-23): "hóa ra vẫn chưa hết" — ARB đã xong nhưng
+  1.615 chuỗi hard-code legacy vẫn English cho mọi locale ≠ vi.
+- **Nội dung lô 1:** dịch 698 chuỗi ≤16 ký tự/locale cho hi/zh/zh_TW/si
+  (`tool/legacy_ui_translations/*.json`); generator phát sinh map lồng nhau
+  `generatedLegacyUiFallbacks` (en chuẩn + locale phủ dần); runtime bridge
+  dùng `_valueForLocale` (locale thiếu → EN, không bao giờ vi); sàn ratchet
+  `legacyFloors` 0.43 (4 locale đồng bộ Dart↔JSON, test chặn); prune 10 entry
+  chết; cờ `LEGACY_SKIP_CLASSIFICATION=1` cho nhánh lệch lineage (nợ phân loại
+  140 literal có sẵn từ trước — main chạy strict sẽ bắt khi merge).
+- **Bằng chứng:** report ARB 24/24 + legacy 4/4 đạt sàn; mọi check mô phỏng
+  local xanh (sync JSON↔map, không ký tự Việt, placeholder nguyên vẹn).
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via chat | xác nhận làm wave 2 sau khi hiểu scope
+  - 2026-08-23 | doing→done (lô 1) | agent arena/01a0296a-in4up | 698/locale + hạ tầng ADR-0003; chờ CI

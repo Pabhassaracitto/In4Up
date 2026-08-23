@@ -26,6 +26,7 @@ KEEP = ROOT / "tool" / "lang_keep_english.json"
 FLOORS = ROOT / "tool" / "lang_rollout_floors.json"
 
 PRIORITY = ["hi", "zh", "zh_TW", "si"]
+LEGACY_DIR = ROOT / "tool" / "legacy_ui_translations"
 
 
 def load_messages(locale: str) -> dict[str, str]:
@@ -86,6 +87,32 @@ def main() -> int:
             encoding="utf-8",
         )
         print(f"\nĐã cập nhật sàn ({FLOORS.relative_to(ROOT)}) — chỉ tăng, không hạ.")
+
+    # ADR-0003 — legacy catalog coverage (chuỗi hard-code chưa migrate ARB).
+    legacy_floors = dict(floors_data.get("legacyFloors", {}))
+    overrides = json.loads((ROOT / "tool" / "legacy_ui_english_overrides.json").read_text(encoding="utf-8"))
+    overrides = {k: v for k, v in overrides.items() if not k.startswith("_")}
+    print(f"\nLegacy catalog (ADR-0003): {len(overrides)} chuỗi hard-code")
+    print(f"{'locale':7s} {'tier':5s} {'cov':>7s} {'floor':>6s}  {'n/t':>9s}")
+    print("-" * 44)
+    for loc in PRIORITY:
+        path = LEGACY_DIR / f"{loc}.json"
+        table = {}
+        if path.exists():
+            table = {
+                k: v
+                for k, v in json.loads(path.read_text(encoding="utf-8")).items()
+                if not k.startswith("_")
+            }
+        cov = len(table) / len(overrides) if overrides else 0.0
+        floor = legacy_floors.get(loc, 0.0)
+        flag = ""
+        if cov + 1e-9 < floor:
+            flag = "  <<< DƯỚI SÀN"
+            violations.append(
+                f"legacy {loc}: coverage {cov:.4f} < floor {floor}"
+            )
+        print(f"{loc:7s} {'T2':5s} {cov:7.1%} {floor:6.2f}  {len(table):4d}/{len(overrides)}{flag}")
 
     if violations:
         print("\nVI PHẠM SÀN RATCHET:")

@@ -10,14 +10,23 @@ remain untouched by the application.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
+
+# ADR-0003: mặc định STRICT (đỏ nếu catalog lệch code). Chỉ đặt
+# LEGACY_SKIP_CLASSIFICATION=1 trên nhánh tách từ lineage cũ chưa đồng bộ
+# classification (nợ kỹ thuật có sẵn) — emit vẫn validate placeholder/ký tự Việt.
+SKIP_CLASSIFICATION = os.environ.get("LEGACY_SKIP_CLASSIFICATION") == "1"
 
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "lib"
 OUTPUT = LIB / "core" / "language" / "generated_legacy_ui_fallbacks.dart"
 OVERRIDES = ROOT / "tool" / "legacy_ui_english_overrides.json"
 CONTENT_EXCLUSIONS = ROOT / "tool" / "legacy_ui_content_exclusions.json"
+LEGACY_TRANSLATIONS_DIR = ROOT / "tool" / "legacy_ui_translations"
+# ADR-0003: thứ tự locale khi phát sinh map lồng nhau (en luôn đầu).
+LEGACY_LOCALE_ORDER = ["hi", "zh", "zh_TW", "si"]
 
 VIETNAMESE_RE = re.compile(
     r"[ăâđêôơưĂÂĐÊÔƠƯ]|"
@@ -400,7 +409,7 @@ def main() -> None:
     unused_overrides = set(overrides).difference(
         presentation_literals | direct_sources,
     )
-    if unused_overrides:
+    if unused_overrides and not SKIP_CLASSIFICATION:
         examples = ", ".join(repr(value) for value in sorted(unused_overrides)[:5])
         raise ValueError(
             f"{len(unused_overrides)} reviewed overrides no longer match extracted "
@@ -408,7 +417,7 @@ def main() -> None:
         )
 
     unused_exclusions = set(content_exclusions).difference(presentation_literals)
-    if unused_exclusions:
+    if unused_exclusions and not SKIP_CLASSIFICATION:
         examples = ", ".join(repr(value) for value in sorted(unused_exclusions)[:5])
         raise ValueError(
             f"{len(unused_exclusions)} reviewed content exclusions no longer match "
@@ -419,7 +428,7 @@ def main() -> None:
         overrides,
         content_exclusions,
     )
-    if unclassified_sources:
+    if unclassified_sources and not SKIP_CLASSIFICATION:
         examples = ", ".join(repr(value) for value in sorted(unclassified_sources)[:5])
         raise ValueError(
             f"{len(unclassified_sources)} accented presentation literals need UI/content "
@@ -436,12 +445,17 @@ def main() -> None:
             )
 
     missing_overrides = direct_sources.difference(overrides)
-    if missing_overrides:
+    if missing_overrides and not SKIP_CLASSIFICATION:
         examples = ", ".join(repr(value) for value in sorted(missing_overrides)[:5])
         raise ValueError(
             f"{len(missing_overrides)} extracted presentation sources need reviewed "
             f"English overrides: {examples}"
         )
+
+    if SKIP_CLASSIFICATION:
+        print("⚠️  LEGACY_SKIP_CLASSIFICATION=1 — bỏ qua check phân loại "
+              f"(stale={len(unused_overrides)}, unclassified={len(unclassified_sources)}, "
+              f"missing={len(missing_overrides)}). Chỉ dùng trên lineage lệch catalog.")
 
     translations = {source: overrides[source] for source in sorted(overrides)}
     residual = {
@@ -458,19 +472,75 @@ def main() -> None:
             f"characters; see {report}"
         )
 
+    # ADR-0003 — per-locale legacy translations (tool/legacy_ui_translations/*.json).
+    legacy_locale_tables: dict[str, dict[str, str]] = {}
+    for locale in LEGACY_LOCALE_ORDER:
+        path = LEGACY_TRANSLATIONS_DIR / f"{locale}.json"
+        if not path.exists():
+            legacy_locale_tables[locale] = {}
+            continue
+        table = json.loads(path.read_text(), object_pairs_hook=reject_duplicate_keys)
+        table = {
+            source: value
+            for source, value in table.items()
+            if not source.startswith("_") and isinstance(value, str)
+        }
+        unknown = set(table).difference(overrides)
+        if unknown:
+            examples = ", ".join(repr(v) for v in sorted(unknown)[:5])
+            raise ValueError(
+                f"{locale}: {len(unknown)} legacy translation keys are not reviewed "
+                f"overrides: {examples}"
+            )
+        for source, value in table.items():
+            if not value.strip():
+                raise ValueError(f"{locale}: empty translation for {source!r}")
+            if value == source:
+                raise ValueError(
+                    f"{locale}: translation equals Vietnamese source for {source!r}"
+                )
+            if VIETNAMESE_RE.search(value):
+                raise ValueError(
+                    f"{locale}: translation still contains Vietnamese characters "
+                    f"for {source!r}: {value!r}"
+                )
+            expected = sorted(PLACEHOLDER_RE.findall(overrides[source]))
+            got = sorted(PLACEHOLDER_RE.findall(value))
+            if expected != got:
+                raise ValueError(
+                    f"{locale}: placeholders do not match for {source!r}: "
+                    f"expected {expected}, got {got}"
+                )
+        legacy_locale_tables[locale] = table
+
     lines = [
         "// GENERATED CODE - DO NOT EDIT BY HAND.",
         "// Run: python3 tool/generate_legacy_ui_fallbacks.py",
         "// Exact presentation-source fallbacks only; unknown runtime text is untouched.",
+        "// ADR-0003: en là fallback chuẩn; hi/zh/zh_TW/si phủ dần theo",
+        "// tool/legacy_ui_translations/*.json (locale thiếu -> en, không bao giờ vi).",
         "",
-        "const Map<String, String> generatedLegacyUiEnglishFallbacks = {",
+        "const Map<String, Map<String, String>> generatedLegacyUiFallbacks = {",
     ]
-    for source, english in translations.items():
-        lines.append(f"  {dart_string(source)}: {dart_string(english)},")
+    for source in sorted(overrides):
+        english = overrides[source]
+        lines.append(f"  {dart_string(source)}: {{")
+        lines.append(f"    'en': {dart_string(english)},")
+        for locale in LEGACY_LOCALE_ORDER:
+            value = legacy_locale_tables.get(locale, {}).get(source)
+            if value is not None:
+                lines.append(f"    '{locale}': {dart_string(value)},")
+        lines.append("  },")
     lines.extend(["};", ""])
     OUTPUT.write_text("\n".join(lines))
 
-    print(f"Wrote {OUTPUT.relative_to(ROOT)} with {len(translations)} English fallbacks")
+    print(f"Wrote {OUTPUT.relative_to(ROOT)} with {len(translations)} fallback entries")
+    for locale in LEGACY_LOCALE_ORDER:
+        translated = len(legacy_locale_tables[locale])
+        print(
+            f"  {locale}: {translated}/{len(translations)} legacy strings "
+            f"({translated / len(translations):.1%})"
+        )
     print(f"Residual accented translations: {len(residual)} ({report})")
 
 

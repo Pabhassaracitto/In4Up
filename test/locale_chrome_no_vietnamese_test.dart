@@ -83,20 +83,30 @@ void main() {
       );
     });
 
-    test('generatedLegacyUiEnglishFallbacks: English không có ký tự Việt', () {
+    test('generatedLegacyUiFallbacks: mọi entry có en; locale ≠ vi sạch ký tự Việt',
+        () {
       final violations = <String>[];
-      for (final entry in generatedLegacyUiEnglishFallbacks.entries) {
-        final match = _vietnameseOnly.firstMatch(entry.value);
-        if (match != null) {
-          violations.add(
-            "'${entry.key}' → '${entry.value}' (ký tự: '${match.group(0)}')",
-          );
+      for (final entry in generatedLegacyUiFallbacks.entries) {
+        final english = entry.value['en'];
+        if (english == null || english.trim().isEmpty) {
+          violations.add("'${entry.key}' thiếu giá trị 'en' (fallback chuẩn)");
+        }
+        for (final localeValue in entry.value.entries) {
+          if (localeValue.key == 'vi') continue;
+          final match = _vietnameseOnly.firstMatch(localeValue.value);
+          if (match != null) {
+            violations.add(
+              "'${entry.key}' [${localeValue.key}] → '${localeValue.value}' "
+              "(ký tự: '${match.group(0)}')",
+            );
+          }
         }
       }
       expect(
         violations,
         isEmpty,
-        reason: 'English fallbacks còn tiếng Việt:\n'
+        reason: 'Catalog legacy (ADR-0003): thiếu en hoặc còn tiếng Việt '
+            'ở locale ≠ vi — lộ trình vi→en→hi/zh/si bị phá:\n'
             '${violations.take(10).join('\n')}',
       );
     });
@@ -333,6 +343,85 @@ void main() {
         }
       });
       expect(violations, isEmpty, reason: violations.join('\n'));
+    });
+  });
+
+  // ============================================================
+  // ADR-0003 — Wave 2: catalog legacy phủ dần cho T2 (hi/zh/zh_TW/si)
+  // ============================================================
+  group('ADR-0003 — legacy coverage ≥ sàn (phủ dần thay English)', () {
+    test('legacyFloors (Dart) == tool/lang_rollout_floors.json', () {
+      final floorsJson =
+          (jsonDecode(File('tool/lang_rollout_floors.json').readAsStringSync())
+                  as Map<String, dynamic>)['legacyFloors']
+              as Map<String, dynamic>;
+      expect(
+        {...LanguageRollout.legacyCoverageFloors.keys}
+            .difference(floorsJson.keys.toSet()),
+        isEmpty,
+        reason: 'Locale có sàn legacy trong Dart nhưng thiếu trong JSON '
+            '(hoặc ngược lại)',
+      );
+      for (final e in floorsJson.entries) {
+        expect(
+          LanguageRollout.legacyCoverageFloors[e.key],
+          (e.value as num).toDouble(),
+          reason: "Sàn legacy lệch ở '${e.key}' — đồng bộ 2 nơi, chỉ RA LÊN",
+        );
+      }
+    });
+
+    test('mọi locale T2 đạt sàn legacy coverage', () {
+      final total = generatedLegacyUiFallbacks.length;
+      expect(total, greaterThan(0), reason: 'Catalog legacy rỗng?');
+      final violations = <String>[];
+      for (final loc in LanguageRollout.priorityLocales) {
+        var translated = 0;
+        for (final entry in generatedLegacyUiFallbacks.entries) {
+          if (entry.value.containsKey(loc)) translated++;
+        }
+        final coverage = translated / total;
+        final floor = LanguageRollout.legacyCoverageFloors[loc] ?? 0.0;
+        if (coverage + 1e-9 < floor) {
+          violations.add(
+            '$loc: legacy $translated/$total (${coverage.toStringAsFixed(4)}) '
+            '< sàn $floor',
+          );
+        }
+      }
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Legacy coverage T2 tụt dưới sàn ratchet — phục hồi '
+            'tool/legacy_ui_translations/<locale>.json hoặc nâng sàn bằng ADR:\n'
+            '${violations.join('\n')}',
+      );
+    });
+
+    test('legacy_ui_translations JSON khớp map phát sinh (không lệch nguồn)', () {
+      // Map phát sinh phải chứa ĐÚNG các key của file JSON per-locale —
+      // tránh file JSON bị sửa sau khi gen (drift giữa 2 nguồn).
+      final violations = <String>[];
+      for (final loc in LanguageRollout.priorityLocales) {
+        final file = File('tool/legacy_ui_translations/$loc.json');
+        expect(file.existsSync(), isTrue, reason: 'Thiếu file $loc.json');
+        final data =
+            jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        for (final e in data.entries) {
+          if (e.key.startsWith('_')) continue;
+          final inMap = generatedLegacyUiFallbacks[e.key]?[loc];
+          if (inMap != e.value) {
+            violations.add("$loc ['${e.key}'] JSON ≠ map phát sinh");
+          }
+        }
+      }
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Chạy lại python3 tool/generate_legacy_ui_fallbacks.py — '
+            'JSON dịch và map Dart đang lệch nhau:\n'
+            '${violations.take(10).join('\n')}',
+      );
     });
   });
 }

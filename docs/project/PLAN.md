@@ -333,3 +333,13 @@
 - Lịch sử:
   - 2026-08-22 | created | owner via chat | "I4U | Language EL HIN CH SH"
   - 2026-08-22 | doing→done | agent arena/01a0296a-in4up | ADR-0002 + wave 1 + ratchet test
+
+### PLAN-015 — Wave 2 legacy: T2 phủ dần catalog hard-code (LANG-630-02, ADR-0003)
+- Nguồn: người sở hữu (2026-08-23) — "hóa ra vẫn chưa hết" sau wave 1
+- Trạng thái: lô 1 done (≤16 ký tự, 698/1615 ≈ 43% mỗi locale T2)
+- Chi tiết: xem ADR-0003. Lô kế tiếp: 17-32 → 33-60 → >60 ký tự; mỗi lô nâng
+  `legacyFloors` (chỉ tăng). Main chạy generator strict
+  (`tool/generate_legacy_ui_fallbacks.py`) — nợ phân loại 140 literal của
+  lineage cũ cần chủ động xử khi merge.
+- Lịch sử:
+  - 2026-08-23 | created→lô 1 done | agent arena/01a0296a-in4up

@@ -14,9 +14,11 @@ class AppUITranslations {
     ...generatedUiTranslations.entries
         .where((entry) => entry.key.contains('{'))
         .map(_TranslationTemplate.fromEntry),
-    ...generatedLegacyUiEnglishFallbacks.entries
+    // ADR-0003: legacy fallbacks giờ là map lồng nhau (en + các locale
+    // đã dịch trong tool/legacy_ui_translations/*.json).
+    ...generatedLegacyUiFallbacks.entries
         .where((entry) => entry.key.contains('{'))
-        .map(_TranslationTemplate.fromEnglishEntry),
+        .map(_TranslationTemplate.fromEntry),
   ]..sort(
       (left, right) => right.staticLength.compareTo(left.staticLength),
     ));
@@ -37,8 +39,8 @@ class AppUITranslations {
     final exact = generatedUiTranslations[sourceText];
     if (exact != null) return _valueForLocale(exact, locale);
 
-    final legacyEnglish = generatedLegacyUiEnglishFallbacks[sourceText];
-    if (legacyEnglish != null) return legacyEnglish;
+    final legacy = generatedLegacyUiFallbacks[sourceText];
+    if (legacy != null) return _valueForLocale(legacy, locale);
 
     if (allowTemplates) {
       for (final template in _templates) {
@@ -64,7 +66,7 @@ class AppUITranslations {
 
   static bool containsSource(String sourceText) {
     if (generatedUiTranslations.containsKey(sourceText) ||
-        generatedLegacyUiEnglishFallbacks.containsKey(sourceText)) {
+        generatedLegacyUiFallbacks.containsKey(sourceText)) {
       return true;
     }
     return _templates.any((template) => template.matches(sourceText));
@@ -120,15 +122,6 @@ class _TranslationTemplate {
     MapEntry<String, Map<String, String>> entry,
   ) {
     return _TranslationTemplate._fromSource(entry.key, entry.value);
-  }
-
-  factory _TranslationTemplate.fromEnglishEntry(
-    MapEntry<String, String> entry,
-  ) {
-    return _TranslationTemplate._fromSource(
-      entry.key,
-      {'en': entry.value},
-    );
   }
 
   factory _TranslationTemplate._fromSource(

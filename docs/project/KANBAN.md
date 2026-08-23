@@ -36,7 +36,7 @@
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
 | SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang (chờ CI xanh + nghiệm thu) |
-| REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 (tích hợp 01a01580/d8486d3 + hoàn thiện 3 chỗ thiếu) — chờ CI + nghiệm thu |
+| REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
 
 ---
 
@@ -503,12 +503,16 @@
 - **Hoàn thiện (d8486d3 thiếu, compile không được nếu ghép nguyên):**
   `applyCachedLrc()`, body `_rememberGeneratedLrc()`, param
   `forceRegenerate` + cache guard, legacy-key migration trong `get()`.
-- **Bằng chứng:** CI App Analyze (chờ run sau push f5cd164). Verify
-  on-device: tạo lời file MP3 → tắt app → mở lại → lời hiện ngay; bấm
-  Tạo lời → hiện hộp thoại hỏi; mở document cũ đã dịch → dịch hiện lại.
+- **Bằng chứng:** CI App Analyze + Locale xanh run 32650359097
+  (f5cd164 + fix return-type confirmAndGenerateLrc). Verify on-device:
+  tạo lời file MP3 → tắt app → mở lại → lời hiện ngay; bấm Tạo lời →
+  hiện hộp thoại hỏi Dùng bản đã lưu/Tạo lại; mở document cũ đã dịch →
+  dịch hiện lại từ cache (không gọi mạng).
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat (gửi từ nhánh 01a01580) | fix d8486d3
     đã check trên 251e, nhờ tích hợp sang nhánh 251e
   - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | checkout 10 file từ
     d8486d3 + 2 chỉnh tay (listen_mode_screen, text_provider) + hoàn thiện 3
-    chỗ thiếu; chờ CI + nghiệm thu
+    chỗ thiếu; CI đầu đỏ do return_of_invalid_type_from_closure (closure
+    onGenerate) → fix return type confirmAndGenerateLrc → CI xanh
+    run 32650359097; chờ nghiệm thu thiết bị

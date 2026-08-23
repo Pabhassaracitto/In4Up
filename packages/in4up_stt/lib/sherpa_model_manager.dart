@@ -437,6 +437,9 @@ class SherpaModelManager {
     _piperState.add(_piperState.value.copyWith(
         status: SherpaModelStatus.downloading, clearError: true));
 
+    // ★ FIX: url phải TRƯỚC try — catch block KHÔNG có scope local của try
+    final url = piperBundleUrl(voice);
+
     try {
       final docs = await _documents();
       final downloadsDir = Directory(p.join(docs, 'downloads'));
@@ -446,7 +449,6 @@ class SherpaModelManager {
       final fileName = 'vits-piper-$voice.tar.bz2';
       final savePath = p.join(downloadsDir.path, fileName);
       final tmpPath = '$savePath.tmp';
-      final url = piperBundleUrl(voice);
 
       debugPrint('📥 Download Piper bundle $voice từ: $url');
       await _dio.download(
@@ -498,6 +500,46 @@ class SherpaModelManager {
         _piperState.add(_piperState.value
             .copyWith(status: SherpaModelStatus.notInstalled));
       }
+    }
+  }
+
+  void cancelPiperDownload() {
+    _piperToken?.cancel('User cancelled');
+    _piperToken = null;
+    _piperState.add(_piperState.value
+        .copyWith(status: SherpaModelStatus.notInstalled, clearError: true));
+  }
+
+  Future<void> deletePiperVoice(String voiceName) async {
+    try {
+      final dir = await _piperDir();
+      for (final suffix in [
+        '$voiceName.onnx',
+        // ★ ${} BẮT BUỘC: '$voiceName_tokens' bị parse thành biến
+        // 'voiceName_' (maximal munch) → Undefined name
+        '${voiceName}_tokens.txt',
+        '$voiceName.onnx.json',
+      ]) {
+        final f = File(p.join(dir, suffix));
+        if (await f.exists()) await f.delete();
+      }
+      // tokens.txt dùng chung: chỉ xóa khi không còn onnx nào khác
+      await rescan();
+      debugPrint('🗑️ Deleted Piper voice: $voiceName');
+    } catch (e) {
+      debugPrint('⚠️ Delete Piper voice error: $e');
+    }
+  }
+
+  Future<void> deletePiperAll() async {
+    try {
+      final dir = Directory(
+          p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
+      if (await dir.exists()) await dir.delete(recursive: true);
+      await rescan();
+      debugPrint('🗑️ Deleted all Piper models');
+    } catch (e) {
+      debugPrint('⚠️ Delete Piper all error: $e');
     }
   }
 

@@ -1,6 +1,3 @@
-// (bisect trigger 4)
-// (bisect trigger 3)
-// (bisect trigger 2)
 // lib/features/tts/engines/piper_tts_engine.dart
 //
 // PiperTtsEngine — TTS offline Piper (FastSpeech2 + HiFiGAN) qua sherpa_onnx.
@@ -183,4 +180,3 @@ class PiperTtsEngine implements TtsEngine {
     }
   }
 }
-/// (bisect trigger)

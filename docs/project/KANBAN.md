@@ -36,6 +36,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🚫 blocked (chờ owner) | chẩn đoán + patch 4 chỗ trong card (cần quyền workflows) |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
+| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
@@ -686,3 +687,28 @@
 - **Lịch sử:**
   - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | nhận 4 yêu cầu từ owner, triển khai code + test
   - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; CI 32659292077 xanh
+
+### MODELS-002 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
+- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu của owner)
+- **Nội dung:** (1) Chat screen: banner trạng thái model luôn hiện — chưa nạp
+  (vàng, bấm để import) / copy file X% / tải từ URL X% / đang nạp native
+  (1–2 phút) / lỗi + "Thử lại" / sẵn sàng (xanh + tên file + MB). (2) Engine
+  Gemma gửi tín hiệu model-load từ isolate (sau llama_model_load) — facade
+  `hasModel` chỉ true khi model THẬT sự nạp xong; `sendMessage` chờ signal
+  trước khi analyze; mock reply luôn kèm disclaimer "⚠️ Chưa nạp model AI —
+  đây là trả lời MẪU". (3) Màn "Quản lý Model AI" (home settings, có sẵn cho
+  STT/VAD/TTS từ MODELS-001) thêm section 4 "Chat — Gemma (LLM)": status +
+  Import .gguf + Tải về (dialog URL, default HuggingFace Gemma-2-2B-it Q4_K_M
+  ~1.5GB, chỉ WiFi, progress bar) + Xóa (confirm). (4) Import copy theo chunk
+  8MB kèm tiến độ; download verify header GGUF sau tải; `AiModelConfig.
+  defaultDownloadUrl` cho nút Tải về.
+- **Bằng chứng:** code trong branch (engine/facade/loader/chat screen/settings
+  screen + 15 override EN mới + dọn 12 override stale do merge). CI oracle:
+  app_analyze.yml (analyze + locale test) khi push.
+- **Ghi chú debt:** generator legacy_ui_fallbacks chưa chạy được trên tree merge
+  — còn 179 literal chưa phân loại (toàn từ 68 commits của 01a0251e, không phải
+  của card này; CI không chạy generator nên không chặn). 15 key mới của card này
+  đã verify được generator trích đúng (không nằm trong unused/unclassified).
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via chat | "import xong không thấy biểu hiện gì… nên quản lý models 1 chỗ nơi setting của home, import trực quan và tải online"
+  - 2026-08-23 | proposed→doing | agent arena/01a02a4a-in4up | implement engine signal + facade stages + banner + section settings; chờ CI + nghiệm thu

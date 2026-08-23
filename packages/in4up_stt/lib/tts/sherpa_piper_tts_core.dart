@@ -66,6 +66,16 @@ class SherpaPiperTtsCore {
 
   static const int defaultPiperSampleRate = 22050;
 
+  /// Language từ tên file giọng (quy ước Piper `xx_XX-...`);
+  /// '' = không có locale (universal). Ví dụ: `en_US-lessac-medium` →
+  /// `en-US`, `vi_VN-vais1000-medium` → `vi-VN`, `calmwoman3688` → ''.
+  static String langFromVoiceName(String name) {
+    final m =
+        RegExp(r'^([a-z]{2})[_-]([A-Za-z]{2})(?:[-_].*)?$').firstMatch(name);
+    if (m == null) return '';
+    return '${m.group(1)}-${m.group(2)!.toUpperCase()}';
+  }
+
   sherpa.OfflineTts? _tts;
   PiperTtsVoice? _activeVoice;
 
@@ -85,30 +95,53 @@ class SherpaPiperTtsCore {
     return dir;
   }
 
-  /// Quét thư mục model → danh sách giọng (mỗi <name>.onnx có
-  /// <name>_tokens.txt là một giọng; espeak-ng-data dùng chung).
+  /// Quét thư mục model → danh sách giọng.
+  ///
+  /// Hỗ trợ 2 layout:
+  /// 1. **rhasspy/user**: `<name>.onnx` + `<name>_tokens.txt`
+  ///    [+ `<name>.onnx.json` chứa audio.sample_rate]
+  /// 2. **bundle k2-fsa chính thức** (vits-piper-*.tar.bz2):
+  ///    `<name>.onnx` + `tokens.txt` DÙNG CHUNG + `espeak-ng-data/`
+  ///    (không có .onnx.json — fallback 22050Hz chuẩn Piper)
   static Future<List<PiperTtsVoice>> discoverVoices() async {
     try {
       final dir = await _modelsDir();
       final dataDir = p.join(dir.path, espeakDataFolder);
       final dataOk = Directory(dataDir).existsSync();
 
+      final files = dir.listSync(followLinks: false);
+      final onnxFiles = files
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.onnx'))
+          .toList();
+      // tokens.txt dùng chung chỉ hợp lệ khi có ĐÚNG MỘT onnx
+      // (tránh gán nhầm tokens của giọng khác).
+      final sharedTokens = File(p.join(dir.path, 'tokens.txt'));
+      final sharedTokensUsable =
+          sharedTokens.existsSync() && onnxFiles.length == 1;
+
       final voices = <PiperTtsVoice>[];
-      for (final entity in dir.listSync(followLinks: false)) {
-        if (entity is! File) continue;
-        final fileName = p.basename(entity.path);
-        if (!fileName.endsWith('.onnx')) continue;
-        final name = fileName.substring(0, fileName.length - '.onnx'.length);
+      for (final file in onnxFiles) {
+        final fileName = p.basename(file.path);
+        final name =
+            fileName.substring(0, fileName.length - '.onnx'.length);
 
-        final tokensPath = p.join(dir.path, '${name}_tokens.txt');
-        if (!File(tokensPath).existsSync()) continue;
+        String? tokensPath;
+        final perNameTokens = p.join(dir.path, '${name}_tokens.txt');
+        if (File(perNameTokens).existsSync()) {
+          tokensPath = perNameTokens;
+        } else if (sharedTokensUsable) {
+          tokensPath = sharedTokens.path;
+        }
+        if (tokensPath == null) continue;
 
-        final sampleRate = _readSampleRate(p.join(dir.path, '$name.onnx.json')) ??
-            defaultPiperSampleRate;
+        final sampleRate =
+            _readSampleRate(p.join(dir.path, '$name.onnx.json')) ??
+                defaultPiperSampleRate;
 
         voices.add(PiperTtsVoice(
           name: name,
-          modelPath: entity.path,
+          modelPath: file.path,
           tokensPath: tokensPath,
           dataDir: dataDir,
           sampleRate: sampleRate,

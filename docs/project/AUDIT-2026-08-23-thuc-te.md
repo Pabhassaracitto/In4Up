@@ -148,7 +148,13 @@ từ main KHÔNG chứa wave 1.
 
 ---
 
-## D. Model cần push vào thiết bị (trước khi nghiệm thu)
+## D. Model cần vào thiết bị (trước khi nghiệm thu)
+
+⭐ **Cách tiện nhất (không cần adb):** Home → **Quản lý Model AI** —
+mỗi model (Whisper / Silero VAD / Piper) có sẵn nút **Import** (chọn
+file có sẵn trên máy) và **Tải về** (tải từ mạng khi bạn bấm). Piper:
+"Tải giọng" → app tải bundle → giải nén → "Import thư mục".
+Hướng dẫn chi tiết cho developer: **`docs/project/MODELS.md`**.
 
 Android: `documents = /sdcard/Android/data/<app>/documents/`
 (release: `com.in4up` · dev: `com.in4up.dev` · beta: `com.in4up.beta`)

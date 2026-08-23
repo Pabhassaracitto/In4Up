@@ -32,7 +32,9 @@
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
-| LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | ✅ done | merge 81dc2c8; CI run 32593596431 (chờ nghiệm thu bản dịch HI/ZH/SI) |
+| LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
+| SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
+| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI (chờ nghiệm thu build) |
 
 ---
 
@@ -414,3 +416,31 @@
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat | "file 30p bị đơ + crash nhiều máy; check VAD tiền xử lý khoảng lặng"
   - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | RCA + fix 3 điểm; CI xanh; chờ nghiệm thu thiết bị
+
+### MODELS-001 — Trung tâm model: import/tải trong app cho VAD + Piper + tài liệu dev
+- **Trạng thái:** done (chờ nghiệm thu build)
+- **Nguồn:** owner (2026-08-23) — "hướng dẫn đặt model cho user/dev; khi
+  quét không có model thì có import thủ công hoặc nút tải mạng" + "Piper
+  đỏ vì chưa biết cách đặt model".
+- **Nội dung:**
+  - `SherpaModelManager` (in4up_stt): status stream + download (dio,
+    progress, cancel, retry) + import (file/folder) + verify — cùng
+    pattern SttModelManager; KHÔNG auto-download.
+  - UI "Quản lý Model AI" (Home) thành 3 nhóm: Whisper STT (cũ) +
+    **Silero VAD** (Import .onnx / Tải 2-5MB) + **Piper TTS**
+    (Import thư mục / Import file / Tải giọng bundle EN/VI + danh sách
+    giọng + xoá; espeak-ng-data theo dõi riêng).
+  - `SherpaPiperTtsCore.discoverVoices` nhận THÊM layout bundle k2-fsa
+    chính thức (`tokens.txt` dùng chung, không có .onnx.json).
+  - `docs/project/MODELS.md`: bảng thư mục + tên file + adb push +
+    nguồn tải verify — trả lời "đặt ở đâu, tên gì".
+  - URL tải verify 2026-08-23: k2-fsa GitHub releases (asr-models/
+    silero_vad.onnx; tts-models/ vits-piper-*.tar.bz2 — 536 giọng, có
+    vi_VN). Piper bundle = 1 file tar.bz2 gồm onnx + tokens +
+    espeak-ng-data (app không tự giải nén bz2 — hướng dẫn user).
+- **Bằng chứng:** CI App Analyze (chờ run sau push). Verify on-device:
+  mở "Quản lý Model AI" → VAD card Tải về → xanh; Piper card Tải giọng
+  → giải nén → Import thư mục → xanh + phát thử.
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via chat | 3 câu hỏi (hướng dẫn đặt model / quản lý 1 chỗ / Piper đỏ)
+  - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | manager + 2 card UI + core layout + MODELS.md

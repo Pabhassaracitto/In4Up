@@ -6,6 +6,7 @@ import '../../core/language/app_language.dart';
 import '../../models/text_item.dart';
 import '../../services/storage_service.dart';
 import '../tts/language_detector.dart';
+import 'cache/translation_cache.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -328,5 +329,41 @@ mixin TranslationMixin on ChangeNotifier {
       }
     }
     return map;
+  }
+
+  /// After reopen: paint saved translations onto lines (no network).
+  Future<int> rehydrateTranslationsFromCache() async {
+    if (lines.isEmpty) return 0;
+    final cache = TranslationCache();
+    final target = translationTargetLanguage.translationCode;
+    var hits = 0;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.content.trim().isEmpty) continue;
+      if (line.translation != null && line.translation!.trim().isNotEmpty) {
+        continue;
+      }
+      final source = LanguageDetector.detectLanguage(line.content);
+      final cached = await cache.get(
+        text: line.content,
+        sourceLang: source.translationCode,
+        targetLang: target,
+      );
+      if (cached == null || cached.trim().isEmpty) continue;
+      lines[i] = line.copyWith(
+        translation: cached,
+        sourceLanguageCode: source.translationCode,
+        translationLanguageCode: target,
+      );
+      hits++;
+    }
+    if (hits > 0) {
+      if (_translationDisplayMode == TranslationDisplayMode.hidden) {
+        _translationDisplayMode = TranslationDisplayMode.stackedBelow;
+      }
+      notifyListeners();
+    }
+    debugPrint('[Translation] rehydrated $hits/${lines.length} lines from cache');
+    return hits;
   }
 }

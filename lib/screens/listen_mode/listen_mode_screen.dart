@@ -32,6 +32,7 @@ import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
+import 'widgets/generate_lrc_actions.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
 import 'widgets/soundlist_panel.dart';
@@ -2448,11 +2449,10 @@ class GenerateLrcButton extends StatelessWidget {
                 const SizedBox(height: 8),
                 _LrcModelSelector(
                   isProcessing: isActive || provider.isGeneratingLrc,
+                  // REOPEN FIX: đã có LRC lưu sẵn → hỏi Dùng bản đã lưu /
+                  // Tạo lại, không auto chạy Whisper nữa.
                   onGenerate: (level, grouping) =>
-                      provider.generateLrcForCurrentAudio(
-                    level: level,
-                    grouping: grouping,
-                  ),
+                      confirmAndGenerateLrc(context, provider, level, grouping),
                 ),
                 const SizedBox(height: 12),
                 Wrap(

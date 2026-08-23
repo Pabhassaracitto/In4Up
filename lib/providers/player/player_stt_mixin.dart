@@ -10,12 +10,14 @@ import 'package:in4up_stt/stt_service_facade.dart';
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../features/vad/pipeline/vad_whisper_pipeline.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
+import '../../services/source_artifact_store.dart';
 
 mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
   String? get currentSongPath;
   UnderstandProvider? get understandProvider;
   Future<void> pause();
+  Duration get playbackDuration;
 
   final SttServiceFacade _sttService = SttServiceFacade();
   SttServiceFacade get sttService => _sttService;
@@ -44,43 +46,31 @@ mixin PlayerSttMixin on ChangeNotifier {
   Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
   SttProgress get sttProgress => _sttService.currentProgress;
 
-  String _computeFileHash(String normalizedPath) {
-    return normalizedPath.hashCode.toRadixString(16);
-  }
-
-  Future<String?> findCachedLrcPath(String normalizedPath) async {
+  Future<CachedLrcHit?> peekCachedLrc({String? path}) async {
+    final audioPath = path ?? currentSongPath;
+    if (audioPath == null || audioPath.isEmpty) return null;
     try {
-      final hash = _computeFileHash(normalizedPath);
-
-      // Rule 1: Dùng absolute path via path_provider, không hardcode /data/...
-      // Thử các vị trí cache theo thứ tự ưu tiên
-      final candidates = <String>[
-        '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
-            '/${hash}.lrc',
-        _replaceExtension(normalizedPath, '.lrc'),
-      ];
-
-      for (final candidate in candidates) {
-        final file = File(candidate);
-        if (await file.exists()) {
-          debugPrint('✅ Found cached LRC: $candidate');
-          return candidate;
-        }
-      }
-
+      final hit = await SourceArtifactStore.instance.findLrc(
+        audioPath,
+        durationMs: playbackDuration.inMilliseconds,
+      );
+      if (hit != null) return hit;
       final outputFromStt = _lastSttOutput;
       if (outputFromStt?.lrcFilePath != null) {
         final lrcFile = File(outputFromStt!.lrcFilePath!);
         if (await lrcFile.exists()) {
-          return outputFromStt.lrcFilePath;
+          return CachedLrcHit(lrcPath: outputFromStt.lrcFilePath!);
         }
       }
-
-      return null;
     } catch (e) {
-      debugPrint('⚠️ _findCachedLrcPath error: $e');
-      return null;
+      debugPrint('⚠️ peekCachedLrc error: $e');
     }
+    return null;
+  }
+
+  Future<String?> findCachedLrcPath(String normalizedPath) async {
+    final hit = await peekCachedLrc(path: normalizedPath);
+    return hit?.lrcPath;
   }
 
   String _replaceExtension(String path, String newExt) {
@@ -186,6 +176,7 @@ mixin PlayerSttMixin on ChangeNotifier {
           debugPrint('✅ VAD Pipeline loaded ${lrcLines.length} LRC lines');
         }
         _lrcJustGenerated = true;
+        await _rememberGeneratedLrc(path, output.lrcFilePath);
       }
 
       return output;
@@ -202,12 +193,24 @@ mixin PlayerSttMixin on ChangeNotifier {
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
+    bool forceRegenerate = false,
   }) async {
     final path = currentSongPath;
     if (path == null) {
       _lastSttError = 'Chưa có file audio đang phát';
       notifyListeners();
       return null;
+    }
+
+    // ★ REOPEN FIX: đã có LRC lưu sẵn (SourceArtifactStore) → nạp lại,
+    //   KHÔNG chạy Whisper lần nữa (mất thời gian + phí). Chỉ re-transcribe
+    //   khi forceRegenerate: true (user bấm "Tạo lại" ở hộp thoại hỏi).
+    if (!forceRegenerate) {
+      final hit = await peekCachedLrc();
+      if (hit != null) {
+        await applyCachedLrc(hit: hit);
+        return null;
+      }
     }
 
     // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
@@ -307,6 +310,7 @@ mixin PlayerSttMixin on ChangeNotifier {
             );
           }
           _lrcJustGenerated = true;
+          await _rememberGeneratedLrc(path, output.lrcFilePath);
         }
 
         return output;
@@ -371,6 +375,53 @@ mixin PlayerSttMixin on ChangeNotifier {
       }
     } catch (e) {
       debugPrint('⚠️ _autoLoadCachedLrc error: $e');
+    }
+  }
+
+  /// Nạp LRC đã lưu vào UI (không STT). Dùng khi user chọn "Dùng bản đã lưu"
+  /// hoặc khi nút Tạo lời phát hiện cache sẵn (reopen fix).
+  Future<void> applyCachedLrc({required CachedLrcHit hit}) async {
+    try {
+      final lrcLines = await parseLrcFile(hit.lrcPath);
+      if (lrcLines.isNotEmpty && understandProvider != null) {
+        understandProvider!.clear();
+        understandProvider!.loadLrcLines(lrcLines);
+        _lastGeneratedLrcPath = hit.lrcPath;
+        _lrcJustGenerated = true;
+        debugPrint(
+          '✅ Applied cached LRC (${lrcLines.length} lines): ${hit.lrcPath}',
+        );
+        notifyListeners();
+      } else {
+        debugPrint('⚠️ Cached LRC rỗng, bỏ qua: ${hit.lrcPath}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ applyCachedLrc error: $e');
+    }
+  }
+
+  /// Ghi nhớ LRC vừa tạo vào SourceArtifactStore (fingerprint size|duration|tên)
+  /// để mở lại file sau này tìm thấy mà không cần tạo lời lại.
+  Future<void> _rememberGeneratedLrc(String audioPath, String? lrcPath) async {
+    if (lrcPath == null || lrcPath.isEmpty) return;
+    try {
+      int lineCount = 0;
+      final lrcFile = File(lrcPath);
+      if (await lrcFile.exists()) {
+        lineCount = (await lrcFile.readAsString())
+            .split('\n')
+            .where((l) => l.trim().startsWith('['))
+            .length;
+      }
+      await SourceArtifactStore.instance.rememberLrc(
+        audioPath: audioPath,
+        lrcPath: lrcPath,
+        lineCount: lineCount,
+        durationMs: playbackDuration.inMilliseconds,
+      );
+      debugPrint('[SourceArtifact] remembered LRC for $audioPath → $lrcPath');
+    } catch (e) {
+      debugPrint('⚠️ _rememberGeneratedLrc error: $e');
     }
   }
 

@@ -1,9 +1,9 @@
 // lib/screens/read_mode/read_mode_screen.dart
 // Thêm tracking tiến độ đọc vào code hiện tại
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up/models/word_entry.dart';
+import 'package:in4up/models/word_entry.dart';
 
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
@@ -17,11 +17,10 @@ import 'services/recent_files_service.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
-import 'widgets/smart_playback_bar.dart'; // ← THÊM
+import 'widgets/smart_playback_bar.dart';
 import 'widgets/text_line_widget.dart';
 
 class ReadModeScreen extends StatefulWidget {
-  // ★ THÊM: Nhận RecentFile để biết đang đọc file nào
   final RecentFile? currentFile;
 
   const ReadModeScreen({super.key, this.currentFile});
@@ -37,14 +36,16 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   int _lastHandledFocusCueVersion = 0;
   VoidCallback? _playerListener;
   Duration _lastPos = Duration.zero;
-  bool _showWordlistPanel = false; // wordlist
+  bool _showWordlistPanel = false;
 
-  // ★ FIX: Lưu reference PlayerProvider để dùng trong dispose()
   PlayerProvider? _playerProviderRef;
 
-  // ★ THÊM: Track progress
   final _recentService = RecentFilesService();
   int _lastSavedLine = 0;
+
+  // Smart-hide bottom controls
+  bool _bottomControlsVisible = true;
+  double _lastScrollOffset = 0;
 
   @override
   void didChangeDependencies() {
@@ -53,12 +54,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       final tp = context.read<TextProvider>();
       final pp = context.read<PlayerProvider>();
 
-      // ★ FIX: Lưu reference
       _playerProviderRef = pp;
 
       _controller = ReadModeController(textProvider: tp, playerProvider: pp);
       _playerListener = () {
-        if (!mounted) return; // ★ FIX: Guard check
+        if (!mounted) return;
         final pos = pp.state.position;
         if (pos == _lastPos) return;
         _lastPos = pos;
@@ -72,18 +72,15 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     }
   }
 
-  // ★ THÊM: Lưu tiến độ khi scroll
   void _onScrollEnd(TextProvider tp) {
     if (widget.currentFile == null) return;
     if (tp.lines.isEmpty) return;
 
-    // Ước tính dòng hiện tại dựa trên scroll position
     final offset = _scrollController.offset;
     final maxOffset = _scrollController.position.maxScrollExtent;
     final approxLine =
         maxOffset > 0 ? ((offset / maxOffset) * tp.lines.length).round() : 0;
 
-    // Chỉ lưu nếu thay đổi đáng kể (tránh write quá nhiều)
     if ((approxLine - _lastSavedLine).abs() >= 3) {
       _lastSavedLine = approxLine;
       _recentService.updateProgress(
@@ -102,7 +99,6 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   @override
   void dispose() {
-    // ★ FIX: Dùng _playerProviderRef thay vì context.read()
     if (_playerListener != null && _playerProviderRef != null) {
       _playerProviderRef!.removeListener(_playerListener!);
     }
@@ -135,36 +131,187 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           }
           final showGrammarLegend =
               textProvider.colorMode == ColorMode.wordType &&
-              textProvider.grammarSettings.enabled &&
-              textProvider.grammarSettings.showLegend;
+                  textProvider.grammarSettings.enabled &&
+                  textProvider.grammarSettings.showLegend;
 
-          // Nếu đã có bản dịch thì luôn cho phép hiện toolbar để user đổi layout,
-          // kể cả khi showTranslation đang false (tránh trường hợp tắt rồi không mở lại được)
           final hasTranslation = textProvider.translatedLineCount > 0;
-          return Column(
+          final isFocusMode = _controller.isFocusMode;
+          final isSmallScreen = MediaQuery.of(context).size.height < 700 ||
+              MediaQuery.of(context).size.width < 380;
+
+          return Stack(
             children: [
-              const ReadTopBar(),
-              if (showGrammarLegend)
-                _GrammarLegendStrip(textProvider: textProvider),
-              // Hiện toolbar khi đang bật dịch HOẶC đã có bản dịch sẵn
-              if (textProvider.showTranslation || hasTranslation)
-                const TranslationToolbar(),
-              Expanded(
-                child: _showWordlistPanel
-                    ? _buildSplitView(textProvider)
-                    : GestureDetector(
-                        onTap: () => _controller.removeFloatingMenu(),
-                        child: _buildTextList(textProvider),
+              Column(
+                children: [
+                  if (!isFocusMode) const ReadTopBar(),
+                  if (!isFocusMode && showGrammarLegend)
+                    _GrammarLegendStrip(textProvider: textProvider),
+                  if (!isFocusMode &&
+                      (textProvider.showTranslation || hasTranslation))
+                    const TranslationToolbar(),
+                  Expanded(
+                    child: _showWordlistPanel
+                        ? _buildSplitView(textProvider)
+                        : GestureDetector(
+                            onTap: () {
+                              if (isFocusMode) {
+                                _controller.setFocusMode(false);
+                                setState(() => _bottomControlsVisible = true);
+                              } else {
+                                _controller.removeFloatingMenu();
+                              }
+                            },
+                            onDoubleTap: () {
+                              if (isSmallScreen) {
+                                _controller.toggleFocusMode();
+                                setState(() => _bottomControlsVisible = !isFocusMode);
+                              } else {
+                                // On large screen double-tap also toggles focus
+                                _controller.toggleFocusMode();
+                              }
+                            },
+                            child: _buildTextList(textProvider, isFocusMode),
+                          ),
+                  ),
+                  // Bottom controls with smart hide animation
+                  AnimatedSlide(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    offset: _bottomControlsVisible && !isFocusMode
+                        ? Offset.zero
+                        : const Offset(0, 1.2),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _bottomControlsVisible && !isFocusMode ? 1 : 0,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SmartPlaybackBar(),
+                          ReadBottomBar(
+                            showWordlistPanel: _showWordlistPanel,
+                            onToggleWordlist: () {
+                              setState(() =>
+                                  _showWordlistPanel = !_showWordlistPanel);
+                              HapticFeedback.lightImpact();
+                            },
+                          ),
+                        ],
                       ),
+                    ),
+                  ),
+                  if (isSmallScreen && !isFocusMode && !_bottomControlsVisible)
+                    const SizedBox(height: 8),
+                ],
               ),
-              const SmartPlaybackBar(),
-              ReadBottomBar(
-                showWordlistPanel: _showWordlistPanel,
-                onToggleWordlist: () {
-                  setState(() => _showWordlistPanel = !_showWordlistPanel);
-                  HapticFeedback.lightImpact();
-                },
-              ),
+              // Focus mode exit FAB
+              if (isFocusMode)
+                Positioned(
+                  bottom: 24,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: () {
+                      _controller.setFocusMode(false);
+                      setState(() => _bottomControlsVisible = true);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A2235),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                            color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.fullscreen_exit,
+                              size: 16, color: Color(0xFF6C63FF)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Thoát Focus',
+                            style: TextStyle(
+                                color: const Color(0xFF6C63FF)
+                                    .withValues(alpha: 0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              // Re-show bottom button when hidden
+              if (!_bottomControlsVisible && !isFocusMode)
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _bottomControlsVisible = true),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A2235),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                          )
+                        ],
+                      ),
+                      child: const Icon(Icons.keyboard_arrow_up_rounded,
+                          size: 20, color: Colors.white70),
+                    ),
+                  ),
+                ),
+              // Focus entry pill for small screens
+              if (isSmallScreen && !isFocusMode && _bottomControlsVisible)
+                Positioned(
+                  bottom: 98,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: () {
+                      _controller.setFocusMode(true);
+                      setState(() => _bottomControlsVisible = false);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fullscreen,
+                              size: 14, color: Color(0xFF6C63FF)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Focus',
+                            style: TextStyle(
+                                color: Color(0xFF6C63FF),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },
@@ -176,15 +323,13 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     final title = tp.currentDocument?.title ?? 'Text Studio';
     return Row(
       children: [
-        // Text 65%
         Expanded(
           flex: 65,
           child: GestureDetector(
             onTap: () => _controller.removeFloatingMenu(),
-            child: _buildTextList(tp),
+            child: _buildTextList(tp, false),
           ),
         ),
-        // Wordlist mini panel 35%
         Expanded(
           flex: 35,
           child: _StoryWordlistPanel(storyTitle: title),
@@ -193,14 +338,25 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     );
   }
 
-  Widget _buildTextList(TextProvider textProvider) {
+  Widget _buildTextList(TextProvider textProvider, bool isFocusMode) {
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollStartNotification) {
           _controller.setScrolling(true);
+          _lastScrollOffset = notification.metrics.pixels;
+        } else if (notification is ScrollUpdateNotification) {
+          // Smart hide: scroll down hides bottom, scroll up shows
+          if (!isFocusMode) {
+            final diff = notification.metrics.pixels - _lastScrollOffset;
+            if (diff > 12 && _bottomControlsVisible) {
+              setState(() => _bottomControlsVisible = false);
+            } else if (diff < -12 && !_bottomControlsVisible) {
+              setState(() => _bottomControlsVisible = true);
+            }
+            _lastScrollOffset = notification.metrics.pixels;
+          }
         } else if (notification is ScrollEndNotification) {
           _controller.setScrolling(false);
-          // ★ THÊM: Lưu tiến độ khi dừng scroll
           _onScrollEnd(textProvider);
         }
         return false;
@@ -241,10 +397,22 @@ class _GrammarLegendStrip extends StatelessWidget {
       (preset) => preset.id == settings.lastNonCustomPresetId,
       orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
     );
-    final canCollapse = visibleCategories.length > 4;
+    final activePreset = textProvider.activeGrammarPreset;
+    final activePresetName = activePreset.isBuiltIn
+        ? context.uiText(activePreset.name)
+        : activePreset.name;
+    final previousPresetName = previousPreset.isBuiltIn
+        ? context.uiText(previousPreset.name)
+        : previousPreset.name;
+    final grammarTitle = settings.isCustomPreset
+        ? context.uiText('Grammar Highlight · Tùy chỉnh')
+        : 'Grammar Highlight · $activePresetName';
+    final canCollapse = visibleCategories.length > 2;
+    final isSmall = MediaQuery.of(context).size.height < 700;
+    final collapsedCount = isSmall ? 2 : 4;
     final displaySettings = settings.legendCollapsed && canCollapse
         ? settings.copyWith(
-            visibleCategories: visibleCategories.take(4).toSet(),
+            visibleCategories: visibleCategories.take(collapsedCount).toSet(),
           )
         : settings;
 
@@ -260,7 +428,7 @@ class _GrammarLegendStrip extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: textProvider.restorePreviousGrammarPreset,
                 icon: const Icon(Icons.undo_rounded, size: 16),
-                label: Text('Khôi phục ${previousPreset.name}'),
+                label: Text(context.uiText('Khôi phục $previousPresetName')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFB8B5FF),
                   side: BorderSide(
@@ -323,9 +491,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            settings.isCustomPreset
-                                ? 'Grammar Highlight · Tùy chỉnh'
-                                : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                            grammarTitle,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12.5,
@@ -335,9 +501,9 @@ class _GrammarLegendStrip extends StatelessWidget {
                           if (hiddenCount > 0) ...[
                             const SizedBox(height: 4),
                             Text(
-                              settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về ${previousPreset.name}.'
-                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.',
+                              context.uiText(settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về $previousPresetName.'
+                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.'),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,
@@ -367,9 +533,7 @@ class _GrammarLegendStrip extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            settings.isCustomPreset
-                                ? 'Grammar Highlight · Tùy chỉnh'
-                                : 'Grammar Highlight · ${textProvider.activeGrammarPreset.name}',
+                            grammarTitle,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12.5,
@@ -379,9 +543,9 @@ class _GrammarLegendStrip extends StatelessWidget {
                           if (hiddenCount > 0) ...[
                             const SizedBox(height: 4),
                             Text(
-                              settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về ${previousPreset.name}.'
-                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.',
+                              context.uiText(settings.isCustomPreset
+                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về $previousPresetName.'
+                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.'),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 11,
@@ -425,7 +589,6 @@ class _StoryWordlistPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<VocabularyProvider>(
       builder: (_, provider, __) {
-        // Lấy từ đã lưu từ story này
         final words = provider.allWords
             .where((w) => w.contexts.any(
                   (c) => c.sourceName == storyTitle,
@@ -442,7 +605,6 @@ class _StoryWordlistPanel extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 color: const Color(0xFF0D1520),
@@ -453,7 +615,7 @@ class _StoryWordlistPanel extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Từ đã lưu (${words.length})',
+                        context.uiText('Từ đã lưu (${words.length})'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -464,8 +626,6 @@ class _StoryWordlistPanel extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // List
               Expanded(
                 child: words.isEmpty
                     ? Center(

@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
 import 'engines/fpt_tts_engine.dart';
+import 'engines/piper_tts_engine.dart';
 import 'engines/tts_engine.dart';
 import 'engines/google_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
@@ -33,6 +34,11 @@ class TtsService extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TtsCache _cache = TtsCache();
   final OfflineTtsEngine _offlineEngine = OfflineTtsEngine();
+
+  // ★ Piper offline neural (sherpa_onnx) — offline but sinh BYTES (WAV) nên
+  //   cache + phát qua just_audio như engine online. Ưu tiên trước flutter_tts
+  //   khi có model; user tắt trong settings nếu muốn giọng máy "phát ngay".
+  final PiperTtsEngine _piperEngine = PiperTtsEngine();
 
   // Settings
   TtsPriority _priority = TtsPriority.offlineFirst;
@@ -102,31 +108,38 @@ class TtsService extends ChangeNotifier {
   void _buildDefaultEngineOrder() {
     _engineOrder = [
       const TtsEngineInfo(
+        id: 'piper_tts',
+        name: 'Piper (Offline Neural)',
+        description: 'Neural local, cần model .onnx — tự nhiên nhất',
+        isOnline: false,
+        priority: 0,
+      ),
+      const TtsEngineInfo(
         id: 'offline_tts',
         name: 'Offline (Máy)',
         description: 'Phát ngay, giọng máy',
         isOnline: false,
-        priority: 0,
+        priority: 1,
       ),
       const TtsEngineInfo(
         id: 'google_tts',
         name: 'Google TTS',
         description: 'Miễn phí, khá tự nhiên',
-        priority: 1,
+        priority: 2,
       ),
       const TtsEngineInfo(
         id: 'zalo_tts',
         name: 'Zalo AI',
         description: 'Tiếng Việt cực tự nhiên',
         needsApiKey: true,
-        priority: 2,
+        priority: 3,
       ),
       const TtsEngineInfo(
         id: 'fpt_tts',
         name: 'FPT.AI',
         description: 'Tiếng Việt tự nhiên, nhiều giọng',
         needsApiKey: true,
-        priority: 3,
+        priority: 4,
       ),
     ];
   }
@@ -224,6 +237,66 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  /// Piper offline neural: sinh WAV + cache, trả file path.
+  /// Trả null nếu: user tắt Piper trong settings / chưa có model / lỗi —
+  /// caller tự rơi xuống flutter_tts (pipeline không gãy).
+  Future<String?> _tryPiper(String text, String lang) async {
+    final info = _engineOrder.firstWhere(
+      (e) => e.id == 'piper_tts',
+      orElse: () => const TtsEngineInfo(
+        id: 'piper_tts',
+        name: 'Piper (Offline Neural)',
+        description: '',
+        isOnline: false,
+      ),
+    );
+    if (!info.isEnabled) return null;
+
+    // Cache riêng Piper (key cụ thể 'piper_tts') — tránh re-synth mỗi lần
+    // đọc lại. (Lookup chung 'any' của service là quirk legacy không match
+    // key cụ thể — không đụng ở bước này, chỉ thêm hit-check phía Piper.)
+    try {
+      final cachedPiper = await _cache.get(
+        text: text,
+        language: lang,
+        engineId: 'piper_tts',
+      );
+      if (cachedPiper != null) return cachedPiper;
+    } catch (_) {}
+
+    try {
+      // Chỉ dùng voiceId khi user chọn giọng PIPER — giọng của engine
+      // khác (Google/Zalo...) thì để Piper tự chọn khớp language.
+      final piperVoiceId =
+          (_selectedVoiceId?.startsWith(PiperTtsEngine.voiceIdPrefix) ?? false)
+              ? _selectedVoiceId
+              : null;
+
+      final result = await _piperEngine
+          .synthesize(
+            text: text,
+            language: lang,
+            speed: _speed,
+            voiceId: piperVoiceId,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (result.isSuccess &&
+          result.audioData != null &&
+          result.audioData!.isNotEmpty) {
+        return await _cache.put(
+          text: text,
+          language: lang,
+          engineId: 'piper_tts',
+          audioData: result.audioData!,
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Piper TTS: $e');
+    }
+    return null;
+  }
+
   /// MODE 1: Offline trước → phát ngay, tải online nền
   Future<void> _speakOfflineFirst(String text, String lang) async {
     // Check cache trước
@@ -237,6 +310,16 @@ class TtsService extends ChangeNotifier {
       _lastUsedEngine = '💾 Cache';
       _safeNotify();
       await _playFile(cachedPath);
+      return;
+    }
+
+    // Piper local model (offline neural) — có model khớp thì dùng trước
+    // giọng máy; không có model → discoverVoices() trả [] nhanh, bỏ qua.
+    final piperPath = await _tryPiper(text, lang);
+    if (piperPath != null) {
+      _lastUsedEngine = '🎙️ Piper';
+      _safeNotify();
+      await _playFile(piperPath);
       return;
     }
 
@@ -333,6 +416,15 @@ class TtsService extends ChangeNotifier {
     // Fallback offline
     _isLoading = false;
 
+    // Piper local model (offline neural) — offline tốt nhất, trước giọng máy.
+    final piperPath = await _tryPiper(text, lang);
+    if (piperPath != null) {
+      _lastUsedEngine = '🎙️ Piper';
+      _safeNotify();
+      await _playFile(piperPath);
+      return;
+    }
+
     // ★ FIX: Đánh dấu offline mode
     _usingOfflineEngine = true;
     _lastUsedEngine = '📖 Offline';
@@ -365,6 +457,15 @@ class TtsService extends ChangeNotifier {
       _lastUsedEngine = '💾 Cache';
       _safeNotify();
       await _playFile(cachedPath);
+      return;
+    }
+
+    // Piper local model — offline hoàn toàn, ưu tiên trước giọng máy.
+    final piperPath = await _tryPiper(text, lang);
+    if (piperPath != null) {
+      _lastUsedEngine = '🎙️ Piper';
+      _safeNotify();
+      await _playFile(piperPath);
       return;
     }
 
@@ -579,6 +680,9 @@ class TtsService extends ChangeNotifier {
       } catch (_) {}
     }
     try {
+      voices.addAll(await _piperEngine.getAvailableVoices(effectiveLang));
+    } catch (_) {}
+    try {
       voices.addAll(await _offlineEngine.getAvailableVoices(effectiveLang));
     } catch (_) {}
     return voices;
@@ -594,6 +698,12 @@ class TtsService extends ChangeNotifier {
       } catch (_) {
         status[engine.name] = false;
       }
+    }
+    try {
+      status[_piperEngine.name] =
+          await _piperEngine.isAvailable().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      status[_piperEngine.name] = false;
     }
     status[_offlineEngine.name] = await _offlineEngine.isAvailable();
     return status;

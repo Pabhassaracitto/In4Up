@@ -1,6 +1,6 @@
 // lib/screens/memory_mode/sheets/review_settings_sheet.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import '../models/review_session.dart';
 import '../models/memory_stage.dart';
@@ -296,7 +296,7 @@ class _ModeChip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  context.uiText(label),
                   style: TextStyle(
                     color:
                         isSelected ? const Color(0xFF4CAF50) : Colors.white70,
@@ -305,7 +305,7 @@ class _ModeChip extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  desc,
+                  context.uiText(desc),
                   style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ],

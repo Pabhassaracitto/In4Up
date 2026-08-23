@@ -1,6 +1,6 @@
 // lib/widgets/shadowing/phoneme_display.dart
 // Widget hiển thị IPA phonemes với điểm số
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/phoneme_models.dart';
 import '../services/cmu_dictionary_service.dart';

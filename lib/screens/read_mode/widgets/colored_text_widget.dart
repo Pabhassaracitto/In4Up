@@ -1,9 +1,9 @@
 // lib/screens/read_mode/widgets/colored_text_widget.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/grammar/models/grammar_category.dart';
 import '../../../features/grammar/models/grammar_highlight_settings.dart';
@@ -221,7 +221,7 @@ class _ColoredWord extends StatelessWidget {
                     style: const TextStyle(color: Colors.white),
                   ),
                   Text(
-                    '${grammarCategoryFromLegacyWordType(word.wordType).labelVi} · ${word.cefrLevel.shortLabel}',
+                    '${context.uiText(grammarCategoryFromLegacyWordType(word.wordType).labelVi)} · ${word.cefrLevel.shortLabel}',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 10,

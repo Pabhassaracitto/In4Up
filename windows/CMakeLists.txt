@@ -5,11 +5,18 @@ cmake_minimum_required(VERSION 3.14)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
-project(in2up LANGUAGES CXX)
+project(in4up LANGUAGES CXX)
+# Ép CMake sử dụng trực tiếp SDK Firebase ở local ổ E
+set(FIREBASE_CPP_SDK_DIR "E:/LIBRARY/FIREBASE/firebase_cpp_sdk_windows_13.5.0/firebase_cpp_sdk_windows" CACHE PATH "Firebase C++ SDK directory" FORCE)
+set(ENV{FIREBASE_CPP_SDK_DIR} "E:/LIBRARY/FIREBASE/firebase_cpp_sdk_windows_13.5.0/firebase_cpp_sdk_windows")
+# Khóa cache Firebase SDK tại thư mục cố định trong User profile thay vì thư mục Temp
+set(FIREBASE_CPP_SDK_CACHE_DIR "$ENV{USERPROFILE}/.firebase_sdk_cache" CACHE PATH "Directory for Firebase C++ SDK cache")
 
+# Bật cờ ưu tiên dùng local cache, không kiểm tra update remote
+set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL "Prevent FetchContent from downloading during configure")
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "in2up")
+set(BINARY_NAME "in4up")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -64,11 +71,59 @@ set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 
 # Check if flutter pub get was run - ephemeral dir must exist
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/flutter_windows.dll")
-  message(WARNING "[in2up] flutter/ephemeral not found! Run 'flutter pub get' before building. "
+  message(WARNING "[in4up] flutter/ephemeral not found! Run 'flutter pub get' before building. "
     "If you see 'cannot open source file cloud_firestore/...' errors, it's because ephemeral was deleted by flutter clean.")
 endif()
 
 add_subdirectory(${FLUTTER_MANAGED_DIR})
+
+# === Local GGUF inference backend (llama.cpp shallow submodule) ===
+# Dart FFI mở in4up_ai_native.dll lúc runtime; nếu thiếu submodule, configure
+# vẫn thành công (chỉ WARNING) và Dart engine fallback về mock.
+set(_IN4UP_LLAMA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/llama.cpp")
+
+# Tự init submodule nếu thiếu (git có sẵn). Lý do: token GitHub App của repo
+# không có quyền `workflows` nên KHÔNG thể sửa .github/workflows để thêm bước
+# "git submodule update"; tự chữa tại configure giúp CI (chạy workflow gốc)
+# vẫn build + kiểm chứng được native backend, và dev local khỏi cần lệnh tay.
+if(NOT EXISTS "${_IN4UP_LLAMA_DIR}/CMakeLists.txt")
+  get_filename_component(_IN4UP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+  find_program(GIT_EXECUTABLE git)
+  if(GIT_EXECUTABLE AND EXISTS "${_IN4UP_ROOT}/.git")
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" submodule update --init --depth 1 -- third_party/llama.cpp
+      WORKING_DIRECTORY "${_IN4UP_ROOT}"
+      RESULT_VARIABLE _IN4UP_GIT_RC
+      OUTPUT_QUIET ERROR_QUIET
+    )
+  endif()
+endif()
+
+if(EXISTS "${_IN4UP_LLAMA_DIR}/CMakeLists.txt")
+  set(LLAMA_BUILD_COMMON    OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_TESTS     OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_EXAMPLES  OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_TOOLS     OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_SERVER    OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_LLAMA_CLI OFF CACHE BOOL "" FORCE)
+  set(GGML_OPENMP           OFF CACHE BOOL "" FORCE)
+  set(GGML_NATIVE           OFF CACHE BOOL "" FORCE)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  add_subdirectory(${_IN4UP_LLAMA_DIR} ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp EXCLUDE_FROM_ALL)
+
+  add_library(in4up_ai_native SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/../packages/in4up_ai/native/in4up_ai_native.cpp
+  )
+  target_compile_features(in4up_ai_native PRIVATE cxx_std_17)
+  target_compile_options(in4up_ai_native PRIVATE /EHsc)
+  target_include_directories(in4up_ai_native PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../packages/in4up_ai/native
+    ${_IN4UP_LLAMA_DIR}/include
+  )
+  target_link_libraries(in4up_ai_native PRIVATE llama)
+else()
+  message(WARNING "[in4up-ai] third_party/llama.cpp missing. Run: git submodule update --init --depth 1. AI native backend disabled; Dart falls back to mock.")
+endif()
 
 # === PATCH: Workaround for broken Windows plugins ===
 # Issue: ffmpeg_kit_flutter_new v4.2.1 fails with C1083
@@ -94,7 +149,7 @@ if(EXISTS "${_GEN_PLUGINS}")
   set(_NEEDS_PATCH FALSE)
   if(_PLUGINS_CONTENT MATCHES "ffmpeg_kit_flutter_new")
     set(_NEEDS_PATCH TRUE)
-    message(STATUS "[in2up][patch] Removing ffmpeg_kit_flutter_new from Windows plugin list")
+    message(STATUS "[in4up][patch] Removing ffmpeg_kit_flutter_new from Windows plugin list")
     # Handle all known variants
     foreach(_VARIANT ffmpeg_kit_flutter_new ffmpeg_kit_flutter_new_full ffmpeg_kit_flutter_new_min ffmpeg_kit_flutter_new_min_gpl ffmpeg_kit_flutter_new_https ffmpeg_kit_flutter_new_https_gpl ffmpeg_kit_flutter_new_audio ffmpeg_kit_flutter_new_video ffmpeg_kit_flutter_new_full_gpl)
       string(REPLACE "  ${_VARIANT}\n" "" _PLUGINS_CONTENT "${_PLUGINS_CONTENT}")
@@ -103,7 +158,7 @@ if(EXISTS "${_GEN_PLUGINS}")
   endif()
   if(_NEEDS_PATCH)
     file(WRITE "${_GEN_PLUGINS}" "${_PLUGINS_CONTENT}")
-    message(STATUS "[in2up][patch] Patched ${_GEN_PLUGINS}")
+    message(STATUS "[in4up][patch] Patched ${_GEN_PLUGINS}")
   endif()
 endif()
 
@@ -113,7 +168,7 @@ if(EXISTS "${_GEN_REGISTRANT}")
   set(_REG_NEEDS_PATCH FALSE)
   if(_REG_CONTENT MATCHES "ffmpeg_kit_flutter_new" OR _REG_CONTENT MATCHES "FFmpegKitFlutterPlugin")
     set(_REG_NEEDS_PATCH TRUE)
-    message(STATUS "[in2up][patch] Removing ffmpeg includes from registrant.cc")
+    message(STATUS "[in4up][patch] Removing ffmpeg includes from registrant.cc")
     # Remove #include lines for all variants
     string(REGEX REPLACE "#include <ffmpeg_kit_flutter_new[^>]*>\n" "" _REG_CONTENT "${_REG_CONTENT}")
     string(REGEX REPLACE "#include <ffmpeg_kit_flutter_new_full[^>]*>\n" "" _REG_CONTENT "${_REG_CONTENT}")
@@ -130,7 +185,7 @@ if(EXISTS "${_GEN_REGISTRANT}")
   # we don't inject extra flags here; the fix for /await is in plugin's CMakeLists patch below.
   if(_REG_NEEDS_PATCH)
     file(WRITE "${_GEN_REGISTRANT}" "${_REG_CONTENT}")
-    message(STATUS "[in2up][patch] Patched ${_GEN_REGISTRANT}")
+    message(STATUS "[in4up][patch] Patched ${_GEN_REGISTRANT}")
   endif()
 endif()
 
@@ -141,7 +196,7 @@ set(_WEBVIEW_CMAKE "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlin
 if(EXISTS "${_WEBVIEW_CMAKE}")
   file(READ "${_WEBVIEW_CMAKE}" _WEBVIEW_CONTENT)
   if(_WEBVIEW_CONTENT MATCHES "\"/await\"")
-    message(STATUS "[in2up][patch] Fixing webview_windows /await -> /await:strict")
+    message(STATUS "[in4up][patch] Fixing webview_windows /await -> /await:strict")
     string(REPLACE "\"/await\"" "\"/await:strict\"" _WEBVIEW_CONTENT "${_WEBVIEW_CONTENT}")
     # Write back if we can (may fail if pub-cache read-only, ignore error)
     file(WRITE "${_WEBVIEW_CMAKE}" "${_WEBVIEW_CONTENT}")
@@ -168,7 +223,7 @@ if(TARGET webview_windows_plugin)
       list(APPEND _WV_OPTS "/await:strict")
     endif()
     set_target_properties(webview_windows_plugin PROPERTIES COMPILE_OPTIONS "${_WV_OPTS}")
-    message(STATUS "[in2up][patch] Adjusted webview_windows_plugin compile options: ${_WV_OPTS}")
+    message(STATUS "[in4up][patch] Adjusted webview_windows_plugin compile options: ${_WV_OPTS}")
   endif()
 endif()
 
@@ -196,6 +251,13 @@ install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# AI chat native backend — ship the DLL next to the executable (release bundle).
+if(TARGET in4up_ai_native)
+  install(FILES $<TARGET_FILE:in4up_ai_native>
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 if(PLUGIN_BUNDLED_LIBRARIES)
   install(FILES "${PLUGIN_BUNDLED_LIBRARIES}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
@@ -222,25 +284,36 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
-# === Manual Firebase SDK Management ===
+# ==============================================================================
+# === Manual Firebase SDK Management (Cross-Environment Safe) ===
+# ==============================================================================
 set(FIREBASE_SDK_DIR "$ENV{FIREBASE_CPP_SDK_DIR}")
-file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
 
 if(FIREBASE_SDK_DIR)
-  message(STATUS "[in2up] FIREBASE_CPP_SDK_DIR found: ${FIREBASE_SDK_DIR}")
+    file(TO_CMAKE_PATH "${FIREBASE_SDK_DIR}" FIREBASE_SDK_DIR)
+    set(firebase_cpp_sdk_DIR "${FIREBASE_SDK_DIR}" CACHE PATH "" FORCE)
+    message(STATUS "[in4up] FIREBASE_CPP_SDK_DIR found from ENV: ${FIREBASE_SDK_DIR}")
 else()
-  message(STATUS "[in2up] FIREBASE_CPP_SDK_DIR is NOT set.")
+    # Fallback cho GitHub Actions / Máy chưa đặt ENV: Dùng cache local tự động
+    set(FIREBASE_CPP_SDK_CACHE_DIR "$ENV{USERPROFILE}/.firebase_sdk_cache" CACHE PATH "Directory for Firebase C++ SDK cache")
+    message(STATUS "[in4up] FIREBASE_CPP_SDK_DIR is NOT set. Using default cache: ${FIREBASE_CPP_SDK_CACHE_DIR}")
 endif()
 
-# === Quản lý Firebase SDK (Manual) ===
+# === Quản lý & Validate Firebase SDK ===
 if(FIREBASE_SDK_DIR AND EXISTS "${FIREBASE_SDK_DIR}")
     file(GLOB_RECURSE FIREBASE_LIBS "${FIREBASE_SDK_DIR}/*.lib")
     if(FIREBASE_LIBS)
-        message(STATUS "[in2up] Firebase Static Libs validated.")
+        message(STATUS "[in4up] Firebase Static Libs validated.")
         file(GLOB_RECURSE FIREBASE_DLLS "${FIREBASE_SDK_DIR}/*.dll")
         if(FIREBASE_DLLS)
             install(FILES ${FIREBASE_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
-            # Lưu ý: add_custom_command cho Firebase DLLs cũng nên dời vào runner nếu cần chạy debug
+            
+            # Copy DLL vào thư mục Build để chạy ngay ở chế độ Debug/Run trực tiếp
+            add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${FIREBASE_DLLS}
+                $<TARGET_FILE_DIR:${BINARY_NAME}>
+            )
         endif()
     endif()
 endif()
@@ -248,20 +321,20 @@ endif()
 # === Manual External DLLs Management (Whisper, FFmpeg, etc.) ===
 file(GLOB EXTRA_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
 if(EXTRA_DLLS)
-    message(STATUS "[in2up] Found extra DLLs in libs/: ${EXTRA_DLLS}")
+    message(STATUS "[in4up] Found extra DLLs in libs/: ${EXTRA_DLLS}")
     install(FILES ${EXTRA_DLLS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()
 
 # Also bundle FFmpeg exe if present (for desktop audio conversion fallback)
 file(GLOB EXTRA_EXES "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.exe")
 if(EXTRA_EXES)
-    message(STATUS "[in2up] Found extra EXEs in libs/: ${EXTRA_EXES}")
+    message(STATUS "[in4up] Found extra EXEs in libs/: ${EXTRA_EXES}")
     install(FILES ${EXTRA_EXES} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()
 
 # Bundle Whisper binaries (ggml*.dll, whisper.dll) + ffmpeg.exe presence check
 file(GLOB WHISPER_BINS "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.exe" "${CMAKE_CURRENT_SOURCE_DIR}/libs/whisper/*.dll")
 if(WHISPER_BINS)
-    message(STATUS "[in2up] Found Whisper binaries: ${WHISPER_BINS}")
+    message(STATUS "[in4up] Found Whisper binaries: ${WHISPER_BINS}")
     install(FILES ${WHISPER_BINS} DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()

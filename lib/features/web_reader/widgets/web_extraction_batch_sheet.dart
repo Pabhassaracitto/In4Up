@@ -1,11 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_ai/in2up_ai.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 
 import '../../../providers/text_provider.dart';
+import '../../../providers/vocabulary_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
 import '../../../services/text_library_service.dart';
-import '../models/web_extraction_candidate.dart';
+import '../../../services/vocab_batch/vocab_batch_models.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../web_reader_controller.dart';
 
 class WebExtractionBatchSheet extends StatefulWidget {
@@ -241,9 +243,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          facade.hasModel
+          context.uiText(facade.hasModel
               ? '✨ Đã làm giàu ${targets.length} mục bằng AI/local'
-              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic',
+              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic'),
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -257,6 +259,14 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     final topicCtrl = TextEditingController();
     final exampleCtrl = TextEditingController();
     bool useSampleContextIfEmpty = true;
+    String? bulkLanguage; // null = giữ nguyên language từng mục
+
+    final provider = context.read<VocabularyProvider>();
+    final languageOptions = (provider.allLanguages.toList()
+          ..sort())
+        .toSet()
+      ..addAll(['en', 'vi', 'pali', 'my']);
+    final sortedLangs = languageOptions.toList()..sort();
 
     final shouldApply = await showDialog<bool>(
       context: context,
@@ -280,6 +290,47 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                       controller: topicCtrl,
                       label: 'Topic áp cho tất cả',
                       hint: 'Ví dụ: dharma, english_learning, news',
+                    ),
+                    const SizedBox(height: 12),
+                    // READ-630-04: ngôn ngữ áp cho tất cả (tap lại = bỏ)
+                    Text(
+                      'Ngôn ngữ áp cho tất cả',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final lang in sortedLangs)
+                          ChoiceChip(
+                            label: Text(
+                              labelForLanguage(lang),
+                              style: TextStyle(
+                                color: bulkLanguage == lang
+                                    ? Colors.white
+                                    : Colors.white54,
+                                fontSize: 11,
+                              ),
+                            ),
+                            selected: bulkLanguage == lang,
+                            selectedColor: const Color(0xFF42A5F5),
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.04),
+                            side: BorderSide(
+                              color: bulkLanguage == lang
+                                  ? const Color(0xFF42A5F5)
+                                  : Colors.white.withValues(alpha: 0.1),
+                            ),
+                            onSelected: (value) => setLocalState(() {
+                              bulkLanguage = value ? lang : null;
+                            }),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     _editorField(
@@ -335,6 +386,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           (candidate.example ?? '').trim().isEmpty) {
         candidate.example = candidate.sampleContext;
       }
+      if (bulkLanguage != null) {
+        candidate.language = bulkLanguage!;
+      }
       candidate.enriched = true;
       candidate.enrichSource = 'manual';
     }
@@ -343,7 +397,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🛠️ Đã áp dụng bulk fields cho ${targets.length} mục'),
+        content: Text(context.uiText('🛠️ Đã áp dụng bulk fields cho ${targets.length} mục')),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -359,12 +413,20 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
           : candidate.example,
     );
 
+    final provider = context.read<VocabularyProvider>();
+    final languageOptions = (provider.allLanguages.toList()..sort()).toSet()
+      ..addAll(['en', 'vi', 'pali', 'my']);
+    final sortedLangs = languageOptions.toList()..sort();
+    String selectedLang = candidate.language;
+
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            return AlertDialog(
           backgroundColor: const Color(0xFF151B26),
-          title: Text('Sửa mục: ${candidate.text}'),
+          title: Text(context.uiText('Sửa mục: ${candidate.text}')),
           titleTextStyle: const TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -395,6 +457,48 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                     hint: 'dharma / english_learning / news...',
                   ),
                   const SizedBox(height: 12),
+                  Text(
+                    'Ngôn ngữ',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final lang in sortedLangs)
+                        ChoiceChip(
+                          label: Text(
+                            labelForLanguage(lang),
+                            style: TextStyle(
+                              color: selectedLang == lang
+                                  ? Colors.white
+                                  : Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                          selected: selectedLang == lang,
+                          selectedColor: const Color(0xFF42A5F5),
+                          backgroundColor:
+                              Colors.white.withValues(alpha: 0.04),
+                          side: BorderSide(
+                            color: selectedLang == lang
+                                ? const Color(0xFF42A5F5)
+                                : Colors.white.withValues(alpha: 0.1),
+                          ),
+                          onSelected: (value) {
+                            if (value) {
+                              setLocalState(() => selectedLang = lang);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   _editorField(
                     controller: exampleCtrl,
                     label: 'Example',
@@ -416,6 +520,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
             ),
           ],
         );
+          });
       },
     );
 
@@ -423,6 +528,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
 
     setState(() {
       candidate.meaning = meaningCtrl.text.trim();
+      candidate.language = selectedLang;
       candidate.phonetic = phoneticCtrl.text.trim().isEmpty
           ? null
           : phoneticCtrl.text.trim();
@@ -437,8 +543,8 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
 
   InputDecoration _inputDecoration(String label, {String? hint}) {
     return InputDecoration(
-      labelText: label,
-      hintText: hint,
+      labelText: context.uiText(label),
+      hintText: hint == null ? null : context.uiText(hint),
       labelStyle: TextStyle(color: Colors.grey[300]),
       hintStyle: TextStyle(color: Colors.grey[600]),
       filled: true,
@@ -631,9 +737,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.processedCount == 0
+          context.uiText(result.processedCount == 0
               ? 'Chưa có mục nào được nhập vào WordList'
-              : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}, bỏ qua ${result.skippedCount}',
+              : '📚 WordList: thêm mới ${result.addedCount}, bổ sung ngữ cảnh ${result.updatedCount}, bỏ qua ${result.skippedCount}'),
         ),
         backgroundColor: const Color(0xFF1E5F3A),
         behavior: SnackBarBehavior.floating,
@@ -712,7 +818,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
               onChanged: (value) => setState(() => _searchQuery = value),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Tìm trong danh sách ứng viên...',
+                hintText: context.uiText('Tìm trong danh sách ứng viên...'),
                 hintStyle: TextStyle(color: Colors.grey[500]),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70),
                 suffixIcon: _searchQuery.trim().isEmpty
@@ -870,7 +976,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                   ),
                                   const SizedBox(width: 2),
                                   IconButton(
-                                    tooltip: 'Sửa mục này',
+                                    tooltip: context.uiText('Sửa mục này'),
                                     visualDensity: VisualDensity.compact,
                                     onPressed: () => _editCandidate(candidate),
                                     icon: const Icon(
@@ -973,7 +1079,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _candidateStatusText(candidate),
+                                  context.uiText(
+                                    _candidateStatusText(candidate),
+                                  ),
                                   style: TextStyle(
                                     color: candidate.isImportReady
                                         ? Colors.green[200]
@@ -1017,9 +1125,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 ),
                 const Spacer(),
                 Text(
-                  _importReadyOnly
+                  context.uiText(_importReadyOnly
                       ? 'Ready đã chọn: $_selectedReadyCount'
-                      : 'Đã chọn: $_selectedCount',
+                      : 'Đã chọn: $_selectedCount'),
                   style: TextStyle(color: Colors.grey[400], fontSize: 12),
                 ),
               ],
@@ -1052,9 +1160,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                         : _importSelected,
                     icon: const Icon(Icons.library_add_check),
                     label: Text(
-                      _importReadyOnly
+                      context.uiText(_importReadyOnly
                           ? 'Nhập $_selectedReadyCount mục sẵn sàng'
-                          : 'Nhập $_selectedCount mục vào WordList',
+                          : 'Nhập $_selectedCount mục vào WordList'),
                     ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1084,7 +1192,7 @@ class _MetaChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: const TextStyle(
           color: Colors.white70,
           fontWeight: FontWeight.w600,
@@ -1110,7 +1218,7 @@ class _MiniBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: TextStyle(
           color: color,
           fontSize: 11,
@@ -1146,7 +1254,7 @@ class _LengthChip extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Text(
-          'Min length $value',
+          context.uiText('Min length $value'),
           style: const TextStyle(color: Colors.white70),
         ),
       ),
@@ -1191,7 +1299,7 @@ class _SortChip extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Text(
-          _label(sort),
+          context.uiText(_label(sort)),
           style: const TextStyle(color: Colors.white70),
         ),
       ),
@@ -1236,7 +1344,7 @@ class _EmptyState extends StatelessWidget {
                 color: Colors.grey[600], size: 34),
             const SizedBox(height: 12),
             Text(
-              title,
+              context.uiText(title),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
@@ -1246,7 +1354,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              description,
+              context.uiText(description),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[400], height: 1.5),
             ),

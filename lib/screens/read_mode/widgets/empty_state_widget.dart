@@ -1,7 +1,7 @@
 // lib/screens/read_mode/widgets/empty_state_widget.dart
 // Thay toàn bộ nội dung cũ bằng redirect sang ReadLibraryScreen
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import 'library_screen.dart';
 
@@ -18,7 +18,7 @@ class ReadEmptyState extends StatelessWidget {
 
 // lib/screens/read_mode/widgets/empty_state_widget.dart
 /*
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -92,9 +92,18 @@ class ReadEmptyState extends StatelessWidget {
                 _ImportCard(
                   icon: Icons.upload_file,
                   label: 'File TXT',
-                  subtitle: 'Plain text',
+                  subtitle: 'txt · md · json · docx',
                   color: const Color(0xFF2196F3),
-                  onTap: () => _importFile(context, ['txt']),
+                  onTap: () => _importFile(
+                    context,
+                    const [
+                      'txt',
+                      'md',
+                      'markdown',
+                      'json',
+                      'docx',
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 12),
                 _ImportCard(
@@ -189,7 +198,17 @@ class ReadEmptyState extends StatelessWidget {
       }
 
       if (context.mounted) {
-        await context.read<TextProvider>().loadTextFile(path);
+        final loaded = await context.read<TextProvider>().loadTextFile(path);
+        if (!loaded && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
       // ignore: avoid_print
@@ -243,9 +262,9 @@ class ReadEmptyState extends StatelessWidget {
               autofocus: true,
               style: const TextStyle(color: Colors.white, height: 1.6),
               decoration: InputDecoration(
-                hintText: 'Paste hoặc nhập văn bản...\n\n'
-                    'Mỗi dòng sẽ là 1 đơn vị đọc.\n'
-                    'Hỗ trợ tiếng Anh, tiếng Việt, Pali...',
+                hintText: context.uiText(
+                  'Paste hoặc nhập văn bản...\n\nMỗi dòng sẽ là 1 đơn vị đọc.\nHỗ trợ tiếng Anh, tiếng Việt, Pali...',
+                ),
                 hintStyle: TextStyle(color: Colors.grey[600]),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),

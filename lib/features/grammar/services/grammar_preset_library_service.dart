@@ -46,10 +46,11 @@ class GrammarPresetLibraryService {
     String? existingId,
   }) async {
     final current = await loadCustomPresets();
+    final usesGeneratedDescription = description.trim().isEmpty;
     final preset = GrammarHighlightPreset(
       id: existingId ?? 'user-${DateTime.now().microsecondsSinceEpoch}',
       name: name.trim(),
-      description: description.trim().isEmpty
+      description: usesGeneratedDescription
           ? _buildDefaultDescription(settings.visibleCategories)
           : description.trim(),
       visibleCategories: Set<GrammarCategory>.from(settings.visibleCategories),
@@ -58,6 +59,7 @@ class GrammarPresetLibraryService {
       audienceLabel: 'Cá nhân',
       focusSummary: _buildFocusSummary(settings.visibleCategories),
       isBuiltIn: false,
+      descriptionIsGenerated: usesGeneratedDescription,
     );
 
     final next = List<GrammarHighlightPreset>.from(current);

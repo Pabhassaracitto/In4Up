@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/language/app_ui_translations.dart';
 import '../../../models/text_item.dart'; // ← THÊM
 import '../models/playback_anchor.dart';
 import '../models/playback_event.dart';
@@ -20,6 +21,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   final PlaybackEngine _engine;
   final SharedPreferences _prefs;
   final TtsNotificationService _notification;
+  final String Function() _uiLocaleCode;
 
   final ValueNotifier<int> activeLineNotifier = ValueNotifier(-1);
   final ValueNotifier<bool> isSourceNotifier = ValueNotifier(true);
@@ -41,10 +43,18 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   PlaybackRecipe get recipe => _recipe;
   String? get lastError => _lastError;
 
-  PlaybackController(this._engine, this._prefs, this._notification) {
+  PlaybackController(
+    this._engine,
+    this._prefs,
+    this._notification,
+    this._uiLocaleCode,
+  ) {
     WidgetsBinding.instance.addObserver(this);
     _loadRecipe();
   }
+
+  String _uiText(String sourceText) =>
+      AppUITranslations.translate(sourceText, _uiLocaleCode());
 
   // ── Lifecycle ─────────────────────────────────────────────
 
@@ -87,10 +97,12 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _activeToken = token;
 
     unawaited(_notification.activate(
-      title: 'In4Up đang phát',
-      subtitle: anchor != null
-          ? 'Tiếp tục từ câu ${anchor.lineIndex + 1}'
-          : 'Bắt đầu từ đầu',
+      title: _uiText('In4Up đang phát'),
+      subtitle: _uiText(
+        anchor != null
+            ? 'Tiếp tục từ câu ${anchor.lineIndex + 1}'
+            : 'Bắt đầu từ đầu',
+      ),
     ));
 
     _safeNotify();
@@ -115,10 +127,10 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       onError: (err) {
         if (_disposed) return;
         if (_activeToken?.id != token.id) return;
-        _lastError = err.cause == null
-            ? err.message
-            : '${err.message}: ${err.cause}';
-        debugPrint('[PlaybackController] $_lastError');
+        _lastError = err.message;
+        debugPrint(
+          '[PlaybackController] $_lastError${err.cause == null ? '' : ': ${err.cause}'}',
+        );
         _cleanupAfterRun();
       },
     );
@@ -210,8 +222,10 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
         activeLineNotifier.value = event.snapshot.line;
         isSourceNotifier.value = event.snapshot.isSource;
         unawaited(_notification.updateNotification(
-          title: 'Câu ${event.snapshot.line + 1}/${event.snapshot.totalLines}',
-          subtitle: event.snapshot.statusText,
+          title: _uiText(
+            'Câu ${event.snapshot.line + 1}/${event.snapshot.totalLines}',
+          ),
+          subtitle: _uiText(event.snapshot.statusText),
         ));
         break;
 

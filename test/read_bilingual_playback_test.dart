@@ -1,10 +1,41 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:in2up/models/text_item.dart';
-import 'package:in2up/screens/read_mode/models/playback_recipe.dart';
-import 'package:in2up/screens/read_mode/models/playback_run_token.dart';
-import 'package:in2up/screens/read_mode/services/playback_engine.dart';
-import 'package:in2up/screens/read_mode/services/tts_service.dart';
+import 'package:in4up/models/text_item.dart';
+import 'package:in4up/screens/read_mode/models/playback_anchor.dart';
+import 'package:in4up/screens/read_mode/models/playback_recipe.dart';
+import 'package:in4up/screens/read_mode/models/playback_run_token.dart';
+import 'package:in4up/screens/read_mode/services/playback_controller.dart';
+import 'package:in4up/screens/read_mode/services/playback_engine.dart';
+import 'package:in4up/screens/read_mode/services/tts_notification_service.dart';
+import 'package:in4up/screens/read_mode/services/tts_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _FakeNotificationService extends TtsNotificationService {
+  final List<({String title, String subtitle})> activations = [];
+  final List<({String title, String subtitle})> updates = [];
+  var deactivateCount = 0;
+
+  @override
+  Future<void> activate({
+    required String title,
+    required String subtitle,
+  }) async {
+    activations.add((title: title, subtitle: subtitle));
+  }
+
+  @override
+  Future<void> updateNotification({
+    required String title,
+    required String subtitle,
+  }) async {
+    updates.add((title: title, subtitle: subtitle));
+  }
+
+  @override
+  Future<void> deactivate() async {
+    deactivateCount++;
+  }
+}
 
 class _FakeTtsService implements TtsService {
   final List<String> actions = [];
@@ -108,5 +139,55 @@ void main() {
     );
 
     expect(tts.actions.where((entry) => entry.startsWith('speak:')), isEmpty);
+  });
+
+  testWidgets(
+      'context-free playback notifications use the selected UI locale',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final tts = _FakeTtsService();
+    final notification = _FakeNotificationService();
+    final controller = PlaybackController(
+      PlaybackEngine(tts),
+      prefs,
+      notification,
+      () => 'en-US',
+    );
+    addTearDown(controller.dispose);
+
+    await controller.start(
+      [
+        TextItem(
+          id: '1',
+          content: 'Hello',
+          sourceLanguageCode: 'EN',
+        ),
+      ],
+      fileId: 'file-1',
+      sourceLanguageCode: 'EN',
+      targetLanguageCode: 'VI',
+      anchor: PlaybackAnchor(
+        fileId: 'file-1',
+        lineIndex: 0,
+        lineRepeatIndex: 0,
+        savedAt: DateTime.now(),
+      ),
+    );
+    await tester.pump();
+
+    expect(notification.activations, hasLength(1));
+    expect(notification.activations.single.title, 'In4Up is playing');
+    expect(
+      notification.activations.single.subtitle,
+      'Continue from sentence 1',
+    );
+
+    expect(notification.updates, isNotEmpty);
+    expect(notification.updates.first.title, 'Sentence 1/1');
+    expect(notification.updates.first.subtitle, contains('Sentence 1/1'));
+    expect(notification.updates.first.subtitle, contains('Round 1/1'));
+    expect(notification.updates.first.subtitle, isNot(contains('Câu')));
+    expect(notification.updates.first.subtitle, isNot(contains('Vòng')));
   });
 }

@@ -10,7 +10,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
@@ -22,6 +22,7 @@ import '../../models/vocab_context.dart';
 import '../../models/word_entry.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../widgets/selection_save_sheet.dart';
 import '../../widgets/unified_knowledge_sheet.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
@@ -189,6 +190,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     onOpenGrammarSettings: _openGrammarSettings,
                     writingMode: widget.writingMode,
                     onSendToWriting: _sendPdfToWriting,
+                    onBatchSavePage: _openBatchSaveFromPage,
                   ),
                 ),
               ),
@@ -225,6 +227,31 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 onSaveNote: _saveSelectionAsAnnotation,
                 onOpenTextStudio: _openSelectedInTextStudio,
                 writingMode: widget.writingMode,
+              ),
+            ),
+          // Legend marker "từ đã lưu" — chỉ khi BẬT (READ-630-03)
+          if (_controller.showRecallMarkers &&
+              _controller.viewMode == PdfViewMode.pdfView)
+            Positioned(
+              left: 12,
+              bottom: 88,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RecallLegendSwatch(color: Color(0xFF4CAF50), label: 'đã lưu'),
+                    _RecallLegendSwatch(color: Color(0xFFFFC107), label: 'ghi chú'),
+                    _RecallLegendSwatch(color: Color(0xFFF44336), label: 'đến kỳ ôn'),
+                  ],
+                ),
               ),
             ),
         ],
@@ -347,7 +374,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             if ((_controller.colorMode != ColorMode.none ||
                     _controller.focusWordCue != null ||
                     _controller.focusRectCue != null ||
-                    _controller.focusTextStartOffsetCue != null) &&
+                    _controller.focusTextStartOffsetCue != null ||
+                    _controller.showRecallMarkers) &&
                 (words.isNotEmpty || _controller.focusRectCue != null))
               Positioned.fill(
                 child: PdfWordOverlay(
@@ -363,6 +391,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   focusPageIndexCue: _controller.focusPageIndexCue,
                   focusTextStartOffsetCue: _controller.focusTextStartOffsetCue,
                   focusTextEndOffsetCue: _controller.focusTextEndOffsetCue,
+                  showRecallMarkers: _controller.showRecallMarkers,
                 ),
               ),
 
@@ -567,7 +596,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   maxLines: 4,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: 'Nhập ghi chú / bản dịch / insight...',
+                    hintText: context.uiText('Nhập ghi chú / bản dịch / insight...'),
                     hintStyle: TextStyle(color: Colors.grey[500]),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.05),
@@ -625,7 +654,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
     context.read<TextProvider>().loadFromString(
           selectedText,
-          title: 'PDF đoạn chọn · ${_title.replaceAll('.pdf', '')}',
+          title: context.uiText(
+            'PDF đoạn chọn · ${_title.replaceAll('.pdf', '')}',
+          ),
         );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -679,6 +710,36 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
+  /// READ-630-04: lưu hàng loạt từ trang hiện tại
+  Future<void> _openBatchSaveFromPage() async {
+    _showChrome(autoHide: false);
+    final text = await _controller.extractCurrentPageText();
+    if (!mounted) return;
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không trích xuất được text từ trang này.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    await SelectionSaveSheet.show(
+      context,
+      text: text,
+      sourceLabel: _title,
+      sourceDetail: 'trang ${_controller.currentPage + 1}',
+      contextBuilder: (sample) => VocabContext.fromPdf(
+        fileName: widget.pdfPath.split(Platform.pathSeparator).last,
+        page: _controller.currentPage + 1,
+        pageIndexHint: _controller.currentPage,
+        surroundingText: sample,
+        pdfPath: widget.pdfPath,
+        anchorText: sample,
+      ),
+    );
+  }
+
   Future<void> _openGrammarSettings() async {
     await _controller.refreshGrammarPresetLibrary();
     await GrammarQuickSettingsSheet.show(
@@ -720,7 +781,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✅ Đã load "$_title" vào Text Studio'),
+        content: Text(context.uiText('✅ Đã load "$_title" vào Text Studio')),
         backgroundColor: const Color(0xFF2196F3),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -891,14 +952,14 @@ class _SelectionBar extends StatelessWidget {
             _SelectionIconButton(
               icon: Icons.history_edu_outlined,
               color: const Color(0xFFB9F6CA),
-              tooltip: 'Xem ghi chú đã lưu trước đó',
+              tooltip: context.uiText('Xem ghi chú đã lưu trước đó'),
               onTap: () => _showSelectionRecallSheet(context, existing),
             ),
           if (existing != null) const SizedBox(width: 2),
           _SelectionIconButton(
             icon: Icons.note_add_outlined,
             color: Colors.amber,
-            tooltip: 'Ghi chú đoạn chọn',
+            tooltip: context.uiText('Ghi chú đoạn chọn'),
             onTap: onSaveNote,
           ),
           _SelectionIconButton(
@@ -912,32 +973,32 @@ class _SelectionBar extends StatelessWidget {
           _SelectionIconButton(
             icon: Icons.bookmark_add,
             color: const Color(0xFF4CAF50),
-            tooltip: 'Lưu vào WordList',
+            tooltip: context.uiText('Lưu vào WordList (chủ đề + ngôn ngữ)'),
             onTap: () {
-              final added = controller.saveSelectedTextToWordList();
-              controller.clearSelection();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(added
-                      ? '✅ Đã lưu vào WordList'
-                      : '✅ Đã bổ sung ngữ cảnh vào WordList'),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF4CAF50),
-                  duration: const Duration(seconds: 2),
-                ),
+              final text = controller.selectedText?.trim() ?? '';
+              if (text.isEmpty) return;
+              SelectionSaveSheet.show(
+                context,
+                text: text,
+                sourceLabel: controller.pdfPath
+                    .split(Platform.pathSeparator)
+                    .last,
+                sourceDetail: 'trang ${controller.currentPage + 1}',
+                contextBuilder: (sample) =>
+                    controller.buildSelectionContext(sample),
               );
             },
           ),
           _SelectionIconButton(
             icon: Icons.volume_up,
             color: Colors.blue,
-            tooltip: 'Đọc',
+            tooltip: context.uiText('Đọc'),
             onTap: controller.speakSelectedText,
           ),
           _SelectionIconButton(
             icon: Icons.psychology,
             color: Colors.purple,
-            tooltip: 'Lưu vào Vườn Nhớ',
+            tooltip: context.uiText('Lưu vào Vườn Nhớ'),
             onTap: () {
               controller.saveSelectedTextToMemory();
               controller.clearSelection();
@@ -953,7 +1014,7 @@ class _SelectionBar extends StatelessWidget {
           _SelectionIconButton(
             icon: Icons.close,
             color: Colors.grey,
-            tooltip: 'Đóng',
+            tooltip: context.uiText('Đóng'),
             onTap: controller.clearSelection,
             size: 18,
           ),
@@ -983,7 +1044,7 @@ class _SelectionIconButton extends StatelessWidget {
     return IconButton(
       icon: Icon(icon, color: color, size: size),
       onPressed: onTap,
-      tooltip: tooltip,
+      tooltip: context.uiText(tooltip),
       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       padding: EdgeInsets.zero,
     );
@@ -1063,7 +1124,14 @@ void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
           if (latestContext != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Ngữ cảnh gần nhất: ${latestContext.displaySource}',
+              context.uiText(
+                'Ngữ cảnh gần nhất: ${latestContext.composeDisplaySource(
+                  latestContext.hasGeneratedPositionLabel &&
+                          latestContext.pageOrPosition != null
+                      ? context.uiText(latestContext.pageOrPosition!)
+                      : latestContext.pageOrPosition,
+                )}',
+              ),
               style: TextStyle(
                 color: Colors.grey[300],
                 fontSize: 12,
@@ -1121,7 +1189,7 @@ class _MiniRecallBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: const TextStyle(
           color: Colors.white70,
           fontSize: 11,
@@ -1181,7 +1249,7 @@ class _PdfAnnotationManager extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '${annotations.length} ghi chú đã lưu',
+              context.uiText('${annotations.length} ghi chú đã lưu'),
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -1235,7 +1303,7 @@ class _PdfAnnotationManager extends StatelessWidget {
                             ),
                           ),
                           title: Text(
-                            'Trang ${ann.pageIndex + 1}',
+                            context.uiText('Trang ${ann.pageIndex + 1}'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
@@ -1287,6 +1355,37 @@ class _PdfAnnotationManager extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Recall legend (READ-630-03) ───────────────────────────
+class _RecallLegendSwatch extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _RecallLegendSwatch({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: color, width: 1.2),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        ],
       ),
     );
   }

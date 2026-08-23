@@ -8,7 +8,7 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../word_lookup/word_analysis_sheet.dart';
 
@@ -629,9 +629,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               unselectedLabelColor: Colors.grey,
               labelStyle:
                   const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              tabs: const [
-                Tab(text: 'VĂN BẢN'),
-                Tab(text: 'TỪ'),
+              tabs: [
+                Tab(text: context.uiText('VĂN BẢN')),
+                Tab(text: context.uiText('TỪ')),
               ],
             ),
           ),

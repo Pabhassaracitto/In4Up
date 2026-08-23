@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:in2up/core/language/app_language.dart';
-import 'package:in2up/features/tts/language_detector.dart';
+import 'package:in4up/core/language/app_language.dart';
+import 'package:in4up/features/tts/language_detector.dart';
 
 void main() {
   group('AppLanguageCatalog', () {

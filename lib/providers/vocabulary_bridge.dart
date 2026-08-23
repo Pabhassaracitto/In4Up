@@ -2,7 +2,7 @@
 // Gọi từ TextProvider, WebReaderController, PdfReaderController, v.v.
 
 import 'package:flutter/foundation.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';

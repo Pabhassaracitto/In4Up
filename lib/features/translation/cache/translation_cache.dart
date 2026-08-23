@@ -1,6 +1,9 @@
 // lib/features/translation/cache/translation_cache.dart
 
 import 'dart:collection';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,8 +27,17 @@ class TranslationCache {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  /// Tạo cache key
+  /// Stable across Dart VM sessions. `String.hashCode` is NOT — after
+  /// restart the same sentence looked like a new case and was re-translated.
   String _makeKey(String text, String sourceLang, String targetLang) {
+    final digest = md5
+        .convert(utf8.encode(text.trim().toLowerCase()))
+        .toString()
+        .substring(0, 12);
+    return '${sourceLang}_${targetLang}_$digest';
+  }
+
+  String _legacyKey(String text, String sourceLang, String targetLang) {
     final hash = text.trim().toLowerCase().hashCode;
     return '${sourceLang}_${targetLang}_$hash';
   }
@@ -74,6 +86,21 @@ class TranslationCache {
       debugPrint(
           '💾 Cache HIT (disk): ${text.substring(0, text.length.clamp(0, 30))}...');
       return diskResult;
+    }
+
+    // ★ REOPEN FIX: migration một lần — bản cache cũ dùng key hashCode
+    //   (String.hashCode, đổi mỗi lần khởi động Dart VM). Nếu key cũ còn
+    //   trên disk → đọc, ghi lại bằng key MD5 ổn định, xóa key cũ.
+    final legacyKey = _legacyKey(text, sourceLang, targetLang);
+    if (legacyKey != key) {
+      final legacyValue = _prefs?.getString('$_diskPrefix$legacyKey');
+      if (legacyValue != null) {
+        _memoryCache[key] = legacyValue;
+        await _prefs?.setString('$_diskPrefix$key', legacyValue);
+        await _prefs?.remove('$_diskPrefix$legacyKey');
+        debugPrint('♻️ Cache migrated từ key hashCode cũ → MD5 ổn định');
+        return legacyValue;
+      }
     }
 
     return null;

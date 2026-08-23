@@ -1,5 +1,5 @@
 // lib/screens/read_mode/sheets/segments_list_sheet.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -87,7 +87,7 @@ class _SegmentsListContent extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${segments.length} đoạn đã lưu',
+                          context.uiText('${segments.length} đoạn đã lưu'),
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,
@@ -103,7 +103,7 @@ class _SegmentsListContent extends StatelessWidget {
                     },
                     icon: const Icon(Icons.add_circle_outline),
                     color: const Color(0xFF4CAF50),
-                    tooltip: 'Tạo segment mới',
+                    tooltip: context.uiText('Tạo segment mới'),
                   ),
                 ],
               ),
@@ -172,7 +172,7 @@ class _SegmentsListContent extends StatelessWidget {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã xóa "${segment.name}"'),
+        content: Text(context.uiText('Đã xóa "${segment.name}"')),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF2A2A3E),
       ),
@@ -191,7 +191,7 @@ class _SegmentsListContent extends StatelessWidget {
           children: [
             Icon(Icons.repeat, color: segment.color, size: 18),
             const SizedBox(width: 8),
-            Text('Lặp lại "${segment.name}"'),
+            Text(context.uiText('Lặp lại "${segment.name}"')),
           ],
         ),
         behavior: SnackBarBehavior.floating,
@@ -234,7 +234,7 @@ class _SegmentTile extends StatelessWidget {
             title: const Text('Xóa segment?',
                 style: TextStyle(color: Colors.white)),
             content: Text(
-              'Bạn có muốn xóa "${segment.name}"?',
+              context.uiText('Bạn có muốn xóa "${segment.name}"?'),
               style: TextStyle(color: Colors.grey[400]),
             ),
             actions: [
@@ -309,7 +309,7 @@ class _SegmentTile extends StatelessWidget {
                             size: 12, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          'Dòng ${segment.startLine + 1} → ${segment.endLine + 1} (${segment.lineCount} dòng)',
+                          context.uiText('Dòng ${segment.startLine + 1} → ${segment.endLine + 1} (${segment.lineCount} dòng)'),
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:in2up_ai/in2up_ai.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
 
@@ -106,7 +106,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
           if (facade.currentAnalysis?.isPartial == false)
             IconButton(
               icon: const Icon(Icons.flag_outlined, size: 18),
-              tooltip: 'Báo kết quả sai',
+              tooltip: context.uiText('Báo kết quả sai'),
               onPressed: () => _reportError(context, facade),
             ),
 
@@ -294,7 +294,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             onPressed: () {
               // Lấy error log từ facade
               facade.reportError(reason: 'User reported incorrect');
-              // TODO: Lưu log vào in2up_storage
+              // TODO: Lưu log vào in4up_storage
               // context.read<StorageService>().saveErrorLog(log);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

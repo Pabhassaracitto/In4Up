@@ -1,6 +1,6 @@
 // lib/widgets/shadowing/phoneme_score_card.dart
 // NEW - Widget hiển thị điểm số phát âm cho từng âm vị
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 class PhonemeScoreCard extends StatelessWidget {
   final int score;

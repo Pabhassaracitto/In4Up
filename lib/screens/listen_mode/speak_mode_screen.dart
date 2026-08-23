@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -183,11 +183,11 @@ class _HeroCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    hasAudio
+                    context.uiText(hasAudio
                         ? (title?.trim().isNotEmpty == true
                             ? 'Nguồn đang dùng: $title'
                             : 'Đã có audio, có thể bắt đầu luyện nói.')
-                        : 'Chưa có audio hoạt động. Hãy mở nguồn từ tab Nghe hoặc Công cụ nhanh.',
+                        : 'Chưa có audio hoạt động. Hãy mở nguồn từ tab Nghe hoặc Công cụ nhanh.'),
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
@@ -338,6 +338,9 @@ class _SpeakingPresetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activePresetLabel = shadowing.activePresetLabelIsGenerated
+        ? context.uiText(shadowing.activePresetLabel)
+        : shadowing.activePresetLabel;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -390,7 +393,7 @@ class _SpeakingPresetCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${shadowing.activePresetLabel} · ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                  '$activePresetLabel · ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -483,17 +486,17 @@ class _SpeakingPresetCard extends StatelessWidget {
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Tên preset',
-                hintText: 'Ví dụ: Fluency sáng',
+              decoration:  InputDecoration(
+                labelText: context.uiText('Tên preset'),
+                hintText: context.uiText('Ví dụ: Fluency sáng'),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: noteController,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú ngắn',
-                hintText: 'Mục tiêu của preset này',
+              decoration:  InputDecoration(
+                labelText: context.uiText('Ghi chú ngắn'),
+                hintText: context.uiText('Mục tiêu của preset này'),
               ),
             ),
           ],
@@ -538,7 +541,7 @@ class _SpeakingPresetCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xóa preset'),
-        content: Text('Bạn có chắc muốn xóa preset "${preset.name}" không?'),
+        content: Text(context.uiText('Bạn có chắc muốn xóa preset "${preset.name}" không?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -571,6 +574,9 @@ class _PresetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayDescription = preset.isBuiltIn
+        ? context.uiText(preset.description)
+        : preset.description;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -600,9 +606,9 @@ class _PresetTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  preset.description.isEmpty
+                  displayDescription.isEmpty
                       ? preset.compactLabel
-                      : '${preset.description} · ${preset.compactLabel}',
+                      : '$displayDescription · ${preset.compactLabel}',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -769,7 +775,7 @@ class _HistoryTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    '${entry.overallScorePercent}% · ${entry.gradeLabel}',
+                    '${entry.overallScorePercent}% · ${context.uiText(entry.gradeLabel)}',
                     style: TextStyle(
                       color: entry.scoreColor,
                       fontSize: 11,
@@ -803,7 +809,7 @@ class _HistoryTile extends StatelessWidget {
                 entry.recognizedText!.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Bạn nói: ${entry.recognizedText}',
+                context.uiText('Bạn nói: ${entry.recognizedText}'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
@@ -815,7 +821,10 @@ class _HistoryTile extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _metaChip(
-                    '${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                  context.uiText(
+                    '${entry.correctWordCount}/${entry.totalWordCount} từ đúng',
+                  ),
+                ),
                 _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
                 _metaChip('Xem chi tiết'),
               ],
@@ -854,7 +863,7 @@ class _HistoryTile extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        final exportText = _buildExportText(entry);
+        final exportText = _buildExportText(entry, context);
         return SafeArea(
           child: DraggableScrollableSheet(
             expand: false,
@@ -889,9 +898,13 @@ class _HistoryTile extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       _metaChip(
-                          '${entry.overallScorePercent}% · ${entry.gradeLabel}'),
+                        '${entry.overallScorePercent}% · ${context.uiText(entry.gradeLabel)}',
+                      ),
                       _metaChip(
-                          '${entry.correctWordCount}/${entry.totalWordCount} từ đúng'),
+                        context.uiText(
+                          '${entry.correctWordCount}/${entry.totalWordCount} từ đúng',
+                        ),
+                      ),
                       _metaChip('Tempo ${(entry.tempoRatio * 100).round()}%'),
                       _metaChip(_formatTimestamp(entry.timestamp)),
                     ],
@@ -903,7 +916,9 @@ class _HistoryTile extends StatelessWidget {
                     _detailSection('Câu nhận diện', entry.recognizedText!),
                   if ((entry.feedbackMessage ?? '').trim().isNotEmpty)
                     _detailSection(
-                        'Nhận xét tổng quát', entry.feedbackMessage!),
+                      'Nhận xét tổng quát',
+                      context.uiText(entry.feedbackMessage!),
+                    ),
                   if (entry.acoustic != null) ...[
                     const SizedBox(height: 14),
                     Text(
@@ -975,7 +990,7 @@ class _HistoryTile extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '${word.scorePercent}% · ${word.shortStatus}',
+                                  '${word.scorePercent}% · ${context.uiText(word.shortStatus)}',
                                   style: const TextStyle(
                                       color: Colors.white70, fontSize: 12),
                                 ),
@@ -984,7 +999,9 @@ class _HistoryTile extends StatelessWidget {
                             if (word.phonemeIssues.isNotEmpty) ...[
                               const SizedBox(height: 6),
                               Text(
-                                'Âm cần chú ý: ${word.phonemeIssues.join(', ')}',
+                                context.uiText(
+                                  'Âm cần chú ý: ${word.phonemeIssues.join(', ')}',
+                                ),
                                 style: const TextStyle(
                                     color: Colors.white70, fontSize: 12),
                               ),
@@ -1079,31 +1096,55 @@ class _HistoryTile extends StatelessWidget {
     );
   }
 
-  static String _buildExportText(ShadowingHistoryEntry entry) {
+  static String _buildExportText(
+    ShadowingHistoryEntry entry,
+    BuildContext context,
+  ) {
     final buffer = StringBuffer();
-    buffer.writeln('in2up · Shadowing Review');
-    buffer.writeln('Thời gian: ${_formatTimestamp(entry.timestamp)}');
-    buffer.writeln('Điểm: ${entry.overallScorePercent}% · ${entry.gradeLabel}');
-    buffer
-        .writeln('Từ đúng: ${entry.correctWordCount}/${entry.totalWordCount}');
+    buffer.writeln('in4up · Shadowing Review');
+    buffer.writeln(
+      context.uiText('Thời gian: ${_formatTimestamp(entry.timestamp)}'),
+    );
+    buffer.writeln(
+      context.uiText(
+        'Điểm: ${entry.overallScorePercent}% · ${context.uiText(entry.gradeLabel)}',
+      ),
+    );
+    buffer.writeln(
+      context.uiText(
+        'Từ đúng: ${entry.correctWordCount}/${entry.totalWordCount}',
+      ),
+    );
     buffer.writeln('Tempo: ${(entry.tempoRatio * 100).round()}%');
     buffer.writeln();
-    buffer.writeln('Câu gốc: ${entry.originalText}');
+    buffer.writeln(context.uiText('Câu gốc: ${entry.originalText}'));
     if (entry.recognizedText != null &&
         entry.recognizedText!.trim().isNotEmpty) {
-      buffer.writeln('Câu nhận diện: ${entry.recognizedText}');
+      buffer.writeln(
+        context.uiText('Câu nhận diện: ${entry.recognizedText}'),
+      );
     }
     if ((entry.feedbackMessage ?? '').trim().isNotEmpty) {
-      buffer.writeln('Nhận xét: ${entry.feedbackMessage}');
+      buffer.writeln(
+        context.uiText(
+          'Nhận xét: ${context.uiText(entry.feedbackMessage!)}',
+        ),
+      );
     }
     if (entry.wordBreakdown.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('Chi tiết từ:');
+      buffer.writeln(context.uiText('Chi tiết từ:'));
       for (final word in entry.wordBreakdown) {
         buffer.writeln(
-            '- ${word.expectedWord} → ${word.recognizedWord ?? '∅'} | ${word.scorePercent}% | ${word.shortStatus}');
+          '- ${word.expectedWord} → ${word.recognizedWord ?? '∅'} | '
+          '${word.scorePercent}% | ${context.uiText(word.shortStatus)}',
+        );
         if (word.phonemeIssues.isNotEmpty) {
-          buffer.writeln('  Âm cần chú ý: ${word.phonemeIssues.join(', ')}');
+          buffer.writeln(
+            context.uiText(
+              '  Âm cần chú ý: ${word.phonemeIssues.join(', ')}',
+            ),
+          );
         }
       }
     }

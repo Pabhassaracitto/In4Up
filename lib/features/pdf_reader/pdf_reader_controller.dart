@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import '../../features/grammar/models/grammar_category.dart';
@@ -17,6 +17,7 @@ import '../../models/vocab_context.dart';
 import '../../models/vocabulary_type.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
+import '../../services/reader_display_settings.dart';
 import 'models/pdf_annotation.dart';
 import 'models/pdf_word_info.dart';
 import 'services/pdf_annotation_storage.dart';
@@ -31,10 +32,6 @@ class PdfReaderController extends ChangeNotifier {
   final PdfAnnotationStorage _storage = PdfAnnotationStorage();
   final PdfTextExtractor _extractor = PdfTextExtractor();
   final TtsService _tts = TtsService();
-
-  PdfReaderController({required this.pdfPath}) {
-    _init();
-  }
 
   // ─── Document ───────────────────────────────────────────
   PdfDocument? _document;
@@ -72,6 +69,26 @@ class PdfReaderController extends ChangeNotifier {
 
   List<PdfWordInfo> getWordsForPage(int pageIndex) =>
       _pageWords[pageIndex] ?? [];
+
+  // ─── Recall markers (READ-630-03) ────────────────────────
+  /// Marker bao quanh từ đã lưu (green/amber/red). MẶC ĐỊNH TẮT —
+  /// chỉ hiện khi người dùng bật (đọc sạch khi không cần).
+  bool _showRecallMarkers = ReaderDisplaySettings().showRecallMarkers;
+  bool get showRecallMarkers => _showRecallMarkers;
+
+  PdfReaderController({required this.pdfPath}) {
+    _init();
+    ReaderDisplaySettings().addListener(_onDisplaySettingsChanged);
+  }
+
+  void _onDisplaySettingsChanged() {
+    _showRecallMarkers = ReaderDisplaySettings().showRecallMarkers;
+    notifyListeners();
+  }
+
+  void toggleRecallMarkers() {
+    ReaderDisplaySettings().setShowRecallMarkers(!_showRecallMarkers);
+  }
 
   // ─── TTS ────────────────────────────────────────────────
   PdfTtsState _ttsState = PdfTtsState.idle;
@@ -472,6 +489,18 @@ class PdfReaderController extends ChangeNotifier {
     _ttsSpeed = speed.clamp(0.25, 2.0);
     _tts.configure(speed: _ttsSpeed);
     notifyListeners();
+  }
+
+  /// Trích text trang hiện tại (dùng cho TTS + lưu hàng loạt).
+  Future<String> extractCurrentPageText() async {
+    if (_document == null) return '';
+    final page = _document!.pages[_currentPage];
+    try {
+      return await _extractor.extractPageText(page, _currentPage);
+    } catch (e) {
+      debugPrint('PdfReaderController: extractCurrentPageText error: $e');
+      return '';
+    }
   }
 
   // ─── Text Selection ──────────────────────────────────────

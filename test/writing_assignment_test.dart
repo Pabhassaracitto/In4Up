@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:in2up/features/writing/models/writing_assignment.dart';
-import 'package:in2up/features/writing/models/writing_source_request.dart';
-import 'package:in2up/features/writing/services/document_summary_signal_service.dart';
-import 'package:in2up/features/writing/services/writing_draft_store.dart';
-import 'package:in2up/features/writing/services/writing_sentence_segmenter.dart';
+import 'package:in4up/features/writing/models/writing_assignment.dart';
+import 'package:in4up/features/writing/models/writing_source_request.dart';
+import 'package:in4up/features/writing/services/document_summary_signal_service.dart';
+import 'package:in4up/features/writing/services/writing_draft_store.dart';
+import 'package:in4up/features/writing/services/writing_sentence_segmenter.dart';
 
 void main() {
   const excerptRequest = WritingSourceRequest(

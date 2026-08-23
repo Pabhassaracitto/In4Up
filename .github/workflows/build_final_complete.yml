@@ -36,7 +36,7 @@ permissions:
   contents: write
 
 # =============================================================================
-# JOB 1: ANDROID - 3 flavors side-by-side com.in2up / .dev / .beta
+# JOB 1: ANDROID - 3 flavors side-by-side com.in4up / .dev / .beta
 # NDK 27 + 28.2 để tương thích local dev (bạn yêu cầu giữ 28.2) + CI
 # google-services.json chứa 6 clients với hash 8a1bc02e... (release) và 7697fcbc... (debug)
 # firebase_options.dart giữ androidForFlavor / androidDev / androidBeta - KHÔNG overwrite
@@ -126,10 +126,10 @@ jobs:
             static const FirebaseOptions android = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:android:b0bcf08d94b674b21319d4', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app');
             static const FirebaseOptions androidDev = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:android:807fbf766789f7dd1319d4', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app');
             static const FirebaseOptions androidBeta = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:android:7f7683e09f8781ae1319d4', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app');
-            static const FirebaseOptions ios = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:ios:40im71rl7k9h99fl1tv77p3oe61hhkg7', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app', iosClientId: '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com', iosBundleId: 'com.in2up');
+            static const FirebaseOptions ios = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:ios:40im71rl7k9h99fl1tv77p3oe61hhkg7', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app', iosClientId: '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com', iosBundleId: 'com.in4up');
             static const FirebaseOptions windows = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:web:d3c25673d95f0911945ef6', messagingSenderId: '342774597309', projectId: 'vipsound-df903', authDomain: 'vipsound-df903.firebaseapp.com', storageBucket: 'vipsound-df903.firebasestorage.app');
             static const FirebaseOptions linux = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:web:linux001122334455', messagingSenderId: '342774597309', projectId: 'vipsound-df903', authDomain: 'vipsound-df903.firebaseapp.com', storageBucket: 'vipsound-df903.firebasestorage.app');
-            static const FirebaseOptions macos = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:ios:40im71rl7k9h99fl1tv77p3oe61hhkg7', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app', iosClientId: '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com', iosBundleId: 'com.in2up');
+            static const FirebaseOptions macos = FirebaseOptions(apiKey: 'AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw', appId: '1:342774597309:ios:40im71rl7k9h99fl1tv77p3oe61hhkg7', messagingSenderId: '342774597309', projectId: 'vipsound-df903', storageBucket: 'vipsound-df903.firebasestorage.app', iosClientId: '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com', iosBundleId: 'com.in4up');
           }
           FBEOF
           fi
@@ -153,16 +153,26 @@ jobs:
               echo "$SECRET_JSON" | base64 -d > android/app/google-services.json 2>/dev/null || true
             fi
           fi
-          # Fallback with 6 clients if secret missing or too small - includes both hashes you provided
-          if [ ! -s android/app/google-services.json ] || [ $(stat -c%s android/app/google-services.json 2>/dev/null || stat -f%z android/app/google-services.json) -lt 100 ]; then
-            echo "Creating fallback google-services.json with 6 clients (side-by-side flavors)"
+          # Fallback robust: neu file rong, nho, HOAC khong chua com.in4up thi dung fallback 12 clients
+          NEED_FALLBACK=0
+          if [ ! -s android/app/google-services.json ]; then NEED_FALLBACK=1; fi
+          if [ $(stat -c%s android/app/google-services.json 2>/dev/null || stat -f%z android/app/google-services.json) -lt 100 ]; then NEED_FALLBACK=1; fi
+          if ! grep -q "com.in4up" android/app/google-services.json 2>/dev/null; then NEED_FALLBACK=1; echo "Secret JSON missing com.in4up -> need fallback"; fi
+          if [ $NEED_FALLBACK -eq 1 ]; then
+            echo "Creating fallback google-services.json with 12 clients (side-by-side flavors) - robust for com.in4up"
             cat > android/app/google-services.json << 'EOF'
           {
             "project_info": {"project_number": "342774597309","project_id": "vipsound-df903","storage_bucket": "vipsound-df903.firebasestorage.app"},
             "client": [
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in4up"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in4up.dev"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in4up.beta"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in2up"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in2up.dev"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in2up.beta"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in4up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in4up.dev"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.dev","certificate_hash":"7697fcbcd36289fe5fb220575fcfb27704f4ca83"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in4up.beta"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.beta","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in2up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in2up.dev"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up.dev","certificate_hash":"7697fcbcd36289fe5fb220575fcfb27704f4ca83"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in2up.beta"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up.beta","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}
@@ -172,7 +182,7 @@ jobs:
           EOF
           fi
           echo "google-services.json size: $(stat -c%s android/app/google-services.json 2>/dev/null || stat -f%z android/app/google-services.json) bytes"
-          cat android/app/google-services.json | grep -o '"package_name": "[^"]*"' | sort | uniq || true
+          cat android/app/google-services.json | grep -o '"package_name": "[^"]*"' | sort | uniq || grep -o '"package_name":"[^"]*"' android/app/google-services.json | sort | uniq || true
           for flavor in dev beta stable main; do
             mkdir -p android/app/src/$flavor
             cp android/app/google-services.json android/app/src/$flavor/google-services.json
@@ -194,23 +204,23 @@ jobs:
         run: |
           echo "Building split APKs for stable..."
           flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=FLAVOR=stable || \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=FLAVOR=stable" || \
           flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
-            --dart-define=FLAVOR=stable
+            "--dart-define=FLAVOR=stable"
 
       - name: Build Universal APK
         shell: bash
         run: |
           echo "Building universal APK..."
           flutter build apk --release --android-skip-build-dependency-validation \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }} \
-            --dart-define=FLAVOR=stable || \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            "--dart-define=FLAVOR=stable" || \
           flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
 
       - name: Rename All APKs
         shell: bash
@@ -220,31 +230,31 @@ jobs:
           ls build/app/outputs/flutter-apk/ || true
           # armv7
           if [ -f build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk build/app/outputs/flutter-apk/in2up-Android-armv7-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk build/app/outputs/flutter-apk/in4up-Android-armv7-$TAG.apk || true
           fi
           if [ -f build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/in2up-Android-armv7-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/in4up-Android-armv7-$TAG.apk || true
           fi
           # arm64
           if [ -f build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk build/app/outputs/flutter-apk/in2up-Android-arm64-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk build/app/outputs/flutter-apk/in4up-Android-arm64-$TAG.apk || true
           fi
           if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/in2up-Android-arm64-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/in4up-Android-arm64-$TAG.apk || true
           fi
           # x64
           if [ -f build/app/outputs/flutter-apk/app-stable-x86_64-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-x86_64-release.apk build/app/outputs/flutter-apk/in2up-Android-x64-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-stable-x86_64-release.apk build/app/outputs/flutter-apk/in4up-Android-x64-$TAG.apk || true
           fi
           if [ -f build/app/outputs/flutter-apk/app-x86_64-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/in2up-Android-x64-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/in4up-Android-x64-$TAG.apk || true
           fi
           # Universal
           if [ -f build/app/outputs/flutter-apk/app-stable-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-release.apk build/app/outputs/flutter-apk/in2up-Android-Universal-All-CPU-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-stable-release.apk build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-$TAG.apk || true
           fi
           if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in2up-Android-Universal-All-CPU-$TAG.apk || true
+            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-$TAG.apk || true
           fi
           ls -lh build/app/outputs/flutter-apk/
 
@@ -252,12 +262,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/in2up-Android-*.apk
+          path: build/app/outputs/flutter-apk/in4up-Android-*.apk
 
       - name: Push APKs to GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/in2up-Android-*.apk"
+          artifacts: "build/app/outputs/flutter-apk/in4up-Android-*.apk"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -280,10 +290,12 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
           sudo apt-get install -y libayatana-appindicator3-dev libsecret-1-dev 2>/dev/null || sudo apt-get install -y libappindicator3-dev libsecret-1-dev || true
-          echo "Linux deps installed"
-
+          sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev || true
+          echo "Linux deps installed with json-glib for ffmpeg_kit_flutter_new"
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev libwebkit2gtk-4.1-dev
       - name: Setup Flutter 3.44.1
         uses: subosito/flutter-action@v2
         with:
@@ -319,30 +331,30 @@ jobs:
         shell: bash
         run: |
           flutter build linux --release --verbose \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Tar Linux bundle
         shell: bash
         run: |
           TAG="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           cd build/linux/x64/release
-          tar -czf ../../../../in2up-Linux-$TAG.tar.gz bundle
+          tar -czf ../../../../in4up-Linux-$TAG.tar.gz bundle
           cd ../../../..
-          ls -lh in2up-Linux-*.tar.gz
+          ls -lh in4up-Linux-*.tar.gz
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-bundle
-          path: in2up-Linux-*.tar.gz
+          path: in4up-Linux-*.tar.gz
 
       - name: Push Linux tar.gz to Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "in2up-Linux-*.tar.gz"
+          artifacts: "in4up-Linux-*.tar.gz"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -368,7 +380,17 @@ jobs:
         with:
           flutter-version: '3.44.1'
           channel: 'stable'
-          cache: false
+          cache: true
+
+      # ⚡ CACHE FIREBASE C++ SDK ĐỂ BIÊN DỊCH SIÊU TỐC
+      - name: Cache Firebase C++ SDK
+        id: cache-firebase
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/Users/runneradmin/.firebase_sdk_cache
+            C:/Users/runneradmin/AppData/Local/Temp/firebase_cpp_sdk
+          key: firebase-cpp-sdk-windows-v13.5.0
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
@@ -405,38 +427,38 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Clean Build Cache and repub
-        shell: bash
-        run: |
-          flutter clean
-          flutter pub get
-
       - name: Build Windows Release
         shell: bash
         run: |
           flutter build windows --release --verbose \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Zip Windows build
         shell: pwsh
         run: |
           $TAG = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in2up-Windows-$TAG.zip" -Force
-          Get-ChildItem "in2up-Windows-*.zip"
+          # Dùng wildcard để tương thích với cấu trúc output của cả Ninja và MSBuild
+          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+          if ($RELEASE_DIR) {
+            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          } else {
+            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          }
+          Get-ChildItem "in4up-Windows-*.zip"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: in2up-Windows-*.zip
+          path: in4up-Windows-*.zip
 
       - name: Push Windows ZIP to Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "in2up-Windows-*.zip"
+          artifacts: "in4up-Windows-*.zip"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
@@ -519,7 +541,7 @@ jobs:
             cat > ios/Runner/GoogleService-Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict><key>CLIENT_ID</key><string>dummy</string><key>REVERSED_CLIENT_ID</key><string>dummy</string><key>API_KEY</key><string>dummy</string><key>GCM_SENDER_ID</key><string>dummy</string><key>PLIST_VERSION</key><string>1</string><key>BUNDLE_ID</key><string>com.in2up</string><key>PROJECT_ID</key><string>vipsound-df903</string><key>STORAGE_BUCKET</key><string>vipsound-df903.firebasestorage.app</string><key>IS_ADS_ENABLED</key><false/><key>IS_ANALYTICS_ENABLED</key><false/><key>IS_APPINVITE_ENABLED</key><false/><key>IS_GCM_ENABLED</key><true/><key>IS_SIGNIN_ENABLED</key><true/><key>GOOGLE_APP_ID</key><string>1:342774597309:ios:dummy</string><key>DATABASE_URL</key><string>https://vipsound-df903.firebaseio.com</string></dict></plist>
+          <plist version="1.0"><dict><key>CLIENT_ID</key><string>dummy</string><key>REVERSED_CLIENT_ID</key><string>dummy</string><key>API_KEY</key><string>dummy</string><key>GCM_SENDER_ID</key><string>dummy</string><key>PLIST_VERSION</key><string>1</string><key>BUNDLE_ID</key><string>com.in4up</string><key>PROJECT_ID</key><string>vipsound-df903</string><key>STORAGE_BUCKET</key><string>vipsound-df903.firebasestorage.app</string><key>IS_ADS_ENABLED</key><false/><key>IS_ANALYTICS_ENABLED</key><false/><key>IS_APPINVITE_ENABLED</key><false/><key>IS_GCM_ENABLED</key><true/><key>IS_SIGNIN_ENABLED</key><true/><key>GOOGLE_APP_ID</key><string>1:342774597309:ios:dummy</string><key>DATABASE_URL</key><string>https://vipsound-df903.firebaseio.com</string></dict></plist>
           EOF
           fi
 
@@ -539,10 +561,10 @@ jobs:
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0
           flutter build ios --release --no-codesign \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Create IPA from Runner.app
         shell: bash
@@ -550,20 +572,20 @@ jobs:
           TAG="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r "in2up-iOS-$TAG.ipa" Payload
+          zip -r "in4up-iOS-$TAG.ipa" Payload
           rm -rf Payload
-          ls -lh in2up-iOS-*.ipa
+          ls -lh in4up-iOS-*.ipa
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: in2up-iOS-*.ipa
+          path: in4up-iOS-*.ipa
 
       - name: Push IPA to Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "in2up-iOS-*.ipa"
+          artifacts: "in4up-iOS-*.ipa"
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true

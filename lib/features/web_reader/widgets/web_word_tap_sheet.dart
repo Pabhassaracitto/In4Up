@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:in2up_core/vocab_level_difficulty.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
+import '../../../widgets/vocab_entry_meta.dart';
 import '../web_reader_controller.dart';
 
 /// Bottom sheet hiện khi tap vào từ trong Web Reader
@@ -184,7 +185,7 @@ class WebWordTapSheet extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${analyzed!.cefrLevel.shortLabel} — ${_cefrDescVi(analyzed!.cefrLevel)}',
+                  '${analyzed!.cefrLevel.shortLabel} — ${context.uiText(_cefrDescVi(analyzed!.cefrLevel))}',
                   style: TextStyle(
                       color: _cefrColor(analyzed!.cefrLevel)
                           .withValues(alpha: 0.9),
@@ -202,7 +203,9 @@ class WebWordTapSheet extends StatelessWidget {
                     color: analyzed!.userDifficulty!.color, size: 14),
                 const SizedBox(width: 6),
                 Text(
-                  'Độ khó đã lưu: ${analyzed!.userDifficulty!.label}',
+                  context.uiText(
+                    'Độ khó đã lưu: ${context.uiText(analyzed!.userDifficulty!.label)}',
+                  ),
                   style: TextStyle(
                     color: analyzed!.userDifficulty!.color,
                     fontSize: 12,
@@ -237,6 +240,23 @@ class WebWordTapSheet extends StatelessWidget {
           ],
 
           if (existing != null) ...[
+            const SizedBox(height: 10),
+            // READ-630-02: thông tin đầy đủ (IPA, loại, chủ đề, ngôn ngữ)
+            // + sửa ngay tại đây — không mất word/context
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                ),
+              ),
+              child: VocabEntryMetaInfo(
+                entry: existing,
+                onEdit: () => VocabEntryEditSheet.show(context, existing),
+              ),
+            ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
@@ -284,7 +304,9 @@ class WebWordTapSheet extends StatelessWidget {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('"$cleanWord" → ${level.label}'),
+                          content: Text(
+                            '"$cleanWord" → ${context.uiText(level.label)}',
+                          ),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
                         ),
@@ -331,7 +353,7 @@ class WebWordTapSheet extends StatelessWidget {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('✅ Đã lưu "$cleanWord" vào Vườn Nhớ'),
+                        content: Text(context.uiText('✅ Đã lưu "$cleanWord" vào Vườn Nhớ')),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -384,9 +406,9 @@ class WebWordTapSheet extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          added
+                          context.uiText(added
                               ? '📚 Đã thêm "$cleanWord" vào WordList'
-                              : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList',
+                              : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList'),
                         ),
                         backgroundColor: const Color(0xFF2E7D32),
                         behavior: SnackBarBehavior.floating,
@@ -479,7 +501,7 @@ class _Tag extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style:
             TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
@@ -497,7 +519,7 @@ class _IconBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         child: Container(

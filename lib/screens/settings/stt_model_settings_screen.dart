@@ -530,7 +530,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
                   children: [
                     const Icon(Icons.hearing, color: Colors.teal),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -628,7 +628,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
   }
 
   Future<void> _importVad(BuildContext context) async {
-    final result = await fp.FilePicker.platform.pickFiles(
+    final result = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
       allowedExtensions: ['onnx'],
     );
@@ -704,7 +704,7 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                   children: [
                     const Icon(Icons.record_voice_over, color: Colors.teal),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -843,7 +843,7 @@ class _PiperModelCardState extends State<_PiperModelCard> {
   }
 
   Future<void> _importFolder(BuildContext context) async {
-    final path = await fp.FilePicker.platform.getDirectoryPath();
+    final path = await fp.FilePicker.getDirectoryPath();
     if (path == null || path.isEmpty) return;
     final msg = await _manager.importPiperFolder(path);
     if (!mounted) return;
@@ -851,7 +851,7 @@ class _PiperModelCardState extends State<_PiperModelCard> {
   }
 
   Future<void> _importFiles(BuildContext context) async {
-    final result = await fp.FilePicker.platform.pickFiles(
+    final result = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
       allowedExtensions: ['onnx', 'json', 'txt'],
       allowMultiple: true,

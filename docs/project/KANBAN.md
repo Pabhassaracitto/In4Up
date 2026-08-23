@@ -35,7 +35,7 @@
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
 | SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
-| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI (chờ nghiệm thu build) |
+| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang (chờ CI xanh + nghiệm thu) |
 
 ---
 
@@ -445,6 +445,20 @@
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat | 3 câu hỏi (hướng dẫn đặt model / quản lý 1 chỗ / Piper đỏ)
   - 2026-08-23 | doing→done | agent arena/01a0251e-in4up | manager + 2 card UI + core layout + MODELS.md
+  - 2026-08-23 | CI đỏ → fix (3 lỗi compile, postmortem) | agent arena/01a0251e-in4up |
+    (1) '$voiceName_tokens.txt' — interpolation maximal munch đọc thành
+    biến 'voiceName_' → Undefined name (fix: '${voiceName}_tokens.txt');
+    (2) 'url' khai báo trong try, dùng $url trong catch → out-of-scope
+    (fix: hoist trước try); (3) screen: const Expanded chứa Theme.of
+    (not a constant expression, 2 chỗ) + fp.FilePicker.platform (không
+    có trong file_picker 11.x — dùng fp.FilePicker. trực tiếp, 3 chỗ).
+    Lọc nhờ smoke test ép CFE compile graph qua knowledge_tests + đọc
+    job log qua blob signed URL (artifact/job-log API bị chặn EOF).
+  - 2026-08-23 | thêm (cùng wave) | agent arena/01a0251e-in4up | sheet
+    'Lưu cụm/câu đầy đủ' nguồn TXT: thêm CHỦ ĐỀ + NGÔN NGỮ + pre-fill
+    entry đã có (parity với web/PDF — owner báo 'ngèo nàn') + fix
+    overflow 48px chip 'Cụm/từ liên đới' (constrain word 140px +
+    ellipsis)
 
 ### READ-630-05 — Tab Đọc: nhận diện text đã lưu khi lưu nhiều text + gợi ý hành động
 - **Trạng thái:** proposed

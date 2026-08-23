@@ -338,66 +338,6 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  /// Import THƯ MỤC giọng Piper (bundle k2-fsa đã giải nén, hoặc thư mục
-  /// giọng tự copy). Tự phát hiện: *.onnx, <name>_tokens.txt / tokens.txt,
-  /// *.onnx.json, espeak-ng-data/ (dùng chung, chỉ copy khi thiếu).
-  Future<String> importPiperFolder(String folderPath) async {
-    final dir = Directory(folderPath);
-    if (!await dir.exists()) return 'Thư mục không tồn tại';
-
-    final destDir = await _piperDir();
-    var copiedOnnx = 0;
-    var copiedTokens = 0;
-    var copiedJson = 0;
-
-    try {
-      for (final entity in dir.listSync(followLinks: true)) {
-        if (entity is! File) continue;
-        final name = p.basename(entity.path);
-        final rel = p.relative(entity.path, from: folderPath);
-        final relLower = rel.toLowerCase();
-
-        // espeak-ng-data: copy recursive vào chỗ dùng chung
-        if (relLower.startsWith('${SherpaPiperTtsCore.espeakDataFolder}${p.context.separator}')) {
-          final dest = File(p.join(destDir, rel));
-          if (!dest.existsSync()) {
-            await dest.parent.create(recursive: true);
-            await entity.copy(dest.path);
-          }
-          continue;
-        }
-
-        // Chỉ nhận file ở TẦNG GỐC của thư mục giọng
-        // (tránh chôn vùi file rác bên trong espeak-ng-data).
-        if (rel.contains(p.context.separator)) continue;
-
-        if (name.endsWith('.onnx')) {
-          await entity.copy(p.join(destDir, name));
-          copiedOnnx++;
-        } else if (name == 'tokens.txt' || name.endsWith('_tokens.txt')) {
-          await entity.copy(p.join(destDir, name));
-          copiedTokens++;
-        } else if (name.endsWith('.onnx.json')) {
-          await entity.copy(p.join(destDir, name));
-          copiedJson++;
-        }
-      }
-    } catch (e) {
-      return 'Lỗi đọc thư mục: $e';
-    }
-
-    if (copiedOnnx == 0) {
-      return 'Không tìm thấy file .onnx trong thư mục này';
-    }
-
-    await rescan();
-    debugPrint(
-        '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
-        '$copiedJson json');
-    return '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
-        '$copiedJson config';
-  }
-
   /// Import TỪNG FILE (multi-pick: onnx + json + tokens).
   Future<String> importPiperFiles(List<String> paths) async {
     if (paths.isEmpty) return 'Chưa chọn file nào';

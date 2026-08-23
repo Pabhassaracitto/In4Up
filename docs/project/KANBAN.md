@@ -50,6 +50,7 @@
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
+| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done | code + test thuần (sandbox KHÔNG có Flutter SDK → chờ CI + nghiệm thu thiết bị) |
 
 ---
 
@@ -991,3 +992,52 @@
 - **Lịch sử:**
   - 2026-08-27 | created→done | agent arena/01a0251e-in4up | path-checkout
     6 file từ db5c6ed + 5 fix compile; CI xanh 33082501188
+
+### XLAT-001 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT)
+- **Trạng thái:** done (code + test thuần; chờ CI + nghiệm thu thiết bị)
+- **Nội dung:**
+  - **Vòng 1 — Glossary + protect-tokens (mọi nền tảng):** module
+    `lib/features/translation/glossary/` (thuần Dart: `translation_glossary.dart`,
+    `protect_tokens.dart` + `glossary_store.dart` Hive box `translation_glossary`).
+    Lookup longest-match trên chuỗi đã normalize (dùng `CanonTokenizer`,
+    Pali có dấu khớp biến thể không dấu), word boundary, tie-break
+    priority (user 100 > hạt giống 0) + domain. Protect = thay hit bằng
+    `__G{n}__` → engine dịch phần còn lại → restore nghĩa khóa. Cache
+    (MD5) lưu câu ĐÃ RESTORE; glossary đổi → clear cache.
+    - Hạt giống 226 mục Pali/EN Phật học → VI: `assets/glossary/buddhist_pi_en_vi.json`
+      (locked=true; chưa có hạt giống HI — chờ bảng từ chủ).
+    - Đồng bộ 1 chiều từ WordEntry (language Pali hoặc topic Phật học +
+      meaning không rỗng → entry domain=user nếu chưa có, không ghi đè).
+    - UI: màn "Thuật ngữ dịch" (list/thêm/sửa/khóa/xóa) mở từ Cài đặt
+      engine dịch; chuỗi chrome qua uiText + override English.
+  - **Vòng 2 — ML Kit offline (Android/iOS) + Hindi:** `MlKitEngine`
+    (package `google_mlkit_translation` 0.15.x) — engine dịch CÂU, cắm
+    TRƯỚC online engines trong pipeline. Cặp EN↔VI, EN↔HI; HI↔VI pivot
+    qua EN (2 bước + glossary hai đầu) khi đủ model. Model CHỈ tải khi
+    user bấm "Tải về" trong Cài đặt engine dịch (không auto lúc mở app,
+    cùng quy tắc Whisper). Thiếu model → failure rõ "Chưa tải gói dịch
+    <lang>" — không rơi im lặng về ráp từ. Desktop: isAvailable=false,
+    import không crash.
+  - **Vòng 3:** toggle "Chỉ dùng dịch offline" (persist SharedPreferences);
+    KANBAN card này. (Windows GGUF stub CHƯA làm — chờ PR #8 trên 251e.)
+  - Pipeline `TranslationService`: cache → glossary(protect) → ML Kit →
+    online (nếu mạng + không khóa offline-only) → từ điển offline
+    (last resort) → restore → cache.
+- **File:** thêm `lib/features/translation/glossary/{translation_glossary,
+  protect_tokens,glossary_store,glossary_sheet}.dart`,
+  `lib/features/translation/engines/mlkit_engine.dart`,
+  `assets/glossary/buddhist_pi_en_vi.json`, `test/translation_glossary_test.dart`;
+  sửa `translation_service.dart`, `translation_toolbar.dart`,
+  `vocabulary_provider.dart`, `pubspec.yaml`,
+  `tool/legacy_ui_english_overrides.json` + generated fallbacks, PLAN-019.
+- **Bằng chứng:** `test/translation_glossary_test.dart` (normalize,
+  longest-match, boundary, restore, luật khóa, sync WordEntry, thứ tự
+  tầng pipeline, pivot HI→VI, ML Kit desktop). **Lưu ý:** sandbox KHÔNG
+  có Flutter SDK — chưa chạy `flutter analyze`/`flutter test`; owner cần
+  `flutter pub get` (dependency mới) + chạy CI/test trước nghiệm thu.
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via prompt giao việc (dịch offline +
+    glossary Phật học/Pali + Hindi) | agent arena/01a02ffc-in4up
+  - 2026-08-23 | doing→done | agent arena/01a02ffc-in4up | code + test thuần;
+    cache MD5 kế thừa sẵn trên 251e (không cần path-checkout d8486d3);
+    chưa build máy (sandbox không có Flutter SDK) — chờ CI + nghiệm thu

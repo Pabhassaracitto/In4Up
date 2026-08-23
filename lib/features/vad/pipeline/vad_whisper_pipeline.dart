@@ -155,9 +155,34 @@ class VadWhisperPipeline {
       message: 'Đang quét mốc thời gian im lặng/tiếng nói (VAD)...',
     );
 
+    // ★ (audit VAD 30p): quét VAD file dài giờ async (yield event loop) —
+    // pump progress của nó ra stream để UI vẽ thanh "Đang quét VAD… N%"
+    // thay vì đơ ở "Đang quét mốc thời gian im lặng/tiếng nói (VAD)...".
+    final vadProgressCtrl = StreamController<VadPipelineProgress>();
+    final vadFuture = _vadService.detectSpeechSegments(
+      audioPath,
+      onVadProgress: (f) {
+        try {
+          vadProgressCtrl.add(VadPipelineProgress(
+            status: VadPipelineStatus.vadSegmenting,
+            progress: 0.10 + 0.10 * (f.clamp(0.0, 1.0)),
+            message: 'Đang quét VAD… ${(f * 100).toStringAsFixed(0)}%',
+          ));
+        } catch (_) {}
+      },
+    ).whenComplete(() {
+      try {
+        vadProgressCtrl.close();
+      } catch (_) {}
+    });
+
+    await for (final ev in vadProgressCtrl.stream) {
+      yield ev;
+    }
+
     VadResult vadResult;
     try {
-      vadResult = await _vadService.detectSpeechSegments(audioPath);
+      vadResult = await vadFuture;
     } catch (e) {
       yield VadPipelineProgress(
         status: VadPipelineStatus.error,
@@ -257,6 +282,17 @@ class VadWhisperPipeline {
 
       if (chunk == null) {
         debugPrint('⚠️ Chunk $i null, bỏ qua');
+        continue;
+      }
+
+      // ★ GUARD (audit VAD 30p): extractor cut thất bại trả file GỐC làm
+      // chunk. Nếu cứ transcribe nguyên file 30 phút cho 1 segment 14s sẽ
+      // nhân N_lần thời gian + duplicate toàn bộ text + OOM. Bỏ qua segment.
+      if (chunk.chunkFilePath == audioPath) {
+        debugPrint(
+          '⚠️ Segment $i: không cắt được chunk (FFmpeg lỗi?) — bỏ qua '
+          'THAY VÌ re-transcribe toàn bộ file gốc',
+        );
         continue;
       }
 

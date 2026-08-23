@@ -144,6 +144,58 @@ class SherpaVadCore {
     }
   }
 
+  /// Version async của [detect] — yield event loop định kỳ (mỗi ~8s audio)
+  /// để KHÔNG ĐƠ UI khi quét file dài (30p ≈ 9.400 frame).
+  ///
+  /// ★ FIX 2026-08-23 (audit VAD 30p): [detect] đồng bộ chặn main isolate
+  /// (readWave 11.5MB + ~9.400 lần Silero inference không yield) → UI đơ
+  /// hàng chục giây đến vài phút với file 30 phút. `onProgress(done, total)`
+  /// cho caller vẽ thanh tiến độ.
+  Future<List<SherpaVadSegment>> detectAsync(
+    String wav16kPath, {
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final vad = _vad;
+    if (vad == null) throw StateError('SherpaVadCore đã dispose');
+
+    // Yield TRƯỚC khi readWave (I/O + parse ~11.5MB với 30p) để UI kịp render.
+    await Future<void>.delayed(Duration.zero);
+
+    final wave = sherpa.readWave(wav16kPath);
+    if (wave.samples.isEmpty) {
+      debugPrint('⚠️ SherpaVadCore: readWave trả về rỗng: $wav16kPath');
+      return const [];
+    }
+    if (wave.sampleRate != sampleRate) {
+      debugPrint(
+        '⚠️ SherpaVadCore: cần 16000Hz, nhận được ${wave.sampleRate}Hz '
+        '($wav16kPath) — caller nên convert trước',
+      );
+      return const [];
+    }
+
+    vad.clear();
+    final out = <SherpaVadSegment>[];
+    final numIter = wave.samples.length ~/ windowSize;
+    const yieldEvery = 256; // 256 frame × 32ms ≈ 8s audio
+    for (var i = 0; i < numIter; i++) {
+      final start = i * windowSize;
+      vad.acceptWaveform(
+        Float32List.sublistView(wave.samples, start, start + windowSize),
+      );
+      _drain(vad, out);
+      if (i % yieldEvery == yieldEvery - 1) {
+        onProgress?.call(i + 1, numIter);
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+    // Flush phần speech cuối file (chưa kết thúc bằng silence)
+    vad.flush();
+    _drain(vad, out);
+    onProgress?.call(numIter, numIter);
+    return out;
+  }
+
   /// Xóa state giữa 2 file audio (giữ pointer — không re-init).
   void reset() => _vad?.clear();
 

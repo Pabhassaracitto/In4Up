@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_stt/utils/audio_converter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -120,76 +121,37 @@ class ChunkAudioExtractor {
     }
   }
 
-  /// Cắt bằng FFmpeg: ffmpeg -ss start -i input -t duration -c copy output
-  /// Nếu ffmpeg không có, thử lib ffmpeg_kit hoặc audio_converter
+  /// Cắt bằng FFmpeg: ffmpeg -ss start -i input -t duration -ar 16000 -ac 1
+  ///
+  /// ★ FIX 2026-08-23 (audit VAD 30p): bản cũ chỉ tìm ffmpeg CLI
+  /// (`which`/`where`) — trên Android KHÔNG có binary đó → luôn return false
+  /// → MỌI segment rơi fallback `chunkFilePath = file gốc` → pipeline
+  /// transcribe LẠI TOÀN BỘ file 30 phút cho từng segment (chậm ×N +
+  /// duplicate text + OOM crash nhiều máy). Giờ dùng
+  /// `AudioConverter.cutSegment` — cùng đường FFmpegKit (mobile) /
+  /// Process (desktop) đã chứng minh trong convert/cutSingleChunk.
   Future<bool> _cutWithFFmpeg({
     required String inputPath,
     required String outputPath,
     required double startSeconds,
     required double durationSeconds,
   }) async {
-    try {
-      // Thử tìm ffmpeg binary
-      String? ffmpegBin;
-      try {
-        final result = Process.runSync('which', ['ffmpeg']);
-        if (result.exitCode == 0) {
-          ffmpegBin = (result.stdout as String).trim();
-        }
-      } catch (_) {}
-
-      if (Platform.isWindows) {
-        try {
-          final result = Process.runSync('where', ['ffmpeg']);
-          if (result.exitCode == 0) {
-            ffmpegBin = (result.stdout as String).split('\n').first.trim();
-          }
-        } catch (_) {}
-      }
-
-      if (ffmpegBin == null || ffmpegBin.isEmpty) {
-        // Fallback: thử tạo file rỗng để pipeline không gãy — sẽ được thay bằng AudioConverter sau
-        debugPrint('ℹ️ ffmpeg not found, skipping actual cut, will use fallback');
-        return false;
-      }
-
-      // ffmpeg -y -ss start -i input -t duration -c:a pcm_s16le -ar 16000 -ac 1 output
-      // Dùng -y để overwrite, -c:a pcm_s16le để whisper dễ đọc
-      final args = [
-        '-y',
-        '-ss',
-        startSeconds.toStringAsFixed(3),
-        '-i',
-        inputPath,
-        '-t',
-        durationSeconds.toStringAsFixed(3),
-        '-vn',
-        '-ac',
-        '1',
-        '-ar',
-        '16000',
-        '-c:a',
-        'pcm_s16le',
-        outputPath,
-      ];
-
-      debugPrint('🎬 FFmpeg cut: $ffmpegBin ${args.join(' ')}');
-      final result = await Process.run(ffmpegBin, args);
-
-      if (result.exitCode == 0 && File(outputPath).existsSync()) {
-        final size = File(outputPath).lengthSync();
-        if (size > 1000) {
-          debugPrint('✅ Chunk cut OK: $outputPath size=$size');
-          return true;
-        }
-      }
-
-      debugPrint('❌ FFmpeg cut failed: exit=${result.exitCode} stderr=${result.stderr}');
-      return false;
-    } catch (e) {
-      debugPrint('❌ _cutWithFFmpeg exception: $e');
-      return false;
+    final ok = await AudioConverter.cutSegment(
+      inputPath: inputPath,
+      startSeconds: startSeconds,
+      durationSeconds: durationSeconds,
+      outputPath: outputPath,
+    );
+    if (ok) {
+      final size = File(outputPath).lengthSync();
+      debugPrint('✅ Chunk cut OK: $outputPath size=$size');
+    } else {
+      debugPrint(
+        '❌ Chunk cut failed @${startSeconds}s +${durationSeconds}s '
+        '(FFmpegKit/ffmpeg) — $inputPath → $outputPath',
+      );
     }
+    return ok;
   }
 
   /// Cắt toàn bộ file theo danh sách segments — trả về stream các AudioChunk

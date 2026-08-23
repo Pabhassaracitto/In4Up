@@ -33,7 +33,7 @@
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | ✅ done | CI run 32573825623 (analyze + rule5/ADR-0002 test xanh) |
-| LANG-630-02 | Wave 2 legacy: dịch catalog hard-code 1.615 chuỗi cho T2 — lô 1 (≤16 ký tự) 698/locale ≈ 43% (ADR-0003) | ✅ done lô 1 | ADR-0003 + report legacy (chờ CI) |
+| LANG-630-02 | Wave 2 legacy: dịch catalog hard-code 1.615 chuỗi cho T2 — lô 1 (≤16 ký tự) 698/locale ≈ 43% (ADR-0003) | ✅ done lô 1 | CI run 32620005777 (analyze + rule5/ADR-0002/0003 test xanh) |
 
 ---
 
@@ -399,3 +399,4 @@
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat | xác nhận làm wave 2 sau khi hiểu scope
   - 2026-08-23 | doing→done (lô 1) | agent arena/01a0296a-in4up | 698/locale + hạ tầng ADR-0003; chờ CI
+  - 2026-08-23 | done (xác nhận CI) | agent arena/01a0296a-in4up | CI App Analyze xanh run 32620005777; lô 2 (17-32 ký tự) chờ owner duyệt tiếp

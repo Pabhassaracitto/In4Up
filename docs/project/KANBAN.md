@@ -28,6 +28,7 @@
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
+| LISTEN-823-01 | Tab Nghe: rèm LRC tối đa + AI sheet kéo/ẩn + hết overflow + dịch ở Hiểu | 🔄 doing | code + test resolver, chờ CI |
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
@@ -516,3 +517,22 @@
     chỗ thiếu; CI đầu đỏ do return_of_invalid_type_from_closure (closure
     onGenerate) → fix return type confirmAndGenerateLrc → CI xanh
     run 32650359097; chờ nghiệm thu thiết bị
+
+### LISTEN-823-01 — Tab Nghe: rèm LRC tối đa, AI sheet linh hoạt, dịch ở Hiểu
+- **Trạng thái:** doing
+- **Nguồn:** người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up — thay
+  nhánh quản lý Listen arena/019fe27a-vipsound bị lỗi).
+- **Nội dung:**
+  1. Sau khi tạo/nạp LRC thành công, rèm lời thoại mặc định mở đến chiều cao
+     tối đa an toàn và chạm biên waveform.
+  2. Sửa RenderFlex bottom overflow khoảng 126px khi đã có lời rồi mở AI/model
+     selector: tính budget theo viewport thật của tab, không lấy toàn MediaQuery.
+  3. AI chuyển từ inline panel sang `DraggableScrollableSheet`: nội dung cuộn
+     chung với sheet; kéo xuống đến đáy đóng sheet; chạm vùng ngoài hoặc nút X
+     cũng đóng.
+  4. Tab Hiểu dùng cùng bộ ghép LRC↔TextProvider với tab Nghe, nên bản dịch đã
+     tạo/lưu ở tab Đọc hiện khi bật "Hiện bản dịch" trong cài đặt karaoke.
+- **Bằng chứng:** `test/lrc_translation_resolver_test.dart`; parser Dart không lỗi;
+  `git diff --check` sạch; chờ App Analyze + Locale CI và nghiệm thu thiết bị.
+- **Lịch sử:**
+  - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | nhận 4 yêu cầu từ owner, triển khai code + test

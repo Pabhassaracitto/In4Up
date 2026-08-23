@@ -359,3 +359,18 @@
     (READ-630-02) — mọi cập nhật phải qua hành động người dùng chọn.
 - Lịch sử:
   - 2026-08-23 | created | owner via chat | "khi lưu dạng nhiều text nếu đoạn đã có thì nhận diện + gợi ý hành động (cập nhật, thêm ngữ cảnh nếu mới)"
+
+### PLAN-016 — Tab Nghe: curtain LRC + AI sheet theo thói quen + dịch xuyên tab
+- Nguồn: người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up)
+- Trạng thái: doing
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Khi STT/cached LRC hoàn tất, rèm lời thoại mở tối đa an toàn sát waveform.
+  - AI là bottom sheet riêng có một chuỗi gesture tự nhiên: cuộn nội dung; khi
+    nội dung về đầu thì kéo tiếp hạ cả sheet; kéo hết hoặc chạm ngoài để ẩn.
+  - Layout lấy chiều cao viewport thật của Listen trong shell để loại bỏ bottom
+    overflow khoảng 126px khi LRC + bộ chọn AI cùng xuất hiện.
+  - Tab Hiểu và Nghe dùng chung resolver bản dịch từ `TextProvider`, bảo đảm
+    bản dịch tạo/lưu ở tab Đọc xuất hiện theo cùng cài đặt karaoke.
+- Lịch sử:
+  - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | triển khai LISTEN-823-01, chờ CI + nghiệm thu

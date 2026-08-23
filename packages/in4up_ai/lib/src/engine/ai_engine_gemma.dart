@@ -148,24 +148,36 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
+    // Báo sẵn sàng NGAY — việc load model native có thể mất vài giây (file GGUF
+    // lớn). Message gửi tới trong lúc load sẽ nằm queue ở ReceivePort và được
+    // xử lý sau khi native handle sẵn sàng.
+    init.mainSendPort.send(port.sendPort);
+
+    // Nối backend llama.cpp thật nếu native lib đã được build (Android:
+    // libin4up_ai_native.so; Windows: in4up_ai_native.dll). Nếu không có lib
+    // hoặc model không load được ⇒ fallback mock để app vẫn dùng được.
     final native = init.modelPath.trim().isEmpty
         ? null
         : AiNativeBindings.tryLoad();
     ffi.Pointer<ffi.Void>? nativeHandle;
     if (native != null) {
       nativeHandle = native.create(init.modelPath);
-      if (nativeHandle == ffi.nullptr) nativeHandle = null;
+      if (nativeHandle == ffi.nullptr) {
+        debugPrint('[AiEngineGemma] Native model load failed — mock fallback.');
+        nativeHandle = null;
+      } else {
+        debugPrint('[AiEngineGemma] ✅ Native llama.cpp backend ready.');
+      }
+    } else if (native == null) {
+      debugPrint('[AiEngineGemma] Native lib not found — mock fallback.');
     }
-    init.mainSendPort.send(port.sendPort);
+
     await for (final msg in port) {
       if (msg is _IsolateMessage) {
         try {
           final nativeOutput = native != null && nativeHandle != null
-              ? native.generate(
-                  nativeHandle,
-                  msg.prompt,
-                  temperature: msg.temperature,
-                )
+              ? native.generate(nativeHandle!, msg.prompt,
+                  temperature: msg.temperature)
               : null;
           msg.replyPort.send(_IsolateResponse(
             fullText: nativeOutput ?? _mockInference(msg.prompt),
@@ -177,7 +189,7 @@ class AiEngineGemma implements AiEngine {
       }
     }
     if (native != null && nativeHandle != null) {
-      native.destroy(nativeHandle);
+      native.destroy(nativeHandle!);
     }
   }
 

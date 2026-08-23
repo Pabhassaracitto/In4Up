@@ -39,6 +39,8 @@ class AiServiceFacade extends ChangeNotifier {
   bool get isLoading => _facadeState == AiFacadeState.loading;
   bool get isChatLoading => _facadeState == AiFacadeState.chatting;
   /// True only when a real .gguf is loaded — not mock/startup fallback.
+  /// (Merge 2026-08-22: giữ bản 01a0251e — chặt hơn bản `_initialized && !_useMock`
+  /// của 01a02601, tương thích `_loader.hasModel` + `isReady` đã có trong file.)
   bool get hasModel =>
       !_useMock && _loader.hasModel && isReady;
   String? _lastError;
@@ -157,7 +159,19 @@ class AiServiceFacade extends ChangeNotifier {
     bool useMock = false,
     bool forceReload = false,
   }) async {
-    if (_initialized && !forceReload) return true;
+    // Cho phép chuyển backend giữa phiên chạy (VD: app khởi động ở mock mode,
+    // người dùng import .gguf ⇒ cần re-init sang AiEngineGemma thật).
+    // forceReload (từ 01a0251e): ép init lại dù đã sẵn sàng cùng backend
+    // (VD: đổi file .gguf giữa phiên).
+    if (_initialized) {
+      if (!forceReload && useMock == _useMock) return true;
+      debugPrint(
+          '[AiServiceFacade] (Re)initializing: ${_useMock ? "mock" : "real"} → ${useMock ? "mock" : "real"}');
+      await _engine?.dispose();
+      _engine = null;
+      _initialized = false;
+      _useMock = false;
+    }
     _useMock = useMock;
 
     await _engine?.dispose();

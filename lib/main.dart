@@ -146,9 +146,13 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
         app = await Firebase.initializeApp();
       } catch (e) {
         debugPrint('⚠️ Android native init failed, fallback to options: $e');
-        // Fallback: dùng options theo flavor
+        // Fallback: dùng options theo flavor (androidForFlavor nằm trong
+        // currentPlatform của bản đầy đủ). Lưu ý: CI workflow GHI ĐÈ
+        // lib/firebase_options.dart bằng bản tối giản chỉ có currentPlatform
+        // nên KHÔNG được gọi androidForFlavor trực tiếp ở đây — sẽ lỗi
+        // "Member not found" và đỏ cả 3 nền tảng build.
         app = await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.androidForFlavor,
+          options: DefaultFirebaseOptions.currentPlatform,
         );
       }
     } else if (Platform.isIOS || Platform.isMacOS) {

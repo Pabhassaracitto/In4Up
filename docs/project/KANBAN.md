@@ -37,6 +37,7 @@
 | SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang (chờ CI xanh + nghiệm thu) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
+| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done | code + test thuần (sandbox KHÔNG có Flutter SDK → chờ CI + nghiệm thu thiết bị) |
 
 ---
 
@@ -516,3 +517,52 @@
     chỗ thiếu; CI đầu đỏ do return_of_invalid_type_from_closure (closure
     onGenerate) → fix return type confirmAndGenerateLrc → CI xanh
     run 32650359097; chờ nghiệm thu thiết bị
+
+### XLAT-001 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT)
+- **Trạng thái:** done (code + test thuần; chờ CI + nghiệm thu thiết bị)
+- **Nội dung:**
+  - **Vòng 1 — Glossary + protect-tokens (mọi nền tảng):** module
+    `lib/features/translation/glossary/` (thuần Dart: `translation_glossary.dart`,
+    `protect_tokens.dart` + `glossary_store.dart` Hive box `translation_glossary`).
+    Lookup longest-match trên chuỗi đã normalize (dùng `CanonTokenizer`,
+    Pali có dấu khớp biến thể không dấu), word boundary, tie-break
+    priority (user 100 > hạt giống 0) + domain. Protect = thay hit bằng
+    `__G{n}__` → engine dịch phần còn lại → restore nghĩa khóa. Cache
+    (MD5) lưu câu ĐÃ RESTORE; glossary đổi → clear cache.
+    - Hạt giống 226 mục Pali/EN Phật học → VI: `assets/glossary/buddhist_pi_en_vi.json`
+      (locked=true; chưa có hạt giống HI — chờ bảng từ chủ).
+    - Đồng bộ 1 chiều từ WordEntry (language Pali hoặc topic Phật học +
+      meaning không rỗng → entry domain=user nếu chưa có, không ghi đè).
+    - UI: màn "Thuật ngữ dịch" (list/thêm/sửa/khóa/xóa) mở từ Cài đặt
+      engine dịch; chuỗi chrome qua uiText + override English.
+  - **Vòng 2 — ML Kit offline (Android/iOS) + Hindi:** `MlKitEngine`
+    (package `google_mlkit_translation` 0.15.x) — engine dịch CÂU, cắm
+    TRƯỚC online engines trong pipeline. Cặp EN↔VI, EN↔HI; HI↔VI pivot
+    qua EN (2 bước + glossary hai đầu) khi đủ model. Model CHỈ tải khi
+    user bấm "Tải về" trong Cài đặt engine dịch (không auto lúc mở app,
+    cùng quy tắc Whisper). Thiếu model → failure rõ "Chưa tải gói dịch
+    <lang>" — không rơi im lặng về ráp từ. Desktop: isAvailable=false,
+    import không crash.
+  - **Vòng 3:** toggle "Chỉ dùng dịch offline" (persist SharedPreferences);
+    KANBAN card này. (Windows GGUF stub CHƯA làm — chờ PR #8 trên 251e.)
+  - Pipeline `TranslationService`: cache → glossary(protect) → ML Kit →
+    online (nếu mạng + không khóa offline-only) → từ điển offline
+    (last resort) → restore → cache.
+- **File:** thêm `lib/features/translation/glossary/{translation_glossary,
+  protect_tokens,glossary_store,glossary_sheet}.dart`,
+  `lib/features/translation/engines/mlkit_engine.dart`,
+  `assets/glossary/buddhist_pi_en_vi.json`, `test/translation_glossary_test.dart`;
+  sửa `translation_service.dart`, `translation_toolbar.dart`,
+  `vocabulary_provider.dart`, `pubspec.yaml`,
+  `tool/legacy_ui_english_overrides.json` + generated fallbacks, PLAN-016.
+- **Bằng chứng:** `test/translation_glossary_test.dart` (normalize,
+  longest-match, boundary, restore, luật khóa, sync WordEntry, thứ tự
+  tầng pipeline, pivot HI→VI, ML Kit desktop). **Lưu ý:** sandbox KHÔNG
+  có Flutter SDK — chưa chạy `flutter analyze`/`flutter test`; owner cần
+  `flutter pub get` (dependency mới) + chạy CI/test trước nghiệm thu.
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via prompt giao việc (dịch offline +
+    glossary Phật học/Pali + Hindi) | agent arena/01a02ffc-in4up
+  - 2026-08-23 | doing→done | agent arena/01a02ffc-in4up | code + test thuần;
+    cache MD5 kế thừa sẵn trên 251e (không cần path-checkout d8486d3);
+    chưa build máy (sandbox không có Flutter SDK) — chờ CI + nghiệm thu

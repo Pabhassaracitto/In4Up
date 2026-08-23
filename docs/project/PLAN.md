@@ -359,3 +359,32 @@
     (READ-630-02) — mọi cập nhật phải qua hành động người dùng chọn.
 - Lịch sử:
   - 2026-08-23 | created | owner via chat | "khi lưu dạng nhiều text nếu đoạn đã có thì nhận diện + gợi ý hành động (cập nhật, thêm ngữ cảnh nếu mới)"
+
+### PLAN-016 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT-001)
+- Nguồn: người sở hữu (2026-08-23, qua prompt giao việc cho agent
+  arena/01a02ffc-in4up — "Dịch offline + glossary Phật học / Pali (+ Hindi)")
+- Trạng thái: proposed
+- Milestone đề xuất: ngoài M0–M3 (phạm vi Đọc/Dịch, không đụng knowledge MVA)
+- Chi tiết:
+  - **Vòng 1 (mọi nền tảng):** glossary Hive + lookup longest-match
+    (normalize Pali/Việt qua CanonTokenizer) + protect-tokens `__G{n}__`
+    cắm TRƯỚC mọi engine; hạt giống 226 mục Pali/EN → VI (locked);
+    đồng bộ 1 chiều WordEntry(Pali/Phật học) → glossary domain=user;
+    UI "Thuật ngữ dịch".
+  - **Vòng 2 (Android/iOS):** ML Kit on-device (google_mlkit_translation)
+    — engine dịch câu offline, EN↔VI, EN↔HI; HI↔VI pivot qua EN
+    (2 bước + glossary hai đầu); model chỉ tải khi user bấm; thiếu model
+    → failure rõ, không rơi về ráp từ.
+  - **Vòng 3:** toggle "chỉ offline"; KANBAN XLAT-001.
+  - Pipeline: cache MD5 → glossary → ML Kit → online (nếu mạng + không
+    khóa offline) → từ điển offline (last resort) → restore.
+  - KHÔNG phải RAG/embedding/vector DB. KHÔNG gọi chat GGUF là "dịch giả
+    Phật học". Pali không phải ngôn ngữ MT — Pali = glossary + giữ nguyên + gloss.
+  - **Chưa làm (đề xuất tiếp theo):** Windows `GgufTranslateEngine` stub
+    (chỉ khi PR #8 đã nằm trên 251e); hạt giống HI (chờ bảng từ chủ gửi);
+    seed tiếng HI hiện để trống theo lệnh chủ.
+- Bằng chứng: card XLAT-001 (KANBAN) + test/translation_glossary_test.dart.
+  Lưu ý: sandbox không có Flutter SDK — code + test chưa chạy máy,
+  chờ `flutter pub get` + CI + nghiệm thu thiết bị của chủ.
+- Lịch sử:
+  - 2026-08-23 | created | owner via prompt | "I4U | READ Translate"

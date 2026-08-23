@@ -1568,7 +1568,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Save',
     'th': 'บันทึก',
     'zh': '保存',
-    'zh_TW': '保存',
+    'zh_TW': '儲存',
     'vi': 'Lưu',
   },
   'Xóa': {
@@ -1596,7 +1596,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Delete',
     'th': 'ลบ',
     'zh': '删除',
-    'zh_TW': '删除',
+    'zh_TW': '刪除',
     'vi': 'Xóa',
   },
   'Đóng': {
@@ -1624,7 +1624,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Close',
     'th': 'ปิด',
     'zh': '关闭',
-    'zh_TW': '关闭',
+    'zh_TW': '關閉',
     'vi': 'Đóng',
   },
   'Xác nhận': {
@@ -1680,7 +1680,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Retry',
     'th': 'ลองใหม่',
     'zh': '重试',
-    'zh_TW': '重试',
+    'zh_TW': '重試',
     'vi': 'Thử lại',
   },
   'Sửa': {
@@ -1708,7 +1708,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Edit',
     'th': 'แก้ไข',
     'zh': '编辑',
-    'zh_TW': '编辑',
+    'zh_TW': '編輯',
     'vi': 'Sửa',
   },
   'Thêm': {
@@ -1736,7 +1736,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Add',
     'th': 'เพิ่ม',
     'zh': '添加',
-    'zh_TW': '添加',
+    'zh_TW': '新增',
     'vi': 'Thêm',
   },
   'Gỡ': {
@@ -1876,7 +1876,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Search',
     'th': 'ค้นหา',
     'zh': '搜索',
-    'zh_TW': '搜索',
+    'zh_TW': '搜尋',
     'vi': 'Tìm kiếm',
   },
   'Lọc': {
@@ -1904,7 +1904,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Filter',
     'th': 'กรอง',
     'zh': '筛选',
-    'zh_TW': '筛选',
+    'zh_TW': '篩選',
     'vi': 'Lọc',
   },
   'Sắp xếp': {
@@ -1960,7 +1960,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Settings',
     'th': 'ตั้งค่า',
     'zh': '设置',
-    'zh_TW': '设置',
+    'zh_TW': '設定',
     'vi': 'Cài đặt',
   },
   'Đang tải...': {
@@ -1988,7 +1988,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Loading...',
     'th': 'กำลังโหลด...',
     'zh': '加载中...',
-    'zh_TW': '加载中...',
+    'zh_TW': '載入中...',
     'vi': 'Đang tải...',
   },
   'Không có dữ liệu': {
@@ -2016,7 +2016,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'No data',
     'th': 'ไม่มีข้อมูล',
     'zh': '无数据',
-    'zh_TW': '无数据',
+    'zh_TW': '無資料',
     'vi': 'Không có dữ liệu',
   },
   'Lỗi': {
@@ -2044,7 +2044,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Error',
     'th': 'ข้อผิดพลาด',
     'zh': '错误',
-    'zh_TW': '错误',
+    'zh_TW': '錯誤',
     'vi': 'Lỗi',
   },
   'Thành công': {
@@ -2184,7 +2184,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Redo',
     'th': 'Redo',
     'zh': '重做',
-    'zh_TW': '重做',
+    'zh_TW': '重作',
     'vi': 'Làm lại',
   },
   'Tiếp theo': {
@@ -2324,7 +2324,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Apply',
     'th': 'นำไปใช้',
     'zh': '应用',
-    'zh_TW': '应用',
+    'zh_TW': '套用',
     'vi': 'Áp dụng',
   },
   'Đặt lại': {
@@ -2419,7 +2419,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'de': 'Speichern Notiz',
     'es': 'Guardar Nota',
     'fr': 'Enregistrer Note',
-    'hi': 'सहेजें नोट',
+    'hi': 'नोट सहेजें',
     'id': 'Simpan Catatan',
     'it': 'Salva Nota',
     'ja': '保存 メモ',
@@ -2436,7 +2436,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Save note',
     'th': 'บันทึก บันทึก',
     'zh': '保存 笔记',
-    'zh_TW': '保存 笔记',
+    'zh_TW': '儲存 筆記',
     'vi': 'Lưu ghi chú',
   },
   'Thêm ghi chú': {
@@ -2447,7 +2447,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'de': 'Hinzufügen Notiz',
     'es': 'Añadir Nota',
     'fr': 'Ajouter Note',
-    'hi': 'जोड़ें नोट',
+    'hi': 'नोट जोड़ें',
     'id': 'Tambah Catatan',
     'it': 'Aggiungi Nota',
     'ja': '追加 メモ',
@@ -2464,7 +2464,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Add note',
     'th': 'เพิ่ม บันทึก',
     'zh': '添加 笔记',
-    'zh_TW': '添加 笔记',
+    'zh_TW': '新增 筆記',
     'vi': 'Thêm ghi chú',
   },
   'Sửa ghi chú': {
@@ -2475,7 +2475,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'de': 'Bearbeiten Notiz',
     'es': 'Editar Nota',
     'fr': 'Modifier Note',
-    'hi': 'संपादित करें नोट',
+    'hi': 'नोट संपादित करें',
     'id': 'Edit Catatan',
     'it': 'Modifica Nota',
     'ja': '編集 メモ',
@@ -2492,7 +2492,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Edit note',
     'th': 'แก้ไข บันทึก',
     'zh': '编辑 笔记',
-    'zh_TW': '编辑 笔记',
+    'zh_TW': '編輯 筆記',
     'vi': 'Sửa ghi chú',
   },
   'Xóa ghi chú': {
@@ -2503,7 +2503,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'de': 'Löschen Notiz',
     'es': 'Eliminar Nota',
     'fr': 'Supprimer Note',
-    'hi': 'हटाएं नोट',
+    'hi': 'नोट हटाएं',
     'id': 'Hapus Catatan',
     'it': 'Elimina Nota',
     'ja': '削除 メモ',
@@ -2520,7 +2520,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Delete note',
     'th': 'ลบ บันทึก',
     'zh': '删除 笔记',
-    'zh_TW': '删除 笔记',
+    'zh_TW': '刪除 筆記',
     'vi': 'Xóa ghi chú',
   },
   'Ghi chú': {
@@ -2548,7 +2548,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Note',
     'th': 'บันทึก',
     'zh': '笔记',
-    'zh_TW': '笔记',
+    'zh_TW': '筆記',
     'vi': 'Ghi chú',
   },
   'Đang đọc': {
@@ -2576,7 +2576,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Reading',
     'th': 'การอ่าน',
     'zh': '阅读',
-    'zh_TW': '阅读',
+    'zh_TW': '閱讀',
     'vi': 'Đang đọc',
   },
   'Đang nghe': {
@@ -2604,7 +2604,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Listening',
     'th': 'การฟัง',
     'zh': '听力',
-    'zh_TW': '听力',
+    'zh_TW': '聽力',
     'vi': 'Đang nghe',
   },
   'Nói': {
@@ -2632,7 +2632,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Speaking',
     'th': 'การพูด',
     'zh': '口语',
-    'zh_TW': '口语',
+    'zh_TW': '口語',
     'vi': 'Nói',
   },
   'Viết': {
@@ -2660,7 +2660,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Writing',
     'th': 'การเขียน',
     'zh': '写作',
-    'zh_TW': '写作',
+    'zh_TW': '寫作',
     'vi': 'Viết',
   },
   'Hiểu': {
@@ -2716,7 +2716,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Remembering',
     'th': 'ความจำ',
     'zh': '记忆',
-    'zh_TW': '记忆',
+    'zh_TW': '記憶',
     'vi': 'Nhớ',
   },
   'Học': {
@@ -2744,7 +2744,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Learn',
     'th': 'เรียนรู้',
     'zh': '学习',
-    'zh_TW': '学习',
+    'zh_TW': '學習',
     'vi': 'Học',
   },
   'Ôn tập': {
@@ -2772,7 +2772,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Review',
     'th': 'ทบทวน',
     'zh': '复习',
-    'zh_TW': '复习',
+    'zh_TW': '複習',
     'vi': 'Ôn tập',
   },
   'Luyện tập': {
@@ -2800,7 +2800,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Practice',
     'th': 'ฝึก',
     'zh': '练习',
-    'zh_TW': '练习',
+    'zh_TW': '練習',
     'vi': 'Luyện tập',
   },
   'Dịch': {
@@ -2828,7 +2828,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Translate',
     'th': 'แปล',
     'zh': '翻译',
-    'zh_TW': '翻译',
+    'zh_TW': '翻譯',
     'vi': 'Dịch',
   },
   'Phát âm': {
@@ -2856,7 +2856,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Pronunciation',
     'th': 'การออกเสียง',
     'zh': '发音',
-    'zh_TW': '发音',
+    'zh_TW': '發音',
     'vi': 'Phát âm',
   },
   'Ví dụ': {
@@ -2912,7 +2912,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Meaning',
     'th': 'ความหมาย',
     'zh': '含义',
-    'zh_TW': '含义',
+    'zh_TW': '含義',
     'vi': 'Nghĩa',
   },
   'Định nghĩa': {
@@ -4967,7 +4967,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'de': 'Lesen Notizen',
     'es': 'Lectura Notas',
     'fr': 'Lecture Notes',
-    'hi': 'पढ़ना नोट्स',
+    'hi': 'पठन नोट्स',
     'id': 'Membaca Catatan',
     'it': 'Lettura Note',
     'ja': '読書 メモ',
@@ -4984,7 +4984,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Reading notes',
     'th': 'การอ่าน บันทึก',
     'zh': '阅读 笔记',
-    'zh_TW': '阅读 笔记',
+    'zh_TW': '閱讀 筆記',
     'vi': 'Ghi chú bài đọc',
   },
   'Ghi chú của bạn': {
@@ -5740,7 +5740,7 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'te': 'Error: {error}',
     'th': 'ข้อผิดพลาด {error}',
     'zh': '错误 {error}',
-    'zh_TW': '错误 {error}',
+    'zh_TW': '錯誤 {error}',
     'vi': 'Lỗi: {error}',
   },
   '{flag} Đã đổi bản dịch và giọng đọc sang {language}': {

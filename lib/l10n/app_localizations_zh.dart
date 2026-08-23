@@ -1362,25 +1362,25 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonCancel => '取消';
 
   @override
-  String get commonSave => '保存';
+  String get commonSave => '儲存';
 
   @override
-  String get commonDelete => '删除';
+  String get commonDelete => '刪除';
 
   @override
-  String get commonClose => '关闭';
+  String get commonClose => '關閉';
 
   @override
   String get commonConfirm => '確認';
 
   @override
-  String get commonRetry => '重试';
+  String get commonRetry => '重試';
 
   @override
-  String get commonEdit => '编辑';
+  String get commonEdit => '編輯';
 
   @override
-  String get commonAdd => '添加';
+  String get commonAdd => '新增';
 
   @override
   String get commonRemove => '移除';
@@ -1395,25 +1395,25 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonCopied => '已複製';
 
   @override
-  String get commonSearch => '搜索';
+  String get commonSearch => '搜尋';
 
   @override
-  String get commonFilter => '筛选';
+  String get commonFilter => '篩選';
 
   @override
   String get commonSort => '排序';
 
   @override
-  String get commonSettings => '设置';
+  String get commonSettings => '設定';
 
   @override
-  String get commonLoading => '加载中...';
+  String get commonLoading => '載入中...';
 
   @override
-  String get commonNoData => '无数据';
+  String get commonNoData => '無資料';
 
   @override
-  String get commonError => '错误';
+  String get commonError => '錯誤';
 
   @override
   String get commonSuccess => '成功';
@@ -1428,7 +1428,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonUndo => '復原';
 
   @override
-  String get commonRedo => '重做';
+  String get commonRedo => '重作';
 
   @override
   String get commonNext => '下一步';
@@ -1443,7 +1443,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonDone => '完成';
 
   @override
-  String get commonApply => '应用';
+  String get commonApply => '套用';
 
   @override
   String get commonReset => '重設';
@@ -1458,70 +1458,70 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonDeselect => '取消選擇';
 
   @override
-  String get commonSaveNote => '保存 笔记';
+  String get commonSaveNote => '儲存 筆記';
 
   @override
-  String get commonAddNote => '添加 笔记';
+  String get commonAddNote => '新增 筆記';
 
   @override
-  String get commonEditNote => '编辑 笔记';
+  String get commonEditNote => '編輯 筆記';
 
   @override
-  String get commonDeleteNote => '删除 笔记';
+  String get commonDeleteNote => '刪除 筆記';
 
   @override
-  String get commonNote => '笔记';
+  String get commonNote => '筆記';
 
   @override
-  String get commonNotes => '笔记';
+  String get commonNotes => '筆記';
 
   @override
-  String get commonReading => '阅读';
+  String get commonReading => '閱讀';
 
   @override
-  String get commonListening => '听力';
+  String get commonListening => '聽力';
 
   @override
-  String get commonSpeaking => '口语';
+  String get commonSpeaking => '口語';
 
   @override
-  String get commonWriting => '写作';
+  String get commonWriting => '寫作';
 
   @override
   String get commonUnderstanding => '理解';
 
   @override
-  String get commonRemembering => '记忆';
+  String get commonRemembering => '記憶';
 
   @override
-  String get commonLearn => '学习';
+  String get commonLearn => '學習';
 
   @override
-  String get commonStudy => '学习';
+  String get commonStudy => '學習';
 
   @override
-  String get commonReview => '复习';
+  String get commonReview => '複習';
 
   @override
-  String get commonPractice => '练习';
+  String get commonPractice => '練習';
 
   @override
-  String get commonTranslate => '翻译';
+  String get commonTranslate => '翻譯';
 
   @override
-  String get commonPronunciation => '发音';
+  String get commonPronunciation => '發音';
 
   @override
-  String get commonVocabulary => '词汇';
+  String get commonVocabulary => '詞彙';
 
   @override
-  String get commonGrammar => '语法';
+  String get commonGrammar => '語法';
 
   @override
   String get commonExample => '例子';
 
   @override
-  String get commonMeaning => '含义';
+  String get commonMeaning => '含義';
 
   @override
   String get commonDefinition => '釋義';
@@ -1539,7 +1539,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get readLibrary => '閱讀庫';
 
   @override
-  String get readEmpty => '新增文字開始閱讀\n支援 TXT、LRC、SRT';
+  String get readEmpty => '新增文字開始閱讀
+支援 TXT、LRC、SRT';
 
   @override
   String get readAddDocument => '新增文件';
@@ -1616,7 +1617,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get listenLoop => '循環';
 
   @override
-  String get listenNoContent => '尚無內容\n可從語音辨識產生 LRC';
+  String get listenNoContent => '尚無內容
+可從語音辨識產生 LRC';
 
   @override
   String get understandMode => '理解模式';
@@ -1631,7 +1633,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get understandKaraoke => '卡拉OK歌詞';
 
   @override
-  String get understandNoSync => '在同步分頁長按句子\n或使用設定循環按鈕';
+  String get understandNoSync => '在同步分頁長按句子
+或使用設定循環按鈕';
 
   @override
   String get memoryGarden => '記憶花園';
@@ -1658,7 +1661,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get memoryBloom => '綻放';
 
   @override
-  String get memoryEmptyDesc => '從閱讀頁儲存詞彙\n開始培育你的知識花園';
+  String get memoryEmptyDesc => '從閱讀頁儲存詞彙
+開始培育你的知識花園';
 
   @override
   String get memoryOpenWordlist => '開啟單字表新增單字';
@@ -1763,16 +1767,16 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get webReaderPinnedArticle => '置頂文章';
 
   @override
-  String get webReaderReadNotes => '阅读 笔记';
+  String get webReaderReadNotes => '閱讀 筆記';
 
   @override
   String get webReaderYourNote => '你的筆記';
 
   @override
-  String get webReaderDeleteNote => '删除 笔记';
+  String get webReaderDeleteNote => '刪除 筆記';
 
   @override
-  String get webReaderSaveNoteBtn => '保存 笔记';
+  String get webReaderSaveNoteBtn => '儲存 筆記';
 
   @override
   String get webReaderMarkUnread => '標為未讀';
@@ -1793,7 +1797,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get pdfExtracting => '正在擷取文字...';
 
   @override
-  String get pdfCannotExtract => '無法從此 PDF 擷取文字。\n它可能是掃描版 PDF（圖片）。';
+  String get pdfCannotExtract => '無法從此 PDF 擷取文字。
+它可能是掃描版 PDF（圖片）。';
 
   @override
   String get pdfTextMode => '文字模式 — 完整標記與 TTS 功能';
@@ -1851,7 +1856,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String translationError(Object error) {
-    return '错误 $error';
+    return '錯誤 $error';
   }
 
   @override
@@ -1890,7 +1895,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get translationTranslated => '已翻譯';
 
   @override
-  String get translationTranslate => '翻译';
+  String get translationTranslate => '翻譯';
 
   @override
   String get translationHide => '隱藏';
@@ -1968,7 +1973,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get shadowingStartPractice => '開始練習';
 
   @override
-  String get shadowingSteps => '1. 聽範例\n2. 按下錄音\n3. 跟著範例複誦';
+  String get shadowingSteps => '1. 聽範例
+2. 按下錄音
+3. 跟著範例複誦';
 
   @override
   String get shadowingListeningSample => '正在聽範例...';
@@ -2012,7 +2019,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get shadowingStopRecording => '停止錄音';
 
   @override
-  String get shadowingRetry => '重试';
+  String get shadowingRetry => '重試';
 
   @override
   String get shadowingFinish => '完成';
@@ -2157,7 +2164,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get ytNoVideos => '尚無影片';
 
   @override
-  String get ytSampleData => '正在使用範例資料。\n設定 YouTube Data API v3 金鑰以取得真實影片。';
+  String get ytSampleData => '正在使用範例資料。
+設定 YouTube Data API v3 金鑰以取得真實影片。';
 
   @override
   String get ytGetInfo => '取得資訊';
@@ -2212,7 +2220,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return '準備中 · ${kbps}kbps · $size';
+    return '準備中 · $kbpskbps · $size';
   }
 
   @override
@@ -2261,7 +2269,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '沒有「$lang」的字幕。\n請試其他語言。';
+    return '沒有「$lang」的字幕。
+請試其他語言。';
   }
 
   @override
@@ -2308,7 +2317,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String msgError(Object error) {
-    return '错误 $error';
+    return '錯誤 $error';
   }
 
   @override

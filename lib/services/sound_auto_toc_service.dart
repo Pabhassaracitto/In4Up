@@ -20,6 +20,8 @@ import 'package:in4up_stt/stt_model_manager.dart';
 import 'package:just_waveform/just_waveform.dart' as jw;
 
 import '../models/sound_chapter.dart';
+import '../models/vad_settings.dart';
+import 'audio_library_channel.dart';
 
 /// Một lát cắt thời gian (đoạn) do VAD phát hiện.
 class AudioSlice {
@@ -38,11 +40,15 @@ class SoundAutoTocResult {
   final bool usedWhisper;
   final String? transcriptText;
 
+  /// Lý do không tạo được mục lục (null = thành công) — hiển thị cho người dùng.
+  final String? error;
+
   const SoundAutoTocResult({
     required this.chapters,
     required this.sliceCount,
     required this.usedWhisper,
     this.transcriptText,
+    this.error,
   });
 }
 
@@ -55,6 +61,23 @@ class SoundAutoTocService {
   /// [minSilenceSec] – khoảng lặng tối thiểu để coi là ranh giới đoạn.
   /// [minSegmentSec] – đoạn tối thiểu giữa hai ranh giới.
   static Future<List<AudioSlice>> vadSplit(
+    String audioPath, {
+    Duration? totalDuration,
+    double minSilenceSec = 0.9,
+    double minSegmentSec = 6.0,
+    double thresholdFactor = 0.28,
+  }) async {
+    // content:// (từ MediaStore/SAF) → copy sang cache để File/waveform dùng được.
+    final localPath = await AudioLibraryChannel.copyContentToCache(audioPath);
+    if (localPath == null) return const <AudioSlice>[];
+    return _vadSplitFile(localPath,
+        totalDuration: totalDuration,
+        minSilenceSec: minSilenceSec,
+        minSegmentSec: minSegmentSec,
+        thresholdFactor: thresholdFactor);
+  }
+
+  static Future<List<AudioSlice>> _vadSplitFile(
     String audioPath, {
     Duration? totalDuration,
     double minSilenceSec = 0.9,
@@ -170,6 +193,29 @@ class SoundAutoTocService {
           ));
         }
 
+        // Fallback: audio liền mạch (không có khoảng lặng đủ) → chia đều
+        // theo thời lượng (~60s/đoạn, tối đa 8 đoạn) để vẫn có "mục lục thô".
+        // (Fix: trước đây trả [] → "không tạo được mục lục" dù file nghe bình thường.)
+        if (slices.length < 2 && durationMs >= minSegmentSec * 1000 * 2) {
+          const targetSec = 60;
+          var n = (durationMs / (targetSec * 1000)).ceil();
+          if (n < 2) n = 2;
+          if (n > 8) n = 8;
+          final stepMs = durationMs ~/ n;
+          final fallback = <AudioSlice>[];
+          for (int i = 0; i < n; i++) {
+            final s = i * stepMs;
+            final e = i == n - 1 ? durationMs : (i + 1) * stepMs;
+            if (e - s >= minSegmentSec * 1000) {
+              fallback.add(AudioSlice(
+                start: Duration(milliseconds: s),
+                end: Duration(milliseconds: e),
+              ));
+            }
+          }
+          if (fallback.length >= 2) return fallback;
+        }
+
         if (slices.length < 2) return const <AudioSlice>[];
         return slices;
       } catch (e) {
@@ -186,26 +232,44 @@ class SoundAutoTocService {
   /// [language]: 'vi' | 'en' | 'auto' (D16). Lưu ý: in4up_stt chưa hỗ trợ
   /// auto-detect qua SttConfig.language='auto' (whisper.cpp nhận mã ngôn ngữ
   /// cụ thể) — nên 'auto' được map về 'en' (giữ hành vi cũ), không đổi package.
+  ///
+  /// [level] null → dùng `transcribeAuto` (tự chọn model TỐT NHẤT có sẵn:
+  /// base→tiny→small→medium→large, giống luồng Tạo lời thoại LRC). Trước đây
+  /// cứng `WhisperModelLevel.base` + `transcribeFile` → máy không có model base
+  /// (chỉ tiny/small) thì Whisper fail → "không tạo được mục lục".
   static Future<SttResult?> transcribe(
     String audioPath, {
     WhisperModelLevel? level,
     String language = 'auto',
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
   }) async {
+    // content:// → copy sang cache (ffmpeg/whisper dùng File-based).
+    final localPath = await AudioLibraryChannel.copyContentToCache(audioPath);
+    final effectivePath = localPath ?? audioPath;
     try {
       final facade = SttServiceFacade();
       final effectiveLanguage = language == 'auto' ? 'en' : language;
-      final cfg = SttConfig.deepLearning.copyWith(
-        whisperModel: level ?? WhisperModelLevel.base,
-        language: effectiveLanguage,
-        generateLrc: false,
-        grouping: grouping,
-      );
-      final output = await facade.transcribeFile(
-        audioPath,
-        config: cfg,
-        generateLrc: false,
-      );
+      final SttTranscribeOutput output;
+      if (level == null) {
+        output = await facade.transcribeAuto(
+          effectivePath,
+          language: effectiveLanguage,
+          generateLrc: false,
+          grouping: grouping,
+        );
+      } else {
+        final cfg = SttConfig.deepLearning.copyWith(
+          whisperModel: level,
+          language: effectiveLanguage,
+          generateLrc: false,
+          grouping: grouping,
+        );
+        output = await facade.transcribeFile(
+          effectivePath,
+          config: cfg,
+          generateLrc: false,
+        );
+      }
       if (output.success && output.result.fullText.isNotEmpty) {
         return output.result;
       }
@@ -353,4 +417,60 @@ class SoundAutoTocService {
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
+
+  /// PURE — tính các mốc cắt (ms) từ dãy peak waveform (0..1) + cài đặt VAD.
+  /// Dùng cho preview "mini waveform" trong dialog để người dùng THẤY
+  /// ranh giới đoạn sẽ nằm ở đâu trước khi chạy.
+  static List<int> computeBoundaryMs(
+    List<double> peaks,
+    int durationMs, {
+    required VadSettings settings,
+  }) {
+    if (peaks.length < 6 || durationMs <= 0) return const [];
+
+    // Cửa sổ ~100ms: số mẫu mỗi cửa sổ theo tỷ lệ.
+    final winSize = math.max(1, (peaks.length / durationMs * 100).round());
+    final energies = <double>[];
+    for (int i = 0; i + winSize <= peaks.length; i += winSize) {
+      double sum = 0;
+      for (int j = i; j < i + winSize; j++) {
+        sum += peaks[j].abs();
+      }
+      energies.add(sum / winSize);
+    }
+    if (energies.length < 4) return const [];
+
+    final mean = energies.reduce((a, b) => a + b) / energies.length;
+    final threshold = math.max(0.045, mean * settings.thresholdFactor);
+
+    // Chạy im lặng liên tiếp.
+    final runs = <(int, int)>[];
+    int? runStart;
+    for (int i = 0; i < energies.length; i++) {
+      if (energies[i] < threshold) {
+        runStart ??= i;
+      } else {
+        if (runStart != null) {
+          runs.add((runStart, i - 1));
+          runStart = null;
+        }
+      }
+    }
+    if (runStart != null) runs.add((runStart, energies.length - 1));
+
+    final msPerWin = (durationMs / energies.length).round();
+    final boundaries = <int>[];
+    for (final (s, e) in runs) {
+      final runMs = (e - s + 1) * msPerWin;
+      if (runMs < settings.minSilenceSec * 1000) continue;
+      final mid = ((s + e + 1) ~/ 2) * msPerWin;
+      if (mid < settings.minSegmentSec * 1000) continue;
+      if (mid > durationMs - settings.minSegmentSec * 1000) continue;
+      boundaries.add(mid);
+    }
+    boundaries.sort();
+    return boundaries;
+  }
 }
+
+

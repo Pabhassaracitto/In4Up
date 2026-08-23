@@ -362,7 +362,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get readLibrary => 'पढ़ने की लाइब्रेरी';
 
   @override
-  String get readEmpty => 'पढ़ना शुरू करने के लिए टेक्स्ट जोड़ें\nTXT, LRC, SRT समर्थित';
+  String get readEmpty =>
+      'पढ़ना शुरू करने के लिए टेक्स्ट जोड़ें\nTXT, LRC, SRT समर्थित';
 
   @override
   String get readAddDocument => 'दस्तावेज़ जोड़ें';
@@ -736,8 +737,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get translationSearchLang => 'भाषाएं खोजें…';
 
   @override
-  String get translationSourceIsTarget =>
-      'स्रोत और लक्ष्य भाषा एक ही हैं।';
+  String get translationSourceIsTarget => 'स्रोत और लक्ष्य भाषा एक ही हैं।';
 
   @override
   String get ttsReadingSpeed => 'पढ़ने की गति';
@@ -1043,7 +1043,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return 'तैयार हो रहा है · $kbpskbps · $size';
+    return 'तैयार हो रहा है · ${kbps}kbps · $size';
   }
 
   @override
@@ -1092,7 +1092,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '"$lang" के लिए कैप्शन नहीं हैं।\nदूसरी भाषा आज़माएं।';
+    return '\"$lang\" के लिए कैप्शन नहीं हैं।\nदूसरी भाषा आज़माएं।';
   }
 
   @override
@@ -1123,7 +1123,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ytLinkPlayDone => 'लिंक + चलाएं ✅';
 
   @override
-  String get ytNeedAudioFirst => 'कृपया पहले "ऑडियो" टैब में ऑडियो डाउनलोड करें';
+  String get ytNeedAudioFirst =>
+      'कृपया पहले \"ऑडियो\" टैब में ऑडियो डाउनलोड करें';
 
   @override
   String get ytAudioLyricsLinked => '🎵 ऑडियो + बोल जुड़ गए!';

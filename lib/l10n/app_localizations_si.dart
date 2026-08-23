@@ -362,7 +362,8 @@ class AppLocalizationsSi extends AppLocalizations {
   String get readLibrary => 'කියවීමේ පුස්තකාලය';
 
   @override
-  String get readEmpty => 'කියවීම ආරම්භ කිරීමට පෙළක් එක් කරන්න\nTXT, LRC, SRT සහාය දක්වයි';
+  String get readEmpty =>
+      'කියවීම ආරම්භ කිරීමට පෙළක් එක් කරන්න\nTXT, LRC, SRT සහාය දක්වයි';
 
   @override
   String get readAddDocument => 'ලේඛනයක් එක් කරන්න';
@@ -486,7 +487,8 @@ class AppLocalizationsSi extends AppLocalizations {
       'කියවීම් පිටුවෙන් වචන මාලාව සුරකින්න\nඔබේ දැනුම් උද්‍යානය වැඩෙන්න පටන් ගන්න';
 
   @override
-  String get memoryOpenWordlist => 'නව වචන එක් කිරීමට වචන ලැයිස්තුව විවෘත කරන්න';
+  String get memoryOpenWordlist =>
+      'නව වචන එක් කිරීමට වචන ලැයිස්තුව විවෘත කරන්න';
 
   @override
   String get wordListEmpty => 'තවම වචන මාලාවක් නැත';
@@ -687,7 +689,8 @@ class AppLocalizationsSi extends AppLocalizations {
   }
 
   @override
-  String get translationTranslateAll => 'සියල්ල පරිවර්තනය කරන්න (ඇති ඒවා මඟහරින්න)';
+  String get translationTranslateAll =>
+      'සියල්ල පරිවර්තනය කරන්න (ඇති ඒවා මඟහරින්න)';
 
   @override
   String get translationRetranslateAll => 'සියල්ල නැවත පරිවර්තනය කරන්න';
@@ -736,8 +739,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get translationSearchLang => 'භාෂා සොයන්න…';
 
   @override
-  String get translationSourceIsTarget =>
-      'මූල සහ ඉලක්ක භාෂාව එකමයි.';
+  String get translationSourceIsTarget => 'මූල සහ ඉලක්ක භාෂාව එකමයි.';
 
   @override
   String get ttsReadingSpeed => 'කියවීමේ වේගය';
@@ -1043,7 +1045,7 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return 'සූදානම් වෙමින් · $kbpskbps · $size';
+    return 'සූදානම් වෙමින් · ${kbps}kbps · $size';
   }
 
   @override
@@ -1092,7 +1094,7 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '"$lang" සඳහා උපසිරැසි නැත.\nවෙනත් භාෂාවක් උත්සාහ කරන්න.';
+    return '\"$lang\" සඳහා උපසිරැසි නැත.\nවෙනත් භාෂාවක් උත්සාහ කරන්න.';
   }
 
   @override
@@ -1123,7 +1125,8 @@ class AppLocalizationsSi extends AppLocalizations {
   String get ytLinkPlayDone => 'සබැඳීම + වාදනය ✅';
 
   @override
-  String get ytNeedAudioFirst => 'කරුණාකර පළමුව "ඕඩියෝ" පිටුවෙන් ඕඩියෝව බාගන්න';
+  String get ytNeedAudioFirst =>
+      'කරුණාකර පළමුව \"ඕඩියෝ\" පිටුවෙන් ඕඩියෝව බාගන්න';
 
   @override
   String get ytAudioLyricsLinked => '🎵 ඕඩියෝ + පද යා විය!';

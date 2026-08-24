@@ -42,8 +42,12 @@ class AiModelConfig {
 
   /// URL download backup (Tầng C) - thay bằng server của bạn
   /// Không dùng Firebase Storage
-  static const String downloadUrl =
-      'https://your-server.com/models/gemma-2b-it-q4_k_m.gguf';
+  static const String downloadUrl = defaultDownloadUrl;
+
+  /// URL mẫu (HuggingFace) cho Gemma-2-2B-it Q4_K_M (~1.5GB) — dùng cho nút
+  /// "Tải về" trong trung tâm model; người dùng sửa được trong dialog.
+  static const String defaultDownloadUrl =
+      'https://huggingface.co/cognitivecomputations/Gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
 
   /// MD5 hash để verify sau download (optional)
   static const String? expectedMd5 = null;
@@ -57,10 +61,18 @@ class AiModelLoader {
 
   String? _cachedModelPath;
   ModelSource _currentSource = ModelSource.none;
+  String? _currentModelName;
+  int? _currentModelSizeBytes;
 
   String? get currentModelPath => _cachedModelPath;
   ModelSource get currentSource => _currentSource;
   bool get hasModel => _cachedModelPath != null;
+
+  /// Tên file model hiện tại (cho UI).
+  String? get currentModelName => _currentModelName;
+
+  /// Dung lượng model hiện tại bằng bytes (null nếu chưa biết).
+  int? get currentModelSizeBytes => _currentModelSizeBytes;
 
   // ── Entry Point ──────────────────────────────────────────
 
@@ -403,14 +415,43 @@ class AiModelLoader {
   void _cacheResult(ModelLoadResult result) {
     _cachedModelPath = result.modelPath;
     _currentSource = result.source;
+    _currentModelName = result.modelPath != null
+        ? result.modelPath!.split(RegExp(r'[/\\]')).last
+        : null;
+    _currentModelSizeBytes = null;
+  }
+
+  /// Đo kích thước file model đã cache (gọi sau [_cacheResult]).
+  Future<void> _rememberFileSize() async {
+    final path = _cachedModelPath;
+    if (path == null) return;
+    try {
+      _currentModelSizeBytes = await File(path).length();
+    } catch (_) {
+      _currentModelSizeBytes = null;
+    }
   }
 
   /// Xóa model đã lưu (để user chọn lại)
   Future<void> clearCachedModel() async {
     _cachedModelPath = null;
     _currentSource = ModelSource.none;
+    _currentModelName = null;
+    _currentModelSizeBytes = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AiModelConfig._prefKeyModelPath);
+  }
+
+  /// Xóa file model khỏi thiết bị + clear cache (nút "Xóa" trong trung tâm model).
+  Future<void> removeModel() async {
+    final path = _cachedModelPath;
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    await clearCachedModel();
   }
 
   /// Thông tin model hiện tại để hiển thị UI

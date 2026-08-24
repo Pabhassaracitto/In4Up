@@ -63,7 +63,7 @@ ehthumbs.db
 Desktop.ini
 
 # IDE
-.vscode/
+.vscode/*
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
@@ -148,3 +148,8 @@ android/app/google-services.json
 !assets/whisper_models/.gitkeep
 !ios/Runner.xcodeproj/project.pbxproj
 setup-env.ps1
+
+# Local offline models for VS Code / desktop debug (không ship APK)
+dev_models/**
+!dev_models/README.md
+!dev_models/**/.gitkeep

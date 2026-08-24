@@ -267,6 +267,8 @@ class TextSourceLoader {
     }
 
     var text = out.toString();
+    // Word/proofing hay chèn ZWSP / soft-hyphen → chữ Việt trông rời.
+    text = text.replaceAll(RegExp(r'[\u00AD\u200B\u200C\u200D\uFEFF]'), '');
     text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');
     text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
     return text.trim();

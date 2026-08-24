@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
 import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
@@ -918,16 +919,26 @@ class _PiperModelCardState extends State<_PiperModelCard> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Bước tiếp theo:\n'
-                '1. Mở file này bằng app giải nén (ZArchiver / RAR / Files).\n'
-                '2. Chọn thư mục vừa giải nén (chứa *.onnx + tokens.txt + '
-                'espeak-ng-data/).\n'
-                '3. Quay lại đây bấm "Import thư mục" và chọn thư mục đó.',
+                'File nằm trong bộ nhớ riêng của app — không phải thư mục '
+                'Tải về công khai. User thường không vào được '
+                'Android/data/com.in4up.dev (chỉ bản flavor dev).\n\n'
+                'Bước tiếp theo (trong app):\n'
+                '1. Bấm Chia sẻ → mở bằng ZArchiver / RAR / Files rồi giải nén.\n'
+                '2. Quay lại đây bấm Import thư mục (được chọn cả thư mục cha; '
+                'app tìm .onnx cả thư mục con).\n'
+                '3. Không cần tự chép vào com.in4up / com.in4up.dev.',
                 style: TextStyle(fontSize: 13),
               ),
             ],
           ),
           actions: [
+            if (exists)
+              TextButton(
+                onPressed: () {
+                  Share.shareXFiles([XFile(savedPath)]);
+                },
+                child: const Text('Chia sẻ / mở bằng app khác'),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('OK'),

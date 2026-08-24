@@ -377,14 +377,16 @@ class SherpaModelManager {
     var copiedJson = 0;
 
     try {
-      for (final entity in dir.listSync(followLinks: true)) {
+      // Recurse: user hay chọn thư mục cha (Downloads) trong khi
+      // vits-piper-*/file.onnx nằm 1-2 tầng dưới.
+      for (final entity in dir.listSync(recursive: true, followLinks: true)) {
         if (entity is! File) continue;
         final name = p.basename(entity.path);
         final rel = p.relative(entity.path, from: folderPath);
-        final relLower = rel.toLowerCase();
+        final relLower = rel.toLowerCase().replaceAll('\\', '/');
 
-        // espeak-ng-data: copy recursive vào chỗ dùng chung
-        if (relLower.startsWith('${SherpaPiperTtsCore.espeakDataFolder}${p.context.separator}')) {
+        // espeak-ng-data: giữ cấu trúc, bỏ qua file rác phoneme
+        if (relLower.contains('${SherpaPiperTtsCore.espeakDataFolder}/')) {
           final dest = File(p.join(destDir, rel));
           if (!dest.existsSync()) {
             await dest.parent.create(recursive: true);
@@ -393,11 +395,7 @@ class SherpaModelManager {
           continue;
         }
 
-        // Chỉ nhận file ở TẦNG GỐC của thư mục giọng
-        // (tránh chôn vùi file rác bên trong espeak-ng-data).
-        if (rel.contains(p.context.separator)) continue;
-
-        if (name.endsWith('.onnx')) {
+        if (name.endsWith('.onnx') && !name.endsWith('.onnx.json')) {
           await entity.copy(p.join(destDir, name));
           copiedOnnx++;
         } else if (name == 'tokens.txt' || name.endsWith('_tokens.txt')) {
@@ -413,7 +411,9 @@ class SherpaModelManager {
     }
 
     if (copiedOnnx == 0) {
-      return 'Không tìm thấy file .onnx trong thư mục này';
+      return 'Không tìm thấy file .onnx trong thư mục này '
+          '(kể cả thư mục con). Chọn đúng thư mục đã giải nén '
+          'vits-piper-* — phải có file .onnx.';
     }
 
     await rescan();

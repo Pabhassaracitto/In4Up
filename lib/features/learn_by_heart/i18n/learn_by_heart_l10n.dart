@@ -122,6 +122,26 @@ class LearnByHeartL10n {
         'si': 'ගාථා අංකය, මූල පද, මාතෘකාව, පාලි අනුව සොයන්න...',
       });
 
+  /// Chip lọc "Tất cả thể loại" (hub screen).
+  String get allCategories => _get({
+        'vi': 'Tất cả thể loại',
+        'en': 'All categories',
+        'hi': 'सभी श्रेणियाँ',
+        'zh': '全部分类',
+        'zh_TW': '全部分類',
+        'si': 'සියලු වර්ග',
+      });
+
+  /// Chip lọc "Tất cả trạng thái" (hub screen).
+  String get allStates => _get({
+        'vi': 'Tất cả trạng thái',
+        'en': 'All states',
+        'hi': 'सभी स्थितियाँ',
+        'zh': '全部状态',
+        'zh_TW': '全部狀態',
+        'si': 'සියලු තත්ත්ව',
+      });
+
   // ===== 4 CẤP ĐỘ BỐC HƠI CHỮ (VANISHING CLOZE) =====
   String get vanishingScaffolding => _get({
         'vi': 'Tầng Bốc Hơi Chữ (Vanishing Scaffolding)',

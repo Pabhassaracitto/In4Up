@@ -500,3 +500,5 @@ class _AppErrorScreen extends StatelessWidget {
     );
   }
 }
+
+// bisect9: T3 - method unused

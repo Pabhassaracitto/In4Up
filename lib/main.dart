@@ -511,4 +511,4 @@ class _AppErrorScreen extends StatelessWidget {
   }
 }
 
-// ci: bisect R3 - engine trio fixed + NEW loader, old facade (trigger paths-filter)
+// ci: bisect R4 - R3 + loader _copyFileWithProgress fix (trigger paths-filter)

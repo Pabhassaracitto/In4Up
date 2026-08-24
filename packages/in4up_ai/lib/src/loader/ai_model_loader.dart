@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
@@ -431,16 +432,20 @@ class AiModelLoader {
     void Function(double progress)? onProgress,
   }) async {
     final total = await src.length();
-    final rs = src.openRead();
+    // FIX 251e (bisect R3, CI 32788713417): bản 01a02a4a dùng API sai —
+    // `openRead()/openWrite()` trả Future (không await) + `rs.read(...)` /
+    // `ws.add(...)` không tồn tại trên RandomAccessFile ⇒ 4 lỗi
+    // "method isn't defined for type Future<RandomAccessFile>".
+    final rs = await src.openRead();
     try {
-      final ws = dest.openWrite();
+      final ws = await dest.openWrite();
       try {
         var copied = 0;
-        final buffer = List<int>.filled(8 * 1024 * 1024, 0);
+        final buffer = Uint8List(8 * 1024 * 1024);
         while (true) {
-          final n = await rs.read(buffer, 0, buffer.length);
+          final n = await rs.readInto(buffer, 0, buffer.length);
           if (n == 0) break;
-          ws.add(buffer.sublist(0, n));
+          await ws.writeFrom(buffer, 0, n);
           copied += n;
           if (total > 0) onProgress?.call(copied / total);
         }

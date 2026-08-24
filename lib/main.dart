@@ -500,3 +500,5 @@ class _AppErrorScreen extends StatelessWidget {
     );
   }
 }
+
+// bisect3: engine trio + loader fixed, facade/UI old

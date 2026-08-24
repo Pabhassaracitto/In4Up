@@ -17,6 +17,9 @@ class AiEngineMock implements AiEngine {
   }
 
   @override
+  Future<void> get modelReady => Future.value();
+
+  @override
   Stream<AiAnalysis> analyze({
     required String text,
     required AiAnalysisType type,

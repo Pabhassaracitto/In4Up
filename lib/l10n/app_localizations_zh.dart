@@ -1179,6 +1179,102 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => '介面設定';
+
+  @override
+  String get shellUiSettingsSubtitle => '精简模式、自动隐藏、长按切换模式';
+
+  @override
+  String get learnByHeart => '熟记';
+
+  @override
+  String get learnByHeartSubtitle => '法句经、诵经与有意义的段落';
+
+  @override
+  String get soundList => '音频目录';
+
+  @override
+  String get soundListSubtitle => '分数、章节与音频目录';
+
+  @override
+  String get lhb_0 => '稍后';
+
+  @override
+  String get lhb_1 => '立即检查';
+
+  @override
+  String get lhb_2 => '深度评估';
+
+  @override
+  String get lhb_3 => '填空';
+
+  @override
+  String get lhb_4 => '意义 → 经文';
+
+  @override
+  String get lhb_5 => '聆听并继续阅读';
+
+  @override
+  String get lhb_6 => '显示答案以比对';
+
+  @override
+  String get lhb_7 => '播放前半句';
+
+  @override
+  String get lhb_8 => '显示剩余内容以检查';
+
+  @override
+  String get lhb_9 => '返回';
+
+  @override
+  String get lhb_10 => '下一步';
+
+  @override
+  String get lhb_11 => '新增诵经内容';
+
+  @override
+  String get lhb_12 => '还原内置示例';
+
+  @override
+  String get lhb_13 => '新增内容';
+
+  @override
+  String get lhb_14 => '所有类别';
+
+  @override
+  String get lhb_15 => '所有状态';
+
+  @override
+  String get lhb_16 => '复习主动回想';
+
+  @override
+  String get lhb_17 => '循序学习';
+
+  @override
+  String get lhb_18 => '编辑';
+
+  @override
+  String get lhb_19 => '删除内容';
+
+  @override
+  String get lhb_20 => '确认删除';
+
+  @override
+  String get lhb_21 => '确定要删除此课程吗？复习进度将会丢失。';
+
+  @override
+  String get lhb_22 => '取消';
+
+  @override
+  String get lhb_23 => '删除';
+
+  @override
+  String get lhb_24 => '还原示例数据';
+
+  @override
+  String get lhb_25 => '还原';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -1539,8 +1635,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get readLibrary => '閱讀庫';
 
   @override
-  String get readEmpty => '新增文字開始閱讀
-支援 TXT、LRC、SRT';
+  String get readEmpty => '新增文字開始閱讀\n支援 TXT、LRC、SRT';
 
   @override
   String get readAddDocument => '新增文件';
@@ -1617,8 +1712,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get listenLoop => '循環';
 
   @override
-  String get listenNoContent => '尚無內容
-可從語音辨識產生 LRC';
+  String get listenNoContent => '尚無內容\n可從語音辨識產生 LRC';
 
   @override
   String get understandMode => '理解模式';
@@ -1633,8 +1727,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get understandKaraoke => '卡拉OK歌詞';
 
   @override
-  String get understandNoSync => '在同步分頁長按句子
-或使用設定循環按鈕';
+  String get understandNoSync => '在同步分頁長按句子\n或使用設定循環按鈕';
 
   @override
   String get memoryGarden => '記憶花園';
@@ -1661,8 +1754,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get memoryBloom => '綻放';
 
   @override
-  String get memoryEmptyDesc => '從閱讀頁儲存詞彙
-開始培育你的知識花園';
+  String get memoryEmptyDesc => '從閱讀頁儲存詞彙\n開始培育你的知識花園';
 
   @override
   String get memoryOpenWordlist => '開啟單字表新增單字';
@@ -1797,8 +1889,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get pdfExtracting => '正在擷取文字...';
 
   @override
-  String get pdfCannotExtract => '無法從此 PDF 擷取文字。
-它可能是掃描版 PDF（圖片）。';
+  String get pdfCannotExtract => '無法從此 PDF 擷取文字。\n它可能是掃描版 PDF（圖片）。';
 
   @override
   String get pdfTextMode => '文字模式 — 完整標記與 TTS 功能';
@@ -1973,9 +2064,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get shadowingStartPractice => '開始練習';
 
   @override
-  String get shadowingSteps => '1. 聽範例
-2. 按下錄音
-3. 跟著範例複誦';
+  String get shadowingSteps => '1. 聽範例\n2. 按下錄音\n3. 跟著範例複誦';
 
   @override
   String get shadowingListeningSample => '正在聽範例...';
@@ -2164,8 +2253,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get ytNoVideos => '尚無影片';
 
   @override
-  String get ytSampleData => '正在使用範例資料。
-設定 YouTube Data API v3 金鑰以取得真實影片。';
+  String get ytSampleData => '正在使用範例資料。\n設定 YouTube Data API v3 金鑰以取得真實影片。';
 
   @override
   String get ytGetInfo => '取得資訊';
@@ -2220,7 +2308,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return '準備中 · $kbpskbps · $size';
+    return '準備中 · ${kbps}kbps · $size';
   }
 
   @override
@@ -2269,8 +2357,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '沒有「$lang」的字幕。
-請試其他語言。';
+    return '沒有「$lang」的字幕。\n請試其他語言。';
   }
 
   @override
@@ -2365,4 +2452,100 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => '介面設定';
+
+  @override
+  String get shellUiSettingsSubtitle => '精簡模式、自動隱藏、長按切換模式';
+
+  @override
+  String get learnByHeart => '熟記';
+
+  @override
+  String get learnByHeartSubtitle => '法句經、誦經與有意義的段落';
+
+  @override
+  String get soundList => '音訊目錄';
+
+  @override
+  String get soundListSubtitle => '分數、章節與音訊目錄';
+
+  @override
+  String get lhb_0 => '稍後';
+
+  @override
+  String get lhb_1 => '立即檢查';
+
+  @override
+  String get lhb_2 => '深度評估';
+
+  @override
+  String get lhb_3 => '填空';
+
+  @override
+  String get lhb_4 => '意義 → 經文';
+
+  @override
+  String get lhb_5 => '聆聽並繼續閱讀';
+
+  @override
+  String get lhb_6 => '顯示答案以比對';
+
+  @override
+  String get lhb_7 => '播放前半句';
+
+  @override
+  String get lhb_8 => '顯示剩餘內容以檢查';
+
+  @override
+  String get lhb_9 => '返回';
+
+  @override
+  String get lhb_10 => '下一步';
+
+  @override
+  String get lhb_11 => '新增誦經內容';
+
+  @override
+  String get lhb_12 => '還原內建範例';
+
+  @override
+  String get lhb_13 => '新增內容';
+
+  @override
+  String get lhb_14 => '所有類別';
+
+  @override
+  String get lhb_15 => '所有狀態';
+
+  @override
+  String get lhb_16 => '複習主動回想';
+
+  @override
+  String get lhb_17 => '循序學習';
+
+  @override
+  String get lhb_18 => '編輯';
+
+  @override
+  String get lhb_19 => '刪除內容';
+
+  @override
+  String get lhb_20 => '確認刪除';
+
+  @override
+  String get lhb_21 => '確定要刪除此課程嗎？複習進度將會遺失。';
+
+  @override
+  String get lhb_22 => '取消';
+
+  @override
+  String get lhb_23 => '刪除';
+
+  @override
+  String get lhb_24 => '還原範例資料';
+
+  @override
+  String get lhb_25 => '還原';
 }

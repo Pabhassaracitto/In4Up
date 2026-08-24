@@ -1188,4 +1188,103 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'thế giới';
+
+  @override
+  String get shellUiSettings => 'Giao diện shell';
+
+  @override
+  String get shellUiSettingsSubtitle =>
+      'Compact mode, auto-hide, long-press đổi mode';
+
+  @override
+  String get learnByHeart => 'Thuộc lòng (Learn by Heart)';
+
+  @override
+  String get learnByHeartSubtitle =>
+      'Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa';
+
+  @override
+  String get soundList => 'Âm mục';
+
+  @override
+  String get soundListSubtitle => 'Điểm, đoạn & mục lục âm thanh';
+
+  @override
+  String get lhb_0 => 'Để sau';
+
+  @override
+  String get lhb_1 => 'Kiểm tra ngay';
+
+  @override
+  String get lhb_2 => 'Kiểm tra thực chất';
+
+  @override
+  String get lhb_3 => 'Điền khuyết';
+
+  @override
+  String get lhb_4 => 'Ý nghĩa → Kinh';
+
+  @override
+  String get lhb_5 => 'Nghe & Đọc tiếp';
+
+  @override
+  String get lhb_6 => 'Xem đáp án để đối chiếu';
+
+  @override
+  String get lhb_7 => 'Phát nửa câu đầu';
+
+  @override
+  String get lhb_8 => 'Hiện phần còn lại để kiểm tra';
+
+  @override
+  String get lhb_9 => 'Quay lại';
+
+  @override
+  String get lhb_10 => 'Tiếp theo';
+
+  @override
+  String get lhb_11 => 'Thêm bài kinh mới';
+
+  @override
+  String get lhb_12 => 'Khôi phục mẫu gốc';
+
+  @override
+  String get lhb_13 => 'Thêm bài mới';
+
+  @override
+  String get lhb_14 => 'Tất cả thể loại';
+
+  @override
+  String get lhb_15 => 'Tất cả trạng thái';
+
+  @override
+  String get lhb_16 => 'Ôn Active Recall';
+
+  @override
+  String get lhb_17 => 'Học cuốn chiếu';
+
+  @override
+  String get lhb_18 => 'Chỉnh sửa';
+
+  @override
+  String get lhb_19 => 'Xóa bài';
+
+  @override
+  String get lhb_20 => 'Xác nhận xóa';
+
+  @override
+  String get lhb_21 =>
+      'Bạn có chắc muốn xóa bài học này không? Tiến trình ôn tập sẽ bị mất.';
+
+  @override
+  String get lhb_22 => 'Hủy';
+
+  @override
+  String get lhb_23 => 'Xóa';
+
+  @override
+  String get lhb_24 => 'Khôi phục dữ liệu mẫu';
+
+  @override
+  String get lhb_25 => 'Khôi phục';
 }

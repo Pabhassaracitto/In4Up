@@ -440,8 +440,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get listenLoop => 'लूप';
 
   @override
-  String get listenNoContent => 'कोई सामग्री नहीं
-STT से LRC बनाएं';
+  String get listenNoContent => 'कोई सामग्री नहीं\nSTT से LRC बनाएं';
 
   @override
   String get understandMode => 'समझने का मोड';
@@ -1044,7 +1043,7 @@ STT से LRC बनाएं';
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return 'तैयार हो रहा है · $kbpskbps · $size';
+    return 'तैयार हो रहा है · ${kbps}kbps · $size';
   }
 
   @override
@@ -1093,8 +1092,7 @@ STT से LRC बनाएं';
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '"$lang" के लिए कैप्शन नहीं हैं।
-दूसरी भाषा आज़माएं।';
+    return '\"$lang\" के लिए कैप्शन नहीं हैं।\nदूसरी भाषा आज़माएं।';
   }
 
   @override
@@ -1190,4 +1188,102 @@ STT से LRC बनाएं';
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => 'शेल इंटरफ़ेस';
+
+  @override
+  String get shellUiSettingsSubtitle =>
+      'कॉम्पैक्ट मोड, ऑटो-हाइड, मोड बदलने के लिए देर तक दबाएं';
+
+  @override
+  String get learnByHeart => 'मन लगाकर याद करना';
+
+  @override
+  String get learnByHeartSubtitle => 'धम्मपद, पाठ और अर्थपूर्ण अंश';
+
+  @override
+  String get soundList => 'ध्वनि सूची';
+
+  @override
+  String get soundListSubtitle => 'स्कोर, अध्याय और ऑडियो विषय-सूची';
+
+  @override
+  String get lhb_0 => 'बाद में';
+
+  @override
+  String get lhb_1 => 'अभी जाँचें';
+
+  @override
+  String get lhb_2 => 'विस्तृत मूल्यांकन';
+
+  @override
+  String get lhb_3 => 'रिक्त स्थान भरें';
+
+  @override
+  String get lhb_4 => 'अर्थ → श्लोक';
+
+  @override
+  String get lhb_5 => 'सुनें और पढ़ना जारी रखें';
+
+  @override
+  String get lhb_6 => 'तुलना के लिए उत्तर दिखाएँ';
+
+  @override
+  String get lhb_7 => 'पहला आधा वाक्य चलाएँ';
+
+  @override
+  String get lhb_8 => 'जाँचने के लिए शेष भाग दिखाएँ';
+
+  @override
+  String get lhb_9 => 'वापस';
+
+  @override
+  String get lhb_10 => 'अगला';
+
+  @override
+  String get lhb_11 => 'नया पाठ जोड़ें';
+
+  @override
+  String get lhb_12 => 'मूल नमूने पुनर्स्थापित करें';
+
+  @override
+  String get lhb_13 => 'नया पाठ जोड़ें';
+
+  @override
+  String get lhb_14 => 'सभी श्रेणियाँ';
+
+  @override
+  String get lhb_15 => 'सभी स्थितियाँ';
+
+  @override
+  String get lhb_16 => 'Active Recall का अभ्यास करें';
+
+  @override
+  String get lhb_17 => 'क्रमिक सीखना';
+
+  @override
+  String get lhb_18 => 'संपादित करें';
+
+  @override
+  String get lhb_19 => 'पाठ हटाएँ';
+
+  @override
+  String get lhb_20 => 'हटाने की पुष्टि करें';
+
+  @override
+  String get lhb_21 =>
+      'क्या आप यह पाठ हटाना चाहते हैं? समीक्षा प्रगति खो जाएगी।';
+
+  @override
+  String get lhb_22 => 'रद्द करें';
+
+  @override
+  String get lhb_23 => 'हटाएँ';
+
+  @override
+  String get lhb_24 => 'नमूना डेटा पुनर्स्थापित करें';
+
+  @override
+  String get lhb_25 => 'पुनर्स्थापित करें';
 }

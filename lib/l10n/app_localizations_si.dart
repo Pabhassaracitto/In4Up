@@ -1190,4 +1190,102 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => 'අතුරු මුහුණත සැකසුම්';
+
+  @override
+  String get shellUiSettingsSubtitle =>
+      'සංක්ෂිප්ත මාදිලිය, ස්වයංක්‍රීය සඟවීම, මාදිලිය වෙනස් කිරීමට දිගු ඔබන්න';
+
+  @override
+  String get learnByHeart => 'කටපාඩම් කිරීම';
+
+  @override
+  String get learnByHeartSubtitle => 'ධම්මපදය, සජ්ඣායනා සහ අර්ථවත් කොටස්';
+
+  @override
+  String get soundList => 'ශ්‍රව්‍ය ලැයිස්තුව';
+
+  @override
+  String get soundListSubtitle => 'ලකුණු, පරිච්ඡේද සහ ශ්‍රව්‍ය අන්තර්ගත වගුව';
+
+  @override
+  String get lhb_0 => 'පසුව';
+
+  @override
+  String get lhb_1 => 'දැන් පරීක්ෂා කරන්න';
+
+  @override
+  String get lhb_2 => 'ගැඹුරු ඇගයීම';
+
+  @override
+  String get lhb_3 => 'හිස් තැන් පුරවන්න';
+
+  @override
+  String get lhb_4 => 'අර්ථය → ගාථාව';
+
+  @override
+  String get lhb_5 => 'සවන් දී කියවීම දිගටම කරගෙන යන්න';
+
+  @override
+  String get lhb_6 => 'සසඳා බැලීමට පිළිතුර පෙන්වන්න';
+
+  @override
+  String get lhb_7 => 'පළමු භාගය වාදනය කරන්න';
+
+  @override
+  String get lhb_8 => 'පරීක්ෂා කිරීමට ඉතිරිය පෙන්වන්න';
+
+  @override
+  String get lhb_9 => 'ආපසු';
+
+  @override
+  String get lhb_10 => 'ඊළඟ';
+
+  @override
+  String get lhb_11 => 'නව සජ්ඣායනයක් එක් කරන්න';
+
+  @override
+  String get lhb_12 => 'මුල් සාම්පල ප්‍රතිසාධනය කරන්න';
+
+  @override
+  String get lhb_13 => 'නව අයිතමයක් එක් කරන්න';
+
+  @override
+  String get lhb_14 => 'සියලු කාණ්ඩ';
+
+  @override
+  String get lhb_15 => 'සියලු තත්ත්ව';
+
+  @override
+  String get lhb_16 => 'Active Recall පුනරීක්ෂණය';
+
+  @override
+  String get lhb_17 => 'ක්‍රමික ඉගෙනීම';
+
+  @override
+  String get lhb_18 => 'සංස්කරණය';
+
+  @override
+  String get lhb_19 => 'අයිතමය මකන්න';
+
+  @override
+  String get lhb_20 => 'මැකීම තහවුරු කරන්න';
+
+  @override
+  String get lhb_21 =>
+      'මෙම පාඩම මැකීමට ඔබට විශ්වාසද? පුනරීක්ෂණ ප්‍රගතිය නැති වේ.';
+
+  @override
+  String get lhb_22 => 'අවලංගු කරන්න';
+
+  @override
+  String get lhb_23 => 'මකන්න';
+
+  @override
+  String get lhb_24 => 'සාම්පල දත්ත ප්‍රතිසාධනය කරන්න';
+
+  @override
+  String get lhb_25 => 'ප්‍රතිසාධනය කරන්න';
 }

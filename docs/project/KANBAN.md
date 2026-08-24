@@ -43,6 +43,7 @@
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang; CI xanh 32663677470 (chờ nghiệm thu thiết bị) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
 | LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
+| LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 
 ---
@@ -715,6 +716,25 @@
 - **Lịch sử:**
   - 2026-08-24 | created→done | agent arena/01a0251e-in4up | nghiệm thu
     branch 019ff2de (35d1d48) + merge 15deaf0; CI xanh 32662979309
+  - 2026-08-25 | thu hoạch thêm 0ed55c8 | agent arena/01a0251e-in4up |
+    cherry-pick -x → fb483df (scaffolding 4 tầng + i18n 6 ngôn ngữ, xem LHB-002)
+
+### LHB-002 — Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n 6 ngữ
+- **Trạng thái:** done (chờ CI + nghiệm thu UX trên thiết bị)
+- **Nguồn:** chủ yêu cầu (2026-08-25) — thâu hoạch commit mới nhất
+  `0ed55c8` của `arena/019ff2de-in4up`.
+- **Nội dung:** 9 file +786/−142: `learn_by_heart_l10n.dart` (mới, 350 dòng —
+  6 ngôn ngữ vi/en/hi/zh/zh_TW/si + fallback), ClozeGenerator 4-level
+  progressive vanishing (full → scaffolding → first-letter → blank) +
+  first-letter mnemonics (hỗ trợ Pali diacritics), cloze_interactive_text
+  (235 dòng) + active_recall/hub/assessment_rating_bar/fsrs_rating_bar/
+  elaborative_card dùng l10n, test thêm 3 group (scaffolding accuracy,
+  Pali diacritics, i18n coverage + fallback).
+- **Bằng chứng:** cherry-pick clean (9 file không phân kỳ từ 35d1d48);
+  CI App Analyze chạy khi push.
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
+    0ed55c8 → fb483df; chờ CI xanh + nghiệm thu UX
 
 ### SOUNDLIST-630-02 — transcriptFromLrcLines: end = dòng không trống kế tiếp
 - **Trạng thái:** done

@@ -42,8 +42,12 @@ class AiModelConfig {
 
   /// URL download backup (Tầng C) - thay bằng server của bạn
   /// Không dùng Firebase Storage
-  static const String downloadUrl =
-      'https://your-server.com/models/gemma-2b-it-q4_k_m.gguf';
+  static const String downloadUrl = defaultDownloadUrl;
+
+  /// URL mẫu (HuggingFace) cho Gemma-2-2B-it Q4_K_M (~1.5GB) — dùng cho nút
+  /// "Tải về" trong trung tâm model; người dùng sửa được trong dialog.
+  static const String defaultDownloadUrl =
+      'https://huggingface.co/cognitivecomputations/Gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
 
   /// MD5 hash để verify sau download (optional)
   static const String? expectedMd5 = null;
@@ -57,10 +61,18 @@ class AiModelLoader {
 
   String? _cachedModelPath;
   ModelSource _currentSource = ModelSource.none;
+  String? _currentModelName;
+  int? _currentModelSizeBytes;
 
   String? get currentModelPath => _cachedModelPath;
   ModelSource get currentSource => _currentSource;
   bool get hasModel => _cachedModelPath != null;
+
+  /// Tên file model hiện tại (cho UI).
+  String? get currentModelName => _currentModelName;
+
+  /// Dung lượng model hiện tại bằng bytes (null nếu chưa biết).
+  int? get currentModelSizeBytes => _currentModelSizeBytes;
 
   // ── Entry Point ──────────────────────────────────────────
 
@@ -77,6 +89,7 @@ class AiModelLoader {
     final bundledResult = await _checkBundledAsset();
     if (bundledResult.success) {
       _cacheResult(bundledResult);
+      await _rememberFileSize();
       debugPrint('[AiModelLoader] ✅ Tầng A: Found bundled model');
       return bundledResult;
     }
@@ -85,17 +98,19 @@ class AiModelLoader {
     final importedResult = await _checkPreviouslyImported();
     if (importedResult.success) {
       _cacheResult(importedResult);
+      await _rememberFileSize();
       debugPrint('[AiModelLoader] ✅ Tầng B: Found previously imported model');
       return importedResult;
     }
 
     // ── Tầng C: Download (chỉ khi được phép) ──
     if (allowDownload) {
-      final downloadResult = await _downloadModel(
+      final downloadResult = await downloadModel(
+        url: AiModelConfig.downloadUrl,
         onProgress: onDownloadProgress,
+        expectedMd5: AiModelConfig.expectedMd5,
       );
       if (downloadResult.success) {
-        _cacheResult(downloadResult);
         debugPrint('[AiModelLoader] ✅ Tầng C: Downloaded model');
         return downloadResult;
       }
@@ -213,7 +228,9 @@ class AiModelLoader {
 
   /// Cho user chọn file .gguf thủ công
   /// Gọi khi user nhấn nút "Import Model"
-  Future<ModelLoadResult> importModelFromUser() async {
+  /// [onCopyProgress]: 0.0–1.0 trong lúc copy file vào app directory.
+  Future<ModelLoadResult> importModelFromUser(
+      {void Function(double progress)? onCopyProgress}) async {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.any,
@@ -259,28 +276,31 @@ class AiModelLoader {
         );
       }
 
-      // Copy vào Documents để an toàn (tránh permission issues trên iOS)
+      // Copy vào Documents để an toàn (tránh permission issues trên iOS).
+      // Copy theo chunk để UI báo tiến độ (file GGUF thường 1–2GB).
       final docsDir = await getApplicationDocumentsDirectory();
       final destPath = '${docsDir.path}/ai_models/${file.name}';
       final destFile = File(destPath);
       await destFile.parent.create(recursive: true);
-      await File(filePath).copy(destPath);
+      await _copyFileWithProgress(
+        src: File(filePath),
+        dest: destFile,
+        onProgress: onCopyProgress,
+      );
 
       // Lưu path để dùng lần sau
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
 
-      _cacheResult(ModelLoadResult(
-        success: true,
-        modelPath: destPath,
-        source: ModelSource.userImported,
-      ));
-
-      return ModelLoadResult(
+      final modelResult = ModelLoadResult(
         success: true,
         modelPath: destPath,
         source: ModelSource.userImported,
       );
+      _cacheResult(modelResult);
+      await _rememberFileSize();
+
+      return modelResult;
     } catch (e) {
       return ModelLoadResult(
         success: false,
@@ -292,10 +312,25 @@ class AiModelLoader {
 
   // ── Tầng C: Download ─────────────────────────────────────
 
-  Future<ModelLoadResult> _downloadModel({
-    void Function(double)? onProgress,
+  /// Download model từ URL trực tiếp (HuggingFace/GitHub release/...).
+  /// Dùng cho "Tải về" trong trung tâm model. Chỉ chạy trên WiFi (model lớn).
+  /// [expectedMd5] optional — verify sau tải, fail thì xóa file.
+  Future<ModelLoadResult> downloadModel({
+    required String url,
+    String? fileName,
+    String? expectedMd5,
+    void Function(double progress)? onProgress,
   }) async {
     try {
+      final uri = Uri.tryParse(url.trim());
+      if (uri == null || !uri.isAbsolute || !url.trim().isNotEmpty) {
+        return const ModelLoadResult(
+          success: false,
+          source: ModelSource.none,
+          errorMessage: 'URL model không hợp lệ',
+        );
+      }
+
       // Kiểm tra network
       final results = await Connectivity().checkConnectivity();
       if (results.contains(ConnectivityResult.none) || results.isEmpty) {
@@ -315,14 +350,19 @@ class AiModelLoader {
         );
       }
 
+      final targetName = (fileName != null && fileName.isNotEmpty)
+          ? fileName
+          : (uri.pathSegments.isNotEmpty
+              ? uri.pathSegments.last
+              : AiModelConfig.defaultModelFileName);
+
       final docsDir = await getApplicationDocumentsDirectory();
-      final destPath =
-          '${docsDir.path}/ai_models/${AiModelConfig.defaultModelFileName}';
+      final destPath = '${docsDir.path}/ai_models/$targetName';
       final destFile = File(destPath);
       await destFile.parent.create(recursive: true);
 
       // Download với progress
-      final request = http.Request('GET', Uri.parse(AiModelConfig.downloadUrl));
+      final request = http.Request('GET', uri);
       final response = await http.Client().send(request);
 
       final totalBytes = response.contentLength ?? 0;
@@ -339,8 +379,8 @@ class AiModelLoader {
       await sink.close();
 
       // Verify MD5 nếu có
-      if (AiModelConfig.expectedMd5 != null) {
-        final isValid = await _verifyMd5(destPath, AiModelConfig.expectedMd5!);
+      if (expectedMd5 != null && expectedMd5.isNotEmpty) {
+        final isValid = await _verifyMd5(destPath, expectedMd5);
         if (!isValid) {
           await destFile.delete();
           return const ModelLoadResult(
@@ -351,21 +391,65 @@ class AiModelLoader {
         }
       }
 
-      // Lưu path
+      // Validate header GGUF trước khi dùng
+      final validationError = await _validateGguf(destFile);
+      if (validationError != null) {
+        await destFile.delete();
+        return ModelLoadResult(
+          success: false,
+          source: ModelSource.none,
+          errorMessage: validationError,
+        );
+      }
+
+      // Lưu path để dùng lần sau
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
 
-      return ModelLoadResult(
+      final result = ModelLoadResult(
         success: true,
         modelPath: destPath,
         source: ModelSource.downloaded,
       );
+      _cacheResult(result);
+      await _rememberFileSize();
+
+      return result;
     } catch (e) {
       return ModelLoadResult(
         success: false,
         source: ModelSource.none,
         errorMessage: 'Download thất bại: $e',
       );
+    }
+  }
+
+  /// Copy file theo chunk (8MB) kèm tiến độ — cho import model lớn.
+  Future<void> _copyFileWithProgress({
+    required File src,
+    required File dest,
+    void Function(double progress)? onProgress,
+  }) async {
+    final total = await src.length();
+    final rs = src.openRead();
+    try {
+      final ws = dest.openWrite();
+      try {
+        var copied = 0;
+        final buffer = List<int>.filled(8 * 1024 * 1024, 0);
+        while (true) {
+          final n = await rs.read(buffer, 0, buffer.length);
+          if (n == 0) break;
+          ws.add(buffer.sublist(0, n));
+          copied += n;
+          if (total > 0) onProgress?.call(copied / total);
+        }
+        onProgress?.call(1.0);
+      } finally {
+        await ws.close();
+      }
+    } finally {
+      await rs.close();
     }
   }
 
@@ -403,14 +487,43 @@ class AiModelLoader {
   void _cacheResult(ModelLoadResult result) {
     _cachedModelPath = result.modelPath;
     _currentSource = result.source;
+    _currentModelName = result.modelPath != null
+        ? result.modelPath!.split(RegExp(r'[/\\]')).last
+        : null;
+    _currentModelSizeBytes = null;
+  }
+
+  /// Đo kích thước file model đã cache (gọi sau [_cacheResult]).
+  Future<void> _rememberFileSize() async {
+    final path = _cachedModelPath;
+    if (path == null) return;
+    try {
+      _currentModelSizeBytes = await File(path).length();
+    } catch (_) {
+      _currentModelSizeBytes = null;
+    }
   }
 
   /// Xóa model đã lưu (để user chọn lại)
   Future<void> clearCachedModel() async {
     _cachedModelPath = null;
     _currentSource = ModelSource.none;
+    _currentModelName = null;
+    _currentModelSizeBytes = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AiModelConfig._prefKeyModelPath);
+  }
+
+  /// Xóa file model khỏi thiết bị + clear cache (nút "Xóa" trong trung tâm model).
+  Future<void> removeModel() async {
+    final path = _cachedModelPath;
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    await clearCachedModel();
   }
 
   /// Thông tin model hiện tại để hiển thị UI

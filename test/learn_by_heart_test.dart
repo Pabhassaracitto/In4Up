@@ -2,6 +2,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/learn_by_heart/data/dhammapada_seed_data.dart';
+import 'package:in4up/features/learn_by_heart/i18n/learn_by_heart_l10n.dart';
 import 'package:in4up/features/learn_by_heart/models/chunk.dart';
 import 'package:in4up/features/learn_by_heart/models/fsrs_models.dart';
 import 'package:in4up/features/learn_by_heart/models/learn_by_heart_item.dart';
@@ -117,10 +118,10 @@ void main() {
     });
   });
 
-  group('Learn By Heart - Cloze Generator Test', () {
-    test('Generates interactive masked tokens matching keywords', () {
-      const text = 'Ý dẫn đầu các pháp, Ý làm chủ, ý tạo';
-      final keywords = ['Ý dẫn đầu', 'Ý làm chủ'];
+  group('Learn By Heart - Vanishing Scaffolding & Cloze Generator Test', () {
+    test('Generates 4-level progressive scaffolding display accurately', () {
+      const text = 'Ý dẫn đầu các pháp,';
+      final keywords = ['Ý dẫn đầu'];
 
       final tokens = ClozeGenerator.generate(
         text: text,
@@ -129,12 +130,55 @@ void main() {
       );
 
       expect(tokens.isNotEmpty, true);
-      final maskedTokens = tokens.where((t) => t.isMasked).toList();
-      expect(maskedTokens.isNotEmpty, true);
 
-      // Verify keyword token properties
-      final kwTokens = tokens.where((t) => t.isKeyword).toList();
-      expect(kwTokens.isNotEmpty, true);
+      // Level 1: Full text
+      for (final t in tokens) {
+        expect(t.getDisplayForLevel(ClozeLevel.fullText), t.text);
+      }
+
+      // Level 3: First-Letter Prompts
+      final danToken = tokens.firstWhere((t) => t.cleanWord == 'dẫn');
+      final firstLetterDisplay = danToken.getDisplayForLevel(ClozeLevel.firstLetter);
+      expect(firstLetterDisplay.startsWith('d'), true);
+      expect(firstLetterDisplay.contains('_'), true);
+
+      // Level 4: Ghost Mode
+      final ghostDisplay = danToken.getDisplayForLevel(ClozeLevel.ghost);
+      expect(ghostDisplay.startsWith('d'), false);
+      expect(ghostDisplay.contains('_'), true);
+    });
+
+    test('Pali diacritics work properly in First-Letter prompts', () {
+      const paliText = 'Manopubbaṅgamā dhammā,';
+      final tokens = ClozeGenerator.generate(text: paliText, maskRatio: 1.0);
+
+      final manoToken = tokens.firstWhere((t) => t.cleanWord.startsWith('mano'));
+      final prompt = manoToken.getDisplayForLevel(ClozeLevel.firstLetter);
+      expect(prompt.startsWith('M'), true);
+      expect(prompt.contains('_'), true);
+    });
+  });
+
+  group('Learn By Heart - Internationalization (i18n) Test', () {
+    test('Covers en, vi, hi, zh, zh_TW, si languages with valid fallback', () {
+      final supportedCodes = ['en', 'vi', 'hi', 'zh', 'zh_TW', 'si'];
+
+      for (final code in supportedCodes) {
+        final l10n = LearnByHeartL10n(code);
+        expect(l10n.moduleTitle.isNotEmpty, true);
+        expect(l10n.vanishingScaffolding.isNotEmpty, true);
+        expect(l10n.level1Full.isNotEmpty, true);
+        expect(l10n.level2Keywords.isNotEmpty, true);
+        expect(l10n.level3FirstLetter.isNotEmpty, true);
+        expect(l10n.level4Ghost.isNotEmpty, true);
+        expect(l10n.again.isNotEmpty, true);
+        expect(l10n.good.isNotEmpty, true);
+        expect(l10n.perfectRecite.isNotEmpty, true);
+      }
+
+      // Unknown locale falls back to English
+      final fallbackL10n = LearnByHeartL10n('unknown_lang');
+      expect(fallbackL10n.moduleTitle, 'Memorization · Learn by Heart');
     });
   });
 

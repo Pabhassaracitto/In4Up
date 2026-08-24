@@ -1,10 +1,13 @@
 // lib/screens/read_mode/widgets/library_screen.dart
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
@@ -120,19 +123,62 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // FILE ACTIONS
   // ═══════════════════════════════════════════════════════════
 
+  Future<String> _persistLocalText(String path) async {
+    try {
+      final src = File(path);
+      if (!await src.exists()) return path;
+      final docs = await getApplicationDocumentsDirectory();
+      final destDir = Directory(p.join(docs.path, 'in4up_texts'));
+      if (!await destDir.exists()) await destDir.create(recursive: true);
+      final dest = File(p.join(destDir.path, p.basename(path)));
+      if (p.normalize(src.path) == p.normalize(dest.path)) return dest.path;
+      await src.copy(dest.path);
+      return dest.path;
+    } catch (e) {
+      debugPrint('[LibraryScreen] persist copy failed: $e');
+      return path;
+    }
+  }
+
+  void _showOpenError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _openFile(RecentFile file) async {
     // Lưu refs TRƯỚC khi await
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
 
     switch (file.type) {
-      // ── Local text (.txt / .lrc / .srt) ───────────────────
+      // ── Local text (.txt / .lrc / .srt / .md / .json / .docx)
       case RecentFileType.localText:
         if (file.localPath == null) return;
-        await tp.loadTextFile(file.localPath!);
+        var path = file.localPath!;
+        if (!File(path).existsSync()) {
+          _showOpenError(
+            'Không còn file trên máy (đường dẫn tạm đã mất). '
+            'Thêm lại từ Thiết bị.',
+          );
+          return;
+        }
+        path = await _persistLocalText(path);
+        final loaded = await tp.loadTextFile(path);
         if (!mounted) return;
+        if (!loaded || !tp.hasLyrics) {
+          _showOpenError(
+            'Không đọc được nội dung — thử file .txt hoặc lưu lại .docx',
+          );
+          return;
+        }
         await _service.addOrUpdate(
           file.copyWith(
+            localPath: path,
             lastOpened: DateTime.now(),
             totalLines: tp.lines.length,
           ),
@@ -208,7 +254,9 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     try {
       result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['txt', 'lrc', 'srt'],
+        allowedExtensions: const [
+          'txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx',
+        ],
       );
     } catch (e) {
       debugPrint('[LibraryScreen] FilePicker error: $e');
@@ -218,9 +266,16 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     if (result == null || result.files.single.path == null) return;
     if (!mounted) return;
 
-    final path = result.files.single.path!;
-    await tp.loadTextFile(path);
+    final picked = result.files.single.path!;
+    final path = await _persistLocalText(picked);
+    final loaded = await tp.loadTextFile(path);
     if (!mounted) return;
+    if (!loaded || !tp.hasLyrics) {
+      _showOpenError(
+        'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+      );
+      return;
+    }
 
     final file = RecentFile.fromLocalText(path).copyWith(
       totalLines: tp.lines.length,
@@ -991,27 +1046,45 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   }
 
   Future<void> _loadCloudEntry(TextLibraryEntry entry) async {
-    final tp = context.read<TextProvider>();
-    tp.loadFromString(
-      entry.content,
-      title: entry.title,
-      sourceType: TextSourceType.cloud,
-      cloudId: entry.id,
-      category: entry.category,
-    );
+    try {
+      final tp = context.read<TextProvider>();
+      tp.loadFromString(
+        entry.content,
+        title: entry.title,
+        sourceType: TextSourceType.cloud,
+        cloudId: entry.id,
+        category: entry.category,
+      );
 
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    await _service.addOrUpdate(file);
-    if (!mounted) return;
+      // Issue2: apply saved translations
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null) {
+          tp.applySavedTranslations(saved, targetLang);
+        }
+      } catch (e) {
+        debugPrint('⚠️ _loadCloudEntry apply translations error: $e');
+      }
 
-    // Switch sang Recent tab để thấy file vừa load
-    _tabCtrl.animateTo(0);
-    await _load();
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      await _service.addOrUpdate(file);
+      if (!mounted) return;
+
+      _tabCtrl.animateTo(0);
+      await _load();
+    } catch (e, st) {
+      debugPrint('❌ _loadCloudEntry error: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi mở Cloud: $e')),
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1036,66 +1109,97 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   Widget _buildRecentEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.elasticOut,
-              builder: (_, v, child) => Transform.scale(scale: v, child: child),
-              child: const Text(
-                '📚',
-                style: TextStyle(fontSize: 72),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isVerySmall = constraints.maxWidth < 360;
+          final horizontalPad = isVerySmall ? 20.0 : 40.0;
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.elasticOut,
+                    builder: (_, v, child) =>
+                        Transform.scale(scale: v, child: child),
+                    child: Text(
+                      '📚',
+                      style: TextStyle(fontSize: isVerySmall ? 56 : 72),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Thư viện đang trống',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isVerySmall ? 18 : 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Nhấn "Thêm tài liệu" bên dưới\nhoặc chọn tab Cloud / Thiết bị',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.42),
+                      fontSize: isVerySmall ? 12 : 14,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Responsive button – Wrap ensures no yellow-black overflow on small screens
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.9,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _showAddSheet,
+                          icon:
+                              const Icon(Icons.add_rounded, color: Colors.white),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              isVerySmall
+                                  ? 'Thêm tài liệu'
+                                  : 'Thêm tài liệu đầu tiên',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1565C0),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isVerySmall ? 20 : 28,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Thư viện đang trống',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Nhấn "Thêm tài liệu" bên dưới\nhoặc chọn tab Cloud / Thiết bị',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontSize: 14,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _showAddSheet,
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: const Text(
-                'Thêm tài liệu đầu tiên',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 4,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1201,7 +1305,9 @@ class _DeviceTabState extends State<_DeviceTab> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: isPdf ? ['pdf'] : ['txt', 'lrc', 'srt'],
+        allowedExtensions: isPdf
+            ? ['pdf']
+            : const ['txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx'],
         allowMultiple: false,
       );
 
@@ -1276,7 +1382,7 @@ class _DeviceTabState extends State<_DeviceTab> {
         _DevicePickButton(
           icon: Icons.text_snippet_rounded,
           label: 'Mở file văn bản',
-          subtitle: 'Định dạng .txt · .lrc · .srt',
+          subtitle: 'Định dạng .txt · .md · .json · .docx · .lrc · .srt',
           color: const Color(0xFF4CAF50),
           loading: _picking,
           onTap: () => _pickFile(isPdf: false),

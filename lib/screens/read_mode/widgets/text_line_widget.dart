@@ -5,6 +5,10 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/grammar/models/grammar_category.dart';
+import '../../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../../features/grammar/models/grammar_palette.dart';
+import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../features/translation/translation_display_mode.dart';
 import '../../../features/translation/translation_toolbar.dart';
 import '../../../models/color_mode.dart';
@@ -16,7 +20,7 @@ import '../../../screens/read_mode/services/playback_controller.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
-import 'colored_text_widget.dart';
+import '../sheets/word_actions_sheet.dart';
 import 'floating_text_actions.dart';
 
 class TextLineWidget extends StatelessWidget {
@@ -226,47 +230,156 @@ class TextLineWidget extends StatelessWidget {
     );
   }
 
+  void _onLineSelectionChanged(
+    BuildContext context,
+    _LineData data,
+    TextSelection selection,
+  ) {
+    if (selection.baseOffset == selection.extentOffset) return;
+    final start = selection.start.clamp(0, data.content.length);
+    final end = selection.end.clamp(0, data.content.length);
+    if (start >= end) return;
+
+    final controller = context.read<ReadModeController>();
+    final lineStartOffset = controller.getLineStartOffset(index);
+    controller.handleTextSelection(
+      selection: selection,
+      content: data.content,
+      lineStartOffset: lineStartOffset,
+      lineIndex: index,
+    );
+    FloatingTextActions.show(
+      context,
+      data.content.substring(start, end),
+      index,
+    );
+  }
+
+  /// POS/CEFR/difficulty: cùng đoạn chọn + lưu đầy đủ như chế độ không màu.
+  /// Màu nằm trên TextSpan (không Wrap từng chip — chữ Việt không bị bể hàng).
   Widget _buildTextContent(BuildContext context, _LineData data) {
-    if (data.colorMode == ColorMode.none) {
+    final baseStyle = TextStyle(
+      fontSize: data.fontSize,
+      color: Colors.white,
+      height: 1.6,
+    );
+
+    if (data.colorMode == ColorMode.none || data.analyzedWords.isEmpty) {
       return SelectableText(
         data.content,
         textAlign: data.textAlign,
-        style: TextStyle(
-          fontSize: data.fontSize,
-          color: Colors.white,
-          height: 1.6,
-        ),
-        onSelectionChanged: (selection, cause) {
-          if (selection.baseOffset != selection.extentOffset) {
-            final controller = context.read<ReadModeController>();
-            final lineStartOffset = controller.getLineStartOffset(index);
-
-            controller.handleTextSelection(
-              selection: selection,
-              content: data.content,
-              lineStartOffset: lineStartOffset,
-              lineIndex: index,
-            );
-
-            final selectedText =
-                data.content.substring(selection.start, selection.end);
-            FloatingTextActions.show(context, selectedText, index);
-          }
-        },
+        style: baseStyle,
+        onSelectionChanged: (selection, _) =>
+            _onLineSelectionChanged(context, data, selection),
       );
     }
 
-    return Align(
-      alignment: data.textAlign == TextAlign.center
-          ? Alignment.center
-          : Alignment.centerLeft,
-      child: ColoredTextWidget(
-        words: data.analyzedWords,
-        fontSize: data.fontSize,
-        colorMode: data.colorMode,
-        lineIndex: index,
-      ),
+    final grammarSettings =
+        context.select<TextProvider, GrammarHighlightSettings>(
+      (tp) => tp.grammarSettings,
     );
+    final palette = context.select<TextProvider, GrammarPalette>(
+      (tp) => tp.activeGrammarPalette,
+    );
+
+    return SelectableText.rich(
+      TextSpan(
+        style: baseStyle,
+        children: _coloredSpans(data, grammarSettings, palette),
+      ),
+      textAlign: data.textAlign,
+      onSelectionChanged: (selection, _) =>
+          _onLineSelectionChanged(context, data, selection),
+      contextMenuBuilder: (ctx, editableState) {
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: editableState.contextMenuAnchors,
+          buttonItems: [
+            ...editableState.contextMenuButtonItems,
+            ContextMenuButtonItem(
+              label: 'Chi tiết từ',
+              onPressed: () {
+                ContextMenuController.removeAny();
+                _openWordAtSelection(ctx, data, editableState);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openWordAtSelection(
+    BuildContext context,
+    _LineData data,
+    EditableTextState editableState,
+  ) {
+    final sel = editableState.textEditingValue.selection;
+    final offset = sel.isValid ? sel.baseOffset : 0;
+    var cursor = 0;
+    for (var i = 0; i < data.analyzedWords.length; i++) {
+      final word = data.analyzedWords[i];
+      final idx = data.content.indexOf(word.word, cursor);
+      if (idx < 0) continue;
+      final end = idx + word.word.length;
+      if (offset >= idx && offset <= end) {
+        WordActionsSheet.show(context, word, index, i);
+        return;
+      }
+      cursor = end;
+    }
+  }
+
+  List<InlineSpan> _coloredSpans(
+    _LineData data,
+    GrammarHighlightSettings grammarSettings,
+    dynamic palette,
+  ) {
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    final content = data.content;
+
+    for (final word in data.analyzedWords) {
+      final idx = content.indexOf(word.word, cursor);
+      if (idx < 0) continue;
+      if (idx > cursor) {
+        spans.add(TextSpan(text: content.substring(cursor, idx)));
+      }
+
+      final useGrammar = data.colorMode == ColorMode.wordType &&
+          grammarSettings.enabled;
+      final grammarCategory = useGrammar
+          ? grammarCategoryFromLegacyWordType(word.wordType)
+          : null;
+      final grammarResolved = useGrammar && grammarCategory != null
+          ? GrammarStyleMapper.resolve(
+              category: grammarCategory,
+              palette: palette,
+              settings: grammarSettings,
+              defaultTextColor: Colors.white,
+            )
+          : null;
+
+      spans.add(
+        TextSpan(
+          text: word.word,
+          style: TextStyle(
+            color: grammarResolved?.foreground ?? word.getColor(data.colorMode),
+            backgroundColor: grammarResolved?.background ??
+                word.getBackgroundColor(data.colorMode),
+            fontWeight: grammarResolved?.fontWeight,
+          ),
+        ),
+      );
+      cursor = idx + word.word.length;
+    }
+
+    if (cursor < content.length) {
+      spans.add(TextSpan(text: content.substring(cursor)));
+    }
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: content));
+    }
+    return spans;
   }
 
   void _showQuickBookmarkFeedback(BuildContext context) {

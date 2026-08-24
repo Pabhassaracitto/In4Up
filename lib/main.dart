@@ -500,3 +500,5 @@ class _AppErrorScreen extends StatelessWidget {
     );
   }
 }
+
+// bisect7: loader half A + B-download

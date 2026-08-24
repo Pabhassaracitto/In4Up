@@ -12,6 +12,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:provider/provider.dart';
 
 import '../models/vad_settings.dart';

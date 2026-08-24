@@ -819,3 +819,20 @@
 - **Lịch sử:**
   - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick 7 commit
     (6 docs + 1 docx fix) với `-x`; đối chiếu blob từng file; chờ CI + nghiệm thu
+
+### LISTEN-825-01 — Màn hình đỏ ListenLibraryScreen: nhiều animation ticker
+- **Trạng thái:** done (chờ chủ mở lại tab Nghe trên thiết bị xác nhận hết đỏ)
+- **Nguồn:** chủ báo (2026-08-25) + fix `4bb14a3` trên nhánh `arena/01a03564-in4up`.
+- **RCA:** `ListenLibraryScreen` tạo 2 ticker — `TabController(length: 2)`
+  (tab Thư viện do Audio Library P1) + `_fabAnim` (AnimationController FAB)
+  — trong khi State chỉ `SingleTickerProviderStateMixin` (giới hạn 1 ticker)
+  → exception "A Ticker was active..." → màn hình đỏ. Lỗi xuất hiện khi
+  màn hình có đủ 2 tab (sau thu hoạch Audio Library P1).
+- **Sửa:** `with TickerProviderStateMixin` (1 dòng). An toàn vì `dispose()`
+  đã dispose cả `_tabController` lẫn `_fabAnim` (TickerProviderStateMixin
+  không auto-dispose).
+- **Bằng chứng:** cherry-pick -x 4bb14a3 → 4b6a677; App Analyze + Locale
+  XANH run 32777390692.
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick fix
+    từ 01a03564; CI xanh 32777390692

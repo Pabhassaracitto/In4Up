@@ -500,3 +500,5 @@ class _AppErrorScreen extends StatelessWidget {
     );
   }
 }
+
+// bisectC1: full fixed package + old facade/UI

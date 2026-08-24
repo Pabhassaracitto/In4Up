@@ -23,6 +23,14 @@ class AiEngineGemma implements AiEngine {
   bool _disposed = false;
   String? _modelPath;
 
+  /// Complete khi isolate báo native model đã load xong (hoặc fail).
+  /// Reset ở mỗi _spawnIsolate (engine có thể re-init với modelPath mới).
+  Completer<void>? _modelLoadCompleter;
+
+  @override
+  Future<void> get modelReady => _modelLoadCompleter?.future ??
+      Future.error(StateError('Engine chưa khởi động'));
+
   @override
   Future<bool> initialize({required String modelPath}) async {
     if (_state == AiEngineState.ready && _modelPath == modelPath) {
@@ -119,6 +127,10 @@ class AiEngineGemma implements AiEngine {
   @override
   Future<void> dispose() async {
     _disposed = true;
+    final loadCompleter = _modelLoadCompleter;
+    if (loadCompleter != null && !loadCompleter.isCompleted) {
+      loadCompleter.completeError(StateError('Engine disposed'));
+    }
     _isolate?.kill(priority: Isolate.immediate);
     _receivePort?.close();
     _isolate = null;
@@ -128,6 +140,8 @@ class AiEngineGemma implements AiEngine {
   }
 
   Future<void> _spawnIsolate(String modelPath) async {
+    _modelLoadCompleter = Completer<void>();
+    final loadCompleter = _modelLoadCompleter;
     _receivePort = ReceivePort();
     _isolate = await Isolate.spawn(
       _isolateEntry,
@@ -136,11 +150,19 @@ class AiEngineGemma implements AiEngine {
     );
 
     final completer = Completer<SendPort>();
-    late StreamSubscription sub;
-    sub = _receivePort!.listen((msg) {
+    _receivePort!.listen((msg) {
       if (msg is SendPort) {
-        completer.complete(msg);
-        sub.cancel();
+        if (!completer.isCompleted) completer.complete(msg);
+      } else if (msg is _IsolateModelLoaded) {
+        if (!loadCompleter.isCompleted) {
+          if (msg.ok) {
+            loadCompleter.complete();
+          } else {
+            loadCompleter.completeError(
+              StateError(msg.error.isEmpty ? 'Model load failed' : msg.error),
+            );
+          }
+        }
       }
     });
     _sendPort = await completer.future.timeout(const Duration(seconds: 30));
@@ -165,11 +187,22 @@ class AiEngineGemma implements AiEngine {
       if (nativeHandle == ffi.nullptr) {
         debugPrint('[AiEngineGemma] Native model load failed — mock fallback.');
         nativeHandle = null;
+        init.mainSendPort.send(const _IsolateModelLoaded(
+          ok: false,
+          error:
+              'Model GGUF không load được — file có thể hỏng hoặc sai kiến trúc.',
+        ));
       } else {
         debugPrint('[AiEngineGemma] ✅ Native llama.cpp backend ready.');
+        init.mainSendPort.send(const _IsolateModelLoaded(ok: true));
       }
     } else if (native == null) {
       debugPrint('[AiEngineGemma] Native lib not found — mock fallback.');
+      init.mainSendPort.send(const _IsolateModelLoaded(
+        ok: false,
+        error:
+            'Build chưa chứa AI backend (lib in4up_ai_native). App chạy mock — build lại app để dùng model thật.',
+      ));
     }
 
     await for (final msg in port) {
@@ -551,4 +584,11 @@ class _IsolateResponse {
 class _IsolateError {
   final String error;
   const _IsolateError({required this.error});
+}
+
+/// Isolate báo kết quả load model native (gửi sau khi handshake SendPort).
+class _IsolateModelLoaded {
+  final bool ok;
+  final String error;
+  const _IsolateModelLoaded({required this.ok, this.error = ''});
 }

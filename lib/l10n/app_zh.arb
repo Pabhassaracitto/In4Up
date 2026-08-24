@@ -382,5 +382,11 @@
   "toolsTriangle": "技能三角",
   "toolsVenn": "维恩图",
   "demoWordHello": "hello",
-  "demoWordWorld": "world"
+  "demoWordWorld": "world",
+  "shellUiSettings": "介面設定",
+  "shellUiSettingsSubtitle": "精简模式、自动隐藏、长按切换模式",
+  "learnByHeart": "熟记",
+  "learnByHeartSubtitle": "法句经、诵经与有意义的段落",
+  "soundList": "音频目录",
+  "soundListSubtitle": "分数、章节与音频目录"
 }

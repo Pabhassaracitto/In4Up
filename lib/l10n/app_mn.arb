@@ -382,5 +382,11 @@
   "toolsTriangle": "Triangle",
   "toolsVenn": "Venn Diagram",
   "demoWordHello": "hello",
-  "demoWordWorld": "world"
+  "demoWordWorld": "world",
+  "shellUiSettings": "Shell interface",
+  "shellUiSettingsSubtitle": "Compact mode, auto-hide, long-press to change mode",
+  "learnByHeart": "Learn by Heart",
+  "learnByHeartSubtitle": "Dhammapada, recitations and meaningful passages",
+  "soundList": "Soundlist",
+  "soundListSubtitle": "Scores, chapters and audio table of contents"
 }

@@ -281,16 +281,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonDeselect => 'अचयनित करें';
 
   @override
-  String get commonSaveNote => 'सहेजें नोट';
+  String get commonSaveNote => 'नोट सहेजें';
 
   @override
-  String get commonAddNote => 'जोड़ें नोट';
+  String get commonAddNote => 'नोट जोड़ें';
 
   @override
-  String get commonEditNote => 'संपादित करें नोट';
+  String get commonEditNote => 'नोट संपादित करें';
 
   @override
-  String get commonDeleteNote => 'हटाएं नोट';
+  String get commonDeleteNote => 'नोट हटाएं';
 
   @override
   String get commonNote => 'नोट';
@@ -440,7 +440,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get listenLoop => 'लूप';
 
   @override
-  String get listenNoContent => 'कोई सामग्री नहीं\nSTT से LRC बनाएं';
+  String get listenNoContent => 'कोई सामग्री नहीं
+STT से LRC बनाएं';
 
   @override
   String get understandMode => 'समझने का मोड';
@@ -589,16 +590,16 @@ class AppLocalizationsHi extends AppLocalizations {
   String get webReaderPinnedArticle => 'पिन किया गया लेख';
 
   @override
-  String get webReaderReadNotes => 'पढ़ना नोट्स';
+  String get webReaderReadNotes => 'पठन नोट्स';
 
   @override
   String get webReaderYourNote => 'आपका नोट';
 
   @override
-  String get webReaderDeleteNote => 'हटाएं नोट';
+  String get webReaderDeleteNote => 'नोट हटाएं';
 
   @override
-  String get webReaderSaveNoteBtn => 'सहेजें नोट';
+  String get webReaderSaveNoteBtn => 'नोट सहेजें';
 
   @override
   String get webReaderMarkUnread => 'अपठित चिह्नित करें';
@@ -1043,7 +1044,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String ytPreparingQuality(Object kbps, Object size) {
-    return 'तैयार हो रहा है · ${kbps}kbps · $size';
+    return 'तैयार हो रहा है · $kbpskbps · $size';
   }
 
   @override
@@ -1092,7 +1093,8 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String ytNoCaptionsLang(Object lang) {
-    return '\"$lang\" के लिए कैप्शन नहीं हैं।\nदूसरी भाषा आज़माएं।';
+    return '"$lang" के लिए कैप्शन नहीं हैं।
+दूसरी भाषा आज़माएं।';
   }
 
   @override

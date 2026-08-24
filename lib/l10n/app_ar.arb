@@ -382,5 +382,11 @@
   "toolsTriangle": "Triangle",
   "toolsVenn": "Venn Diagram",
   "demoWordHello": "hello",
-  "demoWordWorld": "world"
+  "demoWordWorld": "world",
+  "shellUiSettings": "واجهة shell",
+  "shellUiSettingsSubtitle": "Compact mode, auto-hide, long-press đổi mode",
+  "learnByHeart": "Learn by Heart",
+  "learnByHeartSubtitle": "Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa",
+  "soundList": "Soundlist",
+  "soundListSubtitle": "Điểm, đoạn & mục lục âm thanh"
 }

@@ -382,5 +382,11 @@
   "toolsTriangle": "Tam Giác",
   "toolsVenn": "Biểu Đồ Venn",
   "demoWordHello": "xin chào",
-  "demoWordWorld": "thế giới"
+  "demoWordWorld": "thế giới",
+  "shellUiSettings": "Giao diện shell",
+  "shellUiSettingsSubtitle": "Compact mode, auto-hide, long-press đổi mode",
+  "learnByHeart": "Thuộc lòng (Learn by Heart)",
+  "learnByHeartSubtitle": "Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa",
+  "soundList": "Âm mục",
+  "soundListSubtitle": "Điểm, đoạn & mục lục âm thanh"
 }

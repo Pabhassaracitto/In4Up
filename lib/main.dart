@@ -500,3 +500,5 @@ class _AppErrorScreen extends StatelessWidget {
     );
   }
 }
+
+// 2026-08-24: fix readInto (MODELS-002) — trigger paths-filter app_analyze.

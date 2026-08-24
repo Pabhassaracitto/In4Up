@@ -176,7 +176,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           // Voice Recall Button
           IconButton(
             icon: const Icon(Icons.mic_rounded, color: Color(0xFF6C63FF)),
-            tooltip: 'Đọc bằng giọng nói (Voice Recall)',
+            tooltip: l10n.voiceRecallTitle,
             onPressed: _openVoiceRecitation,
           ),
           if (item.isReadyForAssessment)
@@ -211,7 +211,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
                     ),
                     const SizedBox(width: 6),
                     _ModeChip(
-                      label: 'Nối xích',
+                      label: l10n.chainModeTitle.split('(').first.trim(),
                       icon: Icons.link_rounded,
                       isSelected: _currentMode == RecallModeType.firstLetterChain,
                       onTap: () => _switchMode(RecallModeType.firstLetterChain),
@@ -244,7 +244,12 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_currentMode == RecallModeType.cloze) _buildClozeSection(),
-                    if (_currentMode == RecallModeType.firstLetterChain) ChainRecitationView(item: widget.item),
+                    if (_currentMode == RecallModeType.firstLetterChain)
+                      ChainRecitationView(
+                        item: widget.item,
+                        onCompleted: () => debugPrint('Chain completed'),
+                        onRated: _handleReviewRating,
+                      ),
                     if (_currentMode == RecallModeType.meaningToVerse) _buildMeaningSection(l10n),
                     if (_currentMode == RecallModeType.audioToVerse) _buildAudioSection(l10n),
                   ],

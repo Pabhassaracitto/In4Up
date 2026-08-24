@@ -3,16 +3,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../controllers/chain_recitation_controller.dart';
+import '../i18n/learn_by_heart_l10n.dart';
+import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 
 class ChainRecitationView extends StatefulWidget {
   final LearnByHeartItem item;
   final VoidCallback? onCompleted;
+  /// Callback khi chain hoàn tất — truyền suggested rating cho FSRS
+  final void Function(FSRSRating rating)? onRated;
 
   const ChainRecitationView({
     super.key,
     required this.item,
     this.onCompleted,
+    this.onRated,
   });
 
   @override
@@ -44,12 +49,16 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
     _controller.markStepCompleted();
     final hasNext = _controller.nextStep();
     if (!hasNext) {
+      // Chain hoàn tất — gọi callback và submit FSRS rating (mặc định Good)
       widget.onCompleted?.call();
+      widget.onRated?.call(FSRSRating.good);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = LearnByHeartL10n.of(context);
+    
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -77,7 +86,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                   const Icon(Icons.link_rounded, color: Color(0xFFFFD54F), size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Mối nối liên hoàn (Xích kệ ngôn ${stepIdx + 1}/$total)',
+                    '${l10n.chainModeTitle} (${stepIdx + 1}/$total)',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -107,29 +116,29 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'CÂU MỒI DẪN DẮT (DÒNG ${stepIdx + 1})',
-                          style: const TextStyle(
-                            color: Color(0xFFB388FF),
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${l10n.chainPrimeLabel} (DÒNG ${stepIdx + 1})',
+                            style: const TextStyle(
+                              color: Color(0xFFB388FF),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   const SizedBox(height: 10),
                   if (step.primePaliPrompt != null && step.primePaliPrompt!.isNotEmpty) ...[
                     Text(
@@ -166,29 +175,29 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                   color: isRevealed ? const Color(0xFF4CAF50).withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (isRevealed ? const Color(0xFF4CAF50) : const Color(0xFFFF9800)).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'CÂU CẦN ĐỌC TIẾP (DÒNG ${stepIdx + 2})',
-                          style: TextStyle(
-                            color: isRevealed ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (isRevealed ? const Color(0xFF4CAF50) : const Color(0xFFFF9800)).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${l10n.chainTargetLabel} (DÒNG ${stepIdx + 2})',
+                            style: TextStyle(
+                              color: isRevealed ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   const SizedBox(height: 14),
                   if (isRevealed) ...[
                     if (step.targetPaliLine != null && step.targetPaliLine!.isNotEmpty) ...[
@@ -211,12 +220,12 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                       ),
                     ),
                   ] else ...[
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                          '___ ? Hãy nhớ câu tiếp theo trong đầu ? ___',
-                          style: TextStyle(
+                          l10n.chainHiddenPrompt,
+                          style: const TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -238,7 +247,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                     child: OutlinedButton.icon(
                       onPressed: _handleReveal,
                       icon: const Icon(Icons.visibility_rounded, size: 18),
-                      label: const Text('Xem câu tiếp theo'),
+                      label: Text(l10n.chainRevealNext),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFB388FF),
                         side: const BorderSide(color: Color(0xFF6C63FF)),
@@ -252,7 +261,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                     child: ElevatedButton.icon(
                       onPressed: _handleNext,
                       icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-                      label: Text(stepIdx < total - 1 ? 'Thuộc câu nối → Sang mối tiếp' : 'Hoàn tất xích kệ ngôn! 🎉'),
+                      label: Text(stepIdx < total - 1 ? l10n.chainNextStep : l10n.chainComplete),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4CAF50),
                         foregroundColor: Colors.white,

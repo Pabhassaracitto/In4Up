@@ -50,12 +50,14 @@ class VoiceRecitationService extends ChangeNotifier {
 
   bool _isRecording = false;
   bool _isTranscribing = false;
+  bool _sttUnavailable = false;
   String? _recordedPath;
   String _liveTranscript = '';
   VoiceRecitationResult? _lastResult;
 
   bool get isRecording => _isRecording;
   bool get isTranscribing => _isTranscribing;
+  bool get sttUnavailable => _sttUnavailable;
   String get liveTranscript => _liveTranscript;
   VoiceRecitationResult? get lastResult => _lastResult;
 
@@ -63,6 +65,7 @@ class VoiceRecitationService extends ChangeNotifier {
   Future<bool> startRecitation() async {
     _lastResult = null;
     _liveTranscript = '';
+    _sttUnavailable = false;
     notifyListeners();
 
     final started = await _recorder.startRecording();
@@ -74,6 +77,7 @@ class VoiceRecitationService extends ChangeNotifier {
   }
 
   /// Dừng ghi âm và thực hiện so khớp giọng đọc với văn bản mẫu
+  /// Trả về null nếu STT không khả dụng để UI hiển thị cảnh báo
   Future<VoiceRecitationResult?> stopAndEvaluate(String targetText, {String language = 'vi'}) async {
     if (!_isRecording) return null;
 
@@ -81,6 +85,7 @@ class VoiceRecitationService extends ChangeNotifier {
     _isRecording = false;
     _recordedPath = path;
     _isTranscribing = true;
+    _sttUnavailable = false;
     notifyListeners();
 
     try {
@@ -92,15 +97,23 @@ class VoiceRecitationService extends ChangeNotifier {
           transcribed = res.text.trim();
         } catch (e) {
           debugPrint('⚠️ STT transcription error: $e');
+          _sttUnavailable = true;
         }
       }
 
-      // Nếu STT rỗng hoặc không bắt được, fallback so khớp
+      // Nếu STT rỗng hoặc không bắt được, đánh dấu unavailable
       if (transcribed.isEmpty) {
-        transcribed = targetText; // Fallback simulation nếu chưa tải model offline
+        _sttUnavailable = true;
       }
 
       _liveTranscript = transcribed;
+
+      // Nếu STT không khả dụng, trả về result đặc biệt để UI hiển thị thông báo
+      if (_sttUnavailable) {
+        _lastResult = null;
+        notifyListeners();
+        return null;
+      }
 
       // Thực hiện căn chỉnh và so khớp từng từ (Fuzzy Alignment)
       final result = evaluateRecitation(targetText: targetText, spokenText: transcribed);

@@ -46,12 +46,13 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
 
   Future<void> _handleMicTap() async {
     HapticFeedback.mediumImpact();
+    final l10n = LearnByHeartL10n.of(context);
 
     if (!_voiceService.isRecording) {
       final success = await _voiceService.startRecitation();
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng cấp quyền Microphone để ghi âm')),
+          SnackBar(content: Text(l10n.voiceRecallMicPermission)),
         );
       }
     } else {
@@ -99,7 +100,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                   const Icon(Icons.mic_rounded, color: Color(0xFF6C63FF), size: 22),
                   const SizedBox(width: 8),
                   Text(
-                    'Đọc bằng giọng nói (Voice Recall)',
+                    l10n.voiceRecallTitle,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -133,7 +134,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'VĂN BẢN MỤC TIÊU CẦN ĐỌC',
+                              l10n.voiceRecallTargetText,
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 10,
@@ -160,17 +161,41 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                         _buildResultSection(result, l10n),
                         const SizedBox(height: 20),
                       ] else if (isTranscribing) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
                           child: Column(
                             children: [
-                              CircularProgressIndicator(color: Color(0xFF6C63FF)),
-                              SizedBox(height: 12),
+                              const CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                              const SizedBox(height: 12),
                               Text(
-                                'Đang phân tích & đối chiếu giọng đọc...',
-                                style: TextStyle(color: Colors.white70, fontSize: 13),
+                                l10n.voiceRecallAnalyzing,
+                                style: const TextStyle(color: Colors.white70, fontSize: 13),
                               ),
                             ],
+                          ),
+                        ),
+                      ] else if (_voiceService.sttUnavailable) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    l10n.voiceRecallSttUnavailable,
+                                    style: const TextStyle(color: Colors.orangeAccent, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ] else ...[
@@ -178,8 +203,8 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                           padding: const EdgeInsets.symmetric(vertical: 24),
                           child: Text(
                             isRecording
-                                ? '🎙️ Đang lắng nghe... Hãy đọc to trọn vẹn câu kinh'
-                               : 'Nhấn nút Mic bên dưới và đọc câu kinh vào điện thoại để chấm điểm thuộc lòng',
+                                ? '🎙️ ${l10n.voiceRecallListening}'
+                               : l10n.voiceRecallStartHint,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: isRecording ? const Color(0xFF4CAF50) : Colors.grey[400],
@@ -226,7 +251,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
               ),
               const SizedBox(height: 6),
               Text(
-                isRecording ? 'Chạm để dừng & chấm điểm' : 'Bắt đầu đọc',
+                isRecording ? l10n.voiceRecallStopToScore : l10n.voiceRecallStartRecording,
                 style: TextStyle(color: Colors.grey[400], fontSize: 11.5),
               ),
             ],
@@ -263,7 +288,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${accuracy.toStringAsFixed(0)}% CHUẨN XÁC',
+                  '${accuracy.toStringAsFixed(0)}% ${l10n.voiceRecallAccuracy}',
                   style: TextStyle(
                     color: isGood ? const Color(0xFF81C784) : const Color(0xFFFFD54F),
                     fontSize: 12,
@@ -273,7 +298,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
               ),
               const Spacer(),
               Text(
-                isGood ? 'Thuộc lòng xuất sắc! 🎉' : 'Cần củng cố thêm vài từ',
+                isGood ? '🎉 ${l10n.voiceRecallExcellent}' : l10n.voiceRecallNeedMore,
                 style: TextStyle(
                   color: isGood ? const Color(0xFF81C784) : Colors.orangeAccent,
                   fontSize: 12,
@@ -335,7 +360,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                 widget.onRated(result.suggestedRating);
               },
               icon: const Icon(Icons.check_circle_rounded, size: 18),
-              label: Text('Ghi nhận kết quả (${result.suggestedRating.label}) vào FSRS'),
+              label: Text('${l10n.voiceRecallSubmitResult} (${result.suggestedRating.label})'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isGood ? const Color(0xFF4CAF50) : const Color(0xFF6C63FF),
                 foregroundColor: Colors.white,

@@ -401,4 +401,186 @@ class LearnByHeartL10n {
         'zh_TW': '所有狀態',
         'si': 'සියලු තත්වයන්',
       });
+
+  // ===== VOICE RECITATION (VOICE RECALL) =====
+  String get voiceRecallTitle => _get({
+        'vi': 'Đọc bằng giọng nói (Voice Recall)',
+        'en': 'Voice Recitation (Voice Recall)',
+        'hi': 'ध्वनि पाठ (वॉइस रिकॉल)',
+        'zh': '语音背诵 (Voice Recall)',
+        'zh_TW': '語音背誦 (Voice Recall)',
+        'si': 'හඬ සජ්ඣායනා (Voice Recall)',
+      });
+
+  String get voiceRecallTargetText => _get({
+        'vi': 'VĂN BẢN MỤC TIÊU CẦN ĐỌC',
+        'en': 'TARGET TEXT TO RECITE',
+        'hi': 'पाठ लक्ष्य जिसे पढ़ना है',
+        'zh': '目标朗读文本',
+        'zh_TW': '目標朗讀文本',
+        'si': 'සජ්ඣායනා කිරීමට අරමුණු පෙළ',
+      });
+
+  String get voiceRecallMicPermission => _get({
+        'vi': 'Vui lòng cấp quyền Microphone để ghi âm',
+        'en': 'Please grant Microphone permission to record',
+        'hi': 'रिकॉर्ड करने के लिए माइक्रोफोन अनुमति दें',
+        'zh': '请授予麦克风权限以进行录音',
+        'zh_TW': '請授予麥克風權限以進行錄音',
+        'si': 'පටින්ද කිරීමට මයික්‍රෆෝන් අවසරය දෙන්න',
+      });
+
+  String get voiceRecallStartHint => _get({
+        'vi': 'Nhấn nút Mic bên dưới và đọc câu kinh để chấm điểm thuộc lòng',
+        'en': 'Tap the Mic button below and recite the verse to score your memorization',
+        'hi': 'नीचे माइक बटन दबाएं और अपनी याददाश्त की जांच के लिए गाथा पढ़ें',
+        'zh': '点击下方麦克风按钮并朗读经文以评估记忆效果',
+        'zh_TW': '點擊下方麥克風按鈕並朗讀經文以評估記憶效果',
+        'si': 'පහත මයික් බොත්තම ඔබා ගාථාව සජ්ඣායනා කර ඔබේ මතකය ලකුණු කරන්න',
+      });
+
+  String get voiceRecallListening => _get({
+        'vi': 'Đang lắng nghe... Hãy đọc to trọn vẹn câu kinh',
+        'en': 'Listening... Please recite the verse completely',
+        'hi': 'सुन रहे हैं... कृपया पूरी गाथा पढ़ें',
+        'zh': '正在聆听... 请完整朗读经文',
+        'zh_TW': '正在聆聽... 請完整朗讀經文',
+        'si': 'සවන් දෙමින... කරුණාකර ගාථාව සම්පූර්ණයෙන් පාඩම කරන්න',
+      });
+
+  String get voiceRecallAnalyzing => _get({
+        'vi': 'Đang phân tích & đối chiếu giọng đọc...',
+        'en': 'Analyzing and comparing your recitation...',
+        'hi': 'आपके पाठ का विश्लेषण और तुलना हो रही है...',
+        'zh': '正在分析与比对您的朗读...',
+        'zh_TW': '正在分析與比對您的朗讀...',
+        'si': 'ඔබේ සජ්ඣායනාව විශ්ලේෂණය කර සංසන්දනය කරමින...',
+      });
+
+  String get voiceRecallSttUnavailable => _get({
+        'vi': 'STT chưa sẵn sàng hoặc chưa tải model. Vui lòng thử lại sau.',
+        'en': 'STT not ready or model not loaded. Please try again later.',
+        'hi': 'STT तैयार नहीं है या मॉडल लोड नहीं हुआ। कृपया बाद में पुनः प्रयास करें।',
+        'zh': '语音识别尚未就绪或模型未加载，请稍后再试。',
+        'zh_TW': '語音識別尚未就緒或模型未加載，請稍後再試。',
+        'si': 'STT පිහිටීමට  готов නැත හෝ මාදිලිය පටින කර නැත. කරුණාකර පසුව නැවත උත්සාහ කරන්න.',
+      });
+
+  String get voiceRecallAccuracy => _get({
+        'vi': 'CHUẨN XÁC',
+        'en': 'ACCURATE',
+        'hi': 'सटीक',
+        'zh': '准确度',
+        'zh_TW': '準確度',
+        'si': 'නිරවද්‍යතාව',
+      });
+
+  String get voiceRecallExcellent => _get({
+        'vi': 'Thuộc lòng xuất sắc!',
+        'en': 'Excellent recitation!',
+        'hi': 'उत्कृष्ट पाठ!',
+        'zh': '背诵优秀！',
+        'zh_TW': '背誦優秀！',
+        'si': 'නියම සජ්ඣායනාව!',
+      });
+
+  String get voiceRecallNeedMore => _get({
+        'vi': 'Cần củng cố thêm vài từ',
+        'en': 'Need to reinforce a few words',
+        'hi': 'कुछ शब्दों को और मजबूत करना है',
+        'zh': '需要巩固几个词',
+        'zh_TW': '需要鞏固幾個詞',
+        'si': 'ටිකක් වචන තවදුරටත් ප්‍රගත කළ යුතුය',
+      });
+
+  String get voiceRecallStopToScore => _get({
+        'vi': 'Chạm để dừng & chấm điểm',
+        'en': 'Tap to stop & score',
+        'hi': 'रोकने और स्कोर करने के लिए टैप करें',
+        'zh': '点击停止并评分',
+        'zh_TW': '點擊停止並評分',
+        'si': 'නතර කිරීමට සහ ලකුණු කිරීමට තට්ටු කරන්න',
+      });
+
+  String get voiceRecallStartRecording => _get({
+        'vi': 'Bắt đầu đọc',
+        'en': 'Start Recording',
+        'hi': 'रिकॉर्डिंग शुरू करें',
+        'zh': '开始录音',
+        'zh_TW': '開始錄音',
+        'si': 'පටින්ද ආරම්භ කරන්න',
+      });
+
+  String get voiceRecallSubmitResult => _get({
+        'vi': 'Ghi nhận kết quả',
+        'en': 'Submit Result',
+        'hi': 'परिणाम दर्ज करें',
+        'zh': '提交结果',
+        'zh_TW': '提交結果',
+        'si': 'ප්‍රතිඵලය ලබා දන්න',
+      });
+
+  // ===== CHAIN RECITATION (CHAIN PRIMING) =====
+  String get chainModeTitle => _get({
+        'vi': 'Mối nối liên hoàn (Xích kệ ngôn)',
+        'en': 'Chain Priming Recitation',
+        'hi': 'श्रृंखला प्राइमिंग पाठ',
+        'zh': '链式引导背诵',
+        'zh_TW': '鏈式引導背誦',
+        'si': 'දාම ප්‍රාථමික සජ්ඣායනා',
+      });
+
+  String get chainPrimeLabel => _get({
+        'vi': 'CÂU MỒI DẪN DẮT',
+        'en': 'PRIME LINE',
+        'hi': 'प्राइम पंक्ति',
+        'zh': '引导句',
+        'zh_TW': '引導句',
+        'si': 'ප්‍රාථමික පේළිය',
+      });
+
+  String get chainTargetLabel => _get({
+        'vi': 'CÂU CẦN ĐỌC TIẾP',
+        'en': 'NEXT LINE TO RECITE',
+        'hi': 'अगली पंक्ति पढ़ें',
+        'zh': '下一句待读',
+        'zh_TW': '下一句待讀',
+        'si': 'ඊළඟ පේළිය සජ්ඣායනා කරන්න',
+      });
+
+  String get chainHiddenPrompt => _get({
+        'vi': '___ ? Hãy nhớ câu tiếp theo trong đầu ? ___',
+        'en': '___ ? Recall the next line in your mind ? ___',
+        'hi': '___ ? अगली पंक्ति याद करें ? ___',
+        'zh': '___ ? 请在脑中回想下一句 ? ___',
+        'zh_TW': '___ ? 請在腦中回想下一句 ? ___',
+        'si': '___ ? ඊළඟ පේළිය සිතින් මතක කරන්න ? ___',
+      });
+
+  String get chainRevealNext => _get({
+        'vi': 'Xem câu tiếp theo',
+        'en': 'Reveal Next Line',
+        'hi': 'अगली पंक्ति दिखाएं',
+        'zh': '查看下一句',
+        'zh_TW': '查看下一句',
+        'si': 'ඊළඟ පේළිය පෙන්වන්න',
+      });
+
+  String get chainNextStep => _get({
+        'vi': 'Thuộc câu nối → Sang mối tiếp',
+        'en': 'Got it → Next Link',
+        'hi': 'याद है → अगला जोड़',
+        'zh': '已记住 → 下一链',
+        'zh_TW': '已記住 → 下一鏈',
+        'si': 'මතකය → ඊළඟ සබඳතාවට',
+      });
+
+  String get chainComplete => _get({
+        'vi': 'Hoàn tất xích kệ ngôn!',
+        'en': 'Chain Complete!',
+        'hi': 'श्रृंखला पूर्ण!',
+        'zh': '链式完成！',
+        'zh_TW': '鏈式完成！',
+        'si': 'දාමය සම්පූර්ණයි!',
+      });
 }

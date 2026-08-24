@@ -23,6 +23,7 @@ import 'core/responsive/app_responsive.dart';
 import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
+import 'providers/audio_library_provider.dart';
 import 'providers/focus_provider.dart';
 import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
@@ -262,6 +263,8 @@ class _MyAppState extends State<MyApp> {
             ..load()
             ..attachPlayer(ctx.read<PlayerProvider>()),
         ),
+        // Thư viện âm thanh (P1): quét MediaStore, chỉ mục Hive
+        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(

@@ -1,11 +1,14 @@
+// ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, avoid_unnecessary_containers, sized_box_for_whitespace, use_build_context_synchronously, avoid_print
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
+import 'audio_library_view.dart';
 import 'recent_audio_card.dart';
 
 class ListenLibraryScreen extends StatefulWidget {
@@ -23,10 +26,12 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
 
   late final AnimationController _fabAnim;
   late final Animation<double> _fabScale;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _fabAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -40,6 +45,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
 
   @override
   void dispose() {
+    _tabController.dispose();
     _fabAnim.dispose();
     super.dispose();
   }
@@ -306,25 +312,69 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       body: Column(
         children: [
           _buildHeader(),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-      floatingActionButton: ScaleTransition(
-        scale: _fabScale,
-        child: FloatingActionButton.extended(
-          onPressed: _pickAudioFile,
-          backgroundColor: const Color(0xFF6C63FF),
-          elevation: 4,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: const Text(
-            'Thêm audio',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
+          _buildTabBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildRecentBody(),
+                const AudioLibraryView(),
+              ],
             ),
           ),
-        ),
+        ],
+      ),
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, _) {
+          final isRecentTab = _tabController.index == 0;
+          return ScaleTransition(
+            scale: _fabScale,
+            child: FloatingActionButton.extended(
+              onPressed: isRecentTab ? _pickAudioFile : _scanLibrary,
+              backgroundColor: const Color(0xFF6C63FF),
+              elevation: 4,
+              icon: Icon(
+                isRecentTab ? Icons.add_rounded : Icons.refresh_rounded,
+                color: Colors.white,
+              ),
+              label: Text(
+                isRecentTab ? 'Thêm audio' : 'Quét thư viện',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// FAB tab "Thư viện": quét lại MediaStore.
+  void _scanLibrary() {
+    context.read<AudioLibraryProvider>().scan();
+  }
+
+  // ── Tab bar (Gần đây / Thư viện) ─────────────────────────────
+  Widget _buildTabBar() {
+    return Container(
+      color: const Color(0xFF0D1520),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: TabBar(
+        controller: _tabController,
+        indicatorColor: const Color(0xFF6C63FF),
+        indicatorWeight: 2.5,
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white38,
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(fontSize: 13),
+        tabs: const [
+          Tab(text: 'Gần đây'),
+          Tab(text: 'Thư viện'),
+        ],
       ),
     );
   }
@@ -399,8 +449,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
     );
   }
 
-  // ── Body ─────────────────────────────────────────────────────
-  Widget _buildBody() {
+  // ── Body tab "Gần đây" ───────────────────────────────────────
+  Widget _buildRecentBody() {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(

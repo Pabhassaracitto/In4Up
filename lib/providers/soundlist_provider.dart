@@ -36,6 +36,20 @@ class SoundlistProvider extends ChangeNotifier {
   String? _lastLoopKey;
   int _lastLoopCount = 0;
 
+  // ── Trạng thái job "Tự tạo mục lục" (chạy nền, UI không block) ──
+  bool _autoTocRunning = false;
+  String _autoTocStatus = '';
+  double _autoTocProgress = 0.0;
+  String? _autoTocError;
+  SoundAutoTocResult? _lastAutoTocResult;
+  StreamSubscription<SttProgress>? _autoTocProgressSub;
+
+  bool get autoTocRunning => _autoTocRunning;
+  String get autoTocStatus => _autoTocStatus;
+  double get autoTocProgress => _autoTocProgress;
+  String? get autoTocError => _autoTocError;
+  SoundAutoTocResult? get lastAutoTocResult => _lastAutoTocResult;
+
   List<SoundMark> get marks => List.unmodifiable(_marks);
   List<SoundChapter> get chapters => List.unmodifiable(_chapters);
   VadSettings get vadSettings => _vadSettings;
@@ -188,17 +202,18 @@ class SoundlistProvider extends ChangeNotifier {
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
       if (line.text.trim().isEmpty) continue;
-      // ★ FIX (SOUNDLIST CI): end = timestamp của dòng KHÔNG TRỐNG kế tiếp
-      // (bỏ qua dòng trống/whitespace). Bản cũ dùng dòng raw kế tiếp — dòng
-      // trống làm end == start (highlight/playback sai). Dòng cuối: +3s.
-      Duration? nextEnd;
-      for (int j = i + 1; j < lines.length; j++) {
-        if (lines[j].text.trim().isNotEmpty) {
-          nextEnd = lines[j].timestamp;
-          break;
-        }
+      // end = timestamp dòng KẾ TIẾP CÓ NỘI DUNG; nếu không còn dòng nào
+      // (hoặc chỉ còn dòng rỗng) → fallback +3s. (Fix: trước đây lấy thẳng
+      // lines[i+1] kể cả khi dòng đó rỗng → dòng cuối có nội dung bị end
+      // sai bằng timestamp dòng rỗng.)
+      Duration end;
+      var next = i + 1;
+      while (next < lines.length && lines[next].text.trim().isEmpty) {
+        next++;
       }
-      final end = nextEnd ?? line.timestamp + const Duration(seconds: 3);
+      end = next < lines.length
+          ? lines[next].timestamp
+          : line.timestamp + const Duration(seconds: 3);
       tLines.add(TranscriptLine(
         start: line.timestamp,
         end: end,
@@ -309,6 +324,7 @@ class SoundlistProvider extends ChangeNotifier {
   ///
   /// [useWhisper] = true  → VAD + Whisper: chương có tiêu đề = câu mở đầu.
   /// [useWhisper] = false → Chỉ VAD: chương "Đoạn N · mm:ss" (không cần model).
+  /// [language]   = 'vi' | 'en' | 'auto' — ngôn ngữ nhận diện (D16).
   ///
   /// Thay thế toàn bộ chương/mục hiện có của file (UI xác nhận trước khi gọi).
   /// [onStatus] callback cho UI hiển thị tiến trình ("Đang phân tích…").
@@ -317,6 +333,7 @@ class SoundlistProvider extends ChangeNotifier {
     Duration? totalDuration,
     bool useWhisper = true,
     WhisperModelLevel? whisperLevel,
+    String language = 'auto',
     ValueChanged<String>? onStatus,
   }) async {
     onStatus?.call('Phân tích khoảng lặng (VAD)…');
@@ -333,7 +350,10 @@ class SoundlistProvider extends ChangeNotifier {
     if (useWhisper) {
       onStatus?.call('Đang nhận diện giọng nói (Whisper)…\n'
           'File dài có thể mất vài phút.');
-      stt = await SoundAutoTocService.transcribe(audioPath);
+      stt = await SoundAutoTocService.transcribe(
+        audioPath,
+        language: language,
+      );
     }
 
     final chapters = SoundAutoTocService.buildChapters(
@@ -345,6 +365,23 @@ class SoundlistProvider extends ChangeNotifier {
 
     if (chapters.isNotEmpty) {
       await _replaceChaptersForFile(audioPath, chapters);
+    }
+
+    // Lý do fail chi tiết (hiển thị trong dialog thay vì thông báo chung chung).
+    String? error;
+    if (chapters.isEmpty) {
+      final reasons = <String>[];
+      if (slices.isEmpty) {
+        reasons.add('không tách được đoạn theo khoảng lặng (audio liền mạch '
+            'hoặc quá ngắn)');
+      }
+      if (useWhisper && stt == null) {
+        reasons.add('Whisper không nhận diện được — kiểm tra model trong '
+            'Cài đặt → AI Model');
+      }
+      error = reasons.isEmpty
+          ? 'không rõ nguyên nhân'
+          : reasons.join('; ');
     }
 
     // Lưu transcript (nếu Whisper chạy thành công) để dùng cho "Tìm trong audio".
@@ -376,7 +413,63 @@ class SoundlistProvider extends ChangeNotifier {
       sliceCount: slices.length,
       usedWhisper: useWhisper && stt != null,
       transcriptText: stt?.fullText,
+      error: error,
     );
+  }
+
+  /// 🏃 Chạy "Tự tạo mục lục" ở CHẾ ĐỘ NỀN (không block UI):
+  /// - Cập nhật autoTocRunning/autoTocStatus/autoTocProgress (UI hiện chip/bubble).
+  /// - Theo dõi progress từ SttServiceFacade (Whisper) để cập nhật %.
+  /// - Khi xong: lưu lastAutoTocResult + error, tắt cờ, hủy subscription.
+  /// - Người dùng có thể đóng dialog/đi dùng chỗ khác — job vẫn chạy.
+  Future<void> startAutoTocBackground({
+    required String audioPath,
+    Duration? totalDuration,
+    required bool useWhisper,
+    String language = 'auto',
+  }) async {
+    if (_autoTocRunning) return;
+    _autoTocRunning = true;
+    _autoTocStatus = useWhisper
+        ? 'Đang nhận diện giọng nói…'
+        : 'Đang phân tích khoảng lặng…';
+    _autoTocProgress = 0.0;
+    _autoTocError = null;
+    _lastAutoTocResult = null;
+    notifyListeners();
+
+    _autoTocProgressSub?.cancel();
+    _autoTocProgressSub =
+        SttServiceFacade().progressStream.listen((p) {
+      if (p.progress > _autoTocProgress) {
+        _autoTocProgress = p.progress.clamp(0.0, 1.0).toDouble();
+      }
+      if (p.message.isNotEmpty) _autoTocStatus = p.message;
+      notifyListeners();
+    });
+
+    try {
+      final result = await autoGenerateToc(
+        audioPath: audioPath,
+        totalDuration: totalDuration,
+        useWhisper: useWhisper,
+        language: language,
+        onStatus: (msg) {
+          _autoTocStatus = msg;
+          notifyListeners();
+        },
+      );
+      _lastAutoTocResult = result;
+      _autoTocError = result.error;
+    } catch (e) {
+      _autoTocError = e.toString();
+    } finally {
+      await _autoTocProgressSub?.cancel();
+      _autoTocProgressSub = null;
+      _autoTocRunning = false;
+      _autoTocProgress = 1.0;
+      notifyListeners();
+    }
   }
 
   /// Thay toàn bộ chương/mục của một file bằng danh sách mới.

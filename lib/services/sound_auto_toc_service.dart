@@ -1,3 +1,4 @@
+// ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, use_build_context_synchronously, avoid_unnecessary_containers, sized_box_for_whitespace, avoid_print, avoid_redundant_argument_values
 // lib/services/sound_auto_toc_service.dart
 // Soundlist – Bộ máy "Tự tạo mục lục âm thanh"
 //

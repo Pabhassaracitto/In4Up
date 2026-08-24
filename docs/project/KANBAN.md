@@ -44,6 +44,7 @@
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
 | LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
 | LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
+| LHB-003 | Voice Recall (ghi mic + fuzzy align + gợi ý FSRS) + Nối xích câu kệ + Anki Cloze {{c1::}} | ✅ done | cherry-pick 10fecd3 → 19efa2d + fix transcribeAuto (0177c35 → 4f123e6); chờ CI + nghiệm thu mic |
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 
 ---
@@ -739,6 +740,10 @@
     sẵn trên cả 019ff2de (undefined_getter `l10n.allCategories`/`allStates` —
     hub screen tham chiếu nhưng l10n thiếu) → fix 3c22e97 (thêm 2 getter
     6 ngôn ngữ); App Analyze + Locale XANH run 32772381254
+  - 2026-08-25 | thu hoạch 0177c35 | agent arena/01a0251e-in4up |
+    cherry-pick -x → 4f123e6 (keywords mode render plain text + isMaskedAtLevel
+    + counters theo level + level1..4Desc). CI 019ff2de xanh 32775838260.
+    Dedup allCategories/allStates (bản 0177c35 chính thống thay fix tạm 3c22e97)
 
 ### SOUNDLIST-630-02 — transcriptFromLrcLines: end = dòng không trống kế tiếp
 - **Trạng thái:** done
@@ -758,6 +763,36 @@
   32663677470.
 - **Lịch sử:**
   - 2026-08-24 | created→done | agent arena/01a0251e-in4up | fix + CI xanh
+
+### LHB-003 — Voice Recall + Nối xích câu kệ + Anki Cloze (thu hoạch 019ff2de)
+- **Trạng thái:** done (chờ CI + nghiệm thu mic trên thiết bị)
+- **Nguồn:** chủ yêu cầu (2026-08-25) — nghiệm thu `0177c35` của
+  `arena/019ff2de-in4up`; thu hoạch kèm `10fecd3` (commit mới hơn trên nhánh).
+- **Nghiệm thu 0177c35:** review OK — `ClozeToken.isMaskedAtLevel(level)`
+  (4 level đầy đủ), keywords mode ghost đúng `isKeyword || isMasked`,
+  firstLetter mode prompt cho TẤT CẢ từ (fix bug: từ không-masked trước
+  đây render chữ thường), từ dấu câu/punctuation giữ nguyên (không thành
+  '___'), counters `_totalMaskedForLevel`/`_revealedForLevel`, hint icon +
+  màu theo level (level1..4Desc). CI 019ff2de XANH 32775838260.
+- **Nội dung 10fecd3:** 8 file +1196/−52 — VoiceRecitationService (ghi mic
+  qua RecordingService có sẵn + STT offline + fuzzy align Levenshtein
+  cửa sổ ±3/4, chấm exact/partial/missed, gợi ý FSRSRating ≥88→easy),
+  VoiceRecitationSheet (351 dòng), ChainRecitationController + View
+  (nối xích line-by-line), AnkiClozeParser (`{{c1::từ::gợi ý}}` —
+  hasAnkiCloze/getCardIndices/stripAnkiSyntax/parseToTokens),
+  ItemEditor tự nhận diện Anki Cloze khi lưu (rút keyword + strip syntax),
+  ActiveRecall thêm mode "Nối xích" + nút mic, test 3 group mới.
+- **Fix compile (10fecd3 đỏ sẵn trên 019ff2de, run 32776254590):**
+  `voice_recitation_service` gọi `_stt.transcribeFile(filePath:, language:)`
+  + `res.text` — SttServiceFacade không có API đó (transcribeFile dùng
+  positional + không có language; output là SttTranscribeOutput có
+  .success/.result.fullText) → sửa dùng `transcribeAuto(path, language:,
+  generateLrc: false)` (giống luồng auto-TOC). Cross-check thêm: toàn bộ
+  tham chiếu l10n/item model/AnkiClozeParser/ChainRecitationController/
+  VoiceRecitationSheet.show đều resolve.
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
+    10fecd3 → 19efa2d (amend fix transcribeAuto); chờ CI + nghiệm thu mic
 
 ### HARVEST-1580-01 — Thâu hoạch phần còn thiếu từ 01a01580 (1580)
 - **Trạng thái:** done (chờ CI + nghiệm thu thiết bị cho fix docx)

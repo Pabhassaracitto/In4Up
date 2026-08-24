@@ -324,6 +324,7 @@
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat (item 5)
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | docx thật (deflate) + md + json mô phỏng pass
+  - 2026-08-25 | fix bổ sung (cherry-pick 42ec495 từ 01a01580 → 356388a) | agent arena/01a0251e-in4up | docx: giữ tiếng Việt liền mạch — chỉ nối nội dung `<w:t>` trong đoạn (Word tách run), tokenizer Đọc dùng Unicode thay `\w` ASCII + test `test/text_source_loader_test.dart` (chờ CI + nghiệm thu mở file .docx tiếng Việt trên thiết bị)
 
 ### AICHAT-01 — AI Chat thật: llama.cpp native backend (hết mock)
 - **Trạng thái:** done — CI build llama.cpp XANH 3 nền tảng (Android/iOS/Windows, run 32592622383); chờ nghiệm thu app của owner (import .gguf + chat)
@@ -733,3 +734,29 @@
   32663677470.
 - **Lịch sử:**
   - 2026-08-24 | created→done | agent arena/01a0251e-in4up | fix + CI xanh
+
+### HARVEST-1580-01 — Thâu hoạch phần còn thiếu từ 01a01580 (1580)
+- **Trạng thái:** done (chờ CI + nghiệm thu thiết bị cho fix docx)
+- **Nguồn:** chủ yêu cầu (2026-08-25) — "cherry-pick những phần còn thiếu từ 1580".
+- **Đã có sẵn trên 251e (KHÔNG lấy lại, tránh đè):**
+  - STT tải khi bấm (`928525a`) — `stt_model_manager`/facade cùng blob
+  - Chấm viết 2 tầng + reload GGUF (`e4b51ff`) — `write_studio`/`ai_analysis`/mock
+  - Mở lại MP3 dùng LRC đã lưu (`d8486d3`) — đã vào qua REOPEN-001 (`f5cd164`)
+  - STT engine strategy Whisper+Native (`f8fd639`) — 4 file giống hệt
+  - `ai_engine_gemma.dart` / `ai_service_facade.dart` / cả `in4up_stt/lib/` —
+    251e đã tích hợp llama/Sherpa, đè là mất (theo `PROMPT_DEV_NHAN_580`)
+- **Cherry-pick sang 251e lần này (chỉ tài liệu + 1 fix docx):**
+  - `a8e0c3c` so-tay BETA=`01a02a12` → bản đã nằm sẵn (no-op, skip)
+  - `f969dd8` so-tay mục A (Repo chính In4Up) + thứ tự 02601/296a vào DEV
+    (conflict `ai_engine_gemma` — giữ bản 251e, chỉ lấy phần so-tay)
+  - `7ec51df` so-tay tên APK `app-stable-<abi>`, PR #9 không merge main
+  - `dbe4728` `PROMPT_AGENT_DICH_OFFLINE.md` (prompt dịch offline + glossary Pali)
+  - `80c205a` `PROMPT_DEV_NHAN_580.md` (sổ chỉ dẫn nhận phần 580, ghi "khong merge")
+  - `d8a26ee` `AUDIT_MAT_MERGE_DEV.md` (rà soát mất chức năng do merge DEV)
+  - `42ec495` **fix(docx) tiếng Việt liền mạch** → commit `356388a`
+    (parser chỉ nối `<w:t>` trong đoạn + tokenizer Unicode + test)
+- **Bằng chứng:** `git cherry HEAD origin/arena/01a01580-in4up` — các code 580
+  còn dấu `+` đều đã có bản tương đương trên 251e (đối chiếu blob, xem trên).
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick 7 commit
+    (6 docs + 1 docx fix) với `-x`; đối chiếu blob từng file; chờ CI + nghiệm thu

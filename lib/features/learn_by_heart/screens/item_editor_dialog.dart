@@ -210,7 +210,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       _buildTextField(
                         controller: _titleCtrl,
                         label: 'Tiêu đề bài kinh / kệ ngôn',
-                        hint: 'Ví dụ: Kệ Pháp Cú 01, Bát Nhã Tâm Kinh...',
+                        hint: 'Ví dụ: Kệ Pháp Cú 01, Từ Bi Kinh...',
                         required: true,
                       ),
                       const SizedBox(height: 12),

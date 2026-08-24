@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
@@ -432,30 +431,23 @@ class AiModelLoader {
     void Function(double progress)? onProgress,
   }) async {
     final total = await src.length();
-    // FIX 251e (bisect R3, CI 32788713417): bản 01a02a4a dùng API sai —
-    // `openRead()/openWrite()` trả Future (không await) + `rs.read(...)` /
-    // `ws.add(...)` không tồn tại trên RandomAccessFile ⇒ 4 lỗi
-    // "method isn't defined for type Future<RandomAccessFile>".
-    final rs = await src.openRead();
+    // FIX 251e (bisect R3/R4, CI 32788713417 + 32788973887): bản 01a02a4a
+    // gọi `rs.read(buffer, ...)` — không tồn tại: `File.openRead()` trả
+    // Stream<List<int>> (không phải RandomAccessFile). Copy theo stream —
+    // cùng API đã được chứng minh ở downloadModel bên dưới (openRead stream
+    // + openWrite IOSink).
+    var copied = 0;
+    final sink = dest.openWrite();
     try {
-      final ws = await dest.openWrite();
-      try {
-        var copied = 0;
-        final buffer = Uint8List(8 * 1024 * 1024);
-        while (true) {
-          final n = await rs.readInto(buffer, 0, buffer.length);
-          if (n == 0) break;
-          await ws.writeFrom(buffer, 0, n);
-          copied += n;
-          if (total > 0) onProgress?.call(copied / total);
-        }
-        onProgress?.call(1.0);
-      } finally {
-        await ws.close();
+      await for (final chunk in src.openRead()) {
+        sink.add(chunk);
+        copied += chunk.length;
+        if (total > 0) onProgress?.call(copied / total);
       }
     } finally {
-      await rs.close();
+      await sink.close();
     }
+    onProgress?.call(1.0);
   }
 
   /// Kiểm tra magic header "GGUF" (4 byte đầu) của file model.

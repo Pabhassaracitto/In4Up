@@ -511,4 +511,4 @@ class _AppErrorScreen extends StatelessWidget {
   }
 }
 
-// ci: bisect R4 - R3 + loader _copyFileWithProgress fix (trigger paths-filter)
+// ci: bisect R5 - loader copy theo stream (openRead stream + openWrite IOSink) (trigger paths-filter)

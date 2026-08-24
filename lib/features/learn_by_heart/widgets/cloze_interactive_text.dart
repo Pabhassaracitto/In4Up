@@ -50,23 +50,23 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
     HapticFeedback.selectionClick();
     setState(() {
       _currentLevel = level;
-      // Khi đổi level, reset các từ chưa reveal
+      // Reset trạng thái reveal khi đổi cấp độ
       for (final t in _tokens) {
-        if (t.cleanWord.isNotEmpty) t.isRevealed = false;
+        t.isRevealed = false;
       }
     });
     widget.onLevelChanged?.call(level);
   }
 
   void _toggleToken(ClozeToken token) {
-    if (token.cleanWord.isEmpty) return;
+    if (!token.isMaskedAtLevel(_currentLevel)) return;
     HapticFeedback.selectionClick();
     setState(() {
       token.isRevealed = !token.isRevealed;
     });
 
-    final isAllRevealed = _tokens.every((t) => t.cleanWord.isEmpty || t.isRevealed);
-    if (isAllRevealed) {
+    final maskedTokens = _tokens.where((t) => t.isMaskedAtLevel(_currentLevel));
+    if (maskedTokens.isNotEmpty && maskedTokens.every((t) => t.isRevealed)) {
       widget.onAllRevealed?.call();
     }
   }
@@ -75,7 +75,9 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
     HapticFeedback.mediumImpact();
     setState(() {
       for (final t in _tokens) {
-        if (t.cleanWord.isNotEmpty) t.isRevealed = true;
+        if (t.isMaskedAtLevel(_currentLevel)) {
+          t.isRevealed = true;
+        }
       }
     });
     widget.onAllRevealed?.call();
@@ -85,25 +87,26 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
     HapticFeedback.lightImpact();
     setState(() {
       for (final t in _tokens) {
-        if (t.cleanWord.isNotEmpty) t.isRevealed = false;
+        t.isRevealed = false;
       }
     });
   }
 
-  int get _validTokenCount => _tokens.where((t) => t.cleanWord.isNotEmpty).length;
-  int get _revealedCount => _tokens.where((t) => t.cleanWord.isNotEmpty && t.isRevealed).length;
+  int get _totalMaskedForLevel => _tokens.where((t) => t.isMaskedAtLevel(_currentLevel)).length;
+  int get _revealedForLevel => _tokens.where((t) => t.isMaskedAtLevel(_currentLevel) && t.isRevealed).length;
 
   @override
   Widget build(BuildContext context) {
     final l10n = LearnByHeartL10n.of(context);
-    final totalValid = _validTokenCount;
-    final revealed = _revealedCount;
-    final progress = totalValid > 0 ? (revealed / totalValid) : 0.0;
+    final totalMasked = _totalMaskedForLevel;
+    final revealed = _revealedForLevel;
+    final isFullLevel = _currentLevel == ClozeLevel.fullText;
+    final progress = totalMasked > 0 ? (revealed / totalMasked) : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Level Scaffolding Selector (4 Tầng Bốc Hơi Chữ)
+        // 1. Level Selector (4 Tầng Bốc Hơi Chữ)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(6),
@@ -112,87 +115,106 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                children: [
-                  _LevelTabButton(
-                    label: l10n.level1Full,
-                    level: ClozeLevel.fullText,
-                    isSelected: _currentLevel == ClozeLevel.fullText,
-                    onTap: () => _setLevel(ClozeLevel.fullText),
-                  ),
-                  _LevelTabButton(
-                    label: l10n.level2Keywords,
-                    level: ClozeLevel.keywords,
-                    isSelected: _currentLevel == ClozeLevel.keywords,
-                    onTap: () => _setLevel(ClozeLevel.keywords),
-                  ),
-                  _LevelTabButton(
-                    label: l10n.level3FirstLetter,
-                    level: ClozeLevel.firstLetter,
-                    isSelected: _currentLevel == ClozeLevel.firstLetter,
-                    onTap: () => _setLevel(ClozeLevel.firstLetter),
-                  ),
-                  _LevelTabButton(
-                    label: l10n.level4Ghost,
-                    level: ClozeLevel.ghost,
-                    isSelected: _currentLevel == ClozeLevel.ghost,
-                    onTap: () => _setLevel(ClozeLevel.ghost),
-                  ),
-                ],
-              );
-            },
+          child: Row(
+            children: [
+              _LevelTabButton(
+                label: l10n.level1Full,
+                level: ClozeLevel.fullText,
+                isSelected: _currentLevel == ClozeLevel.fullText,
+                onTap: () => _setLevel(ClozeLevel.fullText),
+              ),
+              _LevelTabButton(
+                label: l10n.level2Keywords,
+                level: ClozeLevel.keywords,
+                isSelected: _currentLevel == ClozeLevel.keywords,
+                onTap: () => _setLevel(ClozeLevel.keywords),
+              ),
+              _LevelTabButton(
+                label: l10n.level3FirstLetter,
+                level: ClozeLevel.firstLetter,
+                isSelected: _currentLevel == ClozeLevel.firstLetter,
+                onTap: () => _setLevel(ClozeLevel.firstLetter),
+              ),
+              _LevelTabButton(
+                label: l10n.level4Ghost,
+                level: ClozeLevel.ghost,
+                isSelected: _currentLevel == ClozeLevel.ghost,
+                onTap: () => _setLevel(ClozeLevel.ghost),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
 
         // 2. Helper Hint & Action Bar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: isFullLevel
+                ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.touch_app_rounded, size: 16, color: Color(0xFF81C784)),
+              Icon(
+                isFullLevel
+                    ? Icons.menu_book_rounded
+                    : (_currentLevel == ClozeLevel.firstLetter
+                        ? Icons.text_fields_rounded
+                        : (_currentLevel == ClozeLevel.keywords
+                            ? Icons.vpn_key_rounded
+                            : Icons.visibility_off_rounded)),
+                size: 16,
+                color: isFullLevel
+                    ? const Color(0xFF90CAF9)
+                    : (_currentLevel == ClozeLevel.firstLetter
+                        ? const Color(0xFFFFD54F)
+                        : const Color(0xFF81C784)),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l10n.tapToRevealHint,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                  _getHelperText(l10n),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isFullLevel ? const Color(0xFF90CAF9) : Colors.grey[300],
+                    fontWeight: isFullLevel ? FontWeight.w600 : FontWeight.normal,
+                  ),
                 ),
               ),
-              if (_currentLevel != ClozeLevel.fullText && totalValid > 0) ...[
+              if (!isFullLevel && totalMasked > 0) ...[
                 Text(
-                  '$revealed/$totalValid',
-                  style: const TextStyle(
+                  '$revealed/$totalMasked',
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF81C784),
+                    color: _currentLevel == ClozeLevel.firstLetter
+                        ? const Color(0xFFFFD54F)
+                        : const Color(0xFF81C784),
                   ),
                 ),
                 const SizedBox(width: 8),
+                TextButton(
+                  onPressed: revealed == totalMasked ? _hideAll : _revealAll,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    revealed == totalMasked ? l10n.hideAll : l10n.revealAll,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF818CF8), fontWeight: FontWeight.bold),
+                  ),
+                ),
               ],
-              TextButton(
-                onPressed: revealed == totalValid ? _hideAll : _revealAll,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  revealed == totalValid ? l10n.hideAll : l10n.revealAll,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF6C63FF), fontWeight: FontWeight.bold),
-                ),
-              ),
             ],
           ),
         ),
 
-        // 3. Progress Meter Bar (when interactive)
-        if (_currentLevel != ClozeLevel.fullText && totalValid > 0) ...[
+        // 3. Progress Meter (Only in Cloze / Interactive Modes)
+        if (!isFullLevel && totalMasked > 0) ...[
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -200,7 +222,11 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
               value: progress,
               backgroundColor: Colors.white12,
               valueColor: AlwaysStoppedAnimation<Color>(
-                progress == 1.0 ? const Color(0xFF4CAF50) : const Color(0xFF818CF8),
+                progress == 1.0
+                    ? const Color(0xFF4CAF50)
+                    : (_currentLevel == ClozeLevel.firstLetter
+                        ? const Color(0xFFFFD54F)
+                        : const Color(0xFF818CF8)),
               ),
               minHeight: 3,
             ),
@@ -208,7 +234,7 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
         ],
         const SizedBox(height: 12),
 
-        // 4. Interactive Tokens Wrap Box
+        // 4. Interactive Text Rendering Area
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(18),
@@ -226,33 +252,26 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
             runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: _tokens.map((token) {
-              if (token.cleanWord.isEmpty) {
+              final isMaskedHere = token.isMaskedAtLevel(_currentLevel);
+
+              // ═══ TRƯỜNG HỢP 1: TỪ BÌNH THƯỜNG (KHÔNG BỊ ẨN) ═══
+              // Render dạng chữ thuần mượt mà, không đóng khung hộp, không có viền nút
+              if (!isMaskedHere || isFullLevel) {
                 return Text(
                   token.text,
                   style: TextStyle(
                     fontSize: widget.fontSize,
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: Colors.white.withValues(alpha: 0.92),
                     height: 1.5,
                   ),
                 );
               }
 
+              // ═══ TRƯỜNG HỢP 2: TỪ ĐANG BỊ ẨN / MỒI CHỮ ═══
+              // Render dạng Pill tương tác có thể chạm mở
               final displayStr = token.getDisplayForLevel(_currentLevel);
               final isRevealed = token.isRevealed;
-              final isFullLevel = _currentLevel == ClozeLevel.fullText;
 
-              if (isFullLevel) {
-                return Text(
-                  token.text,
-                  style: TextStyle(
-                    fontSize: widget.fontSize,
-                    color: Colors.white,
-                    height: 1.5,
-                  ),
-                );
-              }
-
-              // Interactive Cloze Token Pill
               return GestureDetector(
                 onTap: () => _toggleToken(token),
                 child: AnimatedContainer(
@@ -294,6 +313,19 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
         ),
       ],
     );
+  }
+
+  String _getHelperText(LearnByHeartL10n l10n) {
+    switch (_currentLevel) {
+      case ClozeLevel.fullText:
+        return l10n.level1Desc;
+      case ClozeLevel.keywords:
+        return l10n.level2Desc;
+      case ClozeLevel.firstLetter:
+        return l10n.level3Desc;
+      case ClozeLevel.ghost:
+        return l10n.level4Desc;
+    }
   }
 }
 

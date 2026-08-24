@@ -141,6 +141,15 @@ class LearnByHeartL10n {
         'si': '1. සම්පූර්ණ පෙළ',
       });
 
+  String get level1Desc => _get({
+        'vi': 'Đọc và nghe trọn vẹn văn bản',
+        'en': 'Read and listen to the full text',
+        'hi': 'पूरा पाठ पढ़ें और सुनें',
+        'zh': '阅读并聆听全文',
+        'zh_TW': '閱讀並聆聽全文',
+        'si': 'සම්පූර්ණ පෙළ කියවා සවන් දෙන්න',
+      });
+
   String get level2Keywords => _get({
         'vi': '2. Ẩn từ khóa',
         'en': '2. Keywords',
@@ -148,6 +157,15 @@ class LearnByHeartL10n {
         'zh': '2. 关键词填空',
         'zh_TW': '2. 關鍵詞填空',
         'si': '2. මූල පද',
+      });
+
+  String get level2Desc => _get({
+        'vi': 'Chạm vào ô [ ___ ] để lật mở từ khóa',
+        'en': 'Tap on [ ___ ] to reveal keywords',
+        'hi': 'मुख्य शब्द देखने के लिए [ ___ ] पर टैप करें',
+        'zh': '点击空白 [ ___ ] 以揭晓核心词',
+        'zh_TW': '點擊空白 [ ___ ] 以揭曉核心詞',
+        'si': 'මූල පද බැලීමට [ ___ ] තට්ටු කරන්න',
       });
 
   String get level3FirstLetter => _get({
@@ -159,6 +177,15 @@ class LearnByHeartL10n {
         'si': '3. මුල් අකුරු',
       });
 
+  String get level3Desc => _get({
+        'vi': 'Chạm vào chữ mồi [ d___ ] để xem trọn từ',
+        'en': 'Tap on first-letter cue [ d___ ] to reveal word',
+        'hi': 'पूरा शब्द देखने के लिए [ d___ ] पर टैप करें',
+        'zh': '点击首字提示 [ d___ ] 以查看完整词汇',
+        'zh_TW': '點擊首字提示 [ d___ ] 以查看完整詞彙',
+        'si': 'සම්පූර්ණ වචනය බැලීමට [ d___ ] තට්ටු කරන්න',
+      });
+
   String get level4Ghost => _get({
         'vi': '4. Ẩn toàn bộ',
         'en': '4. Blind Recall',
@@ -168,13 +195,13 @@ class LearnByHeartL10n {
         'si': '4. සම්පූර්ණ මතකය',
       });
 
-  String get tapToRevealHint => _get({
-        'vi': 'Chạm vào ô [ ___ ] để lật mở từng từ',
-        'en': 'Tap on blanks [ ___ ] to reveal words',
-        'hi': 'शब्द देखने के लिए [ ___ ] पर टैप करें',
-        'zh': '点击空白 [ ___ ] 以逐字揭晓',
-        'zh_TW': '點擊空白 [ ___ ] 以逐字揭曉',
-        'si': 'වචන බැලීමට [ ___ ] තට්ටු කරන්න',
+  String get level4Desc => _get({
+        'vi': 'Toàn bộ bài đã ẩn, tự đọc nhẩm rồi chạm để kiểm tra',
+        'en': '100% blind recall, recite in mind and tap to verify',
+        'hi': 'संपूर्ण पाठ अदृश्य, मन में याद करें और टैप कर जांचें',
+        'zh': '全文已隐去，请在大脑中默背后点击核对',
+        'zh_TW': '全文已隱去，請在大腦中默背後點擊核對',
+        'si': 'සම්පූර්ණ පෙළ සඟවා ඇත, සිතින් මතක් කර පරීක්ෂා කිරීමට තට්ටු කරන්න',
       });
 
   String get revealAll => _get({
@@ -195,13 +222,22 @@ class LearnByHeartL10n {
         'si': 'නැවත සඟවන්න',
       });
 
-  String get recallMeter => _get({
-        'vi': 'Tiến độ gợi nhớ',
-        'en': 'Recall Progress',
-        'hi': 'स्मरण प्रगति',
-        'zh': '回忆进度',
-        'zh_TW': '回憶進度',
-        'si': 'මතක ප්‍රගතිය',
+  String get keywordsCountLabel => _get({
+        'vi': 'từ khóa',
+        'en': 'keywords',
+        'hi': 'मुख्य शब्द',
+        'zh': '关键词',
+        'zh_TW': '關鍵詞',
+        'si': 'මූල පද',
+      });
+
+  String get wordsCountLabel => _get({
+        'vi': 'từ',
+        'en': 'words',
+        'hi': 'शब्द',
+        'zh': '词',
+        'zh_TW': '詞',
+        'si': 'වචන',
       });
 
   // ===== ACTIVE RECALL 3 DẠNG =====
@@ -346,5 +382,23 @@ class LearnByHeartL10n {
         'zh': '完美无瑕',
         'zh_TW': '完美無瑕',
         'si': 'සම්පූර්ණයෙන්ම නිවැරදියි',
+      });
+
+  String get allCategories => _get({
+        'vi': 'Tất cả thể loại',
+        'en': 'All Categories',
+        'hi': 'सभी श्रेणियां',
+        'zh': '所有分类',
+        'zh_TW': '所有分類',
+        'si': 'සියලු කාණ්ඩ',
+      });
+
+  String get allStates => _get({
+        'vi': 'Tất cả trạng thái',
+        'en': 'All States',
+        'hi': 'सभी स्थितियां',
+        'zh': '所有状态',
+        'zh_TW': '所有狀態',
+        'si': 'සියලු තත්වයන්',
       });
 }

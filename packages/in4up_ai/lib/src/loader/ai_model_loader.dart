@@ -292,15 +292,15 @@ class AiModelLoader {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
 
-      final modelResult = ModelLoadResult(
+      final result = ModelLoadResult(
         success: true,
         modelPath: destPath,
         source: ModelSource.userImported,
       );
-      _cacheResult(modelResult);
+      _cacheResult(result);
       await _rememberFileSize();
 
-      return modelResult;
+      return result;
     } catch (e) {
       return ModelLoadResult(
         success: false,

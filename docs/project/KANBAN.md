@@ -712,3 +712,4 @@
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat | "import xong không thấy biểu hiện gì… nên quản lý models 1 chỗ nơi setting của home, import trực quan và tải online"
   - 2026-08-23 | proposed→doing | agent arena/01a02a4a-in4up | implement engine signal + facade stages + banner + section settings; chờ CI + nghiệm thu
+  - 2026-08-23 | doing→doing | agent arena/01a02a4a-in4up | app_analyze run 32665063225 ĐỎ — log bị chặn, bisect 5 vòng (branch tmp): core đỏ → không phải facade → không phải engine trio (xanh riêng) → **thủ phạm = ai_model_loader.dart**: `importModelFromUser` khai báo TRÙNG `result` trong cùng scope (FilePicker.pickFiles + ModelLoadResult) ⇒ "already declared in this scope". Fix: rename → `modelResult`. Sandbox re-image giữa lượt làm mất 3 commit local + token 401 — đã reconnect, phục hồi từ remote tip (2868af2) + áp lại fix. Dọn dẹp: xóa branch tạm arena/tmp-analyze-bisect (KHÔNG merge branch này)

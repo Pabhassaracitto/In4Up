@@ -438,3 +438,5 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 }
+
+// MODELS-002 (2026-08-23): model status banner + management — xem KANBAN.

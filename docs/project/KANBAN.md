@@ -735,6 +735,10 @@
 - **Lịch sử:**
   - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
     0ed55c8 → fb483df; chờ CI xanh + nghiệm thu UX
+  - 2026-08-25 | fix compile | agent arena/01a0251e-in4up | 0ed55c8 đã đỏ
+    sẵn trên cả 019ff2de (undefined_getter `l10n.allCategories`/`allStates` —
+    hub screen tham chiếu nhưng l10n thiếu) → fix 3c22e97 (thêm 2 getter
+    6 ngôn ngữ); App Analyze + Locale XANH run 32772381254
 
 ### SOUNDLIST-630-02 — transcriptFromLrcLines: end = dòng không trống kế tiếp
 - **Trạng thái:** done

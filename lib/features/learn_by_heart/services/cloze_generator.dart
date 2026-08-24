@@ -39,22 +39,35 @@ class ClozeToken {
     this.isRevealed = false,
   });
 
+  /// Kiểm tra token có phải là từ cần che/tương tác ở cấp độ này không
+  bool isMaskedAtLevel(ClozeLevel level) {
+    if (cleanWord.isEmpty) return false;
+    switch (level) {
+      case ClozeLevel.fullText:
+        return false;
+      case ClozeLevel.keywords:
+        return isKeyword || isMasked;
+      case ClozeLevel.firstLetter:
+        return true;
+      case ClozeLevel.ghost:
+        return true;
+    }
+  }
+
   /// Hiển thị từ theo cấp độ bốc hơi chữ
   String getDisplayForLevel(ClozeLevel level) {
+    if (cleanWord.isEmpty) return text;
     if (isRevealed) return text;
-    if (!isMasked && level != ClozeLevel.ghost && level != ClozeLevel.firstLetter) {
-      return text;
-    }
 
     switch (level) {
       case ClozeLevel.fullText:
         return text;
 
       case ClozeLevel.keywords:
-        return isMasked ? ghostPrompt : text;
+        return (isKeyword || isMasked) ? ghostPrompt : text;
 
       case ClozeLevel.firstLetter:
-        return isMasked ? firstLetterPrompt : text;
+        return firstLetterPrompt;
 
       case ClozeLevel.ghost:
         return ghostPrompt;
@@ -86,7 +99,7 @@ class ClozeGenerator {
 
       final clean = tokenStr.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '').toLowerCase();
       if (clean.isEmpty) {
-        // Dấu câu hoặc ký tự đặc biệt
+        // Dấu câu hoặc khoảng trắng thuần
         tokens.add(ClozeToken(
           id: tokenId++,
           text: tokenStr,
@@ -128,16 +141,10 @@ class ClozeGenerator {
     return tokens;
   }
 
-  /// Sinh dạng mồi chữ cái đầu cho toàn văn (tất cả các từ đều có mồi chữ đầu)
-  static List<ClozeToken> generateFullFirstLetter(String text, {List<String> keywords = const []}) {
-    return generate(text: text, keywords: keywords, maskRatio: 1.0);
-  }
-
   /// Trích xuất ký tự đầu và tạo chuỗi [ d___, ] giữ nguyên dấu câu
   static String _buildFirstLetterPrompt(String tokenStr, String cleanWord) {
-    if (tokenStr.isEmpty) return '___';
+    if (tokenStr.isEmpty || cleanWord.isEmpty) return tokenStr;
 
-    // Tìm ký tự chữ đầu tiên
     int firstLetterIdx = -1;
     for (int i = 0; i < tokenStr.length; i++) {
       if (RegExp(r'[\p{L}\p{N}]', unicode: true).hasMatch(tokenStr[i])) {
@@ -151,14 +158,12 @@ class ClozeGenerator {
     final prefix = tokenStr.substring(0, firstLetterIdx);
     final firstChar = tokenStr[firstLetterIdx];
 
-    // Tìm vị trí ký tự chữ cuối cùng để giữ lại dấu câu đuôi
     int lastLetterIdx = tokenStr.length - 1;
     while (lastLetterIdx >= 0 && !RegExp(r'[\p{L}\p{N}]', unicode: true).hasMatch(tokenStr[lastLetterIdx])) {
       lastLetterIdx--;
     }
 
     final suffix = lastLetterIdx + 1 < tokenStr.length ? tokenStr.substring(lastLetterIdx + 1) : '';
-
     final blankCount = math.max(2, math.min(5, cleanWord.length - 1));
     final blanks = '_' * blankCount;
 
@@ -167,6 +172,8 @@ class ClozeGenerator {
 
   /// Tạo chuỗi ẩn hoàn toàn giữ nguyên dấu câu: [ _____ , ]
   static String _buildGhostPrompt(String tokenStr, String cleanWord) {
+    if (tokenStr.isEmpty || cleanWord.isEmpty) return tokenStr;
+
     int firstLetterIdx = -1;
     for (int i = 0; i < tokenStr.length; i++) {
       if (RegExp(r'[\p{L}\p{N}]', unicode: true).hasMatch(tokenStr[i])) {

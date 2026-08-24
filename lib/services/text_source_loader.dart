@@ -237,31 +237,56 @@ class TextSourceLoader {
     }
   }
 
-  /// XML của document.xml → text theo đoạn (<w:p>), tab/xuống dòng thật.
+  /// XML của document.xml → text theo đoạn (`<w:p>`), tab/xuống dòng thật.
+  ///
+  /// Không được `strip mọi tag rồi giữ khoảng trắng còn lại`: Word pretty-print
+  /// XML và hay tách tiếng Việt (proofing / font phức tạp) thành nhiều `<w:t>`
+  /// trong cùng một đoạn. Newline giữa thẻ sẽ biến "Việt Nam" thành
+  /// từng chữ một dòng. Chỉ lấy nội dung `<w:t>`, nối run trong đoạn,
+  /// xuống dòng ở `</w:p>` / `<w:br>` / `<w:cr>`, bỏ `w:instrText`.
   static String docxXmlToPlainText(String xml) {
-    String text = xml;
-    // Giữ cấu trúc: đoạn, xuống dòng, tab
-    text = text.replaceAll('</w:p>', '\n');
-    text = text.replaceAll(RegExp(r'<w:br[^>]*/>'), '\n');
-    text = text.replaceAll(RegExp(r'<w:tab[^>]*/>'), '\t');
-    // Bỏ hết tag còn lại (giữ text trong <w:t>, <w:instrText>...)
-    text = text.replaceAll(RegExp(r'<[^>]+>'), '');
-    // XML entities
-    text = text
+    final out = StringBuffer();
+    final tokenRe = RegExp(
+      r'</w:p\s*>|<w:br\b[^>]*/?>|<w:cr\b[^>]*/?>|<w:tab\b[^>]*/?>|'
+      r'<w:t(?:\s[^>]*)?>([\s\S]*?)</w:t>',
+      caseSensitive: false,
+    );
+
+    for (final match in tokenRe.allMatches(xml)) {
+      final raw = match.group(0)!;
+      final lower = raw.toLowerCase();
+      if (lower.startsWith('</w:p') ||
+          lower.startsWith('<w:br') ||
+          lower.startsWith('<w:cr')) {
+        out.write('\n');
+      } else if (lower.startsWith('<w:tab')) {
+        out.write('\t');
+      } else {
+        out.write(_decodeXmlEntities(match.group(1) ?? ''));
+      }
+    }
+
+    var text = out.toString();
+    text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return text.trim();
+  }
+
+  static String _decodeXmlEntities(String text) {
+    var decoded = text
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>')
         .replaceAll('&quot;', '"')
         .replaceAll('&apos;', "'")
         .replaceAll('&amp;', '&');
-    text = text.replaceAllMapped(
-        RegExp(r'&#x([0-9A-Fa-f]+);'),
-        (m) => String.fromCharCode(int.parse(m.group(1)!, radix: 16)));
-    text = text.replaceAllMapped(
-        RegExp(r'&#(\d+);'),
-        (m) => String.fromCharCode(int.parse(m.group(1)!)));
-    // Dọn whitespace
-    text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');
-    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
-    return text.trim();
+    decoded = decoded.replaceAllMapped(
+      RegExp(r'&#x([0-9A-Fa-f]+);'),
+      (m) => String.fromCharCode(int.parse(m.group(1)!, radix: 16)),
+    );
+    decoded = decoded.replaceAllMapped(
+      RegExp(r'&#(\d+);'),
+      (m) => String.fromCharCode(int.parse(m.group(1)!)),
+    );
+    return decoded;
   }
 }

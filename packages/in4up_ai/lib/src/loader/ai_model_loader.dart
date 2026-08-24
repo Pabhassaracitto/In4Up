@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
@@ -436,9 +437,9 @@ class AiModelLoader {
       final ws = dest.openWrite();
       try {
         var copied = 0;
-        final buffer = List<int>.filled(8 * 1024 * 1024, 0);
+        final buffer = Uint8List(8 * 1024 * 1024);
         while (true) {
-          final n = await rs.read(buffer, 0, buffer.length);
+          final n = await rs.readInto(buffer, 0, buffer.length);
           if (n == 0) break;
           ws.add(buffer.sublist(0, n));
           copied += n;

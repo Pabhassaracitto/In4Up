@@ -1,6 +1,7 @@
 // lib/features/learn_by_heart/widgets/elaborative_card.dart
 
 import 'package:flutter/material.dart';
+import '../i18n/learn_by_heart_l10n.dart';
 
 class ElaborativeCard extends StatelessWidget {
   final String shortMeaning;
@@ -21,6 +22,8 @@ class ElaborativeCard extends StatelessWidget {
     if (shortMeaning.isEmpty && keywords.isEmpty && lifeConnection.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    final l10n = LearnByHeartL10n.of(context);
 
     return Container(
       width: double.infinity,
@@ -51,9 +54,9 @@ class ElaborativeCard extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Text(
-                'Móc treo ghi nhớ (Elaborative Anchor)',
-                style: TextStyle(
+              Text(
+                l10n.elaborativeAnchor,
+                style: const TextStyle(
                   color: Color(0xFFFFD54F),
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -67,7 +70,7 @@ class ElaborativeCard extends StatelessWidget {
           // Short Meaning
           if (shortMeaning.isNotEmpty) ...[
             Text(
-              'Ý NGHĨA CỐT LÕI',
+              l10n.coreMeaning,
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 10,
@@ -137,7 +140,7 @@ class ElaborativeCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Liên hệ thực tế: $lifeConnection',
+                      '${l10n.lifeConnection}: $lifeConnection',
                       style: TextStyle(
                         color: Colors.grey[300],
                         fontSize: 12,

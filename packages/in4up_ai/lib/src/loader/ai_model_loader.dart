@@ -292,15 +292,19 @@ class AiModelLoader {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
 
-      final result = ModelLoadResult(
+      // FIX 251e (bisect R5, CI 32789239752): bản 01a02a4a đặt tên
+      // `final result` lần 2 trong cùng scope — đụng tên với
+      // `final result = await FilePicker.pickFiles(...)` bên trên ⇒ lỗi
+      // "name already defined". Đổi tên loadResult.
+      final loadResult = ModelLoadResult(
         success: true,
         modelPath: destPath,
         source: ModelSource.userImported,
       );
-      _cacheResult(result);
+      _cacheResult(loadResult);
       await _rememberFileSize();
 
-      return result;
+      return loadResult;
     } catch (e) {
       return ModelLoadResult(
         success: false,

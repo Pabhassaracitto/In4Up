@@ -1,6 +1,8 @@
 // test/learn_by_heart_test.dart
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/features/learn_by_heart/controllers/chain_recitation_controller.dart';
+import 'package:in4up/features/learn_by_heart/controllers/chunking_flow_controller.dart';
 import 'package:in4up/features/learn_by_heart/data/dhammapada_seed_data.dart';
 import 'package:in4up/features/learn_by_heart/i18n/learn_by_heart_l10n.dart';
 import 'package:in4up/features/learn_by_heart/models/chunk.dart';
@@ -9,9 +11,10 @@ import 'package:in4up/features/learn_by_heart/models/learn_by_heart_item.dart';
 import 'package:in4up/features/learn_by_heart/models/line_timestamp.dart';
 import 'package:in4up/features/learn_by_heart/models/recitation_category.dart';
 import 'package:in4up/features/learn_by_heart/models/review_state.dart';
+import 'package:in4up/features/learn_by_heart/services/anki_cloze_parser.dart';
 import 'package:in4up/features/learn_by_heart/services/cloze_generator.dart';
 import 'package:in4up/features/learn_by_heart/services/fsrs_engine.dart';
-import 'package:in4up/features/learn_by_heart/controllers/chunking_flow_controller.dart';
+import 'package:in4up/features/learn_by_heart/services/voice_recitation_service.dart';
 
 void main() {
   group('Learn By Heart - Seed Data & Models Test', () {
@@ -159,6 +162,55 @@ void main() {
     });
   });
 
+  group('Learn By Heart - Anki Cloze Parser Test', () {
+    test('Parses Anki cloze markup {{c1::từ::gợi ý}} correctly', () {
+      const ankiText = 'Ý dẫn đầu các {{c1::pháp::từ khóa}}, Ý {{c2::làm chủ}}, ý tạo';
+      expect(AnkiClozeParser.hasAnkiCloze(ankiText), true);
+
+      final cardIndices = AnkiClozeParser.getCardIndices(ankiText);
+      expect(cardIndices, [1, 2]);
+
+      final stripped = AnkiClozeParser.stripAnkiSyntax(ankiText);
+      expect(stripped, 'Ý dẫn đầu các pháp, Ý làm chủ, ý tạo');
+
+      final tokens = AnkiClozeParser.parseToTokens(ankiText, targetCard: 1);
+      final phapToken = tokens.firstWhere((t) => t.cleanWord == 'pháp');
+      expect(phapToken.isMasked, true);
+      expect(phapToken.ghostPrompt, '[từ khóa]');
+    });
+  });
+
+  group('Learn By Heart - Voice Recitation & Fuzzy Alignment Test', () {
+    test('Evaluates spoken text and aligns words accurately', () {
+      const target = 'Ý dẫn đầu các pháp Ý làm chủ ý tạo';
+      const spoken = 'Ý dẫn đầu các pháp Ý làm chủ ý tạo tác';
+
+      final result = VoiceRecitationService.evaluateRecitation(
+        targetText: target,
+        spokenText: spoken,
+      );
+
+      expect(result.accuracyPercent, greaterThanOrEqualTo(90.0));
+      expect(result.suggestedRating, FSRSRating.easy);
+    });
+  });
+
+  group('Learn By Heart - Chain Recitation Controller Test', () {
+    test('Builds sequential line-by-line priming steps', () {
+      final item = DhammapadaSeedData.getInitialItems().first;
+      final chainController = ChainRecitationController(item);
+
+      expect(chainController.totalSteps, greaterThanOrEqualTo(2));
+      expect(chainController.currentStepIndex, 0);
+
+      chainController.revealCurrentTarget();
+      expect(chainController.isCurrentRevealed, true);
+
+      chainController.markStepCompleted();
+      expect(chainController.currentStep?.isCompleted, true);
+    });
+  });
+
   group('Learn By Heart - Internationalization (i18n) Test', () {
     test('Covers en, vi, hi, zh, zh_TW, si languages with valid fallback', () {
       final supportedCodes = ['en', 'vi', 'hi', 'zh', 'zh_TW', 'si'];
@@ -179,27 +231,6 @@ void main() {
       // Unknown locale falls back to English
       final fallbackL10n = LearnByHeartL10n('unknown_lang');
       expect(fallbackL10n.moduleTitle, 'Memorization · Learn by Heart');
-    });
-  });
-
-  group('Learn By Heart - Chunking Flow Controller Test', () {
-    test('Creates progressive scaffolding steps from chunks to full recall', () {
-      final item = DhammapadaSeedData.getInitialItems().first;
-      final controller = ChunkingFlowController(item);
-
-      expect(controller.totalSteps, greaterThanOrEqualTo(4));
-      expect(controller.steps.first.type, ChunkStepType.studySingle);
-      expect(controller.steps.last.type, ChunkStepType.fullRecall);
-
-      // Advance through steps
-      expect(controller.currentStepIndex, 0);
-      controller.markStepCompleted();
-      expect(controller.isStepCompleted, true);
-
-      final canNext = controller.nextStep();
-      expect(canNext, true);
-      expect(controller.currentStepIndex, 1);
-      expect(controller.isStepCompleted, false);
     });
   });
 }

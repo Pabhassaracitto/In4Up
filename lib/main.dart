@@ -511,4 +511,4 @@ class _AppErrorScreen extends StatelessWidget {
   }
 }
 
-// ci: bisect R1 - core fixed only (trigger paths-filter)
+// ci: bisect R2 - engine trio fixed, facade/loader old (trigger paths-filter)

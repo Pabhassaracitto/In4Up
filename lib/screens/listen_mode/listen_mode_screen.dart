@@ -10,7 +10,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
@@ -32,11 +32,22 @@ import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
+import '../understand_mode/services/lrc_translation_resolver.dart';
+import 'widgets/generate_lrc_actions.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
 import 'widgets/soundlist_panel.dart';
 
-enum _InlinePanel { repeat, speed, sleep, ab, ai }
+enum _InlinePanel { repeat, speed, sleep, ab }
+
+double _inlinePanelMaxHeight(double viewportHeight) {
+  final factor = viewportHeight < 600
+      ? 0.26
+      : viewportHeight < 800
+          ? 0.28
+          : 0.30;
+  return (viewportHeight * factor).clamp(104.0, 280.0);
+}
 
 class ListenModeScreen extends StatefulWidget {
   const ListenModeScreen({super.key});
@@ -50,8 +61,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   late RollingWaveformController _waveformController;
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
+  final DraggableScrollableController _aiSheetController =
+      DraggableScrollableController();
 
   String? _lastSyncedPath;
+  String? _visibleAudioPath;
   PlayerProvider? _playerProvider;
   WaveformProvider? _waveformProvider;
   SoundlistProvider? _soundlistProvider;
@@ -70,6 +84,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   static const double _lrcDefaultHeight = 220.0;
   double _lrcDragStartHeight = 320.0;
 
+  // LISTEN-630-01: panel inline (AB loop / tốc độ / AI) đang mở —
+  // rèm LRC phải nhường chỗ để không bottom overflow che thanh điều hướng
+  bool _inlinePanelOpen = false;
+
   // LRC ScrollController for sophisticated LRC display
   late ScrollController _lrcScrollController;
   bool _autoScroll = true;
@@ -79,6 +97,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   bool _userScrollingLrc = false;
 
   bool _sheetOpen = false;
+  bool _aiSheetOpen = false;
+  bool _aiSheetClosing = false;
   bool _listenersSetup = false;
 
   @override
@@ -158,6 +178,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     _playerProvider = player;
     _waveformProvider = waveform;
+    _visibleAudioPath = player.currentSongPath;
     _soundlistProvider = soundlist;
 
     player.addListener(_onPlayerChange);
@@ -182,6 +203,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
+
+    // FIX OOM v4: neu dang transcribe thi KHONG reload waveform de tranh double FFmpeg + ExoPlayer ton RAM
+    try {
+      if (player.isGeneratingLrc) {
+        debugPrint('⏭️ Skip waveform reload during transcription to save RAM');
+        return;
+      }
+    } catch (_) {}
 
     final currentPath = player.currentSongPath;
     if (currentPath == null) return;
@@ -246,6 +275,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     _waveformController.dispose();
     _lrcScrollController.dispose(); // Cleanup LRC scroll controller
     _sheetController.dispose();
+    _aiSheetController.dispose();
     _listenersSetup = false;
     super.dispose();
   }
@@ -264,27 +294,16 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
       const estimatedLineHeight = 52.0;
       final targetOffset = index * estimatedLineHeight;
-      final desiredCenter = viewportHeight * 0.35;
+      // Karaoke centered in middle for best visibility (was 0.35 top, hidden above)
+      final desiredCenter = viewportHeight * 0.5;
       final centerOffset =
           targetOffset - desiredCenter + (estimatedLineHeight / 2);
 
       if (position.maxScrollExtent <= 0) return;
       final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
 
-      const visibleBuffer = 48.0;
-      final inView = targetOffset >= position.pixels - visibleBuffer &&
-          targetOffset <=
-              position.pixels +
-                  viewportHeight -
-                  estimatedLineHeight -
-                  visibleBuffer;
-
-      if (inView && (position.pixels - clamped).abs() < 32) {
-        return;
-      }
-
-      // Chỉ animate khi cách xa đủ lớn để tránh giật liên tục
-      if ((position.pixels - clamped).abs() > 24) {
+      // Luôn scroll để dòng karaoke ở giữa, không skip khi inView (fix ẩn trên nhiều)
+      if ((position.pixels - clamped).abs() > 8) {
         _lrcScrollController.animateTo(
           clamped,
           duration: const Duration(milliseconds: 320),
@@ -307,14 +326,31 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   void _onPlayerChange() {
     if (!mounted) return;
-    if (_isUserSeeking) return;
 
     final player = _playerProvider;
     final waveform = _waveformProvider;
     if (player == null || waveform == null) return;
 
     final currentPath = player.currentSongPath;
-    if (currentPath == null) return;
+    final audioChanged = (_visibleAudioPath == null) != (currentPath == null) ||
+        (_visibleAudioPath != null &&
+            currentPath != null &&
+            _normalizePath(_visibleAudioPath!) != _normalizePath(currentPath));
+    if (audioChanged) {
+      _visibleAudioPath = currentPath;
+      // Dispose the old editor/panel state together with its transcript. This
+      // prevents an old AI editor from applying audio A's text to audio B.
+      setState(() {
+        _showLrcOnMain = false;
+        _lrcHeight = _lrcDefaultHeight;
+        _inlinePanelOpen = false;
+        _aiSheetOpen = false;
+        _aiSheetClosing = false;
+      });
+    }
+
+    if (_isUserSeeking || currentPath == null) return;
+    if (player.isGeneratingLrc) return; // FIX OOM v4: skip reload during transcription
 
     final normalizedCurrent = _normalizePath(currentPath);
     final normalizedLoaded = _normalizePath(waveform.currentFilePath ?? '');
@@ -466,6 +502,63 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     });
   }
 
+  void _openAiSheet() {
+    if (_aiSheetOpen) return;
+    setState(() {
+      _aiSheetOpen = true;
+      _aiSheetClosing = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_aiSheetController.isAttached) return;
+      _aiSheetController.jumpTo(0.55);
+    });
+  }
+
+  void _closeAiSheet({bool animate = true}) {
+    if (!_aiSheetOpen || _aiSheetClosing) return;
+    _aiSheetClosing = true;
+
+    if (animate && _aiSheetController.isAttached) {
+      _aiSheetController
+          .animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInCubic,
+          )
+          .whenComplete(() {
+        if (!mounted) return;
+        setState(() {
+          _aiSheetOpen = false;
+          _aiSheetClosing = false;
+        });
+      });
+      return;
+    }
+
+    setState(() {
+      _aiSheetOpen = false;
+      _aiSheetClosing = false;
+    });
+  }
+
+  void _toggleAiSheet(bool open) {
+    if (open) {
+      _openAiSheet();
+    } else {
+      _closeAiSheet();
+    }
+  }
+
+  void _handleLrcGenerated() {
+    if (!mounted) return;
+    setState(() {
+      _showLrcOnMain = true;
+      // Builder clamps this sentinel to the exact local maximum, so the LRC
+      // curtain touches the waveform regardless of device/shell height.
+      _lrcHeight = double.maxFinite;
+    });
+  }
+
   void _showWaveformActionSheet(Duration position) {
     final player = _playerProvider;
     if (player == null) return;
@@ -493,7 +586,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
             child: Row(children: [
               const Text('📍', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text('Tại ${_fmtDuration(position)}',
+              Text(context.uiText('Tại ${_fmtDuration(position)}'),
                   style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -558,7 +651,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(context.uiText(message)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -590,8 +683,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
         return SafeArea(
           bottom: false,
-          child: Stack(
-            children: [
+          child: LayoutBuilder(
+            builder: (context, listenConstraints) {
+              final listenViewportH = listenConstraints.maxHeight;
+              return Stack(
+                children: [
               Column(
                 children: [
                   // Song info
@@ -611,9 +707,34 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
                         final hasLines = understand!.lrcLines.isNotEmpty;
-                        // Tính max height responsive: 45% màn nhỏ, 62% màn lớn, tránh overflow 1100-1140
-                        final screenH = MediaQuery.of(context).size.height;
-                        final maxH = (screenH * (screenH < 700 ? 0.45 : 0.55)).clamp(180.0, 420.0);
+                        // LISTEN-630-01: budget chiều cao rèm LRC = màn hình
+                        // trừ (song info + controls + panel inline đang mở +
+                        // bottom padding + waveform tối thiểu) — hết bottom
+                        // overflow che thanh điều hướng khi bật lặp AB.
+                        // Dùng đúng chiều cao viewport của tab Nghe, không dùng
+                        // MediaQuery toàn màn hình (bao gồm app bar + bottom
+                        // navigation). Sai lệch đó chính là nguồn overflow ~126px.
+                        final bottomPad =
+                            MediaQuery.of(context).padding.bottom + 4;
+                        const controlsBase = 178.0;
+                        const waveformMin = 64.0;
+                        const songInfoH = 68.0;
+                        final panelReserve = _inlinePanelOpen
+                            ? _inlinePanelMaxHeight(listenViewportH) + 14
+                            : 0.0;
+                        final maxH = (listenViewportH -
+                                songInfoH -
+                                controlsBase -
+                                panelReserve -
+                                bottomPad -
+                                waveformMin)
+                            .clamp(_lrcMinHeight, 650.0);
+                        final dragAction = context.uiText(
+                          _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
+                        );
+                        final tapAction = context.uiText(
+                          _lrcHeight < maxH * 0.9 ? 'mở toàn màn hình' : 'thu gọn',
+                        );
 
                         // Clamp current height
                         if (_lrcHeight > maxH) _lrcHeight = maxH;
@@ -737,7 +858,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            "Kéo để ${ _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng'} • chạm để ${_lrcHeight < maxH * 0.9 ? 'full' : 'thu gọn'}",
+                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
                                             style: TextStyle(
                                               color: Colors.grey[600],
                                               fontSize: 10,
@@ -775,7 +896,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 5),
                                     Flexible(
                                       child: Text(
-                                        "LRC ${understand.lrcLines.length} dòng",
+                                        context.uiText("LRC ${understand.lrcLines.length} dòng"),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
@@ -836,13 +957,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     const SizedBox(width: 4),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
-                                      tooltip: 'Tuỳ chỉnh',
+                                      tooltip: context.uiText('Tuỳ chỉnh'),
                                       onTap: () =>
                                           KaraokeSettingsSheet.show(context),
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close_fullscreen_rounded,
-                                      tooltip: 'Thu nhỏ',
+                                      tooltip: context.uiText('Thu nhỏ'),
                                       onTap: () {
                                         setState(() {
                                           if (_lrcHeight > 140) {
@@ -856,7 +977,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     ),
                                     _LrcIconBtn(
                                       icon: Icons.close,
-                                      tooltip: 'Ẩn',
+                                      tooltip: context.uiText('Ẩn'),
                                       onTap: () => setState(() {
                                         _showLrcOnMain = false;
                                         _lrcHeight = _lrcDefaultHeight;
@@ -898,44 +1019,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                       final isActive = index ==
                                           understand.currentLineIndex;
 
-                                      // Tìm bản dịch từ TextProvider nếu có (khớp nội dung)
-                                      String? lrcTranslation;
-                                      try {
-                                        final tp =
-                                            context.read<TextProvider>();
-                                        if (tp.lines.isNotEmpty) {
-                                          // Thử khớp chính xác trước
-                                          final exact = tp.lines.where((e) =>
-                                              e.content.trim() ==
-                                              line.text.trim());
-                                          if (exact.isNotEmpty &&
-                                              exact.first.translation !=
-                                                  null) {
-                                            lrcTranslation =
-                                                exact.first.translation;
-                                          } else {
-                                            // Fallback: tìm chứa
-                                            final contains = tp.lines.where(
-                                                (e) =>
-                                                    line.text.contains(
-                                                        e.content.trim()) ||
-                                                    e.content
-                                                        .trim()
-                                                        .contains(line.text
-                                                            .trim()));
-                                            if (contains.isNotEmpty) {
-                                              lrcTranslation = contains
-                                                  .firstWhere((e) =>
-                                                      e.translation != null &&
-                                                      e.translation!
-                                                          .isNotEmpty,
-                                                      orElse: () =>
-                                                          contains.first)
-                                                  .translation;
-                                            }
-                                          }
-                                        }
-                                      } catch (_) {}
+                                      // Dùng cùng resolver với tab Hiểu để bản
+                                      // dịch đã tạo ở tab Đọc hiển thị nhất quán.
+                                      final lrcTranslation =
+                                          resolveLrcTranslation(
+                                        context.read<TextProvider>().lines,
+                                        line.text,
+                                      );
 
                                       return GestureDetector(
                                         onTap: () {
@@ -1062,7 +1152,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     size: 16, color: Color(0xFF8B83FF)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở",
+                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
                                   style: const TextStyle(
                                     color: Color(0xFF8B83FF),
                                     fontSize: 12,
@@ -1083,15 +1173,70 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   // Controls
                   Consumer<PlayerProvider>(
                     builder: (_, p, __) => _CorePlayerControls(
+                      key: ValueKey('listen-controls-${p.currentSongPath}'),
                       player: p,
+                      viewportHeight: listenViewportH,
+                      aiPanelOpen: _aiSheetOpen,
+                      onAiPanelChanged: _toggleAiSheet,
+                      onLrcGenerated: _handleLrcGenerated,
                       onOpenSheet: _openSheet,
+                      onPanelChanged: (open) {
+                        if (mounted && _inlinePanelOpen != open) {
+                          setState(() => _inlinePanelOpen = open);
+                        }
+                      },
                     ),
                   ),
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
                 ],
               ),
 
-              // Sheet overlay (giữ nguyên)
+              // AI là một sheet độc lập: nội dung cuộn trước; khi đã về đầu,
+              // kéo tiếp xuống sẽ kéo cả sheet và đóng. Chạm vùng mờ cũng đóng.
+              if (_aiSheetOpen) ...[
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeAiSheet,
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.38),
+                    ),
+                  ),
+                ),
+                DraggableScrollableSheet(
+                  controller: _aiSheetController,
+                  initialChildSize: 0.55,
+                  minChildSize: 0.0,
+                  maxChildSize: 0.90,
+                  snap: true,
+                  snapSizes: const [0.0, 0.55, 0.90],
+                  builder: (context, scrollController) {
+                    return NotificationListener<
+                        DraggableScrollableNotification>(
+                      onNotification: (notification) {
+                        if (notification.extent <= 0.04 &&
+                            !_aiSheetClosing) {
+                          _aiSheetClosing = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() {
+                              _aiSheetOpen = false;
+                              _aiSheetClosing = false;
+                            });
+                          });
+                        }
+                        return false;
+                      },
+                      child: _AiDraggableSheet(
+                        scrollController: scrollController,
+                        onClose: _closeAiSheet,
+                      ),
+                    );
+                  },
+                ),
+              ],
+
+              // Sheet công cụ nâng cao.
               if (_sheetOpen) ...[
                 GestureDetector(
                   onTap: _closeSheet,
@@ -1128,7 +1273,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   },
                 ),
               ],
-
               // Bong bóng tiến trình "Tự tạo mục lục" (chạy nền — không block)
               Consumer<SoundlistProvider>(
                 builder: (_, soundlist, __) {
@@ -1142,7 +1286,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   );
                 },
               ),
-            ],
+                ],
+              );
+            },
           ),
         );
       },
@@ -1532,11 +1678,22 @@ class _SongInfoBar extends StatelessWidget {
 
 class _CorePlayerControls extends StatelessWidget {
   final PlayerProvider player;
+  final double viewportHeight;
+  final bool aiPanelOpen;
+  final ValueChanged<bool> onAiPanelChanged;
+  final VoidCallback onLrcGenerated;
   final VoidCallback onOpenSheet;
+  final ValueChanged<bool>? onPanelChanged;
 
   const _CorePlayerControls({
+    super.key,
     required this.player,
+    required this.viewportHeight,
+    required this.aiPanelOpen,
+    required this.onAiPanelChanged,
+    required this.onLrcGenerated,
     required this.onOpenSheet,
+    this.onPanelChanged,
   });
 
   @override
@@ -1551,7 +1708,15 @@ class _CorePlayerControls extends StatelessWidget {
         const SizedBox(height: 6),
         _SeekAndPlayRow(player: player),
         const SizedBox(height: 2),
-        _SmartActionBar(player: player, onOpenSheet: onOpenSheet),
+        _SmartActionBar(
+          player: player,
+          viewportHeight: viewportHeight,
+          aiPanelOpen: aiPanelOpen,
+          onAiPanelChanged: onAiPanelChanged,
+          onLrcGenerated: onLrcGenerated,
+          onOpenSheet: onOpenSheet,
+          onPanelChanged: onPanelChanged,
+        ),
       ],
     );
   }
@@ -1708,7 +1873,7 @@ class _SleepPanel extends StatelessWidget {
           min: 5,
           max: 120,
           divisions: 23,
-          label: '$minutes phút',
+          label: context.uiText('$minutes phút'),
           activeColor: const Color(0xFF6C63FF),
           onChanged: (v) => player.setSleepTimerMinutes(v.round()),
         ),
@@ -1720,7 +1885,7 @@ class _SleepPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child:
-                Text('Đặt $minutes phút', style: const TextStyle(fontSize: 12)),
+                Text(context.uiText('Đặt $minutes phút'), style: const TextStyle(fontSize: 12)),
           ),
           const SizedBox(width: 8),
           if (player.hasSleepTimer)
@@ -1866,24 +2031,111 @@ class _SilenceOptionsBox extends StatelessWidget {
   }
 }
 
-class _AIPanel extends StatelessWidget {
-  const _AIPanel();
+class _AiDraggableSheet extends StatelessWidget {
+  final ScrollController scrollController;
+  final VoidCallback onClose;
+
+  const _AiDraggableSheet({
+    required this.scrollController,
+    required this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
     final compact = screenSize.width < 430 || screenSize.height < 780;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const GenerateLrcButton(),
-        SizedBox(height: compact ? 10 : 12),
-        LrcEditorPanel(
-          initiallyExpanded: true,
-          compact: compact,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2235),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
         ),
-      ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
+        ),
+        child: CustomScrollView(
+          controller: scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 40),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.white30,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                context.uiText('Trí tuệ nhân tạo'),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: context.uiText('Ẩn'),
+                          onPressed: onClose,
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white54,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.07),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const GenerateLrcButton(),
+                        SizedBox(height: compact ? 10 : 12),
+                        LrcEditorPanel(
+                          initiallyExpanded: true,
+                          compact: compact,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1894,11 +2146,24 @@ class _AIPanel extends StatelessWidget {
 
 class _SmartActionBar extends StatefulWidget {
   final PlayerProvider player;
+  final double viewportHeight;
+  final bool aiPanelOpen;
+  final ValueChanged<bool> onAiPanelChanged;
+  final VoidCallback onLrcGenerated;
   final VoidCallback onOpenSheet;
+
+  /// LISTEN-630-01: báo ra màn hình khi panel inline mở/đóng để rèm
+  /// LRC nhường chiều cao (tránh bottom overflow).
+  final ValueChanged<bool>? onPanelChanged;
 
   const _SmartActionBar({
     required this.player,
+    required this.viewportHeight,
+    required this.aiPanelOpen,
+    required this.onAiPanelChanged,
+    required this.onLrcGenerated,
     required this.onOpenSheet,
+    this.onPanelChanged,
   });
 
   @override
@@ -1923,31 +2188,45 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   void _onPlayerStateChange() {
     if (!mounted) return;
 
-    bool needsUpdate = false;
+    var openAi = false;
     if (widget.player.shouldOpenAiPanel) {
       widget.player.consumeShouldOpenAiPanel();
-      if (_openPanel != _InlinePanel.ai) {
-        _openPanel = _InlinePanel.ai;
-        needsUpdate = true;
-      }
+      openAi = true;
     }
 
     if (widget.player.lrcJustGenerated) {
       widget.player.consumeLrcJustGenerated();
-      if (_openPanel != _InlinePanel.ai) {
-        _openPanel = _InlinePanel.ai;
-        needsUpdate = true;
-      }
+      widget.onLrcGenerated();
+      openAi = true;
     }
 
-    if (needsUpdate) {
-      setState(() {});
+    if (openAi) {
+      if (_openPanel != null) {
+        _openPanel = null;
+        widget.onPanelChanged?.call(false);
+        setState(() {});
+      }
+      widget.onAiPanelChanged(true);
     }
   }
 
   void _togglePanel(_InlinePanel panel) {
     HapticFeedback.selectionClick();
+    if (widget.aiPanelOpen) {
+      widget.onAiPanelChanged(false);
+    }
+    final willOpen = _openPanel != panel;
     setState(() => _openPanel = _openPanel == panel ? null : panel);
+    widget.onPanelChanged?.call(willOpen);
+  }
+
+  void _toggleAiPanel() {
+    HapticFeedback.selectionClick();
+    if (_openPanel != null) {
+      setState(() => _openPanel = null);
+      widget.onPanelChanged?.call(false);
+    }
+    widget.onAiPanelChanged(!widget.aiPanelOpen);
   }
 
   @override
@@ -2037,8 +2316,8 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     icon: Icons.auto_awesome,
                     label: 'AI',
                     color: Colors.blue,
-                    isActive: _openPanel == _InlinePanel.ai,
-                    onTap: () => _togglePanel(_InlinePanel.ai),
+                    isActive: widget.aiPanelOpen,
+                    onTap: _toggleAiPanel,
                   ),
                   const SizedBox(width: 6),
                   _ActionTile(
@@ -2047,7 +2326,11 @@ class _SmartActionBarState extends State<_SmartActionBar> {
                     color: Colors.grey,
                     isActive: false,
                     onTap: () {
+                      if (widget.aiPanelOpen) {
+                        widget.onAiPanelChanged(false);
+                      }
                       setState(() => _openPanel = null);
+                      widget.onPanelChanged?.call(false);
                       widget.onOpenSheet();
                     },
                   ),
@@ -2061,10 +2344,8 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   }
 
   Widget _buildInlinePanel(PlayerProvider player) {
-    // Fix overflow 34/354px trên màn hình nhỏ SE (568px): giảm maxHeight xuống 24-28% và cho scroll
-    // Trước 0.42 gây overflow 18px, 0.32 vẫn overflow 34px khi height 1100, nên dùng 0.26-0.30 tùy màn hình
-    final screenH = MediaQuery.of(context).size.height;
-    final maxH = screenH < 700 ? screenH * 0.26 : screenH < 900 ? screenH * 0.28 : screenH * 0.32;
+    // Tính theo viewport thật của tab (không theo toàn màn hình có shell).
+    final maxH = _inlinePanelMaxHeight(widget.viewportHeight);
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
       padding: const EdgeInsets.all(12),
@@ -2081,7 +2362,6 @@ class _SmartActionBarState extends State<_SmartActionBar> {
           _InlinePanel.speed => _SpeedPanel(player: player),
           _InlinePanel.sleep => _SleepPanel(player: player),
           _InlinePanel.ab => const _ABLoopWithSilencePanel(),
-          _InlinePanel.ai => const _AIPanel(),
         },
       ),
     );
@@ -2181,7 +2461,7 @@ class _SmartActionBarState extends State<_SmartActionBar> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(msg),
+          content: Text(context.uiText(msg)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF6C63FF),
@@ -2340,6 +2620,15 @@ class _PlayButton extends StatelessWidget {
 class GenerateLrcButton extends StatelessWidget {
   const GenerateLrcButton({super.key});
 
+  String _formatEta(int chunkIndex, int chunkCount, double progress) {
+    if (chunkCount <= 0 || chunkIndex < 0) return '';
+    final done = chunkIndex + 1;
+    if (done <= 0) return '';
+    final percent = (done / chunkCount * 100).toStringAsFixed(1);
+    final remaining = chunkCount - done;
+    return 'Chunk $done/$chunkCount ($percent%) - $remaining left';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
@@ -2350,6 +2639,7 @@ class GenerateLrcButton extends StatelessWidget {
           builder: (context, snapshot) {
             final progress = snapshot.data ?? SttProgress.idle;
             final isActive = progress.isActive;
+            final hasChunkInfo = progress.chunkCount > 0;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -2359,24 +2649,81 @@ class GenerateLrcButton extends StatelessWidget {
                   firstChild: const SizedBox(height: 4),
                   secondChild: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LinearProgressIndicator(
-                        value: progress.progress,
-                        backgroundColor: Colors.grey.shade800,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progress.status == SttFacadeStatus.error
-                              ? Colors.red
-                              : Colors.blue.shade400,
-                        ),
+                      // Progress bar with chunk info
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: hasChunkInfo
+                                  ? (progress.chunkIndex + 1) / progress.chunkCount
+                                  : progress.progress,
+                              backgroundColor: Colors.grey.shade800,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                progress.status == SttFacadeStatus.error
+                                    ? Colors.red
+                                    : Colors.blue.shade400,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (hasChunkInfo)
+                            Text(
+                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: Colors.blue.shade300,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(progress.message,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey[400]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      // Main message
+                      Text(
+                        progress.message,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[300], fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (hasChunkInfo) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.hourglass_top, size: 14, color: Colors.blue),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _formatEta(progress.chunkIndex, progress.chunkCount, progress.progress),
+                                  style: TextStyle(
+                                    color: Colors.blue.shade300,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.memory, size: 12, color: Colors.orange),
+                              const SizedBox(width: 2),
+                              Text(
+                                'RAM safe: lazy chunk',
+                                style: TextStyle(color: Colors.orange.shade300, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   crossFadeState: isActive
@@ -2387,11 +2734,10 @@ class GenerateLrcButton extends StatelessWidget {
                 const SizedBox(height: 8),
                 _LrcModelSelector(
                   isProcessing: isActive || provider.isGeneratingLrc,
+                  // REOPEN FIX: đã có LRC lưu sẵn → hỏi Dùng bản đã lưu /
+                  // Tạo lại, không auto chạy Whisper nữa.
                   onGenerate: (level, grouping) =>
-                      provider.generateLrcForCurrentAudio(
-                    level: level,
-                    grouping: grouping,
-                  ),
+                      confirmAndGenerateLrc(context, provider, level, grouping),
                 ),
                 const SizedBox(height: 12),
                 Wrap(

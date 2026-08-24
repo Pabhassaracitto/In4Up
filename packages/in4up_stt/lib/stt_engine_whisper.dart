@@ -1,6 +1,6 @@
-// packages/in4up_stt/lib/stt_engine_whisper.dart
+// packages/in2up_stt/lib/stt_engine_whisper.dart
 //
-// in4up v11.0 — Stateless Whisper Engine
+// in2up v11.0 — Stateless Whisper Engine
 // Đã rà soát và sửa toàn bộ FFI signatures theo whisper.cpp chuẩn.
 //
 // NGUỒN THAM KHẢO:
@@ -557,6 +557,11 @@ class SttEngineWhisper {
   /// v11 (xem commit gốc trong packages/vipsound_stt). Refactor đã thay nó
   /// bằng FFI-in-isolate chỉ chạy trên desktop, làm Android mất đường
   /// transcription từ file. Path này khôi phục lại cho mobile.
+  ///
+  /// UPDATE v6: Thu test Android sang FFI isolate de tiet kiem RAM nhung FFI
+  /// libwhisper.so khong tim thay tren Android -> fallback CLI gay loi
+  /// "Khong tim thay whisper binary: whisper-cli.exe" tren Android.
+  /// => Quay lai MethodChannel cho Android, giu cac fix OOM: 15s chunk, tiny fallback, pause player, skip waveform reload.
   static bool get isMobilePluginSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
@@ -606,15 +611,6 @@ class SttEngineWhisper {
     return result;
   }
 
-  /// Transcribe file dài trên Mobile theo CHUNK (progressive).
-  ///
-  /// Chia audio thành từng chunk nhỏ (mặc định 30s — khớp cửa sổ whisper),
-  /// transcribe từng chunk và gọi [onChunkDone] sau mỗi chunk. Nhờ vậy:
-  ///  - UI hiện kết quả từng phần ngay khi xong chunk, không đợi hết file;
-  ///  - có [shouldCancel] để dừng giữa chừng (giữ kết quả các chunk đã xong);
-  ///  - timestamp các chunk sau được cộng offset để ra đúng LRC/karaoke.
-  ///
-  /// Nếu file không quá dài (1 chunk) hoặc tắt chunking → hành vi như cũ.
   static Future<SttResult> transcribeMobileChunked({
     required String audioPath,
     required String modelDir,
@@ -629,94 +625,209 @@ class SttEngineWhisper {
     bool Function()? shouldCancel,
   }) async {
     final sw = Stopwatch()..start();
+    final chunkSw = Stopwatch();
 
-    // Convert sang WAV 16k mono một lần.
-    final wavPath =
-        await AudioConverter.convertToWhisperCompatible(audioPath) ?? audioPath;
+    String wavPath;
+    String baseName;
+    bool isFullConverted = false;
+    int? originalDurationMs;
 
-    // Chia chunk (chỉ khi có FFmpeg; nếu probe không ra duration vẫn an toàn).
-    final split = await AudioConverter.splitIntoChunks(
-      wavPath,
-      chunkDurationSeconds: chunkDurationSeconds,
-    );
-
-    var chunks = split.chunkPaths;
-
-    // Giới hạn số chunk nếu người dùng muốn load theo chặng.
-    if (maxChunks > 0 && chunks.length > maxChunks) {
-      chunks = chunks.sublist(0, maxChunks);
+    try {
+      originalDurationMs = await AudioConverter.probeDurationMs(audioPath);
+    } catch (_) {
+      originalDurationMs = null;
     }
 
-    // Reuse 1 instance plugin cho cả file (tránh reload model mỗi chunk).
+    // FIX OOM v2: ha nguong long-file xuong 60s (truoc 5phut) de tranh crash 3phut+base model tren low-RAM device
+    // File dai 60s+ se KHONG convert full WAV 16k mono truoc, ma cat truc tiep tu file goc va resample tung chunk
+    final isLongFile = originalDurationMs != null && originalDurationMs > 60 * 1000; // >60s
+    var effectiveChunkDuration = chunkDurationSeconds;
+
+    // Quay lai 15s cho nhanh sau khi xoa app cu fix OOM 38s - truoc ep 10s gay cham
+    if (originalDurationMs != null && originalDurationMs > 60 * 1000) {
+      effectiveChunkDuration = effectiveChunkDuration > 15 ? 15 : effectiveChunkDuration;
+    }
+    // Tren Android, ep chunk max 15s cho moi file de can bang toc do/RAM
+    try {
+      if (Platform.isAndroid) {
+        if (effectiveChunkDuration > 15) {
+          debugPrint('[Whisper] Android ep chunk 15s (goc $effectiveChunkDuration)s - quay lai 15s sau khi xoa app cu fix OOM');
+          effectiveChunkDuration = 15;
+        }
+      }
+    } catch (_) {}
+
+    // Chi fallback tiny khi file dai >60s, khong ep cho moi file Android nua (user xoa app cu da chay duoc 38s)
+    var effectiveLevel = level;
+    final shouldForceTiny = () {
+      if (level == WhisperModelLevel.tiny) return false;
+      return originalDurationMs != null && originalDurationMs > 60 * 1000;
+    }();
+    if (shouldForceTiny) {
+      try {
+        final tinyNames = WhisperModelLevel.tiny.candidateFileNames; // ['ggml-tiny.bin']
+        var tinyExists = false;
+        for (final n in tinyNames) {
+          if (File(path.join(modelDir, n)).existsSync()) {
+            tinyExists = true;
+            break;
+          }
+        }
+        if (tinyExists) {
+          debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s + model $level -> tu dong fallback tiny de tranh OOM');
+          effectiveLevel = WhisperModelLevel.tiny;
+        } else {
+          debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s + model $level nhung khong co tiny, van dung $level nhung giam chunk $effectiveChunkDuration s');
+        }
+      } catch (_) {}
+    }
+
+    if (isLongFile) {
+      debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s >60s, CAT TRUC TIEP TU FILE GOC (skip full WAV) chunk=${effectiveChunkDuration}s level=$effectiveLevel');
+      wavPath = audioPath;
+      baseName = path.basenameWithoutExtension(audioPath);
+      isFullConverted = false;
+    } else {
+      debugPrint('[Whisper] File ngan ${originalDurationMs ?? 0}ms, convert sang WAV 16k mono... chunk=${effectiveChunkDuration}s');
+      final converted = await AudioConverter.convertToWhisperCompatible(audioPath);
+      wavPath = converted ?? audioPath;
+      baseName = path.basenameWithoutExtension(wavPath);
+      isFullConverted = converted != null && converted != audioPath;
+    }
+
+    // Tinh so chunk - dung effectiveChunkDuration
+    final totalChunks = await AudioConverter.getChunkCount(wavPath, chunkDurationSeconds: effectiveChunkDuration);
+    final effectiveTotal = (maxChunks > 0 && totalChunks > maxChunks) ? maxChunks : totalChunks;
+
+    debugPrint('[Whisper] File dai ~${totalChunks * effectiveChunkDuration}s, chia $effectiveTotal chunks x ${effectiveChunkDuration}s - isLongFile=$isLongFile level=$effectiveLevel origLevel=$level');
+
     final whisper = Whisper(
-      model: _mapToPluginModel(level),
+      model: _mapToPluginModel(effectiveLevel),
       modelDir: modelDir,
     );
 
     final allSegments = <SttSegment>[];
     final allWords = <SttWord>[];
     var chunkMsOffset = 0;
+    final chunkTimes = <int>[]; // luu thoi gian xu ly tung chunk de tinh ETA
 
     try {
-      for (var i = 0; i < chunks.length; i++) {
+      for (var i = 0; i < effectiveTotal; i++) {
         if (shouldCancel?.call() ?? false) {
-          debugPrint('⏹️ Whisper bị hủy tại chunk $i/${chunks.length}');
+          debugPrint('⏹️ Whisper bi huy tai chunk $i/$effectiveTotal');
           break;
         }
 
-        final chunkPath = chunks[i];
-        debugPrint('🎙️ Chunk $i/${chunks.length}: $chunkPath');
+        chunkSw.reset();
+        chunkSw.start();
 
-        final chunkResult = await whisper.transcribe(
-          transcribeRequest: TranscribeRequest(
-            audio: chunkPath,
-            isTranslate: false,
-            isNoTimestamps: false,
-            splitOnWord: wordTimestamps,
-            diarize: false,
-            language: language,
-          ),
+        // LAZY: cat 1 chunk tai day, khong cat san truoc
+        debugPrint('[Whisper] Dang cat chunk $i/$effectiveTotal... isLongFile=$isLongFile dur=${effectiveChunkDuration}s level=$effectiveLevel');
+        final chunkPath = await AudioConverter.cutSingleChunk(
+          inputWavPath: wavPath,
+          chunkIndex: i,
+          chunkDurationSeconds: effectiveChunkDuration,
+          customBaseName: baseName,
         );
 
-        final parsed = _parsePluginResult(
-          chunkResult,
-          audioFingerprint: audioFingerprint,
-          language: language,
-          processingTime: Duration.zero,
-          grouping: grouping,
-        );
-
-        // Cộng offset thời gian của chunk vào segment/word.
-        for (final seg in parsed.segments) {
-          final shifted = seg.shiftByMs(
-            chunkMsOffset,
-            audioFingerprint: audioFingerprint,
-          );
-          allSegments.add(shifted);
-          allWords.addAll(shifted.words);
+        if (chunkPath == null) {
+          debugPrint('[Whisper] Khong cat duoc chunk $i, bo qua');
+          chunkMsOffset += effectiveChunkDuration * 1000;
+          continue;
         }
 
-        // Mỗi chunk dài `chunkDurationSeconds` → offset mốc thời gian tăng dần.
-        chunkMsOffset += chunkDurationSeconds * 1000;
+        debugPrint('🎙️ Chunk $i/$effectiveTotal: $chunkPath (bat dau transcribe)');
 
-        onChunkDone?.call(i, chunks.length, _buildChunkPartial(
-          segments: List<SttSegment>.from(allSegments),
-          audioFingerprint: audioFingerprint,
-          language: language,
-        ));
+        try {
+          final chunkResult = await whisper.transcribe(
+            transcribeRequest: TranscribeRequest(
+              audio: chunkPath,
+              isTranslate: false,
+              isNoTimestamps: false,
+              splitOnWord: wordTimestamps,
+              diarize: false,
+              language: language,
+            ),
+          );
 
-        // Nhường event loop để UI repaint progress giữa các chunk.
-        await Future<void>.delayed(const Duration(milliseconds: 30));
+          final parsed = _parsePluginResult(
+            chunkResult,
+            audioFingerprint: audioFingerprint,
+            language: language,
+            processingTime: Duration.zero,
+            grouping: grouping,
+          );
+
+          for (final seg in parsed.segments) {
+            final shifted = seg.shiftByMs(
+              chunkMsOffset,
+              audioFingerprint: audioFingerprint,
+            );
+            allSegments.add(shifted);
+            allWords.addAll(shifted.words);
+          }
+
+          chunkMsOffset += effectiveChunkDuration * 1000;
+          chunkSw.stop();
+          chunkTimes.add(chunkSw.elapsedMilliseconds);
+
+          // Tinh ETA
+          final avgTime = chunkTimes.isEmpty ? 0 : chunkTimes.reduce((a, b) => a + b) ~/ chunkTimes.length;
+          final remaining = effectiveTotal - i - 1;
+          final etaMs = avgTime * remaining;
+          final etaMin = (etaMs / 60000).ceil();
+          final percent = ((i + 1) / effectiveTotal * 100).toStringAsFixed(1);
+
+          debugPrint('[Whisper] Chunk $i xong ${chunkSw.elapsedMilliseconds}ms - $percent% - ETA: ${etaMin}phut - Tong ${allSegments.length} segments');
+
+          // Goi callback voi progress kem ETA de UI hien
+          onChunkDone?.call(i, effectiveTotal, _buildChunkPartial(
+            segments: List<SttSegment>.from(allSegments),
+            audioFingerprint: audioFingerprint,
+            language: language,
+          ));
+
+        } finally {
+          // Giai phong file chunk ngay lap tuc - quan trong de tranh OOM
+          try {
+            final f = File(chunkPath);
+            if (await f.exists()) {
+              await f.delete();
+              debugPrint('[Whisper] Da xoa chunk file: $chunkPath');
+            }
+          } catch (e) {
+            debugPrint('[Whisper] Khong xoa duoc chunk $chunkPath: $e');
+          }
+
+          // Nhường event loop + delay de GC thu hoi native memory (Scudo) - tang len de fix 38s OOM
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+
+        // Moi 3 chunk, delay dai hon de he thong thu hoi RAM native - tang tu 500ms len 1000ms
+        if (i % 3 == 2) {
+          debugPrint('[Whisper] Nghi 1000ms de giai phong RAM native sau 3 chunks... fix 38s OOM');
+          await Future<void>.delayed(const Duration(milliseconds: 1000));
+        }
       }
     } finally {
-      // Dọn chunk + file convert tạm (giữ file gốc).
-      await AudioConverter.cleanupChunkFiles(chunks);
-      if (wavPath != audioPath) {
+      // Don file convert tam - chi neu co convert full truoc do
+      if (isFullConverted) {
         await AudioConverter.cleanupConvertedFile(wavPath);
       }
+      // Don bat ky chunk file con sot
+      try {
+        final tempDir = Directory.systemTemp;
+        final files = tempDir.listSync().where((f) => f.path.contains(baseName) && f.path.contains('_chunk_'));
+        for (final f in files) {
+          try {
+            await (f as File).delete();
+          } catch (_) {}
+        }
+      } catch (_) {}
     }
 
     sw.stop();
+    debugPrint('[Whisper] Hoan thanh ${allSegments.length} segments trong ${sw.elapsed.inSeconds}s');
 
     return SttResult(
       fullText: allSegments.map((s) => s.text).join(' ').trim(),
@@ -1048,7 +1159,7 @@ class SttEngineWhisper {
         '   Copy whisper-cli.exe + ggml-*.dll vao windows/libs/\n'
         '2. Hoac dat env WHISPER_PATH:\n'
         '   setx WHISPER_PATH "C:\\path\\to\\whisper-cli.exe"\n'
-        '3. Hoac copy binary canh in4up.exe trong build/windows/x64/runner/Debug/\n'
+        '3. Hoac copy binary canh in2up.exe trong build/windows/x64/runner/Debug/\n'
         'Da thu: $cli Model exists=${File(modelPath).existsSync()}',
       );
     }
@@ -1070,7 +1181,7 @@ class SttEngineWhisper {
     // Đầu ra SRT vào thư mục temp để parse segment + timestamp.
     final outBase = path.join(
       Directory.systemTemp.path,
-      'in4up_whisper_${DateTime.now().millisecondsSinceEpoch}',
+      'in2up_whisper_${DateTime.now().millisecondsSinceEpoch}',
     );
     final srtPath = '$outBase.srt';
 

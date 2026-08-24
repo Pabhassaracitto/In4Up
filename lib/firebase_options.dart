@@ -29,7 +29,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
-        return linux;
+        // Linux không có appId riêng trên Firebase Console, dùng chung web config để vẫn sync được đám mây
+        // Nếu dùng dummy linux001122334455 sẽ fail [core/no-app]
+        return web;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',

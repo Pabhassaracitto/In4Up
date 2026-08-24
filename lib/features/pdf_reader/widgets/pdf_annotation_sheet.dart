@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/pdf_annotation.dart';
@@ -170,7 +170,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
               maxLines: 4,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Thêm ghi chú...',
+                hintText: context.uiText('Thêm ghi chú...'),
                 hintStyle: const TextStyle(color: Colors.grey),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.07),
@@ -375,7 +375,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
             style: const TextStyle(color: Colors.white),
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'Ghi chú (tùy chọn)...',
+              hintText: context.uiText('Ghi chú (tùy chọn)...'),
               hintStyle: const TextStyle(color: Colors.grey),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.07),

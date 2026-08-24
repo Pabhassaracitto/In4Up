@@ -11,13 +11,14 @@ class PlaybackAnchor {
     required this.savedAt,
   });
 
-  String get displayText {
+  String get ageText {
     final age = DateTime.now().difference(savedAt);
-    final t = age.inMinutes < 60
+    return age.inMinutes < 60
         ? '${age.inMinutes}p trước'
         : '${age.inHours}g trước';
-    return 'Câu ${lineIndex + 1}  •  $t';
   }
+
+  String get displayText => 'Câu ${lineIndex + 1}  •  $ageText';
 
   Map<String, dynamic> toJson() => {
     'fileId':     fileId,

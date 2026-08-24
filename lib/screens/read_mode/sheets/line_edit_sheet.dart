@@ -1,6 +1,6 @@
 // lib/screens/read_mode/sheets/line_edit_sheet.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -129,9 +129,9 @@ class _LineEditSheetState extends State<_LineEditSheet> {
           children: [
             const Icon(Icons.check_circle, color: Colors.green, size: 16),
             const SizedBox(width: 8),
-            Text(contentLines.length > 1
+            Text(context.uiText(contentLines.length > 1
                 ? 'Đã tách thành ${contentLines.length} dòng'
-                : 'Đã lưu chỉnh sửa'),
+                : 'Đã lưu chỉnh sửa')),
           ],
         ),
         backgroundColor: const Color(0xFF2A2A3E),
@@ -179,7 +179,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Dòng ${widget.lineIndex + 1}',
+                      context.uiText('Dòng ${widget.lineIndex + 1}'),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF2196F3),
@@ -231,7 +231,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                 controller: _contentCtrl,
                 focusNode: _contentFocus,
                 nextFocus: _translationFocus,
-                hintText: 'Nhập nội dung dòng...',
+                hintText: context.uiText('Nhập nội dung dòng...'),
                 accentColor: const Color(0xFF2196F3),
               ),
 
@@ -248,7 +248,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               _EditField(
                 controller: _translationCtrl,
                 focusNode: _translationFocus,
-                hintText: 'Nhập bản dịch... (bỏ trống nếu không cần)',
+                hintText: context.uiText('Nhập bản dịch... (bỏ trống nếu không cần)'),
                 accentColor: const Color(0xFF4CAF50),
               ),
 
@@ -437,7 +437,7 @@ class _EditField extends StatelessWidget {
           height: 1.6,
         ),
         decoration: InputDecoration(
-          hintText: hintText,
+          hintText: context.uiText(hintText),
           hintStyle: TextStyle(color: Colors.grey[700], fontSize: 13),
           border: InputBorder.none,
           contentPadding:

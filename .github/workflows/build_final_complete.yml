@@ -153,9 +153,13 @@ jobs:
               echo "$SECRET_JSON" | base64 -d > android/app/google-services.json 2>/dev/null || true
             fi
           fi
-          # Fallback with 6 clients if secret missing or too small - includes both hashes you provided
-          if [ ! -s android/app/google-services.json ] || [ $(stat -c%s android/app/google-services.json 2>/dev/null || stat -f%z android/app/google-services.json) -lt 100 ]; then
-            echo "Creating fallback google-services.json with 6 clients (side-by-side flavors)"
+          # Fallback robust: neu file rong, nho, HOAC khong chua com.in4up thi dung fallback 12 clients
+          NEED_FALLBACK=0
+          if [ ! -s android/app/google-services.json ]; then NEED_FALLBACK=1; fi
+          if [ $(stat -c%s android/app/google-services.json 2>/dev/null || stat -f%z android/app/google-services.json) -lt 100 ]; then NEED_FALLBACK=1; fi
+          if ! grep -q "com.in4up" android/app/google-services.json 2>/dev/null; then NEED_FALLBACK=1; echo "Secret JSON missing com.in4up -> need fallback"; fi
+          if [ $NEED_FALLBACK -eq 1 ]; then
+            echo "Creating fallback google-services.json with 12 clients (side-by-side flavors) - robust for com.in4up"
             cat > android/app/google-services.json << 'EOF'
           {
             "project_info": {"project_number": "342774597309","project_id": "vipsound-df903","storage_bucket": "vipsound-df903.firebasestorage.app"},
@@ -163,16 +167,22 @@ jobs:
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in4up"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in4up.dev"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in4up.beta"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in2up"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in2up.dev"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in2up.beta"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in4up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in4up.dev"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.dev","certificate_hash":"7697fcbcd36289fe5fb220575fcfb27704f4ca83"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
-              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in4up.beta"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.beta","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in4up.beta"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.beta","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in2up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in2up.dev"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up.dev","certificate_hash":"7697fcbcd36289fe5fb220575fcfb27704f4ca83"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in2up.beta"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up.beta","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}
             ],
             "configuration_version":"1"
           }
           EOF
           fi
           echo "google-services.json size: $(stat -c%s android/app/google-services.json 2>/dev/null || stat -f%z android/app/google-services.json) bytes"
-          cat android/app/google-services.json | grep -o '"package_name": "[^"]*"' | sort | uniq || true
+          cat android/app/google-services.json | grep -o '"package_name": "[^"]*"' | sort | uniq || grep -o '"package_name":"[^"]*"' android/app/google-services.json | sort | uniq || true
           for flavor in dev beta stable main; do
             mkdir -p android/app/src/$flavor
             cp android/app/google-services.json android/app/src/$flavor/google-services.json
@@ -194,23 +204,23 @@ jobs:
         run: |
           echo "Building split APKs for stable..."
           flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=FLAVOR=stable || \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=FLAVOR=stable" || \
           flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
-            --dart-define=FLAVOR=stable
+            "--dart-define=FLAVOR=stable"
 
       - name: Build Universal APK
         shell: bash
         run: |
           echo "Building universal APK..."
           flutter build apk --release --android-skip-build-dependency-validation \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }} \
-            --dart-define=FLAVOR=stable || \
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            "--dart-define=FLAVOR=stable" || \
           flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
 
       - name: Rename All APKs
         shell: bash
@@ -280,10 +290,12 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
           sudo apt-get install -y libayatana-appindicator3-dev libsecret-1-dev 2>/dev/null || sudo apt-get install -y libappindicator3-dev libsecret-1-dev || true
-          echo "Linux deps installed"
-
+          sudo apt-get install -y libjson-glib-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev || true
+          echo "Linux deps installed with json-glib for ffmpeg_kit_flutter_new"
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev libwebkit2gtk-4.1-dev
       - name: Setup Flutter 3.44.1
         uses: subosito/flutter-action@v2
         with:
@@ -319,10 +331,10 @@ jobs:
         shell: bash
         run: |
           flutter build linux --release --verbose \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Tar Linux bundle
         shell: bash
@@ -419,10 +431,10 @@ jobs:
         shell: bash
         run: |
           flutter build windows --release --verbose \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Zip Windows build
         shell: pwsh
@@ -549,10 +561,10 @@ jobs:
         run: |
           export IPHONEOS_DEPLOYMENT_TARGET=15.0
           flutter build ios --release --no-codesign \
-            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }} \
-            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }} \
-            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+            "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
       - name: Create IPA from Runner.app
         shell: bash

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/vocabulary_type.dart';
@@ -32,7 +32,7 @@ class TimelineView extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Center(
-                  child: Text('${provider.total} từ',
+                  child: Text(context.uiText('${provider.total} từ'),
                       style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                 ),
               ),
@@ -165,7 +165,7 @@ class _DateGroup extends StatelessWidget {
                 // Date header
                 Row(
                   children: [
-                    Text('📅 $_displayDate',
+                    Text('📅 ${context.uiText(_displayDate)}',
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -291,7 +291,7 @@ class _TimelineEntry extends StatelessWidget {
                 color: Color(0xFFFFB300).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text('Gặp lần $encounterCount!',
+              child: Text(context.uiText('Gặp lần $encounterCount!'),
                   style: const TextStyle(
                       color: Color(0xFFFFB300),
                       fontSize: 9,

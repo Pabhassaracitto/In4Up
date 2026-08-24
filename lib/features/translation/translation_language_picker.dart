@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/language/app_language.dart';
@@ -22,8 +22,9 @@ class TranslationLanguagePickerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message:
-          'Tự nhận diện ${sourceLanguage.nativeName} → ${targetLanguage.nativeName}',
+      message: context.uiText(
+        'Tự nhận diện ${sourceLanguage.nativeName} → ${targetLanguage.nativeName}',
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -216,9 +217,7 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Đã nhận diện ${widget.sourceLanguage.flag} '
-                              '${widget.sourceLanguage.nativeName} • '
-                              '${AppLanguageCatalog.languages.length} ngôn ngữ đích',
+                              context.uiText('Đã nhận diện ${widget.sourceLanguage.flag} ${widget.sourceLanguage.nativeName} • ${AppLanguageCatalog.languages.length} ngôn ngữ đích'),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 12,
@@ -239,7 +238,7 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                     onChanged: (value) => setState(() => _query = value),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Tìm ngôn ngữ…',
+                      hintText: context.uiText('Tìm ngôn ngữ…'),
                       hintStyle: TextStyle(color: Colors.grey[600]),
                       prefixIcon:
                           const Icon(Icons.search, color: Colors.white38),
@@ -302,8 +301,10 @@ class _LanguagePickerSheetState extends State<_LanguagePickerSheet> {
                     ),
                     subtitle: Text(
                       isSource
-                          ? '${language.vietnameseName} • ngôn ngữ nguồn'
-                          : '${language.vietnameseName} • ${language.translationCode}',
+                          ? context.uiText(
+                              '${language.nativeName} • ngôn ngữ nguồn',
+                            )
+                          : '${language.nativeName} • ${language.translationCode}',
                       style: TextStyle(
                         color: isSource ? Colors.white24 : Colors.grey[500],
                         fontSize: 11,

@@ -10,6 +10,7 @@ import 'package:in4up/screens/listen_mode/models/recent_audio.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../services/storage_service.dart';
+import '../utils/audio_source_identity.dart';
 import 'text_provider.dart'; // Import TextProvider
 
 // Mixins
@@ -122,6 +123,9 @@ class PlayerProvider extends ChangeNotifier
   @override
   String? get currentSongPath => _currentSongPath;
 
+  @override
+  Duration get playbackDuration => _state.duration;
+
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
   bool get isPlaying => _state.status == PlaybackStatus.playing;
@@ -158,7 +162,8 @@ class PlayerProvider extends ChangeNotifier
   List<double> get speedPresets => AudioPlayerService.speedPresets;
 
   // ==================== CONSTRUCTOR ====================
-  PlayerProvider() {
+  PlayerProvider({UnderstandProvider? understandProvider})
+      : _understandProvider = understandProvider {
     _audioService.stateStream.listen(_onStateChanged);
 
     _positionSaverTimer = Timer.periodic(
@@ -305,15 +310,19 @@ class PlayerProvider extends ChangeNotifier
   }) async {
     final normalizedPath = path.replaceAll("\\", "/");
 
-    // ★ TASK 5: Dọn dẹp dữ liệu LRC bài cũ ngay khi đổi sang bài mới
-    // Chỉ clear nếu thực sự đổi bài (tránh clear khi load lại cùng bài)
-    if (_currentSongPath != null &&
-        _normalizePath(_currentSongPath!) != _normalizePath(normalizedPath)) {
+    final previousPath = _currentSongPath;
+    final isAudioChange = previousPath == null ||
+        _normalizePath(previousPath) != _normalizePath(normalizedPath);
+
+    if (isAudioChange) {
+      // Invalidate the old source first, before any async cancellation/cache
+      // callback gets a chance to publish its transcript again.
+      _currentSongPath = normalizedPath;
+      resetLrcStateForAudioChange();
       _understandProvider?.clear();
-      // Hủy transcribe/LRC đang chạy của bài cũ để không "kẹt" hay ghi
-      // kết quả bài cũ vào bài mới.
-      cancelLrcGeneration();
-      debugPrint('🧹 Cleared UnderstandProvider for new song: $normalizedPath');
+      debugPrint(
+        '🧹 Cleared transcript on audio change: $previousPath → $normalizedPath',
+      );
     }
 
     _currentSongPath = normalizedPath;
@@ -370,25 +379,19 @@ class PlayerProvider extends ChangeNotifier
   }
 
   /// Helper normalize path (dùng nội bộ trong provider)
-  String _normalizePath(String path) {
-    try {
-      return Uri.decodeFull(path.replaceAll("\\", "/").toLowerCase().trim());
-    } catch (_) {
-      // Fallback khi path chứa ký tự % không hợp lệ (ví dụ file .m4a có ’ hoặc %)
-      return path.replaceAll("\\", "/").toLowerCase().trim();
-    }
-  }
+  String _normalizePath(String path) => AudioSourceIdentity.normalize(path);
 
   // ★ THÊM: clearCurrentSong() — dùng cho "Xem tất cả" trong QuickAudioSheet
   Future<void> clearCurrentSong() async {
-    // Lưu position trước khi clear
+    // Save while the old path still exists, then invalidate it immediately so
+    // late STT/cache callbacks cannot restore the old transcript.
     saveCurrentPosition();
+    _currentSongPath = null;
+    resetLrcStateForAudioChange();
+    _understandProvider?.clear();
 
-    // Dừng audio
     await _audioService.stop();
 
-    // Clear state
-    _currentSongPath = null;
     _currentSongTitle = null;
     _currentSongArtist = null;
     clearLoop();

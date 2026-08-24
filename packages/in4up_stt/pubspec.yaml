@@ -18,6 +18,10 @@ dependencies:
   # whisper_flutter_new only supports Android/iOS/macOS — on Windows,
   # we fallback to FFI (whisper.dll) or CLI (whisper.exe) via stt_engine_whisper.dart
   whisper_flutter_new: ^1.0.1
+  # Engine 3: Sherpa-ONNX (PoC from branch 019fe27a, Strategy Pattern Step2)
+  # sherpa_onnx ^1.13.4 — next-gen Kaldi, offline file + streaming, .onnx 2-5MB VAD
+  sherpa_onnx: ^1.13.4
+
   # Audio conversion: mobile uses FFmpegKit (native lib bundled),
   # desktop uses `ffmpeg` binary via Process (see audio_converter.dart)
   # NOTE: ffmpeg_kit_flutter_new 4.2.1 has broken Windows header (C1083).

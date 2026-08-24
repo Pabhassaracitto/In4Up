@@ -1,7 +1,7 @@
 // lib/screens/read_mode/widgets/text_line_widget.dart
 // ★ FIX: Thêm guard index trong Selector2 để tránh RangeError khi lines thay đổi
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 

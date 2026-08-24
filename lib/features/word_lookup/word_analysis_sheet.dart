@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import '../../features/translation/data/offline_dictionary.dart';
@@ -106,7 +106,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
           if (facade.currentAnalysis?.isPartial == false)
             IconButton(
               icon: const Icon(Icons.flag_outlined, size: 18),
-              tooltip: 'Báo kết quả sai',
+              tooltip: context.uiText('Báo kết quả sai'),
               onPressed: () => _reportError(context, facade),
             ),
 

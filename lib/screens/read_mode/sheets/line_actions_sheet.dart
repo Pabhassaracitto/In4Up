@@ -1,6 +1,6 @@
 // lib/screens/read_mode/sheets/line_actions_sheet.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -55,7 +55,7 @@ class LineActionsSheet {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Dòng ${lineIndex + 1}',
+                    context.uiText('Dòng ${lineIndex + 1}'),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -191,10 +191,13 @@ class _ActionTile extends StatelessWidget {
         ),
         child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(label, style: const TextStyle(color: Colors.white)),
+      title: Text(
+        context.uiText(label),
+        style: const TextStyle(color: Colors.white),
+      ),
       subtitle: subtitle != null
           ? Text(
-              subtitle!,
+              context.uiText(subtitle!),
               style: TextStyle(color: Colors.grey[600], fontSize: 11),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

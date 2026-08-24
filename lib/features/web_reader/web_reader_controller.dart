@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show Color;
+import 'package:in4up/core/language/localized_material.dart' show Color;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
@@ -19,9 +19,11 @@ import '../../models/vocabulary_type.dart';
 import '../../models/word_analysis.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
+import '../../services/reader_display_settings.dart';
 import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
-import 'models/web_extraction_candidate.dart';
+import '../../services/vocab_batch/vocab_batch_extractor.dart';
+import '../../services/vocab_batch/vocab_batch_models.dart';
 
 enum WebReaderState { idle, loading, ready, error }
 
@@ -95,33 +97,6 @@ class WebReaderController extends ChangeNotifier {
   static const _articleNotesKey = 'article_notes_v1';
   static const _batchDraftsKey = 'web_batch_drafts_v1';
   static const _lastOpenedUrlKey = 'last_opened_url_v1';
-  static final RegExp _wordRegex = RegExp(r"[A-Za-z][A-Za-z'-]{1,}");
-  static const Set<String> _webBatchStopWords = {
-    'about', 'above', 'after', 'again', 'against', 'almost', 'along', 'also',
-    'among', 'amongst', 'because', 'before', 'below', 'beneath', 'between',
-    'beyond', 'could', 'doing', 'during', 'every', 'first', 'from', 'have',
-    'having', 'into', 'itself', 'just', 'might', 'must', 'other', 'ought',
-    'ours', 'ourselves', 'over', 'quite', 'rather', 'should', 'since',
-    'still', 'such', 'than', 'that', 'their', 'theirs', 'them', 'themselves',
-    'there', 'these', 'they', 'this', 'those', 'through', 'toward', 'towards',
-    'under', 'until', 'very', 'what', 'when', 'where', 'which', 'while',
-    'with', 'within', 'without', 'would', 'your', 'yours', 'yourself',
-    'yourselves', 'onto', 'upon', 'were', 'been', 'being', 'does',
-    'did', 'done', 'then', 'here', 'therefore', 'however', 'across',
-    'beforehand', 'cannot', 'couldn', 'didn', 'doesn', 'hadn', 'hasn', 'haven',
-    'isn', 'aren', 'wasn', 'weren', 'won', 'wouldn', 'shan', 'shouldn', 'the',
-    'and', 'for', 'are', 'you', 'our', 'but', 'not', 'can', 'all', 'any',
-    'why', 'who', 'how', 'out', 'its', "it's", 'his', 'her', 'she', 'him',
-    'was', 'has', 'had', 'let', 'may', 'use', 'used', 'using', 'many', 'much',
-    'more', 'most', 'some', 'same', 'each', 'only', 'both', 'few', 'ever',
-    'even', 'well', 'back', 'gets', 'get', 'got', 'make', 'made', 'take',
-    'took', 'come', 'came', 'goes', 'went', 'go', 'said', 'says', 'say',
-    'look', 'looks', 'looking', 'know', 'knows', 'known', 'like', 'liked',
-    'whose', 'whom', 'mine', 'myself', 'himself', 'herself', 'it', 'a', 'an',
-    'to', 'of', 'in', 'on', 'at', 'by', 'or', 'if', 'be', 'is', 'am', 'as',
-    'we', 'he', 'do', 'my', 'me', 'i'
-  };
-
   // ─── State ────────────────────────────────────────────────
   WebReaderState _state = WebReaderState.idle;
   WebReaderState get state => _state;
@@ -151,6 +126,23 @@ class WebReaderController extends ChangeNotifier {
   ColorMode get colorMode => _colorMode;
   bool get isHighlightActive => _colorMode != ColorMode.none;
   int get highlightVersion => _highlightVersion;
+
+  // ─── Recall markers (READ-630-03) ────────────────────────
+  /// Marker "từ đã lưu" — MẶC ĐỊNH TẮT, bật khi cần (đọc sạch mặc định).
+  bool _showRecallMarkers = ReaderDisplaySettings().showRecallMarkers;
+  bool get showRecallMarkers => _showRecallMarkers;
+
+  void _onReaderDisplaySettingsChanged() {
+    final next = ReaderDisplaySettings().showRecallMarkers;
+    if (next == _showRecallMarkers) return;
+    _showRecallMarkers = next;
+    _highlightVersion++;
+    notifyListeners();
+  }
+
+  void toggleRecallMarkers() {
+    ReaderDisplaySettings().setShowRecallMarkers(!_showRecallMarkers);
+  }
   GrammarHighlightSettings get grammarSettings => _grammarSettings;
   List<GrammarHighlightPreset> get availableGrammarPresets =>
       List.unmodifiable(_availableGrammarPresets);
@@ -277,6 +269,7 @@ class WebReaderController extends ChangeNotifier {
     _loadLastOpenedUrl();
     _loadGrammarPresetLibrary();
     _loadGrammarSettings();
+    ReaderDisplaySettings().addListener(_onReaderDisplaySettingsChanged);
   }
 
   // ─── URL Navigation ──────────────────────────────────────
@@ -564,6 +557,8 @@ class WebReaderController extends ChangeNotifier {
       'mode': _colorMode.name,
       'cefrDictionary': cefrMap,
       'difficultyDictionary': VocabularyBridge.exportDifficultyMap(),
+      // READ-630-03: recall marker chỉ áp khi người dùng BẬT
+      'showRecallMarkers': _showRecallMarkers,
       'recallDictionary': VocabularyBridge.exportRecallMetadata(),
       'visibleWordTypes': visibleWordTypes,
       'hideAllWordTypes': _grammarSettings.visibleCategories.isEmpty,
@@ -755,162 +750,31 @@ class WebReaderController extends ChangeNotifier {
     bool includePhrases = true,
     bool allowSingleMentionPhrases = false,
   }) {
-    final cleanedSource = _normalizeSourceText(sourceText);
-    if (cleanedSource.isEmpty) return const [];
-
-    final titleNormalized = _normalizeStudyText(_pageTitle).toLowerCase();
-    final wordFrequencies = <String, int>{};
-    final phraseFrequencies = <String, int>{};
-    final samples = <String, String>{};
-    final phraseWordCounts = <String, int>{};
-
-    final sentences = _splitIntoSentences(cleanedSource);
-    for (final sentence in sentences) {
-      final sample = _normalizeStudyText(sentence);
-      if (sample.isEmpty) continue;
-
-      final rawTokens = _wordRegex
-          .allMatches(sample)
-          .map((m) => _normalizeWordToken(m.group(0) ?? ''))
-          .where((token) => token.isNotEmpty)
-          .toList();
-
-      for (final token in rawTokens) {
-        if (!_isUsefulBatchWord(token, minLength: minLength)) continue;
-        wordFrequencies[token] = (wordFrequencies[token] ?? 0) + 1;
-        samples[token] ??= sample;
-      }
-
-      if (!includePhrases || rawTokens.length < 2) continue;
-
-      for (final phrase in _extractSentencePhrases(
-        rawTokens,
-        minLength: minLength,
-      )) {
-        phraseFrequencies[phrase] = (phraseFrequencies[phrase] ?? 0) + 1;
-        samples[phrase] ??= sample;
-        phraseWordCounts[phrase] = phrase.split(' ').length;
-      }
-    }
-
-    final candidates = <WebExtractionCandidate>[];
-
-    for (final entry in wordFrequencies.entries) {
-      final appearsInTitle = _containsAsTerm(titleNormalized, entry.key);
-      final existed = VocabularyBridge.hasWord(entry.key);
-      final isPriority = appearsInTitle ||
-          entry.value >= 3 ||
-          (entry.value >= 2 && entry.key.length >= minLength + 2);
-      candidates.add(
-        WebExtractionCandidate(
-          text: entry.key,
-          normalized: entry.key,
-          sampleContext: samples[entry.key] ?? entry.key,
-          frequency: entry.value,
-          existed: existed,
-          wordCount: 1,
-          appearsInTitle: appearsInTitle,
-          isPriority: isPriority,
-          rankScore: _rankCandidate(
-            text: entry.key,
-            frequency: entry.value,
-            existed: existed,
-            isPhrase: false,
-            wordCount: 1,
-            appearsInTitle: appearsInTitle,
-          ),
-          selected: !existed,
-        ),
-      );
-    }
-
-    for (final entry in phraseFrequencies.entries) {
-      final phrase = entry.key;
-      final wordCount = phraseWordCounts[phrase] ?? phrase.split(' ').length;
-      final appearsInTitle = _containsAsTerm(titleNormalized, phrase);
-      if (!allowSingleMentionPhrases && !appearsInTitle && entry.value < 2) {
-        continue;
-      }
-      final existed = VocabularyBridge.hasWord(phrase);
-      final isPriority = appearsInTitle || entry.value >= 2 || wordCount >= 3;
-      candidates.add(
-        WebExtractionCandidate(
-          text: phrase,
-          normalized: phrase,
-          sampleContext: samples[phrase] ?? phrase,
-          frequency: entry.value,
-          existed: existed,
-          isPhrase: true,
-          wordCount: wordCount,
-          appearsInTitle: appearsInTitle,
-          isPriority: isPriority,
-          rankScore: _rankCandidate(
-            text: phrase,
-            frequency: entry.value,
-            existed: existed,
-            isPhrase: true,
-            wordCount: wordCount,
-            appearsInTitle: appearsInTitle,
-          ),
-          selected: !existed,
-        ),
-      );
-    }
-
-    candidates.sort(_compareCandidatesByPriority);
-
-    if (candidates.length > maxItems) {
-      return candidates.take(maxItems).toList();
-    }
-    return candidates;
+    // READ-630-04: dùng extractor dùng chung (Web + PDF)
+    return VocabBatchExtractor.extract(
+      sourceText,
+      minLength: minLength,
+      maxItems: maxItems,
+      includePhrases: includePhrases,
+      allowSingleMentionPhrases: allowSingleMentionPhrases,
+      pageTitle: _pageTitle,
+    );
   }
 
   WebBatchImportResult importBatchToWordList(
     Iterable<WebExtractionCandidate> candidates, {
     bool onlyReady = false,
   }) {
-    int addedCount = 0;
-    int updatedCount = 0;
-    int skippedCount = 0;
-
-    for (final candidate in candidates) {
-      if (!candidate.selected) continue;
-      if (onlyReady && !candidate.isImportReady) {
-        skippedCount++;
-        continue;
-      }
-      final normalized = _normalizeStudyText(candidate.normalized).toLowerCase();
-      if (normalized.isEmpty || normalized.length < 2) {
-        skippedCount++;
-        continue;
-      }
-
-      final existed = VocabularyBridge.hasWord(normalized);
-      final entry = VocabularyBridge.addContextual(
-        text: normalized,
-        meaning: candidate.meaning.trim(),
-        phonetic: candidate.phonetic,
-        example: (candidate.example ?? '').trim().isEmpty
-            ? candidate.sampleContext
-            : candidate.example,
-        topic: candidate.topic,
-        forceType: candidate.isPhrase ? VocabularyType.phrase : null,
-        context: _buildCurrentWebContext(candidate.sampleContext),
-      );
-
-      if (entry == null) {
-        skippedCount++;
-      } else if (existed) {
-        updatedCount++;
-      } else {
-        addedCount++;
-      }
-    }
-
-    return WebBatchImportResult(
-      addedCount: addedCount,
-      updatedCount: updatedCount,
-      skippedCount: skippedCount,
+    // READ-630-04: importer dùng chung — giữ context web (url/scroll)
+    // + áp language cho từng candidate
+    return VocabBatchImporter.import(
+      candidates,
+      onlyReady: onlyReady,
+      contextBuilder: (sample, c) => _buildCurrentWebContext(
+        sample,
+        anchorText: c.isPhrase ? c.normalized : null,
+        scrollProgressHint: _selectedScrollProgress,
+      ),
     );
   }
 
@@ -1073,106 +937,18 @@ class WebReaderController extends ChangeNotifier {
     );
   }
 
-  String _normalizeSourceText(String text) =>
-      text.replaceAll(RegExp(r'\r\n?'), '\n').trim();
+  /// READ-630-01/04: context cho đoạn chọn — dùng bởi SelectionSaveSheet
+  /// (giữ reopen đúng vị trí nguồn: url + scroll %).
+  VocabContext buildSelectionContext(String sampleText) {
+    return _buildCurrentWebContext(
+      sampleText,
+      anchorText: sampleText,
+      scrollProgressHint: _selectedScrollProgress,
+    );
+  }
 
   String _normalizeStudyText(String text) =>
       text.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-  List<String> _splitIntoSentences(String source) {
-    return source
-        .split(RegExp(r'(?<=[\.!?\n])\s+'))
-        .map(_normalizeStudyText)
-        .where((s) => s.isNotEmpty)
-        .toList();
-  }
-
-  String _normalizeWordToken(String raw) {
-    return raw
-        .toLowerCase()
-        .replaceAll(RegExp(r"^[^a-z]+|[^a-z']+$"), '')
-        .trim();
-  }
-
-  Iterable<String> _extractSentencePhrases(
-    List<String> tokens, {
-    required int minLength,
-  }) sync* {
-    for (int start = 0; start < tokens.length; start++) {
-      for (int size = 3; size >= 2; size--) {
-        if (start + size > tokens.length) continue;
-        final window = tokens.sublist(start, start + size);
-        if (window.any((token) => !_isUsefulPhraseToken(token))) continue;
-        final phrase = window.join(' ');
-        if (!_isUsefulBatchPhrase(phrase, minLength: minLength)) continue;
-        yield phrase;
-      }
-    }
-  }
-
-  bool _isUsefulPhraseToken(String token) {
-    if (token.length < 2) return false;
-    if (_webBatchStopWords.contains(token)) return false;
-    if (!RegExp(r'[a-z]').hasMatch(token)) return false;
-    return true;
-  }
-
-  bool _isUsefulBatchPhrase(String phrase, {required int minLength}) {
-    final words = phrase.split(' ');
-    if (words.length < 2) return false;
-    final phraseLength = phrase.replaceAll(' ', '').length;
-    if (phraseLength < minLength + 2) return false;
-    if (words.every((word) => word.length < minLength)) return false;
-    return true;
-  }
-
-  bool _isUsefulBatchWord(String token, {required int minLength}) {
-    if (token.length < minLength) return false;
-    if (_webBatchStopWords.contains(token)) return false;
-    if (!RegExp(r"[a-z]").hasMatch(token)) return false;
-    if (token.startsWith("'") || token.endsWith("'")) return false;
-    return true;
-  }
-
-  bool _containsAsTerm(String haystack, String needle) {
-    if (haystack.trim().isEmpty || needle.trim().isEmpty) return false;
-    final escaped =
-        RegExp.escape(needle.trim().toLowerCase()).replaceAll(' ', r'\s+');
-    return RegExp('\b$escaped\b').hasMatch(haystack);
-  }
-
-  double _rankCandidate({
-    required String text,
-    required int frequency,
-    required bool existed,
-    required bool isPhrase,
-    required int wordCount,
-    required bool appearsInTitle,
-  }) {
-    final lengthScore = text.replaceAll(' ', '').length.toDouble();
-    final frequencyScore = frequency * (isPhrase ? 11.0 : 9.0);
-    final phraseBonus = isPhrase ? (wordCount * 5.5) : 0.0;
-    final titleBonus = appearsInTitle ? (isPhrase ? 26.0 : 18.0) : 0.0;
-    final noveltyBonus = existed ? -4.0 : 6.0;
-    final repeatBonus = frequency > 1 ? frequency * 2.5 : 0.0;
-    return frequencyScore + phraseBonus + titleBonus + noveltyBonus + repeatBonus + (lengthScore * 0.35);
-  }
-
-  int _compareCandidatesByPriority(
-    WebExtractionCandidate a,
-    WebExtractionCandidate b,
-  ) {
-    final scoreCompare = b.rankScore.compareTo(a.rankScore);
-    if (scoreCompare != 0) return scoreCompare;
-    if (a.isPriority != b.isPriority) return a.isPriority ? -1 : 1;
-    if (a.existed != b.existed) return a.existed ? 1 : -1;
-    if (a.isPhrase != b.isPhrase) return a.isPhrase ? -1 : 1;
-    final frequencyCompare = b.frequency.compareTo(a.frequency);
-    if (frequencyCompare != 0) return frequencyCompare;
-    final lengthCompare = b.normalized.length.compareTo(a.normalized.length);
-    if (lengthCompare != 0) return lengthCompare;
-    return a.normalized.compareTo(b.normalized);
-  }
 
   // ─── Collections ─────────────────────────────────────────
 
@@ -1984,6 +1760,7 @@ class WebReaderController extends ChangeNotifier {
 
   @override
   void dispose() {
+    ReaderDisplaySettings().removeListener(_onReaderDisplaySettingsChanged);
     _tts.stop();
     super.dispose();
   }

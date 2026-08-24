@@ -11,10 +11,14 @@ class WaveformComparisonPainter extends CustomPainter {
   final Color recordedColor;
   final bool showDifference;
   final double animationProgress; // 0.0 - 1.0 cho animation reveal
+  final String originalLabel;
+  final String recordedLabel;
 
   WaveformComparisonPainter({
     required this.originalWaveform,
     required this.recordedWaveform,
+    required this.originalLabel,
+    required this.recordedLabel,
     this.originalColor = const Color(0xFF6C63FF),
     this.recordedColor = const Color(0xFF4CAF50),
     this.showDifference = true,
@@ -198,9 +202,9 @@ class WaveformComparisonPainter extends CustomPainter {
     );
 
     final originalText = TextPainter(
-      text: const TextSpan(
-        text: 'Mẫu',
-        style: TextStyle(color: Colors.white54, fontSize: 10),
+      text: TextSpan(
+        text: originalLabel,
+        style: const TextStyle(color: Colors.white54, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
     );
@@ -218,9 +222,9 @@ class WaveformComparisonPainter extends CustomPainter {
     );
 
     final recordedText = TextPainter(
-      text: const TextSpan(
-        text: 'Bạn',
-        style: TextStyle(color: Colors.white70, fontSize: 10),
+      text: TextSpan(
+        text: recordedLabel,
+        style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
     );
@@ -250,6 +254,8 @@ class WaveformComparisonPainter extends CustomPainter {
   bool shouldRepaint(covariant WaveformComparisonPainter oldDelegate) {
     return oldDelegate.originalWaveform != originalWaveform ||
         oldDelegate.recordedWaveform != recordedWaveform ||
-        oldDelegate.animationProgress != animationProgress;
+        oldDelegate.animationProgress != animationProgress ||
+        oldDelegate.originalLabel != originalLabel ||
+        oldDelegate.recordedLabel != recordedLabel;
   }
 }

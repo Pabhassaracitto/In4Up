@@ -88,6 +88,100 @@ class AudioConverter {
     return null;
   }
 
+  /// Tinh so chunk can thiet cho file dai
+  static Future<int> getChunkCount(String inputWavPath, {int chunkDurationSeconds = 30}) async {
+    final durationMs = await probeDurationMs(inputWavPath);
+    if (durationMs == null) return 1;
+    final chunkSec = chunkDurationSeconds > 0 ? chunkDurationSeconds : 30;
+    final totalSec = (durationMs / 1000.0).ceil();
+    return ((totalSec + chunkSec - 1) ~/ chunkSec).clamp(1, 1000);
+  }
+
+  /// Cat 1 chunk duy nhat - dung cho lazy chunking de tiet kiem RAM
+  static Future<String?> cutSingleChunk({
+    required String inputWavPath,
+    required int chunkIndex,
+    required int chunkDurationSeconds,
+    String? customBaseName,
+  }) async {
+    final dir = Directory.systemTemp.path;
+    final baseName = customBaseName ?? path.basenameWithoutExtension(inputWavPath);
+    final startSec = chunkIndex * chunkDurationSeconds;
+    final outPath = path.join(dir, '${baseName}_chunk_${chunkIndex}_${DateTime.now().millisecondsSinceEpoch}.wav');
+
+    final args = <String>[
+      '-ss',
+      '$startSec',
+      '-i',
+      inputWavPath,
+      '-t',
+      '$chunkDurationSeconds',
+      '-ar',
+      '16000',
+      '-ac',
+      '1',
+      '-c:a',
+      'pcm_s16le',
+      '-y',
+      outPath,
+    ];
+
+    try {
+      if (_useFFmpegKit) {
+        await FfmpegRunner.runWithKit(args);
+      } else {
+        await FfmpegRunner.runWithProcess(args);
+      }
+      if (await File(outPath).exists()) return outPath;
+    } catch (e) {
+      debugPrint('[AudioConverter] cutSingleChunk error chunk $chunkIndex: $e');
+    }
+    return null;
+  }
+
+  /// Cat 1 doan theo thoi gian bat dau tuy y (VAD pipeline — segment khong nam
+  /// tren luoi index co dinh nhu cutSingleChunk). Mobile dung FFmpegKit,
+  /// desktop dung ffmpeg binary — CUNG mot duong da chug chung voi
+  /// convertToWhisperCompatible/cutSingleChunk.
+  static Future<bool> cutSegment({
+    required String inputPath,
+    required double startSeconds,
+    required double durationSeconds,
+    required String outputPath,
+  }) async {
+    final args = <String>[
+      '-ss',
+      startSeconds.toStringAsFixed(3),
+      '-i',
+      inputPath,
+      '-t',
+      durationSeconds.toStringAsFixed(3),
+      '-vn',
+      '-ar',
+      '16000',
+      '-ac',
+      '1',
+      '-c:a',
+      'pcm_s16le',
+      '-y',
+      outputPath,
+    ];
+    try {
+      if (_useFFmpegKit) {
+        await FfmpegRunner.runWithKit(args);
+      } else {
+        await FfmpegRunner.runWithProcess(args);
+      }
+      final f = File(outputPath);
+      return f.existsSync() && f.lengthSync() > 1000;
+    } catch (e) {
+      debugPrint('[AudioConverter] cutSegment error @${startSeconds}s: $e');
+      return false;
+    }
+  }
+
+  /// Cu - van giu de tuong thich, nhung gio chi dung cho file ngan < 5 phut
+  /// Voi file dai, hay dung cutSingleChunk + lazy loop trong transcribeMobileChunked
   static Future<({
     List<String> chunkPaths,
     int? durationMs,
@@ -96,47 +190,29 @@ class AudioConverter {
     int chunkDurationSeconds = 30,
   }) async {
     final durationMs = await probeDurationMs(inputWavPath);
-
-    final chunkSec = chunkDurationSeconds > 0 ? chunkDurationSeconds : 30;
-    final totalSec = durationMs == null ? null : (durationMs / 1000.0).ceil();
-
-    final chunkCount = totalSec == null
-        ? 1
-        : ((totalSec + chunkSec - 1) ~/ chunkSec).clamp(1, 1 << 20);
+    final chunkCount = await getChunkCount(inputWavPath, chunkDurationSeconds: chunkDurationSeconds);
+    
+    // Canh bao neu file qua dai - khuyen dung lazy
+    if (chunkCount > 10) {
+      debugPrint('[AudioConverter] File dai ${durationMs}ms ~ $chunkCount chunks, khuyen dung lazy chunking de tranh OOM');
+    }
 
     final dir = Directory.systemTemp.path;
     final baseName = path.basenameWithoutExtension(inputWavPath);
     final chunkPaths = <String>[];
 
     for (var i = 0; i < chunkCount; i++) {
-      final startSec = i * chunkSec;
-      final outPath = path.join(dir, '${baseName}_chunk_$i.wav');
-
-      final args = <String>[
-        '-ss',
-        '$startSec',
-        '-i',
-        inputWavPath,
-        '-t',
-        '$chunkSec',
-        '-ar',
-        '16000',
-        '-ac',
-        '1',
-        '-c:a',
-        'pcm_s16le',
-        '-y',
-        outPath,
-      ];
-
-      if (_useFFmpegKit) {
-        await FfmpegRunner.runWithKit(args);
-      } else {
-        await FfmpegRunner.runWithProcess(args);
-      }
-
-      if (await File(outPath).exists()) {
-        chunkPaths.add(outPath);
+      final chunkPath = await cutSingleChunk(
+        inputWavPath: inputWavPath,
+        chunkIndex: i,
+        chunkDurationSeconds: chunkDurationSeconds,
+        customBaseName: baseName,
+      );
+      if (chunkPath != null) chunkPaths.add(chunkPath);
+      
+      // Giai phong RAM sau moi chunk cat - tranh tich luy native memory
+      if (i % 3 == 0) {
+        await Future.delayed(const Duration(milliseconds: 100));
       }
     }
 

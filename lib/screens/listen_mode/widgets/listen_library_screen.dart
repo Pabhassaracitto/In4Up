@@ -1,6 +1,6 @@
 // ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, avoid_unnecessary_containers, sized_box_for_whitespace, use_build_context_synchronously, avoid_print
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -103,7 +103,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Tiếp tục từ ${_fmtDuration(audio.lastPosition)}',
+                    context.uiText('Tiếp tục từ ${_fmtDuration(audio.lastPosition)}'),
                     style: const TextStyle(color: Colors.white),
                   ),
                 ],
@@ -115,7 +115,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               ),
               duration: const Duration(seconds: 2),
               action: SnackBarAction(
-                label: 'Từ đầu',
+                label: context.uiText('Từ đầu'),
                 textColor: Colors.white70,
                 onPressed: () => player.seek(Duration.zero),
               ),
@@ -289,7 +289,10 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             Icon(icon, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(message, style: const TextStyle(color: Colors.white)),
+              child: Text(
+                context.uiText(message),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -515,67 +518,97 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
   }
 
   // ── Empty state ───────────────────────────────────────────────
+  // Responsive to avoid yellow-black overflow on small screens
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.elasticOut,
-              builder: (_, v, child) => Transform.scale(scale: v, child: child),
-              child: const Text(
-                '🎧',
-                style: TextStyle(fontSize: 72),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isVerySmall = constraints.maxWidth < 360;
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: isVerySmall ? 20 : 40),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.elasticOut,
+                    builder: (_, v, child) =>
+                        Transform.scale(scale: v, child: child),
+                    child: Text(
+                      '🎧',
+                      style: TextStyle(fontSize: isVerySmall ? 56 : 72),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Thư viện nghe trống',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isVerySmall ? 18 : 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Nhấn "Thêm audio" để bắt đầu\nhoặc vuốt từ phải để mở Thư viện',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.42),
+                      fontSize: isVerySmall ? 12 : 14,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.9,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _pickAudioFile,
+                          icon:
+                              const Icon(Icons.add_rounded, color: Colors.white),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              isVerySmall
+                                  ? 'Thêm audio'
+                                  : 'Thêm audio đầu tiên',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6C63FF),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isVerySmall ? 20 : 28,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Thư viện nghe trống',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Nhấn "Thêm audio" để bắt đầu\nhoặc vuốt từ phải để mở Thư viện',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontSize: 14,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _pickAudioFile,
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: const Text(
-                'Thêm audio đầu tiên',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C63FF),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

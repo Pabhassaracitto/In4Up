@@ -1,12 +1,16 @@
-// v11.0-final — fix param analysisType (không phải type)
+// packages/in4up_ai/lib/src/engine/ai_engine_gemma.dart
+// Isolate + native GGUF when available; write-aware mock fallback.
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
 import 'ai_engine.dart';
+import 'ai_native_bindings.dart';
+import '../prompts/ai_prompts_library.dart';
 
 class AiEngineGemma implements AiEngine {
   @override
@@ -17,13 +21,22 @@ class AiEngineGemma implements AiEngine {
   SendPort? _sendPort;
   ReceivePort? _receivePort;
   bool _disposed = false;
+  String? _modelPath;
 
   @override
   Future<bool> initialize({required String modelPath}) async {
-    if (_state == AiEngineState.ready) return true;
+    if (_state == AiEngineState.ready && _modelPath == modelPath) {
+      return true;
+    }
+    if (_isolate != null || _state == AiEngineState.ready) {
+      await dispose();
+      _disposed = false;
+      _state = AiEngineState.uninitialized;
+    }
     _state = AiEngineState.loading;
     try {
       await _spawnIsolate(modelPath);
+      _modelPath = modelPath;
       _state = AiEngineState.ready;
       debugPrint('[AiEngineGemma] ✅ Ready: $modelPath');
       return true;
@@ -45,6 +58,7 @@ class AiEngineGemma implements AiEngine {
       yield AiAnalysis.fallback(
         text,
         errorReason: 'Engine not ready',
+        analysisType: type,
       );
       return;
     }
@@ -69,11 +83,11 @@ class AiEngineGemma implements AiEngine {
 
       if (msg is _IsolateResponse && msg.isComplete) {
         engine._state = AiEngineState.ready;
-        final json = jsonDecode(msg.fullText) as Map<String, dynamic>;
-        yield AiAnalysis.fromJson(
-          json,
-          text,
-        ); // type is extracted from json['analysisType'] inside fromJson
+        yield AiAnalysis.fromGemmaJson(
+          msg.fullText,
+          analysisType: type,
+          inputText: text,
+        );
         responsePort.close();
         break;
       } else if (msg is _IsolateError) {
@@ -81,6 +95,7 @@ class AiEngineGemma implements AiEngine {
         yield AiAnalysis.fallback(
           text,
           errorReason: msg.error,
+          analysisType: type,
         );
         responsePort.close();
         break;
@@ -108,6 +123,7 @@ class AiEngineGemma implements AiEngine {
     _receivePort?.close();
     _isolate = null;
     _sendPort = null;
+    _modelPath = null;
     _state = AiEngineState.disposed;
   }
 
@@ -132,18 +148,48 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
+    // Báo sẵn sàng NGAY — việc load model native có thể mất vài giây (file GGUF
+    // lớn). Message gửi tới trong lúc load sẽ nằm queue ở ReceivePort và được
+    // xử lý sau khi native handle sẵn sàng.
     init.mainSendPort.send(port.sendPort);
+
+    // Nối backend llama.cpp thật nếu native lib đã được build (Android:
+    // libin4up_ai_native.so; Windows: in4up_ai_native.dll). Nếu không có lib
+    // hoặc model không load được ⇒ fallback mock để app vẫn dùng được.
+    final native = init.modelPath.trim().isEmpty
+        ? null
+        : AiNativeBindings.tryLoad();
+    ffi.Pointer<ffi.Void>? nativeHandle;
+    if (native != null) {
+      nativeHandle = native.create(init.modelPath);
+      if (nativeHandle == ffi.nullptr) {
+        debugPrint('[AiEngineGemma] Native model load failed — mock fallback.');
+        nativeHandle = null;
+      } else {
+        debugPrint('[AiEngineGemma] ✅ Native llama.cpp backend ready.');
+      }
+    } else if (native == null) {
+      debugPrint('[AiEngineGemma] Native lib not found — mock fallback.');
+    }
+
     await for (final msg in port) {
       if (msg is _IsolateMessage) {
         try {
+          final nativeOutput = native != null && nativeHandle != null
+              ? native.generate(nativeHandle!, msg.prompt,
+                  temperature: msg.temperature)
+              : null;
           msg.replyPort.send(_IsolateResponse(
-            fullText: _mockInference(msg.prompt),
+            fullText: nativeOutput ?? _mockInference(msg.prompt),
             isComplete: true,
           ));
         } catch (e) {
           msg.replyPort.send(_IsolateError(error: e.toString()));
         }
       }
+    }
+    if (native != null && nativeHandle != null) {
+      native.destroy(nativeHandle!);
     }
   }
 
@@ -156,6 +202,10 @@ class AiEngineGemma implements AiEngine {
     }
     if (prompt.contains('in4up_SUMMARY_REVIEW')) {
       return _mockSummaryReview(prompt);
+    }
+    if (prompt.contains('TYPE: conversation') ||
+        prompt.contains('Analyze conversation:')) {
+      return _mockConversation(prompt);
     }
 
     return jsonEncode({
@@ -174,6 +224,33 @@ class AiEngineGemma implements AiEngine {
       'action_items': [
         'Đọc lại ý chính và rút ngắn phản hồi vào 1-2 ý rõ ràng.'
       ],
+      'language': 'vi',
+    });
+  }
+
+  static String _mockConversation(String prompt) {
+    final lines = prompt.split('\n');
+    final inputLines = lines
+        .where((line) => line.startsWith('INPUT:'))
+        .map((line) => line.substring('INPUT:'.length).trim())
+        .toList();
+    final conversationLine = lines
+        .where((line) => line.startsWith('Analyze conversation:'))
+        .map((line) => line.substring('Analyze conversation:'.length).trim())
+        .toList();
+    final input = inputLines.isEmpty ? '' : inputLines.last;
+    final question = input.isNotEmpty
+        ? input
+        : conversationLine.isEmpty
+            ? 'câu hỏi của bạn'
+            : conversationLine.last;
+    return jsonEncode({
+      'summary':
+          'Mình đã nhận được: "$question". AI Chat đang ở bản beta offline; hãy hỏi mình về từ vựng, ngữ pháp hoặc cách luyện nghe.',
+      'topics': ['Conversation'],
+      'analysisType': 'conversation',
+      'technical_terms': <Map<String, dynamic>>[],
+      'action_items': <String>[],
       'language': 'vi',
     });
   }
@@ -424,7 +501,15 @@ class AiEngineGemma implements AiEngine {
     };
   }
 
-  String _buildPrompt(AiAnalysisType type, String text, String? ctx) => '''
+  String _buildPrompt(AiAnalysisType type, String text, String? ctx) {
+    if (type == AiAnalysisType.conversation) {
+      return AiPromptsLibrary.buildPrompt(
+        type: type,
+        text: text,
+        context: ctx,
+      );
+    }
+    return '''
 SYSTEM: Bạn là Gemma AI offline của in4up. Chỉ trả JSON hợp lệ.
 TYPE: ${type.name}
 INPUT: $text
@@ -437,6 +522,7 @@ OUTPUT SCHEMA:
   "action_items": ["string"],
   "language": "en|vi"
 }''';
+  }
 }
 
 class _IsolateInit {

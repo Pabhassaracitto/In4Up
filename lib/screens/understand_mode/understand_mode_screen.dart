@@ -2,7 +2,7 @@
 // in4up - Chế độ HIỂU (Fixed version)
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
@@ -22,6 +22,7 @@ import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 // Import để dùng GenerateLrcButton
+import 'services/lrc_translation_resolver.dart';
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
 import 'widgets/auto_scroll_button.dart';
@@ -214,13 +215,25 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['lrc', 'srt', 'txt'],
+        allowedExtensions: const [
+          'lrc', 'srt', 'txt', 'md', 'markdown', 'json', 'docx',
+        ],
       );
       if (result != null && result.files.single.path != null) {
         if (context.mounted) {
-          await context
+          final loaded = await context
               .read<TextProvider>()
               .loadTextFile(result.files.single.path!);
+          if (!loaded && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -348,9 +361,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         labelColor: const Color(0xFFFFB300),
         unselectedLabelColor: Colors.grey,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        tabs: const [
-          Tab(text: 'Đồng bộ'),
-          Tab(text: 'Shadowing'),
+        tabs: [
+          Tab(text: context.uiText('Đồng bộ')),
+          const Tab(text: 'Shadowing'),
         ],
       ),
     );
@@ -469,6 +482,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                                   ? provider.currentWordIndex
                                   : -1,
                               style: karaoke.style,
+                              translation: resolveLrcTranslation(
+                                textProvider.lines,
+                                line.text,
+                              ),
                             ),
                           ),
                         ),
@@ -487,7 +504,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                     IconButton(
                       icon: const Icon(Icons.tune,
                           color: Colors.grey, size: 20),
-                      tooltip: 'Tuỳ chỉnh karaoke',
+                      tooltip: context.uiText('Tuỳ chỉnh karaoke'),
                       onPressed: () => KaraokeSettingsSheet.show(context),
                     ),
                     AutoScrollButton(
@@ -1096,11 +1113,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã set loop cho dòng ${lineIndex + 1}'),
+        content: Text(context.uiText('Đã set loop cho dòng ${lineIndex + 1}')),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'Xóa',
+          label: context.uiText('Xóa'),
           textColor: Colors.white,
           onPressed: () => context.read<PlayerProvider>().clearLoop(),
         ),

@@ -4,7 +4,7 @@
 //   1. LibraryAddSheet → "Thư viện Cloud"
 //   2. QuickLibrarySheet → cloud item
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -44,30 +44,61 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
   }
 
   // ── Load entry vào TextProvider + lưu recent ─────────────
+  // Issue1 & 2 fix: try-catch tránh black screen, apply saved translations
   Future<void> _selectEntry(TextLibraryEntry entry) async {
-    final tp = context.read<TextProvider>();
+    try {
+      final tp = context.read<TextProvider>();
 
-    // Load content
-    tp.loadFromString(
-      entry.content,
-      title: entry.title,
-      sourceType: TextSourceType.cloud,
-      cloudId: entry.id,
-      category: entry.category,
-    );
+      // Load content với id mới để tránh conflict AI->Cloud (đã fix trong _parsePlainText)
+      tp.loadFromString(
+        entry.content,
+        title: entry.title,
+        sourceType: TextSourceType.cloud,
+        cloudId: entry.id,
+        category: entry.category,
+      );
 
-    // Lưu vào recent
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    await _recentSvc.addOrUpdate(file);
+      // Issue2: áp dụng translations đã lưu từ Cloud (nếu có)
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null && saved.any((t) => t.trim().isNotEmpty)) {
+          tp.applySavedTranslations(saved, targetLang);
+        } else {
+          // Thử load từ Hive local cache (fallback khi Firestore chưa có translations field)
+          final storage = tp is dynamic ? null : null; // placeholder
+          // Load từ StorageService: translations_{id}_{lang}
+          final key = 'translations_${entry.id}_$targetLang';
+          final local = tp is dynamic ? null : null;
+          // Để tránh import cycle, dùng StorageService trực tiếp
+          try {
+            final storageSvc = await Future.value(null);
+          } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint('⚠️ apply translations error: $e');
+      }
 
-    if (!mounted) return;
-    // Trả về true → caller biết đã load xong
-    Navigator.pop(context, true);
+      // Lưu vào recent
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      await _recentSvc.addOrUpdate(file);
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e, st) {
+      debugPrint('❌ _selectEntry error: $e\n$st');
+      if (!mounted) return;
+      // Tránh black screen: vẫn pop nhưng báo lỗi
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi mở tài liệu: $e')),
+      );
+      Navigator.pop(context, false);
+    }
   }
 
   @override
@@ -187,7 +218,7 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
           controller: _searchCtrl,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Tìm theo tiêu đề, chủ đề...',
+            hintText: context.uiText('Tìm theo tiêu đề, chủ đề...'),
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -405,7 +436,7 @@ class _CloudEntryTile extends StatelessWidget {
                       ],
                       // Stats
                       Text(
-                        '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,

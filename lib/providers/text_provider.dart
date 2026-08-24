@@ -14,6 +14,7 @@ import '../features/grammar/models/grammar_highlight_style.dart';
 import '../features/grammar/models/grammar_palette.dart';
 import '../features/grammar/services/grammar_preset_library_service.dart';
 import '../features/grammar/services/grammar_settings_service.dart';
+import '../features/writing/models/writing_source_request.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
@@ -26,6 +27,7 @@ import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
+import '../services/text_source_loader.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -139,6 +141,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? _currentCloudId;
   String? _currentTextCategory;
 
+  // ==================== WRITING HANDOFF ====================
+  WritingSourceRequest? _writingSourceRequest;
+  int _writingSourceVersion = 0;
+
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
@@ -191,6 +197,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextSourceType get currentSourceType => _currentSourceType;
   String? get currentCloudId => _currentCloudId;
   String? get currentTextCategory => _currentTextCategory;
+  WritingSourceRequest? get writingSourceRequest => _writingSourceRequest;
+  int get writingSourceVersion => _writingSourceVersion;
   bool get isCurrentTextFromCloud =>
       _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
   String? get currentContextSourceRef {
@@ -421,6 +429,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TEXT MANAGEMENT ====================
 
   void loadText(String content, {String? title}) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(sourceType: TextSourceType.manual);
   }
@@ -433,6 +442,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     String? cloudId,
     String? category,
   }) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(
       sourceType: sourceType,
@@ -442,24 +452,72 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
   }
 
-  Future<void> loadTextFile(String path, {String? title}) async {
+  /// Chuyển nội dung từ Web/PDF Reader thẳng sang một nhiệm vụ trong tab Viết.
+  ///
+  /// Reader chỉ chuẩn bị nguồn và ý định. Writing Studio vẫn cho phép người học
+  /// đổi sang bất kỳ dạng bài nào sau khi quay lại.
+  void loadWritingSource(
+    String content, {
+    required String title,
+    required WritingTaskType task,
+    required WritingSourceKind kind,
+    required String sourceLabel,
+    bool isExcerpt = false,
+  }) {
+    loadFromString(
+      content,
+      title: title,
+      sourceType: TextSourceType.generated,
+    );
+    _writingSourceRequest = WritingSourceRequest(
+      task: task,
+      kind: kind,
+      sourceLabel: sourceLabel,
+      isExcerpt: isExcerpt,
+    );
+    _writingSourceVersion++;
+    notifyListeners();
+  }
+
+  /// Nạp file text (.txt, .md, .json, .docx, .lrc, .srt) vào pipeline Đọc.
+  /// Trả về true nếu nạp được; false nếu file không tồn tại / không đọc
+  /// được / .doc binary cũ (caller tự hiện thông báo cho user).
+  Future<bool> loadTextFile(String path, {String? title}) async {
     try {
+      _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
-        return;
+        return false;
       }
 
-      final content = await file.readAsString();
       final lower = path.toLowerCase();
       final docTitle = title ?? _extractFileName(path);
 
+      // .doc binary cũ (không phải .docx) — không đọc được trực tiếp
+      if (lower.endsWith('.doc') && !lower.endsWith('.docx')) {
+        debugPrint('TextProvider.loadTextFile: .doc legacy không hỗ trợ: $path');
+        return false;
+      }
+
       if (lower.endsWith('.lrc')) {
-        _parseLrc(content, title: docTitle);
+        _parseLrc(await file.readAsString(), title: docTitle);
       } else if (lower.endsWith('.srt')) {
-        _parseSrt(content, title: docTitle);
+        _parseSrt(await file.readAsString(), title: docTitle);
+      } else if (lower.endsWith('.md') ||
+          lower.endsWith('.markdown') ||
+          lower.endsWith('.json') ||
+          lower.endsWith('.docx')) {
+        // md/json/docx → trích text thuần (giữ chữ thật cho pipeline Đọc)
+        final extracted = await TextSourceLoader.extractReadableText(path);
+        if (extracted != null && extracted.trim().isNotEmpty) {
+          _parsePlainText(extracted, title: docTitle);
+        } else {
+          // Fallback: đọc thô (json hỏng sẽ hiện text gốc)
+          _parsePlainText(await file.readAsString(), title: docTitle);
+        }
       } else {
-        _parsePlainText(content, title: docTitle);
+        _parsePlainText(await file.readAsString(), title: docTitle);
       }
 
       _setSourceMeta(
@@ -469,8 +527,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
       // ★ THÊM: Save last text path
       _storage.saveLastTextPath(path);
+
+      // ★ REOPEN FIX: mở lại document cũ → paint lại translations từ cache
+      //   (MD5 ổn định) — không dịch lại từ mạng như bài mới.
+      unawaited(rehydrateTranslationsFromCache());
+      return true;
     } catch (e) {
       debugPrint('TextProvider.loadTextFile error: $e');
+      return false;
     }
   }
 
@@ -504,6 +568,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentCloudId = null;
     _currentTextCategory = null;
     _currentSourceType = TextSourceType.manual;
+    _writingSourceRequest = null;
     notifyListeners();
   }
 
@@ -547,47 +612,139 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parsePlainText(String content, {String? title}) {
-    _fullText = content;
+    try {
+      // Issue1 fix: reset translation state để tránh black screen khi AI doc -> Cloud doc
+      try {
+        resetTranslationForNewDocument();
+      } catch (_) {}
+      
+      _fullText = content;
 
-    List<String> lineStrings;
-    if (_useAutoSplit) {
-      // Mặc định tách dòng thông minh
-      lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
-    } else {
-      // Hiển thị nguyên bản (theo dòng trong file)
-      lineStrings =
-          content.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    }
+      List<String> lineStrings;
+      if (_useAutoSplit) {
+        lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
+      } else {
+        lineStrings =
+            content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      }
 
-    _lines = lineStrings.asMap().entries.map((entry) {
-      return TextItem(
-        id: 'line_${entry.key}',
-        content: entry.value.trim(),
+      // Guard: nếu content rỗng hoặc chỉ whitespace, tránh black screen
+      if (lineStrings.isEmpty) {
+        _lines = [];
+        _analyzedLines = [];
+        _currentDocument = TextDocument(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: title ?? 'Untitled',
+          lines: _lines,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        _currentLineIndex = -1;
+        _focusCueLineIndex = null;
+        _selectedTextInfo = null;
+        _selectedText = null;
+        notifyListeners();
+        return;
+      }
+
+      _lines = lineStrings.asMap().entries.map((entry) {
+        return TextItem(
+          id: 'line_${entry.key}',
+          content: entry.value.trim(),
+        );
+      }).toList();
+
+      // Guard analyzedLines với try-catch để không crash
+      try {
+        _analyzedLines = SyntaxHighlighterService.analyzeLines(
+          _lines.map((l) => l.content).toList(),
+        );
+      } catch (e) {
+        debugPrint('⚠️ _parsePlainText analyzeLines error: $e — fallback empty');
+        _analyzedLines = List.generate(_lines.length, (_) => []);
+      }
+
+      _currentDocument = TextDocument(
+        id: DateTime.now().millisecondsSinceEpoch.toString(), // luôn tạo id mới để tránh conflict AI->Cloud
+        title: title ?? _currentDocument?.title ?? 'Untitled',
+        lines: _lines,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
-    }).toList();
 
-    _analyzedLines = SyntaxHighlighterService.analyzeLines(
-      _lines.map((l) => l.content).toList(),
-    );
+      _currentLineIndex = -1;
+      _focusCueLineIndex = null;
+      _selectedTextInfo = null;
+      _selectedText = null;
+      notifyListeners();
+    } catch (e, st) {
+      debugPrint('❌ _parsePlainText fatal error: $e\n$st');
+      // Fallback an toàn tránh black screen
+      _lines = [];
+      _analyzedLines = [];
+      _currentDocument = null;
+      _currentLineIndex = -1;
+      _focusCueLineIndex = null;
+      _selectedTextInfo = null;
+      _selectedText = null;
+      _fullText = '';
+      notifyListeners();
+    }
+  }
 
-    _currentDocument = TextDocument(
-      id: _currentDocument?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title ?? _currentDocument?.title ?? 'Untitled',
-      lines: _lines,
-      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+  /// Issue2: áp dụng translations đã lưu từ Cloud entry vào lines hiện tại
+  void applySavedTranslations(List<String>? savedTranslations, String langCode) {
+    if (savedTranslations == null || savedTranslations.isEmpty) return;
+    if (_lines.isEmpty) return;
+    
+    try {
+      for (var i = 0; i < _lines.length && i < savedTranslations.length; i++) {
+        final t = savedTranslations[i];
+        if (t.trim().isNotEmpty) {
+          _lines[i] = _lines[i].copyWith(
+            translation: t.trim(),
+            translationLanguageCode: langCode,
+          );
+        }
+      }
+      debugPrint('✅ Applied ${savedTranslations.where((t) => t.trim().isNotEmpty).length} saved translations for $langCode');
+      notifyListeners();
+      
+      // Tự động hiện translation toolbar nếu có bản dịch
+      if (translatedLineCount > 0 && translationDisplayMode == TranslationDisplayMode.hidden) {
+        setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+      }
+    } catch (e) {
+      debugPrint('⚠️ applySavedTranslations error: $e');
+    }
+  }
 
-    _currentLineIndex = -1;
-    _focusCueLineIndex = null;
-    _selectedTextInfo = null;
-    _selectedText = null;
-    notifyListeners();
+  /// Issue2: lưu translations hiện tại vào Cloud nếu đang đọc file Cloud
+  Future<void> saveCurrentTranslationsToCloud() async {
+    if (!isCurrentTextFromCloud || _currentCloudId == null) return;
+    if (_lines.isEmpty) return;
+    
+    try {
+      final targetLang = translationTargetLanguage.translationCode;
+      final translationsList = _lines.map((l) => l.translation ?? '').toList();
+      final hasAny = translationsList.any((t) => t.trim().isNotEmpty);
+      if (!hasAny) return;
+      
+      // Lưu vào Hive local trước để nhanh
+      final docId = _currentCloudId!;
+      final storageKey = 'translations_${docId}_$targetLang';
+      await _storage.saveSetting(storageKey, translationsList);
+      
+      // TODO: Đồng bộ lên Firestore (cần mở rộng TextLibraryService.updateTranslations)
+      debugPrint('💾 Saved translations locally for $docId lang=$targetLang count=${translationsList.where((t) => t.trim().isNotEmpty).length}');
+    } catch (e) {
+      debugPrint('⚠️ saveCurrentTranslationsToCloud error: $e');
+    }
   }
 
   // ★ THÊM: Phương thức để load kết quả từ STT
   void loadFromSttResult(SttResult result) {
+    _writingSourceRequest = null;
     _fullText = result.fullText;
     _lines = result.segments.map((seg) {
       return TextItem(

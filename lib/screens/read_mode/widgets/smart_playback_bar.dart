@@ -2,12 +2,13 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/language/app_language.dart';
 import '../../../providers/text_provider.dart';
+import '../models/playback_anchor.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
 import '../services/playback_controller.dart';
@@ -80,7 +81,7 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
-                    controller.lastError!,
+                    context.uiText(controller.lastError!),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -179,135 +180,264 @@ class _MainRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // ── Mode chips (3 nút trái) ──────────────────────────
-        Row(
-          mainAxisSize: MainAxisSize.min,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isVerySmall = constraints.maxWidth < 360;
+        final isSmall = constraints.maxWidth < 400;
+
+        // On very small screens, stack vertically to avoid 19px overflow
+        if (isVerySmall) {
+          return Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Mode chips
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ModeBtn(
+                        label: sourceLanguage.flag,
+                        tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
+                        active: recipe.mode == PlaybackMode.enOnly,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          controller.updateRecipe(
+                            recipe.copyWith(mode: PlaybackMode.enOnly),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      _ModeBtn(
+                        label: '🔄',
+                        tooltip: context.uiText('Song ngữ / Xen kẽ'),
+                        active: recipe.mode == PlaybackMode.interleaved ||
+                            recipe.mode == PlaybackMode.custom,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          if (!tp.translationPairUsesSameLanguage &&
+                              tp.translatedLineCount == 0) {
+                            unawaited(tp.translateAll());
+                          }
+                          if (recipe.mode == PlaybackMode.custom) {
+                            controller.updateRecipe(
+                              recipe.copyWith(mode: PlaybackMode.interleaved),
+                            );
+                          } else {
+                            controller.updateRecipe(
+                              recipe.copyWith(mode: PlaybackMode.interleaved),
+                            );
+                          }
+                        },
+                        onLongPress: () {
+                          HapticFeedback.mediumImpact();
+                          controller.updateRecipe(
+                            recipe.copyWith(mode: PlaybackMode.custom),
+                          );
+                          if (!expanded) onToggleExpand();
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      _ModeBtn(
+                        label: targetLanguage.flag,
+                        tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
+                        active: recipe.mode == PlaybackMode.viOnly,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          if (tp.translationPairUsesSameLanguage) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
+                              ),
+                            );
+                            return;
+                          }
+                          if (tp.translatedLineCount == 0) {
+                            unawaited(tp.translateAll());
+                          }
+                          controller.updateRecipe(
+                            recipe.copyWith(mode: PlaybackMode.viOnly),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  // Play controls
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SmallIconBtn(
+                        icon: Icons.skip_previous_rounded,
+                        color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                        onTap: controller.isRunning ? () => controller.skip(-1) : null,
+                      ),
+                      _PlayBtn(
+                        isRunning: controller.isRunning,
+                        onTap: () => _onPlayTap(context),
+                        onLongPress: () => _showPresetSheet(context),
+                      ),
+                      _SmallIconBtn(
+                        icon: Icons.skip_next_rounded,
+                        color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                        onTap: controller.isRunning ? () => controller.skip(1) : null,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _SpeedChip(
+                    speed: recipe.speed,
+                    onTap: onToggleSlider,
+                    onSwipe: (delta) => controller.adjustSpeed(delta),
+                  ),
+                  _SmallIconBtn(
+                    icon: expanded
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    color: expanded ? const Color(0xFF6C63FF) : Colors.grey,
+                    onTap: onToggleExpand,
+                  ),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _ModeBtn(
-              label: sourceLanguage.flag,
-              tooltip: 'Chỉ ${sourceLanguage.nativeName}',
-              active: recipe.mode == PlaybackMode.enOnly,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                controller.updateRecipe(
-                  recipe.copyWith(mode: PlaybackMode.enOnly),
-                );
-              },
+            // ── Mode chips (3 nút trái) ──────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ModeBtn(
+                  label: sourceLanguage.flag,
+                  tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
+                  active: recipe.mode == PlaybackMode.enOnly,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    controller.updateRecipe(
+                      recipe.copyWith(mode: PlaybackMode.enOnly),
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+                _ModeBtn(
+                  label: '🔄',
+                  tooltip: context.uiText('Song ngữ / Xen kẽ'),
+                  active: recipe.mode == PlaybackMode.interleaved ||
+                      recipe.mode == PlaybackMode.custom,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    if (!tp.translationPairUsesSameLanguage &&
+                        tp.translatedLineCount == 0) {
+                      unawaited(tp.translateAll());
+                    }
+                    // Toggle: nếu đang ở interleaved → custom, custom → interleaved
+                    if (recipe.mode == PlaybackMode.custom) {
+                      controller.updateRecipe(
+                        recipe.copyWith(mode: PlaybackMode.interleaved),
+                      );
+                    } else {
+                      controller.updateRecipe(
+                        recipe.copyWith(mode: PlaybackMode.interleaved),
+                      );
+                    }
+                  },
+                  onLongPress: () {
+                    // Long press → custom mode + mở expand
+                    HapticFeedback.mediumImpact();
+                    controller.updateRecipe(
+                      recipe.copyWith(mode: PlaybackMode.custom),
+                    );
+                    if (!expanded) onToggleExpand();
+                  },
+                ),
+                const SizedBox(width: 4),
+                _ModeBtn(
+                  label: targetLanguage.flag,
+                  tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
+                  active: recipe.mode == PlaybackMode.viOnly,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    if (tp.translationPairUsesSameLanguage) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
+                        ),
+                      );
+                      return;
+                    }
+                    if (tp.translatedLineCount == 0) {
+                      unawaited(tp.translateAll());
+                    }
+                    controller.updateRecipe(
+                      recipe.copyWith(mode: PlaybackMode.viOnly),
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            _ModeBtn(
-              label: '🔄',
-              tooltip: 'Song ngữ / Xen kẽ',
-              active: recipe.mode == PlaybackMode.interleaved ||
-                  recipe.mode == PlaybackMode.custom,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                if (!tp.translationPairUsesSameLanguage &&
-                    tp.translatedLineCount == 0) {
-                  unawaited(tp.translateAll());
-                }
-                // Toggle: nếu đang ở interleaved → custom, custom → interleaved
-                if (recipe.mode == PlaybackMode.custom) {
-                  controller.updateRecipe(
-                    recipe.copyWith(mode: PlaybackMode.interleaved),
-                  );
-                } else {
-                  controller.updateRecipe(
-                    recipe.copyWith(mode: PlaybackMode.interleaved),
-                  );
-                }
-              },
-              onLongPress: () {
-                // Long press → custom mode + mở expand
-                HapticFeedback.mediumImpact();
-                controller.updateRecipe(
-                  recipe.copyWith(mode: PlaybackMode.custom),
-                );
-                if (!expanded) onToggleExpand();
-              },
+
+            // ── Navigation + Play ────────────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Prev
+                _SmallIconBtn(
+                  icon: Icons.skip_previous_rounded,
+                  color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                  onTap: controller.isRunning ? () => controller.skip(-1) : null,
+                ),
+                SizedBox(width: isSmall ? 2 : 6),
+
+                // PLAY BUTTON
+                _PlayBtn(
+                  isRunning: controller.isRunning,
+                  onTap: () => _onPlayTap(context),
+                  onLongPress: () => _showPresetSheet(context),
+                ),
+
+                SizedBox(width: isSmall ? 2 : 6),
+
+                // Next
+                _SmallIconBtn(
+                  icon: Icons.skip_next_rounded,
+                  color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
+                  onTap: controller.isRunning ? () => controller.skip(1) : null,
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            _ModeBtn(
-              label: targetLanguage.flag,
-              tooltip: 'Chỉ ${targetLanguage.nativeName}',
-              active: recipe.mode == PlaybackMode.viOnly,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                if (tp.translationPairUsesSameLanguage) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Hãy chọn ngôn ngữ đích khác nguồn.'),
-                    ),
-                  );
-                  return;
-                }
-                if (tp.translatedLineCount == 0) {
-                  unawaited(tp.translateAll());
-                }
-                controller.updateRecipe(
-                  recipe.copyWith(mode: PlaybackMode.viOnly),
-                );
-              },
+
+            // ── Right controls ───────────────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Speed chip (tap = slider, swipe = ±0.25x)
+                _SpeedChip(
+                  speed: recipe.speed,
+                  onTap: onToggleSlider,
+                  onSwipe: (delta) => controller.adjustSpeed(delta),
+                ),
+                const SizedBox(width: 6),
+
+                // Expand toggle
+                _SmallIconBtn(
+                  icon: expanded
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.keyboard_arrow_up_rounded,
+                  color: expanded ? const Color(0xFF6C63FF) : Colors.grey,
+                  onTap: onToggleExpand,
+                ),
+              ],
             ),
           ],
-        ),
-
-        // ── Navigation + Play ────────────────────────────────
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Prev
-            _SmallIconBtn(
-              icon: Icons.skip_previous_rounded,
-              color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
-              onTap: controller.isRunning ? () => controller.skip(-1) : null,
-            ),
-            const SizedBox(width: 6),
-
-            // PLAY BUTTON
-            _PlayBtn(
-              isRunning: controller.isRunning,
-              onTap: () => _onPlayTap(context),
-              onLongPress: () => _showPresetSheet(context),
-            ),
-
-            const SizedBox(width: 6),
-
-            // Next
-            _SmallIconBtn(
-              icon: Icons.skip_next_rounded,
-              color: controller.isRunning ? Colors.white60 : Colors.grey[700]!,
-              onTap: controller.isRunning ? () => controller.skip(1) : null,
-            ),
-          ],
-        ),
-
-        // ── Right controls ───────────────────────────────────
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Speed chip (tap = slider, swipe = ±0.25x)
-            _SpeedChip(
-              speed: recipe.speed,
-              onTap: onToggleSlider,
-              onSwipe: (delta) => controller.adjustSpeed(delta),
-            ),
-            const SizedBox(width: 6),
-
-            // Expand toggle
-            _SmallIconBtn(
-              icon: expanded
-                  ? Icons.keyboard_arrow_down_rounded
-                  : Icons.keyboard_arrow_up_rounded,
-              color: expanded ? const Color(0xFF6C63FF) : Colors.grey,
-              onTap: onToggleExpand,
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -345,7 +475,9 @@ class _MainRow extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
+                context.uiText(
+                  tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
+                ),
               ),
             ),
           );
@@ -641,7 +773,7 @@ class _PatternVisual extends StatelessWidget {
         ...dots,
         const SizedBox(width: 8),
         Text(
-          label,
+          context.uiText(label),
           style: const TextStyle(
             color: Color(0xFFA5B4FC),
             fontSize: 11,
@@ -727,7 +859,7 @@ class _LiveStatusBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    snapshot.statusText,
+                    context.uiText(snapshot.statusText),
                     style: const TextStyle(color: Colors.grey, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -903,17 +1035,21 @@ class _PresetSheet extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.label,
-                              style: TextStyle(
-                                color: isActive ? Colors.white : Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          Text(p.sub,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 11,
-                              )),
+                          Text(
+                            context.uiText(p.label),
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            context.uiText(p.sub),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -936,7 +1072,7 @@ class _PresetSheet extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 
 class _ResumeDialog extends StatelessWidget {
-  final dynamic anchor;
+  final PlaybackAnchor anchor;
   final VoidCallback onFromStart;
   final VoidCallback onResume;
 
@@ -954,7 +1090,9 @@ class _ResumeDialog extends StatelessWidget {
       title: const Text('▶ Tiếp tục phát?',
           style: TextStyle(color: Colors.white, fontSize: 16)),
       content: Text(
-        anchor.displayText,
+        context.uiText(
+          'Câu ${anchor.lineIndex + 1}  •  ${context.uiText(anchor.ageText)}',
+        ),
         style: const TextStyle(color: Colors.grey, fontSize: 13),
       ),
       actions: [
@@ -1044,7 +1182,7 @@ class _ModeBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: GestureDetector(
         onTap: onTap,
         onLongPress: onLongPress,

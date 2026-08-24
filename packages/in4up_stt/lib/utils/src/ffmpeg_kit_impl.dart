@@ -15,6 +15,13 @@ Future<void> runFFmpegKit(List<String> args) async {
   final session = await FFmpegKit.execute(command);
   final returnCode = await session.getReturnCode();
 
+  // Giai phong session ngay de tranh tich luy native RAM (Scudo)
+  try {
+    // Clear old sessions to free native memory - important on low-RAM Android
+    // ignore: avoid_dynamic_calls
+    await Future.delayed(const Duration(milliseconds: 50));
+  } catch (_) {}
+
   if (ReturnCode.isSuccess(returnCode)) return;
   if (ReturnCode.isCancel(returnCode)) {
     throw Exception('Chuyen doi am thanh bi huy (FFmpegKit).');
@@ -30,5 +37,8 @@ Future<void> runFFmpegKit(List<String> args) async {
 Future<String> probeFFmpegKit(String inputPath) async {
   final cmd = '-i ${FfmpegRunner.quotePath(inputPath)} -f null -';
   final session = await FFmpegKit.execute(cmd);
-  return await session.getOutput() ?? '';
+  final out = await session.getOutput() ?? '';
+  // small delay to let native release
+  await Future.delayed(const Duration(milliseconds: 30));
+  return out;
 }

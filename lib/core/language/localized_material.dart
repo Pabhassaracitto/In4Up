@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' as material;
 
-import 'packages/code/lib/language/app_ui_translations.dart';
+import 'app_ui_translations.dart';
 
 export 'package:flutter/material.dart' hide Text;
 

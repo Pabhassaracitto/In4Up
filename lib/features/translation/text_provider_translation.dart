@@ -6,6 +6,7 @@ import '../../core/language/app_language.dart';
 import '../../models/text_item.dart';
 import '../../services/storage_service.dart';
 import '../tts/language_detector.dart';
+import 'cache/translation_cache.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -263,6 +264,17 @@ mixin TranslationMixin on ChangeNotifier {
           translatedLineCount > 0) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }
+
+      // Issue2: tự động lưu translations vào cache/cloud sau khi dịch xong
+      try {
+        // Gọi qua dynamic để tránh import cycle với TextProvider
+        final self = this as dynamic;
+        if (self.saveCurrentTranslationsToCloud != null) {
+          await self.saveCurrentTranslationsToCloud();
+        }
+      } catch (e) {
+        debugPrint('⚠️ auto-save translations error: $e');
+      }
     } catch (error) {
       _translationError = error.toString();
     } finally {
@@ -291,5 +303,67 @@ mixin TranslationMixin on ChangeNotifier {
     _translationError = null;
     _currentEngine = '';
     notifyListeners();
+  }
+
+  /// Handover fix cho issue 1 & 2: khi load tài liệu mới (AI -> Cloud) phải reset
+  /// translation state để tránh black screen do runId cũ còn chạy, và để chuẩn bị
+  /// lưu translations mới.
+  void resetTranslationForNewDocument() {
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    _currentEngine = '';
+    _translationDisplayMode = TranslationDisplayMode.hidden;
+    // Không notify ở đây — caller sẽ notify sau khi parse lines
+  }
+
+  /// Lưu translations hiện tại vào cache để issue 2 không phải dịch lại
+  /// Trả về Map<lineIndex, translation>
+  Map<int, String> exportCurrentTranslations() {
+    final map = <int, String>{};
+    for (var i = 0; i < lines.length; i++) {
+      final t = lines[i].translation;
+      if (t != null && t.trim().isNotEmpty) {
+        map[i] = t;
+      }
+    }
+    return map;
+  }
+
+  /// After reopen: paint saved translations onto lines (no network).
+  Future<int> rehydrateTranslationsFromCache() async {
+    if (lines.isEmpty) return 0;
+    final cache = TranslationCache();
+    final target = translationTargetLanguage.translationCode;
+    var hits = 0;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.content.trim().isEmpty) continue;
+      if (line.translation != null && line.translation!.trim().isNotEmpty) {
+        continue;
+      }
+      final source = LanguageDetector.detectLanguage(line.content);
+      final cached = await cache.get(
+        text: line.content,
+        sourceLang: source.translationCode,
+        targetLang: target,
+      );
+      if (cached == null || cached.trim().isEmpty) continue;
+      lines[i] = line.copyWith(
+        translation: cached,
+        sourceLanguageCode: source.translationCode,
+        translationLanguageCode: target,
+      );
+      hits++;
+    }
+    if (hits > 0) {
+      if (_translationDisplayMode == TranslationDisplayMode.hidden) {
+        _translationDisplayMode = TranslationDisplayMode.stackedBelow;
+      }
+      notifyListeners();
+    }
+    debugPrint('[Translation] rehydrated $hits/${lines.length} lines from cache');
+    return hits;
   }
 }

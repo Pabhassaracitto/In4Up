@@ -1,11 +1,12 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
+import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
@@ -13,6 +14,7 @@ import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/storage_service.dart';
+import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
 import 'listen_mode/listen_mode_screen.dart';
 import 'listen_mode/speak_mode_screen.dart';
@@ -34,6 +36,7 @@ import 'tools/sound_list/sound_list_screen.dart';
 import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
+import 'tools/word_list/wordlist_bubble.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_workspace_screen.dart';
 
@@ -272,10 +275,6 @@ class _MainShellState extends State<MainShell> {
   }
 
   bool get _shouldShowShellMiniPlayer {
-    // Fix audit: mini gây vướng, nhất là ở Understand khi đã có trình phát riêng + lyric
-    // => Ẩn mini ở tất cả tab có player riêng (Nghe, Đọc, Hiểu)
-    // Chỉ hiện ở Remember (và có thể Home nếu muốn quick control)
-    // Ngoài ra, nếu đang không phát và user đã gạt tắt, thì ẩn
     if (_currentTab == _PrimaryTab.home) return false;
     if (_currentTab == _PrimaryTab.listen) return false;
     if (_currentTab == _PrimaryTab.read) return false;
@@ -403,6 +402,13 @@ class _MainShellState extends State<MainShell> {
     );
 
     final rememberTools = <tools.ToolItem>[
+      tools.ToolItem(
+        id: 'learn_by_heart',
+        title: 'Thuộc lòng (Learn by Heart)',
+        subtitle: 'Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa',
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFF4CAF50),
+      ),
       tools.ToolItem(
         id: 'review',
         title: l10n.review,
@@ -628,6 +634,13 @@ class _MainShellState extends State<MainShell> {
     }
 
     switch (toolId) {
+      case 'learn_by_heart':
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => const LearnByHeartHubScreen(),
+          ),
+        );
+        return;
       case 'speak_mode':
         _setListenMode(1);
         return;
@@ -652,7 +665,13 @@ class _MainShellState extends State<MainShell> {
         nav.push(MaterialPageRoute(builder: (_) => const StatsDashboard()));
         return;
       case 'web_reader':
-        nav.push(MaterialPageRoute(builder: (_) => const WebReaderScreen()));
+        final openForWriting =
+            _currentTab == _PrimaryTab.read && _readModeIndex == 1;
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => WebReaderScreen(writingMode: openForWriting),
+          ),
+        );
         return;
       case 'youtube_downloader':
         nav.push(
@@ -670,10 +689,14 @@ class _MainShellState extends State<MainShell> {
         );
         if (!mounted) return;
         if (result != null && result.files.single.path != null) {
+          final openForWriting =
+              _currentTab == _PrimaryTab.read && _readModeIndex == 1;
           nav.push(
             MaterialPageRoute(
-              builder: (_) =>
-                  PdfReaderScreen(pdfPath: result.files.single.path!),
+              builder: (_) => PdfReaderScreen(
+                pdfPath: result.files.single.path!,
+                writingMode: openForWriting,
+              ),
             ),
           );
         }
@@ -718,6 +741,11 @@ class _MainShellState extends State<MainShell> {
           onNavigateToRead: () => _setReadMode(0),
           onNavigateToUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
           onNavigateToMemory: () => _setPrimaryTab(_PrimaryTab.remember),
+          onOpenAiChat: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiChatScreen()),
+            );
+          },
         );
       case _PrimaryTab.listen:
         return IndexedStack(
@@ -756,6 +784,9 @@ class _MainShellState extends State<MainShell> {
         );
       case _PrimaryTab.remember:
         return RememberWorkspaceScreen(
+          onOpenLearnByHeart: () {
+            _handleTool('learn_by_heart');
+          },
           onOpenReview: () {
             _handleTool('review');
           },
@@ -787,77 +818,81 @@ class _MainShellState extends State<MainShell> {
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            _buildAppBar(context),
-            _buildAnimatedModeSwitch(context),
-            Expanded(
-              child: ClipRect(
-                child: _buildCurrentScreen(),
-              ),
-            ),
-            if (_shouldShowShellMiniPlayer)
-              Consumer<PlayerProvider>(
-                builder: (context, player, _) {
-                  if (player.currentSongPath == null) {
-                    return const SizedBox.shrink();
-                  }
-                  // Audit fix: khi đang không phát và user chuyển tab, ẩn mini để đỡ vướng
-                  // Cho phép vuốt để tắt/ẩn
-                  return Dismissible(
-                    key: ValueKey('mini_${player.currentSongPath}'),
-                    direction: DismissDirection.horizontal,
-                    background: Container(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 24),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.close, color: Colors.redAccent, size: 18),
-                          SizedBox(width: 6),
-                          Text('Vuốt để ẩn',
-                              style: TextStyle(
-                                  color: Colors.redAccent, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    secondaryBackground: Container(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Vuốt để ẩn',
-                              style: TextStyle(
-                                  color: Colors.redAccent, fontSize: 12)),
-                          SizedBox(width: 6),
-                          Icon(Icons.close, color: Colors.redAccent, size: 18),
-                        ],
-                      ),
-                    ),
-                    onDismissed: (_) {
-                      // Khi vuốt ẩn, xóa bài hiện tại để mini biến mất hoàn toàn, tránh lỗi
-                      // "A dismissed Dismissible widget is still part of the tree"
-                      HapticFeedback.mediumImpact();
-                      player.clearCurrentSong();
+            Column(
+              children: [
+                _buildAppBar(context),
+                _buildAnimatedModeSwitch(context),
+                Expanded(
+                  child: ClipRect(
+                    child: _buildCurrentScreen(),
+                  ),
+                ),
+                if (_shouldShowShellMiniPlayer)
+                  Consumer<PlayerProvider>(
+                    builder: (context, player, _) {
+                      if (player.currentSongPath == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Dismissible(
+                        key: ValueKey('mini_${player.currentSongPath}'),
+                        direction: DismissDirection.horizontal,
+                        background: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 24),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.close,
+                                  color: Colors.redAccent, size: 18),
+                              SizedBox(width: 6),
+                              Text('Vuốt để ẩn',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        secondaryBackground: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Vuốt để ẩn',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)),
+                              SizedBox(width: 6),
+                              Icon(Icons.close,
+                                  color: Colors.redAccent, size: 18),
+                            ],
+                          ),
+                        ),
+                        onDismissed: (_) {
+                          HapticFeedback.mediumImpact();
+                          player.clearCurrentSong();
+                        },
+                        child: MiniPlayer(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          onTap: () => _setListenMode(0),
+                        ),
+                      );
                     },
-                    child: MiniPlayer(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      onTap: () => _setListenMode(0),
-                    ),
-                  );
-                },
-              ),
+                  ),
+              ],
+            ),
+            // ★ Wordlist floating bubble – persistent TTS across tabs
+            const WordlistBubble(),
           ],
         ),
       ),
@@ -905,14 +940,14 @@ class _MainShellState extends State<MainShell> {
           _ShellActionButton(
             icon: Icons.bolt_rounded,
             color: const Color(0xFFB388FF),
-            tooltip: 'Công cụ nhanh',
+            tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
           const SizedBox(width: 8),
           _ShellActionButton(
             icon: Icons.library_music_rounded,
             color: const Color(0xFF6C63FF),
-            tooltip: 'Thư viện âm thanh',
+            tooltip: context.uiText('Thư viện âm thanh'),
             onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
@@ -1227,7 +1262,7 @@ class _ShellActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
+      message: context.uiText(tooltip),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -1279,7 +1314,7 @@ class _ModeHintChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Text(
-        '$label · $suffix',
+        '${context.uiText(label)} · ${context.uiText(suffix)}',
         style: TextStyle(
           color: color,
           fontSize: 10,

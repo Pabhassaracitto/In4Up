@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../models/word_entry.dart';
 import '../models/sm2_algorithm.dart';
@@ -96,9 +96,9 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
                 Expanded(
                   child: Column(
                     children: [
-                      _skillBar('Hiểu', word.understand, const Color(0xFF42A5F5)),
-                      _skillBar('Nghe', word.listen, const Color(0xFF66BB6A)),
-                      _skillBar('Đọc', word.read, const Color(0xFFEF5350)),
+                      _skillBar(context.uiText('Hiểu'), word.understand, const Color(0xFF42A5F5)),
+                      _skillBar(context.uiText('Nghe'), word.listen, const Color(0xFF66BB6A)),
+                      _skillBar(context.uiText('Đọc'), word.read, const Color(0xFFEF5350)),
                     ],
                   ),
                 ),
@@ -156,7 +156,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
                   const Text('💡 ', style: TextStyle(fontSize: 18)),
                   Expanded(
                     child: Text(
-                      word.zone.tip,
+                      context.uiText(word.zone.tip),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
@@ -195,7 +195,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
           Icon(word.zone.icon, size: 16, color: word.zone.color),
           const SizedBox(width: 6),
           Text(
-            word.zone.label,
+            context.uiText(word.zone.label),
             style: TextStyle(
               color: word.zone.color,
               fontWeight: FontWeight.bold,

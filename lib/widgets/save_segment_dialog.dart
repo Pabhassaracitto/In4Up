@@ -1,5 +1,5 @@
 // lib/widgets/save_segment_dialog.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
@@ -115,8 +115,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               autofocus: true,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Tên đoạn *',
-                hintText: 'Ví dụ: Tứ Diệu Đế, Câu khó số 1...',
+                labelText: context.uiText('Tên đoạn *'),
+                hintText: context.uiText('Ví dụ: Tứ Diệu Đế, Câu khó số 1...'),
                 hintStyle:
                     TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 labelStyle: const TextStyle(color: Colors.grey),
@@ -233,7 +233,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
                             ),
                           ),
                           Text(
-                            '${_getRepeatCount(level)}x lặp',
+                            context.uiText('${_getRepeatCount(level)}x lặp'),
                             style: TextStyle(
                               color: isSelected
                                   ? Colors.white.withValues(alpha: 0.8)
@@ -256,8 +256,8 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
               style: const TextStyle(color: Colors.white),
               maxLines: 2,
               decoration: InputDecoration(
-                labelText: 'Ghi chú (Tùy chọn)',
-                hintText: 'Ví dụ: Chú ý phát âm "th"...',
+                labelText: context.uiText('Ghi chú (Tùy chọn)'),
+                hintText: context.uiText('Ví dụ: Chú ý phát âm "th"...'),
                 hintStyle:
                     TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 labelStyle: const TextStyle(color: Colors.grey),
@@ -462,7 +462,7 @@ class _SaveSegmentDialogState extends State<SaveSegmentDialog> {
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text('Đã lưu: ${segment.title}')),
+              Expanded(child: Text(context.uiText('Đã lưu: ${segment.title}'))),
             ],
           ),
           backgroundColor: Colors.green,

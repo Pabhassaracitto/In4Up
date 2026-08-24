@@ -1,5 +1,5 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
@@ -167,7 +167,7 @@ class _SettingsContent extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content:
-                                Text('Đã tách thành ${lines.length} dòng')),
+                                Text(context.uiText('Đã tách thành ${lines.length} dòng'))),
                       );
                     },
                   ),
@@ -461,9 +461,7 @@ class _TranslationLanguageSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ '
-            'chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước '
-            'từng lượt đọc.',
+            context.uiText('Nguồn được nhận diện tự động. Khi đọc song ngữ, In4Up sẽ chuyển giọng ${source.ttsLocale} ↔ ${target.ttsLocale} trước từng lượt đọc.'),
             style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11,
@@ -573,7 +571,7 @@ class _ColorModeSelector extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  mode.label,
+                  context.uiText(mode.label),
                   style: TextStyle(
                     fontSize: 12,
                     color: isSelected ? Colors.white : Colors.grey,
@@ -708,6 +706,12 @@ class _GrammarHighlightSection extends StatelessWidget {
       (preset) => preset.id == settings.lastNonCustomPresetId,
       orElse: () => GrammarHighlightPresets.byId(settings.lastNonCustomPresetId),
     );
+    final activePresetName = tp.activeGrammarPreset.isBuiltIn
+        ? context.uiText(tp.activeGrammarPreset.name)
+        : tp.activeGrammarPreset.name;
+    final previousPresetName = previousPreset.isBuiltIn
+        ? context.uiText(previousPreset.name)
+        : previousPreset.name;
     final hiddenCategories = GrammarCategory.values
         .where((category) => !settings.visibleCategories.contains(category))
         .toList()
@@ -754,8 +758,8 @@ class _GrammarHighlightSection extends StatelessWidget {
           const SizedBox(height: 12),
           _GrammarControlSummary(
             settings: settings,
-            activePresetName: tp.activeGrammarPreset.name,
-            previousPresetName: previousPreset.name,
+            activePresetName: activePresetName,
+            previousPresetName: previousPresetName,
             visibleCount: settings.visibleCategories.length,
             hiddenCount: hiddenCategories.length,
             onRestorePreviousPreset: tp.restorePreviousGrammarPreset,
@@ -763,7 +767,7 @@ class _GrammarHighlightSection extends StatelessWidget {
             onSaveCurrentPreset: () async {
               final draft = await _showReadSavePresetDialog(
                 context,
-                tp.activeGrammarPreset.name,
+                activePresetName,
               );
               if (draft == null) return;
               await tp.saveCurrentGrammarPreset(
@@ -843,7 +847,7 @@ class _GrammarHighlightSection extends StatelessWidget {
             _ReadSettingsHiddenGrammarCard(
               hiddenCategories: hiddenCategories,
               palette: palette,
-              previousPresetName: previousPreset.name,
+              previousPresetName: previousPresetName,
               onShowAllCategories: tp.showAllGrammarCategories,
               onToggleCategory: tp.toggleGrammarCategory,
             ),
@@ -997,9 +1001,9 @@ class _GrammarControlSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            settings.isCustomPreset
+            context.uiText(settings.isCustomPreset
                 ? 'Đang dùng preset: Tùy chỉnh'
-                : 'Đang dùng preset: $activePresetName',
+                : 'Đang dùng preset: $activePresetName'),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -1007,9 +1011,9 @@ class _GrammarControlSummary extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            settings.isCustomPreset
+            context.uiText(settings.isCustomPreset
                 ? 'Bạn đang chỉnh tay từ preset gần nhất: $previousPresetName'
-                : 'Có thể chuyển sang tùy chỉnh nếu cần ẩn/hiện thủ công từng nhóm từ loại.',
+                : 'Có thể chuyển sang tùy chỉnh nếu cần ẩn/hiện thủ công từng nhóm từ loại.'),
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -1086,7 +1090,7 @@ class _GrammarControlSummary extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onRestorePreviousPreset,
                   icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: Text('Khôi phục $previousPresetName'),
+                  label: Text(context.uiText('Khôi phục $previousPresetName')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB8B5FF),
                     side: BorderSide(
@@ -1130,7 +1134,7 @@ class _ReadSettingsHiddenGrammarCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị xoá — bạn có thể bật lại từng nhóm, bật hết, hoặc quay về preset $previousPresetName.',
+            context.uiText('Đang ẩn ${hiddenCategories.length} nhóm từ loại. Chúng chưa bị xoá — bạn có thể bật lại từng nhóm, bật hết, hoặc quay về preset $previousPresetName.'),
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 11.5,
@@ -1160,7 +1164,7 @@ class _ReadSettingsHiddenGrammarCard extends StatelessWidget {
                     color: palette.styleFor(category).color.withValues(alpha: 0.28),
                   ),
                   label: Text(
-                    '+ ${category.labelVi}',
+                    '+ ${context.uiText(category.labelVi)}',
                     style: TextStyle(
                       color: palette.styleFor(category).color,
                       fontSize: 11,
@@ -1496,7 +1500,7 @@ class _TinyStatChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        context.uiText(label),
         style: const TextStyle(
           color: Colors.white70,
           fontSize: 11.5,
@@ -1587,7 +1591,9 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
   String suggestedName,
 ) async {
   final nameCtrl = TextEditingController(
-    text: suggestedName == 'Tùy chỉnh' ? 'Preset của tôi 1' : '$suggestedName riêng',
+    text: suggestedName == context.uiText('Tùy chỉnh')
+        ? context.uiText('Preset của tôi 1')
+        : context.uiText('$suggestedName riêng'),
   );
   final descCtrl = TextEditingController();
 
@@ -1611,6 +1617,7 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
                 controller: nameCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: _readDialogInputDecoration(
+                  context: context,
                   label: 'Tên preset',
                   hint: 'Ví dụ: Verb focus riêng',
                 ),
@@ -1621,6 +1628,7 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
                 maxLines: 3,
                 style: const TextStyle(color: Colors.white),
                 decoration: _readDialogInputDecoration(
+                  context: context,
                   label: 'Mô tả ngắn',
                   hint: 'Ghi chú cách dùng của preset này',
                 ),
@@ -1653,12 +1661,13 @@ Future<_ReadPresetDraft?> _showReadSavePresetDialog(
 }
 
 InputDecoration _readDialogInputDecoration({
+  required BuildContext context,
   required String label,
   required String hint,
 }) {
   return InputDecoration(
-    labelText: label,
-    hintText: hint,
+    labelText: context.uiText(label),
+    hintText: context.uiText(hint),
     labelStyle: const TextStyle(color: Colors.white70),
     hintStyle: const TextStyle(color: Colors.grey),
     filled: true,
@@ -1681,6 +1690,9 @@ class _DisplayOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibilityAction = context.uiText(
+      tp.showTranslation ? 'ẩn' : 'hiện',
+    );
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -1693,9 +1705,9 @@ class _DisplayOptions extends StatelessWidget {
             title: const Text('Hiện bản dịch',
                 style: TextStyle(color: Colors.white, fontSize: 14)),
             subtitle: Text(
-                tp.translatedLineCount > 0
-                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để ${tp.showTranslation ? 'ẩn' : 'hiện'}'
-                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng',
+                context.uiText(tp.translatedLineCount > 0
+                    ? 'Đã có ${tp.translatedLineCount} dòng dịch • chạm để $visibilityAction'
+                    : 'Hiển thị dịch nghĩa bên dưới mỗi dòng'),
                 style: TextStyle(color: Colors.grey[600], fontSize: 11)),
             value: tp.showTranslation,
             activeThumbColor: const Color(0xFF4CAF50),

@@ -7,7 +7,8 @@
 
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -20,6 +21,15 @@ import 'read_mode/models/recent_file.dart';
 import 'read_mode/services/recent_files_service.dart';
 import 'text_library/local_text_entry_dialog.dart';
 import 'text_library/text_entry_dialog.dart';
+
+bool _isFirebaseLoggedInSafe() {
+  try {
+    if (Firebase.apps.isEmpty) return false;
+    return FirebaseAuth.instance.currentUser != null;
+  } catch (_) {
+    return false;
+  }
+}
 
 class TextLibraryDrawer extends StatefulWidget {
   const TextLibraryDrawer({super.key});
@@ -351,7 +361,9 @@ class _LocalTab extends StatelessWidget {
   Future<void> _importTextFile(BuildContext context) async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['txt', 'lrc', 'srt'],
+      allowedExtensions: const [
+        'txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx',
+      ],
     );
     if (result == null || result.files.single.path == null) return;
 
@@ -359,7 +371,18 @@ class _LocalTab extends StatelessWidget {
     if (!context.mounted) return;
 
     final tp = context.read<TextProvider>();
-    await tp.loadTextFile(path);
+    final loaded = await tp.loadTextFile(path);
+    if (!loaded && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (context.mounted) {
       final file = RecentFile.fromLocalText(path).copyWith(
@@ -371,8 +394,17 @@ class _LocalTab extends StatelessWidget {
     onClose();
   }
 
+  bool _isFirebaseLoggedInSafe() {
+    try {
+      if (Firebase.apps.isEmpty) return false;
+      return FirebaseAuth.instance.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _openManualEntryDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final isLoggedIn = _isFirebaseLoggedInSafe();
     final draft = await showDialog<LocalTextDraft>(
       context: context,
       builder: (_) => LocalTextEntryDialog(
@@ -437,7 +469,7 @@ class _LocalTab extends StatelessWidget {
       return;
     }
 
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!_isFirebaseLoggedInSafe()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cần đăng nhập Google để lưu thư viện cloud')),
       );
@@ -463,7 +495,7 @@ class _LocalTab extends StatelessWidget {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã lưu "${entry.title}" lên cloud')),
+        SnackBar(content: Text(context.uiText('Đã lưu "${entry.title}" lên cloud'))),
       );
     }
   }
@@ -479,7 +511,7 @@ class _LocalTab extends StatelessWidget {
       );
       return;
     }
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!_isFirebaseLoggedInSafe()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cần đăng nhập Google để cập nhật file cloud hiện tại')),
       );
@@ -521,7 +553,7 @@ class _LocalTab extends StatelessWidget {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã cập nhật trực tiếp file cloud "${updated.title}"')),
+        SnackBar(content: Text(context.uiText('Đã cập nhật trực tiếp file cloud "${updated.title}"'))),
       );
     }
   }
@@ -538,7 +570,7 @@ class _LocalTab extends StatelessWidget {
       return;
     }
 
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (!_isFirebaseLoggedInSafe()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cần đăng nhập Google để cập nhật thư viện cloud')),
       );
@@ -593,7 +625,10 @@ class _LocalTab extends StatelessWidget {
                       title: Text(entry.title,
                           style: const TextStyle(color: Colors.white)),
                       subtitle: Text(
-                        entry.category ?? '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                        entry.category ??
+                            context.uiText(
+                              '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                            ),
                         style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                       onTap: () => Navigator.pop(sheetCtx, entry),
@@ -630,7 +665,7 @@ class _LocalTab extends StatelessWidget {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã cập nhật file cloud "${updatedEntry.title}"')),
+        SnackBar(content: Text(context.uiText('Đã cập nhật file cloud "${updatedEntry.title}"'))),
       );
     }
   }
@@ -665,34 +700,54 @@ class _CloudTabState extends State<_CloudTab> {
   }
 
   // ── Load văn bản vào TextProvider ─────────────────────────
+  // Issue1 fix: try-catch tránh black screen khi AI doc -> Cloud
   void _loadEntry(BuildContext context, TextLibraryEntry entry) {
-    HapticFeedback.mediumImpact();
+    try {
+      HapticFeedback.mediumImpact();
 
-    // Load text vào TextProvider
-    context.read<TextProvider>().loadFromString(
-          entry.content,
-          title: entry.title,
-          sourceType: TextSourceType.cloud,
-          cloudId: entry.id,
-          category: entry.category,
+      final tp = context.read<TextProvider>();
+      tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
+
+      // Issue2: apply saved translations
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null) {
+          tp.applySavedTranslations(saved, targetLang);
+        }
+      } catch (e) {
+        debugPrint('⚠️ _loadEntry apply translations error: $e');
+      }
+
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      RecentFilesService().addOrUpdate(file);
+
+      widget.onClose();
+    } catch (e, st) {
+      debugPrint('❌ _loadEntry error: $e\n$st');
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi mở Cloud: $e')),
         );
-
-    // ★ THÊM: Lưu vào RecentFiles để hiện trong thư viện đọc
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    // Fire-and-forget
-    RecentFilesService().addOrUpdate(file);
-
-    widget.onClose();
+      } catch (_) {}
+      widget.onClose();
+    }
   }
 
   // ── Mở dialog thêm mới ────────────────────────────────────
   Future<void> _openAddDialog(BuildContext context) async {
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final isLoggedIn = _isFirebaseLoggedInSafe();
 
     if (!isLoggedIn) {
       _showLoginRequired(context);
@@ -762,7 +817,7 @@ class _CloudTabState extends State<_CloudTab> {
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã cập nhật "${updated.title}" từ văn bản hiện tại')),
+        SnackBar(content: Text(context.uiText('Đã cập nhật "${updated.title}" từ văn bản hiện tại'))),
       );
     }
   }
@@ -778,7 +833,7 @@ class _CloudTabState extends State<_CloudTab> {
         title: const Text('Xoá văn bản?',
             style: TextStyle(color: Colors.white, fontSize: 16)),
         content: Text(
-          '"${entry.title}" sẽ bị xoá khỏi thư viện cloud.',
+          context.uiText('"${entry.title}" sẽ bị xoá khỏi thư viện cloud.'),
           style: const TextStyle(color: Colors.grey, fontSize: 13),
         ),
         actions: [
@@ -816,7 +871,7 @@ class _CloudTabState extends State<_CloudTab> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         action: SnackBarAction(
-          label: 'Đăng nhập',
+          label: context.uiText('Đăng nhập'),
           textColor: const Color(0xFF82B1FF),
           onPressed: () {
             // AuthService().signInWithGoogle(context) nếu muốn trigger thẳng
@@ -968,7 +1023,7 @@ class _CloudTabState extends State<_CloudTab> {
         controller: _searchCtrl,
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Tìm theo tiêu đề, chủ đề...',
+          hintText: context.uiText('Tìm theo tiêu đề, chủ đề...'),
           hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
           prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 16),
           suffixIcon: _searchCtrl.text.isNotEmpty
@@ -1097,7 +1152,7 @@ class _CloudEntryCard extends StatelessWidget {
                               ),
                             ),
                           Text(
-                            '${entry.wordCount} từ · ${entry.lineCount} dòng',
+                            context.uiText('${entry.wordCount} từ · ${entry.lineCount} dòng'),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 11,
@@ -1113,7 +1168,7 @@ class _CloudEntryCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: 'Sửa thông tin file cloud',
+                      tooltip: context.uiText('Sửa thông tin file cloud'),
                       onPressed: onEdit,
                       icon: Icon(
                         Icons.edit_outlined,
@@ -1122,7 +1177,7 @@ class _CloudEntryCard extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Cập nhật file cloud bằng văn bản hiện tại',
+                      tooltip: context.uiText('Cập nhật file cloud bằng văn bản hiện tại'),
                       onPressed: onSyncFromCurrent,
                       icon: const Icon(
                         Icons.cloud_sync_outlined,
@@ -1298,7 +1353,7 @@ class _TextCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    subtitle,
+                    context.uiText(subtitle),
                     style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
                 ],

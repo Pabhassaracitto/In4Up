@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/vocabulary_type.dart';
@@ -134,13 +134,13 @@ class _ProgressSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('$pct% đã ôn tập',
+              Text(context.uiText('$pct% đã ôn tập'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w600)),
               const Spacer(),
-              Text('$reviewed lượt ôn',
+              Text(context.uiText('$reviewed lượt ôn'),
                   style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
@@ -381,7 +381,7 @@ class _MostForgotten extends StatelessWidget {
                           fontSize: 13,
                           fontWeight: FontWeight.w600)),
                 ),
-                Text('sai $wrong/${w.totalReviews} lần',
+                Text(context.uiText('sai $wrong/${w.totalReviews} lần'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11)),
               ],
             ),
@@ -443,7 +443,7 @@ class _FrequentSection extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Text('${w.sourceFiles.length} nguồn',
+                      Text(context.uiText('${w.sourceFiles.length} nguồn'),
                           style:
                               TextStyle(color: Colors.grey[600], fontSize: 10)),
                     ],
@@ -473,7 +473,7 @@ class _Card extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
+          Text(context.uiText(title),
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -500,7 +500,7 @@ class _MiniStat extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: color),
         const SizedBox(width: 4),
-        Text(label,
+        Text(context.uiText(label),
             style: TextStyle(
                 color: color, fontSize: 10, fontWeight: FontWeight.w600)),
       ],

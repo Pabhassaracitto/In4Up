@@ -2,11 +2,12 @@
 // in4up - Enhanced A-B Loop Controls
 // Version 2.0 - Optimized for Buddhism & English Learning
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/loop_presets.dart';
 import '../providers/player_provider.dart';
+import '../screens/understand_mode/understand_provider.dart';
 import 'save_segment_dialog.dart';
 
 class ABLoopControls extends StatelessWidget {
@@ -247,7 +248,7 @@ class _LoopHeader extends StatelessWidget {
 
         // Status Text
         Text(
-          _getStatusText(),
+          context.uiText(_getStatusText()),
           style: TextStyle(
             color: _getStatusColor(),
             fontSize: 13,
@@ -598,6 +599,17 @@ class _ExtendedControls extends StatelessWidget {
             onTap: () => player.skipToNextLoop(),
           ),
 
+        // LISTEN-630-01: lặp câu tiếp theo — dịch vùng A→B sang câu kế
+        // (theo dòng LRC nếu có, nếu không thì +10s) rồi lặp.
+        // Giúp "lười vận động thân mà nhận được tâm": dưỡng chất tự thấm,
+        // không cần mò xa.
+        _ActionButton(
+          icon: Icons.subdirectory_arrow_right_rounded,
+          label: 'Lặp câu tiếp',
+          color: const Color(0xFF26C6DA),
+          onTap: () => _advanceToNextSentence(context, player),
+        ),
+
         // Save button
         _ActionButton(
           icon: Icons.bookmark_add,
@@ -626,6 +638,48 @@ class _ExtendedControls extends StatelessWidget {
       ],
     );
   }
+}
+
+/// LISTEN-630-01: di chuyển vùng lặp A→B sang câu tiếp theo rồi lặp.
+/// Ưu tiên dòng LRC (câu kế tiếp theo timestamp); không có LRC thì
+/// lùi điểm A sang điểm B và mở rộng 10s.
+void _advanceToNextSentence(BuildContext context, PlayerProvider player) {
+  final a = player.loopStart;
+  final b = player.loopEnd;
+  if (a == null || b == null) return;
+
+  // Đang chờ gap → kết thúc gap trước để timer không seek ngược
+  if (player.isWaitingGap) {
+    player.toggleLoopPause();
+  }
+
+  Duration nextStart = b;
+  Duration nextEnd = b + const Duration(seconds: 10);
+
+  final understand = context.read<UnderstandProvider>();
+  final lines = understand.lrcLines;
+  if (lines.isNotEmpty) {
+    // Dòng chứa điểm B (dòng lớn nhất có timestamp <= b)
+    int idx = -1;
+    for (int i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].timestamp <= b) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx >= 0 && idx + 1 < lines.length) {
+      nextStart = lines[idx + 1].timestamp;
+      nextEnd = (idx + 2 < lines.length)
+          ? lines[idx + 2].timestamp
+          : nextStart + const Duration(seconds: 10);
+    }
+  }
+
+  if (nextEnd <= nextStart) {
+    nextEnd = nextStart + const Duration(seconds: 4);
+  }
+
+  player.setLoop(nextStart, nextEnd, startImmediately: true);
 }
 
 class _LoopCountSelector extends StatelessWidget {

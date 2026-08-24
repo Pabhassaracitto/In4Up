@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -161,10 +161,11 @@ class _WordImportSheetState extends State<WordImportSheet>
     final mapped = normalizedHeader.map((e) => _fieldAliases[e]).toList();
     if (!mapped.contains('word')) return const [];
     if (mapped.whereType<String>().toSet().length < 2) return const [];
+    final delimiter = _detectDelimiter(lines.first);
 
     final candidates = <_ImportCandidate>[];
     for (final line in lines.skip(1)) {
-      final parts = _splitStructuredLine(line);
+      final parts = _splitCsvLine(line, delimiter);
       if (parts.isEmpty) continue;
       final data = <String, String>{};
       for (int i = 0; i < mapped.length && i < parts.length; i++) {
@@ -174,8 +175,12 @@ class _WordImportSheetState extends State<WordImportSheet>
       }
 
       final word = (data['word'] ?? '').trim().toLowerCase();
-      if (word.isEmpty || word.length < _minLength) continue;
-      if (_onlyNewWords && _provider.hasWord(word)) continue;
+      // Hàng cấu trúc = người dùng liệt kê ĐÚNG Ý → không áp _minLength
+      // (từ 1-2 ký tự vẫn là entry hợp lệ cho từ điển/trò chơi).
+      if (word.isEmpty) continue;
+      final existed = _provider.hasWord(word);
+      // Hàng đã có trong WordList vẫn HIỆN để user xem/cập nhật meaning
+      // (smart-fill khi import: chỉ điền chỗ trống, không ghi đè).
 
       final exampleParts = <String>[];
       if ((data['example'] ?? '').trim().isNotEmpty) {
@@ -197,6 +202,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           language: _nullIfEmpty(data['language']) ?? 'en',
           example: exampleParts.isEmpty ? null : exampleParts.join('\n'),
           rawLine: line,
+          existed: existed,
           selected: true,
           frequency: 1,
         ),
@@ -204,6 +210,45 @@ class _WordImportSheetState extends State<WordImportSheet>
     }
 
     return candidates;
+  }
+
+  String _detectDelimiter(String line) {
+    if (line.contains('\t')) return '\t';
+    if (line.contains('|')) return '|';
+    if (line.contains(';')) return ';';
+    return ',';
+  }
+
+  /// Tách dòng theo delimiter, hiểu NHÁY KÉP (`"..."`) — meaning như
+  /// `Chuyển tiếp, thay đổi trạng thái` không bị xé giữa chừng (CSV đúng chuẩn).
+  List<String> _splitCsvLine(String line, String delimiter) {
+    final parts = <String>[];
+    final buf = StringBuffer();
+    var inQuotes = false;
+    for (int i = 0; i < line.length; i++) {
+      final ch = line[i];
+      if (inQuotes) {
+        if (ch == '"') {
+          if (i + 1 < line.length && line[i + 1] == '"') {
+            buf.write('"');
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          buf.write(ch);
+        }
+      } else if (ch == '"') {
+        inQuotes = true;
+      } else if (ch == delimiter) {
+        parts.add(buf.toString().trim());
+        buf.clear();
+      } else {
+        buf.write(ch);
+      }
+    }
+    parts.add(buf.toString().trim());
+    return parts;
   }
 
   List<String> _splitStructuredLine(String line) {
@@ -279,7 +324,7 @@ class _WordImportSheetState extends State<WordImportSheet>
       setState(() => _isLoadingFile = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi đọc file: $e')),
+          SnackBar(content: Text(context.uiText('Lỗi đọc file: $e'))),
         );
       }
     }
@@ -316,33 +361,46 @@ class _WordImportSheetState extends State<WordImportSheet>
     return candidates;
   }
 
-  // ★ UPDATED: Dùng VocabularyProvider.addWithAutoClassify thay vì WordEntry.manual
+  // ★ UPDATED: Dùng VocabularyProvider.addWithAutoClassify (smart-fill) —
+  // entry MỚI: tạo đầy đủ meaning/phonetic/topic/language/example.
+  // entry ĐÃ CÓ: chỉ BỔ SUNG chỗ trống (meaning/IPA/example) + tag
+  // topic/language — không ghi đè dữ liệu cũ, không mất ngữ cảnh.
   void _doImport(List<_ImportCandidate> candidates) {
     final selected = candidates.where((c) => c.selected).toList();
     if (selected.isEmpty) return;
 
     final provider = _provider;
-    int count = 0;
+    int added = 0;
+    int updated = 0;
     for (final c in selected) {
-      if (!provider.hasWord(c.word)) {
-        final entry = provider.addWithAutoClassify(
-          text: c.word,
-          meaning: c.meaning ?? '',
-          phonetic: c.phonetic,
-          language: c.language,
-          topic: c.topic,
-        );
-        if ((c.example ?? '').trim().isNotEmpty) {
-          provider.updateWord(entry.id, example: c.example);
-        }
-        count++;
+      final existed = provider.hasWord(c.word);
+      final entry = provider.addWithAutoClassify(
+        text: c.word,
+        meaning: c.meaning ?? '',
+        phonetic: c.phonetic,
+        language: c.language,
+        topic: c.topic,
+      );
+      // example: chỉ điền khi còn trống (không đè ví dụ user đã có)
+      if ((c.example ?? '').trim().isNotEmpty &&
+          (entry.example ?? '').trim().isEmpty) {
+        provider.updateWord(entry.id, example: c.example);
+      }
+      if (existed) {
+        updated++;
+      } else {
+        added++;
       }
     }
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✅ Đã import $count từ'),
+        content: Text(
+          updated > 0
+              ? '✅ Đã import: +$added mới, cập nhật $updated đã có'
+              : '✅ Đã import $added từ',
+        ),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
       ),
@@ -500,14 +558,14 @@ class _WordImportSheetState extends State<WordImportSheet>
                 unselectedLabelColor: Colors.grey,
                 labelStyle:
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                tabs: const [
-                  Tab(
+                tabs: [
+                  const Tab(
                       icon: Icon(Icons.content_paste, size: 15),
                       text: 'Clipboard'),
                   Tab(
-                      icon: Icon(Icons.article_outlined, size: 15),
-                      text: 'Văn bản'),
-                  Tab(
+                      icon: const Icon(Icons.article_outlined, size: 15),
+                      text: context.uiText('Văn bản')),
+                  const Tab(
                       icon: Icon(Icons.folder_outlined, size: 15),
                       text: 'File'),
                 ],
@@ -588,8 +646,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText:
-                      'Dán văn bản hoặc danh sách từ vào đây...\nHỗ trợ: text thường, một từ mỗi dòng, hoặc bảng có cột như word, meaning, ipa, topic, example, language',
+                  hintText: context.uiText(
+                      'Dán bảng có header: word, meaning, ipa, topic, example, language\n(tab hoặc dấu phẩy; meaning có dấu phẩy thì bọc "nét nháy")\nHoặc text thường / một từ mỗi dòng...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(14),
@@ -677,6 +735,8 @@ class _WordImportSheetState extends State<WordImportSheet>
 
         _refreshProviderWords(tp);
         final words = _providerWords;
+        final documentTitle = tp.currentDocument?.title ??
+            context.uiText('Văn bản hiện tại');
 
         return ListView(
           controller: scroll,
@@ -697,7 +757,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '"${tp.currentDocument?.title ?? 'Văn bản hiện tại'}" — ${tp.lines.length} dòng',
+                      context.uiText('"$documentTitle" — ${tp.lines.length} dòng'),
                       style: const TextStyle(
                           color: Color(0xFF2196F3), fontSize: 12),
                     ),
@@ -753,8 +813,9 @@ class _WordImportSheetState extends State<WordImportSheet>
               const SizedBox(height: 6),
               Text(
                 '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
-                '.csv/.txt bảng cột: word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
-                'Có thể dùng dấu phẩy, chấm phẩy, tab hoặc | để ngăn cột',
+                '.csv/.txt bảng cột (cần dòng header): word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
+                'Ngăn cột: tab, phẩy, chấm phẩy hoặc | — ý nghĩa có dấu phẩy thì bọc "nét nháy"\n'
+                'Từ/cụm ĐÃ CÓ trong WordList vẫn hiện (badge "đã có") — import chỉ bổ sung nghĩa/IPA/ví dụ CHỖ TRỐNG + tag, không ghi đè',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
@@ -823,7 +884,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           children: [
             Expanded(
               child: Text(
-                '${words.length} từ tìm thấy · $selectedCount được chọn',
+                context.uiText('${words.length} từ tìm thấy · $selectedCount được chọn'),
                 style: TextStyle(color: Colors.grey[400], fontSize: 12),
               ),
             ),
@@ -874,37 +935,87 @@ class _WordImportSheetState extends State<WordImportSheet>
                         : Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      w.selected ? Icons.check_circle : Icons.radio_button_unchecked,
-                      size: 13,
-                      color: w.selected
-                          ? const Color(0xFF9C8FFF)
-                          : Colors.grey[700],
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          w.selected
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 13,
+                          color: w.selected
+                              ? const Color(0xFF9C8FFF)
+                              : Colors.grey[700],
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            w.word,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color:
+                                  w.selected ? Colors.white : Colors.grey[500],
+                              fontSize: 12,
+                              fontWeight: w.selected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (w.existed) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'đã có',
+                              style: TextStyle(
+                                  color: Colors.orange[300], fontSize: 8.5),
+                            ),
+                          ),
+                        ],
+                        if (w.frequency > 1) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '×${w.frequency}',
+                            style:
+                                TextStyle(color: Colors.grey[600], fontSize: 9),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      w.word,
-                      style: TextStyle(
-                        color: w.selected ? Colors.white : Colors.grey[500],
-                        fontSize: 12,
-                        fontWeight:
-                            w.selected ? FontWeight.w600 : FontWeight.normal,
+                    // meaning / IPA / topic — thuộc tính giải thích cho từ,
+                    // quan trọng cho merge từ điển + trò chơi "nhìn chữ,
+                    // nghe âm, viết nghĩa" (AI chấm)
+                    if ((w.meaning ?? '').trim().isNotEmpty ||
+                        (w.phonetic ?? '').trim().isNotEmpty ||
+                        (w.topic ?? '').trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 19, top: 1),
+                        child: Text(
+                          [
+                            if ((w.phonetic ?? '').trim().isNotEmpty)
+                              w.phonetic!.trim(),
+                            if ((w.meaning ?? '').trim().isNotEmpty)
+                              w.meaning!.trim(),
+                          ].join('  ·  '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 10.5,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (w.frequency > 1) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '×${w.frequency}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 9),
-                      ),
-                    ],
-                    if ((w.meaning ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Icon(Icons.info_outline, size: 11, color: Colors.grey[600]),
-                    ],
                   ],
                 ),
               ),
@@ -922,9 +1033,9 @@ class _WordImportSheetState extends State<WordImportSheet>
                 color: const Color(0xFF6C63FF),
               ),
               label: Text(
-                expanded
+                context.uiText(expanded
                     ? 'Thu gọn danh sách'
-                    : 'Mở rộng thêm ${words.length - _previewLimit} từ',
+                    : 'Mở rộng thêm ${words.length - _previewLimit} từ'),
                 style: const TextStyle(
                   fontSize: 11,
                   color: Color(0xFF6C63FF),
@@ -945,7 +1056,7 @@ class _WordImportSheetState extends State<WordImportSheet>
         onPressed: count > 0 ? () => _doImport(candidates) : null,
         icon: const Icon(Icons.download_done, size: 18),
         label: Text(
-          'Import $count từ vào danh sách',
+          context.uiText('Import $count từ vào danh sách'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
@@ -969,6 +1080,9 @@ class _ImportCandidate {
   final String language;
   final String? rawLine;
   final int frequency;
+  /// true = từ/cụm này đã có trong WordList (import sẽ smart-fill,
+  /// không tạo entry trùng).
+  final bool existed;
   bool selected;
 
   _ImportCandidate({
@@ -980,6 +1094,7 @@ class _ImportCandidate {
     this.language = 'en',
     this.rawLine,
     this.frequency = 1,
+    this.existed = false,
     this.selected = true,
   });
 }
@@ -1002,7 +1117,7 @@ class _MinLengthMenuItem extends StatelessWidget {
         else
           const SizedBox(width: 22),
         Text(
-          label,
+          context.uiText(label),
           style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
       ],
@@ -1048,7 +1163,7 @@ class _OptionChip extends StatelessWidget {
                 color: isActive ? const Color(0xFF9C8FFF) : Colors.grey[600]),
             const SizedBox(width: 4),
             Text(
-              label,
+              context.uiText(label),
               style: TextStyle(
                 color: isActive ? const Color(0xFF9C8FFF) : Colors.grey[600],
                 fontSize: 10,

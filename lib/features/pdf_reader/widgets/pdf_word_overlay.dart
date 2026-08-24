@@ -23,6 +23,9 @@ class PdfWordOverlay extends StatelessWidget {
   final int? focusTextStartOffsetCue;
   final int? focusTextEndOffsetCue;
 
+  /// READ-630-03: marker "từ đã lưu" chỉ vẽ khi BẬT (mặc định tắt).
+  final bool showRecallMarkers;
+
   const PdfWordOverlay({
     super.key,
     required this.words,
@@ -37,14 +40,16 @@ class PdfWordOverlay extends StatelessWidget {
     this.focusPageIndexCue,
     this.focusTextStartOffsetCue,
     this.focusTextEndOffsetCue,
+    this.showRecallMarkers = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasRecallMarkers = words.any((w) =>
-        w.analyzed?.isSaved == true ||
-        w.analyzed?.hasSavedNotes == true ||
-        w.analyzed?.hasDueReview == true);
+    final hasRecallMarkers = showRecallMarkers &&
+        words.any((w) =>
+            w.analyzed?.isSaved == true ||
+            w.analyzed?.hasSavedNotes == true ||
+            w.analyzed?.hasDueReview == true);
     final hasFocusCue =
         focusWordCue != null || focusRectCue != null || focusTextStartOffsetCue != null;
 
@@ -73,6 +78,7 @@ class PdfWordOverlay extends StatelessWidget {
           focusTextStartOffsetCue: focusTextStartOffsetCue,
           focusTextEndOffsetCue: focusTextEndOffsetCue,
           pageHeight: page.height,
+          showRecallMarkers: showRecallMarkers,
         ),
       );
     });
@@ -94,6 +100,7 @@ class _WordHighlightPainter extends CustomPainter {
   final int? focusTextStartOffsetCue;
   final int? focusTextEndOffsetCue;
   final double pageHeight;
+  final bool showRecallMarkers;
 
   _WordHighlightPainter({
     required this.words,
@@ -110,6 +117,7 @@ class _WordHighlightPainter extends CustomPainter {
     this.focusTextStartOffsetCue,
     this.focusTextEndOffsetCue,
     required this.pageHeight,
+    this.showRecallMarkers = false,
   });
 
   @override
@@ -171,29 +179,32 @@ class _WordHighlightPainter extends CustomPainter {
         }
       }
 
+      // READ-630-03: recall marker chỉ vẽ khi người dùng BẬT
       final analyzed = word.analyzed;
-      if (analyzed?.isSaved == true) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(screenRect.inflate(1), const Radius.circular(3)),
-          Paint()
-            ..color = const Color(0xFF4CAF50).withValues(alpha: 0.45)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
-        );
-      }
-      if (analyzed?.hasSavedNotes == true) {
-        canvas.drawCircle(
-          Offset(screenRect.right - 3, screenRect.top + 3),
-          2.4,
-          Paint()..color = Colors.amberAccent,
-        );
-      }
-      if (analyzed?.hasDueReview == true) {
-        canvas.drawCircle(
-          Offset(screenRect.left + 3, screenRect.top + 3),
-          2.4,
-          Paint()..color = Colors.redAccent,
-        );
+      if (showRecallMarkers) {
+        if (analyzed?.isSaved == true) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(screenRect.inflate(1), const Radius.circular(3)),
+            Paint()
+              ..color = const Color(0xFF4CAF50).withValues(alpha: 0.45)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1,
+          );
+        }
+        if (analyzed?.hasSavedNotes == true) {
+          canvas.drawCircle(
+            Offset(screenRect.right - 3, screenRect.top + 3),
+            2.4,
+            Paint()..color = Colors.amberAccent,
+          );
+        }
+        if (analyzed?.hasDueReview == true) {
+          canvas.drawCircle(
+            Offset(screenRect.left + 3, screenRect.top + 3),
+            2.4,
+            Paint()..color = Colors.redAccent,
+          );
+        }
       }
 
       if (_matchesPreciseCue(word)) {
@@ -290,6 +301,7 @@ class _WordHighlightPainter extends CustomPainter {
       old.grammarSettings != grammarSettings ||
       old.grammarPalette.id != grammarPalette.id ||
       old.speakingWord != speakingWord ||
+      old.showRecallMarkers != showRecallMarkers ||
       old.focusWordCue != focusWordCue ||
       old.focusRectCue != focusRectCue ||
       old.focusPageIndexCue != focusPageIndexCue ||

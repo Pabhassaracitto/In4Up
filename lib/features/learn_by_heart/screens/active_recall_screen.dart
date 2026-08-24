@@ -9,14 +9,17 @@ import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 import '../services/cloze_generator.dart';
 import '../services/multilingual_audio_service.dart';
+import '../widgets/chain_recitation_view.dart';
 import '../widgets/cloze_interactive_text.dart';
 import '../widgets/fsrs_rating_bar.dart';
+import '../widgets/voice_recitation_sheet.dart';
 import 'assessment_screen.dart';
 
 enum RecallModeType {
   cloze, // Dạng 1: Điền khuyết (Cloze Deletion 4 tầng)
-  meaningToVerse, // Dạng 2: Ý nghĩa → Tự gợi nhớ câu kinh
-  audioToVerse, // Dạng 3: Nghe nửa đầu → Tự đọc nửa sau
+  firstLetterChain, // Dạng 2: Nối xích câu kệ liên hoàn
+  meaningToVerse, // Dạng 3: Ý nghĩa → Tự gợi nhớ câu kinh
+  audioToVerse, // Dạng 4: Nghe nửa đầu → Tự đọc nửa sau
 }
 
 class ActiveRecallScreen extends StatefulWidget {
@@ -76,6 +79,14 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
         vietnameseText: halfLines.join('\n'),
         paliText: widget.item.paliLines.take(halfCount).join('\n'),
       ),
+    );
+  }
+
+  void _openVoiceRecitation() {
+    VoiceRecitationSheet.show(
+      context,
+      item: widget.item,
+      onRated: _handleReviewRating,
     );
   }
 
@@ -162,6 +173,12 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         actions: [
+          // Voice Recall Button
+          IconButton(
+            icon: const Icon(Icons.mic_rounded, color: Color(0xFF6C63FF)),
+            tooltip: 'Đọc bằng giọng nói (Voice Recall)',
+            onPressed: _openVoiceRecitation,
+          ),
           if (item.isReadyForAssessment)
             IconButton(
               icon: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFD54F)),
@@ -178,39 +195,43 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Mode Selector Bar (Cloze / Meaning / Audio)
+            // Mode Selector Bar (Cloze / Nối xích / Ý nghĩa / Audio)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               color: const Color(0xFF0F172A),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _ModeChip(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _ModeChip(
                       label: l10n.modeCloze,
                       icon: Icons.edit_note_rounded,
                       isSelected: _currentMode == RecallModeType.cloze,
                       onTap: () => _switchMode(RecallModeType.cloze),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _ModeChip(
+                    const SizedBox(width: 6),
+                    _ModeChip(
+                      label: 'Nối xích',
+                      icon: Icons.link_rounded,
+                      isSelected: _currentMode == RecallModeType.firstLetterChain,
+                      onTap: () => _switchMode(RecallModeType.firstLetterChain),
+                    ),
+                    const SizedBox(width: 6),
+                    _ModeChip(
                       label: l10n.modeMeaning,
                       icon: Icons.lightbulb_outline_rounded,
                       isSelected: _currentMode == RecallModeType.meaningToVerse,
                       onTap: () => _switchMode(RecallModeType.meaningToVerse),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _ModeChip(
+                    const SizedBox(width: 6),
+                    _ModeChip(
                       label: l10n.modeAudio,
                       icon: Icons.record_voice_over_rounded,
                       isSelected: _currentMode == RecallModeType.audioToVerse,
                       onTap: () => _switchMode(RecallModeType.audioToVerse),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
@@ -223,6 +244,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_currentMode == RecallModeType.cloze) _buildClozeSection(),
+                    if (_currentMode == RecallModeType.firstLetterChain) ChainRecitationView(item: widget.item),
                     if (_currentMode == RecallModeType.meaningToVerse) _buildMeaningSection(l10n),
                     if (_currentMode == RecallModeType.audioToVerse) _buildAudioSection(l10n),
                   ],
@@ -486,7 +508,7 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF6C63FF).withValues(alpha: 0.25) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
@@ -494,7 +516,7 @@ class _ModeChip extends StatelessWidget {
             color: isSelected ? const Color(0xFF6C63FF) : Colors.white.withValues(alpha: 0.08),
           ),
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
@@ -502,13 +524,11 @@ class _ModeChip extends StatelessWidget {
               size: 16,
               color: isSelected ? const Color(0xFFB388FF) : Colors.grey[400],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(width: 5),
             Text(
               label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 11.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.grey[400],
               ),

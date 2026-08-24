@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 import 'package:flutter/material.dart';
 import 'package:googleapis/analytics/v3.dart' hide Column;
-import 'package:in4up/lid/core/language/localized_material.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
@@ -22,19 +22,19 @@ class SttModelSettingsScreen extends StatelessWidget {
     return Scaffold(
       // ✅ FIX: Không dùng subtitle, dùng Column trong title
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Quản lý Model AI',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               'STT · VAD · TTS offline — models 1 chỗ, tinh chỉnh ở tab chức năng',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
               ),

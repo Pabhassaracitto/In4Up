@@ -879,3 +879,7 @@
   - 2026-08-25 | khôi phục sau re-image | agent arena/01a0251e-in4up | sandbox
     tái bản giữa phiên làm mất các commit chưa push (UI/i18n/docs/facade);
     rebuild lại từ d43cc3d + restore facade 26571af (không bị 3 fix ảnh hưởng)
+  - 2026-08-25 | CI xanh | agent arena/01a0251e-in4up | App Analyze + Locale
+    XANH run 32855255220 (tip 3797dcc — full harvest) + run 32789473478
+    (core fix, d43cc3d). Chờ nghiệm thu UX thiết bị (banner chat, import
+    .gguf progress, tải URL chỉ WiFi, xóa model)

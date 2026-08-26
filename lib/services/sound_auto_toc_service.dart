@@ -106,8 +106,14 @@ class SoundAutoTocService {
           if (await waveFile.exists()) await waveFile.delete();
         } catch (_) {}
 
+        // Không có waveform (extract fail / file lạ) → vẫn phải có mục lục:
+        // fallback chia đều theo duration (nếu biết). (Gốc rễ lỗi "không tạo
+        // được mục lục": trước đây return [] NGAY → cả VAD-only lẫn VAD+Whisper fail.)
         if (waveform == null || waveform.data.isEmpty) {
-          return const <AudioSlice>[];
+          final dur = totalDuration != null && totalDuration.inMilliseconds > 0
+              ? totalDuration.inMilliseconds
+              : 0;
+          return _evenSplitFallback(dur, minSegmentSec);
         }
 
         final samples = waveform.data;
@@ -140,7 +146,9 @@ class SoundAutoTocService {
           energies.add(sum / winSize);
         }
 
-        if (energies.length < 6) return const <AudioSlice>[];
+        if (energies.length < 6) {
+          return _evenSplitFallback(durationMs, minSegmentSec);
+        }
 
         final meanEnergy = energies.reduce((a, b) => a + b) / energies.length;
         final threshold = math.max(0.045, meanEnergy * thresholdFactor);
@@ -196,28 +204,9 @@ class SoundAutoTocService {
 
         // Fallback: audio liền mạch (không có khoảng lặng đủ) → chia đều
         // theo thời lượng (~60s/đoạn, tối đa 8 đoạn) để vẫn có "mục lục thô".
-        // (Fix: trước đây trả [] → "không tạo được mục lục" dù file nghe bình thường.)
-        if (slices.length < 2 && durationMs >= minSegmentSec * 1000 * 2) {
-          const targetSec = 60;
-          var n = (durationMs / (targetSec * 1000)).ceil();
-          if (n < 2) n = 2;
-          if (n > 8) n = 8;
-          final stepMs = durationMs ~/ n;
-          final fallback = <AudioSlice>[];
-          for (int i = 0; i < n; i++) {
-            final s = i * stepMs;
-            final e = i == n - 1 ? durationMs : (i + 1) * stepMs;
-            if (e - s >= minSegmentSec * 1000) {
-              fallback.add(AudioSlice(
-                start: Duration(milliseconds: s),
-                end: Duration(milliseconds: e),
-              ));
-            }
-          }
-          if (fallback.length >= 2) return fallback;
+        if (slices.length < 2) {
+          return _evenSplitFallback(durationMs, minSegmentSec);
         }
-
-        if (slices.length < 2) return const <AudioSlice>[];
         return slices;
       } catch (e) {
         debugPrint('❌ VAD split error: $e');
@@ -410,6 +399,33 @@ class SoundAutoTocService {
     var t = text.replaceAll(RegExp(r'\s+'), ' ').trim();
     t = t.replaceAll(RegExp(r'^[^\p{L}\p{N}]+', unicode: true), '');
     return t;
+  }
+
+  /// PURE — chia đều file thành 2–8 đoạn (~60s/đoạn). Luôn tạo mục lục thô
+  /// kể cả khi waveform/energy không dùng được. Trả [] nếu file quá ngắn
+  /// (< 2× minSegment) hoặc không biết duration.
+  static List<AudioSlice> _evenSplitFallback(
+    int durationMs,
+    double minSegmentSec,
+  ) {
+    if (durationMs < minSegmentSec * 1000 * 2) return const <AudioSlice>[];
+    const targetSec = 60;
+    var n = (durationMs / (targetSec * 1000)).ceil();
+    if (n < 2) n = 2;
+    if (n > 8) n = 8;
+    final stepMs = durationMs ~/ n;
+    final fallback = <AudioSlice>[];
+    for (int i = 0; i < n; i++) {
+      final s = i * stepMs;
+      final e = i == n - 1 ? durationMs : (i + 1) * stepMs;
+      if (e - s >= minSegmentSec * 1000) {
+        fallback.add(AudioSlice(
+          start: Duration(milliseconds: s),
+          end: Duration(milliseconds: e),
+        ));
+      }
+    }
+    return fallback.length >= 2 ? fallback : const <AudioSlice>[];
   }
 
   static String _fmt(Duration d) {

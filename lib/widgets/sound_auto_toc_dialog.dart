@@ -17,7 +17,6 @@ import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:provider/provider.dart';
 
 import '../models/vad_settings.dart';
-import '../providers/player_provider.dart';
 import '../providers/soundlist_provider.dart';
 import '../providers/waveform_provider.dart';
 import '../services/sound_auto_toc_service.dart';
@@ -85,7 +84,6 @@ Future<_AutoTocSelection?> _showModeDialog(
     context: context,
     builder: (ctx) {
       final soundlist = ctx.read<SoundlistProvider>();
-      final player = ctx.read<PlayerProvider>();
       final waveform = ctx.read<WaveformProvider>();
       var vad = soundlist.vadSettings;
       var language = 'auto'; // 'auto' | 'vi' | 'en' — D16

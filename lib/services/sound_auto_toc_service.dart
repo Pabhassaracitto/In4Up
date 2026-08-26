@@ -70,7 +70,14 @@ class SoundAutoTocService {
   }) async {
     // content:// (từ MediaStore/SAF) → copy sang cache để File/waveform dùng được.
     final localPath = await AudioLibraryChannel.copyContentToCache(audioPath);
-    if (localPath == null) return const <AudioSlice>[];
+    if (localPath == null) {
+      // Copy thất bại (native lỗi / quyền) — nếu biết duration vẫn chia đều
+      // để VAD-only luôn có mục lục thô (fix "chỉ VAD không dùng được").
+      return _evenSplitFallback(
+        totalDuration?.inMilliseconds ?? 0,
+        minSegmentSec,
+      );
+    }
     return _vadSplitFile(localPath,
         totalDuration: totalDuration,
         minSilenceSec: minSilenceSec,

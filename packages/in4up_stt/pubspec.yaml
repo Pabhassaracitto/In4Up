@@ -19,8 +19,8 @@ dependencies:
   # we fallback to FFI (whisper.dll) or CLI (whisper.exe) via stt_engine_whisper.dart
   whisper_flutter_new: ^1.0.1
   # Engine 3: Sherpa-ONNX (PoC from branch 019fe27a, Strategy Pattern Step2)
-  # sherpa_onnx ^1.13.4 — next-gen Kaldi, offline file + streaming, .onnx 2-5MB VAD
-  sherpa_onnx: ^1.13.4
+  # sherpa_onnx ^1.13.6 — next-gen Kaldi, offline file + streaming, .onnx 2-5MB VAD
+  # (CHỈ khai báo 1 lần — bản ^1.13.4 cũ đã lược bỏ, tránh duplicate key làm pub get lỗi)
 
   # Audio conversion: mobile uses FFmpegKit (native lib bundled),
   # desktop uses `ffmpeg` binary via Process (see audio_converter.dart)

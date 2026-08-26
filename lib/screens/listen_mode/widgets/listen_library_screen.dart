@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../../../services/audio_library_service.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
 import 'audio_library_view.dart';
@@ -79,8 +80,14 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       case RecentAudioType.local:
         if (audio.localPath == null) return;
 
+        // content:// (từ tab Thư viện) → copy sang cache trước khi phát.
+        final playable = await AudioLibraryService().resolvePlayablePath(
+          audio.localPath!,
+        );
+        if (!mounted) return;
+
         await player.loadSong(
-          path: audio.localPath!,
+          path: playable,
           title: audio.title,
           autoPlay: false, // ★ THAY: false để seek trước khi play
         );

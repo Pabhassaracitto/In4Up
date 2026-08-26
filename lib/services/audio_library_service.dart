@@ -12,6 +12,16 @@ import '../services/storage_service.dart';
 class AudioLibraryService {
   final StorageService _storage = StorageService();
 
+  /// Trả đường dẫn PHÁT ĐƯỢC: content:// → copy sang cache (file thật) vì
+  /// just_audio/ExoPlayer trong app phát content:// không ổn định trên nhiều
+  /// thiết bị. Non-content → trả nguyên.
+  /// (Fix "mở bài hát không chạy được" từ tab Thư viện.)
+  Future<String> resolvePlayablePath(String uri) async {
+    if (!uri.startsWith('content://')) return uri;
+    final path = await AudioLibraryChannel.copyContentToCache(uri);
+    return path ?? uri;
+  }
+
   /// Quét MediaStore, hợp nhất với chỉ mục đã lưu, ghi Hive, trả danh sách mới.
   Future<List<AudioLibraryEntry>> scanMediaStore() async {
     final raw = await AudioLibraryChannel.scanMediaStore();

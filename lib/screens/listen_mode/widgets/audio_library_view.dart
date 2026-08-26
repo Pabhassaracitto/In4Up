@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../models/audio_library_entry.dart';
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../../../services/audio_library_service.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
 
@@ -54,8 +55,12 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
   Future<void> _openEntry(AudioLibraryEntry entry) async {
     HapticFeedback.selectionClick();
     final player = context.read<PlayerProvider>();
+    // content:// → copy sang cache trước khi phát (just_audio không phát
+    // content:// ổn định) — Fix "mở bài hát không chạy được".
+    final playable = await AudioLibraryService().resolvePlayablePath(entry.uri);
+    if (!mounted) return;
     await player.loadSong(
-      path: entry.uri,
+      path: playable,
       title: entry.title,
       artist: entry.artist,
       autoPlay: true,

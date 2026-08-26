@@ -432,6 +432,14 @@ class AiModelLoader {
       final ws = dest.openWrite();
       try {
         var copied = 0;
+        final buffer = Uint8List(8 * 1024 * 1024);
+        while (true) {
+          final n = await rs.readInto(buffer, 0, buffer.length);
+          if (n == 0) break;
+          ws.add(buffer.sublist(0, n));
+          copied += n;
+          if (total > 0) onProgress?.call(copied / total);
+        }
         onProgress?.call(1.0);
       } finally {
         await ws.close();

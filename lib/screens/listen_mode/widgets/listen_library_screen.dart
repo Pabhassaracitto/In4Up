@@ -19,7 +19,7 @@ class ListenLibraryScreen extends StatefulWidget {
 }
 
 class _ListenLibraryScreenState extends State<ListenLibraryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _service = RecentAudioService();
   List<RecentAudio> _files = [];
   bool _isLoading = true;

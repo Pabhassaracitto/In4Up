@@ -277,17 +277,12 @@ class AiModelLoader {
         );
       }
 
-      // Copy vào Documents để an toàn (tránh permission issues trên iOS).
-      // Copy theo chunk để UI báo tiến độ (file GGUF thường 1–2GB).
+      // Copy vào Documents để an toàn (tránh permission issues trên iOS)
       final docsDir = await getApplicationDocumentsDirectory();
       final destPath = '${docsDir.path}/ai_models/${file.name}';
       final destFile = File(destPath);
       await destFile.parent.create(recursive: true);
-      await _copyFileWithProgress(
-        src: File(filePath),
-        dest: destFile,
-        onProgress: onCopyProgress,
-      );
+      await File(filePath).copy(destPath);
 
       // Lưu path để dùng lần sau
       final prefs = await SharedPreferences.getInstance();
@@ -425,33 +420,13 @@ class AiModelLoader {
     }
   }
 
-  /// Copy file theo chunk (8MB) kèm tiến độ — cho import model lớn.
   Future<void> _copyFileWithProgress({
     required File src,
     required File dest,
     void Function(double progress)? onProgress,
   }) async {
-    final total = await src.length();
     final rs = src.openRead();
-    try {
-      final ws = dest.openWrite();
-      try {
-        var copied = 0;
-        final buffer = Uint8List(8 * 1024 * 1024);
-        while (true) {
-          final n = await rs.readInto(buffer, 0, buffer.length);
-          if (n == 0) break;
-          ws.add(buffer.sublist(0, n));
-          copied += n;
-          if (total > 0) onProgress?.call(copied / total);
-        }
-        onProgress?.call(1.0);
-      } finally {
-        await ws.close();
-      }
-    } finally {
-      await rs.close();
-    }
+    await rs.close();
   }
 
   /// Kiểm tra magic header "GGUF" (4 byte đầu) của file model.

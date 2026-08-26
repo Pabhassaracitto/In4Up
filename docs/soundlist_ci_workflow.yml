@@ -2,11 +2,11 @@ name: Soundlist Module Tests (Âm mục)
 
 # CI nhẹ cho module Soundlist (Âm mục) + Audio Library (P1) — pattern knowledge_tests.yml.
 # ⚠️ LƯU Ý QUAN TRỌNG:
-# 1. Lệnh analyze/test MỘT DÒNG (hoặc heredoc) — không dùng plain-scalar YAML
-#    nhiều dòng với dấu `\` (YAML fold → backslash+space → lệnh sai).
-# 2. Khi CI đỏ: log được commit vào `ci_reports/` NGAY TRÊN NHÁNH (vì môi
-#    trường agent không đọc được workflow log/artifact — blob bị chặn) →
-#    agent đọc lỗi qua git, sửa, push (code push không bị chặn).
+# 1. Lệnh MỘT DÒNG (hoặc heredoc) — không dùng plain-scalar YAML nhiều dòng
+#    với dấu `\` (YAML fold → backslash+space → lệnh sai).
+# 2. MỌI bước (pub get / analyze / test) đều tee ra .log; khi CI đỏ, log được
+#    commit vào `ci_reports/` NGAY TRÊN NHÁNH → agent đọc lỗi qua git (vì
+#    workflow log/artifact bị chặn trong môi trường agent).
 # 3. Commit report chỉ chạm `ci_reports/` — KHÔNG khớp paths filter → không
 #    gây vòng lặp workflow.
 # Skill liên quan: docs/skills/ci-red-debugging/SKILL.md
@@ -32,6 +32,9 @@ on:
       - 'lib/screens/tools/sound_list/**'
       - 'test/sound_auto_toc_test.dart'
       - 'test/audio_library_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'packages/**/pubspec.yaml'
       - 'android/app/src/main/kotlin/**'
       - '.github/workflows/soundlist_tests.yml'
   pull_request:
@@ -53,6 +56,9 @@ on:
       - 'lib/screens/tools/sound_list/**'
       - 'test/sound_auto_toc_test.dart'
       - 'test/audio_library_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'packages/**/pubspec.yaml'
       - 'android/app/src/main/kotlin/**'
       - '.github/workflows/soundlist_tests.yml'
   workflow_dispatch:
@@ -75,7 +81,13 @@ jobs:
           cache: true
 
       - name: Resolve dependencies
-        run: flutter pub get
+        id: pubget
+        run: |
+          set +e
+          flutter pub get > pubget.log 2>&1
+          code=$?
+          cat pubget.log
+          exit $code
 
       - name: Analyze Soundlist + Audio Library
         id: analyze
@@ -86,28 +98,6 @@ jobs:
           cat analyze.log
           exit $code
 
-      - name: Upload analyze log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: soundlist-analyze-log
-          path: analyze.log
-          if-no-files-found: ignore
-
-      - name: Commit analyze log to repo (đọc qua git)
-        if: failure()
-        shell: bash
-        run: |
-          mkdir -p ci_reports
-          cp analyze.log ci_reports/analyze.log 2>/dev/null || true
-          if [ -s ci_reports/analyze.log ]; then
-            git config user.name "in4up-ci-bot"
-            git config user.email "actions@users.noreply.github.com"
-            git add ci_reports/analyze.log
-            git commit -q -m "ci(report): analyze log run ${{ github.run_id }}" || true
-            git push origin HEAD:${GITHUB_REF_NAME} -q 2>&1 | tail -2 || echo "push report failed"
-          fi
-
       - name: Run Soundlist + Audio Library tests
         id: test
         run: |
@@ -117,24 +107,29 @@ jobs:
           cat test.log
           exit $code
 
-      - name: Upload test log
+      - name: Upload logs (artifact)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: soundlist-test-log
-          path: test.log
+          name: soundlist-logs
+          path: |
+            pubget.log
+            analyze.log
+            test.log
           if-no-files-found: ignore
 
-      - name: Commit test log to repo (đọc qua git)
+      - name: Commit logs to repo (đọc qua git)
         if: failure()
         shell: bash
         run: |
           mkdir -p ci_reports
+          cp pubget.log ci_reports/pubget.log 2>/dev/null || true
+          cp analyze.log ci_reports/analyze.log 2>/dev/null || true
           cp test.log ci_reports/test.log 2>/dev/null || true
-          if [ -s ci_reports/test.log ]; then
+          if ls ci_reports/*.log >/dev/null 2>&1; then
             git config user.name "in4up-ci-bot"
             git config user.email "actions@users.noreply.github.com"
-            git add ci_reports/test.log
-            git commit -q -m "ci(report): test log run ${{ github.run_id }}" || true
+            git add ci_reports/
+            git commit -q -m "ci(report): logs run ${{ github.run_id }}" || true
             git push origin HEAD:${GITHUB_REF_NAME} -q 2>&1 | tail -2 || echo "push report failed"
           fi

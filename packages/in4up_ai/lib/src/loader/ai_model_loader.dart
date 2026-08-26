@@ -426,15 +426,18 @@ class AiModelLoader {
   }
 
   /// Copy file theo chunk (8MB) kèm tiến độ — cho import model lớn.
+  /// (Dart SDK mới: `File.openRead()` đã bị REMOVE — dùng `await src.open()`;
+  /// `openWrite()` giữ nguyên nhưng thêm `await` cho an toàn — await trên
+  /// giá trị non-Future là no-op hợp lệ.)
   Future<void> _copyFileWithProgress({
     required File src,
     required File dest,
     void Function(double progress)? onProgress,
   }) async {
     final total = await src.length();
-    final rs = src.openRead();
+    final rs = await src.open();
     try {
-      final ws = dest.openWrite();
+      final ws = await dest.openWrite();
       try {
         var copied = 0;
         final buffer = Uint8List(8 * 1024 * 1024);

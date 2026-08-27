@@ -213,7 +213,7 @@ class TextLineWidget extends StatelessWidget {
               originalText: data.content,
               translatedText: data.translation,
               displayMode: data.displayMode,
-              originalWidget: _buildTextContent(context, data),
+              originalWidget: _buildTextContent(context, data, index),
               textAlign: data.textAlign,
               // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được
               // Trước đây alpha 0.15 quá mờ khiến user tưởng bản dịch biến mất
@@ -259,7 +259,8 @@ class TextLineWidget extends StatelessWidget {
 
   /// POS/CEFR/difficulty: cùng đoạn chọn + lưu đầy đủ như chế độ không màu.
   /// Màu nằm trên TextSpan (không Wrap từng chip — chữ Việt không bị bể hàng).
-  Widget _buildTextContent(BuildContext context, _LineData data) {
+  /// [index] = index dòng trong document (ColoredTextWidget tra trạng thái phát).
+  Widget _buildTextContent(BuildContext context, _LineData data, int index) {
     final baseStyle = TextStyle(
       fontSize: data.fontSize,
       color: Colors.white,

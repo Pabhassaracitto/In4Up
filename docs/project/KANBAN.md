@@ -47,6 +47,7 @@
 | LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
 | LHB-003 | Voice Recall (ghi mic + fuzzy align + gợi ý FSRS) + Nối xích câu kệ + Anki Cloze {{c1::}} | ✅ done | cherry-pick 10fecd3 → 19efa2d + fix transcribeAuto (0177c35 → 4f123e6); chờ CI + nghiệm thu mic |
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
+| AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 
 ---
 
@@ -883,3 +884,40 @@
     XANH run 32855255220 (tip 3797dcc — full harvest) + run 32789473478
     (core fix, d43cc3d). Chờ nghiệm thu UX thiết bị (banner chat, import
     .gguf progress, tải URL chỉ WiFi, xóa model)
+
+
+### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
+- **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)
+- **Nguồn:** owner yêu cầu nghiệm thu `arena/01a0018e-in4up` (2026-08-25) —
+  fix 3 lỗi từ audit thiết bị của owner: pub get đỏ (sherpa duplicate),
+  mở bài từ tab Thư viện không chạy (content://), "Chỉ VAD" báo lỗi.
+- **Nội dung (thâu hoạch ff 01a0018e → 0855cb3, 8 file +111/−69):**
+  - `AudioLibraryService.resolvePlayablePath()`: content:// → copy sang cache
+    trước khi phát (just_audio/ExoPlayer không phát content:// ổn định) — dùng
+    ở `AudioLibraryView._openEntry` + `ListenLibraryScreen._openAudio`
+    (kể cả mở lại file đã lưu ở tab Gần đây).
+  - `SoundAutoTocService._evenSplitFallback()`: PURE, chia đều 2–8 đoạn
+    ~60s/đoạn; áp vào MỌI early-return (copy content:// fail, waveform rỗng,
+    energies <6, slices <2) → file ≥ ~12s luôn tạo được mục lục thô kể cả
+    VAD-only, không cần Whisper.
+  - `packages/in4up_stt/pubspec.yaml`: bỏ `sherpa_onnx: ^1.13.4` trùng khai báo
+    (duplicate key làm pub get fail), giữ `^1.13.6`.
+  - Dọn `sound_auto_toc_dialog.dart` (bỏ PlayerProvider import + biến unused),
+    `stt_model_settings_screen.dart` (bỏ import googleapis/analytics auto-import
+    nhầm + material trùng — 0855cb3).
+  - `docs/soundlist_ci_workflow.yml` v5 (commit-back log khi đỏ + paths đủ
+    Audio Library + pubspec) — **workflow đang chạy vẫn là bản cũ**; owner copy
+    v5 vào `.github/workflows/soundlist_tests.yml` nếu muốn (agent không có
+    quyền workflows).
+- **Nghiệm thu (2026-08-25, agent arena/01a0251e-in4up):** review code từng file
+  OK (resolvePlayablePath fallback an toàn `path ?? uri`; _evenSplitFallback
+  đúng biên 2×minSegment; pubspec 1 key duy nhất). CI: App Analyze + Locale
+  XANH run 33037686097 + Soundlist XANH run 33037686068 (analyze + test).
+  01a0018e xanh sẵn run 32946979440 trước khi thâu hoạch.
+- **Chờ owner (thiết bị):** (1) tab Thư viện → chạm 1 bài → phát được;
+  (2) ⚡ Tự tạo mục lục → Chỉ VAD → ra "Đoạn 1 · 00:00…" kể cả file content://;
+  (3) VAD+Whisper vẫn chạy. Xong → bước P2 (chọn thư mục âm thanh).
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | ff-merge
+    01a0018e (70c4efc, nhánh đã merge sẵn 251e 2cfb53b) + cleanup import;
+    CI xanh 33037686097/33037686068

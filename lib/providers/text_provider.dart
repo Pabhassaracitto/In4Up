@@ -531,6 +531,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       // ★ REOPEN FIX: mở lại document cũ → paint lại translations từ cache
       //   (MD5 ổn định) — không dịch lại từ mạng như bài mới.
       unawaited(rehydrateTranslationsFromCache());
+      if (_lines.isEmpty) {
+        debugPrint('TextProvider.loadTextFile: không trích được dòng chữ: $path');
+        return false;
+      }
       return true;
     } catch (e) {
       debugPrint('TextProvider.loadTextFile error: $e');

@@ -392,3 +392,22 @@
   - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; App Analyze + Locale run 32659292077 xanh
   - 2026-08-24 | 00:43 +0530 | done→reopened | owner + agent arena/01a02fee-in4up | lời audio cũ vẫn bám khi đổi file; bổ sung source identity + chặn callback/cache cũ
   - 2026-08-24 | 00:46 +0530 | reopened→done | agent arena/01a02fee-in4up | 1d05ce9; CI 32660616256 xanh
+
+### PLAN-018 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
+- Nguồn: người sở hữu (2026-08-23) — "sau khi import model không thấy biểu hiện gì,
+  người dùng nghi ngờ không biết nạp chưa; nên quản lý models 1 chỗ nơi setting
+  của home, import trực quan và tải online nếu muốn".
+- Trạng thái: doing — thu hoạch từ arena/01a02a4a-in4up vào 251e (2026-08-25); card KANBAN MODELS-002.
+- Chi tiết:
+  - Chat screen: banner trạng thái model LUÔN HIỆN (chưa nạp / copy X% / tải X% /
+    đang nạp native 1–2 phút / lỗi + Thử lại / sẵn sàng + tên file + dung lượng).
+  - Engine báo model-load thật (isolate gửi tín hiệu sau khi llama_model_load xong)
+    — facade chờ signal trước khi trả lời chat; mock response luôn kèm disclaimer
+    "⚠️ Chưa nạp model AI — đây là trả lời MẪU".
+  - Trung tâm "Quản lý Model AI" (stt_model_settings_screen — đã mở từ home settings):
+    thêm section 4 "Chat — Gemma (LLM)" — status + Import .gguf + Tải về (URL,
+    default HuggingFace Gemma-2-2B-it Q4_K_M, chỉ WiFi, progress) + Xóa.
+  - Import copy file theo chunk kèm tiến độ (file ~1.5GB); download có verify
+    header GGUF sau tải.
+- Lịch sử:
+  - 2026-08-25 | created→doing | agent arena/01a0251e-in4up | thu hoạch từ 01a02a4a (26571af/38e8865/b84e571/2868af2) + fix 3 lỗi compile, chờ CI + nghiệm thu

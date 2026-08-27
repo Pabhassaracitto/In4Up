@@ -3,9 +3,10 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
-import 'package:flutter/material.dart';
-import 'package:googleapis/analytics/v3.dart' hide Column;
-import 'package:in4up/core/language/localized_material.dart' hide Text;
+// FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
+// nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
+// localized_material đã export material (hide Text) + Text localized.
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:in4up/providers/locale_provider.dart';

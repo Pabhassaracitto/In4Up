@@ -473,5 +473,8 @@
   "lhb_editor_9": "Entire lesson",
   "lhb_editor_10": "Forgot / many mistakes",
   "lhb_editor_11": "Remembered the idea, missed a few words",
-  "lhb_editor_12": "100% accurate"
+  "lhb_editor_12": "100% accurate",
+  "lhb_extra_0": "Voice Recall",
+  "lhb_extra_1": "Please grant microphone permission to record",
+  "lhb_extra_2": "Real-life connection"
 }

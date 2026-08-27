@@ -473,5 +473,8 @@
   "lhb_editor_9": "整篇内容",
   "lhb_editor_10": "忘记／错误很多",
   "lhb_editor_11": "记得大意，漏掉几个字",
-  "lhb_editor_12": "100% 正确"
+  "lhb_editor_12": "100% 正确",
+  "lhb_extra_0": "语音回想",
+  "lhb_extra_1": "请授予麦克风权限以进行录音",
+  "lhb_extra_2": "生活联系"
 }

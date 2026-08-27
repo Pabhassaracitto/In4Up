@@ -49,6 +49,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
+| READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 
 ---
 
@@ -956,3 +957,37 @@
   - 2026-08-27 | created→done | agent arena/01a0251e-in4up | ff-merge 01a03033
     + 3 fix (regression 10 file + khôi phục KANBAN + rule5 ARB/keep-English);
     CI xanh 33078187839
+
+### READ-630-06 — Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn; sheet lưu hiện từ cũ
+- **Trạng thái:** done (CI xanh; chờ owner nghiệm thu trên thiết bị)
+- **Nguồn:** chủ yêu cầu nghiệm thu `arena/01a01580-in4up` (2026-08-27) —
+  thâu hoạch commit `db5c6ed` bằng path-checkout 6 file (pattern SO_TAY).
+- **Nội dung:**
+  - **2 cách chọn:** mặc định bôi nhiều chữ (mọi màu POS/CEFR, như chế độ
+    không màu); "box từng từ" là TUỲ CHỌN — chip lưới cam trên ReadTopBar
+    (cạnh chip màu) + toggle trong ReadSettingsSheet; persist qua
+    ReaderDisplaySettings (prefs).
+  - Box từng từ: long-press box → sheet lưu từ (nền lưu hàng loạt sau này);
+    render qua ColoredTextWidget.
+  - **Sheet lưu từ đủ dữ liệu từ cũ:** `_loadRelated()` chạy khi mở sheet
+    (postFrame) — trước đó không bao giờ chạy → mất bảng từ cũ. Entry đã
+    có: VocabEntryMetaInfo (IPA, loại, chủ đề, ngôn ngữ) + nút Sửa
+    (VocabEntryEditSheet — cùng bảng PDF/Web: thêm/bớt tag); chip ngôn ngữ
+    en/vi/pali/my + ngôn ngữ đã có (không ô gõ mã mới); cụm/từ liên đới
+    hiện lại khi WordList có mục gần giống.
+- **Fix nghiệm thu (code 1580 db5c6ed dính 5 lỗi compile — chưa qua CI):**
+  1. text_provider: dòng rác 'returoadTextFile: File not found: $path');'
+     (merge-corrupt) — xóa.
+  2. text_provider: tail corrupt — 'notifyListeners();' + block Auto-split
+     nhân đôi + thừa đóng class — dọn.
+  3. Thiếu TextProvider.setWordTapBoxes (read_top_bar + read_settings_sheet
+     gọi) + thiếu import reader_display_settings — bổ sung setter delegate.
+  4. _buildTextContent: 'lineIndex: index' mà index không có scope — truyền
+     index từ caller.
+  5. Mảnh rác 'otifyListeners();' (thiếu n) sót ở _applyLines — khôi phục.
+  Verify: diff chéo 6 file với bản gốc 251e (2f64c18) — chỉ còn đúng diff
+  feature; balance-check 6 file OK.
+- **Bằng chứng:** App Analyze + Locale XANH run 33082501188.
+- **Lịch sử:**
+  - 2026-08-27 | created→done | agent arena/01a0251e-in4up | path-checkout
+    6 file từ db5c6ed + 5 fix compile; CI xanh 33082501188

@@ -1735,7 +1735,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _focusCueLineIndex = null;
     _selectedTextInfo = null;
     _selectedText = null;
-    otifyListeners();
+    notifyListeners();
 
     debugPrint('✂️ Auto-split: ${_lines.length} lines');
   }

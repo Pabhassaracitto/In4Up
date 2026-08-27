@@ -8,6 +8,9 @@
 - **`docs/skills/ci-red-debugging/SKILL.md`** — bắt buộc đọc khi CI GitHub Actions đỏ
   mà không tải được log (`gh run view --log` EOF) hoặc không có Flutter SDK local.
   Kèm script 1-lệnh `scripts/ci_check.sh` trong cùng folder.
+- **`docs/skills/i18n-localization/SKILL.md`** — bắt buộc đọc khi thêm hoặc sửa UI,
+  đặc biệt các chức năng mới. Phải kiểm tra chrome, ARB parity và đủ bản dịch
+  `hi`/`zh`/`zh_TW`/`si` trước khi coi task hoàn tất.
 
 ## Tài liệu kiến trúc (không code mù — đọc trước khi đổi kiến trúc)
 

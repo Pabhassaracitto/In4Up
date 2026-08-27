@@ -3,7 +3,7 @@
 // Dùng chung cho nút "Dấu" trong Listen Mode và panel Âm mục.
 
 // ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, use_build_context_synchronously, avoid_unnecessary_containers, sized_box_for_whitespace, avoid_print
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/sound_mark.dart';
 import '../providers/soundlist_provider.dart';

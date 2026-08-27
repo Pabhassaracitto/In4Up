@@ -40,8 +40,10 @@
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
 | SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
-| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang (chờ CI xanh + nghiệm thu) |
+| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang; CI xanh 32663677470 (chờ nghiệm thu thiết bị) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
+| LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
+| SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 
 ---
 
@@ -688,3 +690,46 @@
   - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; CI 32659292077 xanh
   - 2026-08-24 | 00:43 +0530 | done→reopened | owner + agent arena/01a02fee-in4up | audio mới vẫn giữ lời cũ; RCA: PlayerProvider chỉ nhận UnderstandProvider sau khi vào tab Hiểu, in-memory LRC fallback không gắn audio nguồn, callback async cũ có thể ghi trả lại
   - 2026-08-24 | 00:46 +0530 | reopened→done | agent arena/01a02fee-in4up | 1d05ce9: inject provider toàn cục, clear UI/editor, bind cache với source, chặn callback cũ; CI 32660616256 xanh
+
+### LHB-001 — Learn by Heart (Dhammapada SRS) — nghiệm thu từ nhánh 019ff2de
+- **Trạng thái:** done (chờ nghiệm thu UX trên thiết bị)
+- **Nguồn:** agent arena/019ff2de-in4up (branch 35d1d48, Spec v4.1 FINAL SEALED)
+- **Nội dung:** 30 file +5765 dòng: models (LearnByHeartItem, FSRSParams,
+  Chunk, LineTimestamp, ReviewState, RecitationCategory), services
+  (FSRSEngine cold-start [0,1,3,7,14] ngày + assessment trọng số x2,
+  ClozeGenerator deterministic, LearnByHeartStorage SharedPreferences,
+  MultilingualAudioService highlight dòng theo timestamp), 6 screens
+  (hub, active recall, assessment, chunking flow, item editor, new
+  learning), 5 widgets, seed Dhammapada (≥12 kệ, Pali + Việt + chunks +
+  keywords), test 161 dòng, tích hợp main.dart + main_shell (tool
+  "Thuộc lòng") + RememberWorkspace chip.
+- **Nghiệm thu (2026-08-24, agent 01a0251e):** review code OK (FSRS
+  monotonic again<hard<good<easy, assessment perfect x2.2 stability,
+  audio service dispose đúng, storage round-trip JSON); merge-tree clean
+  (không xung đột với 251e); test CI xanh; merge 15deaf0 vào 251e →
+  App Analyze + Locale xanh 32662979309. Ghi nhận minor: field
+  `lapseCount` song song chết (engine chỉ update `fsrsParams.lapses` —
+  không hiển thị ở đâu, không gây lỗi); UI hard-code tiếng Việt (nhất
+  quán với codebase hiện có — rule #5 áp dụng khi wave i18n).
+- **Lịch sử:**
+  - 2026-08-24 | created→done | agent arena/01a0251e-in4up | nghiệm thu
+    branch 019ff2de (35d1d48) + merge 15deaf0; CI xanh 32662979309
+
+### SOUNDLIST-630-02 — transcriptFromLrcLines: end = dòng không trống kế tiếp
+- **Trạng thái:** done
+- **Nguồn:** CI đỏ Soundlist run 32521698801 (test 137) — bug có sẵn
+  trên 251e (nhánh learn_by_heart cũng dính).
+- **Nội dung:** dòng LRC trống/whitespace nằm giữa 2 dòng nội dung làm
+  `end` của dòng trước = timestamp dòng trống (= start) thay vì +3s
+  fallback → highlight/playback transcript sai. Fix: tìm dòng không
+  trống kế tiếp làm end; dòng cuối +3s.
+- **Bẫy (ghi nhận):** tồn tại 2 file duplicate —
+  `lib/providers/soundlist_provider.dart` (bản sống: main.dart, screens,
+  test import) và `lib/models/soundlist_provider.dart` (bản chết: 0
+  importers, tự import bản sống). Fix lần đầu (2fb9ead) trúng bản chết —
+  sửa lại bản sống ở c978432; cả 2 bản giờ cùng fix. **Khuyến nghị
+  cleanup:** xóa bản chết hoặc gộp (chờ owner duyệt).
+- **Bằng chứng:** CI Soundlist xanh run 32663677483; App Analyze xanh
+  32663677470.
+- **Lịch sử:**
+  - 2026-08-24 | created→done | agent arena/01a0251e-in4up | fix + CI xanh

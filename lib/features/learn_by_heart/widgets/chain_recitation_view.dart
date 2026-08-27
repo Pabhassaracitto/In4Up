@@ -1,6 +1,6 @@
 // lib/features/learn_by_heart/widgets/chain_recitation_view.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import '../controllers/chain_recitation_controller.dart';
 import '../models/learn_by_heart_item.dart';

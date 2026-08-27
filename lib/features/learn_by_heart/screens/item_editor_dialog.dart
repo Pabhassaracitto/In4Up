@@ -209,7 +209,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Title
                       _buildTextField(
                         controller: _titleCtrl,
-                        label: 'Tiêu đề bài kinh / kệ ngôn',
+                        label: context.uiText('Tiêu đề bài kinh / kệ ngôn'),
                         hint: 'Ví dụ: Kệ Pháp Cú 01, Bát Nhã Tâm Kinh...',
                         required: true,
                       ),
@@ -218,7 +218,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Subtitle
                       _buildTextField(
                         controller: _subtitleCtrl,
-                        label: 'Phụ đề / Chủ đề ngắn',
+                        label: context.uiText('Phụ đề / Chủ đề ngắn'),
                         hint: 'Ví dụ: Tâm dẫn đầu các pháp...',
                       ),
                       const SizedBox(height: 12),
@@ -226,7 +226,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Pali Text
                       _buildTextField(
                         controller: _paliCtrl,
-                        label: 'Nguyên văn Pali / Tiếng gốc (mỗi dòng một câu)',
+                        label: context.uiText('Nguyên văn Pali / Tiếng gốc (mỗi dòng một câu)'),
                         hint: 'Manopubbaṅgamā dhammā,\nmanoseṭṭhā manomayā...',
                         maxLines: 4,
                       ),
@@ -235,7 +235,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Vietnamese Text
                       _buildTextField(
                         controller: _viCtrl,
-                        label: 'Bản dịch Tiếng Việt (mỗi dòng một câu)',
+                        label: context.uiText('Bản dịch Tiếng Việt (mỗi dòng một câu)'),
                         hint: 'Ý dẫn đầu các pháp,\nÝ làm chủ, ý tạo...',
                         maxLines: 4,
                         required: true,
@@ -245,7 +245,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Short Meaning
                       _buildTextField(
                         controller: _shortMeaningCtrl,
-                        label: 'Ý nghĩa cốt lõi (≤ 15 từ)',
+                        label: context.uiText('Ý nghĩa cốt lõi (≤ 15 từ)'),
                         hint: 'Hành động từ tâm ô nhiễm đem lại khổ đau.',
                       ),
                       const SizedBox(height: 12),
@@ -253,7 +253,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Keywords
                       _buildTextField(
                         controller: _keywordsCtrl,
-                        label: 'Từ khóa ghi nhớ (phân cách bằng dấu phẩy)',
+                        label: context.uiText('Từ khóa ghi nhớ (phân cách bằng dấu phẩy)'),
                         hint: 'Ý dẫn đầu, Ý ô nhiễm, Khổ não',
                       ),
                       const SizedBox(height: 12),
@@ -261,7 +261,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Life Connection
                       _buildTextField(
                         controller: _lifeConnectionCtrl,
-                        label: 'Liên hệ thực tế đời sống (1 câu)',
+                        label: context.uiText('Liên hệ thực tế đời sống (1 câu)'),
                         hint: 'Cẩn trọng trong từng suy nghĩ và lời nói hàng ngày.',
                       ),
                     ],
@@ -280,7 +280,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                   ElevatedButton.icon(
                     onPressed: _save,
                     icon: const Icon(Icons.check, size: 18),
-                    label: Text(isEditing ? 'Cập nhật' : 'Lưu bài'),
+                    label: Text(context.uiText(isEditing ? 'Cập nhật' : 'Lưu bài')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6C63FF),
                       foregroundColor: Colors.white,

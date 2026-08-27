@@ -4,6 +4,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../controllers/learn_by_heart_provider.dart';
+import '../i18n/learn_by_heart_l10n.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/recitation_category.dart';
 import '../models/review_state.dart';
@@ -69,19 +70,21 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = LearnByHeartL10n.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_stories_rounded, color: Color(0xFF4CAF50), size: 22),
-            SizedBox(width: 8),
+            const Icon(Icons.auto_stories_rounded, color: Color(0xFF4CAF50), size: 22),
+            const SizedBox(width: 8),
             Text(
-              'Thuộc Lòng · Learn by Heart',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+              l10n.moduleTitle,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2),
             ),
           ],
         ),
@@ -135,7 +138,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: _buildHeroStatsCard(provider),
+                    child: _buildHeroStatsCard(provider, l10n),
                   ),
                 ),
 
@@ -146,11 +149,11 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSearchBar(provider),
+                        _buildSearchBar(provider, l10n),
                         const SizedBox(height: 12),
-                        _buildCategoryChips(provider),
+                        _buildCategoryChips(provider, l10n),
                         const SizedBox(height: 8),
-                        _buildStateFilterChips(provider),
+                        _buildStateFilterChips(provider, l10n),
                       ],
                     ),
                   ),
@@ -190,7 +193,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
     );
   }
 
-  Widget _buildHeroStatsCard(LearnByHeartProvider provider) {
+  Widget _buildHeroStatsCard(LearnByHeartProvider provider, LearnByHeartL10n l10n) {
     final dueCount = provider.dueCount;
     final streak = provider.streak;
 
@@ -227,7 +230,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                     const Icon(Icons.local_fire_department_rounded, color: Color(0xFFFFB74D), size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '$streak ngày liên tiếp',
+                      l10n.streakText(streak),
                       style: const TextStyle(
                         color: Color(0xFFFFE082),
                         fontSize: 11,
@@ -239,13 +242,13 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
               ),
               const Spacer(),
               _MiniStatPill(
-                label: 'Thuộc vững',
+                label: l10n.mastered,
                 value: '${provider.masteredCount}',
                 color: const Color(0xFF81C784),
               ),
               const SizedBox(width: 6),
               _MiniStatPill(
-                label: 'Tổng số',
+                label: l10n.totalCount,
                 value: '${provider.totalCount}',
                 color: const Color(0xFF90CAF9),
               ),
@@ -260,7 +263,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      dueCount > 0 ? '$dueCount bài cần ôn hôm nay' : 'Đã hoàn thành hôm nay',
+                      dueCount > 0 ? '$dueCount ${l10n.dueToday}' : l10n.allDoneToday,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -281,7 +284,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
               ElevatedButton.icon(
                 onPressed: () => _startDailyReviewSession(provider),
                 icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                label: Text(dueCount > 0 ? 'Ôn ngay' : 'Ôn luyện'),
+                label: Text(dueCount > 0 ? l10n.reviewNow : l10n.practice),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4CAF50),
                   foregroundColor: Colors.white,
@@ -297,13 +300,13 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
     );
   }
 
-  Widget _buildSearchBar(LearnByHeartProvider provider) {
+  Widget _buildSearchBar(LearnByHeartProvider provider, LearnByHeartL10n l10n) {
     return TextField(
       controller: _searchCtrl,
       onChanged: provider.setSearchQuery,
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
-        hintText: 'Tìm theo số kệ, từ khóa, tiêu đề, Pali...',
+        hintText: l10n.searchHint,
         hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
         prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54, size: 20),
         suffixIcon: _searchCtrl.text.isNotEmpty
@@ -334,7 +337,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
     );
   }
 
-  Widget _buildCategoryChips(LearnByHeartProvider provider) {
+  Widget _buildCategoryChips(LearnByHeartProvider provider, LearnByHeartL10n l10n) {
     final selectedCat = provider.selectedCategory;
 
     return SingleChildScrollView(
@@ -342,7 +345,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
       child: Row(
         children: [
           ChoiceChip(
-            label: const Text('Tất cả thể loại'),
+            label: Text(l10n.allCategories),
             selected: selectedCat == null,
             selectedColor: const Color(0xFF4CAF50).withValues(alpha: 0.25),
             backgroundColor: const Color(0xFF1E293B),
@@ -376,7 +379,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
     );
   }
 
-  Widget _buildStateFilterChips(LearnByHeartProvider provider) {
+  Widget _buildStateFilterChips(LearnByHeartProvider provider, LearnByHeartL10n l10n) {
     final selectedState = provider.selectedStateFilter;
 
     return SingleChildScrollView(
@@ -384,7 +387,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
       child: Row(
         children: [
           FilterChip(
-            label: const Text('Tất cả trạng thái'),
+            label: Text(l10n.allStates),
             selected: selectedState == null,
             selectedColor: Colors.white.withValues(alpha: 0.15),
             backgroundColor: Colors.transparent,

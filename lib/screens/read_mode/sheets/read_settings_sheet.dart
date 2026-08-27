@@ -1741,6 +1741,19 @@ class _DisplayOptions extends StatelessWidget {
             activeThumbColor: const Color(0xFF9C27B0),
             onChanged: (v) => tp.toggleAutoSplit(v),
           ),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+          SwitchListTile(
+            title: const Text('Box từng từ (tap để lưu)',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: Text(
+              'Tắt = bôi nhiều chữ (mặc định). Bật = mỗi từ một hộp, '
+              'long-press lưu từ — nền lưu hàng loạt.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            ),
+            value: tp.wordTapBoxes,
+            activeThumbColor: const Color(0xFFFF9800),
+            onChanged: (v) => tp.setWordTapBoxes(v),
+          ),
         ],
       ),
     );

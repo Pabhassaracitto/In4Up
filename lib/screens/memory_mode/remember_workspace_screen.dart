@@ -12,6 +12,7 @@ class RememberWorkspaceScreen extends StatelessWidget {
   final VoidCallback onOpenStats;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenQuickActions;
+  final VoidCallback? onOpenLearnByHeart;
 
   const RememberWorkspaceScreen({
     super.key,
@@ -21,6 +22,7 @@ class RememberWorkspaceScreen extends StatelessWidget {
     required this.onOpenStats,
     required this.onOpenMap,
     required this.onOpenQuickActions,
+    this.onOpenLearnByHeart,
   });
 
   @override
@@ -37,6 +39,7 @@ class RememberWorkspaceScreen extends StatelessWidget {
             onOpenStats: onOpenStats,
             onOpenMap: onOpenMap,
             onOpenQuickActions: onOpenQuickActions,
+            onOpenLearnByHeart: onOpenLearnByHeart,
           ),
         ),
         const Expanded(
@@ -54,6 +57,7 @@ class _RememberWorkspaceHeader extends StatelessWidget {
   final VoidCallback onOpenStats;
   final VoidCallback onOpenMap;
   final VoidCallback onOpenQuickActions;
+  final VoidCallback? onOpenLearnByHeart;
 
   const _RememberWorkspaceHeader({
     required this.onOpenReview,
@@ -62,6 +66,7 @@ class _RememberWorkspaceHeader extends StatelessWidget {
     required this.onOpenStats,
     required this.onOpenMap,
     required this.onOpenQuickActions,
+    this.onOpenLearnByHeart,
   });
 
   @override
@@ -148,6 +153,15 @@ class _RememberWorkspaceHeader extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
+                    if (onOpenLearnByHeart != null) ...[
+                      _WorkspaceChip(
+                        icon: Icons.auto_stories_rounded,
+                        label: 'Thuộc lòng',
+                        color: const Color(0xFF4CAF50),
+                        onTap: onOpenLearnByHeart!,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     _WorkspaceChip(
                       icon: Icons.school,
                       label: 'Ôn tập',

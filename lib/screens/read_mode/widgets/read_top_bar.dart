@@ -20,16 +20,40 @@ class ReadTopBar extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 620;
+        final isSmallHeight = MediaQuery.of(context).size.height < 700;
+        final compact = constraints.maxWidth < 620 || isSmallHeight;
         final actionRow = compact
             ? Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 6,
+                runSpacing: 6,
                 alignment: WrapAlignment.end,
                 children: [
                   _ColorModeChip(textProvider: tp, compact: true),
+                  _WordTapChip(textProvider: tp),
                   _AutoSyncChip(controller: controller),
-                  _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
+                  if (!isSmallHeight)
+                    _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
+                  // Nút Focus mode cho màn hình nhỏ
+                  GestureDetector(
+                    onTap: () => controller.toggleFocusMode(),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: controller.isFocusMode
+                            ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: controller.isFocusMode
+                            ? Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.4))
+                            : null,
+                      ),
+                      child: Icon(
+                        controller.isFocusMode ? Icons.fullscreen_exit : Icons.fullscreen,
+                        size: 16,
+                        color: controller.isFocusMode ? const Color(0xFF6C63FF) : Colors.white70,
+                      ),
+                    ),
+                  ),
                 ],
               )
             : Row(
@@ -40,11 +64,29 @@ class ReadTopBar extends StatelessWidget {
                   _AutoSyncChip(controller: controller),
                   const SizedBox(width: 8),
                   _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => controller.toggleFocusMode(),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: controller.isFocusMode
+                            ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        controller.isFocusMode ? Icons.fullscreen_exit : Icons.fullscreen,
+                        size: 16,
+                        color: controller.isFocusMode ? const Color(0xFF6C63FF) : Colors.white70,
+                      ),
+                    ),
+                  ),
                 ],
               );
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: isSmallHeight ? 4 : 8),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A2E),
             border: Border(
@@ -58,11 +100,20 @@ class ReadTopBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _TitleButton(tp: tp, controller: controller),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: actionRow,
-                    ),
+                    if (!isSmallHeight) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: actionRow,
+                      ),
+                    ] else
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: actionRow,
+                        ),
+                      ),
                   ],
                 )
               : Row(
@@ -287,6 +338,46 @@ class _ColorModeChip extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WordTapChip extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _WordTapChip({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final on = textProvider.wordTapBoxes;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        textProvider.setWordTapBoxes(!on);
+      },
+      child: Tooltip(
+        message: on
+            ? 'Box từng từ — chạm để về bôi nhiều chữ'
+            : 'Bôi nhiều chữ — chạm để box từng từ',
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: on
+                ? const Color(0xFFFF9800).withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: on
+                ? Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4))
+                : null,
+          ),
+          child: Icon(
+            on ? Icons.grid_view_rounded : Icons.select_all,
+            size: 16,
+            color: on ? const Color(0xFFFF9800) : Colors.grey,
+          ),
         ),
       ),
     );

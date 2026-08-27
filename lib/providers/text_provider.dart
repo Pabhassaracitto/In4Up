@@ -240,6 +240,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
   bool get showLineNumbers => _showLineNumbers;
+  bool get wordTapBoxes => ReaderDisplaySettings().wordTapBoxes;
   bool get useAutoSplit => _useAutoSplit;
   ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;
@@ -488,6 +489,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       final file = File(path);
       if (!await file.exists()) {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
+        returoadTextFile: File not found: $path');
         return false;
       }
 
@@ -1728,6 +1730,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _selectedTextInfo = null;
     _selectedText = null;
     notifyListeners();
+
+    debugPrint('✂️ Auto-split: ${_lines.length} lines');
+  }
+}
+otifyListeners();
 
     debugPrint('✂️ Auto-split: ${_lines.length} lines');
   }

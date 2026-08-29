@@ -50,17 +50,6 @@ jobs:
           flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
           code=$?
           tail -n 300 analyze.log
-          # DEBUG (agent): emit ≤30 dòng lỗi thành annotation check-run —
-          # endpoint log/blob bị chặn nên annotation là kênh đọc lỗi duy nhất.
-          # Bỏ block này khi CI xanh ổn định.
-          awk -F' • ' '/^[[:space:]]*error • / {
-            line = $3
-            sub(/:[0-9]+:[0-9]+$/, "", line)
-            msg = $2
-            gsub(/"/, "\\"", msg)
-            printf "::error file=%s::%s\n", line, msg
-            n++; if (n >= 30) exit
-          }' analyze.log
           exit $code
 
       - name: Upload analyze log

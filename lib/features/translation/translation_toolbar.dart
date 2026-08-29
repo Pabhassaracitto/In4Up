@@ -464,7 +464,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
                 widget.service.offlineOnly = v;
               },
             ),
-            const Divider(color: Colors.grey.shade800),
+            Divider(color: Colors.grey.shade800),
             // ── Glossary ───────────────────────────────────────────────
             ListTile(
               contentPadding: EdgeInsets.zero,

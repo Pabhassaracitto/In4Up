@@ -1092,7 +1092,13 @@
     Analyze. Chưa verify được step-level (token GitHub chết giữa phiên).
     Trạng thái: e82a05d = full stack nguyên vẹn chờ push+CI; nếu xanh →
     hết lỗi, các đỏ E-series là flake; nếu đỏ ở Analyze → bisect lại
-    toolbar/pipeline/test với re-run xác nhận. NHIỆM VỤ CHỜ THÊM:
+    toolbar/pipeline/test với re-run xác nhận. LỖI #5 XÁC NHẬN (owner gửi log commit ecc1ec4):
+    `const Divider(color: Colors.grey.shade800)` — MaterialColor.shade800
+    là GETTER, không tính được trong biểu thức const → const_with_non_constant.
+    Fix: bỏ `const` trước Divider. Giải thích toàn bộ chuỗi E-series
+    (E4–E9 đỏ do dòng này; E5 xanh vì cắt cả Divider; đọc 'xanh' E10 là
+    run cũ — E10 thực ra đỏ). Tổng 5 lỗi compile batch 02ffc.
+    NHIỆM VỤ CHỜ THÊM:
     thâu hoạch .docx ZIP raw-deflate từ 01a01580 (c301004 — 3 file:
     text_source_loader.dart, text_source_loader_test.dart,
     library_screen.dart; KHÔNG lấy text_provider.dart) — làm sau khi

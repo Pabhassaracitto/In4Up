@@ -278,6 +278,14 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
   WordEntry? _existing;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadRelated();
+    });
+  }
+
+  @override
   void dispose() {
     _meaningCtrl.dispose();
     _noteCtrl.dispose();
@@ -513,6 +521,14 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
 
             // ── Entry đã có sẵn → người dùng biết (đủ thông tin để update) ──
             if (_existing != null) ...[
+              VocabEntryMetaInfo(
+                entry: _existing!,
+                onEdit: () async {
+                  await VocabEntryEditSheet.show(context, _existing!);
+                  if (mounted) _loadRelated();
+                },
+              ),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -521,17 +537,17 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                   border: Border.all(
                       color: const Color(0xFFFF9800).withValues(alpha: 0.25)),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(Icons.info_outline,
+                    Icon(Icons.info_outline,
                         size: 16, color: Color(0xFFFF9800)),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Đã có trong WordList — nghĩa/ghi chú đã điền sẵn. '
                         'Lưu sẽ bổ sung ngữ cảnh + tag (không ghi đè nghĩa '
-                        'đang có).',
-                        style: const TextStyle(
+                        'đang có). Sửa IPA / chủ đề / ngôn ngữ bằng nút Sửa.',
+                        style: TextStyle(
                             color: Color(0xFFFFB74D), fontSize: 11.5, height: 1.35),
                       ),
                     ),

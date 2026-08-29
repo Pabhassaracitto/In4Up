@@ -20,8 +20,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/responsive/app_responsive.dart';
+import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
+import 'providers/audio_library_provider.dart';
 import 'providers/focus_provider.dart';
 import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
@@ -250,13 +252,19 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ChangeNotifierProvider(
+          create: (context) => PlayerProvider(
+            understandProvider: context.read<UnderstandProvider>(),
+          ),
+        ),
         // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
         ChangeNotifierProvider(
           create: (ctx) => SoundlistProvider()
             ..load()
             ..attachPlayer(ctx.read<PlayerProvider>()),
         ),
+        // Thư viện âm thanh (P1): quét MediaStore, chỉ mục Hive
+        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(
@@ -290,6 +298,8 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => FocusProvider()),
         ChangeNotifierProvider(
             create: (_) => KaraokeSettingsProvider()..load()),
+        ChangeNotifierProvider(
+            create: (_) => LearnByHeartProvider()..loadData()),
 
         // Nếu đây là singleton/global controller thì dùng .value an toàn hơn
         ChangeNotifierProvider<MemoryController>.value(
@@ -501,6 +511,3 @@ class _AppErrorScreen extends StatelessWidget {
   }
 }
 
-// 2026-08-24: fix readInto (MODELS-002) — trigger paths-filter app_analyze.
-
-// 2026-08-25: fix openRead→open (MODELS-002) — trigger paths-filter.

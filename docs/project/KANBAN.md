@@ -28,7 +28,7 @@
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
-| LISTEN-823-01 | Tab Nghe: rèm LRC tối đa + AI sheet kéo/ẩn + hết overflow + dịch ở Hiểu | ✅ done | bf83fdc; CI run 32659292077 xanh (chờ nghiệm thu thiết bị) |
+| LISTEN-823-01 | Tab Nghe: rèm LRC + AI sheet + dịch Hiểu + transcript đúng audio | ✅ done | 1d05ce9; CI run 32660616256 xanh (chờ QA đổi file nhanh) |
 | GOV-2 | Rule vàng #5: chrome UI không tiếng Việt khi locale ≠ vi + máy bắt | ✅ done | AGENTS.md + test locale (346 entries sạch) |
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
@@ -36,13 +36,21 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (in-repo fix CI-only — chờ oracle) | in4up_ci_fixes.gradle (CI=true): inject mock client + copy stable→tên không-flavor; oracle tag v1.4.0-ci-android-fix |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
-| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI |
+| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
 | SHERPA-003 | VAD pipeline 30p: cắt chunk FFmpegKit (Android) + quét async + guard | ✅ done | 43c3545; CI run 32617775840 (chờ nghiệm thu thiết bị) |
-| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang (chờ CI xanh + nghiệm thu) |
+| MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang; CI xanh 32663677470 (chờ nghiệm thu thiết bị) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
+| LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
+| LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
+| LHB-003 | Voice Recall (ghi mic + fuzzy align + gợi ý FSRS) + Nối xích câu kệ + Anki Cloze {{c1::}} | ✅ done | cherry-pick 10fecd3 → 19efa2d + fix transcribeAuto (0177c35 → 4f123e6); chờ CI + nghiệm thu mic |
+| SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
+| AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
+| LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
+| READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
+| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done | code + test thuần (sandbox KHÔNG có Flutter SDK → chờ CI + nghiệm thu thiết bị) |
 
 ---
 
@@ -323,6 +331,7 @@
 - **Lịch sử:**
   - 2026-08-21 | created | owner via chat (item 5)
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | docx thật (deflate) + md + json mô phỏng pass
+  - 2026-08-25 | fix bổ sung (cherry-pick 42ec495 từ 01a01580 → 356388a) | agent arena/01a0251e-in4up | docx: giữ tiếng Việt liền mạch — chỉ nối nội dung `<w:t>` trong đoạn (Word tách run), tokenizer Đọc dùng Unicode thay `\w` ASCII + test `test/text_source_loader_test.dart` (chờ CI + nghiệm thu mở file .docx tiếng Việt trên thiết bị)
 
 ### AICHAT-01 — AI Chat thật: llama.cpp native backend (hết mock)
 - **Trạng thái:** done — CI build llama.cpp XANH 3 nền tảng (Android/iOS/Windows, run 32592622383); chờ nghiệm thu app của owner (import .gguf + chat)
@@ -671,7 +680,7 @@
     run 32650359097; chờ nghiệm thu thiết bị
 
 ### LISTEN-823-01 — Tab Nghe: rèm LRC tối đa, AI sheet linh hoạt, dịch ở Hiểu
-- **Trạng thái:** done (chờ nghiệm thu trên thiết bị)
+- **Trạng thái:** done (fix bổ sung chờ nghiệm thu đổi file trên thiết bị)
 - **Nguồn:** người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up — thay
   nhánh quản lý Listen arena/019fe27a-vipsound bị lỗi).
 - **Nội dung:**
@@ -690,6 +699,151 @@
 - **Lịch sử:**
   - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | nhận 4 yêu cầu từ owner, triển khai code + test
   - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; CI 32659292077 xanh
+  - 2026-08-24 | 00:43 +0530 | done→reopened | owner + agent arena/01a02fee-in4up | audio mới vẫn giữ lời cũ; RCA: PlayerProvider chỉ nhận UnderstandProvider sau khi vào tab Hiểu, in-memory LRC fallback không gắn audio nguồn, callback async cũ có thể ghi trả lại
+  - 2026-08-24 | 00:46 +0530 | reopened→done | agent arena/01a02fee-in4up | 1d05ce9: inject provider toàn cục, clear UI/editor, bind cache với source, chặn callback cũ; CI 32660616256 xanh
+
+### LHB-001 — Learn by Heart (Dhammapada SRS) — nghiệm thu từ nhánh 019ff2de
+- **Trạng thái:** done (chờ nghiệm thu UX trên thiết bị)
+- **Nguồn:** agent arena/019ff2de-in4up (branch 35d1d48, Spec v4.1 FINAL SEALED)
+- **Nội dung:** 30 file +5765 dòng: models (LearnByHeartItem, FSRSParams,
+  Chunk, LineTimestamp, ReviewState, RecitationCategory), services
+  (FSRSEngine cold-start [0,1,3,7,14] ngày + assessment trọng số x2,
+  ClozeGenerator deterministic, LearnByHeartStorage SharedPreferences,
+  MultilingualAudioService highlight dòng theo timestamp), 6 screens
+  (hub, active recall, assessment, chunking flow, item editor, new
+  learning), 5 widgets, seed Dhammapada (≥12 kệ, Pali + Việt + chunks +
+  keywords), test 161 dòng, tích hợp main.dart + main_shell (tool
+  "Thuộc lòng") + RememberWorkspace chip.
+- **Nghiệm thu (2026-08-24, agent 01a0251e):** review code OK (FSRS
+  monotonic again<hard<good<easy, assessment perfect x2.2 stability,
+  audio service dispose đúng, storage round-trip JSON); merge-tree clean
+  (không xung đột với 251e); test CI xanh; merge 15deaf0 vào 251e →
+  App Analyze + Locale xanh 32662979309. Ghi nhận minor: field
+  `lapseCount` song song chết (engine chỉ update `fsrsParams.lapses` —
+  không hiển thị ở đâu, không gây lỗi); UI hard-code tiếng Việt (nhất
+  quán với codebase hiện có — rule #5 áp dụng khi wave i18n).
+- **Lịch sử:**
+  - 2026-08-24 | created→done | agent arena/01a0251e-in4up | nghiệm thu
+    branch 019ff2de (35d1d48) + merge 15deaf0; CI xanh 32662979309
+  - 2026-08-25 | thu hoạch thêm 0ed55c8 | agent arena/01a0251e-in4up |
+    cherry-pick -x → fb483df (scaffolding 4 tầng + i18n 6 ngôn ngữ, xem LHB-002)
+
+### LHB-002 — Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n 6 ngữ
+- **Trạng thái:** done (chờ CI + nghiệm thu UX trên thiết bị)
+- **Nguồn:** chủ yêu cầu (2026-08-25) — thâu hoạch commit mới nhất
+  `0ed55c8` của `arena/019ff2de-in4up`.
+- **Nội dung:** 9 file +786/−142: `learn_by_heart_l10n.dart` (mới, 350 dòng —
+  6 ngôn ngữ vi/en/hi/zh/zh_TW/si + fallback), ClozeGenerator 4-level
+  progressive vanishing (full → scaffolding → first-letter → blank) +
+  first-letter mnemonics (hỗ trợ Pali diacritics), cloze_interactive_text
+  (235 dòng) + active_recall/hub/assessment_rating_bar/fsrs_rating_bar/
+  elaborative_card dùng l10n, test thêm 3 group (scaffolding accuracy,
+  Pali diacritics, i18n coverage + fallback).
+- **Bằng chứng:** cherry-pick clean (9 file không phân kỳ từ 35d1d48);
+  CI App Analyze chạy khi push.
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
+    0ed55c8 → fb483df; chờ CI xanh + nghiệm thu UX
+  - 2026-08-25 | fix compile | agent arena/01a0251e-in4up | 0ed55c8 đã đỏ
+    sẵn trên cả 019ff2de (undefined_getter `l10n.allCategories`/`allStates` —
+    hub screen tham chiếu nhưng l10n thiếu) → fix 3c22e97 (thêm 2 getter
+    6 ngôn ngữ); App Analyze + Locale XANH run 32772381254
+  - 2026-08-25 | thu hoạch 0177c35 | agent arena/01a0251e-in4up |
+    cherry-pick -x → 4f123e6 (keywords mode render plain text + isMaskedAtLevel
+    + counters theo level + level1..4Desc). CI 019ff2de xanh 32775838260.
+    Dedup allCategories/allStates (bản 0177c35 chính thống thay fix tạm 3c22e97)
+
+### SOUNDLIST-630-02 — transcriptFromLrcLines: end = dòng không trống kế tiếp
+- **Trạng thái:** done
+- **Nguồn:** CI đỏ Soundlist run 32521698801 (test 137) — bug có sẵn
+  trên 251e (nhánh learn_by_heart cũng dính).
+- **Nội dung:** dòng LRC trống/whitespace nằm giữa 2 dòng nội dung làm
+  `end` của dòng trước = timestamp dòng trống (= start) thay vì +3s
+  fallback → highlight/playback transcript sai. Fix: tìm dòng không
+  trống kế tiếp làm end; dòng cuối +3s.
+- **Bẫy (ghi nhận):** tồn tại 2 file duplicate —
+  `lib/providers/soundlist_provider.dart` (bản sống: main.dart, screens,
+  test import) và `lib/models/soundlist_provider.dart` (bản chết: 0
+  importers, tự import bản sống). Fix lần đầu (2fb9ead) trúng bản chết —
+  sửa lại bản sống ở c978432; cả 2 bản giờ cùng fix. **Khuyến nghị
+  cleanup:** xóa bản chết hoặc gộp (chờ owner duyệt).
+- **Bằng chứng:** CI Soundlist xanh run 32663677483; App Analyze xanh
+  32663677470.
+- **Lịch sử:**
+  - 2026-08-24 | created→done | agent arena/01a0251e-in4up | fix + CI xanh
+
+### LHB-003 — Voice Recall + Nối xích câu kệ + Anki Cloze (thu hoạch 019ff2de)
+- **Trạng thái:** done (chờ CI + nghiệm thu mic trên thiết bị)
+- **Nguồn:** chủ yêu cầu (2026-08-25) — nghiệm thu `0177c35` của
+  `arena/019ff2de-in4up`; thu hoạch kèm `10fecd3` (commit mới hơn trên nhánh).
+- **Nghiệm thu 0177c35:** review OK — `ClozeToken.isMaskedAtLevel(level)`
+  (4 level đầy đủ), keywords mode ghost đúng `isKeyword || isMasked`,
+  firstLetter mode prompt cho TẤT CẢ từ (fix bug: từ không-masked trước
+  đây render chữ thường), từ dấu câu/punctuation giữ nguyên (không thành
+  '___'), counters `_totalMaskedForLevel`/`_revealedForLevel`, hint icon +
+  màu theo level (level1..4Desc). CI 019ff2de XANH 32775838260.
+- **Nội dung 10fecd3:** 8 file +1196/−52 — VoiceRecitationService (ghi mic
+  qua RecordingService có sẵn + STT offline + fuzzy align Levenshtein
+  cửa sổ ±3/4, chấm exact/partial/missed, gợi ý FSRSRating ≥88→easy),
+  VoiceRecitationSheet (351 dòng), ChainRecitationController + View
+  (nối xích line-by-line), AnkiClozeParser (`{{c1::từ::gợi ý}}` —
+  hasAnkiCloze/getCardIndices/stripAnkiSyntax/parseToTokens),
+  ItemEditor tự nhận diện Anki Cloze khi lưu (rút keyword + strip syntax),
+  ActiveRecall thêm mode "Nối xích" + nút mic, test 3 group mới.
+- **Fix compile (10fecd3 đỏ sẵn trên 019ff2de, run 32776254590):**
+  `voice_recitation_service` gọi `_stt.transcribeFile(filePath:, language:)`
+  + `res.text` — SttServiceFacade không có API đó (transcribeFile dùng
+  positional + không có language; output là SttTranscribeOutput có
+  .success/.result.fullText) → sửa dùng `transcribeAuto(path, language:,
+  generateLrc: false)` (giống luồng auto-TOC). Cross-check thêm: toàn bộ
+  tham chiếu l10n/item model/AnkiClozeParser/ChainRecitationController/
+  VoiceRecitationSheet.show đều resolve.
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
+    10fecd3 → 19efa2d (amend fix transcribeAuto); chờ CI + nghiệm thu mic
+
+### HARVEST-1580-01 — Thâu hoạch phần còn thiếu từ 01a01580 (1580)
+- **Trạng thái:** done (chờ CI + nghiệm thu thiết bị cho fix docx)
+- **Nguồn:** chủ yêu cầu (2026-08-25) — "cherry-pick những phần còn thiếu từ 1580".
+- **Đã có sẵn trên 251e (KHÔNG lấy lại, tránh đè):**
+  - STT tải khi bấm (`928525a`) — `stt_model_manager`/facade cùng blob
+  - Chấm viết 2 tầng + reload GGUF (`e4b51ff`) — `write_studio`/`ai_analysis`/mock
+  - Mở lại MP3 dùng LRC đã lưu (`d8486d3`) — đã vào qua REOPEN-001 (`f5cd164`)
+  - STT engine strategy Whisper+Native (`f8fd639`) — 4 file giống hệt
+  - `ai_engine_gemma.dart` / `ai_service_facade.dart` / cả `in4up_stt/lib/` —
+    251e đã tích hợp llama/Sherpa, đè là mất (theo `PROMPT_DEV_NHAN_580`)
+- **Cherry-pick sang 251e lần này (chỉ tài liệu + 1 fix docx):**
+  - `a8e0c3c` so-tay BETA=`01a02a12` → bản đã nằm sẵn (no-op, skip)
+  - `f969dd8` so-tay mục A (Repo chính In4Up) + thứ tự 02601/296a vào DEV
+    (conflict `ai_engine_gemma` — giữ bản 251e, chỉ lấy phần so-tay)
+  - `7ec51df` so-tay tên APK `app-stable-<abi>`, PR #9 không merge main
+  - `dbe4728` `PROMPT_AGENT_DICH_OFFLINE.md` (prompt dịch offline + glossary Pali)
+  - `80c205a` `PROMPT_DEV_NHAN_580.md` (sổ chỉ dẫn nhận phần 580, ghi "khong merge")
+  - `d8a26ee` `AUDIT_MAT_MERGE_DEV.md` (rà soát mất chức năng do merge DEV)
+  - `42ec495` **fix(docx) tiếng Việt liền mạch** → commit `356388a`
+    (parser chỉ nối `<w:t>` trong đoạn + tokenizer Unicode + test)
+- **Bằng chứng:** `git cherry HEAD origin/arena/01a01580-in4up` — các code 580
+  còn dấu `+` đều đã có bản tương đương trên 251e (đối chiếu blob, xem trên).
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick 7 commit
+    (6 docs + 1 docx fix) với `-x`; đối chiếu blob từng file; chờ CI + nghiệm thu
+
+### LISTEN-825-01 — Màn hình đỏ ListenLibraryScreen: nhiều animation ticker
+- **Trạng thái:** done (chờ chủ mở lại tab Nghe trên thiết bị xác nhận hết đỏ)
+- **Nguồn:** chủ báo (2026-08-25) + fix `4bb14a3` trên nhánh `arena/01a03564-in4up`.
+- **RCA:** `ListenLibraryScreen` tạo 2 ticker — `TabController(length: 2)`
+  (tab Thư viện do Audio Library P1) + `_fabAnim` (AnimationController FAB)
+  — trong khi State chỉ `SingleTickerProviderStateMixin` (giới hạn 1 ticker)
+  → exception "A Ticker was active..." → màn hình đỏ. Lỗi xuất hiện khi
+  màn hình có đủ 2 tab (sau thu hoạch Audio Library P1).
+- **Sửa:** `with TickerProviderStateMixin` (1 dòng). An toàn vì `dispose()`
+  đã dispose cả `_tabController` lẫn `_fabAnim` (TickerProviderStateMixin
+  không auto-dispose).
+- **Bằng chứng:** cherry-pick -x 4bb14a3 → 4b6a677; App Analyze + Locale
+  XANH run 32777390692.
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | cherry-pick fix
+    từ 01a03564; CI xanh 32777390692
 
 ### MODELS-002 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
 - **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu của owner)
@@ -705,14 +859,208 @@
   ~1.5GB, chỉ WiFi, progress bar) + Xóa (confirm). (4) Import copy theo chunk
   8MB kèm tiến độ; download verify header GGUF sau tải; `AiModelConfig.
   defaultDownloadUrl` cho nút Tải về.
-- **Bằng chứng:** code trong branch (engine/facade/loader/chat screen/settings
-  screen + 15 override EN mới + dọn 12 override stale do merge). CI oracle:
-  app_analyze.yml (analyze + locale test) khi push.
+- **Nguồn:** thu hoạch từ `arena/01a02a4a-in4up` (26571af, 38e8865, b84e571,
+  2868af2) — 2026-08-25, agent arena/01a0251e-in4up.
+- **Bằng chứng:** CI oracle app_analyze.yml (analyze + locale test) khi push.
 - **Ghi chú debt:** generator legacy_ui_fallbacks chưa chạy được trên tree merge
-  — còn 179 literal chưa phân loại (toàn từ 68 commits của 01a0251e, không phải
-  của card này; CI không chạy generator nên không chặn). 15 key mới của card này
-  đã verify được generator trích đúng (không nằm trong unused/unclassified).
+  — còn ~179–194 literal chưa phân loại (toàn từ các commit 01a0251e trước,
+  không phải của card này; CI không chạy generator nên không chặn).
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat | "import xong không thấy biểu hiện gì… nên quản lý models 1 chỗ nơi setting của home, import trực quan và tải online"
-  - 2026-08-23 | proposed→doing | agent arena/01a02a4a-in4up | implement engine signal + facade stages + banner + section settings; chờ CI + nghiệm thu
+  - 2026-08-23 | proposed→doing | agent arena/01a02a4a-in4up | implement engine signal + facade stages + banner + section settings
   - 2026-08-23 | doing→doing | agent arena/01a02a4a-in4up | app_analyze run 32665063225 ĐỎ — log bị chặn, bisect 5 vòng (branch tmp): core đỏ → không phải facade → không phải engine trio (xanh riêng) → **thủ phạm = ai_model_loader.dart**: `importModelFromUser` khai báo TRÙNG `result` trong cùng scope (FilePicker.pickFiles + ModelLoadResult) ⇒ "already declared in this scope". Fix: rename → `modelResult`. Sandbox re-image giữa lượt làm mất 3 commit local + token 401 — đã reconnect, phục hồi từ remote tip (2868af2) + áp lại fix. Dọn dẹp: xóa branch tạm arena/tmp-analyze-bisect (KHÔNG merge branch này)
+  - 2026-08-25 | thu hoạch vào 251e | agent arena/01a0251e-in4up | cherry-pick -x 4 commit (chờ CI + nghiệm thu)
+  - 2026-08-25 | fix compile ×3 | agent arena/01a0251e-in4up | 26571af gốc
+    (đỏ cả trên 01a02a4a run 32665063225) có 3 lỗi compile — bisect 11 vòng
+    oracle (skill ci-red-debugging) định vị:
+    (1) gemma `_spawnIsolate`: `final loadCompleter = _modelLoadCompleter;`
+        đọc field `Completer<void>?` (nullable) rồi `.isCompleted/.complete()`
+        không null-check → "receiver can be null". Sửa: tạo Completer local
+        non-null rồi gán field.
+    (2) loader `_copyFileWithProgress`: gọi `rs.read(buffer, ...)` — không
+        tồn tại (`File.openRead()` trả `Stream<List<int>>`, không phải
+        RandomAccessFile). Sửa: copy theo stream (openRead + openWrite IOSink,
+        cùng pattern đã chứng minh trong downloadModel).
+    (3) loader `importModelFromUser`: `final result` khai báo 2 lần cùng scope
+        (đụng `final result = await FilePicker.pickFiles(...)`) → "name already
+        defined". Sửa: đổi tên `loadResult`.
+  - 2026-08-25 | khôi phục sau re-image | agent arena/01a0251e-in4up | sandbox
+    tái bản giữa phiên làm mất các commit chưa push (UI/i18n/docs/facade);
+    rebuild lại từ d43cc3d + restore facade 26571af (không bị 3 fix ảnh hưởng)
+  - 2026-08-25 | CI xanh | agent arena/01a0251e-in4up | App Analyze + Locale
+    XANH run 32855255220 (tip 3797dcc — full harvest) + run 32789473478
+    (core fix, d43cc3d). Chờ nghiệm thu UX thiết bị (banner chat, import
+    .gguf progress, tải URL chỉ WiFi, xóa model)
+
+
+### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
+- **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)
+- **Nguồn:** owner yêu cầu nghiệm thu `arena/01a0018e-in4up` (2026-08-25) —
+  fix 3 lỗi từ audit thiết bị của owner: pub get đỏ (sherpa duplicate),
+  mở bài từ tab Thư viện không chạy (content://), "Chỉ VAD" báo lỗi.
+- **Nội dung (thâu hoạch ff 01a0018e → 0855cb3, 8 file +111/−69):**
+  - `AudioLibraryService.resolvePlayablePath()`: content:// → copy sang cache
+    trước khi phát (just_audio/ExoPlayer không phát content:// ổn định) — dùng
+    ở `AudioLibraryView._openEntry` + `ListenLibraryScreen._openAudio`
+    (kể cả mở lại file đã lưu ở tab Gần đây).
+  - `SoundAutoTocService._evenSplitFallback()`: PURE, chia đều 2–8 đoạn
+    ~60s/đoạn; áp vào MỌI early-return (copy content:// fail, waveform rỗng,
+    energies <6, slices <2) → file ≥ ~12s luôn tạo được mục lục thô kể cả
+    VAD-only, không cần Whisper.
+  - `packages/in4up_stt/pubspec.yaml`: bỏ `sherpa_onnx: ^1.13.4` trùng khai báo
+    (duplicate key làm pub get fail), giữ `^1.13.6`.
+  - Dọn `sound_auto_toc_dialog.dart` (bỏ PlayerProvider import + biến unused),
+    `stt_model_settings_screen.dart` (bỏ import googleapis/analytics auto-import
+    nhầm + material trùng — 0855cb3).
+  - `docs/soundlist_ci_workflow.yml` v5 (commit-back log khi đỏ + paths đủ
+    Audio Library + pubspec) — **workflow đang chạy vẫn là bản cũ**; owner copy
+    v5 vào `.github/workflows/soundlist_tests.yml` nếu muốn (agent không có
+    quyền workflows).
+- **Nghiệm thu (2026-08-25, agent arena/01a0251e-in4up):** review code từng file
+  OK (resolvePlayablePath fallback an toàn `path ?? uri`; _evenSplitFallback
+  đúng biên 2×minSegment; pubspec 1 key duy nhất). CI: App Analyze + Locale
+  XANH run 33037686097 + Soundlist XANH run 33037686068 (analyze + test).
+  01a0018e xanh sẵn run 32946979440 trước khi thâu hoạch.
+- **Chờ owner (thiết bị):** (1) tab Thư viện → chạm 1 bài → phát được;
+  (2) ⚡ Tự tạo mục lục → Chỉ VAD → ra "Đoạn 1 · 00:00…" kể cả file content://;
+  (3) VAD+Whisper vẫn chạy. Xong → bước P2 (chọn thư mục âm thanh).
+- **Lịch sử:**
+  - 2026-08-25 | created→done | agent arena/01a0251e-in4up | ff-merge
+    01a0018e (70c4efc, nhánh đã merge sẵn 251e 2cfb53b) + cleanup import;
+    CI xanh 33037686097/33037686068
+### LANG-03033-01 — Chrome i18n Soundlist/LHB/shell (thâu hoạch 01a03033) + 3 fix nghiệm thu
+- **Trạng thái:** done (CI xanh; chờ owner nghiệm thu: mở app locale ≠ vi →
+  chrome Soundlist/LHB/shell hiện bản dịch hi/zh/zh_TW/si/EN, không Việt)
+- **Nguồn:** owner yêu cầu nghiệm thu `arena/01a03033-in4up` (2026-08-27).
+- **Nội dung thâu hoạch (ff 1982867 → f149d5a, 79 file):**
+  - Bản dịch + fallback nhóm chrome Soundlist (Âm mục, Điểm, Đoạn, Mục lục,
+    Chương, Ghi chú, Đánh dấu, Tìm kiếm, Phát, Thêm, Xóa, Đổi tên, …) +
+    status notifications cho **hi/zh/zh_TW/si**; fallback: locale → EN →
+    an toàn, **không bao giờ fallback về Việt**.
+  - 6 file qua localized Material/Text bridge (soundlist_panel,
+    sound_list_screen, sound_auto_toc_dialog, sound_mark_edit_sheet,
+    selection_save_sheet, vocab_entry_meta) + import-swap 11 file.
+  - Regenerate `generated_ui_translations.dart` (791 entries) +
+    `generated_legacy_ui_fallbacks.dart` (1640 keys); ARB +78 key
+    (audit_*, lhb_*, chrome shell/LHB/soundlist).
+- **Fix 1 — regression merge (a5ee489):** merge dd081fb (01a03033) resolution
+  giữ BẢN CŨ → revert im lặng 10 file (mất auto-TOC background + D16,
+  dialog auto-TOC mới, LHB-002 scaffolding 4 tầng, LHB-003 wiring) →
+  compile error CI đỏ. KANBAN.md cũng bị rơi 6 card 251e (AUDLIB-001,
+  HARVEST-1580-01, LHB-002/003, LISTEN-825-01, MODELS-002) — đã khôi phục
+  toàn bộ từ 1982867. Fix: 3-way merge-file đúng base (e02ac7e soundlist /
+  35d1d48 LHB) — ours = đủ tính năng 251e + theirs = i18n. Verify: feature
+  markers + i18n imports + i18n data ('Âm mục' → hi ध्वनि सूची / zh 音频目录 /
+  zh_TW 音訊目錄 / si ශ්‍රව්‍ය ලැයිස්තුව).
+- **Fix 2 — rule5 (881d8aa):** (a) app_ar.arb 3 subtitle có GIÁ TRỊ TIẾNG
+  VIỆT (generator fallback sai) → về EN; (b) 78 key mới chưa dịch T3 →
+  keep-English (chính sách ADR-0002) — 19 locale từng tụt dưới sàn ratchet.
+- **Bằng chứng:** App Analyze + Locale XANH run 33078187839; Soundlist XANH
+  33076735293. Verify local: replica đủ 11 check của
+  locale_chrome_no_vietnamese_test → 0 vi phạm.
+- **Lịch sử:**
+  - 2026-08-27 | created→done | agent arena/01a0251e-in4up | ff-merge 01a03033
+    + 3 fix (regression 10 file + khôi phục KANBAN + rule5 ARB/keep-English);
+    CI xanh 33078187839
+
+### READ-630-06 — Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn; sheet lưu hiện từ cũ
+- **Trạng thái:** done (CI xanh; chờ owner nghiệm thu trên thiết bị)
+- **Nguồn:** chủ yêu cầu nghiệm thu `arena/01a01580-in4up` (2026-08-27) —
+  thâu hoạch commit `db5c6ed` bằng path-checkout 6 file (pattern SO_TAY).
+- **Nội dung:**
+  - **2 cách chọn:** mặc định bôi nhiều chữ (mọi màu POS/CEFR, như chế độ
+    không màu); "box từng từ" là TUỲ CHỌN — chip lưới cam trên ReadTopBar
+    (cạnh chip màu) + toggle trong ReadSettingsSheet; persist qua
+    ReaderDisplaySettings (prefs).
+  - Box từng từ: long-press box → sheet lưu từ (nền lưu hàng loạt sau này);
+    render qua ColoredTextWidget.
+  - **Sheet lưu từ đủ dữ liệu từ cũ:** `_loadRelated()` chạy khi mở sheet
+    (postFrame) — trước đó không bao giờ chạy → mất bảng từ cũ. Entry đã
+    có: VocabEntryMetaInfo (IPA, loại, chủ đề, ngôn ngữ) + nút Sửa
+    (VocabEntryEditSheet — cùng bảng PDF/Web: thêm/bớt tag); chip ngôn ngữ
+    en/vi/pali/my + ngôn ngữ đã có (không ô gõ mã mới); cụm/từ liên đới
+    hiện lại khi WordList có mục gần giống.
+- **Fix nghiệm thu (code 1580 db5c6ed dính 5 lỗi compile — chưa qua CI):**
+  1. text_provider: dòng rác 'returoadTextFile: File not found: $path');'
+     (merge-corrupt) — xóa.
+  2. text_provider: tail corrupt — 'notifyListeners();' + block Auto-split
+     nhân đôi + thừa đóng class — dọn.
+  3. Thiếu TextProvider.setWordTapBoxes (read_top_bar + read_settings_sheet
+     gọi) + thiếu import reader_display_settings — bổ sung setter delegate.
+  4. _buildTextContent: 'lineIndex: index' mà index không có scope — truyền
+     index từ caller.
+  5. Mảnh rác 'otifyListeners();' (thiếu n) sót ở _applyLines — khôi phục.
+  Verify: diff chéo 6 file với bản gốc 251e (2f64c18) — chỉ còn đúng diff
+  feature; balance-check 6 file OK.
+- **Bằng chứng:** App Analyze + Locale XANH run 33082501188.
+- **Lịch sử:**
+  - 2026-08-27 | created→done | agent arena/01a0251e-in4up | path-checkout
+    6 file từ db5c6ed + 5 fix compile; CI xanh 33082501188
+  - 2026-08-29 | fix bug layout rộng | agent arena/01a0251e-in4up | e715d85:
+    _WordTapChip chỉ gắn nhánh compact (width<620 || height<700) → màn rộng
+    (Windows/tablet) không có nút; bù vào Row không compact + icon tắt
+    select_all → grid_view_outlined (khớp "nút lưới")
+
+### XLAT-001 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT)
+- **Trạng thái:** done (code + test thuần; chờ CI + nghiệm thu thiết bị)
+- **Nội dung:**
+  - **Vòng 1 — Glossary + protect-tokens (mọi nền tảng):** module
+    `lib/features/translation/glossary/` (thuần Dart: `translation_glossary.dart`,
+    `protect_tokens.dart` + `glossary_store.dart` Hive box `translation_glossary`).
+    Lookup longest-match trên chuỗi đã normalize (dùng `CanonTokenizer`,
+    Pali có dấu khớp biến thể không dấu), word boundary, tie-break
+    priority (user 100 > hạt giống 0) + domain. Protect = thay hit bằng
+    `__G{n}__` → engine dịch phần còn lại → restore nghĩa khóa. Cache
+    (MD5) lưu câu ĐÃ RESTORE; glossary đổi → clear cache.
+    - Hạt giống 226 mục Pali/EN Phật học → VI: `assets/glossary/buddhist_pi_en_vi.json`
+      (locked=true; chưa có hạt giống HI — chờ bảng từ chủ).
+    - Đồng bộ 1 chiều từ WordEntry (language Pali hoặc topic Phật học +
+      meaning không rỗng → entry domain=user nếu chưa có, không ghi đè).
+    - UI: màn "Thuật ngữ dịch" (list/thêm/sửa/khóa/xóa) mở từ Cài đặt
+      engine dịch; chuỗi chrome qua uiText + override English.
+  - **Vòng 2 — ML Kit offline (Android/iOS) + Hindi:** `MlKitEngine`
+    (package `google_mlkit_translation` 0.15.x) — engine dịch CÂU, cắm
+    TRƯỚC online engines trong pipeline. Cặp EN↔VI, EN↔HI; HI↔VI pivot
+    qua EN (2 bước + glossary hai đầu) khi đủ model. Model CHỈ tải khi
+    user bấm "Tải về" trong Cài đặt engine dịch (không auto lúc mở app,
+    cùng quy tắc Whisper). Thiếu model → failure rõ "Chưa tải gói dịch
+    <lang>" — không rơi im lặng về ráp từ. Desktop: isAvailable=false,
+    import không crash.
+  - **Vòng 3:** toggle "Chỉ dùng dịch offline" (persist SharedPreferences);
+    KANBAN card này. (Windows GGUF stub CHƯA làm — chờ PR #8 trên 251e.)
+  - Pipeline `TranslationService`: cache → glossary(protect) → ML Kit →
+    online (nếu mạng + không khóa offline-only) → từ điển offline
+    (last resort) → restore → cache.
+- **File:** thêm `lib/features/translation/glossary/{translation_glossary,
+  protect_tokens,glossary_store,glossary_sheet}.dart`,
+  `lib/features/translation/engines/mlkit_engine.dart`,
+  `assets/glossary/buddhist_pi_en_vi.json`, `test/translation_glossary_test.dart`;
+  sửa `translation_service.dart`, `translation_toolbar.dart`,
+  `vocabulary_provider.dart`, `pubspec.yaml`,
+  `tool/legacy_ui_english_overrides.json` + generated fallbacks, PLAN-019.
+- **Bằng chứng:** `test/translation_glossary_test.dart` (normalize,
+  longest-match, boundary, restore, luật khóa, sync WordEntry, thứ tự
+  tầng pipeline, pivot HI→VI, ML Kit desktop). **Lưu ý:** sandbox KHÔNG
+  có Flutter SDK — chưa chạy `flutter analyze`/`flutter test`; owner cần
+  `flutter pub get` (dependency mới) + chạy CI/test trước nghiệm thu.
+- **Lịch sử:**
+  - 2026-08-23 | created | owner via prompt giao việc (dịch offline +
+    glossary Phật học/Pali + Hindi) | agent arena/01a02ffc-in4up
+  - 2026-08-23 | doing→done | agent arena/01a02ffc-in4up | code + test thuần;
+    cache MD5 kế thừa sẵn trên 251e (không cần path-checkout d8486d3);
+    chưa build máy (sandbox không có Flutter SDK) — chờ CI + nghiệm thu
+  - 2026-08-29 | thu hoạch vào 251e | agent arena/01a0251e-in4up |
+    cherry-pick 4 SHA dbab77e→aa84747 thành ad874b6/e648d64/753d790/26a5c51
+    (KHÔNG lấy read_top_bar/text_provider từ 02ffc — giữ nút lưới 1580);
+    fix import WordEntry sai đường dẫn da2ea37 (bị vỡ cả trên 02ffc — chưa
+    từng compile); PLAN-016 trùng số với card Tab Nghe trên DEV → PLAN-019;
+    pubspec.lock chưa có google_mlkit_translation — CI pub get tự sync, chủ
+    chạy `flutter pub get` trên máy rồi commit lock; chờ CI xanh + nghiệm
+    thu máy: EN→VI, EN→HI, một câu có sati/nibbāna
+  - 2026-08-29 | 3 lỗi compile tìm qua oracle CI (log/blob bị chặn) |
+    agent arena/01a0251e-in4up | (1) DropdownButtonFormField initialValue→
+    value ×3 (b497738); (2) translation_glossary thiếu import protect_tokens
+    (f916244); (3) **Hive Box KHÔNG có putIfAbsent** (02ffc tưởng như Map)
+    → `await box.put(...)` trong _doInit (commit này). Bisect 7 vòng CI
+    ~2m/vòng, skill ci-red-debugging. Bài học: code 02ffc chưa từng qua
+    compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định

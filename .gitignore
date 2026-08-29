@@ -63,7 +63,7 @@ ehthumbs.db
 Desktop.ini
 
 # IDE
-.vscode/
+.vscode/*
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
@@ -135,6 +135,7 @@ android/local.properties
 docs/
 .guide/
 google-services.json
+android/app/google-services.json
 # Exceptions - force track important files
 !pubspec.lock
 !android/app/src/main/jniLibs/arm64-v8a/libnative_audio.so
@@ -147,3 +148,8 @@ google-services.json
 !assets/whisper_models/.gitkeep
 !ios/Runner.xcodeproj/project.pbxproj
 setup-env.ps1
+
+# Local offline models for VS Code / desktop debug (không ship APK)
+dev_models/**
+!dev_models/README.md
+!dev_models/**/.gitkeep

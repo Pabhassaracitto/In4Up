@@ -29,6 +29,7 @@ class ReadTopBar extends StatelessWidget {
                 alignment: WrapAlignment.end,
                 children: [
                   _ColorModeChip(textProvider: tp, compact: true),
+                  _WordTapChip(textProvider: tp),
                   _AutoSyncChip(controller: controller),
                   if (!isSmallHeight)
                     _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
@@ -59,6 +60,8 @@ class ReadTopBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _ColorModeChip(textProvider: tp),
+                  const SizedBox(width: 8),
+                  _WordTapChip(textProvider: tp),
                   const SizedBox(width: 8),
                   _AutoSyncChip(controller: controller),
                   const SizedBox(width: 8),
@@ -337,6 +340,46 @@ class _ColorModeChip extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WordTapChip extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _WordTapChip({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final on = textProvider.wordTapBoxes;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        textProvider.setWordTapBoxes(!on);
+      },
+      child: Tooltip(
+        message: on
+            ? 'Box từng từ — chạm để về bôi nhiều chữ'
+            : 'Bôi nhiều chữ — chạm để box từng từ',
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: on
+                ? const Color(0xFFFF9800).withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: on
+                ? Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4))
+                : null,
+          ),
+          child: Icon(
+            on ? Icons.grid_view_rounded : Icons.grid_view_outlined,
+            size: 16,
+            color: on ? const Color(0xFFFF9800) : Colors.grey,
+          ),
         ),
       ),
     );

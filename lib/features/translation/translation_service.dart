@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
 import '../tts/language_detector.dart';
@@ -11,7 +12,11 @@ import 'engines/google_free_engine.dart';
 import 'engines/libre_engine.dart';
 import 'engines/mymemory_engine.dart';
 import 'engines/offline_engine.dart';
+import 'engines/mlkit_engine.dart';
 import 'engines/translation_engine.dart';
+import 'glossary/glossary_store.dart';
+import 'glossary/protect_tokens.dart';
+import 'glossary/translation_glossary.dart';
 
 /// Translation orchestration with automatic source detection and engine
 /// fallback. Language metadata comes from the same 26-language catalog used
@@ -20,13 +25,52 @@ class TranslationService {
   static final TranslationService _instance = TranslationService._();
   factory TranslationService() => _instance;
 
-  TranslationService._() {
-    _initEngines();
+  TranslationService._({
+    List<TranslationEngine>? onlineEngines,
+    TranslationEngine? offlineEngine,
+    TranslationEngine? mlkitEngine,
+    Glossary? glossary,
+    bool? networkAvailable,
+  })  : _cache = TranslationCache(),
+        _engines = onlineEngines ?? <TranslationEngine>[],
+        _offlineEngine = offlineEngine ?? OfflineEngine(),
+        _mlkit = mlkitEngine ?? MlKitEngine(),
+        _glossary = glossary ?? const Glossary(const <GlossaryEntry>[]),
+        _glossaryStore = glossary == null ? GlossaryStore() : null,
+        _injectedNetwork = networkAvailable {
+    if (onlineEngines == null) {
+      _initEngines();
+    }
   }
 
-  final TranslationCache _cache = TranslationCache();
-  final List<TranslationEngine> _engines = [];
-  final OfflineEngine _offlineEngine = OfflineEngine();
+  static final TranslationService _instance = TranslationService._();
+  factory TranslationService() => _instance;
+
+  /// Constructor test DUY NHẤT (không phải singleton): inject engine,
+  /// glossary, network. Không chạm Hive/asset/SharedPreferences.
+  factory TranslationService.forTest({
+    List<TranslationEngine> onlineEngines = const <TranslationEngine>[],
+    TranslationEngine? offlineEngine,
+    TranslationEngine? mlkitEngine,
+    Glossary? glossary,
+    bool networkAvailable = false,
+  }) {
+    return TranslationService._(
+      onlineEngines: onlineEngines,
+      offlineEngine: offlineEngine,
+      mlkitEngine: mlkitEngine,
+      glossary: glossary ?? const Glossary(const <GlossaryEntry>[]),
+      networkAvailable: networkAvailable,
+    );
+  }
+
+  final TranslationCache _cache;
+  final List<TranslationEngine> _engines;
+  final TranslationEngine _offlineEngine;
+  final TranslationEngine _mlkit;
+  Glossary _glossary;
+  final GlossaryStore? _glossaryStore;
+  final bool? _injectedNetwork;
 
   String _sourceLang = 'AUTO';
   String _targetLang = 'VI';
@@ -35,6 +79,14 @@ class TranslationService {
   String _lastUsedEngine = '';
   int _cacheHits = 0;
   int _totalRequests = 0;
+
+  bool _glossaryEnabled = true;
+
+  bool _offlineOnly = false;
+
+  static const String _offlineOnlyPrefKey = 'translation_offline_only';
+
+  // ==================== Public state ====================
 
   static List<AppLanguage> get supportedTargetLanguages =>
       AppLanguageCatalog.languages;

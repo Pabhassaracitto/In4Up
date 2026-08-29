@@ -8,9 +8,35 @@ import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../../widgets/selection_save_sheet.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 // XÓA: import 'package:in4up_core/vocab_level_difficulty.dart';
 // XÓA: import '../../../models/segment.dart';
+
+void _openFullSave(
+  BuildContext context, {
+  required String text,
+  required int lineIndex,
+}) {
+  final tp = context.read<TextProvider>();
+  final title = tp.currentDocument?.title ?? 'Đọc';
+  final lineContent = lineIndex < tp.lines.length
+      ? tp.lines[lineIndex].content
+      : text;
+  SelectionSaveSheet.show(
+    context,
+    text: text,
+    sourceLabel: title,
+    contextBuilder: (sample) => VocabContext.fromStory(
+      storyTitle: title,
+      lineIndex: lineIndex,
+      surroundingText: lineContent,
+      sourceRef: tp.currentContextSourceRef,
+      sourceRefType: tp.currentContextSourceRefType,
+      anchorText: sample,
+    ),
+  );
+}
 
 class WordActionsSheet {
   WordActionsSheet._();
@@ -421,6 +447,60 @@ class _WordActionsContent extends StatelessWidget {
                 ),
               ),*/
             ],
+          ),
+
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                _openFullSave(
+                  context,
+                  text: word.word,
+                  lineIndex: lineIndex,
+                );
+              },
+              icon: const Icon(Icons.library_add_check, size: 18),
+              label: const Text('Lưu đầy đủ (chủ đề · ngôn ngữ)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF9C27B0),
+                side: BorderSide(
+                  color: const Color(0xFF9C27B0).withValues(alpha: 0.45),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                final line = lineIndex < tp.lines.length
+                    ? tp.lines[lineIndex].content
+                    : word.word;
+                _openFullSave(
+                  context,
+                  text: line,
+                  lineIndex: lineIndex,
+                );
+              },
+              icon: const Icon(Icons.playlist_add, size: 18),
+              label: const Text('Lưu cả dòng (như chế độ không màu)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF26C6DA),
+                side: BorderSide(
+                  color: const Color(0xFF26C6DA).withValues(alpha: 0.45),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
 
           const SizedBox(height: 12),

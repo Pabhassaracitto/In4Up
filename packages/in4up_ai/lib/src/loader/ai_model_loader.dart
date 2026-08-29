@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
@@ -293,15 +292,19 @@ class AiModelLoader {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
 
-      final modelResult = ModelLoadResult(
+      // FIX 251e (bisect R5, CI 32789239752): bản 01a02a4a đặt tên
+      // `final result` lần 2 trong cùng scope — đụng tên với
+      // `final result = await FilePicker.pickFiles(...)` bên trên ⇒ lỗi
+      // "name already defined". Đổi tên loadResult.
+      final loadResult = ModelLoadResult(
         success: true,
         modelPath: destPath,
         source: ModelSource.userImported,
       );
-      _cacheResult(modelResult);
+      _cacheResult(loadResult);
       await _rememberFileSize();
 
-      return modelResult;
+      return loadResult;
     } catch (e) {
       return ModelLoadResult(
         success: false,
@@ -426,35 +429,29 @@ class AiModelLoader {
   }
 
   /// Copy file theo chunk (8MB) kèm tiến độ — cho import model lớn.
-  /// (Dart SDK mới: `File.openRead()` đã bị REMOVE — dùng `await src.open()`;
-  /// `openWrite()` giữ nguyên nhưng thêm `await` cho an toàn — await trên
-  /// giá trị non-Future là no-op hợp lệ.)
   Future<void> _copyFileWithProgress({
     required File src,
     required File dest,
     void Function(double progress)? onProgress,
   }) async {
     final total = await src.length();
-    final rs = await src.open();
+    // FIX 251e (bisect R3/R4, CI 32788713417 + 32788973887): bản 01a02a4a
+    // gọi `rs.read(buffer, ...)` — không tồn tại: `File.openRead()` trả
+    // Stream<List<int>> (không phải RandomAccessFile). Copy theo stream —
+    // cùng API đã được chứng minh ở downloadModel bên dưới (openRead stream
+    // + openWrite IOSink).
+    var copied = 0;
+    final sink = dest.openWrite();
     try {
-      final ws = await dest.openWrite();
-      try {
-        var copied = 0;
-        final buffer = Uint8List(8 * 1024 * 1024);
-        while (true) {
-          final n = await rs.readInto(buffer, 0, buffer.length);
-          if (n == 0) break;
-          ws.add(buffer.sublist(0, n));
-          copied += n;
-          if (total > 0) onProgress?.call(copied / total);
-        }
-        onProgress?.call(1.0);
-      } finally {
-        await ws.close();
+      await for (final chunk in src.openRead()) {
+        sink.add(chunk);
+        copied += chunk.length;
+        if (total > 0) onProgress?.call(copied / total);
       }
     } finally {
-      await rs.close();
+      await sink.close();
     }
+    onProgress?.call(1.0);
   }
 
   /// Kiểm tra magic header "GGUF" (4 byte đầu) của file model.

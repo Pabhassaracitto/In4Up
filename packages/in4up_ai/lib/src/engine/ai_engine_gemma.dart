@@ -140,8 +140,11 @@ class AiEngineGemma implements AiEngine {
   }
 
   Future<void> _spawnIsolate(String modelPath) async {
-    _modelLoadCompleter = Completer<void>();
-    final loadCompleter = _modelLoadCompleter;
+    // FIX 251e: local non-null trước, gán field sau — bản 01a02a4a đọc
+    // field nullable (Completer<void>?) rồi dùng .isCompleted không null-check
+    // => lỗi compile "receiver can be null" (CI đỏ 32665063225).
+    final loadCompleter = Completer<void>();
+    _modelLoadCompleter = loadCompleter;
     _receivePort = ReceivePort();
     _isolate = await Isolate.spawn(
       _isolateEntry,

@@ -377,7 +377,7 @@
 
 ### PLAN-016 — Tab Nghe: curtain LRC + AI sheet theo thói quen + dịch xuyên tab
 - Nguồn: người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up)
-- Trạng thái: done (code + CI, chờ nghiệm thu thiết bị)
+- Trạng thái: done (fix source-binding + CI, chờ QA đổi file trên thiết bị)
 - Milestone đề xuất: M2
 - Chi tiết:
   - Khi STT/cached LRC hoàn tất, rèm lời thoại mở tối đa an toàn sát waveform.
@@ -390,11 +390,14 @@
 - Lịch sử:
   - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | triển khai LISTEN-823-01, chờ CI + nghiệm thu
   - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; App Analyze + Locale run 32659292077 xanh
+  - 2026-08-24 | 00:43 +0530 | done→reopened | owner + agent arena/01a02fee-in4up | lời audio cũ vẫn bám khi đổi file; bổ sung source identity + chặn callback/cache cũ
+  - 2026-08-24 | 00:46 +0530 | reopened→done | agent arena/01a02fee-in4up | 1d05ce9; CI 32660616256 xanh
+
 ### PLAN-018 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
 - Nguồn: người sở hữu (2026-08-23) — "sau khi import model không thấy biểu hiện gì,
   người dùng nghi ngờ không biết nạp chưa; nên quản lý models 1 chỗ nơi setting
   của home, import trực quan và tải online nếu muốn".
-- Trạng thái: doing — agent arena/01a02a4a-in4up; card KANBAN MODELS-002.
+- Trạng thái: doing — thu hoạch từ arena/01a02a4a-in4up vào 251e (2026-08-25); card KANBAN MODELS-002.
 - Chi tiết:
   - Chat screen: banner trạng thái model LUÔN HIỆN (chưa nạp / copy X% / tải X% /
     đang nạp native 1–2 phút / lỗi + Thử lại / sẵn sàng + tên file + dung lượng).
@@ -406,3 +409,34 @@
     default HuggingFace Gemma-2-2B-it Q4_K_M, chỉ WiFi, progress) + Xóa.
   - Import copy file theo chunk kèm tiến độ (file ~1.5GB); download có verify
     header GGUF sau tải.
+- Lịch sử:
+  - 2026-08-25 | created→doing | agent arena/01a0251e-in4up | thu hoạch từ 01a02a4a (26571af/38e8865/b84e571/2868af2) + fix 3 lỗi compile, chờ CI + nghiệm thu
+
+### PLAN-019 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT-001)
+- Nguồn: người sở hữu (2026-08-23, qua prompt giao việc cho agent
+  arena/01a02ffc-in4up — "Dịch offline + glossary Phật học / Pali (+ Hindi)")
+- Trạng thái: proposed
+- Milestone đề xuất: ngoài M0–M3 (phạm vi Đọc/Dịch, không đụng knowledge MVA)
+- Chi tiết:
+  - **Vòng 1 (mọi nền tảng):** glossary Hive + lookup longest-match
+    (normalize Pali/Việt qua CanonTokenizer) + protect-tokens `__G{n}__`
+    cắm TRƯỚC mọi engine; hạt giống 226 mục Pali/EN → VI (locked);
+    đồng bộ 1 chiều WordEntry(Pali/Phật học) → glossary domain=user;
+    UI "Thuật ngữ dịch".
+  - **Vòng 2 (Android/iOS):** ML Kit on-device (google_mlkit_translation)
+    — engine dịch câu offline, EN↔VI, EN↔HI; HI↔VI pivot qua EN
+    (2 bước + glossary hai đầu); model chỉ tải khi user bấm; thiếu model
+    → failure rõ, không rơi về ráp từ.
+  - **Vòng 3:** toggle "chỉ offline"; KANBAN XLAT-001.
+  - Pipeline: cache MD5 → glossary → ML Kit → online (nếu mạng + không
+    khóa offline) → từ điển offline (last resort) → restore.
+  - KHÔNG phải RAG/embedding/vector DB. KHÔNG gọi chat GGUF là "dịch giả
+    Phật học". Pali không phải ngôn ngữ MT — Pali = glossary + giữ nguyên + gloss.
+  - **Chưa làm (đề xuất tiếp theo):** Windows `GgufTranslateEngine` stub
+    (chỉ khi PR #8 đã nằm trên 251e); hạt giống HI (chờ bảng từ chủ gửi);
+    seed tiếng HI hiện để trống theo lệnh chủ.
+- Bằng chứng: card XLAT-001 (KANBAN) + test/translation_glossary_test.dart.
+  Lưu ý: sandbox không có Flutter SDK — code + test chưa chạy máy,
+  chờ `flutter pub get` + CI + nghiệm thu thiết bị của chủ.
+- Lịch sử:
+  - 2026-08-23 | created | owner via prompt | "I4U | READ Translate"

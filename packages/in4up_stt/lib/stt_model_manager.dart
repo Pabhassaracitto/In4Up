@@ -79,6 +79,8 @@ class SttModelManager {
     _modelDirectory = await _resolveModelDirectory();
     debugPrint('📁 STT model dir: $_modelDirectory');
 
+    await _seedWhisperFromDevModels();
+
     // ★ Chỉ SCAN, không copy - nhanh hơn nhiều
     await _scanExistingModels();
 
@@ -423,6 +425,45 @@ class SttModelManager {
   /// Trước đây hardcode string gây lỗi trên Android Tablet.
   /// Giờ dùng getApplicationDocumentsDirectory() để có absolute path chuẩn,
   /// không phụ thuộc flavor / sandbox của Android.
+  Future<void> _seedWhisperFromDevModels() async {
+    if (!kDebugMode || _modelDirectory == null) return;
+    final env = Platform.environment['IN4UP_MODELS_DIR'];
+    String? root;
+    if (env != null && env.isNotEmpty && Directory(env).existsSync()) {
+      root = env;
+    } else {
+      var dir = Directory.current;
+      for (var i = 0; i < 6; i++) {
+        final candidate = Directory(p.join(dir.path, 'dev_models', 'whisper'));
+        if (candidate.existsSync()) {
+          root = candidate.path;
+          break;
+        }
+        final parent = dir.parent;
+        if (parent.path == dir.path) break;
+        dir = parent;
+      }
+    }
+    if (root == null) return;
+    final srcDir = Directory(
+      root.endsWith('whisper') ? root : p.join(root, 'whisper'),
+    );
+    if (!srcDir.existsSync()) return;
+    try {
+      await for (final entity in srcDir.list()) {
+        if (entity is! File) continue;
+        if (p.extension(entity.path).toLowerCase() != '.bin') continue;
+        final dest = File(p.join(_modelDirectory!, p.basename(entity.path)));
+        if (!dest.existsSync()) {
+          await entity.copy(dest.path);
+          debugPrint('🌱 seed whisper ${p.basename(entity.path)}');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ seed whisper from dev_models: $e');
+    }
+  }
+
   Future<String> _resolveModelDirectory() async {
     // Handover yêu cầu: final dir = await getApplicationDocumentsDirectory();
     // Tạo folder con để gom model

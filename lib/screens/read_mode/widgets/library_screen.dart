@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/text_library_service.dart';
+import '../../../services/text_source_loader.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
 import 'cloud_picker_sheet.dart';
@@ -123,14 +124,39 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // FILE ACTIONS
   // ═══════════════════════════════════════════════════════════
 
-  Future<String> _persistLocalText(String path) async {
+  Future<String> _persistLocalText(String path, {String? preferredName}) async {
     try {
       final src = File(path);
       if (!await src.exists()) return path;
       final docs = await getApplicationDocumentsDirectory();
       final destDir = Directory(p.join(docs.path, 'in4up_texts'));
       if (!await destDir.exists()) await destDir.create(recursive: true);
-      final dest = File(p.join(destDir.path, p.basename(path)));
+
+      var basename = p.basename(path);
+      final pref = preferredName?.trim();
+      if (pref != null &&
+          pref.isNotEmpty &&
+          p.extension(basename).isEmpty &&
+          p.extension(pref).isNotEmpty) {
+        basename = p.basename(pref);
+      }
+      const knownExt = {
+        '.txt',
+        '.lrc',
+        '.srt',
+        '.md',
+        '.markdown',
+        '.json',
+        '.docx',
+      };
+      if (!knownExt.contains(p.extension(basename).toLowerCase())) {
+        final head = await src.openRead(0, 8).first;
+        if (TextSourceLoader.looksLikeZip(head)) {
+          basename = '${p.basenameWithoutExtension(basename)}.docx';
+        }
+      }
+
+      final dest = File(p.join(destDir.path, basename));
       if (p.normalize(src.path) == p.normalize(dest.path)) return dest.path;
       await src.copy(dest.path);
       return dest.path;
@@ -171,9 +197,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
         final loaded = await tp.loadTextFile(path);
         if (!mounted) return;
         if (!loaded || !tp.hasLyrics) {
-          _showOpenError(
-            'Không đọc được nội dung — thử file .txt hoặc lưu lại .docx',
-          );
+          _showOpenError(TextSourceLoader.openFailedHint);
           return;
         }
         await _service.addOrUpdate(
@@ -1314,7 +1338,8 @@ class _DeviceTabState extends State<_DeviceTab> {
       if (result == null || result.files.single.path == null) return;
       if (!mounted) return;
 
-      final path = result.files.single.path!;
+      final pickedFile = result.files.single;
+      final path = pickedFile.path!;
       final file = isPdf
           ? RecentFile.fromLocalPdf(path)
           : RecentFile.fromLocalText(path);
@@ -1392,9 +1417,7 @@ class _DeviceTabState extends State<_DeviceTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// SUB-WIDGETS
-// ═══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════� ═══════════════════════════════════════════════════════════
 
 // ── Swipeable Card (Dismissible wrapper) ─────────────────
 class _SwipeableCard extends StatelessWidget {

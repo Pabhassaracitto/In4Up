@@ -12,12 +12,12 @@ import 'package:flutter/foundation.dart';
 ///    để pipeline Read phân tích từ, không bị nhiễu ký tự đánh dấu)
 ///  * .json          → jsonDecode → gom string values thành các dòng
 ///  * .docx          → .docx là ZIP; tự tìm entry `word/document.xml`
-///    qua local file header (PK\x03\x04), inflate raw-deflate bằng
-///    ZLibCodec chuẩn của dart:io (bù 2 byte zlib header), rồi lấy text
-///    trong thẻ <w:t> theo đoạn <w:p>.
+///    qua local file header (PK\x03\x04), inflate **raw deflate**
+///    (`ZLibDecoder(raw: true)` — RFC 1951). Không được bù zlib header
+///    0x78 0x01 rồi `ZLibCodec().decode`: thiếu Adler32 → mọi .docx nén
+///    (Word/LibreOffice/Google Docs) bung thất bại.
 ///
-/// .doc (binary cũ) KHÔNG hỗ trợ — trả null để caller hiện thông báo
-/// "vui lòng lưu lại .docx hoặc .txt".
+/// .doc (OLE Compound, Word 97–2003) KHÔNG hỗ trợ — trả null.
 /// ═══════════════════════════════════════════════════════════════
 class TextSourceLoader {
   TextSourceLoader._();
@@ -28,6 +28,27 @@ class TextSourceLoader {
     'json',
     'docx',
   ];
+
+  /// Snackbar trung thực — đừng gộp mọi lỗi đọc thành ".doc cũ".
+  static const String openFailedHint =
+      'Không đọc được nội dung. App mở được .docx (Word 2007+), .txt, .md '
+      '— không mở .doc cũ (Word 97–2003).';
+
+  /// ZIP local-file header `PK\x03\x04` (mọi .docx chuẩn).
+  static bool looksLikeZip(List<int> bytes) =>
+      bytes.length >= 4 &&
+      bytes[0] == 0x50 &&
+      bytes[1] == 0x4B &&
+      bytes[2] == 0x03 &&
+      bytes[3] == 0x04;
+
+  /// OLE Compound File magic `D0 CF 11 E0` — Word 97–2003 .doc.
+  static bool looksLikeOleDoc(List<int> bytes) =>
+      bytes.length >= 4 &&
+      bytes[0] == 0xD0 &&
+      bytes[1] == 0xCF &&
+      bytes[2] == 0x11 &&
+      bytes[3] == 0xE0;
 
   /// Trả về text thuần để nạp vào TextProvider, hoặc null nếu không
   /// đọc được / định dạng không hỗ trợ.
@@ -40,8 +61,14 @@ class TextSourceLoader {
       if (lower.endsWith('.json')) {
         return jsonToPlainText(await File(path).readAsString());
       }
-      if (lower.endsWith('.docx')) {
-        return docxToPlainText(await File(path).readAsBytes());
+      final bytes = await File(path).readAsBytes();
+      if (looksLikeOleDoc(bytes)) {
+        debugPrint('TextSourceLoader: OLE .doc không hỗ trợ: $path');
+        return null;
+      }
+      // Đuôi .docx HOẶC magic ZIP (FilePicker Android đôi khi mất đuôi).
+      if (lower.endsWith('.docx') || looksLikeZip(bytes)) {
+        return docxToPlainText(bytes);
       }
     } catch (e) {
       debugPrint('TextSourceLoader.extractReadableText error: $e');
@@ -153,16 +180,14 @@ class TextSourceLoader {
   /// Đọc 1 entry trong ZIP qua local file header (đủ cho .docx chuẩn,
   /// không cần full ZIP parser).
   static String? _readZipEntry(List<int> bytes, String entryName) {
-    final sig = [0x50, 0x4B, 0x03, 0x04]; // PK\x03\x04
     int pos = 0;
     while (pos + 30 <= bytes.length) {
-      if (bytes[pos] != sig[0] ||
-          bytes[pos + 1] != sig[1] ||
-          bytes[pos + 2] != sig[2] ||
-          bytes[pos + 3] != sig[3]) {
+      if (!_isLocalFileHeader(bytes, pos)) {
         pos++;
         continue;
       }
+      final gp = bytes[pos + 6] | (bytes[pos + 7] << 8);
+      final hasDataDescriptor = (gp & 0x08) != 0;
       final method = bytes[pos + 8] | (bytes[pos + 9] << 8);
       final compSize = bytes[pos + 18] |
           (bytes[pos + 19] << 8) |
@@ -178,41 +203,65 @@ class TextSourceLoader {
           Uint8List.fromList(bytes.sublist(nameStart, nameStart + nameLen)),
           allowMalformed: true,
         );
-        if (name == entryName) {
-          final dataEnd = dataStart + compSize;
-          if (dataEnd > bytes.length) {
-            // compSize không tin cậy (zip streaming) → quét tới header kế
-            var next = dataStart;
-            while (next + 4 <= bytes.length &&
-                !(bytes[next] == 0x50 &&
-                    bytes[next + 1] == 0x4B &&
-                    (bytes[next + 2] == 0x03 || bytes[next + 2] == 0x01))) {
-              next++;
-            }
-            return _inflate(
-              bytes,
-              dataStart,
-              next < bytes.length ? next : bytes.length,
-              method,
-            );
-          }
-          return _inflate(
+        final normalized = name.replaceAll('\\', '/').toLowerCase();
+        if (normalized == entryName.toLowerCase()) {
+          final dataEnd = _zipDataEnd(
             bytes,
-            dataStart,
-            dataEnd,
-            method,
+            dataStart: dataStart,
+            compSize: compSize,
+            hasDataDescriptor: hasDataDescriptor,
           );
+          return _inflate(bytes, dataStart, dataEnd, method);
         }
       }
-      pos = dataStart + (compSize > 0 ? compSize : 1);
+      pos = _zipDataEnd(
+        bytes,
+        dataStart: dataStart,
+        compSize: compSize,
+        hasDataDescriptor: hasDataDescriptor,
+      );
       if (pos <= nameStart) pos = nameStart + 1;
     }
     return null;
   }
 
-  /// method 0 = stored (không nén), method 8 = deflate.
-  /// Raw deflate của ZIP không có zlib header → bù [0x78, 0x01] trước
-  /// khi cho ZLibCodec (đúng chuẩn RFC 1950, trick phổ biến).
+  static bool _isLocalFileHeader(List<int> bytes, int pos) =>
+      pos + 4 <= bytes.length &&
+      bytes[pos] == 0x50 &&
+      bytes[pos + 1] == 0x4B &&
+      bytes[pos + 2] == 0x03 &&
+      bytes[pos + 3] == 0x04;
+
+  /// PK\x03\x04 local, PK\x01\x02 central, PK\x05\x06 EOCD, PK\x07\x08 data desc.
+  static bool _isZipSignature(List<int> bytes, int pos) {
+    if (pos + 4 > bytes.length) return false;
+    if (bytes[pos] != 0x50 || bytes[pos + 1] != 0x4B) return false;
+    final b2 = bytes[pos + 2];
+    final b3 = bytes[pos + 3];
+    return (b2 == 0x03 && b3 == 0x04) ||
+        (b2 == 0x01 && b3 == 0x02) ||
+        (b2 == 0x05 && b3 == 0x06) ||
+        (b2 == 0x07 && b3 == 0x08);
+  }
+
+  static int _zipDataEnd(
+    List<int> bytes, {
+    required int dataStart,
+    required int compSize,
+    required bool hasDataDescriptor,
+  }) {
+    final claimed = dataStart + compSize;
+    if (!hasDataDescriptor && compSize > 0 && claimed <= bytes.length) {
+      return claimed;
+    }
+    var next = dataStart;
+    while (next + 4 <= bytes.length && !_isZipSignature(bytes, next)) {
+      next++;
+    }
+    return next < bytes.length ? next : bytes.length;
+  }
+
+  /// method 0 = stored, method 8 = raw deflate (RFC 1951).
   static String? _inflate(
     List<int> bytes,
     int start,
@@ -220,16 +269,19 @@ class TextSourceLoader {
     int method,
   ) {
     try {
+      if (end <= start || start < 0 || end > bytes.length) return null;
       final data = Uint8List.fromList(bytes.sublist(start, end));
-      final Uint8List raw;
-      if (method == 8) {
-        raw = Uint8List.fromList([0x78, 0x01, ...data]);
-      } else if (method == 0) {
-        raw = data;
-      } else {
-        return null; // compression khác (rar... — không phải docx chuẩn)
+      if (method == 0) {
+        return utf8.decode(data, allowMalformed: true);
       }
-      final inflated = method == 8 ? ZLibCodec().decode(raw) : raw;
+      if (method != 8) return null;
+      List<int> inflated;
+      try {
+        inflated = ZLibDecoder(raw: true).convert(data);
+      } catch (_) {
+        // Một số tool bọc zlib (RFC 1950) thay vì raw deflate.
+        inflated = ZLibCodec().decode(data);
+      }
       return utf8.decode(inflated, allowMalformed: true);
     } catch (e) {
       debugPrint('TextSourceLoader._inflate error: $e');

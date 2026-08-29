@@ -341,11 +341,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
             const SizedBox(height: 18),
             // ── Chỉ offline ────────────────────────────────────────────
             ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                context.uiText('Chỉ dùng dịch offline'),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
+              title: const Text('offline probe'),
             ),
             const Divider(color: Colors.grey.shade800),
             const SizedBox(height: 12),

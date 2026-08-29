@@ -505,4 +505,108 @@ void main() {
       expect(MlKitEngine.supportsTranslationCode('lo'), isFalse);
     });
   });
+
+  group('XLAT-002: da ngu (zh/zh-tw/si/my + CJK boundary)', () {
+    GlossaryEntry e2(
+      String source,
+      String target, {
+      String sourceLang = 'pi',
+      String targetLang = 'vi',
+    }) {
+      return GlossaryEntry(
+        id: GlossaryEntry.makeId(source, sourceLang, targetLang),
+        sourceNorm: source,
+        sourceLang: sourceLang,
+        targetLang: targetLang,
+        targetText: target,
+      );
+    }
+
+    test('GlossaryLang.normalize: zh/zh-tw/si/my + alias', () {
+      expect(GlossaryLang.normalize('zh'), 'zh');
+      expect(GlossaryLang.normalize('ZH'), 'zh');
+      expect(GlossaryLang.normalize('zh-tw'), 'zh-tw');
+      expect(GlossaryLang.normalize('zh_hant'), 'zh-tw');
+      expect(GlossaryLang.normalize('si'), 'si');
+      expect(GlossaryLang.normalize('sinhala'), 'si');
+      expect(GlossaryLang.normalize('my'), 'my');
+      expect(GlossaryLang.normalize('burmese'), 'my');
+      expect(GlossaryLang.normalize('pali'), 'pi');
+    });
+
+    test('CJK: term "正念" khop trong "正念禅修" (khong co khoang trang)', () {
+      final g = Glossary(<GlossaryEntry>[e2('正念', 'chánh niệm', sourceLang: 'zh')]);
+      final p = g.protect('正念禅修', source: 'zh', target: 'vi');
+      expect(p.placeholderCount, 1);
+      expect(p.protectedText, '__G0__禅修');
+      expect(p.restore(p.protectedText), 'chánh niệm禅修');
+    });
+
+    test('CJK longest-match: "正念禅修" dau, "正念" sau', () {
+      final g = Glossary(<GlossaryEntry>[
+        e2('正念', 'chánh niệm', sourceLang: 'zh'),
+        e2('正念禅修', 'thiền chánh niệm', sourceLang: 'zh'),
+      ]);
+      final p = g.protect('正念禅修法', source: 'zh', target: 'vi');
+      expect(p.placeholderCount, 1);
+      expect(p.restore(p.protectedText), 'thiền chánh niệm法');
+    });
+
+    test('zh-tw (phan) va zh (gian) la 2 term rieng', () {
+      expect(
+        GlossaryEntry.makeId('禪修', 'zh-tw', 'vi'),
+        isNot(GlossaryEntry.makeId('禅修', 'zh', 'vi')),
+      );
+      final g = Glossary(<GlossaryEntry>[
+        e2('禪修', 'thiền tu', sourceLang: 'zh-tw'),
+        e2('禅修', 'thiền tu (gian)', sourceLang: 'zh'),
+      ]);
+      final pTw = g.protect('禪修', source: 'zh-tw', target: 'vi');
+      final pS = g.protect('禅修', source: 'zh', target: 'vi');
+      // term phan chi khop khi source = zh-tw (va nguoc lai voi gian)
+      expect(pTw.restore(pTw.protectedText), 'thiền tu');
+      expect(pS.restore(pS.protectedText), 'thiền tu (gian)');
+    });
+
+    test('pi nhung trong cau CJK: "sati" giua han tu van khop', () {
+      final g = Glossary(<GlossaryEntry>[_e('sati', 'chánh niệm')]);
+      final p = g.protect('正念sati修行', source: 'zh', target: 'vi');
+      expect(p.placeholderCount, 1);
+      expect(p.restore(p.protectedText), '正念chánh niệm修行');
+    });
+
+    test('Burmese: term "သတိ" → vi (khong boundary ASCII)', () {
+      final g = Glossary(<GlossaryEntry>[e2('သတိ', 'chánh niệm', sourceLang: 'my')]);
+      final p = g.protect('သတိ ပဋ္ဌာန', source: 'my', target: 'vi');
+      expect(p.placeholderCount, 1);
+      expect(p.restore(p.protectedText), 'chánh niệm ပဋ္ဌာန');
+    });
+
+    test('regression: Latin boundary van chan ("sati" trong "satisfaction")',
+        () {
+      final g = Glossary(<GlossaryEntry>[_e('sati', 'chánh niệm')]);
+      final p = g.protect('satisfaction', source: 'en', target: 'vi');
+      expect(p.changed, isFalse);
+    });
+
+    test('pipeline EN→ZH: term en khop, CJK target khong bi break', () async {
+      final fake = _RecordingEngine();
+      final service = TranslationService.forTest(
+        onlineEngines: <TranslationEngine>[fake],
+        glossary: Glossary(<GlossaryEntry>[
+          _e('mindfulness', '正念', sourceLang: 'en', targetLang: 'zh'),
+        ]),
+        networkAvailable: true,
+      );
+      final result = await service.translateText(
+        'mindfulness practice',
+        sourceLang: 'en',
+        targetLang: 'zh',
+      );
+      expect(fake.inputs, hasLength(1));
+      expect(fake.inputs.first, contains('__G0__'));
+      expect(fake.inputs.first, isNot(contains('mindfulness')));
+      expect(result.translatedText, contains('正念'));
+    });
+  });
 }

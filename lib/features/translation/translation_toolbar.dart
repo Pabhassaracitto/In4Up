@@ -340,7 +340,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
             ),
             const SizedBox(height: 18),
             // ── Chỉ offline ────────────────────────────────────────────
-            SwitchListTile(
+            ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
                 context.uiText('Chỉ dùng dịch offline'),

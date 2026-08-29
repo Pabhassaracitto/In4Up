@@ -114,30 +114,8 @@ class TranslationService {
   String get targetLangName => targetLanguage.nativeName;
   String get targetTtsLocale => targetLanguage.ttsLocale;
 
-  /// Engine câu offline (ML Kit) — UI cài đặt dùng.
-  /// (Instance forTest có thể inject engine giả — UI chỉ dùng singleton.)
-  MlKitEngine get mlkit => _mlkit as MlKitEngine;
-
-  /// Glossary hiện tại (snapshot) — UI + test.
-  Glossary get glossary => _glossary;
-
-  /// Store glossary (singleton app); null với instance forTest.
-  GlossaryStore? get glossaryStore => _glossaryStore;
-
-  bool get glossaryEnabled => _glossaryEnabled;
-  set glossaryEnabled(bool value) => _glossaryEnabled = value;
-
-  bool get offlineOnly => _offlineOnly;
-  set offlineOnly(bool value) {
-    _offlineOnly = value;
-    _persistOfflineOnly(value);
-  }
-
-  List<String> get activeEngines => [
-        _mlkit.name,
-        ..._engines.map((engine) => engine.name),
-        _offlineEngine.name,
-      ];
+  List<String> get activeEngines =>
+      [..._engines.map((engine) => engine.name), _offlineEngine.name];
 
   void _initEngines() {
     _engines.clear();
@@ -347,12 +325,6 @@ class TranslationService {
 
   Future<Map<String, bool>> checkAllEngines() async {
     final results = <String, bool>{};
-    try {
-      results[_mlkit.name] =
-          await _mlkit.isAvailable().timeout(const Duration(seconds: 5));
-    } catch (_) {
-      results[_mlkit.name] = false;
-    }
     for (final engine in _engines) {
       try {
         results[engine.name] =
@@ -398,8 +370,6 @@ class TranslationService {
   }
 
   Future<bool> _checkNetwork() async {
-    final injected = _injectedNetwork;
-    if (injected != null) return injected;
     try {
       final result = await Connectivity().checkConnectivity();
       return result.any(

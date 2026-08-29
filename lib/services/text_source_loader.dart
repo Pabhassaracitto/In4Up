@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 /// TEXT SOURCE LOADER — đọc nguồn text mở rộng (.md, .json, .docx)
 ///
 /// .docx fix raw-deflate: thâu hoạch c301004 từ 01a01580 (2026-08-29).
+/// NOTE: packages/in4up_stt (archive 4.x) nằm ngoài paths app_analyze —
+/// thay đổi packages/ cần push kèm 1 dòng lib/ để trigger CI root.
 ///
 /// Thuần Dart, KHÔNG thêm package zip ngoài:
 ///  * .md/.markdown  → strip markdown syntax → plain text (giữ chữ thật

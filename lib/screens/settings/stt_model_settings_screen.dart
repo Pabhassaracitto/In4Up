@@ -1,12 +1,13 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
+// FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
+// nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
+// localized_material đã export material (hide Text) + Text localized.
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:in4up/providers/locale_provider.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
 import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
 import 'package:in4up_stt/in4up_stt.dart';
@@ -21,19 +22,19 @@ class SttModelSettingsScreen extends StatelessWidget {
     return Scaffold(
       // ✅ FIX: Không dùng subtitle, dùng Column trong title
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Quản lý Model AI',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               'STT · VAD · TTS offline — models 1 chỗ, tinh chỉnh ở tab chức năng',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
               ),
@@ -60,6 +61,10 @@ class SttModelSettingsScreen extends StatelessWidget {
           const _SectionLabel(
               '3. TTS — Piper (đọc chữ offline, giọng neural — cabin)'),
           const _PiperModelCard(),
+          const SizedBox(height: 16),
+          const _SectionLabel(
+              '4. Chat — Gemma (LLM trả lời cho AI Chat — file .gguf)'),
+          const _GemmaChatModelCard(),
         ],
       ),
     );
@@ -561,7 +566,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~2MB',
+                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~629KB',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -607,7 +612,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
                               foregroundColor: Colors.red),
                           onPressed: () => _manager.deleteVad(),
                         ),
-                      const Text('2-5MB',
+                      const Text('~0.6MB',
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
@@ -641,7 +646,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
       SnackBar(
         content: Text(ok
             ? '✅ Import Silero VAD thành công!'
-            : '❌ Import thất bại — file cần là silero_vad.onnx (>1MB)'),
+            : '❌ Import thất bại — cần silero_vad.onnx (k2-fsa ~629KB)'),
       ),
     );
   }
@@ -787,9 +792,8 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                       ),
                     ),
                     child: const Text(
-                      'Chưa có giọng Piper. Bấm "Tải giọng" (gợi ý) hoặc '
-                      'tải bundle vits-piper-*.tar.bz2 → giải nén → '
-                      '"Import thư mục".',
+                      'Chưa có giọng Piper. Bấm "Tải giọng" — app tự tải, '
+                      'giải nén và cài. Không cần ZArchiver.',
                       style: TextStyle(fontSize: 12, color: Colors.amberAccent),
                     ),
                   ),
@@ -867,16 +871,21 @@ class _PiperModelCardState extends State<_PiperModelCard> {
 
   Future<void> _downloadPiperBundle(BuildContext context) async {
     const en = SherpaModelManager.defaultPiperVoice;
+    const enLessac = 'en_US-lessac-medium';
     const vi = 'vi_VN-vais1000-medium';
 
     final voice = await showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
-        title: const Text('Tải giọng Piper (bundle ~75MB, gồm espeak)'),
+        title: const Text('Tải giọng Piper (~75MB, tự cài)'),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, en),
             child: const Text('en_US-libritts_r-medium (Anh, nữ)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, enLessac),
+            child: const Text('en_US-lessac-medium (Anh, nữ)'),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, vi),
@@ -885,9 +894,8 @@ class _PiperModelCardState extends State<_PiperModelCard> {
           const Padding(
             padding: EdgeInsets.all(12),
             child: Text(
-              'Còn 536 giọng khác: github.com/k2-fsa/sherpa-onnx/releases '
-              '→ tag tts-models → tải vits-piper-<giọng>.tar.bz2 → giải nén '
-              '→ Import thư mục.',
+              'App tự tải, giải nén và cài. Giữ Wi-Fi, đợi thanh tiến độ xong '
+              'là dùng được — không cần giải nén tay.',
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ),
@@ -896,58 +904,16 @@ class _PiperModelCardState extends State<_PiperModelCard> {
     );
     if (voice == null || !mounted) return;
 
-    final savedPath = await _manager.downloadPiperBundle(voice: voice);
+    final installedDir = await _manager.downloadPiperBundle(voice: voice);
     if (!mounted) return;
 
-    if (savedPath != null) {
-      // File .tar.bz2 đã tải về — app KHÔNG tự giải nén (tránh thêm dep).
-      final file = File(savedPath);
-      final exists = file.existsSync();
-      final sizeMB =
-          exists ? (file.lengthSync() / 1024 / 1024).toStringAsFixed(1) : '?';
-      await showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Đã tải về bundle Piper'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'File: $savedPath\nKích thước: $sizeMB MB',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'File nằm trong bộ nhớ riêng của app — không phải thư mục '
-                'Tải về công khai. User thường không vào được '
-                'Android/data/com.in4up.dev (chỉ bản flavor dev).\n\n'
-                'Bước tiếp theo (trong app):\n'
-                '1. Bấm Chia sẻ → mở bằng ZArchiver / RAR / Files rồi giải nén.\n'
-                '2. Quay lại đây bấm Import thư mục (được chọn cả thư mục cha; '
-                'app tìm .onnx cả thư mục con).\n'
-                '3. Không cần tự chép vào com.in4up / com.in4up.dev.',
-                style: TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-          actions: [
-            if (exists)
-              TextButton(
-                onPressed: () {
-                  Share.shareXFiles([XFile(savedPath)]);
-                },
-                child: const Text('Chia sẻ / mở bằng app khác'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
+    if (installedDir != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã cài giọng $voice — dùng được ngay.'),
         ),
       );
     }
-    // savedPath == null → lỗi đã được ghi vào info.errorMessage (hiện trong card)
   }
 
   Future<void> _confirmDeleteAll(BuildContext context) async {
@@ -1073,5 +1039,239 @@ class _PiperVoiceRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Model Gemma GGUF cho AI Chat (LLM offline).
+/// Reuse AiServiceFacade + AiModelLoader (import .gguf / tải từ URL / xóa)
+/// — cùng 1 nơi quản lý model với STT/VAD/TTS ở trên.
+class _GemmaChatModelCard extends StatelessWidget {
+  const _GemmaChatModelCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AiServiceFacade>(
+      builder: (context, facade, _) {
+        final hasModel = facade.hasModel;
+        final name = facade.modelFileName ?? '';
+        final sizeMb = facade.modelSizeBytes != null
+            ? (facade.modelSizeBytes! / (1024 * 1024)).toStringAsFixed(0)
+            : null;
+        final busy = facade.isImportActive;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header ──────────────────────────────────────────
+                Row(
+                  children: [
+                    Icon(
+                      hasModel
+                          ? Icons.check_circle
+                          : busy
+                              ? Icons.sync
+                              : Icons.cloud_off,
+                      color: hasModel
+                          ? Colors.green
+                          : busy
+                              ? Colors.blue
+                              : Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Gemma — AI Chat (LLM offline)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            hasModel
+                                ? 'Model: $name${sizeMb != null ? ' · ${sizeMb}MB' : ''} · ${facade.modelSourceLabel}'
+                                : 'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Progress (import/download) ──────────────────────
+                if (busy) ...[
+                  LinearProgressIndicator(
+                    value: facade.importStage == AiImportStage.loading
+                        ? null
+                        : facade.importProgress,
+                    backgroundColor: Colors.grey.shade800,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    facade.importStage == AiImportStage.copying
+                        ? 'Đang copy model… '
+                            '${(facade.importProgress * 100).toStringAsFixed(0)}%'
+                        : facade.importStage == AiImportStage.downloading
+                            ? 'Đang tải model… '
+                                '${(facade.importProgress * 100).toStringAsFixed(0)}%'
+                            : 'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // ── Error message ────────────────────────────────────
+                if (facade.importStage == AiImportStage.failed &&
+                    facade.importError != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade900.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      facade.importError!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // ── Action buttons ──────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.folder_open, size: 16),
+                      label: const Text('Import'),
+                      onPressed: busy
+                          ? null
+                          : () => _importModel(context, facade),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      icon: const Icon(Icons.cloud_download, size: 16),
+                      label: const Text('Tải về'),
+                      onPressed: busy
+                          ? null
+                          : () => _showDownloadUrlDialog(context, facade),
+                    ),
+                    if (hasModel)
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete, size: 16),
+                        label: const Text('Xóa'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        onPressed: busy
+                            ? null
+                            : () => _confirmRemove(context, facade),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _importModel(
+      BuildContext context, AiServiceFacade facade) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await facade.importModelFromUser();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'AI local đã sẵn sàng'
+                  '${facade.modelFileName != null ? " — ${facade.modelFileName}" : ''}'
+              : (facade.importError ?? 'Chưa import được model .gguf.'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDownloadUrlDialog(
+      BuildContext context, AiServiceFacade facade) async {
+    final controller =
+        TextEditingController(text: AiModelConfig.defaultDownloadUrl);
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Tải model Gemma từ URL'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'https://.../*.gguf',
+            helperText:
+                'Mặc định: Gemma-2-2B-it Q4_K_M từ HuggingFace (~1.5GB). Chỉ tải trên WiFi.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Tải về'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (confirmed != true) return;
+
+    final ok = await facade.downloadModel(controller.text);
+    final modelNote =
+        facade.modelFileName != null ? ' — ${facade.modelFileName}' : '';
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? context.uiText('Model đã tải và nạp xong') + modelNote
+              : (facade.importError ?? 'Download thất bại'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmRemove(
+      BuildContext context, AiServiceFacade facade) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa model Gemma?'),
+        content: const Text(
+            'File .gguf sẽ bị xóa khỏi thiết bị. AI Chat quay về chế độ mock.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await facade.removeModel();
   }
 }

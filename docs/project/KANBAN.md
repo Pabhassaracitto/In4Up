@@ -1074,7 +1074,17 @@
     XLAT, pipeline cũ). BƯỚC TIẾP THEO: push C1' → đỏ = lỗi trong
     ctor/fields/getters/helpers (tách tiếp từng phần); xanh = lỗi trong
     pipeline methods (_translateWithPipeline/_planSteps/_sentenceEngine
-    Ready/_runEngineChain). Đã rà static toàn bộ: imports ✓, named
+    Ready/_runEngineChain). Đã xong (cùng phiên): lỗi #4 =
+    `store.changes.listen(_onGlossaryChanged)` — tearoff 0-arg
+    (void Function()) truyền cho Stream<void>.listen đòi 1-arg
+    (void Function(void)) → argument_type_not_assignable; fix
+    `listen((_) => _onGlossaryChanged())`. Tổng 4 lỗi compile của
+    batch 02ffc (initialValue×3, thiếu import protect_tokens, Hive
+    putIfAbsent, listen 0-arg) — hết bằng oracle CI ~15 vòng.
+    ⚠️ Ghi nhận: chuỗi C1–C4 và D1–D6 có 5 probe VÔ HIỆU do lỗi agent
+    dựng hybrid (trùng _instance, thiếu method, thiếu import) — kết
+    luận chỉ giữ các vòng D7–D14 (xác minh headSha + file tự thống
+    nhất). Full stack XLAT đã khôi phục từ f916244 + cả 4 fix. Đã rà static toàn bộ: imports ✓, named
     params ✓, API Hive/ML Kit/TranslationResult/SharedPreferences/
     Connectivity ✓ (đối chiếu source thật), brace balance ✓, không ký
     tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc

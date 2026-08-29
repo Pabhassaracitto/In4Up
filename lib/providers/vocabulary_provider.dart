@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
+import '../features/translation/glossary/glossary_store.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
@@ -351,8 +352,20 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       _box.put(w.id, jsonEncode(w.toJson()));
       if (_isSyncEnabled) _sync.markDirty(w.id);
+      // Đồng bộ MỘT CHIỀU → glossary dịch: WordEntry Pali/Phật học +
+      // meaning có giá trị → entry domain=user (không ghi đè entry có sẵn).
+      // Best-effort: không bao giờ làm hỏng việc lưu từ vựng.
+      unawaited(_syncGlossary(w));
     } catch (e) {
       debugPrint('VocabularyProvider._saveWord error: $e');
+    }
+  }
+
+  Future<void> _syncGlossary(WordEntry w) async {
+    try {
+      await GlossaryStore().syncFromWordEntry(w);
+    } catch (e) {
+      debugPrint('VocabularyProvider._syncGlossary error: $e');
     }
   }
 

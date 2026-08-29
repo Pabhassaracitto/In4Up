@@ -511,72 +511,8 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
     );
   }
 
-  Widget _modelRow(String code) {
-    final downloaded = _modelDownloaded[code] ?? false;
-    final downloading = _downloading[code] ?? false;
-    final supported = MlKitEngine.supportsTranslationCode(code);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 16,
-            child: downloading
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    downloaded
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    size: 14,
-                    color: downloaded ? Colors.green : Colors.grey,
-                  ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_modelLabel(code)} ($code)',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-                Text(
-                  supported
-                      ? (downloaded
-                          ? context.uiText('Đã tải')
-                          : context.uiText('Chưa tải'))
-                      : context.uiText('Chưa hỗ trợ'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          if (supported)
-            TextButton(
-              onPressed: downloading ? null : () => _downloadModel(code),
-              child: Text(
-                downloading
-                    ? context.uiText('Đang tải...')
-                    : context.uiText('Tải về'),
-              ),
-            ),
-          if (supported && downloaded)
-            IconButton(
-              onPressed: () => _deleteModel(code),
-              icon: const Icon(Icons.delete_outline, size: 16),
-              tooltip: context.uiText('Xóa gói'),
-              color: Colors.grey,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              padding: EdgeInsets.zero,
-            ),
-        ],
-      ),
-    );
-  }
+  Widget _modelRow(String code) => const SizedBox.shrink();
+
 }
 
 class _TranslateButton extends StatelessWidget {

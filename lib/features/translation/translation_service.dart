@@ -60,6 +60,11 @@ class TranslationService {
       _initEngines();
       _loadOfflineOnlyPref();
     }
+    final store = _glossaryStore;
+    if (store != null) {
+      // Fire-and-forget: không block UI; translateText sẽ ensureInit lại.
+      unawaited(store.ensureInit());
+    }
   }
 
 

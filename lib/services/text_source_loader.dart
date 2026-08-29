@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// TEXT SOURCE LOADER — đọc nguồn text mở rộng (.md, .json, .docx)
 ///
+/// .docx fix raw-deflate: thâu hoạch c301004 từ 01a01580 (2026-08-29).
+///
 /// Thuần Dart, KHÔNG thêm package zip ngoài:
 ///  * .md/.markdown  → strip markdown syntax → plain text (giữ chữ thật
 ///    để pipeline Read phân tích từ, không bị nhiễu ký tự đánh dấu)

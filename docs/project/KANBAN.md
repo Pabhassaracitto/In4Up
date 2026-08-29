@@ -37,6 +37,7 @@
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
+| AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ CI + nghiệm thu) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
@@ -891,6 +892,65 @@
     (core fix, d43cc3d). Chờ nghiệm thu UX thiết bị (banner chat, import
     .gguf progress, tải URL chỉ WiFi, xóa model)
 
+
+### AI-CHAT-01 — Chat báo "Chưa nạp model AI" ngay sau khi gửi + nút gửi xoay vòng mãi
+- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu chủ trên thiết bị)
+- **Nguồn:** chủ báo 2026-08-29 (build trên DEV `5f98b94c`): tab Home
+  "Gemma — AI Chat" báo XANH "gemma-3-1B đã import", màn chat cũng xanh
+  "Model AI đã nạp — gemma-3-1B-it-QAT-Q4_.gguf (687 MB)", nhưng vừa nhấn
+  gửi → liền thấy "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)"
+  + nút gửi xoay vòng không ngừng.
+- **Nội dung (3 root cause, đều verify từ code DEV 5f98b94c):**
+  1. **Báo "chưa nạp" nhầm lúc đang generate:** `AiEngineGemma.analyze()`
+     đặt `_state = AiEngineState.processing` trong SUẤT generate (30s–2 phút
+     trên máy yếu), trong khi facade `isReady` chỉ nhận `ready` ⇒ `hasModel`
+     bật FALSE giữa chừng ⇒ mọi lần UI rebuild (đổi tab, xoay máy…) render
+     lại banner = VÀNG "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)"
+     (chuỗi này chỉ tồn tại ở `ai_chat_screen.dart:343` — banner case 6).
+     Model thực ra ĐÃ nạp thật — banner xanh lúc đầu là đúng.
+  2. **Nút gửi treo VÔ HẠN:** `sendMessage` là API chat KHÔNG có timeout
+     (lookup 30s / summarize 60s / terms 45s đều có), và engine gemma chờ
+     reply port của isolate không timeout + không có xử lý isolate chết.
+     `native.generate` là FFI blocking trong isolate con — nếu llama.cpp
+     deadlock, hoặc OOM killer Android thu hồi process con (model 687MB ⇒
+     ~1.5–2GB RAM runtime trên tablet) giữa chừng ⇒ không bao giờ có reply
+     ⇒ `finally` không chạy ⇒ `isChatLoading` true mãi.
+  3. **Trả lời rỗng/cắt cụt (kèm theo):** prompt chat nắn TOÀN BỘ lịch sử
+     chat (persist, không giới hạn) làm context trong khi C++ n_ctx cố định
+     2048 tokens ⇒ vượt là `llama_decode` fail ⇒ model trả về RỖNG;
+     `maxTokens=256` hard-code trong khi schema JSON chat (summary 60 từ +
+     action items) hay vượt 256 ⇒ JSON cắt giữa chừng ⇒ "Invalid Gemma JSON".
+- **Fix (commit này):**
+  1. facade `isReady` nhận cả `processing` ⇒ `hasModel` giữ TRUE khi đang
+     generate (banner không nhảy vàng giữa chừng).
+  2. `sendMessage`: (a) engine bận (đang generate request khác từ tab
+     Viết/Nghe) → chờ tới khi rảnh, tối đa ~60s, thay vì báo "chưa sẵn
+     sàng" sai; (b) `.timeout(3 phút)` + `on TimeoutException` trả lời rõ —
+     nút gửi không bao giờ xoay vòng vô hạn; (c) context = 10 tin gần nhất;
+     (d) `maxTokens: 512` cho chat.
+  3. `AiEngineGemma`: (a) watchdog Timer 5 phút mỗi request — ép
+     `_IsolateError` nếu native treo; (b) `Isolate.addOnExitListener` —
+     isolate chết ⇒ báo lỗi mọi port đang chờ + load completer;
+     (c) `maxTokens` passthrough vào isolate.
+  4. `AiEngine.analyze` / `AiEngineMock.analyze`: thêm tham số `maxTokens`
+     (mock bỏ qua) — không phá caller cũ (optional named).
+- **Bằng chứng:** code review DEV tip `5f98b94c` trên worktree; chuỗi
+  "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)" duy nhất ở
+  `ai_chat_screen.dart:343` (banner hasModel=false); C++ `in4up_ai_native.cpp`
+  (n_ctx=2048 từ `in4up_ai_create`, loop generate bounded max_tokens, trả {}
+  khi decode fail); `ai_native_bindings.dart` (maxTokens=256 mặc định,
+  generate blocking FFI). Sandbox KHÔNG có Flutter SDK — chưa chạy
+  `flutter analyze`/test; chờ CI app_analyze + nghiệm thu.
+- **Nghiệm thu đề xuất (chủ, trên tablet):** (1) import gemma → banner xanh
+  → gửi tin → TRONG lúc chờ trả lời banner GIỮ XANH (không nhảy vàng) +
+  nút gửi xoay → có trả lời (hoặc lỗi rõ sau 3 phút, không treo);
+  (2) hội thoại dài (>15 tin) → vẫn có trả lời, không "chưa tạo được câu
+  trả lời"; (3) nếu máy yếu thu hồi process AI → hiện lỗi "AI process bị
+  hệ thống thu hồi" + gửi lại được, không xoay vòng.
+- **Lịch sử:**
+  - 2026-08-29 | created | owner via chat | báo lỗi chat sau khi build DEV (5f98b94c)
+  - 2026-08-29 | created→doing | agent arena/01a02a4a-in4up | định vị 3 root cause trên code DEV (worktree detached HEAD)
+  - 2026-08-29 | doing→done (chờ nghiệm thu) | agent arena/01a02a4a-in4up | 4 nhóm fix (isReady/timeout+watchdog+isolate-exit/context+maxTokens); chờ CI + chủ chạy 3 bước nghiệm thu
 
 ### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
 - **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)

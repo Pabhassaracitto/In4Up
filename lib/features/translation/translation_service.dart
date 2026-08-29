@@ -364,6 +364,20 @@ class TranslationService {
     );
   }
 
+  Future<void> _loadOfflineOnlyPref() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _offlineOnly = prefs.getBool(_offlineOnlyPrefKey) ?? false;
+    } catch (_) {}
+  }
+
+  Future<void> _persistOfflineOnly(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_offlineOnlyPrefKey, value);
+    } catch (_) {}
+  }
+
   Future<bool> _checkNetwork() async {
     try {
       final result = await Connectivity().checkConnectivity();

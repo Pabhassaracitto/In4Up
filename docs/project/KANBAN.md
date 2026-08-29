@@ -1060,3 +1060,23 @@
     → `await box.put(...)` trong _doInit (commit này). Bisect 7 vòng CI
     ~2m/vòng, skill ci-red-debugging. Bài học: code 02ffc chưa từng qua
     compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định
+  - 2026-08-29 | tiếp tục bisect lỗi #4 | agent arena/01a0251e-in4up |
+    Lỗi #4 nằm trong translation_service.dart (chuỗi bisect B10→B11→B12→
+    B13 bằng file gốc f916244 — KẾT QUẢ CÓ HIỆU LỰC: B10 xanh, B11 đỏ,
+    B12 đỏ (vocab→DEV), B13 đỏ (toolbar→DEV)). File service 251e == file
+    02ffc byte-for-byte (cherry-pick không hỏng). Dependency (cache/
+    engines/app_language/language_detector) KHÔNG đổi eca143f→a16509f.
+    ⚠️ C1/C2/C3/C4 (hybrid do agent dựng tay) VÔ HIỆU — C1 tự tạo lỗi
+    duplicate _instance khi copy block ctor. C1' (đã sửa, 1 _instance)
+    CHƯA push được — GitHub token hết hạn giữa phiên (401 Bad
+    credentials). TRẠNG THÁI DỪNG LẠI: remote = 5f98b94 (C3 xanh),
+    local = C1' (hybrid đúng: service cũ + ctor/fields/getters/helpers
+    XLAT, pipeline cũ). BƯỚC TIẾP THEO: push C1' → đỏ = lỗi trong
+    ctor/fields/getters/helpers (tách tiếp từng phần); xanh = lỗi trong
+    pipeline methods (_translateWithPipeline/_planSteps/_sentenceEngine
+    Ready/_runEngineChain). Đã rà static toàn bộ: imports ✓, named
+    params ✓, API Hive/ML Kit/TranslationResult/SharedPreferences/
+    Connectivity ✓ (đối chiếu source thật), brace balance ✓, không ký
+    tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc
+    log analyze (artifact app-analyze-log) khi token hoạt động lại. Bài học: code 02ffc chưa từng qua
+    compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định

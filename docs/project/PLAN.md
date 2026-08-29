@@ -314,6 +314,21 @@
   - 2026-08-21 | created | owner via chat
   - 2026-08-21 | doing→done | agent arena/01a0251e-in4up | 3 commit (rule, import, loader)
 
+### PLAN-017 — AI Chat thật: tích hợp llama.cpp native backend (hết mock)
+- Ghi chú ID: từng ghi PLAN-014 trên nhánh 01a02601; đổi PLAN-017 khi merge
+  01a0251e vì PLAN-014 (Sứ giả ngôn ngữ) và PLAN-015 (READ-630-05) đã có sẵn —
+  tránh trùng ID.
+- Nguồn: người (2026-08-21) — yêu cầu "Hoàn thiện chat AI" kèm audit nhánh
+  arena/01a0251e-in4up (chat UI/wiring chạy nhưng câu trả lời vẫn mock;
+  native binding có sẵn nhưng chưa nối; llama.cpp chưa có submodule/CMake).
+- Trạng thái: done (code 2026-08-21, chờ nghiệm thu build) — agent arena/01a02601-in4up, PR #8; card KANBAN AICHAT-01.
+- CI: workflow full build đỏ sẵn trên baseline (bisect 5 vòng bằng tag oracle — xem card AICHAT-01).
+- Milestone đề xuất: M3 (ngoài hợp đồng bàn giao MVA) — AI local offline.
+- Chi tiết: submodule llama.cpp pin b10567; CMake Android (file riêng, không
+  đụng vùng bảo vệ UltraTimeStretch) + Windows; nối AiNativeBindings vào
+  isolate AiEngineGemma với mock fallback; hasModel trung thực; mock→real
+  re-init; validate GGUF magic; CMake tự init submodule (token thiếu quyền
+  workflows). Đã verify local (build + ABI smoke) và chờ CI full build.
 ### PLAN-014 — Sứ giả ngôn ngữ: lộ trình bậc vi → en → hi/zh/si → … (LANG-630-01)
 - Nguồn: người sở hữu (2026-08-22, qua agent arena/01a0296a-in4up — "EL HIN CH SH")
 - Trạng thái: done (code + ADR-0002 + máy bắt; chờ CI + nghiệm thu bản dịch)
@@ -360,7 +375,44 @@
 - Lịch sử:
   - 2026-08-23 | created | owner via chat | "khi lưu dạng nhiều text nếu đoạn đã có thì nhận diện + gợi ý hành động (cập nhật, thêm ngữ cảnh nếu mới)"
 
-### PLAN-016 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT-001)
+### PLAN-016 — Tab Nghe: curtain LRC + AI sheet theo thói quen + dịch xuyên tab
+- Nguồn: người sở hữu (2026-08-23, qua agent arena/01a02fee-in4up)
+- Trạng thái: done (fix source-binding + CI, chờ QA đổi file trên thiết bị)
+- Milestone đề xuất: M2
+- Chi tiết:
+  - Khi STT/cached LRC hoàn tất, rèm lời thoại mở tối đa an toàn sát waveform.
+  - AI là bottom sheet riêng có một chuỗi gesture tự nhiên: cuộn nội dung; khi
+    nội dung về đầu thì kéo tiếp hạ cả sheet; kéo hết hoặc chạm ngoài để ẩn.
+  - Layout lấy chiều cao viewport thật của Listen trong shell để loại bỏ bottom
+    overflow khoảng 126px khi LRC + bộ chọn AI cùng xuất hiện.
+  - Tab Hiểu và Nghe dùng chung resolver bản dịch từ `TextProvider`, bảo đảm
+    bản dịch tạo/lưu ở tab Đọc xuất hiện theo cùng cài đặt karaoke.
+- Lịch sử:
+  - 2026-08-23 | created→doing | agent arena/01a02fee-in4up | triển khai LISTEN-823-01, chờ CI + nghiệm thu
+  - 2026-08-23 | 18:52 UTC | doing→done | agent arena/01a02fee-in4up | bf83fdc; App Analyze + Locale run 32659292077 xanh
+  - 2026-08-24 | 00:43 +0530 | done→reopened | owner + agent arena/01a02fee-in4up | lời audio cũ vẫn bám khi đổi file; bổ sung source identity + chặn callback/cache cũ
+  - 2026-08-24 | 00:46 +0530 | reopened→done | agent arena/01a02fee-in4up | 1d05ce9; CI 32660616256 xanh
+
+### PLAN-018 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
+- Nguồn: người sở hữu (2026-08-23) — "sau khi import model không thấy biểu hiện gì,
+  người dùng nghi ngờ không biết nạp chưa; nên quản lý models 1 chỗ nơi setting
+  của home, import trực quan và tải online nếu muốn".
+- Trạng thái: doing — thu hoạch từ arena/01a02a4a-in4up vào 251e (2026-08-25); card KANBAN MODELS-002.
+- Chi tiết:
+  - Chat screen: banner trạng thái model LUÔN HIỆN (chưa nạp / copy X% / tải X% /
+    đang nạp native 1–2 phút / lỗi + Thử lại / sẵn sàng + tên file + dung lượng).
+  - Engine báo model-load thật (isolate gửi tín hiệu sau khi llama_model_load xong)
+    — facade chờ signal trước khi trả lời chat; mock response luôn kèm disclaimer
+    "⚠️ Chưa nạp model AI — đây là trả lời MẪU".
+  - Trung tâm "Quản lý Model AI" (stt_model_settings_screen — đã mở từ home settings):
+    thêm section 4 "Chat — Gemma (LLM)" — status + Import .gguf + Tải về (URL,
+    default HuggingFace Gemma-2-2B-it Q4_K_M, chỉ WiFi, progress) + Xóa.
+  - Import copy file theo chunk kèm tiến độ (file ~1.5GB); download có verify
+    header GGUF sau tải.
+- Lịch sử:
+  - 2026-08-25 | created→doing | agent arena/01a0251e-in4up | thu hoạch từ 01a02a4a (26571af/38e8865/b84e571/2868af2) + fix 3 lỗi compile, chờ CI + nghiệm thu
+
+### PLAN-019 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT-001)
 - Nguồn: người sở hữu (2026-08-23, qua prompt giao việc cho agent
   arena/01a02ffc-in4up — "Dịch offline + glossary Phật học / Pali (+ Hindi)")
 - Trạng thái: proposed

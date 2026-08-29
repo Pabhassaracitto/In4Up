@@ -14,6 +14,7 @@
 // được restore lại bằng nghĩa khóa.
 
 import '../../canon/services/canon_tokenizer.dart';
+import 'protect_tokens.dart' show GlossaryProtection, protectWithGlossary;
 
 /// Language codes trong schema glossary (lowercase, 1–2 ký tự).
 class GlossaryLang {

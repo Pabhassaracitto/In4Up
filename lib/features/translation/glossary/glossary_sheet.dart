@@ -444,7 +444,7 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: _sourceLang,
+                    value: _sourceLang,
                     isExpanded: true,
                     dropdownColor: const Color(0xFF252540),
                     borderRadius: BorderRadius.circular(10),
@@ -475,7 +475,7 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: _targetLang,
+                    value: _targetLang,
                     isExpanded: true,
                     dropdownColor: const Color(0xFF252540),
                     borderRadius: BorderRadius.circular(10),
@@ -532,7 +532,7 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
               ),
             ),
             DropdownButtonFormField<String>(
-              initialValue: _domain,
+              value: _domain,
               isExpanded: true,
               dropdownColor: const Color(0xFF252540),
               borderRadius: BorderRadius.circular(10),

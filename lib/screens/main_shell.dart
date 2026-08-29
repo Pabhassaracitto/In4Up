@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
+import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
@@ -394,13 +395,20 @@ class _MainShellState extends State<MainShell> {
 
     final shellSettingsTool = tools.ToolItem(
       id: 'shell_ui_settings',
-      title: 'Giao diện shell',
-      subtitle: 'Compact mode, auto-hide, long-press đổi mode',
+      title: context.uiText('Giao diện shell'),
+      subtitle: context.uiText('Compact mode, auto-hide, long-press đổi mode'),
       icon: Icons.tune_rounded,
       color: const Color(0xFF90CAF9),
     );
 
     final rememberTools = <tools.ToolItem>[
+      tools.ToolItem(
+        id: 'learn_by_heart',
+        title: context.uiText('Thuộc lòng (Learn by Heart)'),
+        subtitle: context.uiText('Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa'),
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFF4CAF50),
+      ),
       tools.ToolItem(
         id: 'review',
         title: l10n.review,
@@ -417,8 +425,8 @@ class _MainShellState extends State<MainShell> {
       ),
       tools.ToolItem(
         id: 'sound_list',
-        title: 'Âm mục',
-        subtitle: 'Điểm, đoạn & mục lục âm thanh',
+        title: context.uiText('Âm mục'),
+        subtitle: context.uiText('Điểm, đoạn & mục lục âm thanh'),
         icon: Icons.menu_book_outlined,
         color: const Color(0xFF26C6DA),
       ),
@@ -626,6 +634,13 @@ class _MainShellState extends State<MainShell> {
     }
 
     switch (toolId) {
+      case 'learn_by_heart':
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => const LearnByHeartHubScreen(),
+          ),
+        );
+        return;
       case 'speak_mode':
         _setListenMode(1);
         return;
@@ -769,6 +784,9 @@ class _MainShellState extends State<MainShell> {
         );
       case _PrimaryTab.remember:
         return RememberWorkspaceScreen(
+          onOpenLearnByHeart: () {
+            _handleTool('learn_by_heart');
+          },
           onOpenReview: () {
             _handleTool('review');
           },
@@ -1054,7 +1072,7 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                   child: Text(
-                    labels[index],
+                    context.uiText(labels[index]),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: selected ? accent : Colors.grey[400],

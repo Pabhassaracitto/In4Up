@@ -1187,4 +1187,104 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => 'Shell interface';
+
+  @override
+  String get shellUiSettingsSubtitle =>
+      'Compact mode, auto-hide, long-press to change mode';
+
+  @override
+  String get learnByHeart => 'Learn by Heart';
+
+  @override
+  String get learnByHeartSubtitle =>
+      'Dhammapada, recitations and meaningful passages';
+
+  @override
+  String get soundList => 'Soundlist';
+
+  @override
+  String get soundListSubtitle =>
+      'Scores, chapters and audio table of contents';
+
+  @override
+  String get lhb_0 => 'Later';
+
+  @override
+  String get lhb_1 => 'Check now';
+
+  @override
+  String get lhb_2 => 'Deep assessment';
+
+  @override
+  String get lhb_3 => 'Fill in the blanks';
+
+  @override
+  String get lhb_4 => 'Meaning → Verse';
+
+  @override
+  String get lhb_5 => 'Listen and continue reading';
+
+  @override
+  String get lhb_6 => 'Show answer to compare';
+
+  @override
+  String get lhb_7 => 'Play the first half';
+
+  @override
+  String get lhb_8 => 'Show the rest to check';
+
+  @override
+  String get lhb_9 => 'Back';
+
+  @override
+  String get lhb_10 => 'Next';
+
+  @override
+  String get lhb_11 => 'Add a new recitation';
+
+  @override
+  String get lhb_12 => 'Restore built-in samples';
+
+  @override
+  String get lhb_13 => 'Add new item';
+
+  @override
+  String get lhb_14 => 'All categories';
+
+  @override
+  String get lhb_15 => 'All statuses';
+
+  @override
+  String get lhb_16 => 'Review Active Recall';
+
+  @override
+  String get lhb_17 => 'Progressive learning';
+
+  @override
+  String get lhb_18 => 'Edit';
+
+  @override
+  String get lhb_19 => 'Delete item';
+
+  @override
+  String get lhb_20 => 'Confirm deletion';
+
+  @override
+  String get lhb_21 =>
+      'Are you sure you want to delete this lesson? Review progress will be lost.';
+
+  @override
+  String get lhb_22 => 'Cancel';
+
+  @override
+  String get lhb_23 => 'Delete';
+
+  @override
+  String get lhb_24 => 'Restore sample data';
+
+  @override
+  String get lhb_25 => 'Restore';
 }

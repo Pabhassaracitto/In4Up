@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../features/shadowing/models/shadowing_result.dart';
+import '../models/audio_library_entry.dart';
 import '../models/segment.dart';
 import '../models/sound_chapter.dart';
 import '../models/sound_loop_stat.dart';
@@ -32,6 +33,7 @@ class StorageService {
   static const String _soundChaptersBox = 'sound_chapters';
   static const String _soundTranscriptsBox = 'sound_transcripts';
   static const String _soundLoopStatsBox = 'sound_loop_stats';
+  static const String _audioLibraryBox = 'audio_library';
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -60,6 +62,7 @@ class StorageService {
         Hive.openBox<String>(_soundChaptersBox),
         Hive.openBox<String>(_soundTranscriptsBox),
         Hive.openBox<String>(_soundLoopStatsBox),
+        Hive.openBox<String>(_audioLibraryBox),
       ]);
 
       _initialized = true;
@@ -535,6 +538,46 @@ class StorageService {
       return const VadSettings();
     }
   }
+
+  // ==================== AUDIO LIBRARY (Thư viện âm thanh — P1) ====================
+
+  Box<String> get _audioLibrary => Hive.box<String>(_audioLibraryBox);
+
+  /// Lưu toàn bộ chỉ mục thư viện (thay thế).
+  Future<void> saveAllAudioLibraryEntries(List<AudioLibraryEntry> entries) async {
+    final map = <String, String>{};
+    for (final e in entries) {
+      map[e.libraryId] = _jsonEncodeEntry(e);
+    }
+    await _audioLibrary.putAll(map);
+  }
+
+  /// Lưu / cập nhật một entry.
+  Future<void> saveAudioLibraryEntry(AudioLibraryEntry entry) async {
+    await _audioLibrary.put(entry.libraryId, _jsonEncodeEntry(entry));
+  }
+
+  /// Đọc toàn bộ chỉ mục.
+  List<AudioLibraryEntry> getAllAudioLibraryEntries() {
+    final entries = <AudioLibraryEntry>[];
+    for (final json in _audioLibrary.values) {
+      try {
+        entries.add(
+          AudioLibraryEntry.fromJson(jsonDecode(json) as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('Error parsing audio library entry: $e');
+      }
+    }
+    return entries;
+  }
+
+  /// Xóa một entry.
+  Future<void> deleteAudioLibraryEntry(String libraryId) async {
+    await _audioLibrary.delete(libraryId);
+  }
+
+  String _jsonEncodeEntry(AudioLibraryEntry entry) => jsonEncode(entry.toJson());
 
   // ==================== TEXT SEGMENTS ====================
 

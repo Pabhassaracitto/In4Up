@@ -2400,6 +2400,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'world'**
   String get demoWordWorld;
+
+  /// No description provided for @shellUiSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Shell interface'**
+  String get shellUiSettings;
+
+  /// No description provided for @shellUiSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact mode, auto-hide, long-press to change mode'**
+  String get shellUiSettingsSubtitle;
+
+  /// No description provided for @learnByHeart.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn by Heart'**
+  String get learnByHeart;
+
+  /// No description provided for @learnByHeartSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dhammapada, recitations and meaningful passages'**
+  String get learnByHeartSubtitle;
+
+  /// No description provided for @soundList.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist'**
+  String get soundList;
+
+  /// No description provided for @soundListSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scores, chapters and audio table of contents'**
+  String get soundListSubtitle;
+
+  /// No description provided for @lhb_0.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get lhb_0;
+
+  /// No description provided for @lhb_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get lhb_1;
+
+  /// No description provided for @lhb_2.
+  ///
+  /// In en, this message translates to:
+  /// **'Deep assessment'**
+  String get lhb_2;
+
+  /// No description provided for @lhb_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in the blanks'**
+  String get lhb_3;
+
+  /// No description provided for @lhb_4.
+  ///
+  /// In en, this message translates to:
+  /// **'Meaning → Verse'**
+  String get lhb_4;
+
+  /// No description provided for @lhb_5.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen and continue reading'**
+  String get lhb_5;
+
+  /// No description provided for @lhb_6.
+  ///
+  /// In en, this message translates to:
+  /// **'Show answer to compare'**
+  String get lhb_6;
+
+  /// No description provided for @lhb_7.
+  ///
+  /// In en, this message translates to:
+  /// **'Play the first half'**
+  String get lhb_7;
+
+  /// No description provided for @lhb_8.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the rest to check'**
+  String get lhb_8;
+
+  /// No description provided for @lhb_9.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get lhb_9;
+
+  /// No description provided for @lhb_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get lhb_10;
+
+  /// No description provided for @lhb_11.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a new recitation'**
+  String get lhb_11;
+
+  /// No description provided for @lhb_12.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore built-in samples'**
+  String get lhb_12;
+
+  /// No description provided for @lhb_13.
+  ///
+  /// In en, this message translates to:
+  /// **'Add new item'**
+  String get lhb_13;
+
+  /// No description provided for @lhb_14.
+  ///
+  /// In en, this message translates to:
+  /// **'All categories'**
+  String get lhb_14;
+
+  /// No description provided for @lhb_15.
+  ///
+  /// In en, this message translates to:
+  /// **'All statuses'**
+  String get lhb_15;
+
+  /// No description provided for @lhb_16.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Active Recall'**
+  String get lhb_16;
+
+  /// No description provided for @lhb_17.
+  ///
+  /// In en, this message translates to:
+  /// **'Progressive learning'**
+  String get lhb_17;
+
+  /// No description provided for @lhb_18.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get lhb_18;
+
+  /// No description provided for @lhb_19.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete item'**
+  String get lhb_19;
+
+  /// No description provided for @lhb_20.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm deletion'**
+  String get lhb_20;
+
+  /// No description provided for @lhb_21.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this lesson? Review progress will be lost.'**
+  String get lhb_21;
+
+  /// No description provided for @lhb_22.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get lhb_22;
+
+  /// No description provided for @lhb_23.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get lhb_23;
+
+  /// No description provided for @lhb_24.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore sample data'**
+  String get lhb_24;
+
+  /// No description provided for @lhb_25.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get lhb_25;
 }
 
 class _AppLocalizationsDelegate

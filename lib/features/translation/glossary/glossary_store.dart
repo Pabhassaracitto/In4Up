@@ -18,7 +18,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../models/word_entry.dart';
+import '../../../models/word_entry.dart';
 import 'translation_glossary.dart';
 
 class GlossaryStore {
@@ -83,7 +83,9 @@ class GlossaryStore {
     if (box.isEmpty) {
       final seed = await _loadSeed();
       for (final entry in seed) {
-        box.putIfAbsent(entry.id, entry.toMap());
+        // Hive Box KHÔNG có putIfAbsent (khác Map) — box đang trống nên
+        // put thẳng; guard isEmpty phía trên đảm bảo nạp 1 lần.
+        await box.put(entry.id, entry.toMap());
       }
     }
 

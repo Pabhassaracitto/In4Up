@@ -111,6 +111,7 @@ class RecentFile {
   RecentFile copyWith({
     String? title,
     String? subtitle,
+    String? localPath,
     int? lastReadLine,
     int? totalLines,
     DateTime? lastOpened,
@@ -121,7 +122,7 @@ class RecentFile {
         title: title ?? this.title,
         subtitle: subtitle ?? this.subtitle,
         type: type,
-        localPath: localPath,
+        localPath: localPath ?? this.localPath,
         cloudId: cloudId,
         category: category,
         lastOpened: lastOpened ?? this.lastOpened,

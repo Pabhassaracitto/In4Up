@@ -18,6 +18,12 @@ abstract class AiEngine {
 
   Future<bool> initialize({required String modelPath});
 
+  /// Complete khi model đã load xong trong backend (native llama.cpp có thể
+  /// mất 1–2 phút với file GGUF lớn). Engine mock complete ngay.
+  /// Fail (completeError) nếu model/native không load được — facade dùng để
+  /// báo UI "đang nạp" và fallback mock trung thực.
+  Future<void> get modelReady;
+
   Stream<AiAnalysis> analyze({
     required String text,
     required AiAnalysisType type,

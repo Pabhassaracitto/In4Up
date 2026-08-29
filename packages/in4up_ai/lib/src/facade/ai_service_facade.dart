@@ -17,6 +17,16 @@ import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
 
+/// Giai đoạn import/tải model — cho UI hiển thị progress + trạng thái rõ ràng.
+enum AiImportStage {
+  idle, // chưa làm gì
+  copying, // đang copy file .gguf đã chọn vào app directory
+  downloading, // đang tải model từ URL
+  loading, // native llama.cpp đang nạp model (1–2 phút với file lớn)
+  ready, // model đã nạp, sẵn sàng
+  failed, // lỗi (xem importError)
+}
+
 /// Facade duy nhất cho toàn bộ AI module — UI và Provider chỉ tương tác qua class này
 /// Kết hợp: Word Lookup + Sentence Parse + Summarize + TermExtract + PAO + Chat
 class AiServiceFacade extends ChangeNotifier {
@@ -39,8 +49,12 @@ class AiServiceFacade extends ChangeNotifier {
   bool get isLoading => _facadeState == AiFacadeState.loading;
   bool get isChatLoading => _facadeState == AiFacadeState.chatting;
   /// True only when a real .gguf is loaded — not mock/startup fallback.
+  /// (Merge 2026-08-22: giữ bản 01a0251e — chặt hơn bản `_initialized && !_useMock`
+  /// của 01a02601, tương thích `_loader.hasModel` + `isReady` đã có trong file.
+  /// 2026-08-23: thêm `_modelLoaded` — isolate báo ready trước khi native model
+  /// nạp xong (ready-first), nên "isReady" đơn thuần chưa đủ.)
   bool get hasModel =>
-      !_useMock && _loader.hasModel && isReady;
+      !_useMock && _loader.hasModel && isReady && _modelLoaded;
   String? _lastError;
   String? get lastError => _lastError;
   bool get isReady => _initialized && (_engine?.state == AiEngineState.ready);
@@ -51,6 +65,56 @@ class AiServiceFacade extends ChangeNotifier {
   String get modelSourceLabel => _loader.modelSourceLabel;
   ModelLoadResult? _modelStatus;
   ModelLoadResult? get modelStatus => _modelStatus;
+
+  // ── Trạng thái import/tải model — cho chat screen + trung tâm model ──
+  AiImportStage _importStage = AiImportStage.idle;
+  double _importProgress = 0;
+  String? _importError;
+  bool _modelLoaded = false;
+
+  AiImportStage get importStage => _importStage;
+  double get importProgress => _importProgress;
+  String? get importError => _importError;
+
+  /// True trong lúc import/tải model (UI vô hiệu nút + hiện progress).
+  bool get isImportActive =>
+      _importStage == AiImportStage.copying ||
+      _importStage == AiImportStage.downloading ||
+      _importStage == AiImportStage.loading;
+
+  /// True khi engine thật đã khởi động nhưng model native chưa load xong
+  /// (kể cả app tự nạp model lúc khởi động) — UI hiện "đang nạp model".
+  bool get isModelLoading =>
+      isImportActive || (_initialized && !_useMock && !_modelLoaded);
+
+  String? get modelFileName => _loader.currentModelName;
+  int? get modelSizeBytes => _loader.currentModelSizeBytes;
+
+  void _setImportStage(
+    AiImportStage stage, {
+    double? progress,
+    String? error,
+    bool notify = true,
+  }) {
+    _importStage = stage;
+    if (progress != null) _importProgress = progress;
+    if (stage == AiImportStage.failed) {
+      _importError = error ?? _importError;
+    } else {
+      _importError = null;
+    }
+    if (notify && !_disposed) notifyListeners();
+  }
+
+  /// Chờ native model load xong trong isolate (1–2 phút với file lớn).
+  Future<void> _awaitModelReady(
+      {Duration timeout = const Duration(minutes: 5)}) async {
+    final engine = _engine;
+    if (engine == null || _useMock) return;
+    await engine.modelReady.timeout(timeout);
+    _modelLoaded = true;
+    if (!_disposed) notifyListeners();
+  }
 
   // Retry tracking
   int _retryCount = 0;
@@ -115,11 +179,26 @@ class AiServiceFacade extends ChangeNotifier {
           isError: true,
         ));
       } else {
+        // Model native còn đang nạp (app tự nạp lúc khởi động) thì chờ xong
+        // trước — message của user không bị trả lời bằng mock "chui".
+        if (!_useMock && !_modelLoaded) {
+          try {
+            await _awaitModelReady();
+          } catch (_) {
+            // native load fail → mock fallback bên dưới (kèm disclaimer).
+          }
+        }
         final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2).first;
+        final answer = result.success && result.summary.isNotEmpty
+            ? result.summary
+            : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
+        final isRealModel = _modelLoaded && !_useMock;
         _chatMessages.add(ChatMessage(
           id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
           role: ChatRole.assistant,
-          text: result.success && result.summary.isNotEmpty ? result.summary : 'Mình chưa tạo được câu trả lời cho tin nhắn này.',
+          text: isRealModel
+              ? answer
+              : '⚠️ Chưa nạp model AI — đây là trả lời MẪU (mock), không phải câu trả lời thật.\n\nImport file .gguf (nút model trên cùng, hoặc Cài đặt → Quản lý Model AI) để dùng AI thật.\n\n$answer',
           isError: !result.success,
         ));
       }
@@ -143,6 +222,18 @@ class AiServiceFacade extends ChangeNotifier {
       _modelStatus = result;
       if (result.success && result.modelPath != null) {
         await initialize(modelPath: result.modelPath!);
+        // Model native load trong nền (1–2 phút) — UI theo dõi qua
+        // isModelLoading; khi xong notify để hiện "sẵn sàng".
+        if (!_useMock && _engine != null) {
+          _engine!.modelReady.then((_) {
+            _modelLoaded = true;
+            if (!_disposed) notifyListeners();
+          }).catchError((Object _) {
+            // Native không nạp được (thiếu lib/file hỏng) — vẫn mock,
+            // UI hiện "chưa nạp" qua hasModel=false.
+            if (!_disposed) notifyListeners();
+          });
+        }
       } else {
         await initialize(modelPath: '', useMock: true);
       }
@@ -157,7 +248,19 @@ class AiServiceFacade extends ChangeNotifier {
     bool useMock = false,
     bool forceReload = false,
   }) async {
-    if (_initialized && !forceReload) return true;
+    // Cho phép chuyển backend giữa phiên chạy (VD: app khởi động ở mock mode,
+    // người dùng import .gguf ⇒ cần re-init sang AiEngineGemma thật).
+    // forceReload (từ 01a0251e): ép init lại dù đã sẵn sàng cùng backend
+    // (VD: đổi file .gguf giữa phiên).
+    if (_initialized) {
+      if (!forceReload && useMock == _useMock) return true;
+      debugPrint(
+          '[AiServiceFacade] (Re)initializing: ${_useMock ? "mock" : "real"} → ${useMock ? "mock" : "real"}');
+      await _engine?.dispose();
+      _engine = null;
+      _initialized = false;
+      _useMock = false;
+    }
     _useMock = useMock;
 
     await _engine?.dispose();
@@ -403,24 +506,98 @@ class AiServiceFacade extends ChangeNotifier {
     debugPrint('[AiFacade] Max retries reached, keeping Tier 1/2 result');
   }
 
+  /// Import model .gguf do người dùng chọn file.
+  /// Báo tiến độ liên tục qua [importStage]/[importProgress]:
+  /// copying (0–100%) → loading (native nạp model) → ready/failed.
+  /// UI (chat screen / trung tâm model) chỉ cần lắng nghe ChangeNotifier.
   Future<bool> importModelFromUser() async {
+    _modelLoaded = false;
+    _setImportStage(AiImportStage.copying, progress: 0);
     try {
-      final result = await _loader.importModelFromUser();
+      final result = await _loader.importModelFromUser(
+        onCopyProgress: (p) =>
+            _setImportStage(AiImportStage.copying, progress: p, notify: false),
+      );
       _modelStatus = result;
       if (result.success && result.modelPath != null) {
-        final ok = await initialize(
-          modelPath: result.modelPath!,
-          useMock: false,
-          forceReload: true,
-        );
-        if (!_disposed) notifyListeners();
-        return ok;
+        return await _adoptModel(result.modelPath!);
       }
+      _setImportStage(AiImportStage.failed,
+          error: result.errorMessage ?? 'Import thất bại');
       return false;
     } catch (e) {
       debugPrint('[AiServiceFacade] importModelFromUser error: $e');
+      _setImportStage(AiImportStage.failed, error: 'Lỗi import: $e');
       return false;
     }
+  }
+
+  /// Tải model từ URL (nút "Tải về" trong trung tâm model).
+  /// Tiến độ: downloading (0–100%) → loading → ready/failed.
+  Future<bool> downloadModel(String url) async {
+    _modelLoaded = false;
+    _setImportStage(AiImportStage.downloading, progress: 0);
+    try {
+      final result = await _loader.downloadModel(
+        url: url,
+        onProgress: (p) =>
+            _setImportStage(AiImportStage.downloading, progress: p, notify: false),
+      );
+      _modelStatus = result;
+      if (result.success && result.modelPath != null) {
+        return await _adoptModel(result.modelPath!);
+      }
+      _setImportStage(AiImportStage.failed,
+          error: result.errorMessage ?? 'Download thất bại');
+      return false;
+    } catch (e) {
+      debugPrint('[AiServiceFacade] downloadModel error: $e');
+      _setImportStage(AiImportStage.failed, error: 'Download thất bại: $e');
+      return false;
+    }
+  }
+
+  /// Xóa file model khỏi thiết bị + quay về mock (nút "Xóa").
+  Future<void> removeModel() async {
+    await _loader.removeModel();
+    _modelStatus = null;
+    _modelLoaded = false;
+    await initialize(modelPath: '', useMock: true);
+    _setImportStage(AiImportStage.idle);
+  }
+
+  /// Sau khi có file model hợp lệ (import/download): khởi động engine thật,
+  /// chờ native llama.cpp nạp model xong, báo UI "sẵn sàng" hoặc lỗi rõ ràng.
+  Future<bool> _adoptModel(String modelPath) async {
+    _setImportStage(AiImportStage.loading);
+    final ok = await initialize(
+      modelPath: modelPath,
+      useMock: false,
+      forceReload: true,
+    );
+    if (!ok) {
+      _setImportStage(
+          AiImportStage.failed,
+          error: 'Không khởi tạo được AI engine');
+      return false;
+    }
+    try {
+      await _awaitModelReady();
+    } catch (e) {
+      // Native không nạp được (thiếu lib trong build / file hỏng) →
+      // quay về mock TRUNG THỰC (hasModel=false, UI báo rõ).
+      await _engine?.dispose();
+      _engine = AiEngineMock();
+      await _engine!.initialize(modelPath: '');
+      _useMock = true;
+      _initialized = true;
+      _modelLoaded = false;
+      _setImportStage(AiImportStage.failed,
+          error: e is StateError ? e.message : 'Model không load được: $e');
+      return false;
+    }
+    _setImportStage(AiImportStage.ready);
+    return true;
   }
 
   ErrorLogEntry reportError({required String reason}) {

@@ -1,10 +1,13 @@
 // lib/screens/read_mode/widgets/library_screen.dart
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
@@ -120,19 +123,62 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // FILE ACTIONS
   // ═══════════════════════════════════════════════════════════
 
+  Future<String> _persistLocalText(String path) async {
+    try {
+      final src = File(path);
+      if (!await src.exists()) return path;
+      final docs = await getApplicationDocumentsDirectory();
+      final destDir = Directory(p.join(docs.path, 'in4up_texts'));
+      if (!await destDir.exists()) await destDir.create(recursive: true);
+      final dest = File(p.join(destDir.path, p.basename(path)));
+      if (p.normalize(src.path) == p.normalize(dest.path)) return dest.path;
+      await src.copy(dest.path);
+      return dest.path;
+    } catch (e) {
+      debugPrint('[LibraryScreen] persist copy failed: $e');
+      return path;
+    }
+  }
+
+  void _showOpenError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _openFile(RecentFile file) async {
     // Lưu refs TRƯỚC khi await
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
 
     switch (file.type) {
-      // ── Local text (.txt / .lrc / .srt) ───────────────────
+      // ── Local text (.txt / .lrc / .srt / .md / .json / .docx)
       case RecentFileType.localText:
         if (file.localPath == null) return;
-        await tp.loadTextFile(file.localPath!);
+        var path = file.localPath!;
+        if (!File(path).existsSync()) {
+          _showOpenError(
+            'Không còn file trên máy (đường dẫn tạm đã mất). '
+            'Thêm lại từ Thiết bị.',
+          );
+          return;
+        }
+        path = await _persistLocalText(path);
+        final loaded = await tp.loadTextFile(path);
         if (!mounted) return;
+        if (!loaded || !tp.hasLyrics) {
+          _showOpenError(
+            'Không đọc được nội dung — thử file .txt hoặc lưu lại .docx',
+          );
+          return;
+        }
         await _service.addOrUpdate(
           file.copyWith(
+            localPath: path,
             lastOpened: DateTime.now(),
             totalLines: tp.lines.length,
           ),
@@ -220,17 +266,13 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     if (result == null || result.files.single.path == null) return;
     if (!mounted) return;
 
-    final path = result.files.single.path!;
+    final picked = result.files.single.path!;
+    final path = await _persistLocalText(picked);
     final loaded = await tp.loadTextFile(path);
     if (!mounted) return;
-    if (!loaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+    if (!loaded || !tp.hasLyrics) {
+      _showOpenError(
+        'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
       );
       return;
     }
@@ -1340,7 +1382,7 @@ class _DeviceTabState extends State<_DeviceTab> {
         _DevicePickButton(
           icon: Icons.text_snippet_rounded,
           label: 'Mở file văn bản',
-          subtitle: 'Định dạng .txt · .lrc · .srt',
+          subtitle: 'Định dạng .txt · .md · .json · .docx · .lrc · .srt',
           color: const Color(0xFF4CAF50),
           loading: _picking,
           onTap: () => _pickFile(isPdf: false),

@@ -20,6 +20,10 @@ class AiEngineGemma implements AiEngine {
   Isolate? _isolate;
   SendPort? _sendPort;
   ReceivePort? _receivePort;
+  // FIX 251e: addOnExitListener(SendPort, {response}) — nhận SendPort, KHÔNG
+  // phải callback (bản 01a02a41 truyền closure => lỗi compile:
+  // "Null Function(dynamic)" can't be assigned to SendPort).
+  ReceivePort? _isolateExitPort;
   bool _disposed = false;
   String? _modelPath;
 
@@ -154,8 +158,10 @@ class AiEngineGemma implements AiEngine {
     }
     _isolate?.kill(priority: Isolate.immediate);
     _receivePort?.close();
+    _isolateExitPort?.close();
     _isolate = null;
     _sendPort = null;
+    _isolateExitPort = null;
     _modelPath = null;
     _state = AiEngineState.disposed;
   }
@@ -178,7 +184,12 @@ class AiEngineGemma implements AiEngine {
     // hạn chế) ⇒ không ai trả lời các request đang chờ. Báo lỗi cho MỌI
     // phía đang đợi: loadCompleter (model chưa kịp load) + các port đang
     // chờ trả lời — thay vì để chat treo "xoay vòng mãi".
-    _isolate!.addOnExitListener((exitPort) {
+    final exitPort = ReceivePort();
+    _isolateExitPort = exitPort;
+    _isolate!.addOnExitListener(exitPort.sendPort, response: 'isolate-exited');
+    exitPort.listen((_) {
+      exitPort.close();
+      _isolateExitPort = null;
       final loadC = _modelLoadCompleter;
       if (loadC != null && !loadC.isCompleted) {
         loadC.completeError(const StateError(

@@ -51,6 +51,7 @@
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done | code + test thuần (sandbox KHÔNG có Flutter SDK → chờ CI + nghiệm thu thiết bị) |
+| XLAT-002 | Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (pi/vi/en/zh/zh-tw/my) + CJK boundary + UI 8 ngôn ngữ | ✅ done | 10.247 entries (2.1MB JSON) + master MD + audit (sandbox không có Flutter SDK → chờ CI) |
 
 ---
 
@@ -1105,3 +1106,43 @@
     toan. Soundlist tests do tren topic = code soundlist cua chinh 251e
     (workflow chua bao gio chay tren 251e — merge thay doi path soundlist
     nen bat trigger); khong lien quan XLAT — 251e tu xuat xuc.
+
+### XLAT-002 — Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (XLAT)
+- **Trạng thái:** done (code + test thuần + dữ liệu; chờ CI + review của chủ)
+- **Nguồn dữ liệu:** `reference/meditation vocabulary.pdf` (巴利－中文－英文－缅文,
+  121 trang, 2026.05.30) — chủ commit lên 251e (commit 13d271f). PDF bị lỗi font
+  OCR (ti→"4", tt→"h", tính→"pnh", cluster Burmese→junk) — đã repair + đánh dấu.
+- **Nội dung:**
+  - Trích xuất 754 entry × 5 ngôn ngữ (pi/vn/en/zh/my) bằng parser 2 tầng
+    (layout 2 cột, danh sách đánh số, pool ánh xạ zh/en theo thứ tự trang).
+  - **10.247 glossary entries** (10.139 locked) trong
+    `assets/glossary/buddhist_multilang.json` — mọi cặp (src,tgt) trong 6 mã
+    pi/en/vi/zh-tw/zh/my (zh 简 sinh ra từ 繁 bằng opencc t2s — deterministic,
+    không phải dịch máy). Merge với seed 226 (id trùng: seed thắng + audit).
+  - `GlossaryStore`: nạp LIST seed assets (226 trước, multilang sau).
+  - `GlossaryLang.normalize`: nhận zh/zh-tw/si/my + alias.
+  - **Boundary rule mới** (`protect_tokens`): word-char = CHỈ Latin ASCII + số
+    — CJK/Myanmar được phép khớp substring (chữ Hán không có khoảng trắng);
+    "sati" vẫn bị chặn trong "satisfaction". Test phủ cả 2 chiều.
+  - UI glossary sheet: dropdown 8 ngôn ngữ (pi/en/vi/hi/zh/zh-tw/si/my).
+  - `docs/glossary/buddhist_terms_master.md` — bảng nguồn 754 dòng cho chủ
+    sửa (dấu ✅/🔧/⚠); `docs/glossary/audit_extract.md` — 699 cells ⚠ +
+    438 conflict ngữ cảnh + thống kê.
+  - **Cột hi/si: TRỐNG** — PDF này không có Hindi/Sinhala; chờ nguồn mới.
+  - **Burmese: 117/567 cells sạch** — 450 cells cluster-junk → locked=false,
+    KHÔNG vào JSON glossary (hình thức junk không khớp text thật) — chủ cần
+    nguồn Burmese sạch nếu muốn khóa my.
+- **File:** thêm `assets/glossary/buddhist_multilang.json`,
+  `docs/glossary/buddhist_terms_master.md`, `docs/glossary/audit_extract.md`;
+  sửa `glossary_store.dart` (multi-asset), `translation_glossary.dart`
+  (normalize 8 mã), `glossary_sheet.dart` (dropdown 8 ngôn ngữ),
+  `protect_tokens.dart` (boundary ASCII-only), test (8 test mới).
+- **Bằng chứng:** test/translation_glossary_test.dart (XLAT-002 group: CJK
+  boundary, longest-match CJK, zh vs zh-tw, pi trong CJK, Burmese, regression
+  Latin). Sandbox KHÔNG có Flutter SDK — chưa chạy flutter test; algorithm
+  verify bằng port Python (12/12 case).
+- **Lịch sử:**
+  - 2026-08-29 | created | owner gửi file PDF + lệnh "tiến hành" | agent
+    arena/01a02ffc-in4up
+  - 2026-08-29 | doing→done | agent arena/01a02ffc-in4up | parser 2 tầng +
+    10.247 entries + code 8 ngôn ngữ + test; chờ CI + chủ review master table

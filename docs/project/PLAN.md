@@ -440,3 +440,22 @@
   chờ `flutter pub get` + CI + nghiệm thu thiết bị của chủ.
 - Lịch sử:
   - 2026-08-23 | created | owner via prompt | "I4U | READ Translate"
+
+### PLAN-020 — Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (XLAT-002)
+- Nguồn: người sở hữu (2026-08-29, gửi file `reference/meditation
+  vocabulary.pdf` + lệnh "tiến hành")
+- Trạng thái: proposed
+- Milestone đề xuất: ngoài M0–M3 (phạm vi Đọc/Dịch)
+- Chi tiết:
+  - Trích xuất bảng chuyên ngữ 5 ngôn ngữ (巴利－中文－英文－缅文, 121 trang)
+    → master table MD + **10.247 glossary entries** (6 mã pi/en/vi/zh-tw/zh/my,
+    mọi cặp src/tgt) merge với seed 226.
+  - Boundary rule cho CJK/Myanmar (khớp substring, chặn Latin-embedded).
+  - UI glossary: 8 ngôn ngữ. hi/si chờ nguồn mới của chủ; Burmese 117/567
+    cells sạch (450 cells OCR-junk → không vào JSON, chờ nguồn sạch).
+  - Pipeline: XLAT-002 KHÔNG sửa pipeline engine — chỉ mở rộng dữ liệu +
+    normalize + UI; protect/restore giữ nguyên (đã verify 12/12 case Python).
+- Bằng chứng: card XLAT-002 (KANBAN) + test group XLAT-002 +
+  docs/glossary/{buddhist_terms_master,audit_extract}.md.
+- Lịch sử:
+  - 2026-08-29 | created | owner via file PDF + chat | agent arena/01a02ffc-in4up

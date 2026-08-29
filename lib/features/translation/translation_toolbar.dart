@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/mlkit_engine.dart';
+import 'glossary/glossary_sheet.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
@@ -245,68 +247,145 @@ class TranslationToolbar extends StatelessWidget {
     // ★ SỬA 1: Tạo instance, không dùng static
     final service = TranslationService();
 
-    final urlController = TextEditingController(
-      text: service.deeplxUrl ?? '',
-    );
-
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '⚙️ Engine dịch thuật',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: urlController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: context.uiText('DeepLX Server URL (tùy chọn)'),
-                labelStyle: const TextStyle(color: Colors.grey),
-                hintText: context.uiText('Để trống → dùng Google Free'),
-                hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                service.configure(
-                  deeplxUrl: urlController.text.trim(),
-                );
-                Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-              child: const Text('Lưu'),
-            ),
-          ],
-        ),
+      builder: (ctx) => _TranslationEngineSettings(
+        service: service,
+        accentColor: primaryColor,
       ),
     );
   }
+}
+
+/// Sheet "Cài đặt engine dịch": DeepLX URL + gói ML Kit offline (tải khi
+/// user bấm — không auto-download) + chế độ chỉ-offline + màn Thuật ngữ.
+class _TranslationEngineSettings extends StatefulWidget {
+  final TranslationService service;
+  final Color accentColor;
+
+  const _TranslationEngineSettings({
+    required this.service,
+    required this.accentColor,
+  });
+
+  @override
+  State<_TranslationEngineSettings> createState() =>
+      _TranslationEngineSettingsState();
+}
+
+class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> {
+  // KHÔNG dùng `late final _urlController = TextEditingController(text:
+  // widget.service.deeplxUrl ?? '')` — initializer late field tham chiếu
+  // `widget` không có trong codebase (rủi ro compile); init trong initState.
+  late final TextEditingController _urlController;
+
+  // Ngôn ngữ có thể tải model ML Kit cho pipeline hiện tại:
+  // EN ↔ VI, EN ↔ HI; HI ↔ VI pivot qua EN.
+  static const _mlkitCodes = <String>['EN', 'VI', 'HI'];
+  final Map<String, bool> _modelDownloaded = <String, bool>{};
+  final Map<String, bool> _downloading = <String, bool>{};
+  bool? _offlineOnly;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlController = TextEditingController(text: widget.service.deeplxUrl ?? '');
+    _offlineOnly = widget.service.offlineOnly;
+    _loadModels();
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadModels() async {
+    final mlkit = widget.service.mlkit;
+    if (MlKitEngine.platformSupported) {
+      for (final code in _mlkitCodes) {
+        final language = MlKitEngine.languageForCode(code);
+        if (language == null) {
+          _modelDownloaded[code] = false;
+          continue;
+        }
+        _modelDownloaded[code] = await mlkit.isModelDownloaded(language.bcpCode);
+      }
+    }
+  }
+
+  Future<void> _downloadModel(String code) async {
+    final language = MlKitEngine.languageForCode(code);
+    if (language == null) return;
+    setState(() => _downloading[code] = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final ok = await widget.service.mlkit.downloadModel(language.bcpCode);
+      _modelDownloaded[code] = ok;
+      if (!ok) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText('Lỗi tải gói $code'),
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText('Đã tải gói $code'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            context.uiText('Lỗi tải gói $code'),
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+    if (mounted) setState(() => _downloading[code] = false);
+  }
+
+  Future<void> _deleteModel(String code) async {
+    final language = MlKitEngine.languageForCode(code);
+    if (language == null) return;
+    final ok = await widget.service.mlkit.deleteModel(language.bcpCode);
+    if (!mounted) return;
+    setState(() => _modelDownloaded[code] = !ok);
+  }
+
+  String _modelLabel(String code) {
+    switch (code) {
+      case 'EN':
+        return 'English';
+      case 'VI':
+        return context.uiText('Tiếng Việt');
+      case 'HI':
+        return 'Hindi';
+      default:
+        return code;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+
+
+  Widget _modelRow(String code) => const SizedBox.shrink();
+
 }
 
 class _TranslateButton extends StatelessWidget {

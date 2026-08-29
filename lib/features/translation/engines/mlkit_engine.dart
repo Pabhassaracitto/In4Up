@@ -13,7 +13,8 @@
 // Cặp hỗ trợ: EN ↔ VI, EN ↔ HI. HI ↔ VI do TranslationService pivot qua
 // EN (2 bước + glossary hai đầu).
 //
-// API package `google_mlkit_translation` (0.15.x) — đã đối chiếu pub.dev:
+// API package `google_mlkit_translation` (0.14.x — pin vì 0.15.x đòi
+// Dart SDK 3.12, CI là 3.11.5; API 0.14 == 0.15, đã đối chiếu source):
 //   OnDeviceTranslator(sourceLanguage, targetLanguage).translateText(text)
 //   OnDeviceTranslatorModelManager: isModelDownloaded / downloadModel /
 //   deleteModel (bcpCode: 'en', 'vi', 'hi', ...)

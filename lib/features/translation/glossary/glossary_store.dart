@@ -18,7 +18,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../models/word_entry.dart';
+import '../../../models/word_entry.dart';
 import 'translation_glossary.dart';
 
 class GlossaryStore {

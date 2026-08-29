@@ -57,6 +57,13 @@ class TranslationService {
         _injectedNetwork = networkAvailable {
     if (onlineEngines == null) {
       _initEngines();
+      _loadOfflineOnlyPref();
+    }
+    final store = _glossaryStore;
+    if (store != null) {
+      // Fire-and-forget: không block UI; translateText sẽ ensureInit lại.
+      unawaited(store.ensureInit());
+      _glossarySub = store.changes.listen(_onGlossaryChanged);
     }
   }
 
@@ -329,6 +336,32 @@ class TranslationService {
     await _cache.clear();
     _cacheHits = 0;
     _totalRequests = 0;
+  }
+
+  Future<void> _ensureGlossary() async {
+    final store = _glossaryStore;
+    if (store == null) return;
+    try {
+      await store.ensureInit();
+      _glossary = store.glossary;
+    } catch (e) {
+      debugPrint('⚠️ Glossary không sẵn sàng (dùng glossary rỗng): $e');
+    }
+  }
+
+  void _onGlossaryChanged() {
+    final store = _glossaryStore;
+    if (store == null) return;
+    _glossary = store.glossary;
+    // Glossary đổi → bản dịch cache cũ có thể chứa nghĩa cũ → clear.
+    unawaited(
+      _cache.clear().catchError((Object e) {
+        debugPrint('⚠️ Clear cache sau glossary change: $e');
+      }),
+    );
+    debugPrint(
+      '📚 Glossary đổi: ${store.entries.length} entries — translation cache cleared',
+    );
   }
 
   Future<bool> _checkNetwork() async {

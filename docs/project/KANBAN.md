@@ -52,6 +52,7 @@
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
+| YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | 📋 proposed | PLAN-020; nền: explode + iframe player + saveLrc |
 
 ---
 
@@ -1196,3 +1197,21 @@
     tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc
     log analyze (artifact app-analyze-log) khi token hoạt động lại. Bài học: code 02ffc chưa từng qua
     compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định
+
+### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
+- **Trạng thái:** proposed
+- **Nguồn:** người sở hữu (2026-08-30) — yt-dlp / Language Reactor; tư vấn
+  agent arena/01a01580-in4up (local-first, không VPS).
+- **Nội dung:** hoàn thiện học YouTube **trên máy**: iframe + phụ đề timestamp
+  + song ngữ (TranslationService/XLAT) + tap từ → WordList + tải audio → tab
+  Nghe (LRC/karaoke/shadowing). **Không** backend Node/Python chạy yt-dlp;
+  **không** tab thứ 6. `yt-dlp` chỉ sidecar desktop (WP-Z) nếu explode gãy.
+  Chi tiết + thứ tự WP0–WP4: PLAN-020.
+- **Nền đã có (đừng làm lại):** `youtube_explode_dart`, `YtService.fetchCaptions`
+  3 tầng + `fetchBilingualCaptions`, `YtDownloader`, `saveLrc`,
+  `yt_player_screen.dart` (IFrame API + Known/Learning phác), YouGlish,
+  tab Nghe REOPEN-001.
+- **Bằng chứng:** chưa code — chờ topic từ tip DEV + WP0 kiểm kê thiết bị.
+- **Lịch sử:**
+  - 2026-08-30 | created | owner via chat + agent arena/01a01580-in4up |
+    "tích hợp để app tùy biến youtube tải về / phụ đề / chạy luôn như langua reaction"

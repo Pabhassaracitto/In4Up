@@ -374,9 +374,13 @@ class TranslationService {
 
   Future<bool> _sentenceEngineReady(String sourceCode, String targetCode) async {
     try {
-      if (!await _mlkit.isAvailable()) return false;
-      if (_mlkit is MlKitEngine) {
-        return _mlkit.isPairReady(
+      // Bản địa copy: Dart KHÔNG promote instance field sau is-check
+      // (chỉ promote local variable) — không copy thì `mlkit.isPairReady`
+      // báo undefined method trên TranslationEngine.
+      final mlkit = _mlkit;
+      if (!await mlkit.isAvailable()) return false;
+      if (mlkit is MlKitEngine) {
+        return mlkit.isPairReady(
           sourceCode: sourceCode,
           targetCode: targetCode,
         );

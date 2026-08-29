@@ -335,6 +335,17 @@ class TranslationService {
     _totalRequests = 0;
   }
 
+  Future<void> _ensureGlossary() async {
+    final store = _glossaryStore;
+    if (store == null) return;
+    try {
+      await store.ensureInit();
+      _glossary = store.glossary;
+    } catch (e) {
+      debugPrint('⚠️ Glossary không sẵn sàng (dùng glossary rỗng): $e');
+    }
+  }
+
   Future<bool> _checkNetwork() async {
     try {
       final result = await Connectivity().checkConnectivity();

@@ -992,6 +992,10 @@
 - **Lịch sử:**
   - 2026-08-27 | created→done | agent arena/01a0251e-in4up | path-checkout
     6 file từ db5c6ed + 5 fix compile; CI xanh 33082501188
+  - 2026-08-29 | fix bug layout rộng | agent arena/01a0251e-in4up | e715d85:
+    _WordTapChip chỉ gắn nhánh compact (width<620 || height<700) → màn rộng
+    (Windows/tablet) không có nút; bù vào Row không compact + icon tắt
+    select_all → grid_view_outlined (khớp "nút lưới")
 
 ### XLAT-001 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT)
 - **Trạng thái:** done (code + test thuần; chờ CI + nghiệm thu thiết bị)
@@ -1041,3 +1045,11 @@
   - 2026-08-23 | doing→done | agent arena/01a02ffc-in4up | code + test thuần;
     cache MD5 kế thừa sẵn trên 251e (không cần path-checkout d8486d3);
     chưa build máy (sandbox không có Flutter SDK) — chờ CI + nghiệm thu
+  - 2026-08-29 | thu hoạch vào 251e | agent arena/01a0251e-in4up |
+    cherry-pick 4 SHA dbab77e→aa84747 thành ad874b6/e648d64/753d790/26a5c51
+    (KHÔNG lấy read_top_bar/text_provider từ 02ffc — giữ nút lưới 1580);
+    fix import WordEntry sai đường dẫn da2ea37 (bị vỡ cả trên 02ffc — chưa
+    từng compile); PLAN-016 trùng số với card Tab Nghe trên DEV → PLAN-019;
+    pubspec.lock chưa có google_mlkit_translation — CI pub get tự sync, chủ
+    chạy `flutter pub get` trên máy rồi commit lock; chờ CI xanh + nghiệm
+    thu máy: EN→VI, EN→HI, một câu có sati/nibbāna

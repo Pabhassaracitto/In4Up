@@ -447,14 +447,136 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
               ),
             ],
             const SizedBox(height: 12),
+            // ── Chỉ offline ────────────────────────────────────────────
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                context.uiText('Chỉ dùng dịch offline'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Bỏ qua engine online (ML Kit + từ điển offline).',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              value: _offlineOnly ?? false,
+              activeColor: widget.accentColor,
+              onChanged: (v) {
+                setState(() => _offlineOnly = v);
+                widget.service.offlineOnly = v;
+              },
+            ),
+            Divider(color: Colors.grey.shade800),
+            // ── Glossary ───────────────────────────────────────────────
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.bookmark_border, color: widget.accentColor),
+              title: Text(
+                context.uiText('Thuật ngữ dịch (glossary)'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Khóa thuật ngữ Phật học/Pali — engine không được đè.',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () async {
+                await showGlossarySheet(context, accentColor: widget.accentColor);
+                if (mounted) setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    widget.service.configure(
+                      deeplxUrl: _urlController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                  },
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: widget.accentColor),
+                  child: const Text('Lưu'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _modelRow(String code) => const SizedBox.shrink();
-
+  Widget _modelRow(String code) {
+    final downloaded = _modelDownloaded[code] ?? false;
+    final downloading = _downloading[code] ?? false;
+    final supported = MlKitEngine.supportsTranslationCode(code);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            child: downloading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    downloaded
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 14,
+                    color: downloaded ? Colors.green : Colors.grey,
+                  ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_modelLabel(code)} ($code)',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                Text(
+                  supported
+                      ? (downloaded
+                          ? context.uiText('Đã tải')
+                          : context.uiText('Chưa tải'))
+                      : context.uiText('Chưa hỗ trợ'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          if (supported)
+            TextButton(
+              onPressed: downloading ? null : () => _downloadModel(code),
+              child: Text(
+                downloading
+                    ? context.uiText('Đang tải...')
+                    : context.uiText('Tải về'),
+              ),
+            ),
+          if (supported && downloaded)
+            IconButton(
+              onPressed: () => _deleteModel(code),
+              icon: const Icon(Icons.delete_outline, size: 16),
+              tooltip: context.uiText('Xóa gói'),
+              color: Colors.grey,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TranslateButton extends StatelessWidget {

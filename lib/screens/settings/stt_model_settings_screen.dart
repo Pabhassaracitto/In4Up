@@ -1,4 +1,6 @@
 // lib/screens/settings/stt_model_settings_screen.dart
+// NOTE: fix trong packages/ (in4up_ai/in4up_stt) không trigger app_analyze
+// (paths chỉ có lib/test/pubspec) — đi kèm dòng này để trigger CI root.
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import

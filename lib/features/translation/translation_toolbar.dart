@@ -339,7 +339,6 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
             const SizedBox(height: 18),
-            // ── Chỉ offline ────────────────────────────────────────────
             ListTile(
               title: const Text('offline probe'),
             ),

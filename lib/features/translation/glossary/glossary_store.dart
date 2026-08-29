@@ -58,6 +58,94 @@ class GlossaryStore {
 
   bool get isReady => _box != null;
 
+  /// Mở box + nạp hạt giống (1 lần). An toàn gọi nhiều lần; lỗi (Hive chưa
+  /// init) được nuốt để pipeline dịch vẫn chạy với glossary rỗng.
+  Future<void> ensureInit() {
+    final completer = _initCompleter;
+    if (completer != null) return completer.future;
+    final started = Completer<void>();
+    _initCompleter = started;
+    _doInit().then(
+      (void value) => started.complete(),
+      onError: (Object error) {
+        debugPrint('⚠️ GlossaryStore init: $error');
+        _initCompleter = null; // cho phép thử lại lần sau
+        started.complete();
+      },
+    );
+    return started.future;
+  }
+
+  Future<void> _doInit() async {
+    final box = _box ?? await Hive.openBox<Map>(boxName);
+    _box = box;
+
+    if (box.isEmpty) {
+      final seed = await _loadSeed();
+      for (final entry in seed) {
+        box.putIfAbsent(entry.id, entry.toMap());
+      }
+    }
+
+    _entries
+      ..clear()
+      ..addAll(
+        box.values
+            .map((value) => GlossaryEntry.fromMap(Map<String, dynamic>.from(value)))
+            .toList()
+          ..sort((a, b) {
+            final bySource = a.sourceNorm
+                .toLowerCase()
+                .compareTo(b.sourceNorm.toLowerCase());
+            if (bySource != 0) return bySource;
+            return a.targetLang.compareTo(b.targetLang);
+          }),
+      );
+    _byId
+      ..clear()
+      ..addAll({for (final entry in _entries) entry.id: entry});
+  }
+
+  Future<List<GlossaryEntry>> _loadSeed() async {
+    if (!_loadsSeedAsset) return _staticSeed;
+    try {
+      final raw = await rootBundle.loadString(_assetPath);
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const <GlossaryEntry>[];
+      final list = decoded['entries'];
+      if (list is! List) return const <GlossaryEntry>[];
+      final out = <GlossaryEntry>[];
+      for (final item in list) {
+        if (item is! Map) continue;
+        try {
+          out.add(GlossaryEntry.fromMap(Map<String, dynamic>.from(item)));
+        } catch (e) {
+          debugPrint('⚠️ Glossary seed entry hỏng: $e');
+        }
+      }
+      return out;
+    } catch (e) {
+      debugPrint('⚠️ Glossary seed asset không đọc được: $e');
+      return const <GlossaryEntry>[];
+    }
+  }
+
+  void _emit() {
+    if (!_controller.isClosed) _controller.add(null);
+  }
+
+  void _replaceInMemory(GlossaryEntry entry) {
+    final index = _entries.indexWhere((e) => e.id == entry.id);
+    if (index >= 0) {
+      _entries[index] = entry;
+    } else {
+      _entries.add(entry);
+      _entries.sort((a, b) =>
+          a.sourceNorm.toLowerCase().compareTo(b.sourceNorm.toLowerCase()));
+    }
+    _byId[entry.id] = entry;
+  }
+
   Future<void> dispose() async {
     await _controller.close();
   }

@@ -374,9 +374,12 @@ class TranslationService {
 
   Future<bool> _sentenceEngineReady(String sourceCode, String targetCode) async {
     try {
-      if (!await _mlkit.isAvailable()) return false;
-      if (_mlkit is MlKitEngine) {
-        return _mlkit.isPairReady(
+      // Local (không dùng field trực tiếp): promotion qua `is` chỉ chắc
+      // chắn trên local variable — field _mlkit không được promote.
+      final mlkit = _mlkit;
+      if (!await mlkit.isAvailable()) return false;
+      if (mlkit is MlKitEngine) {
+        return mlkit.isPairReady(
           sourceCode: sourceCode,
           targetCode: targetCode,
         );

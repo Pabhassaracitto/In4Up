@@ -1097,7 +1097,12 @@
     là GETTER, không tính được trong biểu thức const → const_with_non_constant.
     Fix: bỏ `const` trước Divider. Giải thích toàn bộ chuỗi E-series
     (E4–E9 đỏ do dòng này; E5 xanh vì cắt cả Divider; đọc 'xanh' E10 là
-    run cũ — E10 thực ra đỏ). Tổng 5 lỗi compile batch 02ffc.
+    run cũ — E10 thực ra đỏ). Tổng 6 lỗi compile batch 02ffc.
+    LỖI #6 (owner gửi log a6cb845): `_mlkit is MlKitEngine` rồi gọi
+    `_mlkit.isPairReady(...)` — FIELD không được type-promote qua `is`
+    (chỉ local variable mới chắc chắn) → isPairReady isn't defined for
+    TranslationEngine. Fix: copy `final mlkit = _mlkit;` rồi is-check
+    trên local.
     NHIỆM VỤ CHỜ THÊM:
     thâu hoạch .docx ZIP raw-deflate từ 01a01580 (c301004 — 3 file:
     text_source_loader.dart, text_source_loader_test.dart,

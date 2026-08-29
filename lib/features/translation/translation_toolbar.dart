@@ -1,4 +1,5 @@
 // lib/features/translation/translation_toolbar.dart
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 

@@ -346,18 +346,6 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
                 context.uiText('Chỉ dùng dịch offline'),
                 style: const TextStyle(color: Colors.white, fontSize: 13),
               ),
-              subtitle: Text(
-                context.uiText(
-                  'Bỏ qua engine online (ML Kit + từ điển offline).',
-                ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
-              value: _offlineOnly ?? false,
-              activeColor: widget.accentColor,
-              onChanged: (v) {
-                setState(() => _offlineOnly = v);
-                widget.service.offlineOnly = v;
-              },
             ),
             const Divider(color: Colors.grey.shade800),
             const SizedBox(height: 12),

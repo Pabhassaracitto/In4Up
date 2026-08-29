@@ -57,11 +57,14 @@ class GlossaryProtection {
   }
 }
 
-final RegExp _singleLetter = RegExp(r'^\p{L}$', unicode: true);
-
+/// "Word char" cho boundary check: CHỈ chữ Latin ASCII + số.
+/// Chữ CJK/Myanmar KHÔNG phải word-char (không có khoảng trắng giữa từ —
+/// "正念" được phép khớp trong "正念禅修"; longest-match xử lý từ dài hơn).
+/// Chặn Latin: "sati" KHÔNG khớp trong "satisfaction".
 bool _isWordUnit(int codeUnit) {
   if (codeUnit >= 0x30 && codeUnit <= 0x39) return true; // 0-9
-  return _singleLetter.hasMatch(String.fromCharCode(codeUnit));
+  if (codeUnit >= 0x41 && codeUnit <= 0x5A) return true; // A-Z
+  return codeUnit >= 0x61 && codeUnit <= 0x7A; // a-z
 }
 
 class _Term {

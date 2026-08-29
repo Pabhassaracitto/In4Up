@@ -294,8 +294,12 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
   late String _domain;
   late bool _locked;
 
-  static const _sourceLangs = <String>['pi', 'en', 'hi', 'vi'];
-  static const _targetLangs = <String>['vi', 'en', 'hi'];
+  /// 8 ngôn ngữ ưu tiên (XLAT-002). Label là danh từ riêng/English —
+  /// không cần i18n (ASCII thuần, đúng với mọi locale).
+  static const _sourceLangs =
+      <String>['pi', 'en', 'vi', 'hi', 'zh', 'zh-tw', 'si', 'my'];
+  static const _targetLangs =
+      <String>['vi', 'en', 'zh', 'zh-tw', 'hi', 'pi', 'si', 'my'];
   static const _domains = <String>[
     GlossaryDomain.buddhist,
     GlossaryDomain.user,
@@ -331,6 +335,14 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
         return 'Hindi';
       case 'vi':
         return 'Vietnamese';
+      case 'zh':
+        return 'Chinese (Simplified)';
+      case 'zh-tw':
+        return 'Chinese (Traditional)';
+      case 'si':
+        return 'Sinhala';
+      case 'my':
+        return 'Myanmar';
       default:
         return code;
     }

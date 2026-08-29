@@ -36,7 +36,13 @@ class GlossaryStore {
       GlossaryStore._(seed: seed);
 
   static const String boxName = 'translation_glossary';
-  static const String _assetPath = 'assets/glossary/buddhist_pi_en_vi.json';
+
+  /// Seed assets, nạp theo thứ tự (entry cùng id: bản NẢM TRƯỚC thắng —
+  /// file 226 entry đã review của chủ đứng trước file sinh từ PDF).
+  static const List<String> _assetPaths = <String>[
+    'assets/glossary/buddhist_pi_en_vi.json',
+    'assets/glossary/buddhist_multilang.json',
+  ];
 
   final List<GlossaryEntry> _staticSeed;
   final bool _loadsSeedAsset;
@@ -110,26 +116,29 @@ class GlossaryStore {
 
   Future<List<GlossaryEntry>> _loadSeed() async {
     if (!_loadsSeedAsset) return _staticSeed;
-    try {
-      final raw = await rootBundle.loadString(_assetPath);
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return const <GlossaryEntry>[];
-      final list = decoded['entries'];
-      if (list is! List) return const <GlossaryEntry>[];
-      final out = <GlossaryEntry>[];
-      for (final item in list) {
-        if (item is! Map) continue;
-        try {
-          out.add(GlossaryEntry.fromMap(Map<String, dynamic>.from(item)));
-        } catch (e) {
-          debugPrint('⚠️ Glossary seed entry hỏng: $e');
+    final out = <GlossaryEntry>[];
+    final seenIds = <String>{};
+    for (final path in _assetPaths) {
+      try {
+        final raw = await rootBundle.loadString(path);
+        final decoded = jsonDecode(raw);
+        if (decoded is! Map) continue;
+        final list = decoded['entries'];
+        if (list is! List) continue;
+        for (final item in list) {
+          if (item is! Map) continue;
+          try {
+            final entry = GlossaryEntry.fromMap(Map<String, dynamic>.from(item));
+            if (seenIds.add(entry.id)) out.add(entry);
+          } catch (e) {
+            debugPrint('⚠️ Glossary seed entry hỏng ($path): $e');
+          }
         }
+      } catch (e) {
+        debugPrint('⚠️ Glossary seed asset không đọc được ($path): $e');
       }
-      return out;
-    } catch (e) {
-      debugPrint('⚠️ Glossary seed asset không đọc được: $e');
-      return const <GlossaryEntry>[];
     }
+    return out;
   }
 
   void _emit() {

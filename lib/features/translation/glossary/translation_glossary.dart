@@ -25,6 +25,13 @@ class GlossaryLang {
   static const String hindi = 'hi';
   static const String vietnamese = 'vi';
 
+  /// Mã ngôn ngữ bổ sung (XLAT-002) — không phải ngôn ngữ MT của app,
+  /// chỉ dùng trong schema glossary.
+  static const String chinese = 'zh';
+  static const String chineseTraditional = 'zh-tw';
+  static const String sinhala = 'si';
+  static const String burmese = 'my';
+
   /// Normalize mã ngôn ngữ user nhập ("pali", "Pali", "PI" → "pi").
   static String? normalize(String? code) {
     final c = (code ?? '').trim().toLowerCase().replaceAll('_', '-');
@@ -33,6 +40,18 @@ class GlossaryLang {
     if (c == 'hi' || c == 'hin' || c == 'hindi') return hindi;
     if (c == 'vi' || c == 'vie' || c == 'việt' || c == 'vietnamese') {
       return vietnamese;
+    }
+    if (c == 'zh-tw' || c == 'zh-hk' || c == 'zh-mo' || c == 'zh-hant' ||
+        c == 'chinese-traditional') {
+      return chineseTraditional;
+    }
+    if (c == 'zh' || c == 'zho' || c == 'chs' || c == 'chinese') {
+      return chinese;
+    }
+    if (c == 'si' || c == 'sin' || c == 'sinhala') return sinhala;
+    if (c == 'my' || c == 'bur' || c == 'mya' || c == 'burmese' ||
+        c == 'myanmar') {
+      return burmese;
     }
     return c.isEmpty ? null : c;
   }

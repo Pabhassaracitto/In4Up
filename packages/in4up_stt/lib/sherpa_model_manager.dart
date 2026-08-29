@@ -2,29 +2,22 @@
 //
 // SherpaModelManager — quản lý model Silero VAD + Piper TTS (MODELS-001).
 //
-// Cùng pattern với SttModelManager (Whisper): singleton + BehaviorSubject
-// + dio download (progress + cancel) + import (copy file, không move) +
-// verify size. TẤT CẢ chỉ chạy khi user bấm — không auto-download
-// (bài học "Connection closed" bootstrap — xem SttModelManager).
+// TẤT CẢ chỉ chạy khi user bấm — không auto-download.
 //
-// Folder convention (Rule 1 — absolute path via path_provider):
-//   Android:  /sdcard/Android/data/<pkg>/documents/...
-//   Windows:  %LOCALAPPDATA%\<org>\<app>_documents/...
-//
-//   <documents>/sherpa_vad_models/silero_vad.onnx        (2-5MB, 1 file)
+// Folder:
+//   <documents>/sherpa_vad_models/silero_vad.onnx
 //   <documents>/sherpa_piper_models/
-//     espeak-ng-data/                     ← phonemizer data, DÙNG CHUNG
+//     espeak-ng-data/
 //     <voice>.onnx + <voice>_tokens.txt [+ <voice>.onnx.json]
-//     (hoặc bundle k2-fsa: <voice>.onnx + tokens.txt dùng chung)
 //
-// Nguồn download ổn định (verify 2026-08-23):
-//   VAD:  https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx
-//   Piper: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-<voice>.tar.bz2
-//     (bundle gồm onnx + tokens + espeak-ng-data; 536 giọng, có vi_VN)
+// Silero VAD k2-fsa (2026): silero_vad.onnx ~629KB — KHÔNG được đòi >1MB
+// (ngưỡng cũ làm tải thành công rồi báo "mạng?").
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -72,7 +65,7 @@ class SherpaModelInfo {
 class SherpaPiperInfo {
   final bool espeakInstalled;
   final List<PiperTtsVoice> voices;
-  final SherpaModelStatus status; // download/import đang chạy
+  final SherpaModelStatus status;
   final double downloadProgress;
   final String? errorMessage;
 
@@ -112,11 +105,22 @@ class SherpaModelManager {
 
   static const String vadFolderName = 'sherpa_vad_models';
   static const String vadFileName = 'silero_vad.onnx';
+
+  /// k2-fsa silero_vad.onnx ~629KB; int8 ~208KB. HTML lỗi GitHub thường <80KB.
+  static const int vadMinBytes = 80 * 1024;
+  static const int vadMaxBytes = 40 * 1024 * 1024;
+
   static const String vadDownloadUrl =
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
       'silero_vad.onnx';
 
-  /// Voice Piper mặc định gợi ý tải (EN, ~75MB bundle).
+  static const List<String> vadDownloadUrls = [
+    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
+        'silero_vad.onnx',
+    'https://huggingface.co/csukuangfj/silero-vad/resolve/main/'
+        'silero_vad.onnx?download=true',
+  ];
+
   static const String defaultPiperVoice = 'en_US-libritts_r-medium';
 
   static String piperBundleUrl(String voice) =>
@@ -125,10 +129,13 @@ class SherpaModelManager {
 
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 45),
       receiveTimeout: const Duration(minutes: 30),
+      followRedirects: true,
+      maxRedirects: 8,
       headers: const {
         'User-Agent': 'Mozilla/5.0 (compatible; in4upApp/1.0)',
+        'Accept': '*/*',
       },
     ),
   );
@@ -161,7 +168,6 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  /// Gọi 1 lần khi mở màn hình Quản lý Model.
   Future<void> initialize() async {
     if (!_initialized) {
       await _documents();
@@ -170,30 +176,60 @@ class SherpaModelManager {
     await rescan();
   }
 
-  // ── WATCH ──────────────────────────────────────────────────────────────
-
   Stream<SherpaModelInfo> watchVad() => _vadState.stream;
   SherpaModelInfo get vadInfo => _vadState.value;
 
   Stream<SherpaPiperInfo> watchPiper() => _piperState.stream;
   SherpaPiperInfo get piperInfo => _piperState.value;
 
-  /// Quét lại đĩa (sau import/xoá).
+  static bool isPlausibleVadFile(int size, {List<int>? head}) {
+    if (size < vadMinBytes || size > vadMaxBytes) return false;
+    if (head != null && head.isNotEmpty) {
+      if (head[0] == 0x3C) return false; // '<' HTML
+      final ascii = String.fromCharCodes(
+        head.take(80).where((b) => b >= 32 && b < 127),
+      ).toLowerCase();
+      if (ascii.contains('<html') || ascii.contains('<!doctype')) return false;
+    }
+    return true;
+  }
+
+  Future<void> _replaceFile(String fromPath, String toPath) async {
+    final src = File(fromPath);
+    final dest = File(toPath);
+    if (await dest.exists()) {
+      try { await dest.delete(); } catch (_) {}
+    }
+    try {
+      await src.rename(toPath);
+    } catch (_) {
+      await src.copy(toPath);
+      try { await src.delete(); } catch (_) {}
+    }
+  }
+
   Future<void> rescan() async {
     try {
-      // VAD
       final vadFile = File(p.join(await _vadDir(), vadFileName));
-      final vadOk =
-          vadFile.existsSync() && vadFile.lengthSync() > 1000000;
+      List<int>? head;
+      if (vadFile.existsSync()) {
+        final raf = await vadFile.open();
+        try {
+          head = await raf.read(64);
+        } finally {
+          await raf.close();
+        }
+      }
+      final vadOk = vadFile.existsSync() &&
+          isPlausibleVadFile(vadFile.lengthSync(), head: head);
       _vadState.add(vadOk
-          ? const SherpaModelInfo(
-              status: SherpaModelStatus.ready, localPath: '')
+          ? SherpaModelInfo(
+              status: SherpaModelStatus.ready, localPath: vadFile.path)
           : const SherpaModelInfo(status: SherpaModelStatus.notInstalled));
 
-      // Piper
       final voices = await SherpaPiperTtsCore.discoverVoices();
-      final piperDir =
-          Directory(p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
+      final piperDir = Directory(
+          p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
       final espeakOk = Directory(
               p.join(piperDir.path, SherpaPiperTtsCore.espeakDataFolder))
           .existsSync();
@@ -223,45 +259,56 @@ class SherpaModelManager {
       final dir = await _vadDir();
       final savePath = p.join(dir, vadFileName);
       final tmpPath = '$savePath.tmp';
+      String lastError = '';
 
-      var attempt = 0;
-      bool ok = false;
-      while (attempt < maxRetries && !ok) {
-        attempt++;
-        if (token.isCancelled) break;
-        try {
-          debugPrint('📥 Download $vadFileName từ: $vadDownloadUrl');
-          await _dio.download(
-            vadDownloadUrl,
-            tmpPath,
-            cancelToken: token,
-            deleteOnError: true,
-            onReceiveProgress: (received, total) {
-              if (total > 0) {
-                _vadState.add(_vadState.value.copyWith(
-                    downloadProgress: received / total));
-              }
-            },
-          );
-          final tmp = File(tmpPath);
-          if (await tmp.exists() && tmp.lengthSync() > 1000000) {
-            final finalFile = File(savePath);
-            if (await finalFile.exists()) {
-              await finalFile.delete().catchError((_) {});
+      var ok = false;
+      for (final url in vadDownloadUrls) {
+        if (ok || token.isCancelled) break;
+        var attempt = 0;
+        while (attempt < maxRetries && !ok && !token.isCancelled) {
+          attempt++;
+          try {
+            debugPrint('📥 Download $vadFileName từ: $url (lần $attempt)');
+            await _dio.download(
+              url,
+              tmpPath,
+              cancelToken: token,
+              deleteOnError: true,
+              onReceiveProgress: (received, total) {
+                if (total > 0) {
+                  _vadState.add(_vadState.value
+                      .copyWith(downloadProgress: received / total));
+                }
+              },
+            );
+            final tmp = File(tmpPath);
+            if (!await tmp.exists()) {
+              lastError = 'Không ghi được file tạm';
+              continue;
             }
-            await tmp.rename(savePath);
+            final size = tmp.lengthSync();
+            final head = await tmp.openRead(0, 64).first;
+            if (!isPlausibleVadFile(size, head: head)) {
+              lastError =
+                  'File tải về không phải model ($size bytes) — URL trả HTML/lỗi.';
+              try { await tmp.delete(); } catch (_) {}
+              continue;
+            }
+            await _replaceFile(tmpPath, savePath);
             ok = true;
-          }
-        } on DioException catch (e) {
-          if (CancelToken.isCancel(e)) break;
-          debugPrint('⚠️ Download VAD thất bại ($attempt/$maxRetries): $e');
-          if (attempt < maxRetries) {
-            await Future.delayed(Duration(seconds: attempt * 2));
-          }
-        } catch (e) {
-          debugPrint('⚠️ Download VAD error ($attempt/$maxRetries): $e');
-          if (attempt < maxRetries) {
-            await Future.delayed(Duration(seconds: attempt * 2));
+          } on DioException catch (e) {
+            if (CancelToken.isCancel(e)) break;
+            lastError = 'HTTP ${e.response?.statusCode ?? '-'} ${e.message}';
+            debugPrint('⚠️ Download VAD thất bại ($url $attempt): $lastError');
+            if (attempt < maxRetries) {
+              await Future.delayed(Duration(seconds: attempt * 2));
+            }
+          } catch (e) {
+            lastError = '$e';
+            debugPrint('⚠️ Download VAD error ($url $attempt): $e');
+            if (attempt < maxRetries) {
+              await Future.delayed(Duration(seconds: attempt * 2));
+            }
           }
         }
       }
@@ -272,13 +319,12 @@ class SherpaModelManager {
         debugPrint('✅ Download VAD xong: $savePath');
         return true;
       }
-      _vadState.add(
-        const SherpaModelInfo(
-          status: SherpaModelStatus.notInstalled,
-          errorMessage: 'Không tải được $vadFileName (mạng?) — thử lại hoặc '
-              'Import file silero_vad.onnx đã có sẵn.',
-        ),
-      );
+      _vadState.add(SherpaModelInfo(
+        status: SherpaModelStatus.notInstalled,
+        errorMessage:
+            'Không tải được $vadFileName. $lastError. Thử lại (Wi-Fi) hoặc Import '
+            'file silero_vad.onnx (k2-fsa ~629KB, không phải bắt >1MB).',
+      ));
       return false;
     } catch (e) {
       _vadToken = null;
@@ -290,13 +336,14 @@ class SherpaModelManager {
     }
   }
 
-  /// Import file silero_vad.onnx từ bất kỳ path nào (file picker).
   Future<bool> importVadFromPath(String sourcePath) async {
     try {
       final src = File(sourcePath);
       if (!await src.exists()) return false;
-      if (src.lengthSync() <= 1000000) {
-        debugPrint('❌ File VAD quá nhỏ ($sourcePath) — cần >1MB');
+      final size = src.lengthSync();
+      final head = await src.openRead(0, 64).first;
+      if (!isPlausibleVadFile(size, head: head)) {
+        debugPrint('❌ File VAD không hợp lệ ($sourcePath, $size bytes)');
         return false;
       }
       final savePath = p.join(await _vadDir(), vadFileName);
@@ -338,7 +385,11 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  /// Import TỪNG FILE (multi-pick: onnx + json + tokens).
+  bool _isOnnxModelName(String name) {
+    final lower = name.toLowerCase();
+    return lower.endsWith('.onnx') && !lower.endsWith('.onnx.json');
+  }
+
   Future<String> importPiperFiles(List<String> paths) async {
     if (paths.isEmpty) return 'Chưa chọn file nào';
     final destDir = await _piperDir();
@@ -346,27 +397,27 @@ class SherpaModelManager {
     for (final path in paths) {
       final src = File(path);
       if (!await src.exists()) continue;
-      final name = p.basename(path).toLowerCase();
-      // Chỉ nhận đúng 3 loại file cần thiết
-      if (!name.endsWith('.onnx') &&
-          !name.endsWith('_tokens.txt') &&
-          name != 'tokens.txt' &&
-          !name.endsWith('.onnx.json')) {
+      final name = p.basename(path);
+      final lower = name.toLowerCase();
+      if (!_isOnnxModelName(name) &&
+          !lower.endsWith('_tokens.txt') &&
+          lower != 'tokens.txt' &&
+          !lower.endsWith('.onnx.json')) {
         continue;
       }
-      await src.copy(p.join(destDir, p.basename(path)));
-      if (name.endsWith('.onnx')) onnx++;
+      await src.copy(p.join(destDir, name));
+      if (_isOnnxModelName(name)) onnx++;
     }
     if (onnx == 0) {
       return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json])';
     }
+    await _normalizeSharedTokens(destDir);
     await rescan();
     return '✅ Đã import $onnx file model';
   }
 
-  /// Import THƯ MỤC giọng Piper (bundle k2-fsa đã giải nén, hoặc thư mục
-  /// giọng tự copy). Tự phát hiện: *.onnx, <name>_tokens.txt / tokens.txt,
-  /// *.onnx.json, espeak-ng-data/ (dùng chung, chỉ copy khi thiếu).
+  /// Import THƯ MỤC giọng Piper. Recurse + không đòi `entity is File`
+  /// (OneDrive/Link). Flatten espeak-ng-data dù nằm trong vits-piper-*/.
   Future<String> importPiperFolder(String folderPath) async {
     final dir = Directory(folderPath);
     if (!await dir.exists()) return 'Thư mục không tồn tại';
@@ -375,34 +426,41 @@ class SherpaModelManager {
     var copiedOnnx = 0;
     var copiedTokens = 0;
     var copiedJson = 0;
+    final seen = <String>[];
 
     try {
-      // Recurse: user hay chọn thư mục cha (Downloads) trong khi
-      // vits-piper-*/file.onnx nằm 1-2 tầng dưới.
-      for (final entity in dir.listSync(recursive: true, followLinks: true)) {
-        if (entity is! File) continue;
-        final name = p.basename(entity.path);
-        final rel = p.relative(entity.path, from: folderPath);
+      final listing = dir.listSync(recursive: true, followLinks: true);
+      for (final entity in listing) {
+        final path = entity.path;
+        final name = p.basename(path);
+        final rel = p.relative(path, from: folderPath);
         final relLower = rel.toLowerCase().replaceAll('\\', '/');
+        if (seen.length < 16) seen.add(rel);
 
-        // espeak-ng-data: giữ cấu trúc, bỏ qua file rác phoneme
         if (relLower.contains('${SherpaPiperTtsCore.espeakDataFolder}/')) {
-          final dest = File(p.join(destDir, rel));
-          if (!dest.existsSync()) {
+          final idx = relLower.indexOf('${SherpaPiperTtsCore.espeakDataFolder}/');
+          final tail = rel.replaceAll('\\', '/').substring(idx);
+          final dest = File(p.join(destDir, tail));
+          final src = File(path);
+          if (src.existsSync() && !dest.existsSync()) {
             await dest.parent.create(recursive: true);
-            await entity.copy(dest.path);
+            await src.copy(dest.path);
           }
           continue;
         }
 
-        if (name.endsWith('.onnx') && !name.endsWith('.onnx.json')) {
-          await entity.copy(p.join(destDir, name));
+        final src = File(path);
+        if (!src.existsSync()) continue;
+
+        if (_isOnnxModelName(name)) {
+          await src.copy(p.join(destDir, name));
           copiedOnnx++;
-        } else if (name == 'tokens.txt' || name.endsWith('_tokens.txt')) {
-          await entity.copy(p.join(destDir, name));
+        } else if (name.toLowerCase() == 'tokens.txt' ||
+            name.toLowerCase().endsWith('_tokens.txt')) {
+          await src.copy(p.join(destDir, name));
           copiedTokens++;
-        } else if (name.endsWith('.onnx.json')) {
-          await entity.copy(p.join(destDir, name));
+        } else if (name.toLowerCase().endsWith('.onnx.json')) {
+          await src.copy(p.join(destDir, name));
           copiedJson++;
         }
       }
@@ -411,22 +469,44 @@ class SherpaModelManager {
     }
 
     if (copiedOnnx == 0) {
-      return 'Không tìm thấy file .onnx trong thư mục này '
-          '(kể cả thư mục con). Chọn đúng thư mục đã giải nén '
-          'vits-piper-* — phải có file .onnx.';
+      final preview = seen.isEmpty ? '(thư mục trống với app)' : seen.join(', ');
+      return 'Không tìm thấy file .onnx trong "$folderPath". '
+          'App thấy: $preview. '
+          'Chọn đúng thư mục vits-piper-* (có file .onnx), hoặc bấm Tải giọng '
+          'để app tự cài — không cần giải nén tay.';
     }
 
+    await _normalizeSharedTokens(destDir);
     await rescan();
     debugPrint(
         '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
         '$copiedJson json');
     return '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
-        '$copiedJson config';
+        '$copiedJson config — sẵn sàng dùng.';
   }
 
-  /// Tải bundle giọng Piper (tar.bz2, gồm espeak-ng-data).
-  /// Trả về path file đã tải — UI hướng dẫn user GIẢI NÉN rồi Import.
-  /// (App không tự giải nén .tar.bz2 để không thêm dependency nặng.)
+  Future<void> _normalizeSharedTokens(String destDir) async {
+    final dir = Directory(destDir);
+    if (!dir.existsSync()) return;
+    final onnxStems = <String>[];
+    for (final entity in dir.listSync()) {
+      final name = p.basename(entity.path);
+      if (_isOnnxModelName(name)) {
+        onnxStems.add(name.substring(0, name.length - '.onnx'.length));
+      }
+    }
+    final shared = File(p.join(destDir, 'tokens.txt'));
+    if (!shared.existsSync() || onnxStems.isEmpty) return;
+    for (final stem in onnxStems) {
+      final named = File(p.join(destDir, '${stem}_tokens.txt'));
+      if (!named.existsSync()) {
+        await shared.copy(named.path);
+      }
+    }
+  }
+
+  /// Tải bundle + tự giải nén + cài vào sherpa_piper_models.
+  /// Trả về thư mục model khi sẵn sàng dùng (không phải file .tar.bz2).
   Future<String?> downloadPiperBundle({
     required String voice,
   }) async {
@@ -437,7 +517,6 @@ class SherpaModelManager {
     _piperState.add(_piperState.value.copyWith(
         status: SherpaModelStatus.downloading, clearError: true));
 
-    // ★ FIX: url phải TRƯỚC try — catch block KHÔNG có scope local của try
     final url = piperBundleUrl(voice);
 
     try {
@@ -465,14 +544,32 @@ class SherpaModelManager {
       );
 
       final tmp = File(tmpPath);
-      if (await tmp.exists()) {
-        final finalFile = File(savePath);
-        if (await finalFile.exists()) await finalFile.delete();
-        await tmp.rename(savePath);
-        debugPrint('✅ Download Piper bundle xong: $savePath');
-        return savePath;
+      if (!await tmp.exists() || tmp.lengthSync() < 1000000) {
+        throw Exception(
+            'Bundle tải về quá nhỏ (${tmp.existsSync() ? tmp.lengthSync() : 0} bytes)');
       }
-      return null;
+      await _replaceFile(tmpPath, savePath);
+
+      final extractDir =
+          p.join(downloadsDir.path, 'vits-piper-$voice-extracted');
+      final extract = Directory(extractDir);
+      if (await extract.exists()) {
+        await extract.delete(recursive: true);
+      }
+      await extract.create(recursive: true);
+      await _extractTarBz2(savePath, extractDir);
+
+      final msg = await importPiperFolder(extractDir);
+      if (!msg.startsWith('✅')) {
+        throw Exception(msg);
+      }
+
+      try { await File(savePath).delete(); } catch (_) {}
+      try { await extract.delete(recursive: true); } catch (_) {}
+
+      await rescan();
+      debugPrint('✅ Piper $voice đã cài vào ${await _piperDir()}');
+      return await _piperDir();
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         _piperState.add(_piperState.value
@@ -483,22 +580,44 @@ class SherpaModelManager {
         espeakInstalled: _piperState.value.espeakInstalled,
         voices: _piperState.value.voices,
         errorMessage:
-            'Không tải được bundle Piper (mạng?) — thử lại hoặc tải tay '
-            '$url rồi Import thư mục đã giải nén.',
+            'Không tải được bundle Piper (HTTP ${e.response?.statusCode ?? '-'}). '
+            'Thử Wi-Fi rồi Tải giọng lại.',
       ));
       return null;
     } catch (e) {
       _piperState.add(SherpaPiperInfo(
         espeakInstalled: _piperState.value.espeakInstalled,
         voices: _piperState.value.voices,
-        errorMessage: 'Lỗi tải Piper: $e',
+        errorMessage: 'Lỗi tải/cài Piper: $e',
       ));
       return null;
     } finally {
       _piperToken = null;
       if (_piperState.value.isDownloading) {
-        _piperState.add(_piperState.value
-            .copyWith(status: SherpaModelStatus.notInstalled));
+        await rescan();
+      }
+    }
+  }
+
+  Future<void> _extractTarBz2(String tarBz2Path, String destDir) async {
+    final raw = await File(tarBz2Path).readAsBytes();
+    final tarBytes = BZip2Decoder().decodeBytes(raw);
+    final archive = TarDecoder().decodeBytes(tarBytes);
+    for (final file in archive) {
+      final name = file.name.replaceAll('\\', '/');
+      if (name.isEmpty || name == '.' || name == './') continue;
+      final outPath = p.join(destDir, name);
+      if (file.isDirectory || name.endsWith('/')) {
+        await Directory(outPath).create(recursive: true);
+        continue;
+      }
+      final out = File(outPath);
+      await out.parent.create(recursive: true);
+      final content = file.content;
+      if (content is List<int>) {
+        await out.writeAsBytes(content, flush: true);
+      } else if (content is Uint8List) {
+        await out.writeAsBytes(content, flush: true);
       }
     }
   }
@@ -515,15 +634,12 @@ class SherpaModelManager {
       final dir = await _piperDir();
       for (final suffix in [
         '$voiceName.onnx',
-        // ★ ${} BẮT BUỘC: '$voiceName_tokens' bị parse thành biến
-        // 'voiceName_' (maximal munch) → Undefined name
         '${voiceName}_tokens.txt',
         '$voiceName.onnx.json',
       ]) {
         final f = File(p.join(dir, suffix));
         if (await f.exists()) await f.delete();
       }
-      // tokens.txt dùng chung: chỉ xóa khi không còn onnx nào khác
       await rescan();
       debugPrint('🗑️ Deleted Piper voice: $voiceName');
     } catch (e) {

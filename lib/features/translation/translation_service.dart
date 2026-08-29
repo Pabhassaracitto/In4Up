@@ -55,7 +55,9 @@ class TranslationService {
     if (store != null) {
       // Fire-and-forget: không block UI; translateText sẽ ensureInit lại.
       unawaited(store.ensureInit());
-      _glossarySub = store.changes.listen(_onGlossaryChanged);
+      // Stream<void>.listen yêu cầu callback 1-arg — tear-off void Function()
+      // KHÔNG khả gán (argument_type_not_assignable, lỗi #4 qua CI oracle).
+      _glossarySub = store.changes.listen((_) => _onGlossaryChanged());
     }
   }
 

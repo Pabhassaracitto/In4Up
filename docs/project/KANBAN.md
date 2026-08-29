@@ -1053,3 +1053,10 @@
     pubspec.lock chưa có google_mlkit_translation — CI pub get tự sync, chủ
     chạy `flutter pub get` trên máy rồi commit lock; chờ CI xanh + nghiệm
     thu máy: EN→VI, EN→HI, một câu có sati/nibbāna
+  - 2026-08-29 | 3 lỗi compile tìm qua oracle CI (log/blob bị chặn) |
+    agent arena/01a0251e-in4up | (1) DropdownButtonFormField initialValue→
+    value ×3 (b497738); (2) translation_glossary thiếu import protect_tokens
+    (f916244); (3) **Hive Box KHÔNG có putIfAbsent** (02ffc tưởng như Map)
+    → `await box.put(...)` trong _doInit (commit này). Bisect 7 vòng CI
+    ~2m/vòng, skill ci-red-debugging. Bài học: code 02ffc chưa từng qua
+    compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định

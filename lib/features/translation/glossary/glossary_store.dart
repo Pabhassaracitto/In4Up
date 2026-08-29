@@ -83,7 +83,9 @@ class GlossaryStore {
     if (box.isEmpty) {
       final seed = await _loadSeed();
       for (final entry in seed) {
-        box.putIfAbsent(entry.id, entry.toMap());
+        // Hive Box KHÔNG có putIfAbsent (khác Map) — box đang trống nên
+        // put thẳng; guard isEmpty phía trên đảm bảo nạp 1 lần.
+        await box.put(entry.id, entry.toMap());
       }
     }
 
@@ -144,6 +146,57 @@ class GlossaryStore {
           a.sourceNorm.toLowerCase().compareTo(b.sourceNorm.toLowerCase()));
     }
     _byId[entry.id] = entry;
+  }
+
+  /// Quy tắc merge thuần (test được):
+  /// - Chưa có entry → nhận [incoming].
+  /// - Entry đang khóa chỉ bị thay bằng entry priority CAO HƠN.
+  /// - Entry chưa khóa → thay tự do.
+  static GlossaryEntry? resolveUpsert(
+    GlossaryEntry? existing,
+    GlossaryEntry incoming,
+  ) {
+    if (existing == null) return incoming;
+    if (existing.locked && incoming.priority <= existing.priority) {
+      return null;
+    }
+    return incoming;
+  }
+
+  /// Thêm/sửa entry (tuân thủ luật khóa). Trả về false nếu bị bỏ qua.
+  Future<bool> upsert(GlossaryEntry entry) async {
+    await ensureInit();
+    final box = _box;
+    if (box == null) return false;
+    final resolved = resolveUpsert(_byId[entry.id], entry);
+    if (resolved == null) return false;
+    await box.put(resolved.id, resolved.toMap());
+    _replaceInMemory(resolved);
+    _emit();
+    return true;
+  }
+
+  Future<bool> remove(String id) async {
+    await ensureInit();
+    final box = _box;
+    if (box == null || !box.containsKey(id)) return false;
+    await box.delete(id);
+    _entries.removeWhere((e) => e.id == id);
+    _byId.remove(id);
+    _emit();
+    return true;
+  }
+
+  /// Đồng bộ MỘT CHIỀU từ WordEntry:
+  /// language chứa Pali (hoặc topic Phật học) + meaning không rỗng →
+  /// tạo entry `domain=user, locked=true, priority=100` nếu CHƯA CÓ.
+  /// Không ghi đè entry đã tồn tại.
+  Future<void> syncFromWordEntry(WordEntry entry) async {
+    final proposed = GlossarySync.fromWordEntry(entry);
+    if (proposed == null) return;
+    await ensureInit();
+    if (_byId.containsKey(proposed.id)) return;
+    await upsert(proposed);
   }
 
   Future<void> dispose() async {

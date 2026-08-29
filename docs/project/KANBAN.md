@@ -50,7 +50,7 @@
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
-| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done | code + test thuần (sandbox KHÔNG có Flutter SDK → chờ CI + nghiệm thu thiết bị) |
+| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 
 ---
 
@@ -996,6 +996,15 @@
     _WordTapChip chỉ gắn nhánh compact (width<620 || height<700) → màn rộng
     (Windows/tablet) không có nút; bù vào Row không compact + icon tắt
     select_all → grid_view_outlined (khớp "nút lưới")
+  - 2026-08-30 | DOCX-001 (thâu hoạch c301004 từ 01a01580) | agent
+    arena/01a0251e-in4up | .docx ZIP raw-deflate: ZLibDecoder(raw: true)
+    thay bu zlib header (moi .docx method 8 dung la vo), magic ZIP vs OLE,
+    data-descriptor, ten entry case-insensitive, giu deu .docx khi
+    FilePicker mat deu, snackbar trung thuc, test ZIP thuc (6b6eacc).
+    + 2 fix compile c301004 de lai: test thieu import dart:convert/io/
+    typed_data; library_screen dau file bi lap 6 token dong ket.
+    CI xanh 33273465065. Chờ nghiệm thu máy: .docx thật (Word/LibreOffice)
+    mở được; .doc OLE báo rõ; FilePicker mất đuôi vẫn .docx
 
 ### XLAT-001 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT)
 - **Trạng thái:** done (code + test thuần; chờ CI + nghiệm thu thiết bị)
@@ -1103,7 +1112,15 @@
     (chỉ local variable mới chắc chắn) → isPairReady isn't defined for
     TranslationEngine. Fix: copy `final mlkit = _mlkit;` rồi is-check
     trên local.
-    NHIỆM VỤ CHỜ THÊM:
+    LỖI #7 (fix của OWNER, commit 13d271f): toolbar thiếu import
+    `package:google_mlkit_translation` — extension `bcpCode` (của package)
+    KHÔNG resolve khi chưa import package (extension phải in-scope dù type
+    được infer) → 3 lỗi bcpCode ở _loadModels/_downloadModel/_deleteModel.
+    **CI XANH run 33273465065** (tip 13d271f) — hết 7 lỗi compile của
+    batch 02ffc (6 fix agent + 1 fix owner). Chờ nghiệm thu máy: EN→VI,
+    EN→HI, câu có sati/nibbāna; chủ chạy `flutter pub get` commit lock.
+    DONE 2026-08-30.
+    HOÀN TẤT (2026-08-30):
     thâu hoạch .docx ZIP raw-deflate từ 01a01580 (c301004 — 3 file:
     text_source_loader.dart, text_source_loader_test.dart,
     library_screen.dart; KHÔNG lấy text_provider.dart) — làm sau khi

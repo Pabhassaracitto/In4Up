@@ -955,7 +955,13 @@
   - 2026-08-29 | doing→done (chờ nghiệm thu) | agent arena/01a02a4a-in4up | 4 nhóm fix (isReady/timeout+watchdog+isolate-exit/context+maxTokens); chờ CI + chủ chạy 3 bước nghiệm thu
   - 2026-08-29 | done→done | agent arena/01a02a4a-in4up | Push 3735298d lên origin (GitHub đã reconnect). Verify compile: tag oracle `v1.4.0-ci-android-fix` (tip) chạy build.yml — bước Dart build của job Android compile toàn bộ packages/in4up_ai (app_analyze.yml không trigger do paths filter chỉ có lib/test/pubspec). Run đỏ ở Dart ⇒ fix compile trước khi nghiệm thu.
   - 2026-08-29 | done→done (bổ sung fix) | owner + agent arena/01a02a4a-in4up | Chủ bổ sung quan sát build cũ (chưa rebuild): sau khi xoay vòng LÂU (⇒ native generate CHẠY THẬT, không treo) chat hiện "Mình chưa tạo được câu trả lời cho tin nhắn này." rồi banner XANH lại. Xác nhận: (1) chu kỳ xanh→vàng→xanh = đúng root cause 1 (state=processing làm hasModel=false, `finally` chạy xong mới xanh lại); (2) "chưa tạo được câu trả lời" = model trả output KHÔNG parse được JSON (hết 256 tokens cắt giữa chừng / QAT viết lệch schema) ⇒ fromGemmaJson fallback — đúng root cause 3. FIX BỔ SUNG: `AiAnalysis.fromGemmaJson` catch thêm bước CỨU VỚT trường `"summary"` từ JSON hỏng/bị cắt (regex cho phép string không kín + unescape bằng JSON decoder; verify 7/7 case Python) ⇒ chat hiện câu trả lời THẬT (phần summary, thường model viết trước) thay vì câu trả lời chung chung; isPartial=true, success=true, không kích retry hallucination (check chỉ soi IPA/CEFR/PAO). maxTokens 512 (fix trước) giảm xác suất cắt.
-
+  - 2026-08-30 | thâu hoạch vào 251e | agent arena/01a0251e-in4up |
+    cherry-pick 3735298 + 8898bb1 (+ KANBAN 55b22c6, cleanup c17bed0 rỗng)
+    từ 01a02a4a (MODELS-002 đã vào DEV từ 08-25); code packages/in4up_ai
+    KHÔNG bị app_analyze cover — đã verify balance/import tĩnh; chờ CI
+    build.yml trên 251e + nghiệm thu chat Gemma (không báo 'Chưa nạp
+    model' khi đang generate, nút gửi không loop, summary JSON hỏng có
+    rescue).
 ### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
 - **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)
 - **Nguồn:** owner yêu cầu nghiệm thu `arena/01a0018e-in4up` (2026-08-25) —

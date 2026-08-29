@@ -339,47 +339,6 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
             const SizedBox(height: 18),
-            // ── Chỉ offline ────────────────────────────────────────────
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                context.uiText('Chỉ dùng dịch offline'),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-              subtitle: Text(
-                context.uiText(
-                  'Bỏ qua engine online (ML Kit + từ điển offline).',
-                ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
-              value: _offlineOnly ?? false,
-              activeColor: widget.accentColor,
-              onChanged: (v) {
-                setState(() => _offlineOnly = v);
-                widget.service.offlineOnly = v;
-              },
-            ),
-            const Divider(color: Colors.grey.shade800),
-            // ── Glossary ───────────────────────────────────────────────
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.bookmark_border, color: widget.accentColor),
-              title: Text(
-                context.uiText('Thuật ngữ dịch (glossary)'),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-              subtitle: Text(
-                context.uiText(
-                  'Khóa thuật ngữ Phật học/Pali — engine không được đè.',
-                ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-              onTap: () async {
-                await showGlossarySheet(context, accentColor: widget.accentColor);
-                if (mounted) setState(() {});
-              },
-            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

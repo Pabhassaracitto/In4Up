@@ -64,6 +64,7 @@ class TranslationService {
     if (store != null) {
       // Fire-and-forget: không block UI; translateText sẽ ensureInit lại.
       unawaited(store.ensureInit());
+      _glossarySub = store.changes.listen(null);
     }
   }
 

@@ -604,19 +604,22 @@ class SherpaModelManager {
     final tarBytes = BZip2Decoder().decodeBytes(raw);
     final archive = TarDecoder().decodeBytes(tarBytes);
     for (final file in archive) {
-      final name = file.name.replaceAll('\\', '/');
+      // archive 4.x API: `filename` (thay `name`), `typeFlag` +
+      // `TarFile.directory` (thay `isDirectory`), `contentBytes` (thay
+      // `content` là List<int>/Uint8List). App graph khoá archive 4.x.
+      final name = file.filename.replaceAll('\\', '/');
       if (name.isEmpty || name == '.' || name == './') continue;
       final outPath = p.join(destDir, name);
-      if (file.isDirectory || name.endsWith('/')) {
+      final isDir =
+          file.typeFlag == TarFile.directory || name.endsWith('/');
+      if (isDir) {
         await Directory(outPath).create(recursive: true);
         continue;
       }
       final out = File(outPath);
       await out.parent.create(recursive: true);
-      final content = file.content;
-      if (content is List<int>) {
-        await out.writeAsBytes(content, flush: true);
-      } else if (content is Uint8List) {
+      final content = file.contentBytes;
+      if (content != null) {
         await out.writeAsBytes(content, flush: true);
       }
     }

@@ -62,6 +62,17 @@ class MlKitEngine extends TranslationEngine {
   static bool supportsTranslationCode(String code) =>
       languageForCode(code) != null;
 
+  /// bcpCode ML Kit từ mã ngôn ngữ app ('EN' → 'en'), hoặc null nếu
+  /// không hỗ trợ.
+  /// UI gọi cái này thay vì `language.bcpCode` trực tiếp: extension
+  /// BCP47Code CHỈ áp dụng trong file import package google_mlkit_
+  /// translation — import của file khác (vd toolbar) KHÔNG kéo theo
+  /// extension đó theo (Dart không re-export qua import transit).
+  static String? bcpCodeFor(String code) {
+    final language = languageForCode(code);
+    return language == null ? null : language.bcpCode;
+  }
+
   Future<bool> isModelDownloaded(String bcpCode) async {
     if (!platformSupported) return false;
     try {

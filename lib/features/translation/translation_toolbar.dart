@@ -310,23 +310,23 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
     final mlkit = widget.service.mlkit;
     if (MlKitEngine.platformSupported) {
       for (final code in _mlkitCodes) {
-        final language = MlKitEngine.languageForCode(code);
-        if (language == null) {
+        final bcp = MlKitEngine.bcpCodeFor(code);
+        if (bcp == null) {
           _modelDownloaded[code] = false;
           continue;
         }
-        _modelDownloaded[code] = await mlkit.isModelDownloaded(language.bcpCode);
+        _modelDownloaded[code] = await mlkit.isModelDownloaded(bcp);
       }
     }
   }
 
   Future<void> _downloadModel(String code) async {
-    final language = MlKitEngine.languageForCode(code);
-    if (language == null) return;
+    final bcp = MlKitEngine.bcpCodeFor(code);
+    if (bcp == null) return;
     setState(() => _downloading[code] = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final ok = await widget.service.mlkit.downloadModel(language.bcpCode);
+      final ok = await widget.service.mlkit.downloadModel(bcp);
       _modelDownloaded[code] = ok;
       if (!ok) {
         messenger.showSnackBar(
@@ -360,9 +360,9 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   }
 
   Future<void> _deleteModel(String code) async {
-    final language = MlKitEngine.languageForCode(code);
-    if (language == null) return;
-    final ok = await widget.service.mlkit.deleteModel(language.bcpCode);
+    final bcp = MlKitEngine.bcpCodeFor(code);
+    if (bcp == null) return;
+    final ok = await widget.service.mlkit.deleteModel(bcp);
     if (!mounted) return;
     setState(() => _modelDownloaded[code] = !ok);
   }
@@ -381,11 +381,202 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   }
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    final mlkitSupported = MlKitEngine.platformSupported;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('⚙️ Engine dịch thuật'),
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _urlController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: context.uiText('DeepLX Server URL (tùy chọn)'),
+                labelStyle: const TextStyle(color: Colors.grey),
+                hintText: context.uiText('Để trống → dùng Google Free'),
+                hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              context.uiText(
+                'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
+              ),
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+            const SizedBox(height: 18),
+            // ── Gói dịch offline (ML Kit) ──────────────────────────────
+            Text(
+              context.uiText('Gói dịch offline (ML Kit — Android/iOS)'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (!mlkitSupported)
+              Text(
+                context.uiText('ML Kit chỉ chạy trên Android/iOS.'),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              )
+            else ...[
+              for (final code in _mlkitCodes) _modelRow(code),
+              Text(
+                context.uiText(
+                  'Chỉ tải khi bạn bấm — không tự tải lúc mở app.',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+            ],
+            const SizedBox(height: 12),
+            // ── Chỉ offline ────────────────────────────────────────────
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                context.uiText('Chỉ dùng dịch offline'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Bỏ qua engine online (ML Kit + từ điển offline).',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              value: _offlineOnly ?? false,
+              activeColor: widget.accentColor,
+              onChanged: (v) {
+                setState(() => _offlineOnly = v);
+                widget.service.offlineOnly = v;
+              },
+            ),
+            const Divider(color: Colors.grey.shade800),
+            // ── Glossary ───────────────────────────────────────────────
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.bookmark_border, color: widget.accentColor),
+              title: Text(
+                context.uiText('Thuật ngữ dịch (glossary)'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Khóa thuật ngữ Phật học/Pali — engine không được đè.',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () async {
+                await showGlossarySheet(context, accentColor: widget.accentColor);
+                if (mounted) setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    widget.service.configure(
+                      deeplxUrl: _urlController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                  },
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: widget.accentColor),
+                  child: const Text('Lưu'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-
-  Widget _modelRow(String code) => const SizedBox.shrink();
-
+  Widget _modelRow(String code) {
+    final downloaded = _modelDownloaded[code] ?? false;
+    final downloading = _downloading[code] ?? false;
+    final supported = MlKitEngine.supportsTranslationCode(code);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            child: downloading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    downloaded
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 14,
+                    color: downloaded ? Colors.green : Colors.grey,
+                  ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_modelLabel(code)} ($code)',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                Text(
+                  supported
+                      ? (downloaded
+                          ? context.uiText('Đã tải')
+                          : context.uiText('Chưa tải'))
+                      : context.uiText('Chưa hỗ trợ'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          if (supported)
+            TextButton(
+              onPressed: downloading ? null : () => _downloadModel(code),
+              child: Text(
+                downloading
+                    ? context.uiText('Đang tải...')
+                    : context.uiText('Tải về'),
+              ),
+            ),
+          if (supported && downloaded)
+            IconButton(
+              onPressed: () => _deleteModel(code),
+              icon: const Icon(Icons.delete_outline, size: 16),
+              tooltip: context.uiText('Xóa gói'),
+              color: Colors.grey,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TranslateButton extends StatelessWidget {

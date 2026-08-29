@@ -61,6 +61,8 @@ class ReadTopBar extends StatelessWidget {
                 children: [
                   _ColorModeChip(textProvider: tp),
                   const SizedBox(width: 8),
+                  _WordTapChip(textProvider: tp),
+                  const SizedBox(width: 8),
                   _AutoSyncChip(controller: controller),
                   const SizedBox(width: 8),
                   _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
@@ -374,7 +376,7 @@ class _WordTapChip extends StatelessWidget {
                 : null,
           ),
           child: Icon(
-            on ? Icons.grid_view_rounded : Icons.select_all,
+            on ? Icons.grid_view_rounded : Icons.grid_view_outlined,
             size: 16,
             color: on ? const Color(0xFFFF9800) : Colors.grey,
           ),

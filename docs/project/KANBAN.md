@@ -1084,7 +1084,19 @@
     ⚠️ Ghi nhận: chuỗi C1–C4 và D1–D6 có 5 probe VÔ HIỆU do lỗi agent
     dựng hybrid (trùng _instance, thiếu method, thiếu import) — kết
     luận chỉ giữ các vòng D7–D14 (xác minh headSha + file tự thống
-    nhất). Full stack XLAT đã khôi phục từ f916244 + cả 4 fix. Đã rà static toàn bộ: imports ✓, named
+    nhất). Full stack XLAT đã khôi phục từ f916244 + cả 4 fix.
+    ⚠️ 2026-08-29 (tiếp): full stack 984e936 vẫn ĐỎ; bisect E-series
+    (toolbar) cho ra chuỗi E4–E9 đỏ / E5+E10 xanh nhưng E9→E10 chỉ khác
+    1 dòng `//` comment — KHÔNG THỂ là lỗi Dart ⇒ nghi run FLAKE (step
+    Resolve dependencies / infra) hoặc đỏ do step khác chứ không phải
+    Analyze. Chưa verify được step-level (token GitHub chết giữa phiên).
+    Trạng thái: e82a05d = full stack nguyên vẹn chờ push+CI; nếu xanh →
+    hết lỗi, các đỏ E-series là flake; nếu đỏ ở Analyze → bisect lại
+    toolbar/pipeline/test với re-run xác nhận. NHIỆM VỤ CHỜ THÊM:
+    thâu hoạch .docx ZIP raw-deflate từ 01a01580 (c301004 — 3 file:
+    text_source_loader.dart, text_source_loader_test.dart,
+    library_screen.dart; KHÔNG lấy text_provider.dart) — làm sau khi
+    XLAT xanh. Đã rà static toàn bộ: imports ✓, named
     params ✓, API Hive/ML Kit/TranslationResult/SharedPreferences/
     Connectivity ✓ (đối chiếu source thật), brace balance ✓, không ký
     tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc

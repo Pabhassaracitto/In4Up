@@ -1087,4 +1087,21 @@
     (service pipeline day du, toolbar, vocab hook, test). Loi #4 (bisect tren
     251e): `_mlkit is MlKitEngine` roi goi `_mlkit.isPairReady` — Dart KHONG
     promote instance field → undefined method; fix eef319c (ban dia local
-    `final mlkit = _mlkit`). Chan CI tren topic de confirm xanh/đỏ.
+    `final mlkit = _mlkit`). Chan CI tren topic de confirm xanh/đỏ.  - 2026-08-29 | fix loi #5 + #6 (toolbar) — CI XANH | agent arena/02ffc
+    (01a02ffc-in4up) | Sau merge 251e, CI topic van do — tiep tu bisect
+    oracle (log/artifact blob bi chan, khong doc duoc loi): (5) toolbar dung
+    `language.bcpCode` — extension BCP47Code CHIN trong file import truc tiep
+    package google_mlkit_translation (Dart khong re-export extension qua
+    import transit) → them static `MlKitEngine.bcpCodeFor`, toolbar khong
+    chan type TranslateLanguage nua (f1622f6); (6) `const Divider(color:
+    Colors.grey.shade800)` — shade800 la getter goi Map.[] → INVALID
+    CONSTANT VALUE (duy nhat trong codebase, khac la shade khong const) →
+    bo const (f3c0f73). Chuoi probe: dbd3066 (base toolbar = xanh → pipeline
+    sach) → T1 a0f8a2a (do) → T3 8a7ea8a (do → build) → T4 394e3a1 (xanh →
+    nua duoi build) → f3c0f73 XANH (analyze + locale test). Ton 50a377c
+    (B1) → E3 (251e) cho biet loi trong toolbar tu dau (B10+D14service
+    xanh, +toolbar do). CHU Y: `late final _x = TextEditingController(text:
+    widget...)` khong phai loi (1f04be3) — da chuyen ve initState cho an
+    toan. Soundlist tests do tren topic = code soundlist cua chinh 251e
+    (workflow chua bao gio chay tren 251e — merge thay doi path soundlist
+    nen bat trigger); khong lien quan XLAT — 251e tu xuat xuc.

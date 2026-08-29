@@ -1,0 +1,165 @@
+// =============================================================================
+// in4up_ci_fixes.gradle — sửa CI-ONLY cho job Android của
+// .github/workflows/build.yml (KANBAN card CI-ANDROID-01).
+//
+// Apply CUỐI android/app/build.gradle.kts. Chỉ active khi CI=true (GitHub
+// Actions đặt biến này). BUILD LOCAL: file này là no-op 100% — mọi logic nằm
+// trong `if (in4upIsCi)`.
+//
+// Bối cảnh: build.yml chạy `flutter build apk --release` KHÔNG --flavor ⇒
+// build cả 3 flavor (stable/dev/beta), nhưng:
+//   (1) secret ANDROID_GOOGLE_SERVICES chỉ chứa client `com.in4up` (thiếu
+//       com.in4up.beta/.dev) ⇒ google-services plugin 4.3.15 chết ở
+//       `processBetaReleaseGoogleServices`: "No matching client found for
+//       package name 'com.in4up.beta'".
+//   (2) bước "Rename All APKs" của build.yml chờ tên KHÔNG-flavor
+//       (`app-<abi>-release.apk`, `app-release.apk`) trong khi flutter 3.44.1
+//       khi có flavor đặt tên `app-<abi>-<flavor>-release.apk` (ABI trước,
+//       flavor sau — verify từ source FlutterPlugin.kt + listApkPaths() trong
+//       gradle.dart tag 3.44.1) ⇒ rename fail.
+//
+// Thiết kế (additive — KHÔNG tắt flavor, KHÔNG commit mock
+// google-services.json, KHÔNG đổi client thật, KHÔNG phá
+// build_final_complete.yml):
+//   (1) Task in4upCiEnsureGoogleServicesClients — chạy TRƯỚC mọi task
+//       process*GoogleServices — đọc android/app/google-services.json (nơi
+//       build.yml decode secret) và thêm client mock cho MỖI applicationId
+//       còn thiếu. ApplicationId được DỌC từ defaultConfig + productFlavors
+//       của module này (không hard-code). Idempotent: client đã có ⇒ không
+//       thêm; file đã đủ client ⇒ không ghi lại. APK beta/dev build ra KHÔNG
+//       được ship (bước rename của build.yml chỉ lấy tên không-flavor — xem
+//       (2)); client mock chỉ để google-services task chạy qua.
+//   (2) Sau `assembleRelease`, copy MỌI bản stable trong
+//       build/app/outputs/flutter-apk/ sang tên không-flavor
+//       (`app-<abi>-stable-release.apk` → `app-<abi>-release.apk`;
+//       `app-stable-release.apk` → `app-release.apk`) để bước rename của
+//       build.yml khớp. Phát hiện tên động theo pattern — thêm/bớt ABI trong
+//       flutter không cần sửa file này. Chỉ copy khi file source tồn tại.
+//
+// Tác dụng phụ ĐÚNG ý với build_final_complete.yml (luôn --flavor stable):
+// fallback `app-<abi>-release.apk` trong bước rename của nó giờ có file thật
+// ⇒ split APKs stable được ship kèm universal (trước đó rename skip im lặng,
+// artifact chỉ có 1 universal APK). Bước inject (1) ở đó là no-op vì file
+// (secret hoặc fallback 12-client của workflow) đã đủ client.
+//
+// Lưu ý vận hành: build.yml build cả 3 flavor ⇒ job chậm hơn
+// build_final_complete (native llama.cpp compile cho mọi flavor×ABI). Đây là
+// giá của việc không được sửa workflow (token thiếu quyền `workflows`). Khi
+// owner dán patch --flavor stable vào build.yml, file này vẫn an toàn: inject
+// thành no-op (chỉ build stable), copy vẫn khớp tên.
+// =============================================================================
+
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+def in4upIsCi = System.getenv("CI") == "true"
+
+if (in4upIsCi) {
+    def in4upProjectRef = project
+
+    // ---------------------------------------------------------------------
+    // (1) Inject mock google-services client cho applicationId còn thiếu
+    // ---------------------------------------------------------------------
+    def in4upEnsureTask = in4upProjectRef.tasks.register("in4upCiEnsureGoogleServicesClients") {
+        doLast {
+            def jsonFile = new File(in4upProjectRef.projectDir, "google-services.json")
+            if (!jsonFile.exists()) {
+                // build.yml decode secret vào android/app/google-services.json.
+                // File vắng ⇒ google-services task sẽ fail với lỗi rõ của nó;
+                // ở đây không đoán mò, chỉ cảnh báo.
+                in4upProjectRef.logger.warn(
+                    "[in4up-ci] Không thấy android/app/google-services.json — bỏ qua " +
+                    "inject mock client (nếu workflow đổi chỗ decode, cập nhật script này)")
+                return
+            }
+
+            def json = new JsonSlurper().parseText(jsonFile.text)
+            def clients = json.client
+            if (clients == null) {
+                json.client = []
+                clients = json.client
+            }
+
+            // Gom applicationId của mọi flavor từ chính module này.
+            def defaultAppId = in4upProjectRef.android.defaultConfig.applicationId
+            def appIds = [defaultAppId]
+            in4upProjectRef.android.productFlavors.all { flavor ->
+                def suffix = flavor.applicationIdSuffix ?: ""
+                appIds << (defaultAppId + suffix)
+            }
+            appIds = appIds.unique()
+
+            def added = []
+            appIds.each { appId ->
+                def hasClient = clients.any {
+                    it != null && it.client_info?.android_client_info?.package_name == appId
+                }
+                if (!hasClient) {
+                    clients.add([
+                        client_info: [
+                            mobilesdk_app_id   : "1:0:android:in4up-ci-mock-" + appId.tokenize(".").last(),
+                            android_client_info: [package_name: appId],
+                        ],
+                        oauth_client: [],
+                        api_key     : [[current_key: "AIzaSyIn4UpCiMockNotARealKey0000000000"]],
+                        services    : [appinvite_service: [other_platform_oauth_client: []]],
+                    ])
+                    added << appId
+                }
+            }
+
+            if (added) {
+                jsonFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(json))
+                in4upProjectRef.logger.lifecycle(
+                    "[in4up-ci] google-services.json thiếu client cho: ${added.join(', ')} — " +
+                    "đã inject mock (CI-only; client thật không đổi; APK dev/beta không ship)")
+            } else {
+                in4upProjectRef.logger.lifecycle(
+                    "[in4up-ci] google-services.json đã đủ client cho mọi flavor — không inject")
+            }
+        }
+    }
+
+    // Google-services plugin (4.3.15) tạo task `process<Variant>GoogleServices`
+    // ở afterEvaluate ⇒ matching + configureEach (lazy) vẫn bám đúng khi task
+    // được realize. dependsOn ⇒ inject luôn chạy trước.
+    in4upProjectRef.tasks.matching {
+        it.name.startsWith("process") && it.name.endsWith("GoogleServices")
+    }.configureEach { t ->
+        t.dependsOn(in4upEnsureTask)
+    }
+
+    // ---------------------------------------------------------------------
+    // (2) Copy bản stable sang tên không-flavor cho bước rename của build.yml
+    // ---------------------------------------------------------------------
+    in4upProjectRef.tasks.matching { it.name == "assembleRelease" }.configureEach { t ->
+        t.doLast {
+            def outDir = new File(in4upProjectRef.buildDir, "outputs/flutter-apk")
+            if (!outDir.isDirectory()) {
+                return
+            }
+            outDir.listFiles()?.each { f ->
+                if (!f.isFile()) {
+                    return
+                }
+                def dstName = null
+                if (f.name == "app-stable-release.apk") {
+                    // Universal stable → universal không-flavor
+                    dstName = "app-release.apk"
+                } else {
+                    // Split-per-ABI stable: app-<abi>-stable-release.apk → app-<abi>-release.apk
+                    def m = (f.name =~ /^app-(.+)-stable-release\.apk$/)
+                    if (m.find()) {
+                        dstName = "app-" + m.group(1) + "-release.apk"
+                    }
+                }
+                if (dstName != null) {
+                    def dst = new File(outDir, dstName)
+                    f.copyTo(dst, true)
+                    in4upProjectRef.logger.lifecycle(
+                        "[in4up-ci] copy ${f.name} → ${dstName} (để bước Rename All APKs của build.yml khớp)")
+                }
+            }
+        }
+    }
+}

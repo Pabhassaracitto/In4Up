@@ -280,8 +280,10 @@ class _TranslationEngineSettings extends StatefulWidget {
 }
 
 class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> {
-  late final TextEditingController _urlController =
-      TextEditingController(text: widget.service.deeplxUrl ?? '');
+  // KHÔNG dùng `late final _urlController = TextEditingController(text:
+  // widget.service.deeplxUrl ?? '')` — initializer late field tham chiếu
+  // `widget` không có trong codebase (rủi ro compile); init trong initState.
+  late final TextEditingController _urlController;
 
   // Ngôn ngữ có thể tải model ML Kit cho pipeline hiện tại:
   // EN ↔ VI, EN ↔ HI; HI ↔ VI pivot qua EN.
@@ -293,6 +295,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   @override
   void initState() {
     super.initState();
+    _urlController = TextEditingController(text: widget.service.deeplxUrl ?? '');
     _offlineOnly = widget.service.offlineOnly;
     _loadModels();
   }

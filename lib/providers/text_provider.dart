@@ -25,6 +25,7 @@ import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
+import '../services/reader_display_settings.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_source_loader.dart';
@@ -240,6 +241,13 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
   bool get showLineNumbers => _showLineNumbers;
+  bool get wordTapBoxes => ReaderDisplaySettings().wordTapBoxes;
+
+  /// Bật/tắt "box từng từ" (tap để lưu) — persist qua ReaderDisplaySettings.
+  Future<void> setWordTapBoxes(bool value) async {
+    await ReaderDisplaySettings().setWordTapBoxes(value);
+    notifyListeners();
+  }
   bool get useAutoSplit => _useAutoSplit;
   ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;

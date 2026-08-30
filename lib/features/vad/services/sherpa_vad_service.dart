@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/utils/audio_converter.dart';
 import 'package:in4up_stt/vad/sherpa_vad_core.dart';
 import 'package:path/path.dart' as p;
@@ -33,7 +34,7 @@ abstract class VadService {
 /// Sherpa ONNX VAD Service — thiết kế theo handover
 /// * Load VAD module rất nhẹ ~2-5MB (silero_vad.onnx)
 /// * Absolute path via path_provider (Rule 1 tái sử dụng)
-/// * Verification existsSync + size >1M trước init
+/// * Verification existsSync + size ≥ 80KB (k2-fsa silero_vad.onnx ~629KB)
 /// * Fallback sang EnergyVad nếu model chưa có
 class SherpaVadService implements VadService {
   static const String _kVadModelFileName = 'silero_vad.onnx';
@@ -95,10 +96,9 @@ class SherpaVadService implements VadService {
 
       for (final cand in candidates) {
         final f = File(cand);
-        // Rule 3: existsSync + size > 1M? VAD model ~2-5MB nên >1M hợp lệ
         if (f.existsSync()) {
           final size = f.lengthSync();
-          if (size > 1000000) {
+          if (size >= SherpaModelManager.vadMinBytes) {
             debugPrint('✅ VAD model found at absolute path: $cand size=$size');
             return cand;
           } else {
@@ -120,8 +120,8 @@ class SherpaVadService implements VadService {
     if (_modelAbsolutePath == null) {
       debugPrint(
         'ℹ️ Sherpa VAD model not found at ${_kVadModelFolder}/$_kVadModelFileName '
-        '(size <1MB or missing). Will use EnergyVad fallback. '
-        'Để dùng sherpa_onnx thật, hãy chép file silero_vad.onnx (~2-5MB) vào '
+        '(thiếu hoặc <80KB). Will use EnergyVad fallback. '
+        'Để dùng sherpa_onnx thật, hãy Tải về Silero VAD trong Cài đặt (file k2-fsa ~629KB) vào '
         '${await _resolveVadModelDirectory()}',
       );
       // Không throw — fallback sang energy VAD

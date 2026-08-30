@@ -21,6 +21,7 @@ import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
 import '../sheets/word_actions_sheet.dart';
+import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
 
 class TextLineWidget extends StatelessWidget {
@@ -67,6 +68,7 @@ class TextLineWidget extends StatelessWidget {
                   isPlaying: _checkIsPlaying(tp, pp, index),
                   isFocusCue: index == tp.focusCueLineIndex,
                   colorMode: tp.colorMode,
+                  wordTapBoxes: tp.wordTapBoxes,
                   showLineNumbers: tp.showLineNumbers,
                   textAlign: tp.textAlign,
                   fontSize: tp.fontSize,
@@ -211,7 +213,7 @@ class TextLineWidget extends StatelessWidget {
               originalText: data.content,
               translatedText: data.translation,
               displayMode: data.displayMode,
-              originalWidget: _buildTextContent(context, data),
+              originalWidget: _buildTextContent(context, data, index),
               textAlign: data.textAlign,
               // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được
               // Trước đây alpha 0.15 quá mờ khiến user tưởng bản dịch biến mất
@@ -257,12 +259,29 @@ class TextLineWidget extends StatelessWidget {
 
   /// POS/CEFR/difficulty: cùng đoạn chọn + lưu đầy đủ như chế độ không màu.
   /// Màu nằm trên TextSpan (không Wrap từng chip — chữ Việt không bị bể hàng).
-  Widget _buildTextContent(BuildContext context, _LineData data) {
+  /// [index] = index dòng trong document (ColoredTextWidget tra trạng thái phát).
+  Widget _buildTextContent(BuildContext context, _LineData data, int index) {
     final baseStyle = TextStyle(
       fontSize: data.fontSize,
       color: Colors.white,
       height: 1.6,
     );
+
+    if (data.wordTapBoxes &&
+        data.colorMode != ColorMode.none &&
+        data.analyzedWords.isNotEmpty) {
+      return Align(
+        alignment: data.textAlign == TextAlign.center
+            ? Alignment.center
+            : Alignment.centerLeft,
+        child: ColoredTextWidget(
+          words: data.analyzedWords,
+          fontSize: data.fontSize,
+          colorMode: data.colorMode,
+          lineIndex: index,
+        ),
+      );
+    }
 
     if (data.colorMode == ColorMode.none || data.analyzedWords.isEmpty) {
       return SelectableText(
@@ -480,6 +499,7 @@ class _LineData {
   final bool isPlaying;
   final bool isFocusCue;
   final ColorMode colorMode;
+  final bool wordTapBoxes;
   final bool showLineNumbers;
   final TextAlign textAlign;
   final double fontSize;
@@ -498,6 +518,7 @@ class _LineData {
     required this.isPlaying,
     required this.isFocusCue,
     required this.colorMode,
+    this.wordTapBoxes = false,
     required this.showLineNumbers,
     required this.textAlign,
     required this.fontSize,
@@ -517,6 +538,7 @@ class _LineData {
         isPlaying = false,
         isFocusCue = false,
         colorMode = ColorMode.none,
+        wordTapBoxes = false,
         showLineNumbers = true,
         textAlign = TextAlign.left,
         fontSize = 18,
@@ -541,6 +563,7 @@ class _LineData {
         isPlaying == other.isPlaying &&
         isFocusCue == other.isFocusCue &&
         colorMode == other.colorMode &&
+        wordTapBoxes == other.wordTapBoxes &&
         showLineNumbers == other.showLineNumbers &&
         textAlign == other.textAlign &&
         fontSize == other.fontSize &&

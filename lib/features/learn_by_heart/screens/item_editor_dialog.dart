@@ -8,6 +8,7 @@ import '../models/learn_by_heart_item.dart';
 import '../models/line_timestamp.dart';
 import '../models/recitation_category.dart';
 import '../models/review_state.dart';
+import '../services/anki_cloze_parser.dart';
 
 class ItemEditorDialog extends StatefulWidget {
   final LearnByHeartItem? initialItem;
@@ -62,8 +63,23 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
 
-    final viText = _viCtrl.text.trim();
+    var viText = _viCtrl.text.trim();
     final paliText = _paliCtrl.text.trim();
+
+    final extractedKeywords = <String>[];
+
+    // Tự động nhận diện cú pháp Anki Cloze {{c1::từ}}
+    if (AnkiClozeParser.hasAnkiCloze(viText)) {
+      final tokens = AnkiClozeParser.parseToTokens(viText);
+      for (final t in tokens) {
+        if (t.isKeyword && t.cleanWord.isNotEmpty) {
+          extractedKeywords.add(t.text);
+        }
+      }
+      // Dọn sạch cú pháp Anki để lưu dạng text thuần túy cho hiển thị
+      viText = AnkiClozeParser.stripAnkiSyntax(viText);
+    }
+
     final viLines = viText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
     final paliLines = paliText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
 
@@ -101,11 +117,13 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
       chunkIdx++;
     }
 
-    final keywords = _keywordsCtrl.text
+    final manualKeywords = _keywordsCtrl.text
         .split(',')
         .map((k) => k.trim())
         .where((k) => k.isNotEmpty)
         .toList();
+
+    final allKeywords = {...manualKeywords, ...extractedKeywords}.toList();
 
     final item = LearnByHeartItem(
       id: widget.initialItem?.id ?? const Uuid().v4(),
@@ -115,7 +133,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
       paliText: paliText,
       vietnameseText: viText,
       shortMeaning: _shortMeaningCtrl.text.trim(),
-      keywords: keywords,
+      keywords: allKeywords,
       lifeConnection: _lifeConnectionCtrl.text.trim(),
       lineTimestamps: lineTimestamps,
       chunkList: chunks,
@@ -209,8 +227,8 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Title
                       _buildTextField(
                         controller: _titleCtrl,
-                        label: context.uiText('Tiêu đề bài kinh / kệ ngôn'),
-                        hint: 'Ví dụ: Kệ Pháp Cú 01, Bát Nhã Tâm Kinh...',
+                        label: 'Tiêu đề bài kinh / kệ ngôn',
+                        hint: 'Ví dụ: Kệ Pháp Cú 01, Từ Bi Kinh...',
                         required: true,
                       ),
                       const SizedBox(height: 12),
@@ -218,7 +236,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Subtitle
                       _buildTextField(
                         controller: _subtitleCtrl,
-                        label: context.uiText('Phụ đề / Chủ đề ngắn'),
+                        label: 'Phụ đề / Chủ đề ngắn',
                         hint: 'Ví dụ: Tâm dẫn đầu các pháp...',
                       ),
                       const SizedBox(height: 12),
@@ -226,17 +244,17 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Pali Text
                       _buildTextField(
                         controller: _paliCtrl,
-                        label: context.uiText('Nguyên văn Pali / Tiếng gốc (mỗi dòng một câu)'),
+                        label: 'Nguyên văn Pali / Tiếng gốc (mỗi dòng một câu)',
                         hint: 'Manopubbaṅgamā dhammā,\nmanoseṭṭhā manomayā...',
                         maxLines: 4,
                       ),
                       const SizedBox(height: 12),
 
-                      // Vietnamese Text
+                      // Vietnamese Text (Supports Anki Cloze {{c1::word}})
                       _buildTextField(
                         controller: _viCtrl,
-                        label: context.uiText('Bản dịch Tiếng Việt (mỗi dòng một câu)'),
-                        hint: 'Ý dẫn đầu các pháp,\nÝ làm chủ, ý tạo...',
+                        label: 'Bản dịch Tiếng Việt (Hỗ trợ cú pháp Anki {{c1::từ_cần_ẩn}})',
+                        hint: 'Ý dẫn đầu các {{c1::pháp}},\nÝ {{c2::làm chủ}}, ý tạo...',
                         maxLines: 4,
                         required: true,
                       ),
@@ -245,7 +263,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Short Meaning
                       _buildTextField(
                         controller: _shortMeaningCtrl,
-                        label: context.uiText('Ý nghĩa cốt lõi (≤ 15 từ)'),
+                        label: 'Ý nghĩa cốt lõi (≤ 15 từ)',
                         hint: 'Hành động từ tâm ô nhiễm đem lại khổ đau.',
                       ),
                       const SizedBox(height: 12),
@@ -253,7 +271,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Keywords
                       _buildTextField(
                         controller: _keywordsCtrl,
-                        label: context.uiText('Từ khóa ghi nhớ (phân cách bằng dấu phẩy)'),
+                        label: 'Từ khóa ghi nhớ (phân cách bằng dấu phẩy)',
                         hint: 'Ý dẫn đầu, Ý ô nhiễm, Khổ não',
                       ),
                       const SizedBox(height: 12),
@@ -261,7 +279,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       // Life Connection
                       _buildTextField(
                         controller: _lifeConnectionCtrl,
-                        label: context.uiText('Liên hệ thực tế đời sống (1 câu)'),
+                        label: 'Liên hệ thực tế đời sống (1 câu)',
                         hint: 'Cẩn trọng trong từng suy nghĩ và lời nói hàng ngày.',
                       ),
                     ],
@@ -280,7 +298,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                   ElevatedButton.icon(
                     onPressed: _save,
                     icon: const Icon(Icons.check, size: 18),
-                    label: Text(context.uiText(isEditing ? 'Cập nhật' : 'Lưu bài')),
+                    label: Text(isEditing ? 'Cập nhật' : 'Lưu bài'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6C63FF),
                       foregroundColor: Colors.white,

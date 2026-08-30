@@ -1287,4 +1287,143 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get lhb_25 => 'Khôi phục';
+
+  @override
+  String get audit_0 => 'Gần đây';
+
+  @override
+  String get audit_1 => 'Gần đây nhất';
+
+  @override
+  String get audit_2 => 'Thư viện';
+
+  @override
+  String get audit_3 => 'Thư viện âm thanh';
+
+  @override
+  String get audit_4 => 'Thư viện nghe';
+
+  @override
+  String get audit_5 => 'Listen';
+
+  @override
+  String get audit_6 => 'Read';
+
+  @override
+  String get audit_7 => 'Note listened';
+
+  @override
+  String get audit_8 => 'Recent';
+
+  @override
+  String get audit_9 => 'Cloud';
+
+  @override
+  String get audit_10 => 'Device';
+
+  @override
+  String get audit_11 => 'Unread';
+
+  @override
+  String get audit_12 => 'Reading Library';
+
+  @override
+  String get audit_13 => 'Writing';
+
+  @override
+  String get audit_14 => 'Speaking';
+
+  @override
+  String get audit_15 => 'Understanding';
+
+  @override
+  String get audit_16 => 'Memory';
+
+  @override
+  String get audit_17 => 'Shell interface';
+
+  @override
+  String get sound_0 => 'Điểm';
+
+  @override
+  String get sound_1 => 'Đoạn';
+
+  @override
+  String get sound_2 => 'Mục lục';
+
+  @override
+  String get sound_3 => 'Nội dung';
+
+  @override
+  String get sound_4 => 'Chương';
+
+  @override
+  String get sound_5 => 'Ghi chú';
+
+  @override
+  String get sound_6 => 'Ghi chú mục';
+
+  @override
+  String get sound_7 => 'Đánh dấu';
+
+  @override
+  String get sound_8 => 'Tìm kiếm';
+
+  @override
+  String get sound_9 => 'Làm mới';
+
+  @override
+  String get sound_10 => 'Phát';
+
+  @override
+  String get sound_11 => 'Thêm';
+
+  @override
+  String get sound_12 => 'Tất cả';
+
+  @override
+  String get sound_13 => 'Tự tạo';
+
+  @override
+  String get sound_14 => 'Lưu';
+
+  @override
+  String get sound_15 => 'Hủy';
+
+  @override
+  String get sound_16 => 'Xóa';
+
+  @override
+  String get sound_17 => 'Đổi tên';
+
+  @override
+  String get sound_18 => 'Âm mục';
+
+  @override
+  String get sound_19 => 'Âm mục còn trống';
+
+  @override
+  String get sound_20 => 'Âm mục — Thư viện âm thanh';
+
+  @override
+  String get sound_21 => 'Chưa có mục lục.';
+
+  @override
+  String get sound_22 => 'Chưa có điểm nào.';
+
+  @override
+  String get sound_23 => 'Chưa có đoạn nào.';
+
+  @override
+  String get sound_24 =>
+      'File chưa có dữ liệu — mở trong Listen Mode và đánh dấu.';
+
+  @override
+  String get sound_25 => 'Không tìm thấy kết quả cho từ khóa này.';
+
+  @override
+  String get sound_26 => 'Không có trong danh sách quan sát';
+
+  @override
+  String get soundRelated => 'Liên quan';
 }

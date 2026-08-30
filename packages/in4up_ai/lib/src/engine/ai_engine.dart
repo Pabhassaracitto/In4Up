@@ -24,11 +24,14 @@ abstract class AiEngine {
   /// báo UI "đang nạp" và fallback mock trung thực.
   Future<void> get modelReady;
 
+  /// [maxTokens]: số token tối đa model sinh (chat cần >256 vì trả JSON
+  /// theo schema; mặc định 256 cho các phân tích ngắn).
   Stream<AiAnalysis> analyze({
     required String text,
     required AiAnalysisType type,
     String? context,
     double temperature,
+    int maxTokens = 256,
   });
 
   Future<void> warmUp();

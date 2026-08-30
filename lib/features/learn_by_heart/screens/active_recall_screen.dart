@@ -4,18 +4,22 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../controllers/learn_by_heart_provider.dart';
+import '../i18n/learn_by_heart_l10n.dart';
 import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 import '../services/cloze_generator.dart';
 import '../services/multilingual_audio_service.dart';
+import '../widgets/chain_recitation_view.dart';
 import '../widgets/cloze_interactive_text.dart';
 import '../widgets/fsrs_rating_bar.dart';
+import '../widgets/voice_recitation_sheet.dart';
 import 'assessment_screen.dart';
 
 enum RecallModeType {
-  cloze, // Dạng 1: Điền khuyết (Cloze Deletion)
-  meaningToVerse, // Dạng 2: Ý nghĩa → Tự gợi nhớ câu kinh
-  audioToVerse, // Dạng 3: Nghe nửa đầu → Tự đọc nửa sau
+  cloze, // Dạng 1: Điền khuyết (Cloze Deletion 4 tầng)
+  firstLetterChain, // Dạng 2: Nối xích câu kệ liên hoàn
+  meaningToVerse, // Dạng 3: Ý nghĩa → Tự gợi nhớ câu kinh
+  audioToVerse, // Dạng 4: Nghe nửa đầu → Tự đọc nửa sau
 }
 
 class ActiveRecallScreen extends StatefulWidget {
@@ -32,6 +36,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
   RecallModeType _currentMode = RecallModeType.cloze;
   bool _isAnswerRevealed = false;
   late List<ClozeToken> _tokens;
+  ClozeLevel _activeClozeLevel = ClozeLevel.firstLetter;
 
   @override
   void initState() {
@@ -77,13 +82,20 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
     );
   }
 
+  void _openVoiceRecitation() {
+    VoiceRecitationSheet.show(
+      context,
+      item: widget.item,
+      onRated: _handleReviewRating,
+    );
+  }
+
   Future<void> _handleReviewRating(FSRSRating rating) async {
     final provider = context.read<LearnByHeartProvider>();
     await provider.submitReview(item: widget.item, rating: rating);
 
     if (!mounted) return;
 
-    // Kiểm tra nếu bài đã đủ điều kiện 5 lần thành công liên tiếp
     if (widget.item.consecutiveSuccesses + 1 >= 5 && rating != FSRSRating.again) {
       _showAssessmentPrompt();
     } else {
@@ -147,6 +159,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final l10n = LearnByHeartL10n.of(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
@@ -160,10 +173,16 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         actions: [
+          // Voice Recall Button
+          IconButton(
+            icon: const Icon(Icons.mic_rounded, color: Color(0xFF6C63FF)),
+            tooltip: 'Đọc bằng giọng nói (Voice Recall)',
+            onPressed: _openVoiceRecitation,
+          ),
           if (item.isReadyForAssessment)
             IconButton(
               icon: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFD54F)),
-              tooltip: 'Kiểm tra thực chất',
+              tooltip: l10n.assessmentTitle,
               onPressed: () {
                 Navigator.push(
                   context,
@@ -176,43 +195,47 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Mode Selector Bar
+            // Mode Selector Bar (Cloze / Nối xích / Ý nghĩa / Audio)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               color: const Color(0xFF0F172A),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _ModeChip(
-                      label: 'Điền khuyết',
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _ModeChip(
+                      label: l10n.modeCloze,
                       icon: Icons.edit_note_rounded,
                       isSelected: _currentMode == RecallModeType.cloze,
                       onTap: () => _switchMode(RecallModeType.cloze),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _ModeChip(
-                      label: 'Ý nghĩa → Kinh',
+                    const SizedBox(width: 6),
+                    _ModeChip(
+                      label: 'Nối xích',
+                      icon: Icons.link_rounded,
+                      isSelected: _currentMode == RecallModeType.firstLetterChain,
+                      onTap: () => _switchMode(RecallModeType.firstLetterChain),
+                    ),
+                    const SizedBox(width: 6),
+                    _ModeChip(
+                      label: l10n.modeMeaning,
                       icon: Icons.lightbulb_outline_rounded,
                       isSelected: _currentMode == RecallModeType.meaningToVerse,
                       onTap: () => _switchMode(RecallModeType.meaningToVerse),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _ModeChip(
-                      label: 'Nghe & Đọc tiếp',
+                    const SizedBox(width: 6),
+                    _ModeChip(
+                      label: l10n.modeAudio,
                       icon: Icons.record_voice_over_rounded,
                       isSelected: _currentMode == RecallModeType.audioToVerse,
                       onTap: () => _switchMode(RecallModeType.audioToVerse),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
-            // Main Active Recall Content
+            // Main Active Recall Content Area
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -221,8 +244,9 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_currentMode == RecallModeType.cloze) _buildClozeSection(),
-                    if (_currentMode == RecallModeType.meaningToVerse) _buildMeaningSection(),
-                    if (_currentMode == RecallModeType.audioToVerse) _buildAudioSection(),
+                    if (_currentMode == RecallModeType.firstLetterChain) ChainRecitationView(item: widget.item),
+                    if (_currentMode == RecallModeType.meaningToVerse) _buildMeaningSection(l10n),
+                    if (_currentMode == RecallModeType.audioToVerse) _buildAudioSection(l10n),
                   ],
                 ),
               ),
@@ -253,13 +277,17 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           ),
         ClozeInteractiveText(
           tokens: _tokens,
-          fontSize: 17,
+          initialLevel: _activeClozeLevel,
+          onLevelChanged: (level) {
+            setState(() => _activeClozeLevel = level);
+          },
+          fontSize: 17.5,
         ),
       ],
     );
   }
 
-  Widget _buildMeaningSection() {
+  Widget _buildMeaningSection(LearnByHeartL10n l10n) {
     final item = widget.item;
 
     return Column(
@@ -280,13 +308,13 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.psychology_rounded, color: Color(0xFFFFD54F), size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.psychology_rounded, color: Color(0xFFFFD54F), size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'GỢI Ý TỪ Ý NGHĨA',
-                    style: TextStyle(
+                    l10n.coreMeaning,
+                    style: const TextStyle(
                       color: Color(0xFFFFD54F),
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -308,7 +336,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
               if (item.lifeConnection.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'Liên hệ: ${item.lifeConnection}',
+                  '${l10n.lifeConnection}: ${item.lifeConnection}',
                   style: TextStyle(color: Colors.grey[300], fontSize: 12, fontStyle: FontStyle.italic),
                 ),
               ],
@@ -316,10 +344,10 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        const Center(
+        Center(
           child: Text(
-            'Hãy nhẩm lại câu kinh tương ứng trong đầu',
-            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+            l10n.reciteInHeadPrompt,
+            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
         const SizedBox(height: 14),
@@ -346,7 +374,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
     );
   }
 
-  Widget _buildAudioSection() {
+  Widget _buildAudioSection(LearnByHeartL10n l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -362,9 +390,9 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
             children: [
               const Icon(Icons.headphones_rounded, size: 40, color: Color(0xFF6C63FF)),
               const SizedBox(height: 10),
-              const Text(
-                'Nghe nửa đầu và đọc tiếp nửa sau',
-                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+              Text(
+                l10n.modeAudio,
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               Text(
@@ -480,7 +508,7 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF6C63FF).withValues(alpha: 0.25) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
@@ -488,7 +516,7 @@ class _ModeChip extends StatelessWidget {
             color: isSelected ? const Color(0xFF6C63FF) : Colors.white.withValues(alpha: 0.08),
           ),
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
@@ -496,13 +524,11 @@ class _ModeChip extends StatelessWidget {
               size: 16,
               color: isSelected ? const Color(0xFFB388FF) : Colors.grey[400],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(width: 5),
             Text(
               label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 11.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.grey[400],
               ),

@@ -1,6 +1,7 @@
 // lib/screens/settings/stt_model_settings_screen.dart
-
-import 'dart:io';
+// NOTE: fix trong packages/ (in4up_ai/in4up_stt) không trigger app_analyze
+// (paths chỉ có lib/test/pubspec) — đi kèm dòng này để trigger CI root.
+// 2026-08-30: fix archive 4.x ArchiveFile API (f25611c) — trigger cho CI root.
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
@@ -569,7 +570,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~2MB',
+                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~629KB',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -615,7 +616,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
                               foregroundColor: Colors.red),
                           onPressed: () => _manager.deleteVad(),
                         ),
-                      const Text('2-5MB',
+                      const Text('~0.6MB',
                           style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
@@ -649,7 +650,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
       SnackBar(
         content: Text(ok
             ? '✅ Import Silero VAD thành công!'
-            : '❌ Import thất bại — file cần là silero_vad.onnx (>1MB)'),
+            : '❌ Import thất bại — cần silero_vad.onnx (k2-fsa ~629KB)'),
       ),
     );
   }
@@ -795,9 +796,8 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                       ),
                     ),
                     child: const Text(
-                      'Chưa có giọng Piper. Bấm "Tải giọng" (gợi ý) hoặc '
-                      'tải bundle vits-piper-*.tar.bz2 → giải nén → '
-                      '"Import thư mục".',
+                      'Chưa có giọng Piper. Bấm "Tải giọng" — app tự tải, '
+                      'giải nén và cài. Không cần ZArchiver.',
                       style: TextStyle(fontSize: 12, color: Colors.amberAccent),
                     ),
                   ),
@@ -875,16 +875,21 @@ class _PiperModelCardState extends State<_PiperModelCard> {
 
   Future<void> _downloadPiperBundle(BuildContext context) async {
     const en = SherpaModelManager.defaultPiperVoice;
+    const enLessac = 'en_US-lessac-medium';
     const vi = 'vi_VN-vais1000-medium';
 
     final voice = await showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
-        title: const Text('Tải giọng Piper (bundle ~75MB, gồm espeak)'),
+        title: const Text('Tải giọng Piper (~75MB, tự cài)'),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, en),
             child: const Text('en_US-libritts_r-medium (Anh, nữ)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, enLessac),
+            child: const Text('en_US-lessac-medium (Anh, nữ)'),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, vi),
@@ -893,9 +898,8 @@ class _PiperModelCardState extends State<_PiperModelCard> {
           const Padding(
             padding: EdgeInsets.all(12),
             child: Text(
-              'Còn 536 giọng khác: github.com/k2-fsa/sherpa-onnx/releases '
-              '→ tag tts-models → tải vits-piper-<giọng>.tar.bz2 → giải nén '
-              '→ Import thư mục.',
+              'App tự tải, giải nén và cài. Giữ Wi-Fi, đợi thanh tiến độ xong '
+              'là dùng được — không cần giải nén tay.',
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ),
@@ -904,58 +908,16 @@ class _PiperModelCardState extends State<_PiperModelCard> {
     );
     if (voice == null || !mounted) return;
 
-    final savedPath = await _manager.downloadPiperBundle(voice: voice);
+    final installedDir = await _manager.downloadPiperBundle(voice: voice);
     if (!mounted) return;
 
-    if (savedPath != null) {
-      // File .tar.bz2 đã tải về — app KHÔNG tự giải nén (tránh thêm dep).
-      final file = File(savedPath);
-      final exists = file.existsSync();
-      final sizeMB =
-          exists ? (file.lengthSync() / 1024 / 1024).toStringAsFixed(1) : '?';
-      await showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Đã tải về bundle Piper'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'File: $savedPath\nKích thước: $sizeMB MB',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'File nằm trong bộ nhớ riêng của app — không phải thư mục '
-                'Tải về công khai. User thường không vào được '
-                'Android/data/com.in4up.dev (chỉ bản flavor dev).\n\n'
-                'Bước tiếp theo (trong app):\n'
-                '1. Bấm Chia sẻ → mở bằng ZArchiver / RAR / Files rồi giải nén.\n'
-                '2. Quay lại đây bấm Import thư mục (được chọn cả thư mục cha; '
-                'app tìm .onnx cả thư mục con).\n'
-                '3. Không cần tự chép vào com.in4up / com.in4up.dev.',
-                style: TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-          actions: [
-            if (exists)
-              TextButton(
-                onPressed: () {
-                  Share.shareXFiles([XFile(savedPath)]);
-                },
-                child: const Text('Chia sẻ / mở bằng app khác'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
+    if (installedDir != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã cài giọng $voice — dùng được ngay.'),
         ),
       );
     }
-    // savedPath == null → lỗi đã được ghi vào info.errorMessage (hiện trong card)
   }
 
   Future<void> _confirmDeleteAll(BuildContext context) async {

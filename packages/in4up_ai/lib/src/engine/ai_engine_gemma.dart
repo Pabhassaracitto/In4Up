@@ -20,8 +20,17 @@ class AiEngineGemma implements AiEngine {
   Isolate? _isolate;
   SendPort? _sendPort;
   ReceivePort? _receivePort;
+  // FIX 251e: addOnExitListener(SendPort, {response}) — nhận SendPort, KHÔNG
+  // phải callback (bản 01a02a41 truyền closure => lỗi compile:
+  // "Null Function(dynamic)" can't be assigned to SendPort).
+  ReceivePort? _isolateExitPort;
   bool _disposed = false;
   String? _modelPath;
+
+  /// ReceivePort của các request đang chờ isolate trả lời — để báo lỗi ngay
+  /// khi isolate chết (OOM killer thu hồi process con trên máy yếu) thay vì
+  /// caller treo vô hạn. (FIX AI-CHAT-01)
+  final _pendingReplyPorts = <ReceivePort>[];
 
   /// Complete khi isolate báo native model đã load xong (hoặc fail).
   /// Reset ở mỗi _spawnIsolate (engine có thể re-init với modelPath mới).
@@ -61,6 +70,7 @@ class AiEngineGemma implements AiEngine {
     required AiAnalysisType type,
     String? context,
     double temperature = 0.1,
+    int maxTokens = 256,
   }) async* {
     if (_disposed || _state != AiEngineState.ready || _sendPort == null) {
       yield AiAnalysis.fallback(
@@ -75,39 +85,54 @@ class AiEngineGemma implements AiEngine {
     final prompt = _buildPrompt(type, text, context);
     final responsePort = ReceivePort();
     final weakEngine = WeakReference(this);
+    _pendingReplyPorts.add(responsePort);
 
     _sendPort!.send(_IsolateMessage(
       prompt: prompt,
       replyPort: responsePort.sendPort,
       temperature: temperature,
+      maxTokens: maxTokens,
     ));
 
-    await for (final msg in responsePort) {
-      final engine = weakEngine.target;
-      if (engine == null || engine._disposed) {
-        responsePort.close();
-        return;
-      }
+    // Watchdog (FIX AI-CHAT-01): native generate là FFI blocking — nếu treo
+    // (deadlock llama.cpp) hoặc isolate chết mà chưa kịp gửi lỗi, caller
+    // (chat) sẽ chờ VÔ HẠN và nút gửi xoay vòng mãi. Timer này ép một lỗi
+    // rõ để mọi request luôn có kết cục (UI thoát khỏi trạng thái xử lý).
+    final watchdog = Timer(const Duration(minutes: 5), () {
+      responsePort.sendPort.send(const _IsolateError(
+        error: 'Model phản hồi quá lâu (5 phút) — vui lòng thử lại.',
+      ));
+    });
 
-      if (msg is _IsolateResponse && msg.isComplete) {
-        engine._state = AiEngineState.ready;
-        yield AiAnalysis.fromGemmaJson(
-          msg.fullText,
-          analysisType: type,
-          inputText: text,
-        );
-        responsePort.close();
-        break;
-      } else if (msg is _IsolateError) {
-        engine._state = AiEngineState.ready;
-        yield AiAnalysis.fallback(
-          text,
-          errorReason: msg.error,
-          analysisType: type,
-        );
-        responsePort.close();
-        break;
+    try {
+      await for (final msg in responsePort) {
+        final engine = weakEngine.target;
+        if (engine == null || engine._disposed) {
+          return;
+        }
+
+        if (msg is _IsolateResponse && msg.isComplete) {
+          engine._state = AiEngineState.ready;
+          yield AiAnalysis.fromGemmaJson(
+            msg.fullText,
+            analysisType: type,
+            inputText: text,
+          );
+          break;
+        } else if (msg is _IsolateError) {
+          engine._state = AiEngineState.ready;
+          yield AiAnalysis.fallback(
+            text,
+            errorReason: msg.error,
+            analysisType: type,
+          );
+          break;
+        }
       }
+    } finally {
+      watchdog.cancel();
+      _pendingReplyPorts.remove(responsePort);
+      responsePort.close();
     }
   }
 
@@ -133,8 +158,10 @@ class AiEngineGemma implements AiEngine {
     }
     _isolate?.kill(priority: Isolate.immediate);
     _receivePort?.close();
+    _isolateExitPort?.close();
     _isolate = null;
     _sendPort = null;
+    _isolateExitPort = null;
     _modelPath = null;
     _state = AiEngineState.disposed;
   }
@@ -151,6 +178,30 @@ class AiEngineGemma implements AiEngine {
       _IsolateInit(modelPath: modelPath, mainSendPort: _receivePort!.sendPort),
       debugName: 'GemmaIsolate',
     );
+
+    // FIX AI-CHAT-01: isolate chết giữa chừng (crash native / OOM killer
+    // thu hồi process con — hay gặp khi nạp model 600MB+ trên tablet RAM
+    // hạn chế) ⇒ không ai trả lời các request đang chờ. Báo lỗi cho MỌI
+    // phía đang đợi: loadCompleter (model chưa kịp load) + các port đang
+    // chờ trả lời — thay vì để chat treo "xoay vòng mãi".
+    final exitPort = ReceivePort();
+    _isolateExitPort = exitPort;
+    _isolate!.addOnExitListener(exitPort.sendPort, response: 'isolate-exited');
+    exitPort.listen((_) {
+      exitPort.close();
+      _isolateExitPort = null;
+      final loadC = _modelLoadCompleter;
+      if (loadC != null && !loadC.isCompleted) {
+        loadC.completeError(StateError(
+            'AI isolate bị thu hồi (thiếu bộ nhớ?) — model chưa nạp xong'));
+      }
+      for (final port in List.of(_pendingReplyPorts)) {
+        port.sendPort.send(const _IsolateError(
+          error: 'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.',
+        ));
+      }
+      _pendingReplyPorts.clear();
+    });
 
     final completer = Completer<SendPort>();
     _receivePort!.listen((msg) {
@@ -213,7 +264,7 @@ class AiEngineGemma implements AiEngine {
         try {
           final nativeOutput = native != null && nativeHandle != null
               ? native.generate(nativeHandle!, msg.prompt,
-                  temperature: msg.temperature)
+                  temperature: msg.temperature, maxTokens: msg.maxTokens)
               : null;
           msg.replyPort.send(_IsolateResponse(
             fullText: nativeOutput ?? _mockInference(msg.prompt),
@@ -571,10 +622,12 @@ class _IsolateMessage {
   final String prompt;
   final SendPort replyPort;
   final double temperature;
+  final int maxTokens;
   const _IsolateMessage({
     required this.prompt,
     required this.replyPort,
     this.temperature = 0.1,
+    this.maxTokens = 256,
   });
 }
 

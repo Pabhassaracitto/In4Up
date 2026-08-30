@@ -25,6 +25,7 @@ class AiEngineMock implements AiEngine {
     required AiAnalysisType type,
     String? context,
     double temperature = 0.1,
+    int maxTokens = 256, // mock: bỏ qua
   }) async* {
     await Future.delayed(const Duration(milliseconds: 300));
 

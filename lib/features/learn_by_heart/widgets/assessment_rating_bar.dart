@@ -2,6 +2,7 @@
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import '../i18n/learn_by_heart_l10n.dart';
 import '../models/fsrs_models.dart';
 
 class AssessmentRatingBar extends StatelessWidget {
@@ -14,6 +15,8 @@ class AssessmentRatingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = LearnByHeartL10n.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       decoration: BoxDecoration(
@@ -41,6 +44,7 @@ class AssessmentRatingBar extends StatelessWidget {
               children: [
                 Expanded(
                   child: _AssessmentButton(
+                    label: l10n.heavyMistakes,
                     rating: AssessmentRating.heavyMistake,
                     subtitle: 'Quên / vấp nhiều',
                     onTap: () => _handleRating(AssessmentRating.heavyMistake),
@@ -49,6 +53,7 @@ class AssessmentRatingBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _AssessmentButton(
+                    label: l10n.almostCorrect,
                     rating: AssessmentRating.nearCorrect,
                     subtitle: 'Nhớ ý, sót vài từ',
                     onTap: () => _handleRating(AssessmentRating.nearCorrect),
@@ -57,6 +62,7 @@ class AssessmentRatingBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _AssessmentButton(
+                    label: l10n.perfectRecite,
                     rating: AssessmentRating.perfect,
                     subtitle: 'Chuẩn xác 100%',
                     onTap: () => _handleRating(AssessmentRating.perfect),
@@ -77,11 +83,13 @@ class AssessmentRatingBar extends StatelessWidget {
 }
 
 class _AssessmentButton extends StatelessWidget {
+  final String label;
   final AssessmentRating rating;
   final String subtitle;
   final VoidCallback onTap;
 
   const _AssessmentButton({
+    required this.label,
     required this.rating,
     required this.subtitle,
     required this.onTap,
@@ -105,7 +113,7 @@ class _AssessmentButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              rating.label,
+              label,
               style: TextStyle(
                 color: color,
                 fontSize: 13,

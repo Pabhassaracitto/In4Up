@@ -1288,4 +1288,143 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get lhb_25 => 'ප්‍රතිසාධනය කරන්න';
+
+  @override
+  String get audit_0 => 'මෑත';
+
+  @override
+  String get audit_1 => 'වඩාත් මෑත';
+
+  @override
+  String get audit_2 => 'පුස්තකාලය';
+
+  @override
+  String get audit_3 => 'ශ්‍රව්‍ය පුස්තකාලය';
+
+  @override
+  String get audit_4 => 'සවන් දීමේ පුස්තකාලය';
+
+  @override
+  String get audit_5 => 'සවන් දෙන්න';
+
+  @override
+  String get audit_6 => 'කියවන්න';
+
+  @override
+  String get audit_7 => 'සවන් දුන් සටහන්';
+
+  @override
+  String get audit_8 => 'මෑත';
+
+  @override
+  String get audit_9 => 'වලාකුළ';
+
+  @override
+  String get audit_10 => 'උපාංගය';
+
+  @override
+  String get audit_11 => 'නොකියවූ';
+
+  @override
+  String get audit_12 => 'කියවීම් පුස්තකාලය';
+
+  @override
+  String get audit_13 => 'ලිවීම';
+
+  @override
+  String get audit_14 => 'කථනය';
+
+  @override
+  String get audit_15 => 'අවබෝධය';
+
+  @override
+  String get audit_16 => 'මතකය';
+
+  @override
+  String get audit_17 => 'අතුරු මුහුණත සැකසුම්';
+
+  @override
+  String get sound_0 => 'ලකුණ';
+
+  @override
+  String get sound_1 => 'කොටස';
+
+  @override
+  String get sound_2 => 'අන්තර්ගත වගුව';
+
+  @override
+  String get sound_3 => 'අන්තර්ගතය';
+
+  @override
+  String get sound_4 => 'පරිච්ඡේදය';
+
+  @override
+  String get sound_5 => 'සටහන';
+
+  @override
+  String get sound_6 => 'පරිච්ඡේද සටහන';
+
+  @override
+  String get sound_7 => 'පිටු සලකුණ';
+
+  @override
+  String get sound_8 => 'සොයන්න';
+
+  @override
+  String get sound_9 => 'නැවුම් කරන්න';
+
+  @override
+  String get sound_10 => 'වාදනය';
+
+  @override
+  String get sound_11 => 'එක් කරන්න';
+
+  @override
+  String get sound_12 => 'සියල්ල';
+
+  @override
+  String get sound_13 => 'අතින්';
+
+  @override
+  String get sound_14 => 'සුරකින්න';
+
+  @override
+  String get sound_15 => 'අවලංගු කරන්න';
+
+  @override
+  String get sound_16 => 'මකන්න';
+
+  @override
+  String get sound_17 => 'නම වෙනස් කරන්න';
+
+  @override
+  String get sound_18 => 'ශ්‍රව්‍ය ලැයිස්තුව';
+
+  @override
+  String get sound_19 => 'ශ්‍රව්‍ය ලැයිස්තුව හිස්ය';
+
+  @override
+  String get sound_20 => 'ශ්‍රව්‍ය ලැයිස්තුව — ශ්‍රව්‍ය පුස්තකාලය';
+
+  @override
+  String get sound_21 => 'තවම අන්තර්ගත වගුවක් නැත.';
+
+  @override
+  String get sound_22 => 'තවම ලකුණු නැත.';
+
+  @override
+  String get sound_23 => 'තවම කොටස් නැත.';
+
+  @override
+  String get sound_24 =>
+      'මෙම ගොනුවේ දත්ත නැත — සවන් දීමේ මාදිලියේ විවෘත කර පිටු සලකුණු එක් කරන්න.';
+
+  @override
+  String get sound_25 => 'මෙම මූල පදය සඳහා ප්‍රතිඵල හමු නොවීය.';
+
+  @override
+  String get sound_26 => 'නිරීක්ෂණ ලැයිස්තුවේ කිසිවක් නැත';
+
+  @override
+  String get soundRelated => 'අදාළ';
 }

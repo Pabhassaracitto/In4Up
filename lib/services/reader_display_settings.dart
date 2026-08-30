@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// ═══════════════════════════════════════════════════════════════
 class ReaderDisplaySettings {
   static const String _keyRecallMarkers = 'reader_show_recall_markers';
+  static const String _keyWordTapBoxes = 'reader_word_tap_boxes';
 
   static final ReaderDisplaySettings _instance = ReaderDisplaySettings._();
 
@@ -19,10 +20,15 @@ class ReaderDisplaySettings {
   ReaderDisplaySettings._();
 
   bool _showRecallMarkers = false;
+  bool _wordTapBoxes = false;
 
   /// true = hiện marker bao quanh từ đã lưu (green = đã lưu,
   /// amber = có ghi chú, red = đến kỳ ôn).
   bool get showRecallMarkers => _showRecallMarkers;
+
+  /// false (mặc định) = bôi nhiều chữ như chế độ không màu.
+  /// true = mỗi từ một box, tap/long-press lưu từng từ (nền hàng loạt).
+  bool get wordTapBoxes => _wordTapBoxes;
 
   final List<void Function()> _listeners = [];
 
@@ -40,6 +46,7 @@ class ReaderDisplaySettings {
     try {
       final prefs = await SharedPreferences.getInstance();
       _showRecallMarkers = prefs.getBool(_keyRecallMarkers) ?? false;
+      _wordTapBoxes = prefs.getBool(_keyWordTapBoxes) ?? false;
     } catch (e) {
       debugPrint('ReaderDisplaySettings.init error: $e');
     }
@@ -54,6 +61,18 @@ class ReaderDisplaySettings {
       await prefs.setBool(_keyRecallMarkers, value);
     } catch (e) {
       debugPrint('ReaderDisplaySettings.save error: $e');
+    }
+  }
+
+  Future<void> setWordTapBoxes(bool value) async {
+    if (_wordTapBoxes == value) return;
+    _wordTapBoxes = value;
+    _notify();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyWordTapBoxes, value);
+    } catch (e) {
+      debugPrint('ReaderDisplaySettings.save wordTapBoxes error: $e');
     }
   }
 }

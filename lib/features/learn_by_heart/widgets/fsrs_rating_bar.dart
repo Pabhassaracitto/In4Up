@@ -2,6 +2,7 @@
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import '../i18n/learn_by_heart_l10n.dart';
 import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 import '../services/fsrs_engine.dart';
@@ -18,6 +19,8 @@ class FSRSRatingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = LearnByHeartL10n.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
@@ -32,7 +35,7 @@ class FSRSRatingBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Đánh giá độ nhớ để FSRS tối ưu lịch ôn tập:',
+              l10n.ratingHint,
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[400],
@@ -44,6 +47,7 @@ class FSRSRatingBar extends StatelessWidget {
               children: [
                 Expanded(
                   child: _RatingButton(
+                    label: l10n.again,
                     rating: FSRSRating.again,
                     intervalText: FSRSEngine.estimateIntervalLabel(item, FSRSRating.again),
                     onTap: () => _handleRating(FSRSRating.again),
@@ -52,6 +56,7 @@ class FSRSRatingBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _RatingButton(
+                    label: l10n.hard,
                     rating: FSRSRating.hard,
                     intervalText: FSRSEngine.estimateIntervalLabel(item, FSRSRating.hard),
                     onTap: () => _handleRating(FSRSRating.hard),
@@ -60,6 +65,7 @@ class FSRSRatingBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _RatingButton(
+                    label: l10n.good,
                     rating: FSRSRating.good,
                     intervalText: FSRSEngine.estimateIntervalLabel(item, FSRSRating.good),
                     onTap: () => _handleRating(FSRSRating.good),
@@ -68,6 +74,7 @@ class FSRSRatingBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _RatingButton(
+                    label: l10n.easy,
                     rating: FSRSRating.easy,
                     intervalText: FSRSEngine.estimateIntervalLabel(item, FSRSRating.easy),
                     onTap: () => _handleRating(FSRSRating.easy),
@@ -88,11 +95,13 @@ class FSRSRatingBar extends StatelessWidget {
 }
 
 class _RatingButton extends StatelessWidget {
+  final String label;
   final FSRSRating rating;
   final String intervalText;
   final VoidCallback onTap;
 
   const _RatingButton({
+    required this.label,
     required this.rating,
     required this.intervalText,
     required this.onTap,
@@ -116,7 +125,7 @@ class _RatingButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              rating.label,
+              label,
               style: TextStyle(
                 color: color,
                 fontSize: 13,

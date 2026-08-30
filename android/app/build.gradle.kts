@@ -5,18 +5,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// GitHub Actions đặt biến môi trường CI=true — dùng cho pin CMake dưới đây.
-// Bối cảnh (run 32581570950/32582388796, workflow build_final_complete.yml):
-// job Android XANH khi tắt native (16m30s, đủ artifact android-apk) nhưng ĐỎ
-// khi bật native (chết ở "Build Split APKs" sớm hơn build không-native) ⇒ lỗi
-// nằm ở stage CMake/NDK của llama.cpp. SDK của runner ubuntu-latest chỉ preinstall
-// cmake 3.31.5 + 4.1.2 (KHÔNG có 3.22.1); bước sdkmanager của workflow cài
-// "cmake;3.22.1" kèm `|| true` nên fail âm thầm ⇒ AGP chết "CMake version
-// '3.22.1' not found". llama.cpp pin d7fa69b7 khai báo cmake 3.14...3.28 ⇒
-// 3.31.5 chạy tốt. Local (không có biến CI) giữ 3.22.1 như cũ.
-// (Lỗi Android của build.yml — google-services thiếu client com.in4up.beta +
-//  tên rename — xử lý ở workflow, xem KANBAN card CI-ANDROID-01, KHÔNG lách
-//  trong repo vì build_final_complete.yml đang dùng `--flavor stable`.)
+// GitHub Actions đặt biến CI=true — dùng cho 2 sửa CI-only:
+//   (1) in4up_ci_fixes.gradle (apply cuối file): build.yml build cả 3 flavor nhưng
+//       secret ANDROID_GOOGLE_SERVICES chỉ có client com.in4up (thiếu com.in4up.beta/.dev)
+//       ⇒ inject client mock trước task google-services; + copy thêm bản APK không-flavor
+//       của stable (build.yml rename chờ tên không-flavor, còn flutter đặt tên
+//       app-<abi>-<flavor>-<mode>.apk khi có flavor).
+//   (2) pin CMake 3.31.5 trên CI: SDK runner ubuntu-latest chỉ có 3.31.5/4.1.2
+//       (KHÔNG có 3.22.1); bước sdkmanager của workflow kèm `|| true` fail âm thầm.
+//       llama.cpp khai báo cmake 3.14...3.28 ⇒ 3.31.5 OK. Local giữ 3.22.1.
+// Build local (không có biến CI): giữ nguyên 100%.
 val in4upCiBuild = System.getenv("CI") == "true"
 
 android {
@@ -118,3 +116,6 @@ configurations.all {
 flutter {
     source = "../.."
 }
+
+// Sửa CI-only cho build.yml (google-services + rename) — xem in4up_ci_fixes.gradle.
+apply(from = "in4up_ci_fixes.gradle")

@@ -604,24 +604,20 @@ class SherpaModelManager {
     final tarBytes = BZip2Decoder().decodeBytes(raw);
     final archive = TarDecoder().decodeBytes(tarBytes);
     for (final file in archive) {
-      // archive 4.x API: `filename` (thay `name`), `typeFlag` +
-      // `TarFile.directory` (thay `isDirectory`), `contentBytes` (thay
-      // `content` là List<int>/Uint8List). App graph khoá archive 4.x.
-      final name = file.filename.replaceAll('\\', '/');
+      // archive 4.x: iterate trả về `ArchiveFile` (base) — dùng API base
+      // (`name`, `isDirectory`, `content`: Uint8List). API TarFile
+      // (`filename`/`typeFlag`/`contentBytes`) không resolve trên static
+      // type ArchiveFile — lỗi compile đã gặp 2026-08-30.
+      final name = file.name.replaceAll('\\', '/');
       if (name.isEmpty || name == '.' || name == './') continue;
       final outPath = p.join(destDir, name);
-      final isDir =
-          file.typeFlag == TarFile.directory || name.endsWith('/');
-      if (isDir) {
+      if (file.isDirectory || name.endsWith('/')) {
         await Directory(outPath).create(recursive: true);
         continue;
       }
       final out = File(outPath);
       await out.parent.create(recursive: true);
-      final content = file.contentBytes;
-      if (content != null) {
-        await out.writeAsBytes(content, flush: true);
-      }
+      await out.writeAsBytes(file.content, flush: true);
     }
   }
 

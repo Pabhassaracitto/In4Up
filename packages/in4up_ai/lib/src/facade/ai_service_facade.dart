@@ -205,6 +205,18 @@ class AiServiceFacade extends ChangeNotifier {
           await Future<void>.delayed(const Duration(seconds: 1));
           waitedSec += 1;
         }
+        // (AI-CHAT-01 v2) Request trước hit timeout nhưng native vẫn đang
+        // sinh tiếp (không cancel được FFI) — đừng chen request thứ 2,
+        // báo rõ để user thử lại sau vài giây.
+        if (_engine?.state == AiEngineState.processing) {
+          _chatMessages.add(ChatMessage(
+            id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+            role: ChatRole.assistant,
+            text: 'AI vẫn đang xử lý tin nhắn trước đó — vui lòng thử lại sau vài giây.',
+            isError: true,
+          ));
+          return;
+        }
         // Model native còn đang nạp (app tự nạp lúc khởi động) thì chờ xong
         // trước — message của user không bị trả lời bằng mock "chui".
         if (!_useMock && !_modelLoaded) {
@@ -215,10 +227,11 @@ class AiServiceFacade extends ChangeNotifier {
           }
         }
         // FIX AI-CHAT-01: chat KHÔNG có timeout (các API khác có 30–60s) —
-        // native generate treo ⇒ nút gửi xoay vòng VÔ HẠN. 3 phút = trần
-        // an toàn cho máy yếu; schema JSON chat cần > 256 tokens nên
-        // maxTokens 512 (256 cũ hay cắt JSON giữa chừng ⇒ "Invalid Gemma JSON").
-        final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2, maxTokens: 512).first.timeout(const Duration(minutes: 3));
+        // native generate treo ⇒ nút gửi xoay vòng VÔ HẠN.
+        // (v2 — chủ báo timeout trên build 102978f: tablet ~1.5–2 token/s,
+        // 512 tokens > 3 phút) ⇒ maxTokens 320 (đủ schema thông thường; JSON
+        // bị cắt thì _rescueSummary cứu summary) + trần 4 phút an toàn.
+        final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2, maxTokens: 320).first.timeout(const Duration(minutes: 4));
         final answer = result.success && result.summary.isNotEmpty
             ? result.summary
             : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
@@ -233,10 +246,10 @@ class AiServiceFacade extends ChangeNotifier {
         ));
       }
     } on TimeoutException {
-      // FIX AI-CHAT-01: generate quá 3 phút (máy yếu / native treo) — trả lời
+      // FIX AI-CHAT-01: generate quá 4 phút (máy yếu / native treo) — trả lời
       // rõ + về trạng thái bình thường; nút gửi không xoay vòng vô hạn.
       // (Isolate vẫn tự thoát sau watchdog 5 phút trong AiEngineGemma.)
-      _lastError = 'Chat timeout sau 3 phút';
+      _lastError = 'Chat timeout sau 4 phút';
       _chatMessages.add(ChatMessage(
         id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
         role: ChatRole.assistant,

@@ -113,9 +113,17 @@ Return ONLY valid JSON:
   "language": "vi"
 }''';
 
+  // AI-CHAT-01 (v2): bọc theo chat template gemma-3 (<start_of_turn>…
+  // <end_of_turn> + mở turn "model") — model được huấn luyện để KẾT THÚC
+  // turn bằng <end_of_turn> (EOS) sau khi trả lời ĐỦ, thay vì sinh liên tục
+  // tới maxTokens. Trên tablet ~1.5–2 token/s, trả lời 100–200 token kết
+  // thúc sớm ≈ 1–2 phút thay vì 3+ phút cho 320 token chạy hết trần.
+  // Giữ nguyên "Analyze conversation:" + schema JSON (mock matcher + rescue
+  // _rescueSummary đều dựa vào nó).
   static String _conversationPrompt(String text, String? context) => '''
+<start_of_turn>user
 Analyze conversation: "$text"${context != null ? '\nContext: $context' : ''}.
-Return ONLY valid JSON:
+Return ONLY valid JSON, nothing else:
 {
   "summary": "<Vietnamese 60-word summary>",
   "topics": ["Conversation"],
@@ -124,5 +132,8 @@ Return ONLY valid JSON:
   ],
   "action_items": [],
   "language": "en"
-}''';
+}
+<end_of_turn>
+<start_of_turn>model
+''';
 }

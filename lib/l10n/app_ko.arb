@@ -460,5 +460,16 @@
   "sound_24": "This file has no data — open it in Listen Mode and add bookmarks.",
   "sound_25": "No results found for this keyword.",
   "sound_26": "None in the observation list",
-  "soundRelated": "Related"
+  "soundRelated": "Related",
+  "lhb_editor_final_0": "Recitation title / verse name",
+  "lhb_editor_final_1": "Subtitle / short topic",
+  "lhb_editor_final_2": "Original Pali / source text (one sentence per line)",
+  "lhb_editor_final_3": "Vietnamese translation (one sentence per line)",
+  "lhb_editor_final_4": "Core meaning (15 words max)",
+  "lhb_editor_final_5": "Memory keywords (comma-separated)",
+  "lhb_editor_final_6": "Real-life connection (one sentence)",
+  "lhb_editor_final_7": "Update",
+  "lhb_editor_final_8": "Save item",
+  "lhb_editor_final_9": "Voice Recall",
+  "lhb_editor_final_10": "Please grant microphone permission to record"
 }

@@ -460,5 +460,16 @@
   "sound_24": "此檔案沒有資料 — 在聆聽模式中開啟並新增書籤。",
   "sound_25": "找不到此關鍵字的結果。",
   "sound_26": "不在觀察清單中",
-  "soundRelated": "相關"
+  "soundRelated": "相關",
+  "lhb_editor_final_0": "誦經標題／偈頌名稱",
+  "lhb_editor_final_1": "副標題／簡短主題",
+  "lhb_editor_final_2": "巴利原文／原始文字（每行一句）",
+  "lhb_editor_final_3": "越南文翻譯（每行一句）",
+  "lhb_editor_final_4": "核心意義（最多 15 字）",
+  "lhb_editor_final_5": "記憶關鍵字（以逗號分隔）",
+  "lhb_editor_final_6": "生活連結（一句話）",
+  "lhb_editor_final_7": "更新",
+  "lhb_editor_final_8": "儲存內容",
+  "lhb_editor_final_9": "語音回想",
+  "lhb_editor_final_10": "請授予麥克風權限以進行錄音"
 }

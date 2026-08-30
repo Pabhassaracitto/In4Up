@@ -460,5 +460,16 @@
   "sound_24": "此文件没有数据 — 在聆听模式中打开并添加书签。",
   "sound_25": "找不到此关键词的结果。",
   "sound_26": "不在观察列表中",
-  "soundRelated": "相关"
+  "soundRelated": "相关",
+  "lhb_editor_final_0": "诵经标题／偈颂名称",
+  "lhb_editor_final_1": "副标题／简短主题",
+  "lhb_editor_final_2": "巴利原文／原始文字（每行一句）",
+  "lhb_editor_final_3": "越南文翻译（每行一句）",
+  "lhb_editor_final_4": "核心意义（最多 15 字）",
+  "lhb_editor_final_5": "记忆关键词（以逗号分隔）",
+  "lhb_editor_final_6": "生活联系（一句话）",
+  "lhb_editor_final_7": "更新",
+  "lhb_editor_final_8": "保存内容",
+  "lhb_editor_final_9": "语音回想",
+  "lhb_editor_final_10": "请授予麦克风权限以进行录音"
 }

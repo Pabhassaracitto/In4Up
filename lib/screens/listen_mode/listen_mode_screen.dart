@@ -543,6 +543,31 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     );
   }
 
+  Widget _buildVoiceCommandButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _voiceListening ? null : _startVoiceCommands,
+          icon: Icon(_voiceListening ? Icons.mic : Icons.mic_none, size: 14),
+          label: Text(
+            _voiceListening
+                ? voiceCommandLabel('en', 'listening')
+                : 'Voice commands',
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        if (_lastVoiceText.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Text(
+            '${voiceCommandLabel('en', 'received')}: $_lastVoiceText',
+            style: const TextStyle(color: Colors.white, fontSize: 10),
+          ),
+        ],
+      ],
+    );
+  }
+
   void _openSheet() {
     setState(() => _sheetOpen = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1469,6 +1494,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 top: 6,
                 left: 18,
                 child: _buildSpeakerLegend(),
+              ),
+
+            if (!_voiceListening && !isLoading)
+              Positioned(
+                top: 6,
+                right: 18,
+                child: _buildVoiceCommandButton(),
               ),
 
             // Zoom controls
@@ -2839,14 +2871,11 @@ class GenerateLrcButton extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _voiceListening ? null : _startVoiceCommands,
-                      icon: Icon(_voiceListening ? Icons.mic : Icons.mic_none),
-                      label: Text(_voiceListening
-                          ? voiceCommandLabel('en', 'listening')
-                          : 'Voice commands'),
+                      onPressed: () =>
+                          context.read<SttServiceFacade>().startListening(),
+                      icon: const Icon(Icons.mic),
+                      label: const Text('Shadowing'),
                     ),
-                    if (_lastVoiceText.isNotEmpty)
-                      Text('${voiceCommandLabel('en', 'received')}: $_lastVoiceText'),
                   ],
                 ),
               ],

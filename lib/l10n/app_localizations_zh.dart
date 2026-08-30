@@ -1275,6 +1275,144 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get lhb_25 => '还原';
+
+  @override
+  String get audit_0 => '最近';
+
+  @override
+  String get audit_1 => '最近使用';
+
+  @override
+  String get audit_2 => '资料库';
+
+  @override
+  String get audit_3 => '音频库';
+
+  @override
+  String get audit_4 => '聆听资料库';
+
+  @override
+  String get audit_5 => '聆听';
+
+  @override
+  String get audit_6 => '阅读';
+
+  @override
+  String get audit_7 => '聆听笔记';
+
+  @override
+  String get audit_8 => '最近';
+
+  @override
+  String get audit_9 => '云端';
+
+  @override
+  String get audit_10 => '设备';
+
+  @override
+  String get audit_11 => '未读';
+
+  @override
+  String get audit_12 => '阅读资料库';
+
+  @override
+  String get audit_13 => '写作';
+
+  @override
+  String get audit_14 => '口语';
+
+  @override
+  String get audit_15 => '理解';
+
+  @override
+  String get audit_16 => '记忆';
+
+  @override
+  String get audit_17 => '界面设置';
+
+  @override
+  String get sound_0 => '分数';
+
+  @override
+  String get sound_1 => '片段';
+
+  @override
+  String get sound_2 => '目录';
+
+  @override
+  String get sound_3 => '内容';
+
+  @override
+  String get sound_4 => '章节';
+
+  @override
+  String get sound_5 => '笔记';
+
+  @override
+  String get sound_6 => '章节笔记';
+
+  @override
+  String get sound_7 => '书签';
+
+  @override
+  String get sound_8 => '搜索';
+
+  @override
+  String get sound_9 => '刷新';
+
+  @override
+  String get sound_10 => '播放';
+
+  @override
+  String get sound_11 => '添加';
+
+  @override
+  String get sound_12 => '全部';
+
+  @override
+  String get sound_13 => '手动';
+
+  @override
+  String get sound_14 => '保存';
+
+  @override
+  String get sound_15 => '取消';
+
+  @override
+  String get sound_16 => '删除';
+
+  @override
+  String get sound_17 => '重命名';
+
+  @override
+  String get sound_18 => '音频目录';
+
+  @override
+  String get sound_19 => '音频目录为空';
+
+  @override
+  String get sound_20 => '音频目录 — 音频库';
+
+  @override
+  String get sound_21 => '尚无目录。';
+
+  @override
+  String get sound_22 => '尚无分数。';
+
+  @override
+  String get sound_23 => '尚无片段。';
+
+  @override
+  String get sound_24 => '此文件没有数据 — 在聆听模式中打开并添加书签。';
+
+  @override
+  String get sound_25 => '找不到此关键词的结果。';
+
+  @override
+  String get sound_26 => '不在观察列表中';
+
+  @override
+  String get soundRelated => '相关';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -2548,4 +2686,142 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get lhb_25 => '還原';
+
+  @override
+  String get audit_0 => '最近';
+
+  @override
+  String get audit_1 => '最近使用';
+
+  @override
+  String get audit_2 => '資料庫';
+
+  @override
+  String get audit_3 => '音訊庫';
+
+  @override
+  String get audit_4 => '聆聽資料庫';
+
+  @override
+  String get audit_5 => '聆聽';
+
+  @override
+  String get audit_6 => '閱讀';
+
+  @override
+  String get audit_7 => '聆聽筆記';
+
+  @override
+  String get audit_8 => '最近';
+
+  @override
+  String get audit_9 => '雲端';
+
+  @override
+  String get audit_10 => '裝置';
+
+  @override
+  String get audit_11 => '未讀';
+
+  @override
+  String get audit_12 => '閱讀資料庫';
+
+  @override
+  String get audit_13 => '寫作';
+
+  @override
+  String get audit_14 => '口說';
+
+  @override
+  String get audit_15 => '理解';
+
+  @override
+  String get audit_16 => '記憶';
+
+  @override
+  String get audit_17 => '介面設定';
+
+  @override
+  String get sound_0 => '分數';
+
+  @override
+  String get sound_1 => '片段';
+
+  @override
+  String get sound_2 => '目錄';
+
+  @override
+  String get sound_3 => '內容';
+
+  @override
+  String get sound_4 => '章節';
+
+  @override
+  String get sound_5 => '筆記';
+
+  @override
+  String get sound_6 => '章節筆記';
+
+  @override
+  String get sound_7 => '書籤';
+
+  @override
+  String get sound_8 => '搜尋';
+
+  @override
+  String get sound_9 => '重新整理';
+
+  @override
+  String get sound_10 => '播放';
+
+  @override
+  String get sound_11 => '新增';
+
+  @override
+  String get sound_12 => '全部';
+
+  @override
+  String get sound_13 => '手動';
+
+  @override
+  String get sound_14 => '儲存';
+
+  @override
+  String get sound_15 => '取消';
+
+  @override
+  String get sound_16 => '刪除';
+
+  @override
+  String get sound_17 => '重新命名';
+
+  @override
+  String get sound_18 => '音訊目錄';
+
+  @override
+  String get sound_19 => '音訊目錄是空的';
+
+  @override
+  String get sound_20 => '音訊目錄 — 音訊庫';
+
+  @override
+  String get sound_21 => '尚無目錄。';
+
+  @override
+  String get sound_22 => '尚無分數。';
+
+  @override
+  String get sound_23 => '尚無片段。';
+
+  @override
+  String get sound_24 => '此檔案沒有資料 — 在聆聽模式中開啟並新增書籤。';
+
+  @override
+  String get sound_25 => '找不到此關鍵字的結果。';
+
+  @override
+  String get sound_26 => '不在觀察清單中';
+
+  @override
+  String get soundRelated => '相關';
 }

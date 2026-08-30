@@ -192,7 +192,7 @@ class AiEngineGemma implements AiEngine {
       _isolateExitPort = null;
       final loadC = _modelLoadCompleter;
       if (loadC != null && !loadC.isCompleted) {
-        loadC.completeError(const StateError(
+        loadC.completeError(StateError(
             'AI isolate bị thu hồi (thiếu bộ nhớ?) — model chưa nạp xong'));
       }
       for (final port in List.of(_pendingReplyPorts)) {

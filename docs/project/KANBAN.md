@@ -1230,3 +1230,32 @@
 - **Lịch sử:**
   - 2026-08-30 | created | owner via chat + agent arena/01a01580-in4up |
     "tích hợp để app tùy biến youtube tải về / phụ đề / chạy luôn như langua reaction"
+
+### HARVEST-1580-02 — Rà soát tổng thể 580 vs DEV (2026-08-30)
+- **Trạng thái:** done — 580 KHÔNG CÒN việc pending.
+- **Nội dung:** diff file-level toàn bộ 580 (tip 03e7ea0) vs DEV
+  (abd93f8), loại l10n/arb (DEV đã broad hơn qua wave 01a03033).
+  Kết luận từng nhóm:
+  - Đã harvest (trước đó): READ-630-06 (db5c6ed), 339aad6, docx
+    raw-deflate (c301004), VAD/Piper (cd8ee68), docs YT-LR/PLAN-020
+    (03e7ea0).
+  - DEV đã có bản MỚI HƠN (không harvest — tránh lùi phiên bản):
+    word_list TTS+repeat (DEV dùng WordlistPlaybackService thay state
+    inline của 580), web_reader batch (DEV: VocabBatchExtractor +
+    web_extraction_candidate refactored, regex/stopwords giống hệt),
+    smart_playback_bar (mode chips), listen_mode (_InlinePanel),
+    listen_library (FAB Thêm audio), main_shell
+    (_shouldShowShellMiniPlayer), word_entry (SkillReviewData trong file
+    riêng + ADR-0001), word_import (addWithAutoClassify),
+    read_mode (smart_playback_bar + progress), android (largeHeap đã có
+    ở DEV line 27; MainActivity DEV có MethodChannel audiolib P1 — bản
+    580 là template default; build.gradle DEV có CI-fix infra).
+  - Legacy/dead (bỏ qua): packages/in4up_core/sm2_algorithm.dart (bản
+    in2up cũ — DEV canonical là lib/models/sm2_algorithm.dart),
+    MainActivity template 580.
+- **Bằng chứng:** numstat diff 580↔DEV — mọi file có insert đáng kể
+  đều verify: DEV có feature tương đương hoặc mới hơn.
+- **Lịch sử:**
+  - 2026-08-30 | created→done | agent arena/01a0251e-in4up | owner yêu
+    cầu "cứ thâu hoạch tiếp 1580... nghiệm thu từng nhóm" — audit toàn
+    diện, không còn gì pending.

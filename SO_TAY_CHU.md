@@ -89,7 +89,7 @@ git commit -m "sync(580): tai model khi bam + cham viet 2 tang + so tay chu"
 git push origin arena/01a0251e-in4up
 ```
 
-**2026-08-22:** lệnh Vá 1 đã chạy trên worktree leader (Git Bash) nhưng **chưa commit/push** — `origin/251e` và BETA vẫn file khóa cũ. Phải `git status` trên leader: nếu 4 file STT staged/modified thì commit ngay, rồi làm Vá 2 + sổ tay.
+**2026-08-22:** cũ: Vá 1 chưa commit/push trên leader → nay: đã lên `251e` (`dfe81f7` / `6388114` / `6ef395c`). BETA còn chậm 4 commit — FF sau mục 9.
 
 Khi conflict kiểu khác (hai nhánh cùng sửa 1 file sống):
 
@@ -190,10 +190,10 @@ Không áp cho: văn bản user, lyric, vocab, output AI, STT, tiêu đề auto-
 
 ## 6. Việc chủ còn cầm (không giao agent «xong trên giấy»)
 
-- [ ] Leader: commit + push Vá 1 (STT) nếu `git status` còn 4 file. Rồi Vá 2 + `SO_TAY_CHU.md`.  
-- [ ] Kéo 2 file governance từ BETA `9b4fb41` về 251e (`AGENTS.md`, `docs/GOVERNANCE.md` mục 2a — sandbox fetch thiếu `arena/*`).  
-- [ ] BETA chỉ FF/merge từ 251e sau khi leader đã có 9 file + sổ tay. Không checkout 580 thẳng vào BETA.  
-- [ ] Đổi base PR Soundlist #7 `main` → `251e`.  
+- [x] Leader: Vá STT + viết + sổ tay đã lên `251e` (`dfe81f7` / `6388114` / `6ef395c`).  
+- [x] Governance mục 2a (sandbox fetch thiếu `arena/*`) đã trên `251e` `6ef395c`.  
+- [ ] BETA chỉ FF/merge từ 251e sau khi đã nhận 02601 + 296a (mục 9). Không checkout 580 thẳng vào BETA.  
+- [ ] Đổi base PR Soundlist #7 `main` → `251e`. **Đừng merge #7 vào main.**  
 - [ ] LRC tiếng Việt: agent 251e/Soundlist sửa hardcode `'en'`.  
 - [ ] Appendix B auto-TOC tiếng Việt: chủ cầm máy.  
 - [ ] Đồng bộ `pubspec` + gradle version.  
@@ -212,10 +212,169 @@ Sandbox Arena thường **không có Flutter** — agent không được nhận 
 | Tạo bản / version | Chỉ khi chủ bảo release; theo mục 4 |
 | Thêm vào plan | Append PLAN «Kế hoạch mới», không sửa milestone đã đóng |
 | Việc xong | Append KANBAN lịch sử + bằng chứng SHA/run |
+| Ghi A. Repo / cái chung cái riêng | Đọc mục 8. **Không** tạo GitHub repo mới |
+
+---
+
+## 8. Cái chung / cái riêng — «A. Repo» không phải repo mới
+
+Ai đó gọi **A. Repo** = **tầng A: thông tin chung sống trong git của chính dự án**.  
+**Không** tạo GitHub repo thứ hai, **không** submodule, **không** «lấy repo về dự án».
+
+| Tầng | Ở đâu | Đưa gì vào | Cấm |
+|---|---|---|---|
+| **A. Cái chung** | Repo **In4Up này**, sống trên **251e** | `SO_TAY_CHU.md`, `KANBAN.md`, `PLAN.md`, `AGENTS.md`, `GOVERNANCE.md`, ADR, code đã chốt | Secret, token, `google-services.json` thật, model `.gguf`, ghi chú đời tư |
+| **B. Cái riêng** | Máy chủ / GitHub Secrets / folder ngoài git | Firebase secret, PAT, GGUF, nhật ký cá nhân | Commit vào In4Up |
+
+Cách vận hành thật (không thêm hệ thống):
+
+1. Việc dự án → card KANBAN + dòng PLAN trên **251e** (path-checkout 2 file, không merge cả nhánh).  
+2. Chỉ dẫn cầm máy của chủ → **append** `SO_TAY_CHU.md` rồi checkout 1 file đó lên 251e.  
+3. Luật kỹ thuật ít đổi → `AGENTS.md` / `GOVERNANCE.md`.  
+4. Hợp đồng đã đóng → `HANDOFF_*` **không sửa**; bản mới = file mới.
+
+**Một repo cho nhiều dự án?** Không nhét KANBAN In4Up vào Meetily / dự án khác. Mỗi repo sản phẩm một bộ A.  
+Muốn «sổ tay đời sống» dùng chung nhiều dự án: folder trên máy hoặc **một private repo đứng riêng** (ví dụ `chu-ops`) — **không** kéo vào In4Up.
+
+`docs/` đang `.gitignore` → chủ không thấy file trong `docs/` trừ khi `git add -f`. Sổ tay chủ để **gốc repo** vì lý do đó.
+
+---
+
+## 9. Đưa nhánh đã xong vào DEV (251e) — thứ tự
+
+**Cấm:** `git merge` cả 580 / 18e / 296a / 02601 nếu chưa biết file nào chồng.  
+**Làm:** path-checkout đúng list. PowerShell: một dòng hoặc backtick. Git Bash mới dùng `\`.
+
+### Đã có trên 251e (`6ef395c`) — khỏi đưa lại
+
+Knowledge `01a019bb`, Sherpa VAD+Piper, vá 580 (STT tải khi bấm + chấm viết 2 tầng + sổ tay), App Analyze xanh run `32584287028`.
+
+### Lần 1 — AI Chat native `02601` (PR #8, đã nhắm 251e)
+
+Hai file **không** lấy nguyên từ 02601 (sẽ **xóa** mock viết + `forceReload` 580):
+
+- `packages/in4up_ai/lib/src/engine/ai_engine_gemma.dart` → giữ 251e; isolate «báo sẵn sàng trước khi load GGUF» đã ghép trên 580 (sau commit sổ tay này).  
+- `packages/in4up_ai/lib/src/facade/ai_service_facade.dart` → **giữ 251e**.
+
+Git Bash, đứng trên worktree **leader 251e**:
+
+```bash
+git fetch origin arena/01a02601-in4up:refs/remotes/origin/arena/01a02601-in4up
+git fetch origin arena/01a01580-in4up:refs/remotes/origin/arena/01a01580-in4up
+
+git checkout origin/arena/01a02601-in4up -- \
+  .gitmodules \
+  android/app/build.gradle.kts \
+  android/app/src/main/cpp/ai/CMakeLists.txt \
+  packages/in4up_ai/native/in4up_ai_native.cpp \
+  packages/in4up_ai/native/in4up_ai_native.h \
+  packages/in4up_ai/native/README.md \
+  packages/in4up_ai/lib/src/loader/ai_model_loader.dart \
+  packages/in4up_ai/test/in4up_ai_test.dart \
+  windows/CMakeLists.txt \
+  windows/runner/CMakeLists.txt
+
+git checkout origin/arena/01a01580-in4up -- \
+  packages/in4up_ai/lib/src/engine/ai_engine_gemma.dart
+
+# Submodule llama.cpp (gitlink). Sau checkout:
+git submodule update --init --depth 1 -- third_party/llama.cpp
+
+git add -A
+git status
+git diff --stat
+# Xem 2 file gemma + facade: facade không đổi; gemma chỉ thêm log isolate.
+git commit -m "sync(02601): llama.cpp native AI chat; giu cham viet 2 tang"
+git push origin arena/01a0251e-in4up
+```
+
+KANBAN/PLAN: **đừng** checkout cả file từ 02601 (đè card 251e). Thủ thư: copy tay card `AICHAT-01` + `PLAN-014` rồi append.
+
+`lib/main.dart`: 251e đã `currentPlatform` / Android đọc `google-services.json` — **không** lấy `main.dart` 02601.
+
+### Lần 2 — Sứ giả ngôn ngữ `296a` (CI xanh `32573825623`)
+
+296a cắt từ `fcaf125` — **thiếu** vá 580. Checkout nhầm `write_studio` / `stt_*` / `in4up_ai` / `SO_TAY` = **xóa** chấm viết và sổ tay.
+
+```bash
+git fetch origin arena/01a0296a-in4up:refs/remotes/origin/arena/01a0296a-in4up
+git checkout origin/arena/01a0296a-in4up -- \
+  lib/core/language/language_roadmap.dart \
+  lib/core/language/app_ui_translations.dart \
+  lib/core/language/generated_ui_translations.dart \
+  lib/l10n/app_hi.arb lib/l10n/app_si.arb lib/l10n/app_zh.arb lib/l10n/app_zh_TW.arb \
+  lib/l10n/app_localizations_hi.dart \
+  lib/l10n/app_localizations_si.dart \
+  lib/l10n/app_localizations_zh.dart \
+  generate_arbs.py \
+  tool/lang_keep_english.json \
+  tool/lang_rollout_floors.json \
+  tool/lang_rollout_report.py \
+  test/locale_chrome_no_vietnamese_test.dart
+git commit -m "sync(296a): su gia ngon ngu wave 1 hi/zh/si"
+git push origin arena/01a0251e-in4up
+```
+
+KANBAN: append card `LANG-630-01` tay. Không checkout cả `KANBAN.md` / `SO_TAY_CHU.md` từ 296a (296a **xóa** sổ tay).
+
+### Chưa đưa
+
+| Nhánh | Lý do |
+|---|---|
+| Soundlist `01a0018e` PR #7 | Base `main`, conflict, ~392 file. Đổi base → 251e rồi path-checkout từng cụm (auto-TOC / thư viện). |
+| 580 cả nhánh | Khay vá. Chỉ còn gemma isolate ở Lần 1. |
+| `02a4a` | Chưa tồn tại trên GitHub. |
+
+### Sau khi 251e xanh + chủ cầm máy
+
+```bash
+# worktree BETA
+git fetch origin arena/01a0251e-in4up:refs/remotes/origin/arena/01a0251e-in4up
+git merge --ff-only origin/arena/01a0251e-in4up
+git push origin arena/01a02a12-in4up
+```
+
+App Analyze 251e đã xanh. Full APK Android trên GitHub (tag `v*`) lần cuối vẫn đỏ google-services/`com.in4up.beta` — sửa `build.yml` `--flavor stable` (quyền workflows), không tắt flavor trong Gradle.
+
+### Tên APK Flutter 3.44.1 (đừng đảo)
+
+Source `packages/flutter_tools/lib/src/android/gradle.dart` hàm `_apkFilesFor`:
+
+```
+app$flavorString-$abi-$buildType.apk
+→ app-stable-arm64-v8a-release.apk
+```
+
+**Đúng:** `app-<flavor>-<abi>-release.apk` và universal `app-stable-release.apk`.  
+**Sai** (nhánh `02a4a` đảo): `app-arm64-v8a-stable-release.apk`.
+
+`build_final_complete.yml` bước Rename **đã đúng** flavor-trước. Chỉ ra 1 APK universal vì bước Split có `||` — split đỏ thì im lặng build fat, không phải vì tên ABI-trước.
+
+Patch `build.yml` (chủ dán, quyền `workflows`) — GitHub web editor:
+
+```yaml
+# Build Split + Build Universal: thêm --flavor stable
+flutter build apk --release --flavor stable --split-per-abi ...
+flutter build apk --release --flavor stable ...
+
+# Rename All APKs — 4 dòng mv nguồn:
+app-armeabi-v7a-release.apk  → app-stable-armeabi-v7a-release.apk
+app-arm64-v8a-release.apk    → app-stable-arm64-v8a-release.apk
+app-x86_64-release.apk       → app-stable-x86_64-release.apk
+app-release.apk              → app-stable-release.apk
+```
+
+`02a4a` (PR #9 → **main**, 214 file): đã bỏ lách Gradle (đúng). Pin CMake 3.31.5 khi `CI=true` (`5995183`) hợp lý nhưng oracle `32586625020` Android vẫn đỏ Split APKs — cần log, đừng đoán. **Đừng merge PR #9 vào main.** Base đúng = 251e (như PR #8). CMake pin path-checkout 1 file `android/app/build.gradle.kts` sau Lần 1.
 
 ---
 
 ## Nhật ký
+
+### 2026-08-22 | trợ lý 580 | A. Repo + thứ tự vào DEV
+
+- «A. Repo» = tầng A trong **chính repo In4Up** (251e). Không tạo GitHub repo mới; không dùng một repo cho nhiều sản phẩm.
+- 251e đã có Knowledge + Sherpa + vá 580. Việc tiếp: path-checkout 02601 (trừ gemma/facade) rồi 296a (chỉ file ngôn ngữ). Cấm merge 18e vào main.
+- Ghép isolate 02601 (báo sẵn sàng trước load GGUF) vào gemma 251e — giữ mock viết 2 tầng.
 
 ### 2026-08-22 | trợ lý 580 | lập sổ tay
 

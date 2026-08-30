@@ -7,7 +7,7 @@
 // Được gọi từ panel Âm mục (Listen Mode) và màn hình thư viện Âm mục.
 
 // ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, use_build_context_synchronously, avoid_unnecessary_containers, sized_box_for_whitespace, avoid_print
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 import 'package:provider/provider.dart';
 

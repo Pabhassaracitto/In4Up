@@ -1628,4 +1628,24 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   '🧠 Câu chuyện PAO (chọn 1)': '🧠 PAO story (choose one)',
   '🧠 Nhớ': '🧠 Remember',
   '🧠 Đã lưu đoạn chọn vào Vườn Nhớ': '🧠 Selection saved to Memory Garden',
+
+  // Block 2026-08-23 (MODELS-002): model management UX (chat screen + settings).
+  // Thêm tay vì generator chưa chạy được — còn 194 literal chưa phân loại từ
+  // merge 01a0251e (debt trước). Các key này đã có trong reviewed catalog
+  // tool/legacy_ui_english_overrides.json; chạy generator sau khi dọn debt.
+  '4. Chat — Gemma (LLM trả lời cho AI Chat — file .gguf)': '4. Chat — Gemma (LLM answering AI Chat — .gguf file)',
+  'AI local đã sẵn sàng': 'Local AI ready',
+  'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)': 'No model — import a .gguf file or download one (~1.5GB, Gemma-2B Q4)',
+  'Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)': 'No AI model loaded — import a .gguf file (Gemma ~1.5GB)',
+  'Download thất bại': 'Download failed',
+  'File .gguf sẽ bị xóa khỏi thiết bị. AI Chat quay về chế độ mock.': 'The .gguf file will be removed from this device. AI Chat will fall back to mock mode.',
+  'Model AI đã nạp': 'AI model loaded',
+  'Model đã tải và nạp xong': 'Model downloaded and loaded',
+  'Mặc định: Gemma-2-2B-it Q4_K_M từ HuggingFace (~1.5GB). Chỉ tải trên WiFi.': 'Default: Gemma-2-2B-it Q4_K_M from HuggingFace (~1.5GB). Downloads on WiFi only.',
+  'Tải model Gemma từ URL': 'Download Gemma model from URL',
+  'Xóa model Gemma?': 'Delete Gemma model?',
+  'Đang copy model…': 'Copying model…',
+  'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút': 'Loading model into memory — can take 1–2 minutes',
+  'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút cho file lớn': 'Loading model into memory — can take 1–2 minutes for large files',
+  'Đang tải model…': 'Downloading model…',
 };

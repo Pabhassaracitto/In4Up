@@ -1179,6 +1179,102 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => '介面設定';
+
+  @override
+  String get shellUiSettingsSubtitle => '精简模式、自动隐藏、长按切换模式';
+
+  @override
+  String get learnByHeart => '熟记';
+
+  @override
+  String get learnByHeartSubtitle => '法句经、诵经与有意义的段落';
+
+  @override
+  String get soundList => '音频目录';
+
+  @override
+  String get soundListSubtitle => '分数、章节与音频目录';
+
+  @override
+  String get lhb_0 => '稍后';
+
+  @override
+  String get lhb_1 => '立即检查';
+
+  @override
+  String get lhb_2 => '深度评估';
+
+  @override
+  String get lhb_3 => '填空';
+
+  @override
+  String get lhb_4 => '意义 → 经文';
+
+  @override
+  String get lhb_5 => '聆听并继续阅读';
+
+  @override
+  String get lhb_6 => '显示答案以比对';
+
+  @override
+  String get lhb_7 => '播放前半句';
+
+  @override
+  String get lhb_8 => '显示剩余内容以检查';
+
+  @override
+  String get lhb_9 => '返回';
+
+  @override
+  String get lhb_10 => '下一步';
+
+  @override
+  String get lhb_11 => '新增诵经内容';
+
+  @override
+  String get lhb_12 => '还原内置示例';
+
+  @override
+  String get lhb_13 => '新增内容';
+
+  @override
+  String get lhb_14 => '所有类别';
+
+  @override
+  String get lhb_15 => '所有状态';
+
+  @override
+  String get lhb_16 => '复习主动回想';
+
+  @override
+  String get lhb_17 => '循序学习';
+
+  @override
+  String get lhb_18 => '编辑';
+
+  @override
+  String get lhb_19 => '删除内容';
+
+  @override
+  String get lhb_20 => '确认删除';
+
+  @override
+  String get lhb_21 => '确定要删除此课程吗？复习进度将会丢失。';
+
+  @override
+  String get lhb_22 => '取消';
+
+  @override
+  String get lhb_23 => '删除';
+
+  @override
+  String get lhb_24 => '还原示例数据';
+
+  @override
+  String get lhb_25 => '还原';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -1362,25 +1458,25 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonCancel => '取消';
 
   @override
-  String get commonSave => '保存';
+  String get commonSave => '儲存';
 
   @override
-  String get commonDelete => '删除';
+  String get commonDelete => '刪除';
 
   @override
-  String get commonClose => '关闭';
+  String get commonClose => '關閉';
 
   @override
   String get commonConfirm => '確認';
 
   @override
-  String get commonRetry => '重试';
+  String get commonRetry => '重試';
 
   @override
-  String get commonEdit => '编辑';
+  String get commonEdit => '編輯';
 
   @override
-  String get commonAdd => '添加';
+  String get commonAdd => '新增';
 
   @override
   String get commonRemove => '移除';
@@ -1395,25 +1491,25 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonCopied => '已複製';
 
   @override
-  String get commonSearch => '搜索';
+  String get commonSearch => '搜尋';
 
   @override
-  String get commonFilter => '筛选';
+  String get commonFilter => '篩選';
 
   @override
   String get commonSort => '排序';
 
   @override
-  String get commonSettings => '设置';
+  String get commonSettings => '設定';
 
   @override
-  String get commonLoading => '加载中...';
+  String get commonLoading => '載入中...';
 
   @override
-  String get commonNoData => '无数据';
+  String get commonNoData => '無資料';
 
   @override
-  String get commonError => '错误';
+  String get commonError => '錯誤';
 
   @override
   String get commonSuccess => '成功';
@@ -1428,7 +1524,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonUndo => '復原';
 
   @override
-  String get commonRedo => '重做';
+  String get commonRedo => '重作';
 
   @override
   String get commonNext => '下一步';
@@ -1443,7 +1539,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonDone => '完成';
 
   @override
-  String get commonApply => '应用';
+  String get commonApply => '套用';
 
   @override
   String get commonReset => '重設';
@@ -1458,70 +1554,70 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonDeselect => '取消選擇';
 
   @override
-  String get commonSaveNote => '保存 笔记';
+  String get commonSaveNote => '儲存 筆記';
 
   @override
-  String get commonAddNote => '添加 笔记';
+  String get commonAddNote => '新增 筆記';
 
   @override
-  String get commonEditNote => '编辑 笔记';
+  String get commonEditNote => '編輯 筆記';
 
   @override
-  String get commonDeleteNote => '删除 笔记';
+  String get commonDeleteNote => '刪除 筆記';
 
   @override
-  String get commonNote => '笔记';
+  String get commonNote => '筆記';
 
   @override
-  String get commonNotes => '笔记';
+  String get commonNotes => '筆記';
 
   @override
-  String get commonReading => '阅读';
+  String get commonReading => '閱讀';
 
   @override
-  String get commonListening => '听力';
+  String get commonListening => '聽力';
 
   @override
-  String get commonSpeaking => '口语';
+  String get commonSpeaking => '口語';
 
   @override
-  String get commonWriting => '写作';
+  String get commonWriting => '寫作';
 
   @override
   String get commonUnderstanding => '理解';
 
   @override
-  String get commonRemembering => '记忆';
+  String get commonRemembering => '記憶';
 
   @override
-  String get commonLearn => '学习';
+  String get commonLearn => '學習';
 
   @override
-  String get commonStudy => '学习';
+  String get commonStudy => '學習';
 
   @override
-  String get commonReview => '复习';
+  String get commonReview => '複習';
 
   @override
-  String get commonPractice => '练习';
+  String get commonPractice => '練習';
 
   @override
-  String get commonTranslate => '翻译';
+  String get commonTranslate => '翻譯';
 
   @override
-  String get commonPronunciation => '发音';
+  String get commonPronunciation => '發音';
 
   @override
-  String get commonVocabulary => '词汇';
+  String get commonVocabulary => '詞彙';
 
   @override
-  String get commonGrammar => '语法';
+  String get commonGrammar => '語法';
 
   @override
   String get commonExample => '例子';
 
   @override
-  String get commonMeaning => '含义';
+  String get commonMeaning => '含義';
 
   @override
   String get commonDefinition => '釋義';
@@ -1763,16 +1859,16 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get webReaderPinnedArticle => '置頂文章';
 
   @override
-  String get webReaderReadNotes => '阅读 笔记';
+  String get webReaderReadNotes => '閱讀 筆記';
 
   @override
   String get webReaderYourNote => '你的筆記';
 
   @override
-  String get webReaderDeleteNote => '删除 笔记';
+  String get webReaderDeleteNote => '刪除 筆記';
 
   @override
-  String get webReaderSaveNoteBtn => '保存 笔记';
+  String get webReaderSaveNoteBtn => '儲存 筆記';
 
   @override
   String get webReaderMarkUnread => '標為未讀';
@@ -1851,7 +1947,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String translationError(Object error) {
-    return '错误 $error';
+    return '錯誤 $error';
   }
 
   @override
@@ -1890,7 +1986,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get translationTranslated => '已翻譯';
 
   @override
-  String get translationTranslate => '翻译';
+  String get translationTranslate => '翻譯';
 
   @override
   String get translationHide => '隱藏';
@@ -2012,7 +2108,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get shadowingStopRecording => '停止錄音';
 
   @override
-  String get shadowingRetry => '重试';
+  String get shadowingRetry => '重試';
 
   @override
   String get shadowingFinish => '完成';
@@ -2308,7 +2404,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String msgError(Object error) {
-    return '错误 $error';
+    return '錯誤 $error';
   }
 
   @override
@@ -2356,4 +2452,100 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => '介面設定';
+
+  @override
+  String get shellUiSettingsSubtitle => '精簡模式、自動隱藏、長按切換模式';
+
+  @override
+  String get learnByHeart => '熟記';
+
+  @override
+  String get learnByHeartSubtitle => '法句經、誦經與有意義的段落';
+
+  @override
+  String get soundList => '音訊目錄';
+
+  @override
+  String get soundListSubtitle => '分數、章節與音訊目錄';
+
+  @override
+  String get lhb_0 => '稍後';
+
+  @override
+  String get lhb_1 => '立即檢查';
+
+  @override
+  String get lhb_2 => '深度評估';
+
+  @override
+  String get lhb_3 => '填空';
+
+  @override
+  String get lhb_4 => '意義 → 經文';
+
+  @override
+  String get lhb_5 => '聆聽並繼續閱讀';
+
+  @override
+  String get lhb_6 => '顯示答案以比對';
+
+  @override
+  String get lhb_7 => '播放前半句';
+
+  @override
+  String get lhb_8 => '顯示剩餘內容以檢查';
+
+  @override
+  String get lhb_9 => '返回';
+
+  @override
+  String get lhb_10 => '下一步';
+
+  @override
+  String get lhb_11 => '新增誦經內容';
+
+  @override
+  String get lhb_12 => '還原內建範例';
+
+  @override
+  String get lhb_13 => '新增內容';
+
+  @override
+  String get lhb_14 => '所有類別';
+
+  @override
+  String get lhb_15 => '所有狀態';
+
+  @override
+  String get lhb_16 => '複習主動回想';
+
+  @override
+  String get lhb_17 => '循序學習';
+
+  @override
+  String get lhb_18 => '編輯';
+
+  @override
+  String get lhb_19 => '刪除內容';
+
+  @override
+  String get lhb_20 => '確認刪除';
+
+  @override
+  String get lhb_21 => '確定要刪除此課程嗎？複習進度將會遺失。';
+
+  @override
+  String get lhb_22 => '取消';
+
+  @override
+  String get lhb_23 => '刪除';
+
+  @override
+  String get lhb_24 => '還原範例資料';
+
+  @override
+  String get lhb_25 => '還原';
 }

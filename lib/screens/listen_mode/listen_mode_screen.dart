@@ -271,7 +271,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     try {
       context.read<UnderstandProvider>().removeListener(_onUnderstandChange);
     } catch (_) {}
-    _waveformController.setWaveformData(null);
+    // FIX (Nghe→Viết màn đỏ): dispose TRƯỚC — setWaveformData sau dispose
+    // là no-op nhờ guard _disposed của controller. Gọi setWaveformData
+    // TRƯỚC dispose (như cũ) = notifyListeners() giữa pha unmount →
+    // AnimatedBuilder còn sống gọi setState during build → màn đỏ vài giây.
     _waveformController.dispose();
     _lrcScrollController.dispose(); // Cleanup LRC scroll controller
     _sheetController.dispose();

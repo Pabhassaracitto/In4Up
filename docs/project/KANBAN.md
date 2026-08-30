@@ -1259,3 +1259,27 @@
   - 2026-08-30 | created→done | agent arena/01a0251e-in4up | owner yêu
     cầu "cứ thâu hoạch tiếp 1580... nghiệm thu từng nhóm" — audit toàn
     diện, không còn gì pending.
+
+### SHERPA-WP23-01 — WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9)
+- **Trạng thái:** done + CI xanh 33336160268 (tip 8c2e868)
+- **Nguồn:** commit 4cdaffb từ `arena/01a039e9-in4up` (cherry-pick -x → 01f5235).
+- **Nội dung:**
+  - **WP2 — speaker waveform:** parse timestamp LRC khi load →
+    `WaveformSegmentRef` (joinKey = ContentId.joinKey) + `SpeakerSidecar.loadSpeakerMap`
+    (sidecar .spk cạnh LRC — offline overlay, không re-run STT) → waveform tô màu
+    theo speaker (`kSpeakerColors`) + legend "Người N".
+  - **WP3 — voice commands:** `lib/features/voice_command/` (parser ngữ pháp VI/EN
+    thuần: phát/tạm dừng/tiếp theo/bài trước/nhanh hơn/chậm hơn/ẩn lời/dịch;
+    service dùng `SttServiceFacade.partialResultStream` + silence timer 1.5s +
+    max 6s; localizations en/vi/hi/zh/zh_TW/si). Nút mic + partial text trên
+    Stack waveform tab Nghe.
+  - **Fix scope (8c2e868):** 4cdaffb đặt voice button vào `GenerateLrcButton`
+    (StatelessWidget độc lập) nhưng dùng state của `_ListenModeScreenState`
+    → undefined name. Đã khôi phục nút Shadowing gốc + chuyển voice button
+    vào Stack waveform (top-right, ẩn khi isLoading).
+- **Chờ:** nghiệm thu máy (lệnh giọng nói "phát/tạm dừng/tiếp theo/nhanh hơn/
+  ẩn lời"; waveform nhiều speaker cần audio đã diarize — sidecar tạo tự động
+  khi chạy STT pipeline).
+- **Lịch sử:**
+  - 2026-08-30 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
+    4cdaffb (01f5235) + fix scope (8c2e868); CI xanh 33336160268

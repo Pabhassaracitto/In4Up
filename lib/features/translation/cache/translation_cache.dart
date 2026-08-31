@@ -29,17 +29,29 @@ class TranslationCache {
 
   /// Stable across Dart VM sessions. `String.hashCode` is NOT — after
   /// restart the same sentence looked like a new case and was re-translated.
-  String _makeKey(String text, String sourceLang, String targetLang) {
+  ///
+  /// [engine] tách Hy-MT / ML Kit / online — không dính bản dịch cũ khi
+  /// đổi engine hoặc tắt offline-only.
+  String _makeKey(
+    String text,
+    String sourceLang,
+    String targetLang, {
+    String engine = '',
+  }) {
+    final digest = md5
+        .convert(utf8.encode(text.trim().toLowerCase()))
+        .toString()
+        .substring(0, 12);
+    final eng = engine.trim().isEmpty ? 'any' : engine.trim();
+    return '${sourceLang}_${targetLang}_${eng}_$digest';
+  }
+
+  String _legacyKey(String text, String sourceLang, String targetLang) {
     final digest = md5
         .convert(utf8.encode(text.trim().toLowerCase()))
         .toString()
         .substring(0, 12);
     return '${sourceLang}_${targetLang}_$digest';
-  }
-
-  String _legacyKey(String text, String sourceLang, String targetLang) {
-    final hash = text.trim().toLowerCase().hashCode;
-    return '${sourceLang}_${targetLang}_$hash';
   }
 
   /// Lưu bản dịch
@@ -48,8 +60,9 @@ class TranslationCache {
     required String sourceLang,
     required String targetLang,
     required String translation,
+    String engine = '',
   }) async {
-    final key = _makeKey(text, sourceLang, targetLang);
+    final key = _makeKey(text, sourceLang, targetLang, engine: engine);
 
     // Memory cache
     if (_memoryCache.length >= _maxMemoryEntries) {
@@ -62,30 +75,38 @@ class TranslationCache {
     await _prefs?.setString('$_diskPrefix$key', translation);
   }
 
-  /// Lấy bản dịch từ cache
+  /// Lấy bản dịch từ cache.
+  ///
+  /// Khi [engine] được chỉ định: CHỈ trả key của engine đó — không fallback
+  /// sang Hy-MT cũ / `any` / legacy. Đổi engine hoặc tắt offline-only phải
+  /// dịch lại, không dính bản dịch cũ.
   Future<String?> get({
     required String text,
     required String sourceLang,
     required String targetLang,
+    String engine = '',
   }) async {
-    final key = _makeKey(text, sourceLang, targetLang);
-
-    // Thử memory trước (nhanh)
-    if (_memoryCache.containsKey(key)) {
-      debugPrint(
-          '💾 Cache HIT (memory): ${text.substring(0, text.length.clamp(0, 30))}...');
-      return _memoryCache[key];
+    final keys = <String>[
+      _makeKey(text, sourceLang, targetLang, engine: engine),
+    ];
+    if (engine.trim().isEmpty) {
+      keys.add(_legacyKey(text, sourceLang, targetLang));
     }
 
-    // Thử disk
     await init();
-    final diskResult = _prefs?.getString('$_diskPrefix$key');
-    if (diskResult != null) {
-      // Đưa lên memory
-      _memoryCache[key] = diskResult;
-      debugPrint(
-          '💾 Cache HIT (disk): ${text.substring(0, text.length.clamp(0, 30))}...');
-      return diskResult;
+    for (final key in keys) {
+      if (_memoryCache.containsKey(key)) {
+        debugPrint(
+            '💾 Cache HIT (memory): ${text.substring(0, text.length.clamp(0, 30))}...');
+        return _memoryCache[key];
+      }
+      final diskResult = _prefs?.getString('$_diskPrefix$key');
+      if (diskResult != null) {
+        _memoryCache[key] = diskResult;
+        debugPrint(
+            '💾 Cache HIT (disk): ${text.substring(0, text.length.clamp(0, 30))}...');
+        return diskResult;
+      }
     }
 
     return null;

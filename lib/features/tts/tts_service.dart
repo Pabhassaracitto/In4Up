@@ -10,6 +10,7 @@ import 'engines/fpt_tts_engine.dart';
 import 'engines/tts_engine.dart';
 import 'engines/google_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
+import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'language_detector.dart';
 import 'tts_settings.dart';
@@ -102,11 +103,18 @@ class TtsService extends ChangeNotifier {
   void _buildDefaultEngineOrder() {
     _engineOrder = [
       const TtsEngineInfo(
+        id: 'piper_tts',
+        name: 'Piper (neural)',
+        description: 'Offline, giọng neural đã import',
+        isOnline: false,
+        priority: 0,
+      ),
+      const TtsEngineInfo(
         id: 'offline_tts',
         name: 'Offline (Máy)',
         description: 'Phát ngay, giọng máy',
         isOnline: false,
-        priority: 0,
+        priority: 1,
       ),
       const TtsEngineInfo(
         id: 'google_tts',
@@ -240,6 +248,11 @@ class TtsService extends ChangeNotifier {
       return;
     }
 
+    if (await _speakPiperIfEnabled(text, lang)) {
+      _prefetchOnline(text, lang);
+      return;
+    }
+
     // ★ FIX: Đánh dấu đang dùng offline engine TRƯỚC KHI set _isSpeaking
     _usingOfflineEngine = true;
     _lastUsedEngine = '📖 Offline';
@@ -333,6 +346,8 @@ class TtsService extends ChangeNotifier {
     // Fallback offline
     _isLoading = false;
 
+    if (await _speakPiperIfEnabled(text, lang)) return;
+
     // ★ FIX: Đánh dấu offline mode
     _usingOfflineEngine = true;
     _lastUsedEngine = '📖 Offline';
@@ -367,6 +382,8 @@ class TtsService extends ChangeNotifier {
       await _playFile(cachedPath);
       return;
     }
+
+    if (await _speakPiperIfEnabled(text, lang)) return;
 
     // ★ FIX: Đánh dấu offline mode
     _usingOfflineEngine = true;
@@ -581,6 +598,11 @@ class TtsService extends ChangeNotifier {
     try {
       voices.addAll(await _offlineEngine.getAvailableVoices(effectiveLang));
     } catch (_) {}
+    try {
+      voices.addAll(
+        await PiperTtsEngine.instance.getAvailableVoices(effectiveLang),
+      );
+    } catch (_) {}
     return voices;
   }
 
@@ -596,6 +618,12 @@ class TtsService extends ChangeNotifier {
       }
     }
     status[_offlineEngine.name] = await _offlineEngine.isAvailable();
+    try {
+      status[PiperTtsEngine.instance.name] =
+          await PiperTtsEngine.instance.isAvailable();
+    } catch (_) {
+      status[PiperTtsEngine.instance.name] = false;
+    }
     return status;
   }
 
@@ -654,6 +682,56 @@ class TtsService extends ChangeNotifier {
               s.processingState == ProcessingState.idle)
           .timeout(const Duration(seconds: 60));
     } catch (_) {}
+  }
+
+  bool get _piperEnabledInOrder {
+    for (final engine in _engineOrder) {
+      if (engine.id == PiperTtsEngine.instance.id) return engine.isEnabled;
+    }
+    return true;
+  }
+
+  /// Piper neural TTS when voices are imported. Voice is chosen per language
+  /// in Listen settings — do not pass the global [_selectedVoiceId].
+  Future<bool> _speakPiperIfEnabled(String text, String lang) async {
+    try {
+      if (!_piperEnabledInOrder) return false;
+      final piper = PiperTtsEngine.instance;
+      if (!await piper.isAvailable()) return false;
+
+      _usingOfflineEngine = false;
+      _isLoading = true;
+      _safeNotify();
+      final result = await piper.synthesize(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+      );
+      _isLoading = false;
+      if (!result.isSuccess ||
+          result.audioData == null ||
+          result.audioData!.isEmpty) {
+        debugPrint('Piper TTS skip: ${result.error}');
+        _safeNotify();
+        return false;
+      }
+      final filePath = await _cache.put(
+        text: text,
+        language: lang,
+        engineId: piper.id,
+        audioData: result.audioData!,
+      );
+      _lastUsedEngine = '🎙️ ${result.engineName}';
+      _safeNotify();
+      await _playFile(filePath);
+      return true;
+    } catch (e) {
+      debugPrint('Piper TTS error: $e');
+      _isLoading = false;
+      _safeNotify();
+      return false;
+    }
   }
 
   Future<bool> _checkNetwork() async {

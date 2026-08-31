@@ -8,9 +8,14 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
 import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
 import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+
+import '../../features/tts/piper_voice_prefs.dart';
+import '../../features/tts/tts_service.dart';
 
 import '../../core/language/app_language.dart';
 
@@ -747,6 +752,23 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                   ...info.voices.map((v) => _PiperVoiceRow(
                         voice: v,
                         onDelete: () => _manager.deletePiperVoice(v.name),
+                        onSelect: () async {
+                          final lang = SherpaPiperTtsCore.langFromVoiceName(
+                              v.name);
+                          await PiperVoicePrefs.instance
+                              .setVoiceForLang(lang, v.name);
+                          TtsService().configure(voiceId: v.name);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                context.uiText(
+                                  'Đã chọn ${v.name} cho ${lang.isEmpty ? 'mặc định' : lang}',
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       )),
                 ],
 
@@ -1001,7 +1023,12 @@ class _EspeakRow extends StatelessWidget {
 class _PiperVoiceRow extends StatelessWidget {
   final PiperTtsVoice voice;
   final VoidCallback onDelete;
-  const _PiperVoiceRow({required this.voice, required this.onDelete});
+  final VoidCallback onSelect;
+  const _PiperVoiceRow({
+    required this.voice,
+    required this.onDelete,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1031,6 +1058,10 @@ class _PiperVoiceRow extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          TextButton(
+            onPressed: onSelect,
+            child: const Text('Dùng'),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),

@@ -2,6 +2,10 @@
 
 import 'package:in4up/core/language/localized_material.dart';
 
+import 'package:in4up_stt/sherpa_model_manager.dart';
+import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+
+import '../piper_voice_prefs.dart';
 import '../tts_service.dart';
 import '../tts_settings.dart';
 
@@ -45,6 +49,9 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
                 _ttsService.setPriority(p);
               },
             ),
+            const SizedBox(height: 16),
+
+            const _PiperVoicePicker(),
             const SizedBox(height: 16),
 
             // ── ENGINE ORDER ──
@@ -603,6 +610,115 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PiperVoicePicker extends StatefulWidget {
+  const _PiperVoicePicker();
+
+  @override
+  State<_PiperVoicePicker> createState() => _PiperVoicePickerState();
+}
+
+class _PiperVoicePickerState extends State<_PiperVoicePicker> {
+  Map<String, String> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    SherpaModelManager().initialize();
+    PiperVoicePrefs.instance.all().then((v) {
+      if (mounted) setState(() => _selected = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SherpaPiperInfo>(
+      stream: SherpaModelManager().watchPiper(),
+      initialData: SherpaModelManager().piperInfo,
+      builder: (context, snap) {
+        final voices = snap.data?.voices ?? const <PiperTtsVoice>[];
+        if (voices.isEmpty) {
+          return Text(
+            context.uiText(
+              'Chưa có giọng Piper. Import trong Quản lý Model AI (Home).',
+            ),
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          );
+        }
+        final byLang = <String, List<PiperTtsVoice>>{};
+        for (final v in voices) {
+          var lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+          if (lang.isEmpty) {
+            lang = 'other';
+          } else {
+            lang = PiperVoicePrefs.normalizeLang(lang);
+          }
+          byLang.putIfAbsent(lang, () => []).add(v);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('Giọng Piper theo ngôn ngữ'),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.uiText(
+                'Mỗi ngôn ngữ chọn 1 giọng đã import. Dùng khi chế độ Nghe (TTS).',
+              ),
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            for (final entry in byLang.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.key == 'other' ? 'Khác' : entry.key,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF80CBC4),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    for (final v in entry.value)
+                      RadioListTile<String>(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: v.name,
+                        groupValue: _selected[entry.key],
+                        activeColor: const Color(0xFF80CBC4),
+                        title: Text(
+                          v.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onChanged: (name) async {
+                          if (name == null) return;
+                          await PiperVoicePrefs.instance
+                              .setVoiceForLang(entry.key, name);
+                          TtsService().configure(voiceId: name);
+                          setState(() => _selected[entry.key] = name);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

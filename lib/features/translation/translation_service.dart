@@ -157,6 +157,13 @@ class TranslationService {
     _persistOfflineOnly(value);
   }
 
+  /// Tag pipeline hiện tại — cache/UI dùng để không dính bản Hy-MT cũ
+  /// khi đổi engine hoặc tắt "chỉ offline".
+  String get pipelineTag {
+    final pref = _offlineEnginePref.name;
+    return '$pref|${_offlineOnly ? 'off' : 'on'}';
+  }
+
   List<String> get activeEngines => [
         _mlkit.name,
         ..._engines.map((engine) => engine.name),
@@ -229,6 +236,7 @@ class TranslationService {
     String text, {
     String? sourceLang,
     String? targetLang,
+    bool skipCache = false,
   }) async {
     _totalRequests++;
 
@@ -262,21 +270,24 @@ class TranslationService {
       );
     }
 
-    final cached = await _cache.get(
-      text: text,
-      sourceLang: source.translationCode,
-      targetLang: target.translationCode,
-    );
-    if (cached != null) {
-      _cacheHits++;
-      _lastUsedEngine = '💾 Cache';
-      return TranslationResult.success(
-        original: text,
-        translated: cached,
-        engine: 'cache',
-        detectedLang: source.translationCode,
+    if (!skipCache) {
+      final cached = await _cache.get(
+        text: text,
+        sourceLang: source.translationCode,
         targetLang: target.translationCode,
+        engine: pipelineTag,
       );
+      if (cached != null) {
+        _cacheHits++;
+        _lastUsedEngine = '💾 Cache';
+        return TranslationResult.success(
+          original: text,
+          translated: cached,
+          engine: 'cache',
+          detectedLang: source.translationCode,
+          targetLang: target.translationCode,
+        );
+      }
     }
 
     await _ensureGlossary();
@@ -352,6 +363,7 @@ class TranslationService {
         sourceLang: sourceCode,
         targetLang: targetCode,
         translation: current,
+        engine: pipelineTag,
       );
     }
     _lastUsedEngine = glossaryHits > 0

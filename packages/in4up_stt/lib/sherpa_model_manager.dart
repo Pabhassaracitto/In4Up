@@ -24,6 +24,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'tts/piper_import_paths.dart';
 import 'tts/sherpa_piper_tts_core.dart';
 
 enum SherpaModelStatus { notInstalled, downloading, ready, error }
@@ -385,102 +386,254 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  bool _isOnnxModelName(String name) {
-    final lower = name.toLowerCase();
-    return lower.endsWith('.onnx') && !lower.endsWith('.onnx.json');
+  bool _isOnnxModelName(String name) => PiperImportPaths.isOnnxModelName(name);
+
+  Future<bool> _tryCopyFile(String fromPath, String toPath) async {
+    try {
+      final dest = File(toPath);
+      await dest.parent.create(recursive: true);
+      final src = File(fromPath);
+      if (src.existsSync()) {
+        await src.copy(toPath);
+        return true;
+      }
+      final bytes = await File(fromPath).readAsBytes();
+      if (bytes.isEmpty) return false;
+      await dest.writeAsBytes(bytes, flush: true);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Piper copy $fromPath → $toPath: $e');
+      return false;
+    }
+  }
+
+  Future<List<String>> _walkPaths(String root) async {
+    final out = <String>[];
+    Future<void> walk(Directory dir, int depth) async {
+      if (depth > 12) return;
+      try {
+        await for (final entity in dir.list(followLinks: true)) {
+          try {
+            final type = await FileSystemEntity.type(entity.path);
+            if (type == FileSystemEntityType.directory) {
+              await walk(Directory(entity.path), depth + 1);
+            } else {
+              out.add(entity.path);
+            }
+          } catch (_) {
+            out.add(entity.path);
+          }
+        }
+      } catch (e) {
+        try {
+          for (final entity in dir.listSync(recursive: true, followLinks: true)) {
+            out.add(entity.path);
+          }
+        } catch (e2) {
+          debugPrint('⚠️ Piper walk ${dir.path}: $e / $e2');
+        }
+      }
+    }
+
+    await walk(Directory(root), 0);
+    return out;
+  }
+
+  Future<int> _copyEspeakTree(Directory srcRoot) async {
+    final files = await _walkPaths(srcRoot.path);
+    if (files.isEmpty) return 0;
+    final destRoot = Directory(
+        p.join(await _piperDir(), SherpaPiperTtsCore.espeakDataFolder));
+    if (!await destRoot.exists()) await destRoot.create(recursive: true);
+    var n = 0;
+    for (final path in files) {
+      final rel = p.relative(path, from: srcRoot.path);
+      final dest = p.join(destRoot.path, PiperImportPaths.posixRel(rel));
+      if (await _tryCopyFile(path, dest)) n++;
+    }
+    return n;
+  }
+
+  Future<bool> _importEspeakNear(List<String> paths) async {
+    for (final path in paths) {
+      var dir = Directory(p.dirname(path));
+      for (var i = 0; i < 5; i++) {
+        final direct =
+            Directory(p.join(dir.path, PiperImportPaths.espeakFolder));
+        // Do not gate on existsSync — OneDrive/SAF often returns false.
+        if (await _copyEspeakTree(direct) > 0) return true;
+        try {
+          for (final entity in dir.listSync()) {
+            if (PiperImportPaths.looksLikeEspeakRoot(p.basename(entity.path))) {
+              if (await _copyEspeakTree(Directory(entity.path)) > 0) {
+                return true;
+              }
+            }
+          }
+        } catch (_) {
+          final listing = await _walkPaths(dir.path);
+          var copied = 0;
+          for (final filePath in listing) {
+            final rel = p.relative(filePath, from: dir.path);
+            final tail = PiperImportPaths.espeakTail(rel);
+            if (tail == null || tail == PiperImportPaths.espeakFolder) {
+              continue;
+            }
+            final dest = p.join(await _piperDir(), tail);
+            if (await _tryCopyFile(filePath, dest)) copied++;
+          }
+          if (copied > 0) return true;
+        }
+        final parent = dir.parent;
+        if (parent.path == dir.path) break;
+        dir = parent;
+      }
+    }
+    return false;
   }
 
   Future<String> importPiperFiles(List<String> paths) async {
     if (paths.isEmpty) return 'Chưa chọn file nào';
     final destDir = await _piperDir();
     var onnx = 0;
+    var archivePath = '';
     for (final path in paths) {
-      final src = File(path);
-      if (!await src.exists()) continue;
       final name = p.basename(path);
-      final lower = name.toLowerCase();
-      if (!_isOnnxModelName(name) &&
-          !lower.endsWith('_tokens.txt') &&
-          lower != 'tokens.txt' &&
-          !lower.endsWith('.onnx.json')) {
+      if (PiperImportPaths.isPiperArchiveName(name) && archivePath.isEmpty) {
+        archivePath = path;
         continue;
       }
-      await src.copy(p.join(destDir, name));
-      if (_isOnnxModelName(name)) onnx++;
+      if (PiperImportPaths.isEspeakLeafName(name)) {
+        await _tryCopyFile(
+          path,
+          p.join(destDir, PiperImportPaths.espeakFolder, name),
+        );
+        continue;
+      }
+      if (!_isOnnxModelName(name) &&
+          !PiperImportPaths.isTokensName(name) &&
+          !PiperImportPaths.isOnnxJsonName(name)) {
+        continue;
+      }
+      final ok = await _tryCopyFile(path, p.join(destDir, name));
+      if (ok && _isOnnxModelName(name)) onnx++;
+    }
+    if (onnx == 0 && archivePath.isNotEmpty) {
+      try {
+        final extractDir = p.join(
+          p.dirname(archivePath),
+          '${p.basename(archivePath)}-extracted',
+        );
+        await Directory(extractDir).create(recursive: true);
+        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
+          await _extractTarBz2(archivePath, extractDir);
+        }
+        return importPiperFolder(extractDir);
+      } catch (e) {
+        return 'Có archive nhưng không giải nén được: $e';
+      }
     }
     if (onnx == 0) {
-      return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json])';
+      return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json]). '
+          'espeak-ng-data lấy tự động nếu nằm cạnh file.';
     }
+    final espeak = await _importEspeakNear(paths);
     await _normalizeSharedTokens(destDir);
     await rescan();
-    return '✅ Đã import $onnx file model';
+    final espeakNote = espeak || piperInfo.espeakInstalled
+        ? ' · đã lấy espeak-ng-data cạnh file'
+        : ' · nếu báo thiếu espeak: Import thư mục vits-piper-* '
+            '(chứa espeak-ng-data) một lần — phonemizer dùng chung mọi giọng';
+    return '✅ Đã import $onnx file model$espeakNote';
   }
 
-  /// Import THƯ MỤC giọng Piper. Recurse + không đòi `entity is File`
-  /// (OneDrive/Link). Flatten espeak-ng-data dù nằm trong vits-piper-*/.
   Future<String> importPiperFolder(String folderPath) async {
-    final dir = Directory(folderPath);
+    var dir = Directory(folderPath);
     if (!await dir.exists()) return 'Thư mục không tồn tại';
+
+    if (PiperImportPaths.looksLikeEspeakRoot(p.basename(dir.path))) {
+      await _copyEspeakTree(dir);
+      dir = dir.parent;
+    }
 
     final destDir = await _piperDir();
     var copiedOnnx = 0;
     var copiedTokens = 0;
     var copiedJson = 0;
+    var copiedEspeak = 0;
     final seen = <String>[];
+    var archivePath = '';
 
-    try {
-      final listing = dir.listSync(recursive: true, followLinks: true);
-      for (final entity in listing) {
-        final path = entity.path;
-        final name = p.basename(path);
-        final rel = p.relative(path, from: folderPath);
-        final relLower = rel.toLowerCase().replaceAll('\\', '/');
-        if (seen.length < 16) seen.add(rel);
+    final listing = await _walkPaths(dir.path);
+    for (final path in listing) {
+      final name = p.basename(path);
+      final rel = p.relative(path, from: dir.path);
+      if (seen.length < 24) seen.add(PiperImportPaths.posixRel(rel));
 
-        if (relLower.contains('${SherpaPiperTtsCore.espeakDataFolder}/')) {
-          final idx = relLower.indexOf('${SherpaPiperTtsCore.espeakDataFolder}/');
-          final tail = rel.replaceAll('\\', '/').substring(idx);
-          final dest = File(p.join(destDir, tail));
-          final src = File(path);
-          if (src.existsSync() && !dest.existsSync()) {
-            await dest.parent.create(recursive: true);
-            await src.copy(dest.path);
-          }
-          continue;
-        }
-
-        final src = File(path);
-        if (!src.existsSync()) continue;
-
-        if (_isOnnxModelName(name)) {
-          await src.copy(p.join(destDir, name));
-          copiedOnnx++;
-        } else if (name.toLowerCase() == 'tokens.txt' ||
-            name.toLowerCase().endsWith('_tokens.txt')) {
-          await src.copy(p.join(destDir, name));
-          copiedTokens++;
-        } else if (name.toLowerCase().endsWith('.onnx.json')) {
-          await src.copy(p.join(destDir, name));
-          copiedJson++;
-        }
+      final espeakTail = PiperImportPaths.espeakTail(rel);
+      if (espeakTail != null && espeakTail != PiperImportPaths.espeakFolder) {
+        final dest = p.join(destDir, espeakTail);
+        if (await _tryCopyFile(path, dest)) copiedEspeak++;
+        continue;
       }
-    } catch (e) {
-      return 'Lỗi đọc thư mục: $e';
+
+      if (_isOnnxModelName(name)) {
+        if (await _tryCopyFile(path, p.join(destDir, name))) copiedOnnx++;
+      } else if (PiperImportPaths.isTokensName(name)) {
+        if (await _tryCopyFile(path, p.join(destDir, name))) copiedTokens++;
+      } else if (PiperImportPaths.isOnnxJsonName(name)) {
+        if (await _tryCopyFile(path, p.join(destDir, name))) copiedJson++;
+      } else if (PiperImportPaths.isPiperArchiveName(name) &&
+          archivePath.isEmpty) {
+        archivePath = path;
+      }
+    }
+
+    if (copiedOnnx == 0 && archivePath.isNotEmpty) {
+      try {
+        final extractDir = p.join(
+          p.dirname(archivePath),
+          '${p.basename(archivePath)}-extracted',
+        );
+        await Directory(extractDir).create(recursive: true);
+        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
+          await _extractTarBz2(archivePath, extractDir);
+        }
+        return importPiperFolder(extractDir);
+      } catch (e) {
+        return 'Có archive nhưng không giải nén được: $e';
+      }
     }
 
     if (copiedOnnx == 0) {
-      final preview = seen.isEmpty ? '(thư mục trống với app)' : seen.join(', ');
+      final parent = dir.parent;
+      if (parent.path != dir.path) {
+        final parentListing = await _walkPaths(parent.path);
+        final parentOnnx = parentListing
+            .where((f) => _isOnnxModelName(p.basename(f)))
+            .toList();
+        if (parentOnnx.isNotEmpty) {
+          return importPiperFolder(parent.path);
+        }
+      }
+      final preview = seen.isEmpty
+          ? '(thư mục trống với app — Android/SAF?)'
+          : seen.join(', ');
       return 'Không tìm thấy file .onnx trong "$folderPath". '
           'App thấy: $preview. '
-          'Chọn đúng thư mục vits-piper-* (có file .onnx), hoặc bấm Tải giọng '
-          'để app tự cài — không cần giải nén tay.';
+          'Hãy Import file: chọn .onnx + tokens.txt trong cùng thư mục '
+          '(app tự lấy espeak-ng-data cạnh đó), hoặc bấm Tải giọng.';
+    }
+
+    if (copiedEspeak == 0) {
+      await _importEspeakNear(listing);
     }
 
     await _normalizeSharedTokens(destDir);
     await rescan();
     debugPrint(
         '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
-        '$copiedJson json');
+        '$copiedJson json, $copiedEspeak espeak files');
     return '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
         '$copiedJson config — sẵn sàng dùng.';
   }
@@ -604,7 +757,7 @@ class SherpaModelManager {
     final tarBytes = BZip2Decoder().decodeBytes(raw);
     final archive = TarDecoder().decodeBytes(tarBytes);
     for (final file in archive) {
-      final name = file.name.replaceAll('\\', '/');
+      final name = PiperImportPaths.posixRel(file.name);
       if (name.isEmpty || name == '.' || name == './') continue;
       final outPath = p.join(destDir, name);
       if (file.isDirectory || name.endsWith('/')) {

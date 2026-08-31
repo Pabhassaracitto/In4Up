@@ -52,6 +52,7 @@ class TranslationToolbar extends StatelessWidget {
                   final translateButton = _TranslateButton(
                     isTranslating: isTranslating,
                     hasTranslations: hasTranslations,
+                    pipelineStale: textProvider.translationPipelineStale,
                     primaryColor: primaryColor,
                     progress: progress,
                     totalLines: textProvider.lines.length,
@@ -63,7 +64,10 @@ class TranslationToolbar extends StatelessWidget {
                       } else if (sameLanguage) {
                         await _selectTargetLanguage(context, textProvider);
                       } else {
-                        await textProvider.translateAll();
+                        await textProvider.translateAll(
+                          forceRetranslate:
+                              textProvider.translationPipelineStale,
+                        );
                       }
                     },
                     onLongPress: () =>
@@ -77,7 +81,8 @@ class TranslationToolbar extends StatelessWidget {
                         _applyTargetLanguage(context, textProvider, language),
                   );
                   final settingsButton = IconButton(
-                    onPressed: () => _showServerSettings(context),
+                    onPressed: () =>
+                        _showServerSettings(context, textProvider),
                     icon: const Icon(Icons.settings_outlined, size: 16),
                     color: Colors.grey[500],
                     tooltip: context.uiText('Cài đặt engine dịch'),
@@ -245,7 +250,10 @@ class TranslationToolbar extends StatelessWidget {
     );
   }
 
-  void _showServerSettings(BuildContext context) {
+  void _showServerSettings(
+    BuildContext context,
+    TextProvider textProvider,
+  ) {
     // ★ SỬA 1: Tạo instance, không dùng static
     final service = TranslationService();
 
@@ -261,7 +269,7 @@ class TranslationToolbar extends StatelessWidget {
         service: service,
         accentColor: primaryColor,
       ),
-    );
+    ).whenComplete(textProvider.refreshTranslationChrome);
   }
 }
 
@@ -707,6 +715,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
 class _TranslateButton extends StatelessWidget {
   final bool isTranslating;
   final bool hasTranslations;
+  final bool pipelineStale;
   final Color primaryColor;
   final double progress;
   final int totalLines;
@@ -718,6 +727,7 @@ class _TranslateButton extends StatelessWidget {
   const _TranslateButton({
     required this.isTranslating,
     required this.hasTranslations,
+    required this.pipelineStale,
     required this.primaryColor,
     required this.progress,
     required this.totalLines,
@@ -741,6 +751,10 @@ class _TranslateButton extends StatelessWidget {
       label = 'Chọn đích';
       icon = Icons.language_rounded;
       color = Colors.amber;
+    } else if (pipelineStale) {
+      label = 'Dịch lại';
+      icon = Icons.refresh;
+      color = Colors.orange;
     } else if (isComplete) {
       label = 'Đã dịch';
       icon = Icons.check_circle_outline;

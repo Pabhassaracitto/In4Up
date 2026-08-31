@@ -18,6 +18,7 @@ mixin TranslationMixin on ChangeNotifier {
   String? _translationError;
   String _currentEngine = '';
   int _translationRunId = 0;
+  String? _appliedPipelineTag;
 
   List<TextItem> get lines;
 
@@ -26,6 +27,14 @@ mixin TranslationMixin on ChangeNotifier {
   double get translationProgress => _translationProgress;
   String? get translationError => _translationError;
   String get currentEngine => _currentEngine;
+
+  bool get translationPipelineStale {
+    final current = TranslationService().pipelineTag;
+    return _appliedPipelineTag != null && _appliedPipelineTag != current;
+  }
+
+  /// Rebuild toolbar after engine/offline-only settings change.
+  void refreshTranslationChrome() => notifyListeners();
 
   AppLanguage get translationTargetLanguage =>
       TranslationService().targetLanguage;
@@ -140,6 +149,7 @@ mixin TranslationMixin on ChangeNotifier {
       line.content,
       sourceLang: lineSource.translationCode,
       targetLang: target.translationCode,
+      skipCache: true,
     );
 
     if (runId != _translationRunId || index >= lines.length) return;
@@ -152,6 +162,7 @@ mixin TranslationMixin on ChangeNotifier {
         translationLanguageCode: target.translationCode,
       );
       _currentEngine = TranslationService().lastUsedEngine;
+      _appliedPipelineTag = TranslationService().pipelineTag;
       _translationError = null;
     } else {
       _translationError = '${result.engineName}: ${result.error}';
@@ -174,6 +185,10 @@ mixin TranslationMixin on ChangeNotifier {
     }
 
     final targetCode = target.translationCode;
+    final pipelineTag = service.pipelineTag;
+    final pipelineChanged = _appliedPipelineTag != null &&
+        _appliedPipelineTag != pipelineTag;
+    final force = forceRetranslate || pipelineChanged;
     final toTranslate = <int>[];
     for (var index = 0; index < lines.length; index++) {
       final line = lines[index];
@@ -186,11 +201,12 @@ mixin TranslationMixin on ChangeNotifier {
       final hasCurrentTranslation = line.translation != null &&
           line.translation!.trim().isNotEmpty &&
           existingTarget == targetCode;
-      if (!forceRetranslate && hasCurrentTranslation) continue;
+      if (!force && hasCurrentTranslation) continue;
       toTranslate.add(index);
     }
 
     if (toTranslate.isEmpty) {
+      _appliedPipelineTag = pipelineTag;
       if (_translationDisplayMode == TranslationDisplayMode.hidden) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }
@@ -224,6 +240,7 @@ mixin TranslationMixin on ChangeNotifier {
           line.content,
           sourceLang: lineSource.translationCode,
           targetLang: targetCode,
+          skipCache: force,
         );
 
         if (runId != _translationRunId || service.targetLang != targetCode) {
@@ -281,6 +298,7 @@ mixin TranslationMixin on ChangeNotifier {
       if (runId == _translationRunId) {
         _isTranslating = false;
         _translationProgress = doneCount / toTranslate.length;
+        _appliedPipelineTag = pipelineTag;
         notifyListeners();
       }
     }
@@ -302,6 +320,7 @@ mixin TranslationMixin on ChangeNotifier {
     _translationProgress = 0;
     _translationError = null;
     _currentEngine = '';
+    _appliedPipelineTag = null;
     notifyListeners();
   }
 
@@ -314,6 +333,7 @@ mixin TranslationMixin on ChangeNotifier {
     _translationProgress = 0;
     _translationError = null;
     _currentEngine = '';
+    _appliedPipelineTag = null;
     _translationDisplayMode = TranslationDisplayMode.hidden;
     // Không notify ở đây — caller sẽ notify sau khi parse lines
   }
@@ -348,6 +368,7 @@ mixin TranslationMixin on ChangeNotifier {
         text: line.content,
         sourceLang: source.translationCode,
         targetLang: target,
+        engine: TranslationService().pipelineTag,
       );
       if (cached == null || cached.trim().isEmpty) continue;
       lines[i] = line.copyWith(
@@ -358,6 +379,7 @@ mixin TranslationMixin on ChangeNotifier {
       hits++;
     }
     if (hits > 0) {
+      _appliedPipelineTag = TranslationService().pipelineTag;
       if (_translationDisplayMode == TranslationDisplayMode.hidden) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }

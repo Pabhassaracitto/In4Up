@@ -1,5 +1,6 @@
 import 'generated_legacy_ui_fallbacks.dart';
 import 'generated_ui_translations.dart';
+import 'priority_ui_overrides.dart';
 
 /// Translation bridge for presentation strings that have not yet been migrated
 /// to generated [AppLocalizations] getters.
@@ -34,8 +35,13 @@ class AppUITranslations {
     final locale = canonicalLocaleCode(localeCode);
     if (locale == 'vi') return sourceText;
 
+    final override = priorityUiOverrides[sourceText];
+    if (override != null) {
+      return _valueForLocale(override, locale, sourceText);
+    }
+
     final exact = generatedUiTranslations[sourceText];
-    if (exact != null) return _valueForLocale(exact, locale);
+    if (exact != null) return _valueForLocale(exact, locale, sourceText);
 
     final legacyEnglish = generatedLegacyUiEnglishFallbacks[sourceText];
     if (legacyEnglish != null) return legacyEnglish;
@@ -63,7 +69,8 @@ class AppUITranslations {
   }
 
   static bool containsSource(String sourceText) {
-    if (generatedUiTranslations.containsKey(sourceText) ||
+    if (priorityUiOverrides.containsKey(sourceText) ||
+        generatedUiTranslations.containsKey(sourceText) ||
         generatedLegacyUiEnglishFallbacks.containsKey(sourceText)) {
       return true;
     }
@@ -91,15 +98,13 @@ class AppUITranslations {
 
   static String _valueForLocale(
     Map<String, String> translations,
-    String locale,
-  ) {
-    final localized = translations[locale];
-    if (localized != null && localized.trim().isNotEmpty) {
-      return localized;
-    }
-    // Canonical English fallback — không bao giờ trả tiếng Việt cho locale
-    // ≠ vi (rule #5, ADR-0002). Test catalog đảm bảo mọi entry có 'en'.
-    return translations['en'] ?? localized ?? '';
+    String locale, [
+    String? sourceText,
+  ]) {
+    return translations[locale] ??
+        translations['en'] ??
+        sourceText ??
+        translations.values.first;
   }
 }
 

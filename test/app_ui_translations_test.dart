@@ -12,6 +12,18 @@ void main() {
       expect(AppUITranslations.translate('Lưu', 'bo-CN'), 'Save');
     });
 
+    test('Home hub copy is English / native, not leftover Vietnamese', () {
+      const home =
+          'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.';
+      expect(AppUITranslations.translate(home, 'en'), isNot(contains('là trung tâm')));
+      expect(AppUITranslations.translate('Nghe · Nói', 'en'), 'Listen · Speak');
+      expect(AppUITranslations.translate('Nghe · Nói', 'zh'), '听 · 说');
+      expect(AppUITranslations.translate('Nghe · Nói', 'si'), isNot('Nghe · Nói'));
+      expect(AppUITranslations.translate('Quản lý Model AI', 'hi'), isNot('Quản lý Model AI'));
+      expect(AppUITranslations.translate('Tải về', 'en'), 'Download');
+      expect(AppUITranslations.translate('Ôn tập · SRS', 'zh'), '复习 · SRS');
+    });
+
     test('uses real locale translations when the catalog has one', () {
       expect(AppUITranslations.translate('Lưu', 'de-DE'), 'Speichern');
       expect(AppUITranslations.translate('Lưu', 'fr-FR'), 'Enregistrer');

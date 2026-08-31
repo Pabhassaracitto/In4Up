@@ -251,6 +251,27 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '去掉靜音 — 30 分鐘音訊幾分鐘出詞，介面不卡',
     'si': 'නිහඬතාව ඉවත් — දිගු ගොනු ඉක්මනින්',
   },
+  'Tìm video hoặc dán URL YouTube...': {
+    'en': 'Search videos or paste a YouTube URL...',
+    'hi': 'वीडियो खोजें या YouTube URL चिपकाएँ...',
+    'zh': '搜索视频或粘贴 YouTube 链接…',
+    'zh_TW': '搜尋影片或貼上 YouTube 連結…',
+    'si': 'වීඩියෝ සොයන්න හෝ YouTube URL ඇලවන්න...',
+  },
+  'Tìm kiếm & duyệt kênh': {
+    'en': 'Search & browse channels',
+    'hi': 'खोजें और चैनल देखें',
+    'zh': '搜索并浏览频道',
+    'zh_TW': '搜尋並瀏覽頻道',
+    'si': 'සොයන්න සහ නාලිකා බලන්න',
+  },
+  'Tìm kiếm & duyệt kênh học tiếng Anh': {
+    'en': 'Search & browse English-learning channels',
+    'hi': 'अंग्रेज़ी सीखने के चैनल खोजें',
+    'zh': '搜索英语学习频道',
+    'zh_TW': '搜尋英語學習頻道',
+    'si': 'ඉංග්‍රීසි ඉගෙනුම් නාලිකා සොයන්න',
+  },
   'Xoá hết': {
     'en': 'Delete all',
     'hi': 'सब हटाएँ',

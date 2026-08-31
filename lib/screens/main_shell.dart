@@ -8,7 +8,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
-import '../features/youtube/youtube_sheet.dart';
+import '../features/youtube/youtube_explorer_screen.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
@@ -648,10 +648,14 @@ class _MainShellState extends State<MainShell> {
         );
         return;
       case 'youtube_downloader':
-        // Không mở explorer với key giả AIzaSy...YOUR_KEY_HERE — API fail
-        // → danh sách trống / mock id 'v1' không phát. PLAN-020 G: dán URL
-        // chạy không cần Data API (oEmbed + explode). Học LR = YoutubeSheet.
-        await YoutubeSheet.show(context);
+        // Hybrid: Data API v3 tìm/duyệt kênh (YtDataApi.key); dán URL vẫn
+        // được trên explorer. Audio/captions = explode, không tốn quota.
+        // Không checkout nguyên file này lên DEV (DEV có Tipitaka).
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => const YoutubeExplorerScreen(),
+          ),
+        );
         return;
       case 'pdf_reader':
         final result = await FilePicker.pickFiles(

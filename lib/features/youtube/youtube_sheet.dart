@@ -155,6 +155,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
             _buildHandle(),
             _buildHeader(),
             _buildUrlBar(),
+            _buildBrowseButton(),
             if (_video != null) _buildStudyButton(),
             const SizedBox(height: 2),
             _buildTabBar(),
@@ -223,7 +224,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold)),
-                  Text('Dán URL · Học video · Captions',
+                  Text('Tìm · Duyệt kênh · Dán URL',
                       style: TextStyle(color: Colors.grey, fontSize: 11)),
                 ],
               ),
@@ -339,6 +340,35 @@ class _YoutubeSheetState extends State<YoutubeSheet>
           ],
         ),
       );
+
+  Widget _buildBrowseButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const YoutubeExplorerScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.search, size: 18),
+          label: const Text('Tìm kiếm & duyệt kênh học tiếng Anh'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFFFF5252)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildStudyButton() {
     return Padding(

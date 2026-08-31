@@ -10,10 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'models/yt_video.dart';
 import 'services/yt_service.dart';
+import 'yt_data_api.dart';
 import 'yt_player_screen.dart';
-
-const _kYtApi = 'https://www.googleapis.com/youtube/v3';
-const _kDefaultApiKey = '';
 
 /// Giữ tên cũ cho test / chỗ gọi — uỷ quyền `YtVideo.isUsableDataApiKey`.
 bool ytApiKeyIsUsable(String? key) => YtVideo.isUsableDataApiKey(key);
@@ -99,7 +97,7 @@ const _kDefaultChannels = [
 
 class YoutubeExplorerScreen extends StatefulWidget {
   final String apiKey;
-  const YoutubeExplorerScreen({super.key, this.apiKey = _kDefaultApiKey});
+  const YoutubeExplorerScreen({super.key, this.apiKey = YtDataApi.key});
 
   @override
   State<YoutubeExplorerScreen> createState() => _YoutubeExplorerScreenState();
@@ -119,6 +117,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   final _urlCtrl = TextEditingController();
   bool _openingUrl = false;
   String? _urlError;
+  String _searchQ = '';
 
   bool get _hasApiKey => YtVideo.isUsableDataApiKey(widget.apiKey);
 
@@ -156,11 +155,12 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
 
   Future<void> _enrichChannels() async {
     if (!mounted) return;
-    final ids = _channels.map((c) => c.id).join(',');
     try {
       final res = await http
-          .get(Uri.parse(
-              '$_kYtApi/channels?part=snippet,statistics&id=$ids&key=${widget.apiKey.trim()}'))
+          .get(YtDataApi.channels(
+            apiKey: widget.apiKey.trim(),
+            ids: _channels.map((c) => c.id).toList(),
+          ))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200 || !mounted) return;
       final data = jsonDecode(res.body) as Map;
@@ -212,14 +212,22 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
 
   Future<(List<YtExVideo>, String?)> _fetch(String? pageToken) async {
     if (!_hasApiKey) return (<YtExVideo>[], null);
-    final order = _sortMode == YtSortMode.viewCount ? 'viewCount' : 'date';
-    final chanParam = _selChannelId != null ? '&channelId=$_selChannelId' : '';
-    final url = '$_kYtApi/search?part=snippet&type=video$chanParam&order=$order'
-        '&maxResults=20&relevanceLanguage=en&key=${widget.apiKey.trim()}'
-        '${pageToken != null ? '&pageToken=$pageToken' : ''}';
-    final res =
-        await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
-    if (res.statusCode != 200) return (<YtExVideo>[], null);
+    final searching = _searchQ.trim().isNotEmpty;
+    final order = _sortMode == YtSortMode.viewCount
+        ? 'viewCount'
+        : (searching ? 'relevance' : 'date');
+    final uri = YtDataApi.search(
+      apiKey: widget.apiKey.trim(),
+      q: _searchQ,
+      channelId: _selChannelId,
+      order: order,
+      pageToken: pageToken,
+    );
+    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      debugPrint('yt search ${res.statusCode}: ${res.body}');
+      return (<YtExVideo>[], null);
+    }
     final data = jsonDecode(res.body) as Map;
     final items = (data['items'] as List?) ?? [];
     final next = data['nextPageToken'] as String?;
@@ -253,8 +261,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   Future<Map<String, dynamic>> _fetchDetails(List<String> ids) async {
     try {
       final res = await http
-          .get(Uri.parse(
-              '$_kYtApi/videos?part=statistics,contentDetails&id=${ids.join(',')}&key=${widget.apiKey.trim()}'))
+          .get(YtDataApi.videos(apiKey: widget.apiKey.trim(), ids: ids))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return {};
       final data = jsonDecode(res.body) as Map;
@@ -273,6 +280,22 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     final s = RegExp(r'(\d+)S').firstMatch(iso)?.group(1) ?? '0';
     return Duration(
         hours: int.parse(h), minutes: int.parse(m), seconds: int.parse(s));
+  }
+
+  Future<void> _submitQuery([String? raw]) async {
+    final input = (raw ?? _urlCtrl.text).trim();
+    setState(() => _urlError = null);
+    if (input.isEmpty) {
+      _searchQ = '';
+      await _loadVideos();
+      return;
+    }
+    if (YtDataApi.looksLikeWatchInput(input)) {
+      await _openFromUrl(input);
+      return;
+    }
+    _searchQ = input;
+    await _loadVideos();
   }
 
   Future<void> _openFromUrl([String? raw]) async {
@@ -353,7 +376,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
                 Text(
-                  _hasApiKey ? 'API' : 'Dán URL',
+                  _hasApiKey ? 'Tìm · Duyệt' : 'Dán URL',
                   style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ],
@@ -383,7 +406,9 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 13),
                             decoration: InputDecoration(
-                              hintText: context.uiText('Dán URL YouTube...'),
+                              hintText: context.uiText(
+                                'Tìm video hoặc dán URL YouTube...',
+                              ),
                               hintStyle: const TextStyle(
                                   color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
@@ -391,7 +416,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                               contentPadding:
                                   const EdgeInsets.symmetric(vertical: 10),
                             ),
-                            onSubmitted: (_) => _openFromUrl(),
+                            onSubmitted: (_) => _submitQuery(),
                           ),
                         ),
                         IconButton(
@@ -401,7 +426,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                             final d = await Clipboard.getData('text/plain');
                             if (d?.text != null) {
                               _urlCtrl.text = d!.text!.trim();
-                              if (mounted) _openFromUrl();
+                              if (mounted) _submitQuery();
                             }
                           },
                           padding: EdgeInsets.zero,
@@ -414,7 +439,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: _openingUrl ? null : _openFromUrl,
+                  onTap: _openingUrl ? null : _submitQuery,
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -430,7 +455,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                                 valueColor:
                                     AlwaysStoppedAnimation(Colors.white)),
                           )
-                        : const Icon(Icons.school,
+                        : const Icon(Icons.search,
                             color: Colors.white, size: 18),
                   ),
                 ),
@@ -868,7 +893,9 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Icon(Icons.school_outlined, size: 44, color: Colors.grey[700]),
             const SizedBox(height: 10),
             Text(
-              'Dán URL YouTube ở thanh trên',
+              _hasApiKey
+                  ? 'Tìm video, chọn kênh, hoặc dán URL'
+                  : 'Dán URL YouTube ở thanh trên',
               style: TextStyle(color: Colors.grey[500], fontSize: 13),
             ),
             const SizedBox(height: 10),
@@ -883,7 +910,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               ),
               child: Text(
                 _hasApiKey
-                    ? 'Không có video cho bộ lọc này.'
+                    ? 'Không có video cho bộ lọc / từ khóa này. Thử từ khác hoặc chọn kênh.'
                     : 'Học video không cần Data API key. Khám phá kênh cần key thật — không dùng YOUR_KEY_HERE.',
                 style: TextStyle(color: Colors.purple[100], fontSize: 11),
                 textAlign: TextAlign.center,

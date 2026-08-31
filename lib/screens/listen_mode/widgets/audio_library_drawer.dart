@@ -7,6 +7,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/youtube/youtube_explorer_screen.dart';
 import '../../../features/youtube/youtube_sheet.dart';
 import '../../../providers/player_provider.dart';
 import 'google_drive_browser.dart';
@@ -535,6 +536,31 @@ class _YouTubeTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 16),
+
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              Future.microtask(() {
+                if (!context.mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const YoutubeExplorerScreen(),
+                  ),
+                );
+              });
+            },
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Tìm kiếm & duyệt kênh'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5252),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 10),
 
           ElevatedButton.icon(
             onPressed: () => _openYoutube(context, captionsFirst: true),

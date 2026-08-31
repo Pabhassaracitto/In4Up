@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/hymt_engine.dart';
 import 'engines/mlkit_engine.dart';
 import 'glossary/glossary_sheet.dart';
 import 'translation_display_mode.dart';
@@ -290,11 +291,16 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   final Map<String, bool> _modelDownloaded = <String, bool>{};
   final Map<String, bool> _downloading = <String, bool>{};
   bool? _offlineOnly;
+  HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
+  bool _hymtHas = false;
+  bool _hymtBusy = false;
+  double _hymtProgress = 0;
 
   @override
   void initState() {
     super.initState();
     _offlineOnly = widget.service.offlineOnly;
+    _enginePref = widget.service.offlineEnginePref;
     _loadModels();
   }
 
@@ -305,6 +311,10 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   }
 
   Future<void> _loadModels() async {
+    final hymt = widget.service.hymt;
+    if (hymt != null) {
+      _hymtHas = await hymt.hasModel;
+    }
     final mlkit = widget.service.mlkit;
     if (MlKitEngine.platformSupported) {
       for (final code in _mlkitCodes) {
@@ -316,6 +326,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
         _modelDownloaded[code] = await mlkit.isModelDownloaded(language.bcpCode);
       }
     }
+    if (mounted) setState(() {});
   }
 
   Future<void> _downloadModel(String code) async {
@@ -444,6 +455,78 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
+            const SizedBox(height: 16),
+            Text(
+              context.uiText('Hy-MT 1.5 (GGUF ~600MB, 33 ngôn ngữ)'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _hymtHas
+                  ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
+                  : context.uiText('Import file .gguf đã tải, hoặc bấm Tải về (~600MB, Wi-Fi). Không tự tải lúc mở app.'),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Tự chọn'),
+                  selected: _enginePref == HyMtOfflinePreference.auto,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.auto);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.auto;
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Hy-MT'),
+                  selected: _enginePref == HyMtOfflinePreference.hymt,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.hymt);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.hymt;
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('ML Kit'),
+                  selected: _enginePref == HyMtOfflinePreference.mlkit,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.mlkit);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.mlkit;
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_hymtBusy)
+              LinearProgressIndicator(
+                value: _hymtProgress > 0 ? _hymtProgress : null,
+                minHeight: 4,
+              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _hymtBusy ? null : _importHymt,
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Import .gguf'),
+                ),
+                TextButton.icon(
+                  onPressed: _hymtBusy ? null : _downloadHymt,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Tải về'),
+                ),
+                if (_hymtHas)
+                  IconButton(
+                    onPressed: _hymtBusy ? null : _deleteHymt,
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    color: Colors.grey,
+                  ),
+              ],
+            ),
             const SizedBox(height: 12),
             // ── Chỉ offline ────────────────────────────────────────────
             SwitchListTile(
@@ -454,7 +537,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
               ),
               subtitle: Text(
                 context.uiText(
-                  'Bỏ qua engine online (ML Kit + từ điển offline).',
+                  'Bỏ qua engine online (Hy-MT / ML Kit + từ điển).',
                 ),
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
@@ -507,6 +590,50 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
         ),
       ),
     );
+  }
+
+
+  Future<void> _importHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    setState(() => _hymtBusy = true);
+    final err = await hymt.importFromUser();
+    if (!mounted) return;
+    _hymtHas = await hymt.hasModel;
+    setState(() => _hymtBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(err ?? 'Đã import Hy-MT')),
+      backgroundColor: err == null ? null : Colors.redAccent,
+    ));
+  }
+
+  Future<void> _downloadHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    setState(() {
+      _hymtBusy = true;
+      _hymtProgress = 0;
+    });
+    final timer = Stream.periodic(const Duration(milliseconds: 400), (_) {
+      if (mounted) setState(() => _hymtProgress = hymt.downloadProgress);
+    }).listen((_) {});
+    final err = await hymt.downloadModel();
+    await timer.cancel();
+    if (!mounted) return;
+    _hymtHas = await hymt.hasModel;
+    setState(() => _hymtBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(err ?? 'Đã tải Hy-MT')),
+      backgroundColor: err == null ? null : Colors.redAccent,
+    ));
+  }
+
+  Future<void> _deleteHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    await hymt.deleteModel();
+    if (!mounted) return;
+    setState(() => _hymtHas = false);
   }
 
   Widget _modelRow(String code) {

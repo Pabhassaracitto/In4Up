@@ -876,19 +876,53 @@ class _PiperModelCardState extends State<_PiperModelCard> {
     if (path == null || path.isEmpty) return;
     final msg = await _manager.importPiperFolder(path);
     if (!mounted) return;
+    if (msg.startsWith(SherpaModelManager.safEmptyPrefix) ||
+        msg.contains('trống với app')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Android/SAF không đọc được thẻ SD. Chọn file .onnx + tokens.txt.',
+          ),
+        ),
+      );
+      await _importFiles(context);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _importFiles(BuildContext context) async {
     final result = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['onnx', 'json', 'txt'],
+      allowedExtensions: ['onnx', 'json', 'txt', 'bz2', 'gz', 'tgz'],
       allowMultiple: true,
+      withData: true,
     );
-    final paths = result?.files.map((f) => f.path).whereType<String>().toList() ??
-        [];
-    if (paths.isEmpty) return;
-    final msg = await _manager.importPiperFiles(paths);
+    if (result == null || result.files.isEmpty) return;
+    final named = <String, Uint8List>{};
+    final paths = <String>[];
+    for (final f in result.files) {
+      final bytes = f.bytes;
+      if (bytes != null && bytes.isNotEmpty) {
+        named[f.name] = bytes;
+      } else if (f.path != null && f.path!.isNotEmpty) {
+        paths.add(f.path!);
+      }
+    }
+    final String msg;
+    if (named.isNotEmpty) {
+      msg = await _manager.importPiperNamedBytes(named);
+    } else if (paths.isNotEmpty) {
+      msg = await _manager.importPiperFiles(paths);
+    } else {
+      msg = 'Không đọc được file (SAF). Thử chọn lại hoặc Tải phonemizer.';
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _downloadEspeak(BuildContext context) async {
+    final msg = await _manager.downloadEspeakData();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }

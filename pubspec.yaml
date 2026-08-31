@@ -17,6 +17,8 @@ dependencies:
     path: ./packages/in4up_core
   in4up_ai:
     path: ./packages/in4up_ai
+  # Tipitaka integration
+  sqflite: ^2.3.3
   # UI
   flutter_localizations:
     sdk: flutter

@@ -18,6 +18,8 @@ import 'services/yt_service.dart';
 import 'widgets/yt_tab_audio.dart';
 import 'widgets/yt_tab_captions.dart';
 import 'widgets/yt_video_card.dart';
+import 'youtube_explorer_screen.dart';
+import 'yt_player_screen.dart';
 
 class YoutubeSheet extends StatefulWidget {
   final bool captionsFirst;
@@ -153,6 +155,7 @@ class _YoutubeSheetState extends State<YoutubeSheet>
             _buildHandle(),
             _buildHeader(),
             _buildUrlBar(),
+            if (_video != null) _buildStudyButton(),
             const SizedBox(height: 2),
             _buildTabBar(),
             Expanded(
@@ -163,6 +166,8 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                   YtTabAudio(
                     video: _video,
                     isLoadingVideo: _isFetchingVideo,
+                    onDownloaded: (path) =>
+                        setState(() => _downloadedAudioPath = path),
                   ),
 
                   // Tab 1 — Captions
@@ -319,6 +324,45 @@ class _YoutubeSheetState extends State<YoutubeSheet>
           ],
         ),
       );
+
+  Widget _buildStudyButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () {
+            final v = _video!;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => YtPlayerScreen(
+                  video: YtExVideo(
+                    id: v.id,
+                    title: v.title,
+                    channelId: '',
+                    channelTitle: v.channel,
+                    thumb: v.thumb,
+                  ),
+                  audioPath: _downloadedAudioPath,
+                ),
+              ),
+            );
+          },
+          icon: const Icon(Icons.school, size: 18),
+          label: const Text('Học video (phụ đề + bấm từ)'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF9C27B0),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildTabBar() => TabBar(
         controller: _tabCtrl,

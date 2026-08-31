@@ -689,7 +689,7 @@ class _MainShellState extends State<MainShell> {
         nav.push(
           MaterialPageRoute(
             builder: (_) => const YoutubeExplorerScreen(
-              apiKey: 'AIzaSy...YOUR_KEY_HERE',
+              apiKey: 'AIzaSyCpGdv7ESAJkH5-FYIC8-x0R0EWGgvK0Lg',
             ),
           ),
         );

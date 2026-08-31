@@ -536,6 +536,21 @@ class _YouTubeTab extends StatelessWidget {
 
           const SizedBox(height: 16),
 
+          ElevatedButton.icon(
+            onPressed: () => _openYoutube(context, captionsFirst: true),
+            icon: const Icon(Icons.school, size: 18),
+            label: const Text('Học video (phụ đề + bấm từ)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9C27B0),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
           // Nút tải audio
           ElevatedButton.icon(
             onPressed: () => _openYoutube(context),
@@ -570,18 +585,18 @@ class _YouTubeTab extends StatelessWidget {
 
           // Tips
           const _TipRow(
+            icon: Icons.school,
+            text: 'Dán URL → Học video: iframe + phụ đề, bấm câu, lặp câu',
+          ),
+          const SizedBox(height: 8),
+          const _TipRow(
             icon: Icons.music_note,
-            text: 'Dán URL YouTube → tải audio M4A chất lượng cao',
+            text: 'Tải audio M4A nếu muốn học offline trong tab Nghe',
           ),
           const SizedBox(height: 8),
           const _TipRow(
             icon: Icons.subtitles,
-            text: 'Tải captions → mở trong Understand Mode để học đồng bộ',
-          ),
-          const SizedBox(height: 8),
-          const _TipRow(
-            icon: Icons.link,
-            text: 'Tải cả audio + captions → link lại để phát đồng bộ',
+            text: 'Captions → LRC; không cần YouTube Data API key',
           ),
         ],
       ),

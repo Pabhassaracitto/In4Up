@@ -33,6 +33,15 @@ class YtVideo {
         thumb: j['thumb'],
       );
 
+  /// Data API v3 thật. Placeholder `AIzaSy...YOUR_KEY_HERE` không gọi được API.
+  static bool isUsableDataApiKey(String? key) {
+    final k = (key ?? '').trim();
+    if (k.isEmpty) return false;
+    if (k.contains('YOUR_KEY')) return false;
+    if (k.contains('...')) return false;
+    return k.length >= 20;
+  }
+
   /// Parse video ID từ URL hoặc trả về null
   static String? extractId(String input) {
     final p = RegExp(r'(?:v=|youtu\.be/|embed/|shorts/)([a-zA-Z0-9_-]{11})');

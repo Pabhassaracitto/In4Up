@@ -223,10 +223,25 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold)),
-                  Text('Tải audio · Captions · Lịch sử',
+                  Text('Dán URL · Học video · Captions',
                       style: TextStyle(color: Colors.grey, fontSize: 11)),
                 ],
               ),
+            ),
+            IconButton(
+              tooltip: 'Khám phá kênh',
+              icon: const Icon(Icons.explore_outlined,
+                  color: Colors.grey, size: 20),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const YoutubeExplorerScreen(),
+                  ),
+                );
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.grey, size: 20),

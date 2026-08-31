@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/features/youtube/youtube_explorer_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
@@ -10,7 +11,7 @@ import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
-import '../features/youtube/youtube_explorer_screen.dart';
+import '../features/youtube/youtube_sheet.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
@@ -683,6 +684,8 @@ class _MainShellState extends State<MainShell> {
         );
         return;
       case 'youtube_downloader':
+  await YoutubeSheet.show(context);
+  break;
         nav.push(
           MaterialPageRoute(
             builder: (_) => const YoutubeExplorerScreen(

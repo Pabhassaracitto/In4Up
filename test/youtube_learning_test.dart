@@ -2,6 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/youtube/models/yt_video.dart';
 
 void main() {
+  group('YtVideo.isUsableDataApiKey', () {
+    test('rejects empty and placeholder main_shell key', () {
+      expect(YtVideo.isUsableDataApiKey(null), isFalse);
+      expect(YtVideo.isUsableDataApiKey(''), isFalse);
+      expect(YtVideo.isUsableDataApiKey('AIzaSy...YOUR_KEY_HERE'), isFalse);
+      expect(YtVideo.isUsableDataApiKey('  YOUR_KEY  '), isFalse);
+      expect(
+        YtVideo.isUsableDataApiKey('AIzaSyAbcdefghijklmnopqrstuvwxyz012345'),
+        isTrue,
+      );
+    });
+  });
+
   group('YtVideo.extractId', () {
     test('parses watch, short, embed and raw id', () {
       expect(

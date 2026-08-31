@@ -813,6 +813,12 @@ class SherpaModelManager {
     debugPrint(
         '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
         '$copiedJson json, $copiedEspeak espeak files');
+    await rescan();
+    if (piperInfo.espeakInstalled) {
+      return '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
+          '$copiedJson config';
+    }
+    // Folder had no usable espeak — fetch shared phonemizer only then.
     return _ensureEspeakAfterImport(
       '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
       '$copiedJson config',

@@ -19,8 +19,9 @@ class TtsNotificationService {
       } else if (Platform.isIOS) {
         await _channel.invokeMethod('activateAudioSession');
       }
+    } on MissingPluginException {
+      debugPrint('[TtsNotification] plugin chưa gắn — cần build lại APK (không đủ hot reload)');
     } on PlatformException catch (e) {
-      // Notification không critical — log và tiếp tục
       debugPrint('[TtsNotification] activate failed: ${e.message}');
     }
   }
@@ -37,6 +38,8 @@ class TtsNotificationService {
           'subtitle': subtitle,
         });
       }
+    } on MissingPluginException {
+      debugPrint('[TtsNotification] plugin chưa gắn — cần build lại APK');
     } on PlatformException catch (e) {
       debugPrint('[TtsNotification] update failed: ${e.message}');
     }
@@ -50,6 +53,8 @@ class TtsNotificationService {
       } else if (Platform.isIOS) {
         await _channel.invokeMethod('deactivateAudioSession');
       }
+    } on MissingPluginException {
+      debugPrint('[TtsNotification] plugin chưa gắn — cần build lại APK');
     } on PlatformException catch (e) {
       debugPrint('[TtsNotification] deactivate failed: ${e.message}');
     }

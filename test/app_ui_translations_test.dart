@@ -21,6 +21,12 @@ void main() {
       expect(AppUITranslations.translate('Nghe · Nói', 'si'), isNot('Nghe · Nói'));
       expect(AppUITranslations.translate('Quản lý Model AI', 'hi'), isNot('Quản lý Model AI'));
       expect(AppUITranslations.translate('Tải về', 'en'), 'Download');
+      expect(AppUITranslations.translate('Import', 'en'), 'Import');
+      expect(AppUITranslations.translate('Quét thư mục', 'en'), 'Scan folder');
+      expect(
+        AppUITranslations.translate('Chế độ Đọc', 'en'),
+        isNot(contains('Chế độ')),
+      );
       expect(AppUITranslations.translate('Ôn tập · SRS', 'zh'), '复习 · SRS');
     });
 

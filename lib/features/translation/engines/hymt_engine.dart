@@ -93,7 +93,8 @@ class HyMtEngine extends TranslationEngine {
   @override
   Future<bool> isAvailable() async {
     if (!await hasModel) return false;
-    return AiNativeBindings.tryLoad() != null || _sendPort != null;
+    // Library present is not enough — isolate create() may still fail.
+    return AiNativeBindings.tryLoad() != null;
   }
 
   static Future<HyMtOfflinePreference> loadPreference() async {
@@ -217,6 +218,7 @@ class HyMtEngine extends TranslationEngine {
     if (path == null) return false;
     if (_sendPort != null && _loadedPath == path) return true;
     if (_loading) return false;
+    if (AiNativeBindings.tryLoad() == null) return false;
     _loading = true;
     try {
       await disposeRuntime();
@@ -226,11 +228,17 @@ class HyMtEngine extends TranslationEngine {
         _Init(path, _receivePort!.sendPort),
         debugName: 'HyMtIsolate',
       );
-      final ready = Completer<SendPort>();
+      final ready = Completer<Object?>();
       _receivePort!.listen((msg) {
-        if (msg is SendPort && !ready.isCompleted) ready.complete(msg);
+        if (!ready.isCompleted) ready.complete(msg);
       });
-      _sendPort = await ready.future.timeout(const Duration(seconds: 45));
+      final first = await ready.future.timeout(const Duration(seconds: 45));
+      if (first is! SendPort) {
+        debugPrint('Hy-MT isolate: $first');
+        await disposeRuntime();
+        return false;
+      }
+      _sendPort = first;
       _loadedPath = path;
       return true;
     } catch (e) {
@@ -346,14 +354,18 @@ class HyMtEngine extends TranslationEngine {
   }
 
   static void _isolateEntry(_Init init) async {
-    final port = ReceivePort();
-    init.main.send(port.sendPort);
     final native = AiNativeBindings.tryLoad();
     ffi.Pointer<ffi.Void>? handle;
     if (native != null) {
       handle = native.create(init.modelPath, contextSize: 2048, threads: 4);
       if (handle == ffi.nullptr) handle = null;
     }
+    if (native == null || handle == null) {
+      init.main.send('Hy-MT native không load được');
+      return;
+    }
+    final port = ReceivePort();
+    init.main.send(port.sendPort);
     await for (final msg in port) {
       if (msg is _Req) {
         try {

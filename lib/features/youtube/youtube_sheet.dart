@@ -19,6 +19,7 @@ import 'widgets/yt_tab_audio.dart';
 import 'widgets/yt_tab_captions.dart';
 import 'widgets/yt_video_card.dart';
 import 'youtube_explorer_screen.dart';
+import 'yt_data_api.dart';
 import 'yt_player_screen.dart';
 
 class YoutubeSheet extends StatefulWidget {
@@ -95,7 +96,17 @@ class _YoutubeSheetState extends State<YoutubeSheet>
 
     final id = YtVideo.extractId(input);
     if (id == null) {
-      setState(() => _urlError = 'URL không hợp lệ');
+      if (YtDataApi.looksLikeWatchInput(input)) {
+        setState(() => _urlError = 'URL không hợp lệ');
+        return;
+      }
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => YoutubeExplorerScreen(initialQuery: input),
+        ),
+      );
       return;
     }
 
@@ -280,7 +291,9 @@ class _YoutubeSheetState extends State<YoutubeSheet>
                         style:
                             const TextStyle(color: Colors.white, fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: context.uiText('Dán URL YouTube...'),
+                          hintText: context.uiText(
+                            'Tìm video hoặc dán URL YouTube...',
+                          ),
                           hintStyle:
                               const TextStyle(color: Colors.grey, fontSize: 13),
                           border: InputBorder.none,

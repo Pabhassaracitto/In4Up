@@ -2,6 +2,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../models/yt_video.dart';
+import '../yt_embed.dart';
 
 class YtVideoCard extends StatelessWidget {
   final YtVideo video;
@@ -99,8 +100,9 @@ class YtVideoCard extends StatelessWidget {
 
 class YtPreviewWebView extends StatefulWidget {
   final String embedUrl;
+  final String? videoId;
 
-  const YtPreviewWebView({super.key, required this.embedUrl});
+  const YtPreviewWebView({super.key, required this.embedUrl, this.videoId});
 
   @override
   State<YtPreviewWebView> createState() => _YtPreviewWebViewState();
@@ -116,12 +118,18 @@ class _YtPreviewWebViewState extends State<YtPreviewWebView> {
     _ctrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
+      ..setUserAgent(YtEmbed.userAgent)
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) => setState(() => _loading = true),
         onPageFinished: (_) => setState(() => _loading = false),
         onWebResourceError: (_) => setState(() => _loading = false),
-      ))
-      ..loadRequest(Uri.parse(widget.embedUrl));
+      ));
+    final id = widget.videoId ?? YtVideo.extractId(widget.embedUrl);
+    if (id != null) {
+      YtEmbed.load(_ctrl, id);
+    } else {
+      _ctrl.loadRequest(Uri.parse(widget.embedUrl));
+    }
   }
 
   @override

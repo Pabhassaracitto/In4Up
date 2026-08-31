@@ -26,7 +26,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   final ValueNotifier<int> activeLineNotifier = ValueNotifier(-1);
   final ValueNotifier<bool> isSourceNotifier = ValueNotifier(true);
 
-  PlaybackRecipe _recipe = PlaybackRecipe.bilingual;
+  PlaybackRecipe _recipe = PlaybackRecipe.enOnly;
   PlaybackSnapshot? snapshot;
   String? _lastError;
   PlaybackRunToken? _activeToken;

@@ -333,27 +333,23 @@ class _MainRow extends StatelessWidget {
       );
       return;
     }
-    if (needsTranslation && tp.isTranslating) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang dịch, vui lòng chờ hoàn tất…')),
-      );
-      return;
-    }
-    if (needsTranslation && tp.translatedLineCount == 0) {
-      await tp.translateAll();
-      if (tp.translatedLineCount == 0) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                context.uiText(
-                  tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
-                ),
+    // Play immediately. Translation is a separate action — never block audio
+    // on Hy-MT / network. Background-fill so later lines can go bilingual.
+    if (needsTranslation &&
+        !tp.isTranslating &&
+        tp.translatedLineCount < tp.lines.length) {
+      unawaited(tp.translateAll());
+      if (tp.translatedLineCount == 0 && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText(
+                'Đang phát ngôn ngữ nguồn. Dịch chạy nền — không bắt buộc.',
               ),
             ),
-          );
-        }
-        return;
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     }
     if (!context.mounted) return;

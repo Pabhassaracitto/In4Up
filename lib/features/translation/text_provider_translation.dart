@@ -256,6 +256,7 @@ mixin TranslationMixin on ChangeNotifier {
             );
             _currentEngine = service.lastUsedEngine;
             consecutiveErrors = 0;
+            _translationError = null;
           } else {
             _translationError = '${result.engineName}: ${result.error}';
             consecutiveErrors++;

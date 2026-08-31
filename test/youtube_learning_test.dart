@@ -53,6 +53,8 @@ void main() {
         isTrue,
       );
       expect(YtDataApi.looksLikeWatchInput('learn english news'), isFalse);
+      expect(YtDataApi.looksLikeWatchInput('bbc 6 minute'), isFalse);
+      expect(YtVideo.extractId('bbc 6 minute'), isNull);
       expect(YtDataApi.looksLikeWatchInput('dQw4w9wgXcQ'), isTrue);
     });
 

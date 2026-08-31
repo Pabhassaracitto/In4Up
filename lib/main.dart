@@ -35,7 +35,7 @@ import 'screens/read_mode/services/playback_controller.dart';
 import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
-import 'screens/read_mode/services/tts_service_impl.dart';
+import 'screens/read_mode/services/studio_tts_service.dart';
 import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
@@ -294,7 +294,7 @@ class _MyAppState extends State<MyApp> {
         ),
 
         Provider<TtsService>(
-          create: (_) => FlutterTtsServiceImpl(),
+          create: (_) => StudioTtsService(),
           dispose: (_, service) => service.dispose(),
         ),
 

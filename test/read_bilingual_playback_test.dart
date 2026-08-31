@@ -141,6 +141,32 @@ void main() {
     expect(tts.actions.where((entry) => entry.startsWith('speak:')), isEmpty);
   });
 
+  test('viOnly without translation still speaks the source line', () async {
+    final tts = _FakeTtsService();
+    final engine = PlaybackEngine(tts);
+
+    await engine.play(
+      token: const PlaybackRunToken(3),
+      lines: [
+        TextItem(
+          id: '1',
+          content: 'Hello',
+        ),
+      ],
+      recipe: PlaybackRecipe.viOnly,
+      sourceLanguageCode: 'EN',
+      targetLanguageCode: 'VI',
+      onEvent: (_) {},
+      onDone: () {},
+      onError: (_) {},
+    );
+
+    expect(
+      tts.actions.where((entry) => entry.startsWith('speak:')),
+      ['speak:en-US:Hello'],
+    );
+  });
+
   testWidgets(
       'context-free playback notifications use the selected UI locale',
       (tester) async {

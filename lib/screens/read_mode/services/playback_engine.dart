@@ -130,27 +130,33 @@ class PlaybackEngine {
             }
 
             // Translation/target phase, again with an explicit locale switch.
+            // If the user asked for target-only but the line is not translated
+            // yet, speak the source so Play is never silent.
             if (!_cancel &&
                 recipe.mode != PlaybackMode.enOnly &&
-                recipe.viRepeats > 0 &&
-                hasCurrentTarget) {
-              await tts.setLanguage(targetLanguage.ttsLocale);
-              for (var repeat = 0; repeat < recipe.viRepeats; repeat++) {
-                if (_cancel) return;
-                onEvent(PlaybackEvent(
-                  type: PlaybackEventType.phase,
-                  snapshot: _snapshot(
-                    index,
-                    total,
-                    pass,
-                    recipe,
-                    lineRepeat,
-                    false,
-                    lineSourceLanguage,
-                    targetLanguage,
-                  ),
-                ));
-                await tts.speak(translation);
+                recipe.viRepeats > 0) {
+              if (hasCurrentTarget) {
+                await tts.setLanguage(targetLanguage.ttsLocale);
+                for (var repeat = 0; repeat < recipe.viRepeats; repeat++) {
+                  if (_cancel) return;
+                  onEvent(PlaybackEvent(
+                    type: PlaybackEventType.phase,
+                    snapshot: _snapshot(
+                      index,
+                      total,
+                      pass,
+                      recipe,
+                      lineRepeat,
+                      false,
+                      lineSourceLanguage,
+                      targetLanguage,
+                    ),
+                  ));
+                  await tts.speak(translation);
+                }
+              } else if (recipe.mode == PlaybackMode.viOnly) {
+                await tts.setLanguage(lineSourceLanguage.ttsLocale);
+                await tts.speak(lines[index].content);
               }
             }
           }

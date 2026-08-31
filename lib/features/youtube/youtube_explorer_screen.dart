@@ -97,7 +97,12 @@ const _kDefaultChannels = [
 
 class YoutubeExplorerScreen extends StatefulWidget {
   final String apiKey;
-  const YoutubeExplorerScreen({super.key, this.apiKey = YtDataApi.key});
+  final String? initialQuery;
+  const YoutubeExplorerScreen({
+    super.key,
+    this.apiKey = YtDataApi.key,
+    this.initialQuery,
+  });
 
   @override
   State<YoutubeExplorerScreen> createState() => _YoutubeExplorerScreenState();
@@ -150,7 +155,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             _kDefaultChannels.map((e) => YtExChannel(id: e.$1, title: e.$2)));
     });
     if (_hasApiKey) await _enrichChannels();
-    await _loadVideos();
+    final q = widget.initialQuery?.trim() ?? '';
+    if (q.isNotEmpty) {
+      _urlCtrl.text = q;
+      await _submitQuery(q);
+    } else {
+      await _loadVideos();
+    }
   }
 
   Future<void> _enrichChannels() async {

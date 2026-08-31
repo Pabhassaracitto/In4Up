@@ -365,34 +365,50 @@ class _YtTabAudioState extends State<YtTabAudio>
         );
 
       case _DlState.fetchingQualities:
-        return const Center(
+        return Center(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                CircularProgressIndicator(
+                const CircularProgressIndicator(
                     valueColor:
                         AlwaysStoppedAnimation(Color(0xFF6C63FF))),
-                SizedBox(height: 8),
-                Text('Đang lấy danh sách chất lượng...',
+                const SizedBox(height: 8),
+                const Text('Đang lấy danh sách chất lượng...',
                     style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _cancelDownload,
+                  icon: const Icon(Icons.cancel_outlined,
+                      size: 16, color: Colors.red),
+                  label: const Text('Hủy',
+                      style: TextStyle(color: Colors.red)),
+                ),
               ],
             ),
           ),
         );
 
       case _DlState.fetching:
-        return const Center(
+        return Center(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                CircularProgressIndicator(
+                const CircularProgressIndicator(
                     valueColor:
                         AlwaysStoppedAnimation(Color(0xFF6C63FF))),
-                SizedBox(height: 8),
-                Text('Đang chuẩn bị...',
+                const SizedBox(height: 8),
+                const Text('Đang chuẩn bị...',
                     style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _cancelDownload,
+                  icon: const Icon(Icons.cancel_outlined,
+                      size: 16, color: Colors.red),
+                  label: const Text('Hủy',
+                      style: TextStyle(color: Colors.red)),
+                ),
               ],
             ),
           ),

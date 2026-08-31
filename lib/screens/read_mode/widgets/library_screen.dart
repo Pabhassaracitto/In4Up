@@ -264,6 +264,8 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       onPickLocalText: _handlePickLocalText,
       onPickPdf: _handlePickPdf,
       onOpenCloud: _handleOpenCloud,
+      onScanFolder: _handleScanFolder,
+      onPickMultiple: _handlePickMultipleTexts,
     );
   }
 
@@ -307,6 +309,131 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
     await _service.addOrUpdate(file);
     if (!mounted) return;
     await _load();
+  }
+
+  static const _scanExts = {
+    '.txt',
+    '.lrc',
+    '.srt',
+    '.md',
+    '.markdown',
+    '.json',
+    '.docx',
+    '.pdf',
+  };
+
+  Future<void> _ingestLocalPaths(List<String> paths) async {
+    if (paths.isEmpty) return;
+    var added = 0;
+    String? firstTextPath;
+    String? firstPdfPath;
+    for (final raw in paths) {
+      final ext = p.extension(raw).toLowerCase();
+      if (!_scanExts.contains(ext)) continue;
+      if (ext == '.pdf') {
+        await _service.addOrUpdate(RecentFile.fromLocalPdf(raw));
+        firstPdfPath ??= raw;
+        added++;
+        continue;
+      }
+      final path = await _persistLocalText(raw);
+      await _service.addOrUpdate(RecentFile.fromLocalText(path));
+      firstTextPath ??= path;
+      added++;
+    }
+    if (!mounted) return;
+    await _load();
+    if (added == 0) {
+      _showOpenError(
+        'Không thấy file đọc (.txt .md .docx .pdf .lrc .srt). '
+        'Thẻ SD có thể trống với app — hãy Chọn nhiều file.',
+      );
+      return;
+    }
+    _tabCtrl.animateTo(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.uiText('Đã thêm $added tài liệu'))),
+    );
+    if (firstTextPath != null) {
+      final tp = context.read<TextProvider>();
+      await tp.loadTextFile(firstTextPath);
+    } else if (firstPdfPath != null && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PdfReaderScreen(pdfPath: firstPdfPath!),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handlePickMultipleTexts() async {
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const [
+          'txt',
+          'lrc',
+          'srt',
+          'md',
+          'markdown',
+          'json',
+          'docx',
+          'pdf',
+        ],
+        allowMultiple: true,
+      );
+    } catch (e) {
+      debugPrint('[LibraryScreen] multi pick error: $e');
+      return;
+    }
+    final paths = result?.files
+            .map((f) => f.path)
+            .whereType<String>()
+            .where((p) => p.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    await _ingestLocalPaths(paths);
+  }
+
+  Future<void> _handleScanFolder() async {
+    String? dirPath;
+    try {
+      dirPath = await FilePicker.getDirectoryPath();
+    } catch (e) {
+      debugPrint('[LibraryScreen] scan folder error: $e');
+      return;
+    }
+    if (dirPath == null || dirPath.isEmpty) return;
+
+    final found = <String>[];
+    try {
+      await for (final entity in Directory(dirPath).list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File) continue;
+        final ext = p.extension(entity.path).toLowerCase();
+        if (_scanExts.contains(ext)) found.add(entity.path);
+        if (found.length >= 200) break;
+      }
+    } catch (e) {
+      debugPrint('[LibraryScreen] list dir error: $e');
+    }
+
+    if (found.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Thư mục trống với app (Android/SAF?). Chọn nhiều file thay thế.',
+          ),
+        ),
+      );
+      await _handlePickMultipleTexts();
+      return;
+    }
+    await _ingestLocalPaths(found);
   }
 
   // ── Pick PDF ───────────────────────────────────────────────
@@ -1124,6 +1251,8 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
         if (mounted) _tabCtrl.animateTo(0);
       },
       onOpenFile: _openFile,
+      onPickMultiple: _handlePickMultipleTexts,
+      onScanFolder: _handleScanFolder,
     );
   }
 
@@ -1310,11 +1439,15 @@ class _DeviceTab extends StatefulWidget {
   final String searchQuery;
   final Future<void> Function(RecentFile) onFilePicked;
   final Future<void> Function(RecentFile) onOpenFile;
+  final Future<void> Function() onPickMultiple;
+  final Future<void> Function() onScanFolder;
 
   const _DeviceTab({
     required this.searchQuery,
     required this.onFilePicked,
     required this.onOpenFile,
+    required this.onPickMultiple,
+    required this.onScanFolder,
   });
 
   @override
@@ -1411,6 +1544,38 @@ class _DeviceTabState extends State<_DeviceTab> {
           color: const Color(0xFF4CAF50),
           loading: _picking,
           onTap: () => _pickFile(isPdf: false),
+        ),
+        const SizedBox(height: 10),
+        _DevicePickButton(
+          icon: Icons.library_add_rounded,
+          label: 'Chọn nhiều file',
+          subtitle: 'Thêm hàng loạt vào thư viện đọc',
+          color: const Color(0xFF26A69A),
+          loading: _picking,
+          onTap: () async {
+            setState(() => _picking = true);
+            try {
+              await widget.onPickMultiple();
+            } finally {
+              if (mounted) setState(() => _picking = false);
+            }
+          },
+        ),
+        const SizedBox(height: 10),
+        _DevicePickButton(
+          icon: Icons.folder_open_rounded,
+          label: 'Quét thư mục',
+          subtitle: 'Tìm văn bản / PDF trong thư mục đã chọn',
+          color: const Color(0xFFFF9800),
+          loading: _picking,
+          onTap: () async {
+            setState(() => _picking = true);
+            try {
+              await widget.onScanFolder();
+            } finally {
+              if (mounted) setState(() => _picking = false);
+            }
+          },
         ),
       ],
     );
@@ -1775,12 +1940,6 @@ class _SectionHeader extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
- ),
         ],
       ),
     );

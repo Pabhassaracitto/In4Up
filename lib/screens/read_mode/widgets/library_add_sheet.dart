@@ -101,7 +101,7 @@ class LibraryAddSheet extends StatelessWidget {
           _OptionTile(
             icon: Icons.upload_file_rounded,
             label: 'File từ thiết bị',
-            description: 'TXT · LRC · SRT',
+            description: 'TXT · MD · DOCX · LRC · SRT',
             color: const Color(0xFF4CAF50),
             onTap: () {
               Navigator.pop(context);
@@ -110,7 +110,31 @@ class LibraryAddSheet extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // ── Option 3: PDF ────────────────────────────────────
+          _OptionTile(
+            icon: Icons.library_add_rounded,
+            label: 'Chọn nhiều file',
+            description: 'Thêm hàng loạt vào thư viện đọc',
+            color: const Color(0xFF26A69A),
+            onTap: () {
+              Navigator.pop(context);
+              onPickMultiple();
+            },
+          ),
+          const SizedBox(height: 10),
+
+          _OptionTile(
+            icon: Icons.folder_open_rounded,
+            label: 'Quét thư mục',
+            description: 'Tìm .txt .md .docx .pdf .lrc .srt trong thư mục',
+            color: const Color(0xFFFF9800),
+            onTap: () {
+              Navigator.pop(context);
+              onScanFolder();
+            },
+          ),
+          const SizedBox(height: 10),
+
+          // ── Option: PDF ────────────────────────────────────
           _OptionTile(
             icon: Icons.picture_as_pdf_rounded,
             label: 'File PDF',
@@ -119,19 +143,6 @@ class LibraryAddSheet extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               onPickPdf();
-            },
-          ),
-          const SizedBox(height: 10),
-
-          // ── Option 4: Cloud ──────────────────────────────────
-          _OptionTile(
-            icon: Icons.cloud_download_rounded,
-            label: 'Thư viện Cloud',
-            description: 'Văn bản đã lưu trên Firebase',
-            color: const Color(0xFF2196F3),
-            onTap: () {
-              Navigator.pop(context);
-              onOpenCloud();
             },
           ),
 

@@ -437,7 +437,13 @@ class TranslationService {
     TranslationResult? sentenceFailure;
     final hymt = _hymt;
     final pref = _offlineEnginePref;
-    if (hymt != null && pref != HyMtOfflinePreference.mlkit) {
+    // Hy-MT is the offline GGUF engine. When the user turns OFF
+    // "Chỉ dùng dịch offline", skip it so a missing llama.cpp native
+    // cannot block Google/ML Kit or surface "Hy-MT native không load được".
+    final hymtReady = hymt != null &&
+        pref != HyMtOfflinePreference.mlkit &&
+        await hymt.isAvailable();
+    if (hymt != null && hymtReady && _offlineOnly) {
       try {
         final result = await hymt
             .translate(

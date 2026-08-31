@@ -25,6 +25,7 @@ import '../word_lookup/word_analysis_sheet.dart';
 import 'models/yt_video.dart';
 import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
+import 'yt_embed.dart';
 
 // ─── Word knowledge state ─────────────────────────────────
 enum WordState { unknown, known, learning, ignored }
@@ -151,6 +152,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _ytCtrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
+      ..setUserAgent(YtEmbed.userAgent)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
@@ -164,10 +166,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           final time = double.tryParse(msg.message) ?? 0;
           _updateTime(time);
         },
-      )
-      ..loadRequest(Uri.parse(
-          'https://www.youtube.com/embed/${widget.video.id}'
-          '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1&origin=https://www.youtube.com'));
+      );
+    YtEmbed.load(_ytCtrl, widget.video.id);
   }
 
   void _injectSyncScript() {

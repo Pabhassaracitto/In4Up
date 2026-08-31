@@ -1,4 +1,6 @@
 // lib/screens/read_mode/sheets/read_settings_sheet.dart
+import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -11,6 +13,7 @@ import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+import '../models/playback_recipe.dart';
 import '../services/playback_controller.dart';
 
 class ReadSettingsSheet {
@@ -1764,6 +1767,32 @@ class _SubModeSelector extends StatelessWidget {
   final TextProvider tp;
   const _SubModeSelector({required this.tp});
 
+  void _apply(BuildContext context, ReadSubMode mode) {
+    tp.setSubMode(mode);
+    final playback = context.read<PlaybackController>();
+    switch (mode) {
+      case ReadSubMode.reading:
+        unawaited(playback.updateRecipe(PlaybackRecipe.enOnly));
+        tp.setTranslationDisplayMode(TranslationDisplayMode.hidden);
+        break;
+      case ReadSubMode.listening:
+        unawaited(playback.updateRecipe(PlaybackRecipe.enOnly));
+        break;
+      case ReadSubMode.translation:
+        unawaited(playback.updateRecipe(PlaybackRecipe.bilingual));
+        tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+        if (!tp.translationPairUsesSameLanguage &&
+            tp.translatedLineCount == 0 &&
+            !tp.isTranslating) {
+          unawaited(tp.translateAll());
+        }
+        break;
+      case ReadSubMode.driving:
+        unawaited(playback.updateRecipe(PlaybackRecipe.enOnly));
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1777,26 +1806,30 @@ class _SubModeSelector extends StatelessWidget {
           _SubModeItem(
             icon: Icons.menu_book,
             label: 'Chế độ Đọc',
+            subtitle: 'Play = nghe ngôn ngữ nguồn. Dịch là nút riêng.',
             isSelected: tp.subMode == ReadSubMode.reading,
-            onTap: () => tp.setSubMode(ReadSubMode.reading),
+            onTap: () => _apply(context, ReadSubMode.reading),
           ),
           _SubModeItem(
             icon: Icons.record_voice_over,
             label: 'Chế độ Nghe (TTS)',
+            subtitle: 'Chỉ phát văn bản. Piper nếu đã import giọng.',
             isSelected: tp.subMode == ReadSubMode.listening,
-            onTap: () => tp.setSubMode(ReadSubMode.listening),
+            onTap: () => _apply(context, ReadSubMode.listening),
           ),
           _SubModeItem(
             icon: Icons.translate,
             label: 'Chế độ Dịch',
+            subtitle: 'Hiện bản dịch. Play vẫn nghe nguồn ngay, dịch chạy nền.',
             isSelected: tp.subMode == ReadSubMode.translation,
-            onTap: () => tp.setSubMode(ReadSubMode.translation),
+            onTap: () => _apply(context, ReadSubMode.translation),
           ),
           _SubModeItem(
             icon: Icons.directions_car,
             label: 'Chế độ Lái xe',
+            subtitle: 'Chỉ nghe nguồn, không chờ dịch.',
             isSelected: tp.subMode == ReadSubMode.driving,
-            onTap: () => tp.setSubMode(ReadSubMode.driving),
+            onTap: () => _apply(context, ReadSubMode.driving),
           ),
         ],
       ),
@@ -1807,12 +1840,14 @@ class _SubModeSelector extends StatelessWidget {
 class _SubModeItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? subtitle;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _SubModeItem({
     required this.icon,
     required this.label,
+    this.subtitle,
     required this.isSelected,
     required this.onTap,
   });
@@ -1826,6 +1861,12 @@ class _SubModeItem extends StatelessWidget {
           style: TextStyle(
               color: isSelected ? Colors.white : Colors.grey[400],
               fontSize: 14)),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              context.uiText(subtitle!),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            ),
       trailing: isSelected
           ? const Icon(Icons.check_circle, color: Color(0xFF2196F3), size: 18)
           : null,

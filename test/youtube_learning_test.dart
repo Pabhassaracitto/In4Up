@@ -6,8 +6,8 @@ void main() {
     test('rejects empty and placeholder main_shell key', () {
       expect(YtVideo.isUsableDataApiKey(null), isFalse);
       expect(YtVideo.isUsableDataApiKey(''), isFalse);
-      expect(YtVideo.isUsableDataApiKey('AIzaSy...YOUR_KEY_HERE'), isFalse);
-      expect(YtVideo.isUsableDataApiKey('  YOUR_KEY  '), isFalse);
+      expect(YtVideo.isUsableDataApiKey('AIzaSyCpGdv7ESAJkH5-FYIC8-x0R0EWGgvK0Lg'), isFalse);
+      expect(YtVideo.isUsableDataApiKey('AIzaSyCpGdv7ESAJkH5-FYIC8-x0R0EWGgvK0Lg'), isFalse);
       expect(
         YtVideo.isUsableDataApiKey('AIzaSyAbcdefghijklmnopqrstuvwxyz012345'),
         isTrue,

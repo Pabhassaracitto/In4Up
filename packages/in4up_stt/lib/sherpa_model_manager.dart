@@ -128,6 +128,14 @@ class SherpaModelManager {
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/'
       'vits-piper-$voice.tar.bz2';
 
+  /// Shared by every Piper voice (k2-fsa). ~1–2MB — not a full voice bundle.
+  static const List<String> espeakArchiveUrls = [
+    'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/'
+        'espeak-ng-data.tar.bz2',
+  ];
+
+  static const String safEmptyPrefix = 'SAF_EMPTY:';
+
   final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 45),
@@ -231,9 +239,7 @@ class SherpaModelManager {
       final voices = await SherpaPiperTtsCore.discoverVoices();
       final piperDir = Directory(
           p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
-      final espeakOk = Directory(
-              p.join(piperDir.path, SherpaPiperTtsCore.espeakDataFolder))
-          .existsSync();
+      final espeakOk = _espeakPhontabReady(piperDir.path);
       _piperState.add(SherpaPiperInfo(
         espeakInstalled: espeakOk,
         voices: voices,
@@ -386,6 +392,16 @@ class SherpaModelManager {
     return dir.path;
   }
 
+  bool _espeakPhontabReady(String piperDir) {
+    final phontab = File(
+      p.join(piperDir, SherpaPiperTtsCore.espeakDataFolder, 'phontab'),
+    );
+    return phontab.existsSync() && phontab.lengthSync() > 64;
+  }
+
+  Future<bool> get hasEspeak async =>
+      _espeakPhontabReady(await _piperDir());
+
   bool _isOnnxModelName(String name) => PiperImportPaths.isOnnxModelName(name);
 
   Future<bool> _tryCopyFile(String fromPath, String toPath) async {
@@ -492,6 +508,176 @@ class SherpaModelManager {
     return false;
   }
 
+  Future<String> _ensureEspeakAfterImport(String prefix) async {
+    await rescan();
+    if (piperInfo.espeakInstalled) return prefix;
+    final fetched = await downloadEspeakData();
+    await rescan();
+    if (piperInfo.espeakInstalled) {
+      return '$prefix · đã tải espeak-ng-data (phonemizer dùng chung mọi giọng)';
+    }
+    return '$prefix · $fetched';
+  }
+
+  /// Download k2-fsa `espeak-ng-data.tar.bz2` (shared phonemizer). User-tap only.
+  Future<String> downloadEspeakData() async {
+    if (await hasEspeak) return 'espeak-ng-data đã có';
+    if (piperInfo.isDownloading) {
+      return 'Đang tải Piper — đợi xong rồi bấm Tải phonemizer.';
+    }
+
+    final token = CancelToken();
+    _piperToken = token;
+    _piperState.add(_piperState.value.copyWith(
+      status: SherpaModelStatus.downloading,
+      clearError: true,
+    ));
+
+    try {
+      final docs = await _documents();
+      final downloadsDir = Directory(p.join(docs, 'downloads'));
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      final savePath = p.join(downloadsDir.path, 'espeak-ng-data.tar.bz2');
+      final tmpPath = '$savePath.tmp';
+      String lastError = '';
+      var ok = false;
+
+      for (final url in espeakArchiveUrls) {
+        if (ok || token.isCancelled) break;
+        try {
+          debugPrint('📥 Download espeak-ng-data từ: $url');
+          await _dio.download(
+            url,
+            tmpPath,
+            cancelToken: token,
+            deleteOnError: true,
+            onReceiveProgress: (received, total) {
+              if (total > 0) {
+                _piperState.add(_piperState.value
+                    .copyWith(downloadProgress: received / total));
+              }
+            },
+          );
+          final tmp = File(tmpPath);
+          if (!await tmp.exists() || tmp.lengthSync() < 20 * 1024) {
+            lastError =
+                'Archive quá nhỏ (${tmp.existsSync() ? tmp.lengthSync() : 0} bytes)';
+            try {
+              await tmp.delete();
+            } catch (_) {}
+            continue;
+          }
+          await _replaceFile(tmpPath, savePath);
+          ok = true;
+        } on DioException catch (e) {
+          if (CancelToken.isCancel(e)) break;
+          lastError = 'HTTP ${e.response?.statusCode ?? '-'} ${e.message}';
+        } catch (e) {
+          lastError = '$e';
+        }
+      }
+
+      if (!ok) {
+        _piperState.add(_piperState.value.copyWith(
+          status: SherpaModelStatus.notInstalled,
+          errorMessage:
+              'Không tải được espeak-ng-data. $lastError. Thử Wi-Fi.',
+        ));
+        return 'Không tải được espeak-ng-data. $lastError';
+      }
+
+      final extractDir = p.join(downloadsDir.path, 'espeak-ng-data-extracted');
+      final extract = Directory(extractDir);
+      if (await extract.exists()) await extract.delete(recursive: true);
+      await extract.create(recursive: true);
+      await _extractTarBz2(savePath, extractDir);
+
+      var src = Directory(p.join(extractDir, PiperImportPaths.espeakFolder));
+      if (!src.existsSync()) {
+        final listing = await _walkPaths(extractDir);
+        for (final f in listing) {
+          if (p.basename(f).toLowerCase() == 'phontab') {
+            src = Directory(p.dirname(f));
+            break;
+          }
+        }
+      }
+      final copied = await _copyEspeakTree(src);
+      try {
+        await File(savePath).delete();
+      } catch (_) {}
+      try {
+        await extract.delete(recursive: true);
+      } catch (_) {}
+
+      await rescan();
+      if (copied > 0 && piperInfo.espeakInstalled) {
+        debugPrint('✅ espeak-ng-data: $copied files');
+        return '✅ Đã cài espeak-ng-data ($copied file)';
+      }
+      return 'Giải nén espeak nhưng không thấy phontab';
+    } catch (e) {
+      _piperState.add(_piperState.value.copyWith(
+        status: SherpaModelStatus.error,
+        errorMessage: 'Lỗi tải espeak-ng-data: $e',
+      ));
+      return 'Lỗi tải espeak-ng-data: $e';
+    } finally {
+      _piperToken = null;
+      if (_piperState.value.isDownloading) await rescan();
+    }
+  }
+
+  /// Copy named blobs (Android SAF often has bytes but no readable path).
+  Future<String> importPiperNamedBytes(Map<String, Uint8List> files) async {
+    if (files.isEmpty) return 'Chưa chọn file nào';
+    final destDir = await _piperDir();
+    var onnx = 0;
+    Uint8List? archive;
+    var archiveName = '';
+    for (final entry in files.entries) {
+      final name = p.basename(entry.key);
+      final bytes = entry.value;
+      if (bytes.isEmpty) continue;
+      if (PiperImportPaths.isPiperArchiveName(name) && archive == null) {
+        archive = bytes;
+        archiveName = name;
+        continue;
+      }
+      if (PiperImportPaths.isEspeakLeafName(name)) {
+        final dest = File(p.join(destDir, PiperImportPaths.espeakFolder, name));
+        await dest.parent.create(recursive: true);
+        await dest.writeAsBytes(bytes, flush: true);
+        continue;
+      }
+      if (!_isOnnxModelName(name) &&
+          !PiperImportPaths.isTokensName(name) &&
+          !PiperImportPaths.isOnnxJsonName(name)) {
+        continue;
+      }
+      final dest = File(p.join(destDir, name));
+      await dest.writeAsBytes(bytes, flush: true);
+      if (_isOnnxModelName(name)) onnx++;
+    }
+    if (onnx == 0 && archive != null) {
+      final extractDir = p.join(destDir, '_archive_extract');
+      await Directory(extractDir).create(recursive: true);
+      final tmp = File(p.join(extractDir, archiveName));
+      await tmp.writeAsBytes(archive, flush: true);
+      if (archiveName.toLowerCase().endsWith('.tar.bz2')) {
+        await _extractTarBz2(tmp.path, extractDir);
+      }
+      return importPiperFolder(extractDir);
+    }
+    if (onnx == 0) {
+      return 'Thiếu file .onnx — chọn .onnx + tokens.txt (và .onnx.json nếu có).';
+    }
+    await _normalizeSharedTokens(destDir);
+    return _ensureEspeakAfterImport('✅ Đã import $onnx file model');
+  }
+
   Future<String> importPiperFiles(List<String> paths) async {
     if (paths.isEmpty) return 'Chưa chọn file nào';
     final destDir = await _piperDir();
@@ -537,14 +723,9 @@ class SherpaModelManager {
       return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json]). '
           'espeak-ng-data lấy tự động nếu nằm cạnh file.';
     }
-    final espeak = await _importEspeakNear(paths);
+    await _importEspeakNear(paths);
     await _normalizeSharedTokens(destDir);
-    await rescan();
-    final espeakNote = espeak || piperInfo.espeakInstalled
-        ? ' · đã lấy espeak-ng-data cạnh file'
-        : ' · nếu báo thiếu espeak: Import thư mục vits-piper-* '
-            '(chứa espeak-ng-data) một lần — phonemizer dùng chung mọi giọng';
-    return '✅ Đã import $onnx file model$espeakNote';
+    return _ensureEspeakAfterImport('✅ Đã import $onnx file model');
   }
 
   Future<String> importPiperFolder(String folderPath) async {
@@ -616,13 +797,12 @@ class SherpaModelManager {
           return importPiperFolder(parent.path);
         }
       }
-      final preview = seen.isEmpty
-          ? '(thư mục trống với app — Android/SAF?)'
-          : seen.join(', ');
+      if (seen.isEmpty) {
+        return '$safEmptyPrefix$folderPath';
+      }
       return 'Không tìm thấy file .onnx trong "$folderPath". '
-          'App thấy: $preview. '
-          'Hãy Import file: chọn .onnx + tokens.txt trong cùng thư mục '
-          '(app tự lấy espeak-ng-data cạnh đó), hoặc bấm Tải giọng.';
+          'App thấy: ${seen.join(', ')}. '
+          'Hãy Import file (.onnx + tokens.txt) hoặc Tải phonemizer.';
     }
 
     if (copiedEspeak == 0) {
@@ -630,12 +810,13 @@ class SherpaModelManager {
     }
 
     await _normalizeSharedTokens(destDir);
-    await rescan();
     debugPrint(
         '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
         '$copiedJson json, $copiedEspeak espeak files');
-    return '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
-        '$copiedJson config — sẵn sàng dùng.';
+    return _ensureEspeakAfterImport(
+      '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
+      '$copiedJson config',
+    );
   }
 
   Future<void> _normalizeSharedTokens(String destDir) async {

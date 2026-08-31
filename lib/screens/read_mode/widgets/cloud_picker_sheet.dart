@@ -66,8 +66,8 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
     await _recentSvc.addOrUpdate(file);
 
     if (!mounted) return;
-    // Trả về true → caller biết đã load xong
-    Navigator.pop(context, true);
+    final nav = Navigator.of(context);
+    if (nav.canPop()) nav.pop(true);
   }
 
   @override

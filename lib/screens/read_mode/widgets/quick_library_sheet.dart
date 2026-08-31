@@ -55,18 +55,18 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
 
   // ── Mở file ─────────────────────────────────────────────────
   Future<void> _openFile(RecentFile file) async {
-    // Lưu refs TRƯỚC khi await
+    // Capture before closing the sheet — after pop this State is unmounted.
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
+    final cloudId = file.cloudId;
+    final localPath = file.localPath;
 
-    // Đóng sheet trước
-    nav.pop();
+    if (nav.canPop()) nav.pop();
 
     switch (file.type) {
       case RecentFileType.localText:
-        if (file.localPath == null) return;
-        await tp.loadTextFile(file.localPath!);
-        if (!mounted) return;
+        if (localPath == null) return;
+        await tp.loadTextFile(localPath);
         await _service.addOrUpdate(
           file.copyWith(
             lastOpened: DateTime.now(),
@@ -76,49 +76,29 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
         break;
 
       case RecentFileType.localPdf:
-        if (file.localPath == null) return;
+        if (localPath == null) return;
         await _service.addOrUpdate(
           file.copyWith(lastOpened: DateTime.now()),
         );
-        if (!mounted) return;
         nav.push(MaterialPageRoute(
-          builder: (_) => PdfReaderScreen(pdfPath: file.localPath!),
+          builder: (_) => PdfReaderScreen(pdfPath: localPath),
         ));
         break;
 
       case RecentFileType.cloud:
-        if (!mounted) return;
-
-        // Đóng QuickLibrarySheet trước
-        Navigator.pop(context);
-
-        // Mở CloudPickerSheet với cloudId được lọc sẵn
-        if (file.cloudId != null) {
-          // Load trực tiếp từ Firestore theo id
-          final svc = TextLibraryService();
-          final entry = await svc.getById(file.cloudId!);
-          if (!mounted) return;
-
-          if (entry != null) {
-            final tp = context.read<TextProvider>();
-            tp.loadFromString(
-              entry.content,
-              title: entry.title,
-              sourceType: TextSourceType.cloud,
-              cloudId: entry.id,
-              category: entry.category,
-            );
-
-            // Cập nhật recent
-            await _service.addOrUpdate(
-              file.copyWith(lastOpened: DateTime.now()),
-            );
-          } else {
-            // Entry bị xóa khỏi cloud → mở CloudPickerSheet để chọn lại
-            if (mounted) {
-              CloudPickerSheet.show(context);
-            }
-          }
+        if (cloudId == null) return;
+        final entry = await TextLibraryService().getById(cloudId);
+        if (entry != null) {
+          tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
+          await _service.addOrUpdate(
+            file.copyWith(lastOpened: DateTime.now()),
+          );
         }
         break;
     }
@@ -127,7 +107,8 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
   // ── Về thư viện đầy đủ ──────────────────────────────────────
   void _openFullLibrary() {
     final tp = context.read<TextProvider>();
-    Navigator.pop(context); // đóng sheet
+    final nav = Navigator.of(context);
+    if (nav.canPop()) nav.pop();
     // Clear text → ReadModeScreen sẽ tự hiện ReadLibraryScreen
     tp.clearText();
   }

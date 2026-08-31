@@ -52,7 +52,7 @@
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
-| YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 (6 file + test); seek, lặp câu, WordList, Nghe, song ngữ timedtext (chờ nghiệm thu thiết bị) |
+| YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 
 ---
 
@@ -1239,6 +1239,13 @@
   - 2026-08-31 | proposed→done | agent arena/01a0251e-in4up | nghiệm thu 01a01580:
     19f6c3a thâu hoạch a8d6170; c301004/cd8ee68/03e7ea0 xác nhận đã có sẵn
     (bỏ tail hỏng của c301004 trong library_screen.dart — bug nhánh nguồn)
+  - 2026-08-31 | done→done | agent arena/01a0251e-in4up | CI ĐỎ 33355151360 —
+    root cause: 19f6c3a gọi `_fetchTimedtextTranslated` trong
+    fetchBilingualCaptions nhưng phương thức KHÔNG ĐỊNH NGHĨA ở bất kỳ đâu
+    trong nhánh nguồn (nhánh 01a01580 compile lỗi ở tip). Bổ sung a3c8a1a
+    (timedtext API + tlang + srv3, theo style _fetchTimedtext) → CI XANH
+    33355331358. Chờ nghiệm thu thiết bị (mở video → Học video → phụ đề
+    song ngữ + lặp câu + tap từ + Mở trong tab Nghe)
 
 ### HARVEST-1580-02 — Rà soát tổng thể 580 vs DEV (2026-08-30)
 - **Trạng thái:** done — 580 KHÔNG CÒN việc pending.

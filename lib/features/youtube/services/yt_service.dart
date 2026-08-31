@@ -300,6 +300,25 @@ class YtService {
     return _parseXml(resp.body);
   }
 
+  /// Timedtext với tham số tlang — YouTube tự dịch phụ đề nguồn `lang`
+  /// sang `tlang` (dùng khi video không có phụ đề tlang được làm sẵn).
+  /// Bù cho call `_fetchTimedtextTranslated` bị thiếu định nghĩa trong
+  /// 19f6c3a của 01a01580 (chi nhánh nguồn compile lỗi — CI đỏ).
+  Future<List<YtCaptionLine>> _fetchTimedtextTranslated(
+      String videoId, String lang, String tlang) async {
+    final uri = Uri.parse(
+      'https://www.youtube.com/api/timedtext'
+      '?v=$videoId&lang=$lang&tlang=$tlang&fmt=srv3',
+    );
+    final resp = await http.get(uri, headers: {
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    }).timeout(const Duration(seconds: 12));
+
+    if (resp.statusCode != 200 || resp.body.trim().isEmpty) return [];
+    return _parseXml(resp.body);
+  }
+
   // ─── Tầng 3: page HTML ────────────────────────────────
 
   Future<List<YtCaptionLine>> _fetchFromPageHtml(

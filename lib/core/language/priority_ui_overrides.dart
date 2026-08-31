@@ -174,6 +174,13 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '匯入檔案',
     'si': 'ගොනු ආනයනය',
   },
+  'Tải phonemizer': {
+    'en': 'Download phonemizer',
+    'hi': 'फ़ोनमाइज़र डाउनलोड',
+    'zh': '下载音素器',
+    'zh_TW': '下載音素器',
+    'si': 'phonemizer බාගන්න',
+  },
   'Tải giọng': {
     'en': 'Download voice',
     'hi': 'आवाज़ डाउनलोड',

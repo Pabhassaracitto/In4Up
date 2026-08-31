@@ -107,7 +107,8 @@ class SherpaPiperTtsCore {
     try {
       final dir = await _modelsDir();
       final dataDir = p.join(dir.path, espeakDataFolder);
-      final dataOk = Directory(dataDir).existsSync();
+      final phontab = File(p.join(dataDir, 'phontab'));
+      final dataOk = phontab.existsSync() && phontab.lengthSync() > 64;
 
       final files = dir.listSync(followLinks: true);
       final onnxFiles = <File>[];

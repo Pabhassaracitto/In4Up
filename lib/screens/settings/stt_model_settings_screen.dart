@@ -1,5 +1,7 @@
 // lib/screens/settings/stt_model_settings_screen.dart
 
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
 // nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
@@ -741,9 +743,9 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                 const SizedBox(height: 8),
                 _EspeakRow(
                   installed: info.espeakInstalled,
-                  onDownload: info.espeakInstalled
+                  onDownload: info.espeakInstalled || info.isDownloading
                       ? null
-                      : () => _downloadPiperBundle(context),
+                      : () => _downloadEspeak(context),
                 ),
 
                 // Danh sách giọng đã cài
@@ -1013,7 +1015,7 @@ class _EspeakRow extends StatelessWidget {
         if (!installed && onDownload != null)
           TextButton(
             onPressed: onDownload,
-            child: const Text('Tải (qua bundle)'),
+            child: const Text('Tải phonemizer'),
           ),
       ],
     );

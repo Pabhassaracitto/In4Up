@@ -1,10 +1,14 @@
 // lib/features/translation/translation_toolbar.dart
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/hymt_engine.dart';
+import 'engines/mlkit_engine.dart';
+import 'glossary/glossary_sheet.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
@@ -245,30 +249,164 @@ class TranslationToolbar extends StatelessWidget {
     // ★ SỬA 1: Tạo instance, không dùng static
     final service = TranslationService();
 
-    final urlController = TextEditingController(
-      text: service.deeplxUrl ?? '',
-    );
-
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 20,
+      builder: (ctx) => _TranslationEngineSettings(
+        service: service,
+        accentColor: primaryColor,
+      ),
+    );
+  }
+}
+
+/// Sheet "Cài đặt engine dịch": DeepLX URL + gói ML Kit offline (tải khi
+/// user bấm — không auto-download) + chế độ chỉ-offline + màn Thuật ngữ.
+class _TranslationEngineSettings extends StatefulWidget {
+  final TranslationService service;
+  final Color accentColor;
+
+  const _TranslationEngineSettings({
+    required this.service,
+    required this.accentColor,
+  });
+
+  @override
+  State<_TranslationEngineSettings> createState() =>
+      _TranslationEngineSettingsState();
+}
+
+class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> {
+  late final TextEditingController _urlController =
+      TextEditingController(text: widget.service.deeplxUrl ?? '');
+
+  // Ngôn ngữ có thể tải model ML Kit cho pipeline hiện tại:
+  // EN ↔ VI, EN ↔ HI; HI ↔ VI pivot qua EN.
+  static const _mlkitCodes = <String>['EN', 'VI', 'HI'];
+  final Map<String, bool> _modelDownloaded = <String, bool>{};
+  final Map<String, bool> _downloading = <String, bool>{};
+  bool? _offlineOnly;
+  HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
+  bool _hymtHas = false;
+  bool _hymtBusy = false;
+  double _hymtProgress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _offlineOnly = widget.service.offlineOnly;
+    _enginePref = widget.service.offlineEnginePref;
+    _loadModels();
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadModels() async {
+    final hymt = widget.service.hymt;
+    if (hymt != null) {
+      _hymtHas = await hymt.hasModel;
+    }
+    final mlkit = widget.service.mlkit;
+    if (MlKitEngine.platformSupported) {
+      for (final code in _mlkitCodes) {
+        final language = MlKitEngine.languageForCode(code);
+        if (language == null) {
+          _modelDownloaded[code] = false;
+          continue;
+        }
+        _modelDownloaded[code] = await mlkit.isModelDownloaded(language.bcpCode);
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _downloadModel(String code) async {
+    final language = MlKitEngine.languageForCode(code);
+    if (language == null) return;
+    setState(() => _downloading[code] = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final ok = await widget.service.mlkit.downloadModel(language.bcpCode);
+      _modelDownloaded[code] = ok;
+      if (!ok) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText('Lỗi tải gói $code'),
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText('Đã tải gói $code'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            context.uiText('Lỗi tải gói $code'),
+          ),
+          backgroundColor: Colors.redAccent,
         ),
+      );
+    }
+    if (mounted) setState(() => _downloading[code] = false);
+  }
+
+  Future<void> _deleteModel(String code) async {
+    final language = MlKitEngine.languageForCode(code);
+    if (language == null) return;
+    final ok = await widget.service.mlkit.deleteModel(language.bcpCode);
+    if (!mounted) return;
+    setState(() => _modelDownloaded[code] = !ok);
+  }
+
+  String _modelLabel(String code) {
+    switch (code) {
+      case 'EN':
+        return 'English';
+      case 'VI':
+        return context.uiText('Tiếng Việt');
+      case 'HI':
+        return 'Hindi';
+      default:
+        return code;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mlkitSupported = MlKitEngine.platformSupported;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '⚙️ Engine dịch thuật',
-              style: TextStyle(
+            Text(
+              context.uiText('⚙️ Engine dịch thuật'),
+              style: const TextStyle(
                 fontSize: 18,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -276,7 +414,7 @@ class TranslationToolbar extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: urlController,
+              controller: _urlController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: context.uiText('DeepLX Server URL (tùy chọn)'),
@@ -285,25 +423,282 @@ class TranslationToolbar extends StatelessWidget {
                 hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
+              context.uiText(
+                'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
+              ),
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                service.configure(
-                  deeplxUrl: urlController.text.trim(),
-                );
-                Navigator.pop(ctx);
+            const SizedBox(height: 18),
+            // ── Gói dịch offline (ML Kit) ──────────────────────────────
+            Text(
+              context.uiText('Gói dịch offline (ML Kit — Android/iOS)'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (!mlkitSupported)
+              Text(
+                context.uiText('ML Kit chỉ chạy trên Android/iOS.'),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              )
+            else ...[
+              for (final code in _mlkitCodes) _modelRow(code),
+              Text(
+                context.uiText(
+                  'Chỉ tải khi bạn bấm — không tự tải lúc mở app.',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text(
+              context.uiText('Hy-MT 1.5 (GGUF ~600MB, 33 ngôn ngữ)'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _hymtHas
+                  ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
+                  : context.uiText('Import file .gguf đã tải, hoặc bấm Tải về (~600MB, Wi-Fi). Không tự tải lúc mở app.'),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Tự chọn'),
+                  selected: _enginePref == HyMtOfflinePreference.auto,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.auto);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.auto;
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Hy-MT'),
+                  selected: _enginePref == HyMtOfflinePreference.hymt,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.hymt);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.hymt;
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('ML Kit'),
+                  selected: _enginePref == HyMtOfflinePreference.mlkit,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.mlkit);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.mlkit;
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_hymtBusy)
+              LinearProgressIndicator(
+                value: _hymtProgress > 0 ? _hymtProgress : null,
+                minHeight: 4,
+              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _hymtBusy ? null : _importHymt,
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Import .gguf'),
+                ),
+                TextButton.icon(
+                  onPressed: _hymtBusy ? null : _downloadHymt,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Tải về'),
+                ),
+                if (_hymtHas)
+                  IconButton(
+                    onPressed: _hymtBusy ? null : _deleteHymt,
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    color: Colors.grey,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // ── Chỉ offline ────────────────────────────────────────────
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                context.uiText('Chỉ dùng dịch offline'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Bỏ qua engine online (Hy-MT / ML Kit + từ điển).',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              value: _offlineOnly ?? false,
+              activeColor: widget.accentColor,
+              onChanged: (v) {
+                setState(() => _offlineOnly = v);
+                widget.service.offlineOnly = v;
               },
-              style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-              child: const Text('Lưu'),
+            ),
+            Divider(color: Colors.grey.shade800),
+            // ── Glossary ───────────────────────────────────────────────
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.bookmark_border, color: widget.accentColor),
+              title: Text(
+                context.uiText('Thuật ngữ dịch (glossary)'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Khóa thuật ngữ Phật học/Pali — engine không được đè.',
+                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () async {
+                await showGlossarySheet(context, accentColor: widget.accentColor);
+                if (mounted) setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    widget.service.configure(
+                      deeplxUrl: _urlController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                  },
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: widget.accentColor),
+                  child: const Text('Lưu'),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+
+  Future<void> _importHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    setState(() => _hymtBusy = true);
+    final err = await hymt.importFromUser();
+    if (!mounted) return;
+    _hymtHas = await hymt.hasModel;
+    setState(() => _hymtBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(err ?? 'Đã import Hy-MT')),
+      backgroundColor: err == null ? null : Colors.redAccent,
+    ));
+  }
+
+  Future<void> _downloadHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    setState(() {
+      _hymtBusy = true;
+      _hymtProgress = 0;
+    });
+    final timer = Stream.periodic(const Duration(milliseconds: 400), (_) {
+      if (mounted) setState(() => _hymtProgress = hymt.downloadProgress);
+    }).listen((_) {});
+    final err = await hymt.downloadModel();
+    await timer.cancel();
+    if (!mounted) return;
+    _hymtHas = await hymt.hasModel;
+    setState(() => _hymtBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(err ?? 'Đã tải Hy-MT')),
+      backgroundColor: err == null ? null : Colors.redAccent,
+    ));
+  }
+
+  Future<void> _deleteHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    await hymt.deleteModel();
+    if (!mounted) return;
+    setState(() => _hymtHas = false);
+  }
+
+  Widget _modelRow(String code) {
+    final downloaded = _modelDownloaded[code] ?? false;
+    final downloading = _downloading[code] ?? false;
+    final supported = MlKitEngine.supportsTranslationCode(code);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            child: downloading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    downloaded
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 14,
+                    color: downloaded ? Colors.green : Colors.grey,
+                  ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_modelLabel(code)} ($code)',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                Text(
+                  supported
+                      ? (downloaded
+                          ? context.uiText('Đã tải')
+                          : context.uiText('Chưa tải'))
+                      : context.uiText('Chưa hỗ trợ'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          if (supported)
+            TextButton(
+              onPressed: downloading ? null : () => _downloadModel(code),
+              child: Text(
+                downloading
+                    ? context.uiText('Đang tải...')
+                    : context.uiText('Tải về'),
+              ),
+            ),
+          if (supported && downloaded)
+            IconButton(
+              onPressed: () => _deleteModel(code),
+              icon: const Icon(Icons.delete_outline, size: 16),
+              tooltip: context.uiText('Xóa gói'),
+              color: Colors.grey,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
+        ],
       ),
     );
   }

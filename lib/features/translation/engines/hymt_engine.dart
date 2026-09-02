@@ -94,14 +94,12 @@ class HyMtEngine extends TranslationEngine {
     return _isGgufMagic(head);
   }
 
-  static bool _headIsGguf(String path) {
+  static Future<bool> _headIsGguf(String path) async {
     try {
-      final rand = File(path).openSync();
-      try {
-        return _isGgufMagic(rand.readBytesSync(4, 0));
-      } finally {
-        rand.closeSync();
-      }
+      // openRead(0, 4).first — pattern đã proof trong file này
+      // (importFromUser dùng openRead(0, 8)); chỉ đọc 4 byte đầu.
+      final head = await File(path).openRead(0, 4).first;
+      return _isGgufMagic(head);
     } catch (_) {
       return false;
     }
@@ -114,12 +112,12 @@ class HyMtEngine extends TranslationEngine {
     final saved = prefs.getString(_prefPath);
     if (saved != null && await File(saved).exists()) {
       final n = File(saved).lengthSync();
-      if (n >= minPlausibleBytes && _headIsGguf(saved)) return saved;
+      if (n >= minPlausibleBytes && await _headIsGguf(saved)) return saved;
     }
     final def = await defaultSavePath();
     if (await File(def).exists() &&
         File(def).lengthSync() >= minPlausibleBytes &&
-        _headIsGguf(def)) {
+        await _headIsGguf(def)) {
       return def;
     }
     return null;

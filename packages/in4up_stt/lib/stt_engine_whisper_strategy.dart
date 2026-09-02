@@ -66,6 +66,9 @@ class WhisperSttEngine implements SttEngine {
 
     // Mobile: dùng plugin (chunked progressive). Desktop: FFI/CLI.
     if (SttEngineWhisper.isMobilePluginSupported) {
+      // Align model file cho plugin (STT-CRASH-001) — fallback scan
+      // modelDir khi không có path verified.
+      SttEngineWhisper.ensurePluginModelFile(modelDir: modelDir, level: level);
       return SttEngineWhisper.transcribeMobileChunked(
         audioPath: audioPath,
         modelDir: modelDir,

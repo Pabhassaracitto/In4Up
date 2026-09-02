@@ -608,6 +608,73 @@ class SttEngineWhisper {
     }
   }
 
+  /// Đảm bảo file model mà plugin sẽ load — plugin HARD CODE
+  /// `<modelDir>/ggml-<model>.bin` (WhisperModel.getPath) — trùng với model
+  /// app đã verify.
+  ///
+  /// TẠI SAO CẦN (STT-CRASH-001, crash 2 — single request):
+  /// C++ của plugin KHÔNG check NULL sau whisper_init_from_file. Nếu file
+  /// plugin load bị thiếu/hỏng/sai bản thì init trả NULL → whisper_full(NULL)
+  /// → SIGSEGV SEGV_MAPERR 0x180. Tình huống thực tế trên máy user:
+  /// model manager verify `ggml-tiny-q5_1.bin` (32MB) nhưng plugin load
+  /// `ggml-tiny.bin` — file CŨ từ phiên bản app trước (user chỉ build lại,
+  /// không xóa app) có thể bị truncate/sai định dạng → init fail → crash
+  /// ngay chunk đầu, không cần race.
+  ///
+  /// Copy model đã verify (hoặc candidate hợp lệ lớn nhất) sang tên file
+  /// của plugin. Lặp lại mỗi lần transcribe — copySync no-op nếu size khớp.
+  static void ensurePluginModelFile({
+    required String modelDir,
+    required WhisperModelLevel level,
+    String? verifiedModelPath,
+  }) {
+    try {
+      final pluginName = 'ggml-${_mapToPluginModel(level).modelName}.bin';
+      final pluginFile = File(path.join(modelDir, pluginName));
+
+      File? preferred;
+      if (verifiedModelPath != null && verifiedModelPath.isNotEmpty) {
+        final v = File(verifiedModelPath);
+        if (v.existsSync() && v.lengthSync() > 1000000) preferred = v;
+      }
+      if (preferred == null) {
+        // Fallback: quét candidates (f32 trước, rồi quantized variants),
+        // chọn file hợp lệ đầu tiên.
+        final base = 'ggml-${_mapToPluginModel(level).modelName}';
+        final candidates = <String>[
+          pluginName,
+          ...['q5_1', 'q4_0', 'q5_0', 'q8_0'].map((q) => '$base-$q.bin'),
+        ];
+        for (final name in candidates) {
+          final f = File(path.join(modelDir, name));
+          if (f.existsSync() && f.lengthSync() > 1000000) {
+            preferred = f;
+            break;
+          }
+        }
+      }
+      if (preferred == null) return;
+
+      if (pluginFile.existsSync()) {
+        if (pluginFile.lengthSync() == preferred!.lengthSync()) return;
+        debugPrint(
+          '[Whisper] ⚠️ File plugin $pluginName '
+          '(size=${pluginFile.lengthSync()}) khác model đã verify '
+          '(${preferred.path}, size=${preferred.lengthSync()}) — copy đè để '
+          'tránh whisper_init_from_file trả NULL (SIGSEGV)',
+        );
+      } else {
+        debugPrint(
+            '[Whisper] File plugin $pluginName thiếu — copy từ ${preferred.path}');
+      }
+      preferred.copySync(pluginFile.path);
+      debugPrint(
+          '[Whisper] ✅ Model cho plugin: ${pluginFile.path} (size=${pluginFile.lengthSync()})');
+    } catch (e) {
+      debugPrint('[Whisper] ⚠️ Không align được model cho plugin: $e');
+    }
+  }
+
   /// Transcribe file trên Mobile (Main Thread) bằng plugin whisper_flutter_new.
   static Future<SttResult> transcribeMobile({
     required String audioPath,

@@ -1,4 +1,7 @@
 // lib/screens/settings/stt_model_settings_screen.dart
+// 2026-09-03: trigger CI root cho fix STT SIGSEGV crash 2 —
+// ensurePluginModelFile align ggml-<level>.bin với model manager đã verify
+// (packages/in4up_stt — ngoài paths của app_analyze.yml).
 
 import 'dart:typed_data';
 

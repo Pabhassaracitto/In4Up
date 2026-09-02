@@ -34,6 +34,75 @@ void main() {
       expect(AppUITranslations.translate('Ôn tập · SRS', 'zh'), '复习 · SRS');
     });
 
+    test('Listen titles and library labels leave Vietnamese behind', () {
+      expect(AppUITranslations.translate('🎧 Nghe', 'en'), '🎧 Listen');
+      expect(AppUITranslations.translate('🎧 Nghe', 'zh'), '🎧 听');
+      expect(AppUITranslations.translate('🎧 Nghe', 'si'), isNot('🎧 Nghe'));
+      expect(AppUITranslations.translate('Nghe', 'en'), 'Listen');
+      expect(AppUITranslations.translate('Gần đây', 'en'), 'Recent');
+      expect(AppUITranslations.translate('Gần đây', 'hi'), isNot('Gần đây'));
+      expect(AppUITranslations.translate('Thư viện', 'en'), 'Library');
+      expect(AppUITranslations.translate('Thư viện', 'zh_TW'), isNot('Thư viện'));
+      expect(AppUITranslations.translate('🎧 Thư viện nghe', 'en'), contains('Listen'));
+      expect(AppUITranslations.translate('Thư viện âm thanh', 'en'), 'Audio library');
+    });
+
+    test('Home settings leftovers fall back to English and fill priority locales', () {
+      expect(
+        AppUITranslations.translate(
+          'Siêu nhẹ (~31MB) - Nhanh, phù hợp ghi chú nhanh',
+          'en',
+        ),
+        isNot(contains('Siêu nhẹ')),
+      );
+      expect(
+        AppUITranslations.translate('Gemma — AI Chat (LLM offline)', 'en'),
+        'Gemma — AI Chat (offline LLM)',
+      );
+      expect(
+        AppUITranslations.translate('Silero VAD (Silero Voice Activity)', 'zh'),
+        contains('语音'),
+      );
+      expect(
+        AppUITranslations.translate('Tải Whisper SMALL?', 'en'),
+        'Download Whisper SMALL?',
+      );
+      expect(
+        AppUITranslations.translate('2 giọng', 'en'),
+        '2 voices',
+      );
+      expect(
+        AppUITranslations.translate(
+          'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
+          'si',
+        ),
+        isNot(contains('Chưa có')),
+      );
+    });
+
+    test('Audio TOC / Âm mục labels are not leftover Vietnamese', () {
+      expect(AppUITranslations.translate('Âm mục', 'en'), 'Audio outline');
+      expect(AppUITranslations.translate('Mục lục', 'en'), 'Contents');
+      expect(AppUITranslations.translate('Mục lục', 'zh'), '目录');
+      expect(
+        AppUITranslations.translate('Tự tạo mục lục  ·  VAD + Whisper', 'en'),
+        'Auto-build contents  ·  VAD + Whisper',
+      );
+      expect(AppUITranslations.translate('⚡ Tự tạo mục lục', 'hi'), isNot(contains('Tự tạo')));
+      const emptyToc =
+          'Chưa có mục lục.\nNhấn "⚡ Tự tạo mục lục" phía trên để app\n'
+          'tự tách đoạn theo khoảng lặng (VAD)\nvà đặt tên chương (Whisper).\n\n'
+          'Hoặc nhấn "＋ Chương" để tạo thủ công\n(tự neo vào vị trí đang nghe).';
+      expect(AppUITranslations.translate(emptyToc, 'en'), isNot(contains('Chưa có mục lục')));
+      expect(AppUITranslations.translate(emptyToc, 'en'), contains('No contents yet'));
+      expect(AppUITranslations.translate('Tìm kiếm', 'en'), 'Search');
+      expect(AppUITranslations.translate('Đoạn A–B', 'en'), 'A–B segment');
+      expect(
+        AppUITranslations.translate('🔍  Tìm chữ trong audio…', 'en'),
+        '🔍  Search text in audio…',
+      );
+    });
+
     test('uses real locale translations when the catalog has one', () {
       expect(AppUITranslations.translate('Lưu', 'de-DE'), 'Speichern');
       expect(AppUITranslations.translate('Lưu', 'fr-FR'), 'Enregistrer');

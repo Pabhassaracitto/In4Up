@@ -12,6 +12,9 @@ class AppUITranslations {
   AppUITranslations._();
 
   static final List<_TranslationTemplate> _templates = ([
+    ...priorityUiOverrides.entries
+        .where((entry) => entry.key.contains('{'))
+        .map(_TranslationTemplate.fromEntry),
     ...generatedUiTranslations.entries
         .where((entry) => entry.key.contains('{'))
         .map(_TranslationTemplate.fromEntry),

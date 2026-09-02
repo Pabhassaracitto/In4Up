@@ -53,6 +53,7 @@
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
+| STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời (cancel rồi tạo lại) — serialize request native + pre-flight model/chunk | ✅ done + CI xanh | af65675 (run 33678279101); root cause: plugin whisper_flutter_new không check NULL sau whisper_init_from_file (chờ nghiệm thu thiết bị: file dài + cancel/tạo lại) |
 
 ---
 
@@ -1246,6 +1247,43 @@
     (timedtext API + tlang + srv3, theo style _fetchTimedtext) → CI XANH
     33355331358. Chờ nghiệm thu thiết bị (mở video → Học video → phụ đề
     song ngữ + lặp câu + tap từ + Mở trong tab Nghe)
+
+### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
+- **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK
+  (`LS75_chunk_0_*.wav`) → log "Use existing model tiny" → crash
+  `libwhisper.so request+740` trên thread DartWorker,
+  `SEGV_MAPERR fault addr 0x180` (null pointer).
+- **Root cause (xác minh từ source plugin whisper_flutter_new 1.0.1):**
+  - Mỗi chunk = `Isolate.run()` gọi C++ `request()` →
+    `whisper_init_from_file()` **KHÔNG check NULL** → `whisper_full()`.
+    Init fail (OOM RAM — thường khi 2 init chạy song song: user CANCEL
+    LRC rồi tạo lại ngay → request cũ bị bỏ rơi vẫn chạy trong isolate
+    plugin; hoặc model file mất giữa job) → `whisper_full(NULL)` → SEGV
+    ở offset struct context (~0x180).
+  - Log "Use existing model tiny" = chỉ check file `.bin` tồn tại
+    (`_initModel`), KHÔNG phải tái dùng context.
+  - Gợi ý isolate (Gemini #3) không giải quyết: isolate là thread cùng
+    process — SIGSEGV giết cả process; và plugin VẪN chạy Isolate.run
+    (DartWorker trong log = isolate đó).
+- **Fix (app-side, plugin GPL không sửa):** `stt_engine_whisper.dart`
+  (af65675): (1) `_withExclusiveNative` — mọi transcribe ĐỢI request
+  native trước (kể cả orphan sau cancel) kết thúc thật sự → không bao
+  giờ 2 `whisper_init_from_file` song song; (2) pre-flight mỗi chunk:
+  chunk WAV ≥44B, model `ggml-*.bin` còn tồn tại >1MB (mất giữa job →
+  lỗi Dart rõ ràng thay vì SIGSEGV); (3) bọc cả đường transcribeMobile.
+- **Rủi ro còn lại + đề xuất dài hạn:** OOM-init-NULL khi MỘT request
+  đơn tự OOM vẫn có thể crash (chỉ patch plugin mới chặn triệt để: NULL
+  check + dùng MỘT context cho cả job thay vì init/free mỗi chunk —
+  còn giảm RAM + tăng tốc). Cân nhắc fork plugin hoặc chuyển đường LRC
+  mobile sang engine Sherpa (lifecycle tự quản trong app).
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | owner dán log
+    crash + phân tích Gemini; xác minh source plugin qua GitHub; fix
+    af65675; CI đỏ 33677183078 do lỗi của chính guard cũ (gọi
+    `isCompleted` trên Future — chỉ Completer mới có) → bisect 1-bit
+    (xanh 33677984108) → guard mới (Completer-based) → CI XANH
+    33678279101
 
 ### HARVEST-1580-02 — Rà soát tổng thể 580 vs DEV (2026-08-30)
 - **Trạng thái:** done — 580 KHÔNG CÒN việc pending.

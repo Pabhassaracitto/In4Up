@@ -19,7 +19,6 @@
 // │     whisper_full() hoàn thành.                                    │
 // └────────────────────────────────────────────────────────────────────┘
 
-import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
@@ -566,46 +565,6 @@ class SttEngineWhisper {
   static bool get isMobilePluginSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
-  // ── CHỐNG RACE REQUEST NATIVE — fix crash SIGSEGV "request+740" ──────────
-  //
-  // Mỗi whisper.transcribe() = plugin chạy Isolate.run() gọi C++ request()
-  // → whisper_init_from_file(MODEL) + whisper_full + whisper_free. Code C++
-  // của plugin KHÔNG check NULL sau whisper_init_from_file: nếu init fail
-  // (OOM RAM — thường khi HAI init chạy song song vì user cancel LRC rồi
-  // bấm tạo lại ngay; hoặc model file mất giữa job) thì whisper_full(NULL)
-  // → SIGSEGV SEGV_MAPERR addr ~0x180, crash TOÀN BỘ process. Dart
-  // try/catch KHÔNG bắt được signal native — chỉ có thể phòng ngừa.
-  //
-  // Guard: mọi request transcribe phải ĐỢI request native trước đó kết thúc
-  // THẬT SỰ — kể cả request "bị bỏ rơi" khi cancel (future của nó vẫn tiếp
-  // tục chạy trong isolate của plugin dù app đã dừng await). Kết quả:
-  // không bao giờ có 2 whisper_init_from_file chạy song song.
-  static Future<void>? _nativeInflight;
-
-  static Future<T> _withExclusiveNative<T>(Future<T> Function() start) async {
-    final prev = _nativeInflight;
-    final done = Completer<void>();
-    _nativeInflight = done.future;
-    if (prev != null && !prev.isCompleted) {
-      debugPrint(
-        '[Whisper] Request native trước đó chưa xong (bị bỏ dở khi cancel?) '
-        '— đợi kết thúc trước để tránh 2 whisper_init_from_file song song '
-        '(nguyên nhân OOM → init NULL → SIGSEGV)',
-      );
-      // 10 phút: chunk 15s trên máy yếu + model base cũng khó quá mức này.
-      // Timeout vẫn cho chạy tiếp — hung request nghĩa là process đã gần chết.
-      await prev.timeout(const Duration(minutes: 10), onTimeout: () {});
-    }
-    try {
-      return await start();
-    } finally {
-      done.complete();
-      if (identical(_nativeInflight, done.future)) {
-        _nativeInflight = null;
-      }
-    }
-  }
-
   /// Transcribe file trên Mobile (Main Thread) bằng plugin whisper_flutter_new.
   static Future<SttResult> transcribeMobile({
     required String audioPath,
@@ -627,18 +586,14 @@ class SttEngineWhisper {
     );
 
     debugPrint('🎙️ Whisper (mobile plugin) đang transcribe: $wavPath');
-    // Serialize request native (chống 2 whisper_init song song → xem
-    // _withExclusiveNative).
-    final transcribeResult = await _withExclusiveNative(
-      () => whisper.transcribe(
-        transcribeRequest: TranscribeRequest(
-          audio: wavPath,
-          isTranslate: false,
-          isNoTimestamps: false,
-          splitOnWord: wordTimestamps,
-          diarize: false,
-          language: language,
-        ),
+    final transcribeResult = await whisper.transcribe(
+      transcribeRequest: TranscribeRequest(
+        audio: wavPath,
+        isTranslate: false,
+        isNoTimestamps: false,
+        splitOnWord: wordTimestamps,
+        diarize: false,
+        language: language,
       ),
     );
 
@@ -818,18 +773,14 @@ class SttEngineWhisper {
         debugPrint('🎙️ Chunk $i/$effectiveTotal: $chunkPath (bat dau transcribe)');
 
         try {
-          // Serialize request native — KHÔNG BAO GIỜ 2 whisper_init_from_file
-          // chạy song song (xem _withExclusiveNative).
-          final chunkResult = await _withExclusiveNative(
-            () => whisper.transcribe(
-              transcribeRequest: TranscribeRequest(
-                audio: chunkPath,
-                isTranslate: false,
-                isNoTimestamps: false,
-                splitOnWord: wordTimestamps,
-                diarize: false,
-                language: language,
-              ),
+          final chunkResult = await whisper.transcribe(
+            transcribeRequest: TranscribeRequest(
+              audio: chunkPath,
+              isTranslate: false,
+              isNoTimestamps: false,
+              splitOnWord: wordTimestamps,
+              diarize: false,
+              language: language,
             ),
           );
 

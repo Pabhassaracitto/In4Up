@@ -1,4 +1,6 @@
 // lib/screens/settings/stt_model_settings_screen.dart
+// 2026-09-03: trigger CI root cho fix STT SIGSEGV serialize native request
+// (1dbf215, packages/in4up_stt — ngoài paths của app_analyze.yml).
 
 import 'dart:typed_data';
 

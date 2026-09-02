@@ -24,6 +24,10 @@ void main() {
       expect(AppUITranslations.translate('Import', 'en'), 'Import');
       expect(AppUITranslations.translate('Quét thư mục', 'en'), 'Scan folder');
       expect(
+        AppUITranslations.translate('Học thuộc mặt nào?', 'en'),
+        'Which side to memorize?',
+      );
+      expect(
         AppUITranslations.translate('Chế độ Đọc', 'en'),
         isNot(contains('Chế độ')),
       );

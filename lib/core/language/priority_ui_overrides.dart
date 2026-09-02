@@ -418,4 +418,25 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '取消',
     'si': 'අවලංගු',
   },
+  'Học thuộc mặt nào?': {
+    'en': 'Which side to memorize?',
+    'hi': 'कौन-सा पक्ष कंठस्थ करें?',
+    'zh': '背诵哪一面？',
+    'zh_TW': '背誦哪一面？',
+    'si': 'කුමන පැත්ත මතක තබා ගන්නද?',
+  },
+  'Ngôn ngữ nguyên văn': {
+    'en': 'Source language',
+    'hi': 'मूल भाषा',
+    'zh': '原文语言',
+    'zh_TW': '原文語言',
+    'si': 'මූල භාෂාව',
+  },
+  'Ngôn ngữ bản dịch / nghĩa': {
+    'en': 'Translation language',
+    'hi': 'अनुवाद भाषा',
+    'zh': '译文语言',
+    'zh_TW': '譯文語言',
+    'si': 'පරිවර්තන භාෂාව',
+  },
 };

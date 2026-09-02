@@ -127,8 +127,11 @@ Future<_AutoTocSelection?> _showModeDialog(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'App sẽ phân tích âm thanh và tạo mục lục như sách.$existingWarn\n\n'
-                    '🟢 Chạy nền — đóng cửa sổ này cũng được, tiến trình hiện ở đầu màn hình.',
+                    context.uiText(
+                      'App sẽ phân tích âm thanh và tạo mục lục như sách.\n\n'
+                      '🟢 Chạy nền — đóng cửa sổ này cũng được, tiến trình hiện ở đầu màn hình.',
+                    ) +
+                        context.uiText(existingWarn),
                     style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.5),
                   ),
                   const SizedBox(height: 14),
@@ -184,7 +187,11 @@ Future<_AutoTocSelection?> _showModeDialog(
                       ),
                       const Spacer(),
                       Text(
-                        boundaries.isEmpty ? 'chưa có ranh giới' : '${boundaries.length + 1} đoạn',
+                        context.uiText(
+                          boundaries.isEmpty
+                              ? 'chưa có ranh giới'
+                              : '${boundaries.length + 1} đoạn',
+                        ),
                         style: const TextStyle(color: Colors.white38, fontSize: 11),
                       ),
                     ],
@@ -236,7 +243,9 @@ Future<_AutoTocSelection?> _showModeDialog(
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Khoảng lặng tối thiểu: ${vad.minSilenceSec.toStringAsFixed(1)}s',
+                    context.uiText(
+                      'Khoảng lặng tối thiểu: ${vad.minSilenceSec.toStringAsFixed(1)}s',
+                    ),
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   Slider(
@@ -250,7 +259,9 @@ Future<_AutoTocSelection?> _showModeDialog(
                         setDialogState(() => vad = vad.copyWith(minSilenceSec: v)),
                   ),
                   Text(
-                    'Đoạn tối thiểu: ${vad.minSegmentSec.toStringAsFixed(0)}s',
+                    context.uiText(
+                      'Đoạn tối thiểu: ${vad.minSegmentSec.toStringAsFixed(0)}s',
+                    ),
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   Slider(

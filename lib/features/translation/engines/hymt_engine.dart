@@ -94,6 +94,19 @@ class HyMtEngine extends TranslationEngine {
     return _isGgufMagic(head);
   }
 
+  static bool _headIsGguf(String path) {
+    try {
+      final rand = File(path).openSync();
+      try {
+        return _isGgufMagic(rand.readBytesSync(4, 0));
+      } finally {
+        rand.closeSync();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Path model HỢP LỆ (tồn tại + size đủ + magic GGUF ở đầu). Trả null
   /// nếu file bị cắt/hỏng — coi như chưa có model (fallback engine khác).
   Future<String?> resolvedModelPath() async {
@@ -101,10 +114,12 @@ class HyMtEngine extends TranslationEngine {
     final saved = prefs.getString(_prefPath);
     if (saved != null && await File(saved).exists()) {
       final n = File(saved).lengthSync();
-      if (n >= minPlausibleBytes) return saved;
+      if (n >= minPlausibleBytes && _headIsGguf(saved)) return saved;
     }
     final def = await defaultSavePath();
-    if (await File(def).exists() && File(def).lengthSync() >= minPlausibleBytes) {
+    if (await File(def).exists() &&
+        File(def).lengthSync() >= minPlausibleBytes &&
+        _headIsGguf(def)) {
       return def;
     }
     return null;

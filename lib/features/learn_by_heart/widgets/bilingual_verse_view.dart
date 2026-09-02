@@ -2,7 +2,9 @@
 
 import 'package:in4up/core/language/localized_material.dart';
 import '../models/line_timestamp.dart';
+import '../models/recitation_repeat.dart';
 import '../services/multilingual_audio_service.dart';
+import 'repeat_count_menu.dart';
 
 class BilingualVerseView extends StatelessWidget {
   final List<LineTimestamp> lineTimestamps;
@@ -10,6 +12,7 @@ class BilingualVerseView extends StatelessWidget {
   final PlaybackLanguageMode languageMode;
   final double fontSize;
   final void Function(LineTimestamp line)? onLineTap;
+  final MultilingualAudioService? audioService;
 
   const BilingualVerseView({
     super.key,
@@ -18,6 +21,7 @@ class BilingualVerseView extends StatelessWidget {
     this.languageMode = PlaybackLanguageMode.bilingual,
     this.fontSize = 17.0,
     this.onLineTap,
+    this.audioService,
   });
 
   @override
@@ -112,9 +116,24 @@ class BilingualVerseView extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (audioService != null) ...[
+                  const SizedBox(width: 6),
+                  _LineRepeatChip(
+                    count: audioService!.lineRepeatFor(ts.line),
+                    playingCurrent: isActive ? audioService!.lineRepeatCurrent : 0,
+                    onTap: () => showRepeatCountMenu(
+                      context,
+                      current: audioService!.lineRepeatFor(ts.line),
+                      allowInfinite: false,
+                      title: 'Số lần phát câu ${ts.line}',
+                      onChanged: (value) =>
+                          audioService!.setLineRepeatOverride(ts.line, value),
+                    ),
+                  ),
+                ],
                 if (isActive)
                   const Padding(
-                    padding: EdgeInsets.only(left: 8, top: 2),
+                    padding: EdgeInsets.only(left: 6, top: 2),
                     child: Icon(
                       Icons.volume_up_rounded,
                       color: Color(0xFF6C63FF),
@@ -126,6 +145,56 @@ class BilingualVerseView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _LineRepeatChip extends StatelessWidget {
+  final int count;
+  final int playingCurrent;
+  final VoidCallback onTap;
+
+  const _LineRepeatChip({
+    required this.count,
+    required this.playingCurrent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = count > 1 || playingCurrent > 0;
+    final color = active ? const Color(0xFFFFB300) : Colors.grey;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: active
+              ? const Color(0xFFFFB300).withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active
+                ? const Color(0xFFFFB300).withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.repeat, size: 11, color: color),
+            const SizedBox(width: 2),
+            Text(
+              RecitationRepeat.lineLabel(count, current: playingCurrent),
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

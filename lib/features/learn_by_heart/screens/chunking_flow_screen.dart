@@ -206,6 +206,10 @@ class _ChunkingFlowScreenState extends State<ChunkingFlowScreen> {
           lineTimestamps: relevantTimestamps,
           activeLine: _audioService.currentLineIndex,
           languageMode: _audioService.langMode,
+          audioService: _audioService,
+          onLineTap: (lineTs) {
+            _audioService.playSingleLine(lineTs, widget.item);
+          },
         ),
       ],
     );
@@ -262,6 +266,7 @@ class _ChunkingFlowScreenState extends State<ChunkingFlowScreen> {
           BilingualVerseView(
             lineTimestamps: widget.item.lineTimestamps,
             activeLine: _audioService.currentLineIndex,
+            audioService: _audioService,
           ),
         ],
       ),

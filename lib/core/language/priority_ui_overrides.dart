@@ -439,4 +439,18 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '譯文語言',
     'si': 'පරිවර්තන භාෂාව',
   },
+  'Số lần phát bài / đoạn': {
+    'en': 'Times to play the piece / chunk',
+    'hi': 'पूरा पाठ कितनी बार चलाएँ',
+    'zh': '整篇/选段播放次数',
+    'zh_TW': '整篇／選段播放次數',
+    'si': 'සම්පූර්ණය කී වතාවක්',
+  },
+  'Số lần phát mỗi câu': {
+    'en': 'Times to play each line',
+    'hi': 'प्रत्येक पंक्ति कितनी बार',
+    'zh': '每句播放次数',
+    'zh_TW': '每句播放次數',
+    'si': 'එක් පේළියකට කී වතාවක්',
+  },
 };

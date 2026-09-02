@@ -446,4 +446,22 @@ class LearnByHeartL10n {
         'zh_TW': '譯文',
         'si': 'පරිවර්තනය',
       });
+
+  String get repeatItem => _get({
+        'vi': 'Bài',
+        'en': 'Piece',
+        'hi': 'पूरा पाठ',
+        'zh': '整篇',
+        'zh_TW': '整篇',
+        'si': 'සම්පූර්ණය',
+      });
+
+  String get repeatLine => _get({
+        'vi': 'Câu',
+        'en': 'Line',
+        'hi': 'पंक्ति',
+        'zh': '一句',
+        'zh_TW': '一句',
+        'si': 'පේළිය',
+      });
 }

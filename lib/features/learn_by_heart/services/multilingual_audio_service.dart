@@ -9,6 +9,7 @@ import '../models/chunk.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/line_timestamp.dart';
 import '../models/recitation_language.dart';
+import '../models/recitation_repeat.dart';
 
 enum PlaybackLanguageMode {
   source,
@@ -24,15 +25,30 @@ class MultilingualAudioService extends ChangeNotifier {
   bool _isPlaying = false;
   double _speed = 1.0;
   int? _currentLineIndex; // 1-based line index
-  bool _isLoopingChunk = false;
   PlaybackLanguageMode _langMode = PlaybackLanguageMode.bilingual;
   bool _stopRequested = false;
+
+  /// `0` = loop the current range forever (whole verse or selected chunk).
+  int _itemRepeatCount = 1;
+  int _itemRepeatCurrent = 0;
+  int _lineRepeatCount = 1;
+  int _lineRepeatCurrent = 0;
+  final Map<int, int> _lineRepeatOverrides = {};
 
   bool get isPlaying => _isPlaying;
   double get speed => _speed;
   int? get currentLineIndex => _currentLineIndex;
-  bool get isLoopingChunk => _isLoopingChunk;
   PlaybackLanguageMode get langMode => _langMode;
+  int get itemRepeatCount => _itemRepeatCount;
+  int get itemRepeatCurrent => _itemRepeatCurrent;
+  int get lineRepeatCount => _lineRepeatCount;
+  int get lineRepeatCurrent => _lineRepeatCurrent;
+
+  int lineRepeatFor(int line) => RecitationRepeat.forLine(
+        line,
+        defaultCount: _lineRepeatCount,
+        overrides: _lineRepeatOverrides,
+      );
 
   void setSpeed(double s) {
     _speed = s.clamp(0.5, 2.0);
@@ -46,97 +62,109 @@ class MultilingualAudioService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleLoopChunk() {
-    _isLoopingChunk = !_isLoopingChunk;
+  void setItemRepeatCount(int count) {
+    _itemRepeatCount = RecitationRepeat.clampItem(count);
+    notifyListeners();
+  }
+
+  void setLineRepeatCount(int count) {
+    _lineRepeatCount = RecitationRepeat.clampLine(count);
+    notifyListeners();
+  }
+
+  void setLineRepeatOverride(int line, int count) {
+    _lineRepeatOverrides[line] = RecitationRepeat.clampLine(count);
     notifyListeners();
   }
 
   /// Phát toàn bộ bài theo từng dòng có highlight đồng bộ
   Future<void> playFullItem(LearnByHeartItem item, {void Function(int line)? onLineChanged}) async {
-    await stop();
-    _stopRequested = false;
-    _isPlaying = true;
-    notifyListeners();
-
-    try {
-      final timestamps = item.lineTimestamps.isNotEmpty
-          ? item.lineTimestamps
-          : _generateEstimatedTimestamps(item);
-
-      for (int i = 0; i < timestamps.length; i++) {
-        if (_stopRequested) break;
-        final ts = timestamps[i];
-        _currentLineIndex = ts.line;
-        onLineChanged?.call(ts.line);
-        notifyListeners();
-
-        await _speakLineContent(ts, item);
-        if (_stopRequested) break;
-
-        // Nghỉ nhẹ giữa các dòng
-        await Future.delayed(const Duration(milliseconds: 400));
-      }
-    } finally {
-      if (!_isLoopingChunk) {
-        _isPlaying = false;
-        _currentLineIndex = null;
-        notifyListeners();
-      }
-    }
+    final timestamps = item.lineTimestamps.isNotEmpty
+        ? item.lineTimestamps
+        : _generateEstimatedTimestamps(item);
+    await _playRange(item, timestamps, onLineChanged: onLineChanged);
   }
 
-  /// Phát một chunk cụ thể (hoặc lặp lại chunk đó)
+  /// Phát một chunk cụ thể (lặp theo [itemRepeatCount], ∞ nếu = 0)
   Future<void> playChunk(
     LearnByHeartItem item,
     Chunk chunk, {
     void Function(int line)? onLineChanged,
   }) async {
-    await stop();
-    _stopRequested = false;
-    _isPlaying = true;
-    notifyListeners();
-
-    do {
-      final timestamps = item.lineTimestamps.isNotEmpty
-          ? item.lineTimestamps
-          : _generateEstimatedTimestamps(item);
-
-      final chunkTimestamps = timestamps.where((t) => chunk.lineRange.contains(t.line)).toList();
-
-      for (final ts in chunkTimestamps) {
-        if (_stopRequested) break;
-        _currentLineIndex = ts.line;
-        onLineChanged?.call(ts.line);
-        notifyListeners();
-
-        await _speakLineContent(ts, item);
-        if (_stopRequested) break;
-
-        await Future.delayed(const Duration(milliseconds: 350));
-      }
-
-      if (_isLoopingChunk && !_stopRequested) {
-        await Future.delayed(const Duration(milliseconds: 800));
-      }
-    } while (_isLoopingChunk && !_stopRequested);
-
-    _isPlaying = false;
-    _currentLineIndex = null;
-    notifyListeners();
+    final timestamps = item.lineTimestamps.isNotEmpty
+        ? item.lineTimestamps
+        : _generateEstimatedTimestamps(item);
+    final chunkTimestamps =
+        timestamps.where((t) => chunk.lineRange.contains(t.line)).toList();
+    await _playRange(item, chunkTimestamps, onLineChanged: onLineChanged);
   }
 
-  /// Phát dòng đơn lẻ
+  /// Phát dòng đơn lẻ — vẫn tôn trọng số lần lặp của đúng câu đó
   Future<void> playSingleLine(LineTimestamp ts, LearnByHeartItem item) async {
+    await _playRange(
+      item,
+      [ts],
+      onLineChanged: null,
+      applyItemRepeat: false,
+    );
+  }
+
+  Future<void> _playRange(
+    LearnByHeartItem item,
+    List<LineTimestamp> timestamps, {
+    void Function(int line)? onLineChanged,
+    bool applyItemRepeat = true,
+  }) async {
+    if (timestamps.isEmpty) return;
     await stop();
     _stopRequested = false;
     _isPlaying = true;
-    _currentLineIndex = ts.line;
+    _itemRepeatCurrent = 0;
+    _lineRepeatCurrent = 0;
     notifyListeners();
 
     try {
-      await _speakLineContent(ts, item);
+      int pass = 0;
+      while (!_stopRequested) {
+        pass++;
+        _itemRepeatCurrent = pass;
+        notifyListeners();
+
+        for (int i = 0; i < timestamps.length; i++) {
+          if (_stopRequested) break;
+          final ts = timestamps[i];
+          final repeats = lineRepeatFor(ts.line);
+          _currentLineIndex = ts.line;
+          onLineChanged?.call(ts.line);
+          notifyListeners();
+
+          for (int r = 1; r <= repeats; r++) {
+            if (_stopRequested) break;
+            _lineRepeatCurrent = r;
+            notifyListeners();
+            await _speakLineContent(ts, item);
+            if (_stopRequested) break;
+            if (r < repeats) {
+              await Future.delayed(const Duration(milliseconds: 280));
+            }
+          }
+
+          if (_stopRequested) break;
+          if (i < timestamps.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 400));
+          }
+        }
+
+        if (_stopRequested) break;
+        final itemCount = applyItemRepeat ? _itemRepeatCount : 1;
+        if (!RecitationRepeat.anotherItemPass(pass, itemCount)) break;
+        await Future.delayed(const Duration(milliseconds: 800));
+      }
     } finally {
       _isPlaying = false;
+      _currentLineIndex = null;
+      _itemRepeatCurrent = 0;
+      _lineRepeatCurrent = 0;
       notifyListeners();
     }
   }

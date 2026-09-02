@@ -8,10 +8,11 @@ import '../../tts/tts_service.dart';
 import '../models/chunk.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/line_timestamp.dart';
+import '../models/recitation_language.dart';
 
 enum PlaybackLanguageMode {
-  vietnamese,
-  pali,
+  source,
+  target,
   bilingual,
 }
 
@@ -142,40 +143,39 @@ class MultilingualAudioService extends ChangeNotifier {
 
   /// Phát nội dung dòng theo chế độ ngôn ngữ đã chọn
   Future<void> _speakLineContent(LineTimestamp ts, LearnByHeartItem item) async {
-    final viText = ts.text ?? _getLineFromText(item.vietnameseText, ts.line);
-    final paliText = ts.paliText ?? _getLineFromText(item.paliText, ts.line);
+    final targetText = ts.text ?? _getLineFromText(item.targetText, ts.line);
+    final sourceText = ts.paliText ?? _getLineFromText(item.sourceText, ts.line);
 
     switch (_langMode) {
-      case PlaybackLanguageMode.vietnamese:
-        if (viText.isNotEmpty) {
-          _tts.configure(language: 'vi-VN', speed: _speed);
-          await _tts.speak(viText);
-          await _waitForTts();
-        }
+      case PlaybackLanguageMode.target:
+        await _speakText(targetText, item.targetLang);
         break;
 
-      case PlaybackLanguageMode.pali:
-        if (paliText.isNotEmpty) {
-          _tts.configure(language: 'pi', speed: _speed);
-          await _tts.speak(paliText);
-          await _waitForTts();
-        }
+      case PlaybackLanguageMode.source:
+        await _speakText(sourceText, item.sourceLang);
         break;
 
       case PlaybackLanguageMode.bilingual:
-        if (paliText.isNotEmpty) {
-          _tts.configure(language: 'pi', speed: _speed);
-          await _tts.speak(paliText);
-          await _waitForTts();
+        await _speakText(sourceText, item.sourceLang);
+        if (sourceText.isNotEmpty && targetText.isNotEmpty && !_stopRequested) {
           await Future.delayed(const Duration(milliseconds: 250));
         }
-        if (viText.isNotEmpty && !_stopRequested) {
-          _tts.configure(language: 'vi-VN', speed: _speed);
-          await _tts.speak(viText);
-          await _waitForTts();
+        if (!_stopRequested) {
+          await _speakText(targetText, item.targetLang);
         }
         break;
     }
+  }
+
+  Future<void> _speakText(String text, String declaredLang) async {
+    if (text.trim().isEmpty || _stopRequested) return;
+    final locale = RecitationLanguage.speakLocale(
+      declaredCode: declaredLang,
+      text: text,
+    );
+    _tts.configure(language: locale, autoDetect: false, speed: _speed);
+    await _tts.speak(text);
+    await _waitForTts();
   }
 
   Future<void> _waitForTts() async {

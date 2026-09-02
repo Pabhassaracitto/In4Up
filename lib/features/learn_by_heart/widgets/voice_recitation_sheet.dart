@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../i18n/learn_by_heart_l10n.dart';
 import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
+import '../models/recitation_language.dart';
 import '../services/voice_recitation_service.dart';
 
 class VoiceRecitationSheet extends StatefulWidget {
@@ -55,7 +56,10 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
         );
       }
     } else {
-      await _voiceService.stopAndEvaluate(widget.item.vietnameseText);
+      await _voiceService.stopAndEvaluate(
+        widget.item.memorizeText,
+        language: RecitationLanguage.sttCodeFor(widget.item.memorizeLang),
+      );
     }
   }
 
@@ -143,7 +147,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              widget.item.vietnameseText,
+                              widget.item.memorizeText,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14.5,

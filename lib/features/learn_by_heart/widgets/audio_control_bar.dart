@@ -2,16 +2,19 @@
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import '../models/learn_by_heart_item.dart';
 import '../services/multilingual_audio_service.dart';
 
 class AudioControlBar extends StatelessWidget {
   final MultilingualAudioService audioService;
   final VoidCallback onPlayPause;
+  final LearnByHeartItem? item;
 
   const AudioControlBar({
     super.key,
     required this.audioService,
     required this.onPlayPause,
+    this.item,
   });
 
   @override
@@ -94,20 +97,39 @@ class AudioControlBar extends StatelessWidget {
                   audioService.setLanguageMode(mode);
                 },
                 color: const Color(0xFF1E293B),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: PlaybackLanguageMode.bilingual,
-                    child: Text('Song ngữ (Pali + Việt)', style: TextStyle(color: Colors.white)),
-                  ),
-                  const PopupMenuItem(
-                    value: PlaybackLanguageMode.pali,
-                    child: Text('Chỉ tiếng Pali', style: TextStyle(color: Colors.white)),
-                  ),
-                  const PopupMenuItem(
-                    value: PlaybackLanguageMode.vietnamese,
-                    child: Text('Chỉ tiếng Việt', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
+                itemBuilder: (context) {
+                  final source = item?.sourceLanguage.displayName(
+                        Localizations.localeOf(context).languageCode,
+                      ) ??
+                      'Pali';
+                  final target = item?.targetLanguage.displayName(
+                        Localizations.localeOf(context).languageCode,
+                      ) ??
+                      'Tiếng Việt';
+                  return [
+                    PopupMenuItem(
+                      value: PlaybackLanguageMode.bilingual,
+                      child: Text(
+                        'Song ngữ ($source + $target)',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: PlaybackLanguageMode.source,
+                      child: Text(
+                        'Chỉ $source',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: PlaybackLanguageMode.target,
+                      child: Text(
+                        'Chỉ $target',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ];
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
@@ -140,13 +162,15 @@ class AudioControlBar extends StatelessWidget {
   }
 
   String _getLangLabel(PlaybackLanguageMode mode) {
+    final source = item?.sourceLanguage.labelEn ?? 'Pali';
+    final target = item?.targetLanguage.labelVi ?? 'Tiếng Việt';
     switch (mode) {
       case PlaybackLanguageMode.bilingual:
         return 'Song ngữ';
-      case PlaybackLanguageMode.pali:
-        return 'Pali';
-      case PlaybackLanguageMode.vietnamese:
-        return 'Tiếng Việt';
+      case PlaybackLanguageMode.source:
+        return source;
+      case PlaybackLanguageMode.target:
+        return target;
     }
   }
 }

@@ -77,7 +77,7 @@ class BilingualVerseView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Pali Text
-                      if (languageMode != PlaybackLanguageMode.vietnamese &&
+                      if (languageMode != PlaybackLanguageMode.target &&
                           ts.paliText != null &&
                           ts.paliText!.isNotEmpty)
                         Padding(
@@ -97,7 +97,7 @@ class BilingualVerseView extends StatelessWidget {
                         ),
 
                       // Vietnamese Text
-                      if (languageMode != PlaybackLanguageMode.pali &&
+                      if (languageMode != PlaybackLanguageMode.source &&
                           ts.text != null &&
                           ts.text!.isNotEmpty)
                         Text(

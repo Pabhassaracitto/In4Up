@@ -578,9 +578,9 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
               const SizedBox(height: 8),
 
               // Snippet Preview
-              if (item.vietnameseText.isNotEmpty)
+              if (item.memorizeText.isNotEmpty)
                 Text(
-                  item.vietnameseLines.take(2).join(' · '),
+                  item.memorizeLines.take(2).join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

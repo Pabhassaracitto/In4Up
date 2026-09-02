@@ -41,27 +41,26 @@ class ChainRecitationController extends ChangeNotifier {
   }
 
   void _buildChainSteps() {
-    final viLines = item.vietnameseLines;
-    final paliLines = item.paliLines;
+    final primary = item.memorizeLines;
+    final support = item.supportLines;
 
-    if (viLines.length <= 1) {
-      // Trường hợp bài 1 dòng đơn
+    if (primary.length <= 1) {
       _steps.add(ChainStep(
         stepIndex: 0,
         primePrompt: item.title,
-        targetLine: viLines.isNotEmpty ? viLines[0] : item.vietnameseText,
-        targetPaliLine: paliLines.isNotEmpty ? paliLines[0] : item.paliText,
+        targetLine: primary.isNotEmpty ? primary[0] : item.memorizeText,
+        targetPaliLine: support.isNotEmpty ? support[0] : item.supportText,
       ));
       return;
     }
 
-    for (int i = 0; i < viLines.length - 1; i++) {
+    for (int i = 0; i < primary.length - 1; i++) {
       _steps.add(ChainStep(
         stepIndex: i,
-        primePrompt: viLines[i],
-        targetLine: viLines[i + 1],
-        primePaliPrompt: i < paliLines.length ? paliLines[i] : null,
-        targetPaliLine: i + 1 < paliLines.length ? paliLines[i + 1] : null,
+        primePrompt: primary[i],
+        targetLine: primary[i + 1],
+        primePaliPrompt: i < support.length ? support[i] : null,
+        targetPaliLine: i + 1 < support.length ? support[i + 1] : null,
       ));
     }
   }

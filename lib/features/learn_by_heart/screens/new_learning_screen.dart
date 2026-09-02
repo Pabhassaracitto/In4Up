@@ -156,6 +156,7 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
                     AudioControlBar(
                       audioService: _audioService,
                       onPlayPause: _handlePlayPause,
+                      item: item,
                     ),
                     const SizedBox(height: 16),
 

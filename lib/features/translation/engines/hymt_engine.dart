@@ -25,7 +25,17 @@ class HyMtEngine extends TranslationEngine {
 
   static const fileName = 'Hy-MT1.5-1.8B-2bit.gguf';
   static const folderName = 'in4up_hymt';
-  static const minBytes = 80 * 1024 * 1024; // 80MB (file thật ~601MB)
+  static const minBytes = 80 * 1024 * 1024; // 80MB — ngưỡng tuyệt đối thấp
+  /// Size file thật trên HF (tencent/Hy-MT1.5-1.8B-2bit-GGUF, xác minh
+  /// 2026-09-03): 601MB. File nhỏ hơn rõ ràng ngưỡng này = download/import
+  /// BỊ CẮT → llama_model_load_from_file fail trả NULL → lỗi
+  /// "Hy-MT native không load được" dù file vẫn nằm đó.
+  static const expectedBytes = 601 * 1024 * 1024;
+
+  /// File < ~80% expected coi là cắt (chấp nhận file LỚN hơn — có thể là
+  /// quant khác của cùng model). 481MB ≈ 80% × 601MB.
+  static const int minPlausibleBytes = 481 * 1024 * 1024;
+
   static const downloadUrl =
       'https://huggingface.co/tencent/Hy-MT1.5-1.8B-2bit-GGUF/resolve/main/'
       'Hy-MT1.5-1.8B-2bit.gguf?download=true';
@@ -68,21 +78,51 @@ class HyMtEngine extends TranslationEngine {
     return p.join(dir.path, fileName);
   }
 
-  static bool looksLikeGguf(List<int> head, int size) {
-    if (size < minBytes) return false;
-    if (head.length < 4) return false;
-    return head[0] == 0x47 && head[1] == 0x47 && head[2] == 0x55 && head[3] == 0x46; // GGUF
+  static bool _isGgufMagic(List<int> head) {
+    return head.length >= 4 &&
+        head[0] == 0x47 &&
+        head[1] == 0x47 &&
+        head[2] == 0x55 &&
+        head[3] == 0x46; // GGUF
   }
 
+  static bool looksLikeGguf(List<int> head, int size) {
+    // Từ 2026-09-03: yêu cầu size ≥ minPlausible (~480MB) — file 80-100MB
+    // đầu magic GGUF mà thiếu phần thân là file CẮT (vẫn qua kiểm tra cũ
+    // → llama load fail → "không load được" triền miên).
+    if (size < minPlausibleBytes) return false;
+    return _isGgufMagic(head);
+  }
+
+  static bool _headIsGguf(String path) {
+    try {
+      final rand = File(path).openSync();
+      try {
+        // readBytesSync(length, {position}) — position là NAMED param.
+        return _isGgufMagic(rand.readBytesSync(4, position: 0));
+      } finally {
+        rand.closeSync();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+
+
+  /// Path model HỢP LỆ (tồn tại + size đủ + magic GGUF ở đầu). Trả null
+  /// nếu file bị cắt/hỏng — coi như chưa có model (fallback engine khác).
   Future<String?> resolvedModelPath() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefPath);
     if (saved != null && await File(saved).exists()) {
       final n = File(saved).lengthSync();
-      if (n >= minBytes) return saved;
+      if (n >= minPlausibleBytes && _headIsGguf(saved)) return saved;
     }
     final def = await defaultSavePath();
-    if (await File(def).exists() && File(def).lengthSync() >= minBytes) {
+    if (await File(def).exists() &&
+        File(def).lengthSync() >= minPlausibleBytes &&
+        _headIsGguf(def)) {
       return def;
     }
     return null;

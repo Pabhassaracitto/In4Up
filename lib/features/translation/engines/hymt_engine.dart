@@ -354,7 +354,7 @@ class HyMtEngine extends TranslationEngine {
       return TranslationResult.failure(
         original: text,
         // Cụ thể: "chưa có" hay "có file nhưng bị cắt/hỏng (tải lại)".
-        error: await modelIssue(),
+        error: (await modelIssue()) ?? 'Chưa có model Hy-MT.',
         engine: name,
         detectedLang: src,
         targetLang: tgt,

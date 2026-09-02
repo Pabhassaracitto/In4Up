@@ -53,7 +53,7 @@
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
-| STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời (cancel rồi tạo lại) — serialize request native + pre-flight model/chunk | ✅ done + CI xanh | af65675 (run 33678279101); root cause: plugin whisper_flutter_new không check NULL sau whisper_init_from_file (chờ nghiệm thu thiết bị: file dài + cancel/tạo lại) |
+| STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 
 ---
 
@@ -1277,6 +1277,23 @@
   check + dùng MỘT context cho cả job thay vì init/free mỗi chunk —
   còn giảm RAM + tăng tốc). Cân nhắc fork plugin hoặc chuyển đường LRC
   mobile sang engine Sherpa (lifecycle tự quản trong app).
+- **Crash 2 (single request — build 4a671c2, Samsung Tab S9 FE):**
+  - Log: crash NGAY chunk 0/5, request đầu tiên của process (uptime
+    338s, không có transcription nào trước đó) → **loại trừ** race 2
+    init song song (fix af65675 không đủ).
+  - Chìa khóa trong log: manager verify
+    `ggml-tiny-q5_1.bin` (32,152,673 B) nhưng plugin HARD-CODE load
+    `ggml-tiny.bin`; "Use existing model tiny" → `ggml-tiny.bin` tồn
+    tại nhưng là **file cũ từ phiên bản app trước** (user chỉ build lại,
+    chưa xóa app) → khả năng truncate/sai định dạng →
+    `whisper_init_from_file` trả NULL → `whisper_full(NULL)` →
+    SEGV_MAPERR 0x180 (plugin không check NULL).
+  - Fix 9ad6f85: `ensurePluginModelFile()` trước mỗi transcribe mobile
+    (facade + strategy) — copy model đã verify (hoặc candidate hợp lệ
+    trong modelDir) sang tên file plugin khi thiếu/khác size. Trên máy
+    user plugin sẽ load q5_1 32MB (whisper.cpp của plugin hỗ trợ Q5_1 —
+    xác minh `GGML_TYPE_Q5_1` trong ggml.h repo plugin) thay vì file cũ,
+    đồng thời giảm ~50% RAM model so với f32 75MB.
 - **Lịch sử:**
   - 2026-09-03 | created→done | agent arena/01a0251e-in4up | owner dán log
     crash + phân tích Gemini; xác minh source plugin qua GitHub; fix
@@ -1284,6 +1301,14 @@
     `isCompleted` trên Future — chỉ Completer mới có) → bisect 1-bit
     (xanh 33677984108) → guard mới (Completer-based) → CI XANH
     33678279101
+  - 2026-09-03 | done→doing | owner via chat | crash 2 trên build
+    4a671c2 (single request, không race) — dán log full + native
+    backtrace
+  - 2026-09-03 | doing→done | agent arena/01a0251e-in4up | xác định
+    mismatch ggml-tiny.bin (plugin, file cũ) vs ggml-tiny-q5_1.bin
+    (manager verify); fix 9ad6f85 ensurePluginModelFile; CI XANH
+    33687604868. Chờ nghiệm thu: build mới → tạo lời file dài → nếu vẫn
+    crash thì Gỡ cài đặt app cũ + cài lại (xóa sạch app_flutter)
 
 ### HARVEST-1580-02 — Rà soát tổng thể 580 vs DEV (2026-08-30)
 - **Trạng thái:** done — 580 KHÔNG CÒN việc pending.

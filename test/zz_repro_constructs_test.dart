@@ -1,12 +1,10 @@
 // TẠM THỜI — tách lỗi CI analyze (xóa sau khi xanh).
 // Chứa TẤT CẢ construct mới từ hymt_engine (2026-09-03) trong bối cảnh
-// độc lập. Nếu file này xanh → lỗi phụ thuộc ngữ cảnh class HyMtEngine;
-// nếu đỏ → một construct trong file này là thủ phạm.
+// độc lập (không isolate thật — chỉ để analyzer check types).
 
 import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,30 +81,36 @@ class ReproConstructs {
 
   String? lastLoadError;
 
-  Future<bool> ensureLoadedLike(String path) async {
-    if (path == null) return false;
-    final isolate = await Isolate.spawn(
-      _isolateEntryRepro,
-      _InitRepro(path, Isolate.current.sendPort),
-      debugName: 'ReproIsolate',
-    );
+  /// Mô phỏng handshake 2-stage (SendPort + _LoadResult) bằng message
+  // trên ReceivePort — cùng pattern ensureLoaded mới.
+  Future<bool> ensureLoadedLike() async {
     final receivePort = ReceivePort();
     final ready = Completer<SendPort>();
     final loadDone = Completer<bool>();
     lastLoadError = null;
-    // handshake: isolate gửi SendPort của mình
+    receivePort.listen((msg) {
+      if (msg is SendPort && !ready.isCompleted) ready.complete(msg);
+      if (msg is _LoadResultRepro && !loadDone.isCompleted) {
+        if (!msg.ready) lastLoadError = msg.error;
+        loadDone.complete(msg.ready);
+      }
+    });
+    // Mô phỏng isolate gửi handshake rồi gửi kết quả create() fail.
+    final simPort = ReceivePort();
+    simPort.listen((msg) {});
     unawaited(
-      Future<void>.delayed(const Duration(milliseconds: 50)).then((_) {
-        isolate.kill(priority: Isolate.immediate);
+      Future<void>.microtask(() {
+        simPort.sendPort.send(SendPort(() {}));
       }),
     );
     try {
-      final portMsg = await receivePort
+      final handshake = await receivePort
           .first
           .timeout(const Duration(seconds: 5));
-      if (portMsg is SendPort) {
-        ready.complete(portMsg);
+      if (handshake is SendPort) {
+        ready.complete(handshake);
       }
+      // Giả lập kết quả create() fail (bên isolate thật sẽ gửi _LoadResult).
       final okMsg = await loadDone.future.timeout(const Duration(seconds: 2));
       if (!okMsg) {
         debugPrint('Repro create failed: ${lastLoadError}');
@@ -116,6 +120,9 @@ class ReproConstructs {
     } catch (e) {
       debugPrint('Repro load failed: $e');
       return false;
+    } finally {
+      receivePort.close();
+      simPort.close();
     }
   }
 
@@ -126,25 +133,21 @@ class ReproConstructs {
   }
 }
 
-class _InitRepro {
-  final String modelPath;
-  final SendPort main;
-  _InitRepro(this.modelPath, this.main);
-}
+ffi.Pointer<ffi.Void>? _handleRepro;
+String? _loadErrorRepro;
 
-void _isolateEntryRepro(_InitRepro init) {
+void _isolateEntryRepro(Object? init) {
   final port = ReceivePort();
-  init.main.send(port.sendPort);
-  ffi.Pointer<ffi.Void>? handle;
-  String? loadError;
-  handle = null;
-  loadError = 'simulated create failure';
-  init.main.send(_LoadResultRepro(ready: handle != null, error: loadError));
-  // không nhận message nào
+  _handleRepro = null;
+  _loadErrorRepro = 'simulated create failure';
+  // (bên isolate thật) gửi _LoadResult SAU khi create() xong
+  port.sendPort.send(
+    _LoadResultRepro(ready: _handleRepro != null, error: _loadErrorRepro),
+  );
 }
 
 void main() {
-  test('constructs compile (tạm — xóa sau)', () {
+  test('constructs compile (tạm — xóa sau)', () async {
     expect(
       ReproConstructs.looksLikeGguf([0x47, 0x47, 0x55, 0x46], 500 * 1024 * 1024),
       isTrue,
@@ -155,5 +158,7 @@ void main() {
     );
     final r = ReproConstructs();
     expect(r.translateErrorLike(), isNotEmpty);
+    final ok = await r.ensureLoadedLike();
+    expect(ok, isFalse); // create fail simulated → false
   });
 }

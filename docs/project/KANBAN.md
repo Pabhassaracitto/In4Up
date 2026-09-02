@@ -52,6 +52,9 @@
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
+| XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | 5fb8415; chain cũ chạy offline TRƯỚC nên user có model Hy-MT luôn dịch offline (chờ nghiệm thu máy online/offline) |
+| HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 0a05ffa; _LoadResult sau create thật + minPlausible 80%x601MB + modelIssue cụ thể (chờ nghiệm thu máy) |
+| AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | cefc87d; _inFlight counter + bỏ busy-wait facade (chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 
@@ -1213,6 +1216,70 @@
     tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc
     log analyze (artifact app-analyze-log) khi token hoạt động lại. Bài học: code 02ffc chưa từng qua
     compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định
+
+### XLAT-002 — Dịch online-first (smart default) + offline fallback
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** tab Đọc — dù bật/tắt "chỉ offline"
+  trong cài đặt dịch, app LUÔN dịch offline Hy-MT.
+- **Root cause:** `_runEngineChain` chạy offline (Hy-MT → ML Kit) TRƯỚC
+  online engines — user đã có model Hy-MT thì mọi câu chạm offline
+  trước, online không bao giờ được thử dù có mạng.
+- **Fix (5fb8415):** chain mới = (1) ONLINE engines (Google Free/
+  DeepLX/MyMemory/Libre) khi có mạng + không khóa "chỉ offline" →
+  (2) OFFLINE fallback: Hy-MT (chọn/auto + có model) → ML Kit → từ điển.
+  Toggle "chỉ offline" + engine pref (auto/hymt/mlkit) giữ nguyên —
+  mặc định thông minh, vẫn đổi được trong Cài đặt dịch.
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | owner báo
+    "dù tắt hay bật trong cài đặt dịch thì vẫn dịch offline HY-MT";
+    sửa 5fb8415 (chờ CI + nghiệm thu: có mạng → engine badge hiện
+    Google/MyMemory...; rút mạng → tự rơi Hy-MT/ML Kit)
+
+### HYMT-001 — Hy-MT "native không load được" dù đã có model
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** đã có model Hy-MT nhưng dịch vẫn báo
+  "hy-mt native không load được".
+- **Root cause (3 lớp):**
+  1. Handshake dối: isolate gửi "ready" trước khi `create()` chạy
+     (~600MB model, vài giây) — `ensureLoaded()` trả true dù create fail;
+     lỗi lộ ở request đầu, isolate chết im, không retry.
+  2. File cắt vẫn được coi là model: check cũ chỉ size ≥80MB + magic
+     đầu — file 100MB (download cắt của file 601MB) vẫn qua →
+     `llama_model_load_from_file` fail → NULL.
+  3. Lỗi chung chung, không nói được file hỏng hay thiếu RAM.
+- **Fix (0a05ffa):** (1) `_LoadResult` gửi SAU khi create hoàn tất
+  (ready + error thật); ensureLoaded chờ nó (2 phút), fail → dispose +
+  `_lastLoadError` → lần sau RETRY. (2) `minPlausibleBytes` = 80% ×
+  601MB (size thật xác minh trên HF) + check magic GGUF đầu khi resolve;
+  file hỏng = chưa có model (fallback engine khác). (3) `modelIssue()`
+  + lỗi hiển thị nguyên nhân thật từ isolate.
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | xác minh
+    size file thật 601MB (HF tencent/Hy-MT1.5-1.8B-2bit-GGUF); fix
+    0a05ffa. Nghiệm thu: Import/Tải lại model → dịch → nếu vẫn lỗi,
+    message giờ nói nguyên nhân (file cắt / quant / RAM / thiếu native)
+
+### AI-CHAT-02 — Chat "cứ xoay vòng" — engine queue đúng
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** AI chat cứ bị xoay vòng khi chat.
+- **Root cause:**
+  1. `analyze()` yield fallback "Engine not ready" NGAY khi
+     state=processing (request trước còn chạy) → sau 1 lần chat chậm/
+     timeout 3 phút, mọi message kế tiếp trong ~2 phút chết yểu.
+  2. `.first.timeout(3 phút)` KHÔNG cancel được stream — generator cũ
+     vẫn treo trong `await for`; state processing chỉ reset khi isolate
+     trả lời hay watchdog 5 phút → cửa sổ "kẹt" ~2 phút sau mỗi timeout.
+  3. Facade busy-wait 60s rồi vẫn gọi analyze → fallback yểu mạng.
+- **Fix (cefc87d):** (1) `analyze()`: state=processing → ĐỢI request cũ
+  xong ≤90s (isolate tuần tự = queue đúng) rồi mới fallback với lý do
+  rõ. (2) `_inFlight` counter: generator CUỐI CÙNG thoát mới đặt state
+  về ready — state không kẹt dù caller bỏ rơi stream. (3) bỏ busy-wait
+  60s ở facade (một nguồn sự thật).
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | fix cefc87d.
+    Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
+    trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
+    tin kế tiếp vẫn hoạt động bình thường
 
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)

@@ -633,6 +633,53 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
     });
   }
 
+  String _langLabel(String code) {
+    switch (code.toLowerCase()) {
+      case 'vi-vn':
+      case 'vi':
+        return '🇻🇳 Tiếng Việt (vi-VN)';
+      case 'en-us':
+      case 'en':
+        return '🇺🇸 Tiếng Anh (en-US)';
+      case 'en-gb':
+        return '🇬🇧 Tiếng Anh Anh (en-GB)';
+      case 'zh-cn':
+      case 'zh':
+        return '🇨🇳 Tiếng Trung (zh-CN)';
+      case 'fr-fr':
+      case 'fr':
+        return '🇫🇷 Tiếng Pháp (fr-FR)';
+      case 'de-de':
+      case 'de':
+        return '🇩🇪 Tiếng Đức (de-DE)';
+      case 'es-es':
+      case 'es':
+        return '🇪🇸 Tiếng Tây Ban Nha (es-ES)';
+      case 'hi-in':
+      case 'hi':
+        return '🇮🇳 Tiếng Hindi (hi-IN)';
+      case 'ja-jp':
+      case 'ja':
+        return '🇯🇵 Tiếng Nhật (ja-JP)';
+      case 'ko-kr':
+      case 'ko':
+        return '🇰🇷 Tiếng Hàn (ko-KR)';
+      case 'th-th':
+      case 'th':
+        return '🇹🇭 Tiếng Thái (th-TH)';
+      case 'pi-in':
+      case 'pi':
+        return '🪷 Tiếng Pali (pi)';
+      case 'sa-in':
+      case 'sa':
+        return '🕉️ Tiếng Sanskrit (sa)';
+      case 'other':
+        return '🌐 Khác / Tự do';
+      default:
+        return '🌐 $code';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<SherpaPiperInfo>(
@@ -672,7 +719,7 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
             const SizedBox(height: 6),
             Text(
               context.uiText(
-                'Mỗi ngôn ngữ chọn 1 giọng đã import. Dùng khi chế độ Nghe (TTS).',
+                'Mỗi ngôn ngữ chọn 1 giọng đã import. Tự động ưu tiên phát khi dùng Sherpa TTS.',
               ),
               style: TextStyle(fontSize: 10, color: Colors.grey[600]),
             ),
@@ -684,7 +731,7 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      entry.key == 'other' ? 'Khác' : entry.key,
+                      _langLabel(entry.key),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF80CBC4),
@@ -696,7 +743,8 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         value: v.name,
-                        groupValue: _selected[entry.key],
+                        groupValue: _selected[entry.key] ??
+                            (entry.value.length == 1 ? v.name : null),
                         activeColor: const Color(0xFF80CBC4),
                         title: Text(
                           v.name,

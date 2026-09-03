@@ -544,6 +544,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   }
 
   Widget _buildVoiceCommandButton() {
+    final locale = context.read<LocaleProvider>().locale?.languageCode ?? 'vi';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -552,7 +553,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           icon: Icon(_voiceListening ? Icons.mic : Icons.mic_none, size: 14),
           label: Text(
             _voiceListening
-                ? voiceCommandLabel('en', 'listening')
+                ? voiceCommandLabel(locale, 'listening')
                 : 'Voice commands',
             style: const TextStyle(fontSize: 11),
           ),
@@ -560,7 +561,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         if (_lastVoiceText.isNotEmpty) ...[
           const SizedBox(width: 6),
           Text(
-            '${voiceCommandLabel('en', 'received')}: $_lastVoiceText',
+            '${voiceCommandLabel(locale, 'received')}: $_lastVoiceText',
             style: const TextStyle(color: Colors.white, fontSize: 10),
           ),
         ],
@@ -757,8 +758,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (_voiceListening) return;
     setState(() => _voiceListening = true);
     final player = context.read<PlayerProvider>();
+    final locale = context.read<LocaleProvider>().locale?.languageCode ?? 'vi';
+    final sttLang = locale == 'vi' ? 'vi-VN' : 'en-US';
+
     final started = await _voiceCommandService.start(
-      language: 'vi-VN',
+      language: sttLang,
       onPartial: (text) { if (mounted) setState(() => _lastVoiceText = text); },
       onCommand: (command) async {
         switch (command.type) {
@@ -774,8 +778,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         }
       },
     );
-    if (!started && mounted) ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(voiceCommandLabel('en', 'noModel'))));
+    if (!started && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(voiceCommandLabel(locale, 'noModel'))),
+      );
+    }
     if (mounted) setState(() => _voiceListening = false);
   }
 

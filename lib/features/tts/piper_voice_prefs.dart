@@ -29,13 +29,20 @@ class PiperVoicePrefs {
   Future<void> setVoiceForLang(String language, String voiceName) async {
     final lang = normalizeLang(language);
     final prefs = await _ensure();
-    if (lang.isEmpty) {
+    if (lang.isEmpty || lang == 'other') {
       _defaultVoice = voiceName;
       await prefs.setString(_defaultKey, voiceName);
       return;
     }
     _mem[lang] = voiceName;
     await prefs.setString('$_prefix$lang', voiceName);
+
+    // Lưu thêm short code (ví dụ `vi` song song với `vi-VN`)
+    final short = lang.split('-').first;
+    if (short != lang) {
+      _mem[short] = voiceName;
+      await prefs.setString('$_prefix$short', voiceName);
+    }
   }
 
   Future<String?> voiceForLang(String language) async {

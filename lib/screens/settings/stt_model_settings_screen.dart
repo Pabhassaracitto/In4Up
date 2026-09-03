@@ -1101,7 +1101,7 @@ class _PiperVoiceRow extends StatelessWidget {
                 Text(voice.name,
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
-                  'language: ${lang.isEmpty ? 'auto' : lang} · '
+                  'Ngôn ngữ: ${lang.isEmpty ? 'Tự do / Mặc định' : lang} · '
                   '${voice.sampleRate}Hz',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),

@@ -66,27 +66,47 @@ class PiperTtsEngine implements TtsEngine {
   }
 
   Future<String?> _resolveVoiceName(String language, String? voiceId) async {
-    if (voiceId != null && voiceId.isNotEmpty) return voiceId;
-    final preferred = await PiperVoicePrefs.instance.voiceForLang(language);
     final voices = await SherpaPiperTtsCore.discoverVoices();
     if (voices.isEmpty) return null;
+
+    if (voiceId != null && voiceId.isNotEmpty) {
+      for (final v in voices) {
+        if (v.name == voiceId) return v.name;
+      }
+    }
+
+    final preferred = await PiperVoicePrefs.instance.voiceForLang(language);
     if (preferred != null) {
       for (final v in voices) {
         if (v.name == preferred) return v.name;
       }
     }
+
     final want = PiperVoicePrefs.normalizeLang(language);
     if (want.isNotEmpty) {
+      // 1. Khớp chính xác locale (e.g. `vi-VN` == `vi-VN`)
       for (final v in voices) {
         final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
         if (lang.toLowerCase() == want.toLowerCase()) return v.name;
       }
+      // 2. Khớp mã ngôn ngữ 2 ký tự (e.g. `vi` == `vi`)
       final short = want.split('-').first.toLowerCase();
       for (final v in voices) {
         final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
-        if (lang.split('-').first.toLowerCase() == short) return v.name;
+        if (lang.isNotEmpty && lang.split('-').first.toLowerCase() == short) {
+          return v.name;
+        }
       }
+      // 3. Fallback: nếu có voice không xác định locale (universal)
+      for (final v in voices) {
+        final lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+        if (lang.isEmpty) return v.name;
+      }
+
+      // Không tìm thấy giọng Piper phù hợp với ngôn ngữ này → trả null để fallback sang engine khác
+      return null;
     }
+
     return voices.first.name;
   }
 
@@ -100,7 +120,10 @@ class PiperTtsEngine implements TtsEngine {
   }) async {
     final name = await _resolveVoiceName(language, voiceId);
     if (name == null) {
-      return TtsResult.failure(error: 'Chưa có giọng Piper', engine: this.name);
+      return TtsResult.failure(
+        error: 'Chưa có giọng Piper cho $language',
+        engine: this.name,
+      );
     }
     final ok = await _core.selectVoice(name);
     if (!ok) {

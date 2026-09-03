@@ -1,8 +1,10 @@
 // lib/features/tts/tts_service.dart
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
@@ -14,7 +16,6 @@ import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'language_detector.dart';
 import 'tts_settings.dart';
-// VoidCallback
 
 class TtsService extends ChangeNotifier {
   // ═══════════════════════════════════════
@@ -34,6 +35,14 @@ class TtsService extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TtsCache _cache = TtsCache();
   final OfflineTtsEngine _offlineEngine = OfflineTtsEngine();
+
+  // Settings Keys
+  static const _kPriorityKey = 'tts_priority_mode';
+  static const _kEngineOrderKey = 'tts_engine_order_json';
+  static const _kFptApiKey = 'tts_fpt_api_key';
+  static const _kZaloApiKey = 'tts_zalo_api_key';
+  static const _kSpeedKey = 'tts_speed_val';
+  static const _kPitchKey = 'tts_pitch_val';
 
   // Settings
   TtsPriority _priority = TtsPriority.offlineFirst;
@@ -85,6 +94,7 @@ class TtsService extends ChangeNotifier {
 
   void _init() {
     _buildDefaultEngineOrder();
+    _loadPersistedSettings();
 
     _audioPlayer.playerStateStream.listen((state) {
       // ★ FIX: Chỉ xử lý stream khi đang dùng AudioPlayer (KHÔNG dùng OfflineEngine)
@@ -104,7 +114,7 @@ class TtsService extends ChangeNotifier {
     _engineOrder = [
       const TtsEngineInfo(
         id: 'piper_tts',
-        name: 'Piper (neural)',
+        name: 'Piper (neural / Sherpa)',
         description: 'Offline, giọng neural đã import',
         isOnline: false,
         priority: 0,
@@ -112,7 +122,7 @@ class TtsService extends ChangeNotifier {
       const TtsEngineInfo(
         id: 'offline_tts',
         name: 'Offline (Máy)',
-        description: 'Phát ngay, giọng máy',
+        description: 'Phát ngay, giọng máy hệ thống',
         isOnline: false,
         priority: 1,
       ),
@@ -120,23 +130,107 @@ class TtsService extends ChangeNotifier {
         id: 'google_tts',
         name: 'Google TTS',
         description: 'Miễn phí, khá tự nhiên',
-        priority: 1,
+        priority: 2,
       ),
       const TtsEngineInfo(
         id: 'zalo_tts',
         name: 'Zalo AI',
         description: 'Tiếng Việt cực tự nhiên',
         needsApiKey: true,
-        priority: 2,
+        priority: 3,
       ),
       const TtsEngineInfo(
         id: 'fpt_tts',
         name: 'FPT.AI',
         description: 'Tiếng Việt tự nhiên, nhiều giọng',
         needsApiKey: true,
-        priority: 3,
+        priority: 4,
       ),
     ];
+  }
+
+  Future<void> _loadPersistedSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final priorityStr = prefs.getString(_kPriorityKey);
+      if (priorityStr != null) {
+        for (final p in TtsPriority.values) {
+          if (p.name == priorityStr) {
+            _priority = p;
+            break;
+          }
+        }
+      }
+
+      _fptApiKey = prefs.getString(_kFptApiKey);
+      _zaloApiKey = prefs.getString(_kZaloApiKey);
+      _speed = prefs.getDouble(_kSpeedKey) ?? _speed;
+      _pitch = prefs.getDouble(_kPitchKey) ?? _pitch;
+
+      final engineJson = prefs.getString(_kEngineOrderKey);
+      if (engineJson != null && engineJson.isNotEmpty) {
+        final decoded = jsonDecode(engineJson) as List<dynamic>;
+        final map = <String, bool>{};
+        final orderList = <String>[];
+        for (final item in decoded) {
+          if (item is Map) {
+            final id = item['id']?.toString() ?? '';
+            final enabled = item['enabled'] == true;
+            if (id.isNotEmpty) {
+              map[id] = enabled;
+              orderList.add(id);
+            }
+          }
+        }
+
+        final currentMap = {for (final e in _engineOrder) e.id: e};
+        final reordered = <TtsEngineInfo>[];
+        for (final id in orderList) {
+          if (currentMap.containsKey(id)) {
+            final existing = currentMap.remove(id)!;
+            reordered.add(existing.copyWith(
+              isEnabled: map[id] ?? existing.isEnabled,
+              priority: reordered.length,
+            ));
+          }
+        }
+        // Thêm các engine mới chưa có trong saved json
+        for (final remaining in currentMap.values) {
+          reordered.add(remaining.copyWith(priority: reordered.length));
+        }
+        _engineOrder = reordered;
+      }
+      _safeNotify();
+    } catch (e) {
+      debugPrint('⚠️ TtsService load settings error: $e');
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPriorityKey, _priority.name);
+      if (_fptApiKey != null) {
+        await prefs.setString(_kFptApiKey, _fptApiKey!);
+      } else {
+        await prefs.remove(_kFptApiKey);
+      }
+      if (_zaloApiKey != null) {
+        await prefs.setString(_kZaloApiKey, _zaloApiKey!);
+      } else {
+        await prefs.remove(_kZaloApiKey);
+      }
+      await prefs.setDouble(_kSpeedKey, _speed);
+      await prefs.setDouble(_kPitchKey, _pitch);
+
+      final serialized = _engineOrder
+          .map((e) => {'id': e.id, 'enabled': e.isEnabled})
+          .toList();
+      await prefs.setString(_kEngineOrderKey, jsonEncode(serialized));
+    } catch (e) {
+      debugPrint('⚠️ TtsService save settings error: $e');
+    }
   }
 
   /// ★ FIX: Bọc notifyListeners để tránh crash khi đã dispose
@@ -178,6 +272,7 @@ class TtsService extends ChangeNotifier {
     if (zaloApiKey != null) {
       _zaloApiKey = zaloApiKey.trim().isEmpty ? null : zaloApiKey.trim();
     }
+    _saveSettings();
     _safeNotify();
   }
 
@@ -187,6 +282,7 @@ class TtsService extends ChangeNotifier {
         .entries
         .map((e) => e.value.copyWith(priority: e.key))
         .toList();
+    _saveSettings();
     _safeNotify();
   }
 
@@ -195,46 +291,61 @@ class TtsService extends ChangeNotifier {
       if (e.id == engineId) return e.copyWith(isEnabled: enabled);
       return e;
     }).toList();
+    _saveSettings();
     _safeNotify();
   }
 
   void setPriority(TtsPriority p) {
     _priority = p;
+    _saveSettings();
     _safeNotify();
   }
 
   // ═══════════════════════════════════════
-  // 🔥 SPEAK - HÀM CHÍNH
+  // 🔥 SPEAK - CƠ CHẾ LINH HOẠT & ƯU TIÊN
   // ═══════════════════════════════════════
+
+  /// Danh sách candidate engines theo thứ tự ưu tiên cấu hình
+  List<TtsEngineInfo> _getCandidateEngines(TtsPriority priority) {
+    final enabled = _engineOrder.where((e) => e.isEnabled).toList()
+      ..sort((a, b) => a.priority.compareTo(b.priority));
+
+    switch (priority) {
+      case TtsPriority.offlineFirst:
+        // Offline trước (Piper Sherpa, Máy), sau đó Online (Google, Zalo, FPT)
+        final off = enabled.where((e) => !e.isOnline).toList();
+        final on = enabled.where((e) => e.isOnline).toList();
+        return [...off, ...on];
+
+      case TtsPriority.onlineFirst:
+        // Online trước, sau đó fallback Offline
+        final on = enabled.where((e) => e.isOnline).toList();
+        final off = enabled.where((e) => !e.isOnline).toList();
+        return [...on, ...off];
+
+      case TtsPriority.offlineOnly:
+        // Chỉ offline
+        return enabled.where((e) => !e.isOnline).toList();
+
+      case TtsPriority.onlineOnly:
+        // Online trước, fallback offline nếu cần thiết
+        final on = enabled.where((e) => e.isOnline).toList();
+        final off = enabled.where((e) => !e.isOnline).toList();
+        return [...on, ...off];
+    }
+  }
 
   Future<void> speak(String text) async {
     if (text.trim().isEmpty) return;
     await stop();
 
     _error = null;
+    _stopRequested = false;
 
     final lang = _resolveLanguage(text);
     _detectedLanguage = lang;
 
-    switch (_priority) {
-      case TtsPriority.offlineFirst:
-        await _speakOfflineFirst(text, lang);
-        break;
-      case TtsPriority.onlineFirst:
-        await _speakOnlineFirst(text, lang);
-        break;
-      case TtsPriority.offlineOnly:
-        await _speakOfflineOnly(text, lang);
-        break;
-      case TtsPriority.onlineOnly:
-        await _speakOnlineFirst(text, lang);
-        break;
-    }
-  }
-
-  /// MODE 1: Offline trước → phát ngay, tải online nền
-  Future<void> _speakOfflineFirst(String text, String lang) async {
-    // Check cache trước
+    // 1. Kiểm tra cache trước
     final cachedPath = await _cache.get(
       text: text,
       language: lang,
@@ -248,14 +359,126 @@ class TtsService extends ChangeNotifier {
       return;
     }
 
-    if (await _speakPiperIfEnabled(text, lang)) {
-      _prefetchOnline(text, lang);
-      return;
+    // 2. Chạy qua danh sách engine theo thứ tự ưu tiên
+    final candidates = _getCandidateEngines(_priority);
+    var played = false;
+
+    for (final engineInfo in candidates) {
+      if (_stopRequested) break;
+
+      switch (engineInfo.id) {
+        case 'piper_tts':
+          played = await _trySpeakPiper(text, lang);
+          break;
+
+        case 'offline_tts':
+          played = await _trySpeakOffline(text, lang);
+          break;
+
+        case 'google_tts':
+          played = await _trySpeakOnline(GoogleTtsEngine(), text, lang);
+          break;
+
+        case 'zalo_tts':
+          if (_zaloApiKey != null &&
+              _zaloApiKey!.isNotEmpty &&
+              lang.startsWith('vi')) {
+            played = await _trySpeakOnline(
+              ZaloTtsEngine(apiKey: _zaloApiKey),
+              text,
+              lang,
+            );
+          }
+          break;
+
+        case 'fpt_tts':
+          if (_fptApiKey != null &&
+              _fptApiKey!.isNotEmpty &&
+              lang.startsWith('vi')) {
+            played = await _trySpeakOnline(
+              FptTtsEngine(apiKey: _fptApiKey),
+              text,
+              lang,
+            );
+          }
+          break;
+      }
+
+      if (played) {
+        // Nếu dùng offline và chế độ offlineFirst, kích hoạt prefetch online nền
+        if (_priority == TtsPriority.offlineFirst) {
+          _prefetchOnline(text, lang);
+        }
+        return;
+      }
     }
 
-    // ★ FIX: Đánh dấu đang dùng offline engine TRƯỚC KHI set _isSpeaking
+    // Nếu tất cả candidate engines đều thất bại, thử fallback khẩn cấp sang Offline (Máy)
+    if (!played && !_stopRequested) {
+      debugPrint('⚠️ Tất cả engine ưu tiên thất bại, thử fallback khẩn cấp sang Offline Máy');
+      played = await _trySpeakOffline(text, lang);
+    }
+
+    if (!played && !_stopRequested) {
+      _error = 'Không có engine TTS nào phát được văn bản này ($lang).';
+      _isLoading = false;
+      _isSpeaking = false;
+      _safeNotify();
+    }
+  }
+
+  /// Thử phát bằng Sherpa Piper neural TTS.
+  /// Trả về true nếu thành công, false nếu không có model / lỗi để tự động fallback.
+  Future<bool> _trySpeakPiper(String text, String lang) async {
+    try {
+      final piper = PiperTtsEngine.instance;
+      if (!await piper.isAvailable()) return false;
+
+      _usingOfflineEngine = false;
+      _isLoading = true;
+      _safeNotify();
+
+      final result = await piper.synthesize(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+        voiceId: _selectedVoiceId,
+      );
+
+      _isLoading = false;
+
+      if (!result.isSuccess ||
+          result.audioData == null ||
+          result.audioData!.isEmpty) {
+        debugPrint('ℹ️ Sherpa Piper TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
+        _safeNotify();
+        return false;
+      }
+
+      final filePath = await _cache.put(
+        text: text,
+        language: lang,
+        engineId: piper.id,
+        audioData: result.audioData!,
+      );
+
+      _lastUsedEngine = '🎙️ Sherpa Piper';
+      _safeNotify();
+      await _playFile(filePath);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Piper TTS error: $e, fallback tiếp');
+      _isLoading = false;
+      _safeNotify();
+      return false;
+    }
+  }
+
+  /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)
+  Future<bool> _trySpeakOffline(String text, String lang) async {
     _usingOfflineEngine = true;
-    _lastUsedEngine = '📖 Offline';
+    _lastUsedEngine = '📖 Offline (Máy)';
     _isSpeaking = true;
     _safeNotify();
 
@@ -266,142 +489,64 @@ class TtsService extends ChangeNotifier {
         speed: _speed,
         pitch: _pitch,
       );
+      return true;
     } catch (e) {
-      _error = 'Lỗi offline TTS: $e';
-      debugPrint('OfflineTTS error: $e');
+      debugPrint('⚠️ OfflineTTS direct error: $e');
+      return false;
     } finally {
-      // ★ FIX: Reset cờ TRƯỚC KHI update state
       _usingOfflineEngine = false;
       _isSpeaking = false;
       _safeNotify();
     }
-
-    // Tải online ở nền (fire-and-forget)
-    _prefetchOnline(text, lang);
   }
 
-  /// MODE 2: Online trước → chờ tải, chất lượng cao
-  Future<void> _speakOnlineFirst(String text, String lang) async {
-    final cachedPath = await _cache.get(
-      text: text,
-      language: lang,
-      engineId: 'any',
-    );
-
-    if (cachedPath != null) {
-      _lastUsedEngine = '💾 Cache';
-      _safeNotify();
-      await _playFile(cachedPath);
-      return;
-    }
+  /// Thử phát bằng Online Engine (Google, Zalo, FPT)
+  Future<bool> _trySpeakOnline(TtsEngine engine, String text, String lang) async {
+    final hasNet = await _checkNetwork();
+    if (!hasNet) return false;
 
     _isLoading = true;
     _safeNotify();
 
-    final hasNetwork = await _checkNetwork();
+    try {
+      final result = await engine
+          .synthesize(
+            text: text,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: _selectedVoiceId,
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (hasNetwork) {
-      final engines = _getOnlineEngines(lang);
+      _isLoading = false;
 
-      for (final engine in engines) {
-        try {
-          final result = await engine
-              .synthesize(
-                text: text,
-                language: lang,
-                speed: _speed,
-                pitch: _pitch,
-                voiceId: _selectedVoiceId,
-              )
-              .timeout(const Duration(seconds: 15));
+      if (result.isSuccess) {
+        if (result.audioData != null && result.audioData!.isNotEmpty) {
+          final filePath = await _cache.put(
+            text: text,
+            language: lang,
+            engineId: engine.id,
+            audioData: result.audioData!,
+          );
 
-          if (result.isSuccess) {
-            if (result.audioData != null && result.audioData!.isNotEmpty) {
-              final filePath = await _cache.put(
-                text: text,
-                language: lang,
-                engineId: engine.id,
-                audioData: result.audioData!,
-              );
-
-              _lastUsedEngine = '🌐 ${result.engineName}';
-              _isLoading = false;
-              _safeNotify();
-              await _playFile(filePath);
-              return;
-            } else if (result.audioUrl != null) {
-              _lastUsedEngine = '🌐 ${result.engineName}';
-              _isLoading = false;
-              _safeNotify();
-              await _playUrl(result.audioUrl!);
-              return;
-            }
-          }
-        } catch (e) {
-          debugPrint('❌ ${engine.name}: $e');
+          _lastUsedEngine = '🌐 ${result.engineName}';
+          _safeNotify();
+          await _playFile(filePath);
+          return true;
+        } else if (result.audioUrl != null) {
+          _lastUsedEngine = '🌐 ${result.engineName}';
+          _safeNotify();
+          await _playUrl(result.audioUrl!);
+          return true;
         }
       }
-    }
-
-    // Fallback offline
-    _isLoading = false;
-
-    if (await _speakPiperIfEnabled(text, lang)) return;
-
-    // ★ FIX: Đánh dấu offline mode
-    _usingOfflineEngine = true;
-    _lastUsedEngine = '📖 Offline';
-    _isSpeaking = true;
-    _safeNotify();
-
-    try {
-      await _offlineEngine.speakDirect(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-      );
-    } finally {
-      _usingOfflineEngine = false;
-      _isSpeaking = false;
+      return false;
+    } catch (e) {
+      debugPrint('❌ Online ${engine.name} error: $e');
+      _isLoading = false;
       _safeNotify();
-    }
-  }
-
-  /// MODE 3: Chỉ offline
-  Future<void> _speakOfflineOnly(String text, String lang) async {
-    final cachedPath = await _cache.get(
-      text: text,
-      language: lang,
-      engineId: 'any',
-    );
-
-    if (cachedPath != null) {
-      _lastUsedEngine = '💾 Cache';
-      _safeNotify();
-      await _playFile(cachedPath);
-      return;
-    }
-
-    if (await _speakPiperIfEnabled(text, lang)) return;
-
-    // ★ FIX: Đánh dấu offline mode
-    _usingOfflineEngine = true;
-    _lastUsedEngine = '📖 Offline';
-    _isSpeaking = true;
-    _safeNotify();
-
-    try {
-      await _offlineEngine.speakDirect(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-      );
-    } finally {
-      _usingOfflineEngine = false;
-      _isSpeaking = false;
-      _safeNotify();
+      return false;
     }
   }
 
@@ -409,7 +554,6 @@ class TtsService extends ChangeNotifier {
   void _prefetchOnline(String text, String lang) {
     if (_isPrefetching) return;
     _isPrefetching = true;
-    // ★ FIX: Không gọi _safeNotify ở đây - tránh rebuild không cần thiết
 
     Future(() async {
       try {
@@ -452,11 +596,6 @@ class TtsService extends ChangeNotifier {
         }
       } finally {
         _isPrefetching = false;
-        // ★ FIX: Không notify ở đây - prefetch là silent operation
-        // Chỉ notify nếu app còn sống
-        if (!_disposed) {
-          // Không cần notify - prefetch là background, UI không cần biết
-        }
       }
     });
   }
@@ -682,56 +821,6 @@ class TtsService extends ChangeNotifier {
               s.processingState == ProcessingState.idle)
           .timeout(const Duration(seconds: 60));
     } catch (_) {}
-  }
-
-  bool get _piperEnabledInOrder {
-    for (final engine in _engineOrder) {
-      if (engine.id == PiperTtsEngine.instance.id) return engine.isEnabled;
-    }
-    return true;
-  }
-
-  /// Piper neural TTS when voices are imported. Voice is chosen per language
-  /// in Listen settings — do not pass the global [_selectedVoiceId].
-  Future<bool> _speakPiperIfEnabled(String text, String lang) async {
-    try {
-      if (!_piperEnabledInOrder) return false;
-      final piper = PiperTtsEngine.instance;
-      if (!await piper.isAvailable()) return false;
-
-      _usingOfflineEngine = false;
-      _isLoading = true;
-      _safeNotify();
-      final result = await piper.synthesize(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-      );
-      _isLoading = false;
-      if (!result.isSuccess ||
-          result.audioData == null ||
-          result.audioData!.isEmpty) {
-        debugPrint('Piper TTS skip: ${result.error}');
-        _safeNotify();
-        return false;
-      }
-      final filePath = await _cache.put(
-        text: text,
-        language: lang,
-        engineId: piper.id,
-        audioData: result.audioData!,
-      );
-      _lastUsedEngine = '🎙️ ${result.engineName}';
-      _safeNotify();
-      await _playFile(filePath);
-      return true;
-    } catch (e) {
-      debugPrint('Piper TTS error: $e');
-      _isLoading = false;
-      _safeNotify();
-      return false;
-    }
   }
 
   Future<bool> _checkNetwork() async {

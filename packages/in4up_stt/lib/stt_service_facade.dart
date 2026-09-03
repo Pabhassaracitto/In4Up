@@ -909,7 +909,9 @@ class SttServiceFacade extends ChangeNotifier {
   // ── Live STT ──────────────────────────────────────────────────────────────
 
   Future<bool> startListening({String language = 'en-US'}) async {
-    _ensureInitialized();
+    if (!_initialized) {
+      await initialize();
+    }
     return _nativeEngine.startListening(language: language);
   }
 

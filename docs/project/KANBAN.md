@@ -52,9 +52,9 @@
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
-| XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | 5fb8415; chain cũ chạy offline TRƯỚC nên user có model Hy-MT luôn dịch offline (chờ nghiệm thu máy online/offline) |
-| HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 0a05ffa; _LoadResult sau create thật + minPlausible 80%x601MB + modelIssue cụ thể (chờ nghiệm thu máy) |
-| AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | cefc87d; _inFlight counter + bỏ busy-wait facade (chờ nghiệm thu máy) |
+| XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | 5fb8415; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
+| HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 95b5ab4; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
+| AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | cefc87d; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 
@@ -1247,17 +1247,29 @@
      đầu — file 100MB (download cắt của file 601MB) vẫn qua →
      `llama_model_load_from_file` fail → NULL.
   3. Lỗi chung chung, không nói được file hỏng hay thiếu RAM.
-- **Fix (0a05ffa):** (1) `_LoadResult` gửi SAU khi create hoàn tất
+- **Fix (cuối cùng 95b5ab4):** (1) `_LoadResult` gửi SAU khi create hoàn tất
   (ready + error thật); ensureLoaded chờ nó (2 phút), fail → dispose +
-  `_lastLoadError` → lần sau RETRY. (2) `minPlausibleBytes` = 80% ×
-  601MB (size thật xác minh trên HF) + check magic GGUF đầu khi resolve;
+  `_lastLoadError` → lần sau RETRY. (2) `minPlausibleBytes` = 481MB (80% ×
+  601MB, size thật xác minh trên HF) + check magic GGUF đầu khi resolve;
   file hỏng = chưa có model (fallback engine khác). (3) `modelIssue()`
   + lỗi hiển thị nguyên nhân thật từ isolate.
+- **Ghi chú kỹ thuật quan trọng:** `_headIsGguf` KHÔNG dùng được
+  `File.openSync()`/`readBytesSync`/`closeSync` (RandomAccessFile sync
+  API) — analyzer CI (Flutter 3.44.1) từ chối compile (8 vòng bisect
+  33694449146 → 33697327206: T2 bỏ I/O xanh, T3 positional đỏ, T4
+  `openRead(0, 4).first` xanh). Dùng pattern `openRead(0, N).first`
+  (đã proof trong chính file: importFromUser dùng `openRead(0, 8)`) —
+  async, chỉ đọc 4 byte đầu, không load file 600MB vào RAM.
 - **Lịch sử:**
   - 2026-09-03 | created→done | agent arena/01a0251e-in4up | xác minh
     size file thật 601MB (HF tencent/Hy-MT1.5-1.8B-2bit-GGUF); fix
     0a05ffa. Nghiệm thu: Import/Tải lại model → dịch → nếu vẫn lỗi,
     message giờ nói nguyên nhân (file cắt / quant / RAM / thiếu native)
+  - 2026-09-03 | done→done | agent arena/01a0251e-in4up | CI đỏ triền
+    miên do RandomAccessFile sync API + 1 lỗi `error:` null-safety; 8
+    vòng bisect 1-bit xác định openSync/readBytesSync là thủ phạm (log
+    không đọc được). Đổi sang openRead → fix hoàn chỉnh 95b5ab4,
+    CI XANH 33697490397
 
 ### AI-CHAT-02 — Chat "cứ xoay vòng" — engine queue đúng
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)

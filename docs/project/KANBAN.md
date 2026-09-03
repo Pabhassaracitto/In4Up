@@ -50,6 +50,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
+| I18N-001 | i18n backlog: 354 chrome literals chưa phân loại UI/content (generator legacy fallbacks không chạy được) + raw strings player tab Nghe | 📋 proposed | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5) |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -57,6 +58,8 @@
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
+| TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
+| SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
 
 ---
 
@@ -1010,6 +1013,37 @@
   - 2026-08-25 | created→done | agent arena/01a0251e-in4up | ff-merge
     01a0018e (70c4efc, nhánh đã merge sẵn 251e 2cfb53b) + cleanup import;
     CI xanh 33037686097/33037686068
+### I18N-001 — i18n backlog: 354 literals chưa phân loại + raw strings player tab Nghe
+- **Trạng thái:** proposed (cần branch i18n riêng — KHÔNG trộn vào branch feature)
+- **Phát hiện (2026-09-03, khi fix rule-5 cho tab Nghe "Gần đây"/"Thư viện"):**
+  chạy `python3 tool/generate_legacy_ui_fallbacks.py` báo
+  **"354 accented presentation literals need UI/content classification"** —
+  repo đã drift từ lần regenerate catalog cuối: 354 chuỗi chrome tiếng Việt
+  mới chưa được review (UI → thêm override / content → thêm exclusion).
+  Generator là ratchet chặt — không sửa đủ 354 thì không regenerate được.
+- **Drift đã dọn trong lúc fix lẻ:** 14 override stale (9 bị ARB shadow,
+  5 đã mất khỏi code sau harvest YouTube LR) + 1 content exclusion stale
+  (JS IFrame cũ thay bằng JS mới 19f6c3a) — generator giờ chỉ còn chặn
+  đúng 354 literals thật sự chưa review.
+- **Raw strings player tab Nghe (listen_mode_screen.dart — chưa fix):**
+  hàng chục chuỗi chrome trần ('Đặt điểm A/B', 'Nhảy đến đây', 'Lặp lại',
+  'Hẹn giờ ngủ', 'Theo câu/Theo cụm', 'Đang phân tích...', 'Hủy', …) —
+  cùng class bug như tab "Gần đây"/"Thư viện" (đã fix: 9 strings
+  ListenLibraryScreen + 2 strings AudioLibraryView qua uiText + fallback).
+- **Làm gì (branch mới từ tip DEV):**
+  1. Chạy generator, lấy danh sách 354; rà từng chuỗi: chrome UI →
+     `tool/legacy_ui_english_overrides.json` (keep-English T3 theo ADR-0002)
+     hoặc ARB nếu T1/T2; content (user/vocab/AI) →
+     `tool/legacy_ui_content_exclusions.json` kèm lý do.
+  2. i18n player tab Nghe (listen_mode_screen.dart) theo skill
+     `docs/skills/i18n-localization/SKILL.md`: uiText + ARB parity +
+     hi/zh/zh_TW/si, không fallback về Việt.
+  3. Regenerate + CI App Analyze + Locale xanh + nghiệm thu locale ≠ vi.
+- **Lịch sử:**
+  - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
+    rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
+    ListenLibraryScreen/AudioLibraryView (chờ CI)
+
 ### LANG-03033-01 — Chrome i18n Soundlist/LHB/shell (thâu hoạch 01a03033) + 3 fix nghiệm thu
 - **Trạng thái:** done (CI xanh; chờ owner nghiệm thu: mở app locale ≠ vi →
   chrome Soundlist/LHB/shell hiện bản dịch hi/zh/zh_TW/si/EN, không Việt)
@@ -1418,6 +1452,38 @@
     cầu "cứ thâu hoạch tiếp 1580... nghiệm thu từng nhóm" — audit toàn
     diện, không còn gì pending.
 
+### TIPITAKA-001 — Tipiṭaka (OpenTipitaka Pa-Auk): module kinh điển
+- **Trạng thái:** doing — DEMO trong DEV (18813d6); production trên nhánh mới
+- **Nguồn:** session `arena/019ff2f6-in4up` (workspace Linux + worktree
+  Windows `E:\PROJECTS\in4up.worktree\DEV`), bàn giao 2026-09-03.
+- **Đã làm (đang chạy trong DEV — commit 18813d6):**
+  - Module `lib/features/tipitaka/`: models (Collection/Book/Segment
+    Equatable), `db_service.dart` (sqflite, schema chuẩn, LIKE + index),
+    screens (Library 2 cột; Reader song ngữ Pāli/Việt/Anh + bookmark/ghi
+    chú; Search toàn văn; Download; Language Pack 26 ngôn ngữ).
+  - `main_shell.dart`: quick-action bolt "tipitaka" (Home → ⚡ → Tipiṭaka).
+  - `pubspec.yaml`: +sqflite +path; `assets/db/tipitaka.sqlite` DEMO
+    (~1.69MB, ~10k đoạn từ 3 file nguồn) + `scripts/import_tipitaka.py`.
+- **Phải làm (mỗi nhánh mới chọn 1 — chi tiết PLAN-021 mục 2):**
+  - **F** Full DB import (26 DB nguồn → ~500MB, hết LIMIT 10000)
+  - **D** Production: download DB về documents (KHÔNG bundle 500MB
+    assets) + bookmark/note persistence + Copy Citation (DN 1.1)
+  - **B** Spaced repetition: `tipitaka_learning_items` ↔ memory_mode
+  - **C** AI-RAG với citation bắt buộc (không citation → không trả lời)
+- **Sẽ làm (sau F/D/B/C):** FTS5; ngôn ngữ Miến/Thai; nối Reader với
+  tab Đọc.
+- **Tài liệu bàn giao (đọc trước khi giao việc):**
+  `docs/Bangiao/bangiao_tipitaka.md` (INTEGRATION_GUIDE + README module
+  + AGENT_PROMPT_TIPITAKA + TIPITAKA_HANDOFF — 4 bước F/C/B/D, ràng
+  buộc, nguồn DB Pa-Auk) + `lib/features/tipitaka/models/README.md` +
+  PLAN-021.
+- **Lịch sử:**
+  - 2026-09-03 | created | owner via session arena/019ff2f6-in4up |
+    module + DB DEMO + quick-action; code nằm trong DEV từ 18813d6
+  - 2026-09-03 | doing | agent arena/01a0251e-in4up | card + PLAN-021
+    ghi rõ đã làm/phải làm/sẽ làm; file bàn giao vào
+    docs/Bangiao/bangiao_tipitaka.md (5374214)
+
 ### SHERPA-WP23-01 — WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9)
 - **Trạng thái:** done + CI xanh 33336160268 (tip 8c2e868)
 - **Nguồn:** commit 4cdaffb từ `arena/01a039e9-in4up` (cherry-pick -x → 01f5235).
@@ -1438,6 +1504,20 @@
 - **Chờ:** nghiệm thu máy (lệnh giọng nói "phát/tạm dừng/tiếp theo/nhanh hơn/
   ẩn lời"; waveform nhiều speaker cần audio đã diarize — sidecar tạo tự động
   khi chạy STT pipeline).
+- **Việc tiếp theo (nhánh MỚI từ tip DEV sau khi nghiệm thu xanh —
+  chi tiết PLAN-022 mục 3, bàn giao docs/Bangiao/bangiao_sherpa.md):**
+  - WP3 action `translate` — nối lệnh "dịch" vào provider toggle
+    translation CHỈ sau khi owner xác nhận API (known limitation bàn
+    giao; không giả lập hành vi).
+  - WP-Z (có thể không làm): sidecar desktop yt-dlp khi explode gãy.
+  - Nâng cấp diarization khi có model thật (thay heuristic).
+  - Bẫy KHÔNG lặp lại: không khai báo trùng `_voiceCommandService`/
+    `_voiceListening`/`_lastVoiceText`/`_startVoiceCommands`; không
+    chèn snippet bằng mắt khi có conflict; không sửa `.github/workflows/`;
+    không bịa URL/model Zipformer; không auto-download.
 - **Lịch sử:**
   - 2026-08-30 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
     4cdaffb (01f5235) + fix scope (8c2e868); CI xanh 33336160268
+  - 2026-09-03 | done→doing | agent arena/01a0251e-in4up | bàn giao
+    docs/Bangiao/bangiao_sherpa.md (5374214) + PLAN-022; card bổ sung
+    mục "Việc tiếp theo" + row tổng quan trỏ PLAN-022

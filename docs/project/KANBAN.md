@@ -52,9 +52,9 @@
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
-| XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | 5fb8415; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
-| HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 95b5ab4; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
-| AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | cefc87d; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
+| XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
+| HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
+| AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 
@@ -1224,7 +1224,7 @@
 - **Root cause:** `_runEngineChain` chạy offline (Hy-MT → ML Kit) TRƯỚC
   online engines — user đã có model Hy-MT thì mọi câu chạm offline
   trước, online không bao giờ được thử dù có mạng.
-- **Fix (5fb8415):** chain mới = (1) ONLINE engines (Google Free/
+- **Fix (ce4945a):** chain mới = (1) ONLINE engines (Google Free/
   DeepLX/MyMemory/Libre) khi có mạng + không khóa "chỉ offline" →
   (2) OFFLINE fallback: Hy-MT (chọn/auto + có model) → ML Kit → từ điển.
   Toggle "chỉ offline" + engine pref (auto/hymt/mlkit) giữ nguyên —
@@ -1232,7 +1232,7 @@
 - **Lịch sử:**
   - 2026-09-03 | created→done | agent arena/01a0251e-in4up | owner báo
     "dù tắt hay bật trong cài đặt dịch thì vẫn dịch offline HY-MT";
-    sửa 5fb8415 (chờ CI + nghiệm thu: có mạng → engine badge hiện
+    sửa ce4945a (chờ CI + nghiệm thu: có mạng → engine badge hiện
     Google/MyMemory...; rút mạng → tự rơi Hy-MT/ML Kit)
 
 ### HYMT-001 — Hy-MT "native không load được" dù đã có model
@@ -1247,7 +1247,7 @@
      đầu — file 100MB (download cắt của file 601MB) vẫn qua →
      `llama_model_load_from_file` fail → NULL.
   3. Lỗi chung chung, không nói được file hỏng hay thiếu RAM.
-- **Fix (cuối cùng 95b5ab4):** (1) `_LoadResult` gửi SAU khi create hoàn tất
+- **Fix (cuối cùng 1677da3):** (1) `_LoadResult` gửi SAU khi create hoàn tất
   (ready + error thật); ensureLoaded chờ nó (2 phút), fail → dispose +
   `_lastLoadError` → lần sau RETRY. (2) `minPlausibleBytes` = 481MB (80% ×
   601MB, size thật xác minh trên HF) + check magic GGUF đầu khi resolve;
@@ -1263,12 +1263,12 @@
 - **Lịch sử:**
   - 2026-09-03 | created→done | agent arena/01a0251e-in4up | xác minh
     size file thật 601MB (HF tencent/Hy-MT1.5-1.8B-2bit-GGUF); fix
-    0a05ffa. Nghiệm thu: Import/Tải lại model → dịch → nếu vẫn lỗi,
+    (ban dau — da squash vao 1677da3). Nghiệm thu: Import/Tải lại model → dịch → nếu vẫn lỗi,
     message giờ nói nguyên nhân (file cắt / quant / RAM / thiếu native)
   - 2026-09-03 | done→done | agent arena/01a0251e-in4up | CI đỏ triền
     miên do RandomAccessFile sync API + 1 lỗi `error:` null-safety; 8
     vòng bisect 1-bit xác định openSync/readBytesSync là thủ phạm (log
-    không đọc được). Đổi sang openRead → fix hoàn chỉnh 95b5ab4,
+    không đọc được). Đổi sang openRead → fix hoàn chỉnh 1677da3,
     CI XANH 33697490397
 
 ### AI-CHAT-02 — Chat "cứ xoay vòng" — engine queue đúng
@@ -1282,13 +1282,13 @@
      vẫn treo trong `await for`; state processing chỉ reset khi isolate
      trả lời hay watchdog 5 phút → cửa sổ "kẹt" ~2 phút sau mỗi timeout.
   3. Facade busy-wait 60s rồi vẫn gọi analyze → fallback yểu mạng.
-- **Fix (cefc87d):** (1) `analyze()`: state=processing → ĐỢI request cũ
+- **Fix (5134f06):** (1) `analyze()`: state=processing → ĐỢI request cũ
   xong ≤90s (isolate tuần tự = queue đúng) rồi mới fallback với lý do
   rõ. (2) `_inFlight` counter: generator CUỐI CÙNG thoát mới đặt state
   về ready — state không kẹt dù caller bỏ rơi stream. (3) bỏ busy-wait
   60s ở facade (một nguồn sự thật).
 - **Lịch sử:**
-  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | fix cefc87d.
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | fix 5134f06.
     Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
     trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
     tin kế tiếp vẫn hoạt động bình thường

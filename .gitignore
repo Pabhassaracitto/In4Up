@@ -132,7 +132,6 @@ build_log.txt
 .firebase/
 **/.firebase/
 android/local.properties
-docs/
 .guide/
 google-services.json
 android/app/google-services.json

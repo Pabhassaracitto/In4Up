@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
+
 import 'package:in4up/features/tipitaka/models/segment.dart';
+import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
 
 class TipitakaSearchScreen extends StatefulWidget {
@@ -10,24 +12,43 @@ class TipitakaSearchScreen extends StatefulWidget {
 }
 
 class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
-  final TextEditingController _ctrl = TextEditingController();
+  final TextEditingController _controller = TextEditingController();
   List<TipitakaSegment> results = [];
   bool searching = false;
+  String? error;
 
-  Future<void> _search(String q) async {
-    if (q.trim().isEmpty) {
-      setState(() => results = []);
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        results = [];
+        error = null;
+      });
       return;
     }
-    setState(() => searching = true);
+    setState(() {
+      searching = true;
+      error = null;
+    });
     try {
-      final db = await TipitakaDb.init('/data/user/0/com.in2up/databases');
-      final r = await TipitakaDb.searchSegments(db, q.trim());
-      setState(() => results = r);
-    } catch (_) {
-      setState(() => results = []);
+      final db = await TipitakaDb.openReady();
+      final found = await TipitakaDb.searchSegments(db, trimmed);
+      if (mounted) setState(() => results = found);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          results = [];
+          error = e.toString();
+        });
+      }
     } finally {
-      setState(() => searching = false);
+      if (mounted) setState(() => searching = false);
     }
   }
 
@@ -40,31 +61,60 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
-              controller: _ctrl,
+              controller: _controller,
               decoration: InputDecoration(
-                hintText: 'Từ khóa Pāli / dịch thuật ...',
+                hintText: 'Từ khóa Pāli / bản dịch…',
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.search),
-                  onPressed: () => _search(_ctrl.text),
+                  onPressed: () => _search(_controller.text),
                 ),
               ),
               onSubmitted: _search,
             ),
           ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    context.uiText('Không thể mở cơ sở dữ liệu Tipiṭaka.'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TipitakaDownloadScreen(),
+                      ),
+                    ),
+                    child: const Text('Import hoặc tải dữ liệu'),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: searching
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: results.length,
-                    itemBuilder: (ctx, i) {
-                      final s = results[i];
-                      return ListTile(
-                        title: Text(s.reference),
-                        subtitle: Text(s.paliText.length > 60 ? s.paliText.substring(0, 60) + '...' : s.paliText),
-                        trailing: Text(s.translationVi != null && s.translationVi!.isNotEmpty ? '✓' : ''),
-                      );
-                    },
-                  ),
+                : results.isEmpty && error == null
+                    ? const Center(child: Text('Nhập từ khóa để tìm trong Tipiṭaka'))
+                    : ListView.builder(
+                        itemCount: results.length,
+                        itemBuilder: (context, index) {
+                          final segment = results[index];
+                          final pali = segment.paliText;
+                          return ListTile(
+                            title: Text(segment.reference),
+                            subtitle: Text(
+                              pali.length > 120 ? '${pali.substring(0, 120)}…' : pali,
+                            ),
+                            trailing: segment.translationVi?.isNotEmpty == true
+                                ? const Icon(Icons.translate)
+                                : null,
+                          );
+                        },
+                      ),
           ),
         ],
       ),

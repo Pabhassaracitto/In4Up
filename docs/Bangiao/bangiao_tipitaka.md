@@ -1,3 +1,11 @@
+# Tipiṭaka integration handoff
+
+> Current implementation note (2026-09-03): the database path is now resolved
+> by `TipitakaDb.openReady()`. A valid `assets/db/tipitaka.sqlite` is declared
+> and copied on first use; an absent/invalid DB opens the data manager instead
+> of an empty placeholder. See `docs/tipitaka_database.md` for the maintained
+> workflow.
+
 # INTEGRATION_GUIDE.md
 # Hướng dẫn nhanh cho bạn (Windows 11 / VS Code / Flutter)
 
@@ -21,14 +29,18 @@ Lưu vào `C:\Users\<Bạn>\Downloads\tipitaka_db\` (tạo thư mục).
 Dùng WinRAR / 7-Zip / Windows Explorer giải nén các `.zip` → bạn sẽ có các `.db` (có thể tên dài).
 
 ### C. Đặt file vào workspace (cách gửi cho tôi / cho script)
-Cách 1 — Cho tôi xử lý: Copy file `.db` đã giải nén vào thư mục `/home/user/In4Up/assets/db/` (trong workspace này). Nếu bạn có thể tải file lên chat (attach file), tôi sẽ tự động đặt vào đó.
-Cách 2 — Tự chạy trên Windows: Để file `.db` tại `C:\tipitaka_src\` và sửa `SOURCE_DIR` trong `scripts/import_tipitaka.py`.
+Cách 1 — Cho tôi xử lý: Copy file `.db` đã giải nén (hoặc `.db.zip`) vào thư mục `/home/user/In4Up/reference/` (trong workspace này). Không đặt DB nguồn vào `assets/db/` vì đó là nơi dành cho DB chuẩn hóa.
+Cách 2 — Tự chạy trên Windows: Để file `.db`/`.zip` tại `C:\tipitaka_src\`.
 
 ### D. Chạy import
-Nếu bạn để file trong workspace:
+Nếu bạn để file trong `reference/`:
 ```bash
 # Từ thư mục gốc repo (trong VS Code terminal hoặc Git Bash)
 python scripts/import_tipitaka.py
+```
+Nếu dùng thư mục khác:
+```bash
+python scripts/import_tipitaka.py --source-dir C:/tipitaka_src
 ```
 Kết quả: `assets/db/tipitaka.sqlite` (DB chuẩn hóa cho Flutter).
 
@@ -88,13 +100,9 @@ Tích hợp OpenTipitaka (Pa-Auk) vào dự án Flutter.
 1. Tải từ trình duyệt:
    - `https://dhamma.paauksociety.org/Root/Tipitaka/SqlLite%20Database/pali%20text/tipitaka-roman-pali.db.zip`
    - `https://dhamma.paauksociety.org/Root/Tipitaka/SqlLite%20Database/vietnamese_tipitaka_translation_data-2026-04-29.db.zip`
-2. Giải nén vào một thư mục, ví dụ `C:\Users\You\Downloads\db_src\`
-3. Chỉnh `SOURCE_DIR` trong `scripts/import_tipitaka.py` nếu cần.
-4. Chạy:
-   ```bash
-   python scripts/import_tipitaka.py
-   ```
-5. Kết quả: `assets/db/tipitaka.sqlite`
+2. Giải nén vào một thư mục, ví dụ `C:\Users\You\Downloads\db_src\` (hoặc để nguyên `.zip`).
+3. Chạy `python scripts/import_tipitaka.py --source-dir C:/Users/You/Downloads/db_src` (hoặc đặt file vào `reference/` rồi chạy không tham số).
+4. Kết quả: `assets/db/tipitaka.sqlite`
 
 ## Tích hợp vào ứng dụng
 

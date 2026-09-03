@@ -156,3 +156,10 @@ reference/english_tipitaka_translation_data-2026-04-28.db
 reference/tipitaka-roman-pali.db
 reference/vietnamese_tipitaka_translation_data-2026-04-29.db
 reference/__MACOSX/._tipitaka-roman-pali.db
+# Downloaded Tipiṭaka source packages and importer backups are local-only.
+reference/*.db
+reference/*.sqlite
+reference/*.sqlite3
+reference/*.zip
+assets/db/*.bak
+assets/db/*.part

@@ -203,11 +203,28 @@ class AiServiceFacade extends ChangeNotifier {
         // ⇒ mọi message sau đó chết yểu ⇒ chat "xoay vòng").
         // Model native còn đang nạp (app tự nạp lúc khởi động) thì chờ xong
         // trước — message của user không bị trả lời bằng mock "chui".
+        // FIX AI-CHAT-03 (chủ báo 2026-09-03: chat "vòng vòng" khi gửi):
+        // bản cũ chờ modelReady tới 5 phút rồi còn stack thêm 3 phút timeout
+        // của analyze ⇒ nút gửi xoay vòng gần 8-10 phút như "treo vĩnh viễn"
+        // (native create() chặn isolate, không gửi tín hiệu load xong). Giờ
+        // chờ tối đa 30s; chưa xong thì trả lời rõ ràng NGAY + reset state —
+        // KHÔNG rơi xuống analyze khi model chưa sẵn sàng.
         if (!_useMock && !_modelLoaded) {
           try {
-            await _awaitModelReady();
+            await _awaitModelReady(timeout: const Duration(seconds: 30));
           } catch (_) {
-            // native load fail → mock fallback bên dưới (kèm disclaimer).
+            // native load fail → báo rõ bên dưới, không chờ thêm.
+          }
+          if (!_modelLoaded) {
+            _chatMessages.add(ChatMessage(
+              id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+              role: ChatRole.assistant,
+              text: 'AI local chưa sẵn sàng. Nếu banner phía trên đang hiện '
+                  '"Đang nạp model…", hãy chờ nó chuyển xanh rồi gửi lại; nếu '
+                  'báo "Chưa nạp model AI", hãy import file .gguf trước.',
+              isError: true,
+            ));
+            return;
           }
         }
         // FIX AI-CHAT-01: chat KHÔNG có timeout (các API khác có 30–60s) —

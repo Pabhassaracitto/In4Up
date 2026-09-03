@@ -56,6 +56,7 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
+| AI-CHAT-03 | Chat "vòng vòng" khi gửi — chờ modelReady trần 30s + trả lời rõ khi model chưa nạp xong (hết stack 5 phút + 3 phút timeout) | ✅ done (code, chờ CI + nghiệm thu máy) | facade sendMessage: _awaitModelReady(timeout 30s) + early-return báo "AI local chưa sẵn sàng" khi !_modelLoaded |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
@@ -1326,6 +1327,32 @@
     Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
     trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
     tin kế tiếp vẫn hoạt động bình thường
+
+### AI-CHAT-03 — Chat "vòng vòng" khi gửi — chờ modelReady có trần
+- **Trạng thái:** done (code, chờ CI + nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** vẫn "chạy vòng vòng" khi gửi chat (tab Home
+  → I2U AI Chat). Log thiết bị có gap ~5 phút (297s) không có sự kiện — khớp
+  với `_awaitModelReady()` mặc định 5 phút.
+- **Root cause:** sau AI-CHAT-01/02, `sendMessage` vẫn `await _awaitModelReady()`
+  (trần 5 phút) rồi mới `analyze().first.timeout(3 phút)`. Khi native
+  `AiNativeBindings.create()` chặn isolate (file GGUF lớn / máy yếu / native
+  treo) và KHÔNG gửi `_IsolateModelLoaded`, `modelReady` không bao giờ complete
+  ⇒ 5 phút chờ + 3 phút timeout analyze chồng nhau = nút gửi xoay vòng gần
+  8–10 phút như "treo vĩnh viễn".
+- **Fix (facade `sendMessage`):** chờ `_awaitModelReady(timeout: 30s)`; nếu sau
+  30s `!_modelLoaded` → thêm ngay message assistant "AI local chưa sẵn sàng…
+  chờ banner chuyển xanh / import .gguf" (isError) rồi `return` — `finally`
+  reset `idle` ngay. KHÔNG rơi xuống `analyze()` khi model chưa sẵn sàng
+  (hết stack chờ). Trường hợp model đã nạp xong (`_modelLoaded=true`) không
+  đổi hành vi.
+- **Nghiệm thu đề xuất (chủ, tablet):** mở chat khi model còn đang nạp (banner
+  vàng "Đang nạp model…") → gửi tin → nhận ngay (≤~30s) message "AI local chưa
+  sẵn sàng", nút gửi KHÔNG xoay vòng vô hạn; sau khi banner chuyển xanh → gửi
+  lại → có trả lời thật.
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a06915-in4up | fix sendMessage
+    (chờ modelReady trần 30s + early-return rõ ràng). Sandbox không có Flutter
+    SDK — chưa chạy analyze/test; chờ CI + nghiệm thu máy.
 
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)

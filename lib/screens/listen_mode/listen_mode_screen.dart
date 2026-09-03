@@ -25,6 +25,7 @@ import 'package:in4up/widgets/karaoke_settings_sheet.dart';
 import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../models/waveform_data.dart';
+import '../../providers/locale_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/soundlist_provider.dart';
 import '../../providers/text_provider.dart';

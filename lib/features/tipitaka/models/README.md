@@ -1,73 +1,49 @@
-aka_module.zip (đã present cho bạn xem).
+# Tipiṭaka database contract
 
-Chỉ cần copy 5 thứ vào E:\PROJECTS\in4up.worktree\DEV\:
+The Flutter module opens **only** the normalized database produced by
+`scripts/import_tipitaka.py`:
 
-    lib/features/tipitaka/ → cả thư mục
-    lib/screens/main_shell.dart → đè lên
-    pubspec.yaml → thêm sqflite, path (hoặc đè nếu bạn đúng repo gốc)
-    scripts/import_tipitaka.py → đè lên
-    assets/db/ → giữ nguyên tipitaka.sqlite bạn đã tạo (đừng đè từ zip vì zip không có DB lớn)
-
-Sau đó:
-
-PowerShell
-
-flutter pub get
-python scripts\import_tipitaka.py   # chỉ nếu bạn muốn import lại
-
-Rồi chạy app → chạm ⚡ bolt → chọn Tipiṭaka để test.
-
-Nếu pubspec.yaml bạn sợ đè nhầm, chỉ cần thêm 2 dòng vào file hiện có:
-
-YAML
-
-  sqflite: ^2.3.3
-  path: ^1.9.0
-
-Muốn tôi viết thêm hướng dẫn cài đặt bước cuối (test trên thiết bị) không?
-
-
-In4Up
-arena/019ff2f6-in4up
-Diff
-
-# Tipiṭaka Module — In4Up / in2up
-
-Tích hợp OpenTipitaka (Pa-Auk) vào dự án Flutter.
-
-## Cấu trúc
-
-- `models/`: Collection, Book, Segment (Equatable)
-- `services/db_service.dart`: sqflite helper, tạo bảng chuẩn, tìm kiếm LIKE, index
-- `screens/`: Library (2 cột), Reader (đọc song ngữ), Search (toàn văn)
-- `scripts/import_tipitaka.py`: Import từ SQLite nguồn sang `assets/db/tipitaka.sqlite`
-
-## Chuẩn bị dữ liệu (Windows 11 / VS Code)
-
-1. Tải từ trình duyệt:
-   - `https://dhamma.paauksociety.org/Root/Tipitaka/SqlLite%20Database/pali%20text/tipitaka-roman-pali.db.zip`
-   - `https://dhamma.paauksociety.org/Root/Tipitaka/SqlLite%20Database/vietnamese_tipitaka_translation_data-2026-04-29.db.zip`
-2. Giải nén vào một thư mục, ví dụ `C:\Users\You\Downloads\db_src\`
-3. Chỉnh `SOURCE_DIR` trong `scripts/import_tipitaka.py` nếu cần.
-4. Chạy:
-   ```bash
-   python scripts/import_tipitaka.py
-   ```
-5. Kết quả: `assets/db/tipitaka.sqlite`
-
-## Tích hợp vào ứng dụng
-
-Thêm import và push screen:
-
-```dart
-import 'package:in2up/features/tipitaka/tipitaka.dart';
-...
-Navigator.push(context, MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()));
+```text
+assets/db/tipitaka.sqlite                         # optional bundled/demo DB
+<application documents>/in4up/tipitaka/tipitaka.sqlite  # installed DB
 ```
 
-Hoặc thêm vào `pubspec.yaml` assets nếu muốn bundle DB (chỉ nếu file nhỏ, không khuyên với DB lớn).
+## Required tables
 
-## Ghi chú
+- `tipitaka_collections`: the three Piṭaka collections.
+- `tipitaka_books`: books belonging to a collection.
+- `tipitaka_segments`: ordered Pāli paragraphs and fixed translations (`en`,
+  `vi`, `my`, `th`).
+- `tipitaka_translations`: additional language packs, keyed by
+  `(segment_id, language_code)`.
+- `tipitaka_user_notes` and `tipitaka_learning_items`: app-owned tables; they
+  are created/migrated on open. A release refresh should migrate/back up these
+  tables before replacing the content database.
 
-- DB service hiện dùng `LIKE` cho tìm kiếm; nếu muốn FTS5 (nhanh hơn, typo-tolerant), cần đảm bảo SQLite biên dịch có FTS5 và update schema.
-- Module này chưa có `spaced repetition` / `learning`; có thể mở rộng thêm bảng `tipitaka_learning_items` và các UI học tập sau.
+A usable database must have at least one collection, book, and segment. The
+app does not create an empty database as a fallback: it shows the data manager
+instead.
+
+## Developer workflow
+
+1. Download one or more Pa-Auk `.db.zip` packages and extract them, or leave
+   the archives in `reference/`.
+2. Run from the repository root:
+
+   ```bash
+   python scripts/import_tipitaka.py
+   # or: python scripts/import_tipitaka.py --source-dir C:/tipitaka_src
+   ```
+
+3. For a release, do **not** commit the full 200–500 MB database into the
+   asset bundle. Build it outside `assets/` and install it into the app's
+   documents directory. The small checked-in DB is only a demo/fallback.
+4. For a developer build, a valid `assets/db/tipitaka.sqlite` is copied to
+   the writable application directory automatically on first open. The
+   asset is declared in `pubspec.yaml`, so adding/replacing it no longer
+   requires another Dart code change.
+
+The Flutter data manager can import an already normalized `.db`/`.sqlite`
+file. Raw language databases are intentionally rejected until they have been
+merged by the Python importer. This avoids opening a source DB as a new empty
+app DB and losing the user's expectation that the library is ready.

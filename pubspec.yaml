@@ -19,6 +19,8 @@ dependencies:
     path: ./packages/in4up_ai
   # Tipitaka integration
   sqflite: ^2.3.3
+  sqflite_common_ffi: ^2.4.0+3 # SQLite implementation for Windows/Linux tests
+  archive: ^4.0.9 # unpack downloadable SQLite language packs
   # UI
   flutter_localizations:
     sdk: flutter
@@ -121,3 +123,6 @@ flutter:
     - assets/icons/   
     - assets/whisper_models/
     - assets/glossary/
+    # Optional small/demo normalized Tipiṭaka DB. Production builds may omit
+    # it and install a DB into the app documents directory instead.
+    - assets/db/tipitaka.sqlite

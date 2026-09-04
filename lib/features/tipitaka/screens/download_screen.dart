@@ -50,7 +50,7 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
     if (_importing) return;
     setState(() => _importing = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['sqlite', 'db'],
       );

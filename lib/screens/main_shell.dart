@@ -684,15 +684,7 @@ class _MainShellState extends State<MainShell> {
         );
         return;
       case 'youtube_downloader':
-  await YoutubeSheet.show(context);
-  break;
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => const YoutubeExplorerScreen(
-              apiKey: 'AIzaSyCpGdv7ESAJkH5-FYIC8-x0R0EWGgvK0Lg',
-            ),
-          ),
-        );
+        await YoutubeSheet.show(context);
         return;
       case 'pdf_reader':
         final result = await FilePicker.pickFiles(

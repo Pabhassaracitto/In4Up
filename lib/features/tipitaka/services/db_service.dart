@@ -331,7 +331,8 @@ class TipitakaDb {
     for (final table in tables) {
       final columns = await _sourceColumns(source, table);
       final textColumn = _findSourceColumn(columns, const [
-        'pali_text', 'text', 'content', 'paragraph', 'body', 'html', 'xml', 'data',
+        'pali_text', 'pali', 'roman', 'text', 'content', 'paragraph', 'body',
+        'html', 'xml', 'data',
       ]);
       if (textColumn == null) continue;
       final rowCount = await _sourceRowCount(source, table);
@@ -350,18 +351,20 @@ class TipitakaDb {
         collectionIds[collection.$1] = actualCollectionId;
       }
 
+      final bookCode = _bookCode(table);
+      final bookName = _bookDisplayName(table);
       final bookId = await target.insert('tipitaka_books', {
         'collection_id': actualCollectionId,
-        'code': table.toUpperCase(),
+        'code': bookCode,
         'name_pali': table,
-        'name_en': table,
-        'name_vi': table,
+        'name_en': bookName,
+        'name_vi': bookName,
         'order_index': ++bookOrder,
         'metadata_json': '{"source":"Pa-Auk","source_table":"$table"}',
       });
 
       final keyColumn = _findSourceColumn(columns, const [
-        'id', 'rowid', 'paragraph_id', 'segment_id', 'para_id', 'seq', 'number',
+        'id', 'rowid', 'code', 'paragraph_id', 'segment_id', 'para_id', 'seq', 'number',
       ]);
       final referenceColumn = _findSourceColumn(columns, const [
         'reference', 'ref', 'citation', 'section_ref', 'book_code',
@@ -400,6 +403,7 @@ class TipitakaDb {
             'book_id': bookId,
             'reference': reference,
             'paragraph_no': _asInt(row['_paragraph'], offset + index + 1),
+            'block_type': _blockType(row['_text']),
             'pali_text': _plainText(row['_text']),
             'order_index': imported,
             'source_table': table,
@@ -448,12 +452,14 @@ class TipitakaDb {
 
     for (final table in tables) {
       final columns = await _sourceColumns(source, table);
-      final textColumn = _findSourceColumn(columns, const [
-        'translation', 'translated_text', 'translation_text', 'text', 'content', 'paragraph', 'body', 'html', 'xml', 'data',
-      ]);
+      final textColumn = _findSourceColumn(
+        columns,
+        _translationTextCandidates(language),
+      );
       if (textColumn == null) continue;
       final keyColumn = _findSourceColumn(columns, const [
-        'id', 'rowid', 'paragraph_id', 'segment_id', 'ref_id', 'para_id', 'text_id', 'seq', 'number',
+        'id', 'rowid', 'code', 'paragraph_id', 'segment_id', 'ref_id',
+        'pali_id', 'text_id', 'para_id', 'seq', 'number',
       ]);
       final referenceColumn = _findSourceColumn(columns, const [
         'reference', 'ref', 'citation', 'section_ref', 'book_code',
@@ -512,6 +518,33 @@ class TipitakaDb {
     return updated;
   }
 
+  static List<String> _translationTextCandidates(String language) {
+    const languageNames = <String, List<String>>{
+      'vi': ['vietnamese', 'vi'],
+      'en': ['english', 'en'],
+      'my': ['myanmar', 'burmese', 'my'],
+      'th': ['thai', 'th'],
+      'si': ['sinhala', 'si'],
+      'zh': ['chinese', 'zh'],
+      'ja': ['japanese', 'ja'],
+      'ko': ['korean', 'ko'],
+    };
+    return [
+      'translation',
+      'translated',
+      'translated_text',
+      'translation_text',
+      ...?languageNames[language],
+      'text',
+      'content',
+      'paragraph',
+      'body',
+      'html',
+      'xml',
+      'data',
+    ];
+  }
+
   static Future<List<String>> _sourceTables(
     Database db, {
     String? textLanguage,
@@ -529,12 +562,10 @@ class TipitakaDb {
 
     final candidates = textLanguage == 'pi'
         ? const [
-            'pali_text', 'text', 'content', 'paragraph', 'body', 'html', 'xml', 'data',
+            'pali_text', 'pali', 'roman', 'text', 'content', 'paragraph', 'body',
+            'html', 'xml', 'data',
           ]
-        : const [
-            'translation', 'translated_text', 'translation_text', 'text',
-            'content', 'paragraph', 'body', 'html', 'xml', 'data',
-          ];
+        : _translationTextCandidates(textLanguage);
     final keyCandidates = const [
       'id', 'rowid', 'reference', 'ref', 'citation', 'paragraph_id', 'segment_id',
     ];
@@ -601,6 +632,29 @@ class TipitakaDb {
     return int.tryParse('$value') ?? fallback;
   }
 
+  static String _blockType(Object? value) {
+    final raw = '$value'.toLowerCase();
+    if (raw.contains('rend="book"') || raw.contains("rend='book'")) {
+      return 'book';
+    }
+    if (raw.contains('rend="chapter"') || raw.contains("rend='chapter'")) {
+      return 'chapter';
+    }
+    if (raw.contains('rend="subhead"') ||
+        raw.contains('rend="heading"') ||
+        raw.contains("rend='subhead'") ||
+        raw.contains("rend='heading'")) {
+      return 'heading';
+    }
+    if (raw.contains('rend="centre"') ||
+        raw.contains('rend="center"') ||
+        raw.contains("rend='centre'") ||
+        raw.contains("rend='center'")) {
+      return 'center';
+    }
+    return 'paragraph';
+  }
+
   static String _plainText(Object? value) {
     var text = '$value';
     if (value == null || text == 'null') return '';
@@ -617,6 +671,46 @@ class TipitakaDb {
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .replaceAll(RegExp(r'[ \t]+'), ' ');
     return text.trim();
+  }
+
+  static String _bookCode(String table) => table
+      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '')
+      .toUpperCase();
+
+  static String _bookDisplayName(String table) {
+    final name = table.toLowerCase();
+    const nikayaNames = <String, String>{
+      'vin': 'Vinaya',
+      'dn': 'Dīgha Nikāya',
+      'mn': 'Majjhima Nikāya',
+      'sn': 'Saṃyutta Nikāya',
+      'an': 'Aṅguttara Nikāya',
+      'khp': 'Khuddakapāṭha',
+      'dhp': 'Dhammapada',
+    };
+    for (final entry in nikayaNames.entries) {
+      final match = RegExp('^${entry.key}(\\d+)').firstMatch(name);
+      if (match == null) continue;
+      final number = match.group(1)!;
+      final suffix = name
+          .substring(match.end)
+          .replaceFirst(RegExp(r'^[_-]'), '')
+          .replaceFirst(RegExp(r'^[mat]_'), '');
+      final suffixName = suffix
+          .replaceAll(RegExp(r'^m$'), 'Mūla')
+          .replaceAll(RegExp(r'^a$'), 'Aṭṭhakathā')
+          .replaceAll(RegExp(r'^t$'), 'Ṭīkā')
+          .replaceAll('mul', 'Mūla')
+          .replaceAll('att', 'Aṭṭhakathā')
+          .replaceAll('tik', 'Ṭīkā');
+      return '${entry.value} $number${suffixName.isEmpty ? '' : ' · $suffixName'}';
+    }
+    return table
+        .split(RegExp(r'[_-]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 
   static (String, String, String) _collectionForTable(String table) {
@@ -811,6 +905,7 @@ class TipitakaDb {
         section_id INTEGER,
         reference TEXT NOT NULL DEFAULT '',
         paragraph_no INTEGER,
+        block_type TEXT NOT NULL DEFAULT 'paragraph',
         pali_text TEXT NOT NULL DEFAULT '',
         translation_en TEXT,
         translation_vi TEXT,
@@ -824,6 +919,12 @@ class TipitakaDb {
     // best-effort for databases created by older app versions.
     await _ensureColumn(db, 'tipitaka_segments', 'source_table', 'TEXT');
     await _ensureColumn(db, 'tipitaka_segments', 'source_row_key', 'TEXT');
+    await _ensureColumn(
+      db,
+      'tipitaka_segments',
+      'block_type',
+      "TEXT NOT NULL DEFAULT 'paragraph'",
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS tipitaka_translations (
@@ -973,6 +1074,14 @@ class TipitakaDb {
       offset: offset,
     );
     return rows.map((r) => TipitakaSegment.fromMap(r)).toList();
+  }
+
+  static Future<int> getBookSegmentCount(Database db, int bookId) async {
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS n FROM tipitaka_segments WHERE book_id = ?',
+      [bookId],
+    );
+    return _asInt(rows.first['n'], 0);
   }
 
   static Future<List<TipitakaSegment>> searchSegments(

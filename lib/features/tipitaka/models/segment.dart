@@ -6,6 +6,7 @@ class TipitakaSegment extends Equatable {
   final int? sectionId;
   final String reference; // citation e.g. DN 1.1
   final int? paragraphNo;
+  final String blockType;
   final String paliText;
   final String? translationEn;
   final String? translationVi;
@@ -19,6 +20,7 @@ class TipitakaSegment extends Equatable {
     this.sectionId,
     required this.reference,
     this.paragraphNo,
+    this.blockType = 'paragraph',
     required this.paliText,
     this.translationEn,
     this.translationVi,
@@ -33,6 +35,7 @@ class TipitakaSegment extends Equatable {
         sectionId: m['section_id'] ?? m['sectionId'],
         reference: m['reference'] ?? '',
         paragraphNo: m['paragraph_no'] ?? m['paragraphNo'],
+        blockType: m['block_type'] ?? m['blockType'] ?? 'paragraph',
         paliText: m['pali_text'] ?? m['paliText'] ?? '',
         translationEn: m['translation_en'] ?? m['translationEn'],
         translationVi: m['translation_vi'] ?? m['translationVi'],
@@ -48,6 +51,7 @@ class TipitakaSegment extends Equatable {
         sectionId,
         reference,
         paragraphNo,
+        blockType,
         paliText,
         translationEn,
         translationVi,

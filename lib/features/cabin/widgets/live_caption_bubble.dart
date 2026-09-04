@@ -17,7 +17,7 @@ class LiveCaptionBubble extends StatefulWidget {
 
 class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
     with SingleTickerProviderStateMixin {
-  final SttsCabinService _service = SttsCabinService.instance;
+  final SttsCabinService _service = SttsCabinService();
 
   Offset _position = const Offset(20, 190);
   bool _isDragging = false;

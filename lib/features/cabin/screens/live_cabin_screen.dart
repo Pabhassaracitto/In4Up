@@ -14,7 +14,7 @@ class LiveCabinScreen extends StatefulWidget {
 
 class _LiveCabinScreenState extends State<LiveCabinScreen>
     with SingleTickerProviderStateMixin {
-  final SttsCabinService _service = SttsCabinService.instance;
+  final SttsCabinService _service = SttsCabinService();
   final ScrollController _scrollController = ScrollController();
 
   late AnimationController _pulseController;

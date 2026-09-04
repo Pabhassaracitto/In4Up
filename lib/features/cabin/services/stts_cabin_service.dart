@@ -4,9 +4,9 @@ import 'package:in4up_stt/models/stt_result.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../features/translation/translation_service.dart';
-import '../../features/tts/tts_service.dart';
-import '../models/cabin_caption.dart';
+import 'package:in4up/features/translation/translation_service.dart';
+import 'package:in4up/features/tts/tts_service.dart';
+import 'package:in4up/features/cabin/models/cabin_caption.dart';
 
 /// Service điều phối toàn bộ Pipeline Dịch Cabin Trực tiếp (Speech Translation - STS).
 ///
@@ -24,8 +24,8 @@ class SttsCabinService extends ChangeNotifier {
   SttsCabinService._internal();
 
   final SttServiceFacade _stt = SttServiceFacade();
-  final TranslationService _translator = TranslationService.instance;
-  final TtsService _tts = TtsService.instance;
+  final TranslationService _translator = TranslationService();
+  final TtsService _tts = TtsService();
 
   StreamSubscription? _sttSubscription;
   Timer? _silenceTimer;

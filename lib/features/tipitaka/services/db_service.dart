@@ -390,7 +390,14 @@ class TipitakaDb {
     languages.addAll(
       extraLanguages.map((row) => row['language_code'] as String),
     );
-    final fileLength = await File(_openPath ?? '').length();
+    var fileLength = 0;
+    final openPath = _openPath;
+    if (openPath != null && openPath.isNotEmpty) {
+      final f = File(openPath);
+      if (await f.exists()) {
+        fileLength = await f.length();
+      }
+    }
     return TipitakaDatabaseInfo(
       path: _openPath ?? '',
       source: source ?? _openSource,

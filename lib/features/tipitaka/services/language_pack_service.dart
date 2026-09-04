@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:archive/archive_io.dart';
+import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -97,22 +98,23 @@ class TipitakaLanguagePackService {
       return rawPath;
     }
 
-    final input = InputFileStream(archivePath);
-    try {
-      final archive = ZipDecoder().decodeStream(input);
-      for (final entry in archive) {
-        if (!entry.isFile) continue;
-        final name = entry.name.toLowerCase();
-        if (!(name.endsWith('.db') || name.endsWith('.sqlite'))) continue;
+    final raw = await File(archivePath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(raw);
+    for (final entry in archive) {
+      if (!entry.isFile) continue;
+      final name = entry.name.toLowerCase();
+      if (!(name.endsWith('.db') || name.endsWith('.sqlite'))) continue;
 
-        final outputPath = p.join(outputDirectory.path, p.basename(destinationPath));
-        final output = OutputFileStream(outputPath);
-        entry.writeContent(output);
-        output.closeSync();
-        return outputPath;
+      final outputPath = p.join(outputDirectory.path, p.basename(destinationPath));
+      final out = File(outputPath);
+      await out.parent.create(recursive: true);
+      final content = entry.content;
+      if (content is List<int>) {
+        await out.writeAsBytes(content, flush: true);
+      } else if (content is Uint8List) {
+        await out.writeAsBytes(content, flush: true);
       }
-    } finally {
-      input.closeSync();
+      return outputPath;
     }
     return null;
   }

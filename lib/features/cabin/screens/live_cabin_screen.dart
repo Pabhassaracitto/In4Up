@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/cabin_caption.dart';
 import '../services/stts_cabin_service.dart';

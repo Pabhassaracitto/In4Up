@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../screens/live_cabin_screen.dart';
@@ -91,8 +92,8 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
         : (active?.sourceText ?? 'Đang nghe cabin...');
 
     final screenSize = MediaQuery.of(context).size;
-    final maxX = screenSize.width - 90;
-    final maxY = screenSize.height - 180;
+    final maxX = math.max(10.0, screenSize.width - 90);
+    final maxY = math.max(80.0, screenSize.height - 180);
     final pos = Offset(
       _position.dx.clamp(10.0, maxX),
       _position.dy.clamp(80.0, maxY),

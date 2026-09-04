@@ -31,10 +31,27 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
   void initState() {
     super.initState();
     _audioService = MultilingualAudioService();
+    // Khôi phục số lần lặp TTS riêng từng câu đã lưu (tưới nước từng cây)
+    _audioService.restoreLineOverrides(widget.item.lineRepeatOverrides);
     // Đánh dấu bắt đầu học
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LearnByHeartProvider>().startLearning(widget.item);
     });
+  }
+
+  /// Tăng/giảm/bỏ số lần lặp TTS RIÊNG cho 1 câu + persist vào item.
+  /// [count] null = về mặc định (bỏ override).
+  void _onLineRepeatChanged(int line, int? count) {
+    if (count == null) {
+      _audioService.clearLineRepeatOverride(line);
+    } else {
+      _audioService.setLineRepeatOverride(line, count);
+    }
+    context.read<LearnByHeartProvider>().saveItem(
+          widget.item.copyWith(
+            lineRepeatOverrides: _audioService.lineRepeatOverridesSnapshot,
+          ),
+        );
   }
 
   @override
@@ -157,6 +174,7 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
                       audioService: _audioService,
                       onPlayPause: _handlePlayPause,
                       item: item,
+                      onLineRepeatChanged: _onLineRepeatChanged,
                     ),
                     const SizedBox(height: 16),
 
@@ -169,6 +187,7 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
                           activeLine: _audioService.currentLineIndex,
                           languageMode: _audioService.langMode,
                           audioService: _audioService,
+                          onLineRepeatChanged: _onLineRepeatChanged,
                           onLineTap: (lineTs) {
                             _audioService.playSingleLine(lineTs, item);
                           },

@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
-
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
@@ -198,10 +196,7 @@ class TipitakaDb {
 
   static Future<void> _ensureDatabaseFactory() async {
     if (_databaseFactoryReady) return;
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      ffi.sqfliteFfiInit();
-      databaseFactory = ffi.databaseFactoryFfi;
-    }
+    // TEMP CI-BISECT STUB — sqflite_common_ffi usage removed to isolate analyzer error.
     _databaseFactoryReady = true;
   }
 

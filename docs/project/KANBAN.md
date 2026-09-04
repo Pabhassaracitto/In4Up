@@ -242,10 +242,11 @@
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 2
 
 ### PLAN-008 — Sẵn sàng tích hợp sherpa live stream + cabin STS
-- **Trạng thái:** proposed
-- **Nội dung:** EL sound → text đích real-time, TTS nếu muốn, nhắc đeo tai nghe. Đã xong VAD singleton, pipeline isolate, RECORD_AUDIO. Chờ bạn đưa branch sherpa mẫu + .onnx model để thay EnergyVad fallback bằng sherpa_onnx thật.
+- **Trạng thái:** done (chờ nghiệm thu thiết bị)
+- **Nội dung:** EL sound → text đích real-time, TTS nếu muốn, nhắc đeo tai nghe. Đã triển khai `SttsCabinService` (STS pipeline), `LiveCabinScreen` (màn hình dịch cabin song ngữ thời gian thực) và `LiveCaptionBubble` (bong bóng nổi phụ đề cabin nổi toàn app).
 - **Lịch sử:**
   - 2026-08-21 | created | owner via arena/019fe630-vipsound | issue mới 3 + Section3 handover
+  - 2026-09-05 | doing→done | agent arena/01a0692a-in4up | hoàn thiện WP1: SttsCabinService, LiveCabinScreen, LiveCaptionBubble, banner tai nghe, QuickActions menu
 
 ### READ-630-01 — Tab Đọc: lưu cụm/câu (mode không màu) kèm chọn/tạo topic + language
 - **Trạng thái:** done (chờ nghiệm thu build)

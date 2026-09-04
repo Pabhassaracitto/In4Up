@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
+import '../features/cabin/screens/live_cabin_screen.dart';
+import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
@@ -366,6 +368,13 @@ class _MainShellState extends State<MainShell> {
 
     final contentTools = <tools.ToolItem>[
       tools.ToolItem(
+        id: 'live_cabin',
+        title: context.uiText('Dịch Live Cabin'),
+        subtitle: context.uiText('Dịch cabin song song trực tiếp từ giọng nói'),
+        icon: Icons.interpreter_mode_rounded,
+        color: const Color(0xFF00E676),
+      ),
+      tools.ToolItem(
         id: 'youtube_downloader',
         title: l10n.youtube,
         subtitle: l10n.youtubeSubtitle,
@@ -644,6 +653,13 @@ class _MainShellState extends State<MainShell> {
     }
 
     switch (toolId) {
+      case 'live_cabin':
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => const LiveCabinScreen(),
+          ),
+        );
+        return;
       case 'learn_by_heart':
         nav.push(
           MaterialPageRoute(
@@ -905,6 +921,8 @@ class _MainShellState extends State<MainShell> {
             ),
             // ★ Wordlist floating bubble – persistent TTS across tabs
             const WordlistBubble(),
+            // ★ Live Cabin floating bubble – persistent STS across tabs
+            const LiveCaptionBubble(),
           ],
         ),
       ),

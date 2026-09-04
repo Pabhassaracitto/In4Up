@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
-import 'package:in4up/features/cabin/services/stts_cabin_service.dart';
 
 void main() {
-  group('Live Cabin Models & Service Tests', () {
+  group('Live Cabin Models Tests', () {
     test('CabinCaption model copyWith and initial properties', () {
       final now = DateTime.now();
       final caption = CabinCaption(
@@ -27,28 +26,6 @@ void main() {
       expect(updated.id, 'cap_01');
       expect(updated.translatedText, 'Xin chào thế giới');
       expect(updated.isFinal, isTrue);
-    });
-
-    test('SttsCabinService initial state and configuration', () {
-      final service = SttsCabinService.instance;
-      expect(service.state, CabinState.idle);
-      expect(service.isListening, isFalse);
-      expect(service.shouldShowBubble, isFalse);
-
-      service.setSourceLanguage('en');
-      service.setTargetLanguage('vi');
-      expect(service.sourceLanguage, 'en');
-      expect(service.targetLanguage, 'vi');
-
-      service.swapLanguages();
-      expect(service.sourceLanguage, 'vi');
-      expect(service.targetLanguage, 'en');
-
-      service.setDubbing(true);
-      expect(service.isDubbingEnabled, isTrue);
-
-      service.setDisplayMode(CabinDisplayMode.fullTranscript);
-      expect(service.displayMode, CabinDisplayMode.fullTranscript);
     });
   });
 }

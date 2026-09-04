@@ -1316,6 +1316,8 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Xóa lịch sử': {'en': 'Clear history' },
   'Chưa cấp quyền microphone.': {'en': 'Microphone permission denied.' },
   'Không thể khởi động micro / nhận diện giọng nói.': {'en': 'Could not start microphone or speech recognition.' },
+  'GỐC': {'en': 'ORIGINAL' },
+  'BẢN DỊCH': {'en': 'TRANSLATION' },
   'GỐC ({value0})': {'en': 'ORIGINAL ({value0})' },
   'BẢN DỊCH ({value0})': {'en': 'TRANSLATION ({value0})' },
 };

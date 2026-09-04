@@ -541,7 +541,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                         const Icon(Icons.record_voice_over_rounded, color: Color(0xFF6C63FF), size: 18),
                         const SizedBox(width: 6),
                       Text(
-                        context.uiText('GỐC ({value0})', values: {'value0': _service.sourceLanguage.toUpperCase()}),
+                        '${context.uiText('GỐC')} (${_service.sourceLanguage.toUpperCase()})',
                         style: const TextStyle(color: Color(0xFF6C63FF), fontWeight: FontWeight.bold, fontSize: 11),
                       ),
                     ],
@@ -599,7 +599,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                       const Icon(Icons.translate_rounded, color: Color(0xFF00E676), size: 18),
                       const SizedBox(width: 6),
                       Text(
-                        context.uiText('BẢN DỊCH ({value0})', values: {'value0': _service.targetLanguage.toUpperCase()}),
+                        '${context.uiText('BẢN DỊCH')} (${_service.targetLanguage.toUpperCase()})',
                         style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 11),
                       ),
                     ],

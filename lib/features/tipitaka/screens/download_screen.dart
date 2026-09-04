@@ -52,7 +52,7 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: const ['sqlite', 'db'],
+        allowedExtensions: const ['sqlite', 'sqlite3', 'db', 'zip'],
       );
       if (!mounted || result == null) return;
       final path = result.files.single.path;
@@ -128,7 +128,7 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
             Text(
               context.uiText(
                 _error == null
-                    ? 'Hãy import một DB chuẩn hóa hoặc tải gói ngôn ngữ.'
+                    ? 'Hãy import DB Pa-Auk hoặc tải gói ngôn ngữ.'
                     : 'Không thể kiểm tra cơ sở dữ liệu Tipiṭaka.',
               ),
               textAlign: TextAlign.center,
@@ -144,7 +144,7 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.file_open),
-            label: const Text('Import DB chuẩn hóa từ thiết bị'),
+            label: const Text('Import DB hoặc gói ngôn ngữ từ thiết bị'),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -169,13 +169,10 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
           const SizedBox(height: 20),
           Text(
             context.uiText(
-              'Quy trình dành cho developer:\n'
-              '1. Đặt DB nguồn .db đã giải nén vào reference/.\n'
-              '2. Chạy python scripts/import_tipitaka.py.\n'
-              '3. Đưa file assets/db/tipitaka.sqlite vào build để app tự copy '
-              'ở lần chạy đầu, hoặc import file chuẩn hóa từ màn hình này.\n\n'
-              'File tải từ Pa-Auk là DB nguồn, không phải DB app chuẩn hóa; '
-              'ứng dụng sẽ không mở nhầm file đó như một DB rỗng.',
+              'Bạn có thể chọn trực tiếp DB Pa-Auk .db/.sqlite/.zip hoặc file '
+              'tipitaka.sqlite đã chuẩn hóa. Ứng dụng sẽ tự nhận diện, chuyển '
+              'DB nguồn sang schema của In4Up và giữ lại Python importer cho '
+              'quy trình developer hoặc các DB rất lớn.',
             ),
           ),
           const SizedBox(height: 20),

@@ -21,10 +21,10 @@ VoiceCommand? parseVoiceCommand(String phrase) {
   final text = _normalize(phrase);
   if (text.isEmpty) return null;
   const grammar = <VoiceCommandType, List<String>>{
-    VoiceCommandType.play: ['phat', 'choi', 'play'],
-    VoiceCommandType.pause: ['tam dung', 'dung', 'pause'],
-    VoiceCommandType.next: ['tiep theo', 'next'],
-    VoiceCommandType.previous: ['bai truoc', 'truoc', 'previous'],
+    VoiceCommandType.play: ['phat', 'choi', 'play', 'tiep tuc', 'bat dau'],
+    VoiceCommandType.pause: ['tam dung', 'dung', 'pause', 'ngung'],
+    VoiceCommandType.next: ['tiep theo', 'tai tiep', 'bai tiep', 'next', 'tiep'],
+    VoiceCommandType.previous: ['bai truoc', 'truoc', 'previous', 'quay lai', 'lui'],
     VoiceCommandType.faster: ['nhanh hon', 'tang toc', 'faster'],
     VoiceCommandType.slower: ['cham hon', 'giam toc', 'slower'],
     VoiceCommandType.toggleLyrics: ['hien loi', 'an loi', 'lyrics'],

@@ -70,8 +70,32 @@ class SttEngineNative {
     if (_isListening) return true;
 
     try {
-      final started = await _stt.listen(
-        localeId: language,
+      String? targetLocaleId = language;
+      try {
+        final locales = await _stt.locales();
+        if (locales.isNotEmpty) {
+          final exact = locales.where((l) =>
+              l.localeId.toLowerCase().replaceAll('_', '-') ==
+              language.toLowerCase().replaceAll('_', '-'));
+          if (exact.isNotEmpty) {
+            targetLocaleId = exact.first.localeId;
+          } else {
+            final prefix = language.split(RegExp(r'[-_]')).first.toLowerCase();
+            final byPrefix = locales.where(
+                (l) => l.localeId.toLowerCase().startsWith(prefix));
+            if (byPrefix.isNotEmpty) {
+              targetLocaleId = byPrefix.first.localeId;
+            } else {
+              targetLocaleId = null; // fallback to system default
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Native STT locale discovery note: $e');
+      }
+
+      var started = await _stt.listen(
+        localeId: targetLocaleId,
         listenFor: listenTimeout ?? const Duration(minutes: 2),
         pauseFor: pauseTimeout,
         partialResults: true,
@@ -79,6 +103,19 @@ class SttEngineNative {
         cancelOnError: false,
         listenMode: ListenMode.confirmation,
       );
+
+      if (!started && targetLocaleId != null) {
+        debugPrint('⚠️ Native STT retry with default system locale');
+        started = await _stt.listen(
+          listenFor: listenTimeout ?? const Duration(minutes: 2),
+          pauseFor: pauseTimeout,
+          partialResults: true,
+          onResult: (r) => _onNativeResult(r, language),
+          cancelOnError: false,
+          listenMode: ListenMode.confirmation,
+        );
+      }
+
       _isListening = started;
       debugPrint('🎤 Native STT listening: $started');
       return started;

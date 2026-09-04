@@ -12,6 +12,7 @@ import 'dart:ui';
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
@@ -757,9 +758,27 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   Future<void> _startVoiceCommands() async {
     if (_voiceListening) return;
+    final locale = context.read<LocaleProvider>().locale?.languageCode ?? 'vi';
+
+    try {
+      final status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        final result = await Permission.microphone.request();
+        if (!result.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(voiceCommandLabel(locale, 'permissionDenied'))),
+            );
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ VoiceCommands mic permission check exception: $e');
+    }
+
     setState(() => _voiceListening = true);
     final player = context.read<PlayerProvider>();
-    final locale = context.read<LocaleProvider>().locale?.languageCode ?? 'vi';
     final sttLang = locale == 'vi' ? 'vi-VN' : 'en-US';
 
     final started = await _voiceCommandService.start(

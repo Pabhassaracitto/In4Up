@@ -213,7 +213,7 @@ class SttsCabinService extends ChangeNotifier {
     if (textToSpeak.trim().isEmpty) return;
 
     try {
-      _tts.updateSettings(language: langToSpeak);
+      _tts.configure(language: langToSpeak);
       await _tts.speak(textToSpeak);
     } catch (e) {
       debugPrint('⚠️ Replay caption TTS error: $e');
@@ -290,7 +290,7 @@ class SttsCabinService extends ChangeNotifier {
       _state = CabinState.speaking;
       notifyListeners();
       try {
-        _tts.updateSettings(language: _targetLanguage);
+        _tts.configure(language: _targetLanguage);
         await _tts.speak(translated);
       } catch (e) {
         debugPrint('⚠️ SttsCabinService Dubbing TTS error: $e');

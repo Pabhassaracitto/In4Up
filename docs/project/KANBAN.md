@@ -33,10 +33,11 @@
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | ✅ done — **CI build XANH 3 NỀN TẢNG** | run 32592622383: Android ✅ + iOS ✅ + Windows ✅ (llama.cpp build thật trong pipeline) |
-| CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🚫 blocked (chờ owner) | chẩn đoán + patch 4 chỗ trong card (cần quyền workflows) |
+| CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (in-repo fix CI-only — chờ oracle) | in4up_ci_fixes.gradle (CI=true): inject mock client + copy stable→tên không-flavor; oracle tag v1.4.0-ci-android-fix |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
+| AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ CI + nghiệm thu) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
@@ -50,8 +51,10 @@
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
-| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done | code + test thuần (sandbox KHÔNG có Flutter SDK → chờ CI + nghiệm thu thiết bị) |
+| XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
+| YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | XLAT-002 | Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (pi/vi/en/zh/zh-tw/my) + CJK boundary + UI 8 ngôn ngữ | ✅ done | 10.247 entries (2.1MB JSON) + master MD + audit (sandbox không có Flutter SDK → chờ CI) |
+| XLAT-003 | Glossary Pali/EN→VI trích xuất v2 (parser x-column clustering) từ cùng PDF | 🔄 doing | 1070 entries (712 pi→vi, 489 en→vi) + master 802 dòng + audit; chờ CI + review chủ |
 
 ---
 
@@ -382,7 +385,7 @@
   - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | **ORACLE XANH: run 32592622383 (tag v1.4.0-android-fp16) — Build Android APK ✅ (9m, artifact android-apk) + iOS ✅ + Windows ✅** ⇒ llama.cpp build thật trong CI cả 3 nền tảng (Android = nền cuối). Release v1.4.0-android-fp16 đã có artifact 3 nền. Còn lại: CI-ANDROID-01 (build.yml, chờ owner) + CI-LINUX-01 (1 apt package, chờ owner)
 
 ### CI-ANDROID-01 — Fix job Android của build.yml (chỉ ship stable + rename đúng tên)
-- **Trạng thái:** blocked (chờ owner: dán patch vào `.github/workflows/build.yml` HOẶC reconnect GitHub cho token agent với quyền `workflows`)
+- **Trạng thái:** doing — in-repo fix CI-only `android/app/in4up_ci_fixes.gradle` (chỉ active `CI=true`, local no-op) chờ oracle tag `v1.4.0-ci-android-fix`. Patch workflow option A bên dưới vẫn là fix gốc — giữ nguyên cho owner dán khi có quyền `workflows`; khi đó in4up_ci_fixes thành no-op an toàn.
 - **Nội dung:** Job Build Android APK của `build.yml` đỏ vì 2 lỗi chồng, ĐỀU không liên quan code AI:
   1. `flutter build apk --release --split-per-abi` (không `--flavor`) build **cả 3 flavor** →
      `:app:processBetaReleaseGoogleServices` chết: "No matching client found for package name
@@ -430,6 +433,10 @@
 - **Lịch sử:**
   - 2026-08-22 | created | agent arena/01a02a4a-in4up | owner dán log Android
   - 2026-08-22 | proposed→blocked | agent arena/01a02a4a-in4up | chẩn đoán xong + option A chốt với branch 01a01580; token thiếu quyền workflows ⇒ owner dán patch (bên trên) hoặc reconnect GitHub với permission `workflows` để agent tự áp; patch đã chỉnh lại thứ tự tên rename
+  - 2026-08-27 | blocked→doing | agent arena/01a02a4a-in4up | In-repo fallback CI-only khi chờ quyền workflows: `android/app/in4up_ci_fixes.gradle` (apply CUỐI `android/app/build.gradle.kts`, chỉ active khi `CI=true`, build local no-op 100%) — (1) task `in4upCiEnsureGoogleServicesClients` chạy TRƯỚC mọi `process*GoogleServices`: đọc `android/app/google-services.json` (nơi build.yml decode secret), thêm client mock cho MỖI applicationId còn thiếu (applicationId DỌC từ defaultConfig + productFlavors của module, không hard-code; idempotent; client thật com.in4up không đổi; APK dev/beta KHÔNG ship — rename build.yml chỉ lấy tên không-flavor); (2) sau `assembleRelease` copy bản stable → tên không-flavor (`app-<abi>-stable-release.apk`→`app-<abi>-release.apk`, `app-stable-release.apk`→`app-release.apk`; phát hiện tên theo pattern, thêm/bớt ABI không cần sửa script). KHÁC draft đã bỏ 2026-08-22: không tắt flavor, không commit mock google-services.json, không che secret thật; không phá build_final_complete — lợi ích phụ ĐÚNG ý: fallback `app-<abi>-release.apk` trong rename của nó giờ có file thật ⇒ split APKs stable được ship kèm universal (trước đó artifact chỉ 1 universal). Logic JSON/copy verify bằng simulation Python 1:1 (17/17 pass, mock client cùng shape với fallback 12-client đã xanh CI). Oracle: tag `v1.4.0-ci-android-fix` → job "Build Android APK" của build.yml. ⚠️ CHỜ OWNER XEM RUN (sandbox không đọc log CI): ĐỎ ⇒ xin dán ~30–50 dòng cuối step fail. Job dự kiến CHẬM hơn build_final_complete (build cả 3 flavor ⇒ llama.cpp compile cho mọi flavor×ABI) — giá tạm thời của việc không sửa được workflow; option A (patch workflow) vẫn là fix gốc.
+  - 2026-08-27 | doing→doing | agent arena/01a02a4a-in4up | Commit `fbb648d` (in4up_ci_fixes.gradle + build.gradle.kts + card này) xong TRÊN LOCAL; **push bị chặn**: GitHub token của sandbox (GH_TOKEN `arena-eg…`) hết hạn — `git push` trả "Invalid username or token", `gh auth status` "no longer valid", không có SSH key ⇒ tag oracle `v1.4.0-ci-android-fix` đã tạo LOCAL (annotated, chỉ định fbb648d) nhưng CHƯA push, workflow CHƯA chạy. **OWNER**: reconnect GitHub trong Arena (token cần quyền contents:write); sau đó chạy `git push origin arena/01a02a4a-in4up` + `git push origin v1.4.0-ci-android-fix` (hoặc tự push từ máy — file đã commit đầy đủ, không còn việc chưa lưu).
+  - 2026-08-29 | doing→doing | agent arena/01a02a4a-in4up | Sandbox tái bản giữa lượt: branch local bị reset về base `e9824c1e`, object commit `fbb648d`/`561be0e` bị wipe (reflog còn clone+checkout). Phục hồi theo playbook AUDIT: worktree vẫn giữ đủ content (verify blob-hash 16/16 file khớp origin) ⇒ fetch `origin/arena/01a02a4a-in4up` (4efdba3) + `git reset --mixed` + re-commit → commit mới `f65a460` (= nội dung fbb648d). 0 mất dữ liệu. Tag oracle `v1.4.0-ci-android-fix` cần tạo lại LOCAL (tag cũ bị wipe cùng object).
+  - 2026-08-29 | doing→doing | agent arena/01a02a4a-in4up | **GitHub đã reconnect — push thành công**: branch `4efdba3..3735298d` lên origin (gồm f65a460 CI-fix + merge DEV 5f98b94c + fix AI-CHAT-01 3735298d). Tag oracle `v1.4.0-ci-android-fix` force-move về TIP `3735298d` rồi push — chạy cả build.yml (job Android = oracle card này) lẫn build_final_complete (regression); run build.yml đồng thời compile-verify Dart packages/in4up_ai (app_analyze không cover `packages/`). ⚠️ CHỜ OWNER XEM RUN: ĐỎ ⇒ dán ~30–50 dòng cuối step fail (build.yml job Android: step "Build Split APKs" hoặc "Rename All APKs").
 
 ### CI-ANDROID-02 — Build llama.cpp cho Android trong CI (pin CMake 3.31.5 + GGML_LLAMAFILE OFF)
 - **Trạng thái:** done — run 32592622383: Build Android APK ✅ (artifact android-apk)
@@ -890,6 +897,82 @@
     .gguf progress, tải URL chỉ WiFi, xóa model)
 
 
+### AI-CHAT-01 — Chat báo "Chưa nạp model AI" ngay sau khi gửi + nút gửi xoay vòng mãi
+- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu chủ trên thiết bị)
+- **Nguồn:** chủ báo 2026-08-29 (build trên DEV `5f98b94c`): tab Home
+  "Gemma — AI Chat" báo XANH "gemma-3-1B đã import", màn chat cũng xanh
+  "Model AI đã nạp — gemma-3-1B-it-QAT-Q4_.gguf (687 MB)", nhưng vừa nhấn
+  gửi → liền thấy "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)"
+  + nút gửi xoay vòng không ngừng.
+- **Nội dung (3 root cause, đều verify từ code DEV 5f98b94c):**
+  1. **Báo "chưa nạp" nhầm lúc đang generate:** `AiEngineGemma.analyze()`
+     đặt `_state = AiEngineState.processing` trong SUẤT generate (30s–2 phút
+     trên máy yếu), trong khi facade `isReady` chỉ nhận `ready` ⇒ `hasModel`
+     bật FALSE giữa chừng ⇒ mọi lần UI rebuild (đổi tab, xoay máy…) render
+     lại banner = VÀNG "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)"
+     (chuỗi này chỉ tồn tại ở `ai_chat_screen.dart:343` — banner case 6).
+     Model thực ra ĐÃ nạp thật — banner xanh lúc đầu là đúng.
+  2. **Nút gửi treo VÔ HẠN:** `sendMessage` là API chat KHÔNG có timeout
+     (lookup 30s / summarize 60s / terms 45s đều có), và engine gemma chờ
+     reply port của isolate không timeout + không có xử lý isolate chết.
+     `native.generate` là FFI blocking trong isolate con — nếu llama.cpp
+     deadlock, hoặc OOM killer Android thu hồi process con (model 687MB ⇒
+     ~1.5–2GB RAM runtime trên tablet) giữa chừng ⇒ không bao giờ có reply
+     ⇒ `finally` không chạy ⇒ `isChatLoading` true mãi.
+  3. **Trả lời rỗng/cắt cụt (kèm theo):** prompt chat nắn TOÀN BỘ lịch sử
+     chat (persist, không giới hạn) làm context trong khi C++ n_ctx cố định
+     2048 tokens ⇒ vượt là `llama_decode` fail ⇒ model trả về RỖNG;
+     `maxTokens=256` hard-code trong khi schema JSON chat (summary 60 từ +
+     action items) hay vượt 256 ⇒ JSON cắt giữa chừng ⇒ "Invalid Gemma JSON".
+- **Fix (commit này):**
+  1. facade `isReady` nhận cả `processing` ⇒ `hasModel` giữ TRUE khi đang
+     generate (banner không nhảy vàng giữa chừng).
+  2. `sendMessage`: (a) engine bận (đang generate request khác từ tab
+     Viết/Nghe) → chờ tới khi rảnh, tối đa ~60s, thay vì báo "chưa sẵn
+     sàng" sai; (b) `.timeout(3 phút)` + `on TimeoutException` trả lời rõ —
+     nút gửi không bao giờ xoay vòng vô hạn; (c) context = 10 tin gần nhất;
+     (d) `maxTokens: 512` cho chat.
+  3. `AiEngineGemma`: (a) watchdog Timer 5 phút mỗi request — ép
+     `_IsolateError` nếu native treo; (b) `Isolate.addOnExitListener` —
+     isolate chết ⇒ báo lỗi mọi port đang chờ + load completer;
+     (c) `maxTokens` passthrough vào isolate.
+  4. `AiEngine.analyze` / `AiEngineMock.analyze`: thêm tham số `maxTokens`
+     (mock bỏ qua) — không phá caller cũ (optional named).
+- **Bằng chứng:** code review DEV tip `5f98b94c` trên worktree; chuỗi
+  "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)" duy nhất ở
+  `ai_chat_screen.dart:343` (banner hasModel=false); C++ `in4up_ai_native.cpp`
+  (n_ctx=2048 từ `in4up_ai_create`, loop generate bounded max_tokens, trả {}
+  khi decode fail); `ai_native_bindings.dart` (maxTokens=256 mặc định,
+  generate blocking FFI). Sandbox KHÔNG có Flutter SDK — chưa chạy
+  `flutter analyze`/test; chờ CI app_analyze + nghiệm thu.
+- **Nghiệm thu đề xuất (chủ, trên tablet):** (1) import gemma → banner xanh
+  → gửi tin → TRONG lúc chờ trả lời banner GIỮ XANH (không nhảy vàng) +
+  nút gửi xoay → có trả lời (hoặc lỗi rõ sau 3 phút, không treo);
+  (2) hội thoại dài (>15 tin) → vẫn có trả lời, không "chưa tạo được câu
+  trả lời"; (3) nếu máy yếu thu hồi process AI → hiện lỗi "AI process bị
+  hệ thống thu hồi" + gửi lại được, không xoay vòng.
+- **Lịch sử:**
+  - 2026-08-29 | created | owner via chat | báo lỗi chat sau khi build DEV (5f98b94c)
+  - 2026-08-29 | created→doing | agent arena/01a02a4a-in4up | định vị 3 root cause trên code DEV (worktree detached HEAD)
+  - 2026-08-29 | doing→done (chờ nghiệm thu) | agent arena/01a02a4a-in4up | 4 nhóm fix (isReady/timeout+watchdog+isolate-exit/context+maxTokens); chờ CI + chủ chạy 3 bước nghiệm thu
+  - 2026-08-29 | done→done | agent arena/01a02a4a-in4up | Push 3735298d lên origin (GitHub đã reconnect). Verify compile: tag oracle `v1.4.0-ci-android-fix` (tip) chạy build.yml — bước Dart build của job Android compile toàn bộ packages/in4up_ai (app_analyze.yml không trigger do paths filter chỉ có lib/test/pubspec). Run đỏ ở Dart ⇒ fix compile trước khi nghiệm thu.
+  - 2026-08-29 | done→done (bổ sung fix) | owner + agent arena/01a02a4a-in4up | Chủ bổ sung quan sát build cũ (chưa rebuild): sau khi xoay vòng LÂU (⇒ native generate CHẠY THẬT, không treo) chat hiện "Mình chưa tạo được câu trả lời cho tin nhắn này." rồi banner XANH lại. Xác nhận: (1) chu kỳ xanh→vàng→xanh = đúng root cause 1 (state=processing làm hasModel=false, `finally` chạy xong mới xanh lại); (2) "chưa tạo được câu trả lời" = model trả output KHÔNG parse được JSON (hết 256 tokens cắt giữa chừng / QAT viết lệch schema) ⇒ fromGemmaJson fallback — đúng root cause 3. FIX BỔ SUNG: `AiAnalysis.fromGemmaJson` catch thêm bước CỨU VỚT trường `"summary"` từ JSON hỏng/bị cắt (regex cho phép string không kín + unescape bằng JSON decoder; verify 7/7 case Python) ⇒ chat hiện câu trả lời THẬT (phần summary, thường model viết trước) thay vì câu trả lời chung chung; isPartial=true, success=true, không kích retry hallucination (check chỉ soi IPA/CEFR/PAO). maxTokens 512 (fix trước) giảm xác suất cắt.
+  - 2026-08-30 | MODELS-VAD (cd8ee68 từ 01a01580) + fix archive | agent
+    arena/01a0251e-in4up | Silero VAD 629KB (vadMinBytes), Piper tự giải
+    nén tar.bz2 bundle, import .onnx, +archive dep. ⚠️ pub get CI ĐỎ:
+    cd8ee68 pin archive ^3.6.1 nhưng app graph khoá archive 4.0.9
+    (transitive) — không có version chung. Fix: in4up_stt → archive
+    ^4.0.9 + adapt _extractTarBz2 sang API 4.x (file.filename thay
+    .name, typeFlag==TarFile.directory thay isDirectory, contentBytes
+    thay content List<int>) — đã đối chiếu source brendan-duncan/archive
+    v4.0.9. File sherpa_vad_service/sherpa_piper_tts_core resolve lấy
+    bản 580 (bản DEV là rev cũ cùng lineage).  - 2026-08-30 | thâu hoạch vào 251e | agent arena/01a0251e-in4up |
+    cherry-pick 3735298 + 8898bb1 (+ KANBAN 55b22c6, cleanup c17bed0 rỗng)
+    từ 01a02a4a (MODELS-002 đã vào DEV từ 08-25); code packages/in4up_ai
+    KHÔNG bị app_analyze cover — đã verify balance/import tĩnh; chờ CI
+    build.yml trên 251e + nghiệm thu chat Gemma (không báo 'Chưa nạp
+    model' khi đang generate, nút gửi không loop, summary JSON hỏng có
+    rescue).
 ### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
 - **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)
 - **Nguồn:** owner yêu cầu nghiệm thu `arena/01a0018e-in4up` (2026-08-25) —
@@ -997,6 +1080,15 @@
     _WordTapChip chỉ gắn nhánh compact (width<620 || height<700) → màn rộng
     (Windows/tablet) không có nút; bù vào Row không compact + icon tắt
     select_all → grid_view_outlined (khớp "nút lưới")
+  - 2026-08-30 | DOCX-001 (thâu hoạch c301004 từ 01a01580) | agent
+    arena/01a0251e-in4up | .docx ZIP raw-deflate: ZLibDecoder(raw: true)
+    thay bu zlib header (moi .docx method 8 dung la vo), magic ZIP vs OLE,
+    data-descriptor, ten entry case-insensitive, giu deu .docx khi
+    FilePicker mat deu, snackbar trung thuc, test ZIP thuc (6b6eacc).
+    + 2 fix compile c301004 de lai: test thieu import dart:convert/io/
+    typed_data; library_screen dau file bi lap 6 token dong ket.
+    CI xanh 33273465065. Chờ nghiệm thu máy: .docx thật (Word/LibreOffice)
+    mở được; .doc OLE báo rõ; FilePicker mất đuôi vẫn .docx
 
 ### XLAT-001 — Dịch offline: glossary Phật học/Pali + protect-tokens + ML Kit (XLAT)
 - **Trạng thái:** done (code + test thuần; chờ CI + nghiệm thu thiết bị)
@@ -1075,7 +1167,48 @@
     XLAT, pipeline cũ). BƯỚC TIẾP THEO: push C1' → đỏ = lỗi trong
     ctor/fields/getters/helpers (tách tiếp từng phần); xanh = lỗi trong
     pipeline methods (_translateWithPipeline/_planSteps/_sentenceEngine
-    Ready/_runEngineChain). Đã rà static toàn bộ: imports ✓, named
+    Ready/_runEngineChain). Đã xong (cùng phiên): lỗi #4 =
+    `store.changes.listen(_onGlossaryChanged)` — tearoff 0-arg
+    (void Function()) truyền cho Stream<void>.listen đòi 1-arg
+    (void Function(void)) → argument_type_not_assignable; fix
+    `listen((_) => _onGlossaryChanged())`. Tổng 4 lỗi compile của
+    batch 02ffc (initialValue×3, thiếu import protect_tokens, Hive
+    putIfAbsent, listen 0-arg) — hết bằng oracle CI ~15 vòng.
+    ⚠️ Ghi nhận: chuỗi C1–C4 và D1–D6 có 5 probe VÔ HIỆU do lỗi agent
+    dựng hybrid (trùng _instance, thiếu method, thiếu import) — kết
+    luận chỉ giữ các vòng D7–D14 (xác minh headSha + file tự thống
+    nhất). Full stack XLAT đã khôi phục từ f916244 + cả 4 fix.
+    ⚠️ 2026-08-29 (tiếp): full stack 984e936 vẫn ĐỎ; bisect E-series
+    (toolbar) cho ra chuỗi E4–E9 đỏ / E5+E10 xanh nhưng E9→E10 chỉ khác
+    1 dòng `//` comment — KHÔNG THỂ là lỗi Dart ⇒ nghi run FLAKE (step
+    Resolve dependencies / infra) hoặc đỏ do step khác chứ không phải
+    Analyze. Chưa verify được step-level (token GitHub chết giữa phiên).
+    Trạng thái: e82a05d = full stack nguyên vẹn chờ push+CI; nếu xanh →
+    hết lỗi, các đỏ E-series là flake; nếu đỏ ở Analyze → bisect lại
+    toolbar/pipeline/test với re-run xác nhận. LỖI #5 XÁC NHẬN (owner gửi log commit ecc1ec4):
+    `const Divider(color: Colors.grey.shade800)` — MaterialColor.shade800
+    là GETTER, không tính được trong biểu thức const → const_with_non_constant.
+    Fix: bỏ `const` trước Divider. Giải thích toàn bộ chuỗi E-series
+    (E4–E9 đỏ do dòng này; E5 xanh vì cắt cả Divider; đọc 'xanh' E10 là
+    run cũ — E10 thực ra đỏ). Tổng 6 lỗi compile batch 02ffc.
+    LỖI #6 (owner gửi log a6cb845): `_mlkit is MlKitEngine` rồi gọi
+    `_mlkit.isPairReady(...)` — FIELD không được type-promote qua `is`
+    (chỉ local variable mới chắc chắn) → isPairReady isn't defined for
+    TranslationEngine. Fix: copy `final mlkit = _mlkit;` rồi is-check
+    trên local.
+    LỖI #7 (fix của OWNER, commit 13d271f): toolbar thiếu import
+    `package:google_mlkit_translation` — extension `bcpCode` (của package)
+    KHÔNG resolve khi chưa import package (extension phải in-scope dù type
+    được infer) → 3 lỗi bcpCode ở _loadModels/_downloadModel/_deleteModel.
+    **CI XANH run 33273465065** (tip 13d271f) — hết 7 lỗi compile của
+    batch 02ffc (6 fix agent + 1 fix owner). Chờ nghiệm thu máy: EN→VI,
+    EN→HI, câu có sati/nibbāna; chủ chạy `flutter pub get` commit lock.
+    DONE 2026-08-30.
+    HOÀN TẤT (2026-08-30):
+    thâu hoạch .docx ZIP raw-deflate từ 01a01580 (c301004 — 3 file:
+    text_source_loader.dart, text_source_loader_test.dart,
+    library_screen.dart; KHÔNG lấy text_provider.dart) — làm sau khi
+    XLAT xanh. Đã rà static toàn bộ: imports ✓, named
     params ✓, API Hive/ML Kit/TranslationResult/SharedPreferences/
     Connectivity ✓ (đối chiếu source thật), brace balance ✓, không ký
     tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc
@@ -1146,3 +1279,135 @@
     arena/01a02ffc-in4up
   - 2026-08-29 | doing→done | agent arena/01a02ffc-in4up | parser 2 tầng +
     10.247 entries + code 8 ngôn ngữ + test; chờ CI + chủ review master table
+
+### XLAT-003 — Glossary Pali/EN→VI, trích xuất v2 từ PDF (parser x-column clustering)
+- **Trạng thái:** doing (code + dữ liệu; chờ CI + review của chủ)
+- **Nguồn:** cùng `reference/meditation vocabulary.pdf` (2022.05.30) — owner
+  yêu cầu tập trung 3 cột Pali/English/Vietnamese (glossary Pali/EN→VI).
+- **Vì sao làm lại (khác XLAT-002):** khảo sát span-level cho thấy
+  (1) cột Burmese SAI CODEPOINT trong PDF (font NotoSansMyanmar map glyph sai:
+  'Đ'→U+1012, 'N'→U+1014...) → không dùng MY làm source nữa; (2) parser v1 (2 tầng
+  heuristic) gộp/mất ô ở các list dày (wind 40, cetasika 52, kasiṇa...).
+- **Nội dung:**
+  - Parser v2 (`tool/extract_meditation_vocab.py`, PyMuPDF span-level):
+    gom line theo y±4pt + x overlap/≤25pt; PI-anchor + slot scoring
+    (PI/VI ±48.9 tới 69, MY +18.2, EN +24.4; ZH/EN khối phải lệch trên
+    anchor tới -24.5/-48.9 ở list dày); giáng cấp VI không dấu ("Da");
+    direct-rule EN-sau-VI (heading pattern); cross-page merge; detect drift
+    khối phải (⚠ en→vi).
+  - **1070 entries** (712 pi→vi, 489 en→vi; 1050 locked, 20 ⚠) trong
+    `assets/glossary/buddhist_pali_en_vi.json`. 819 dòng bảng
+    (780 term, 22 cùm, 11 heading, 6 prose).
+  - `GlossaryStore._assetPaths`: thêm file v2 GIỮA seed 226 và v1
+    (id trùng: 226 > v2 > v1).
+  - `tool/generate_pali_en_vi_glossary.py`: sinh lại JSON + master + audit
+    từ PDF (deterministic).
+  - `docs/glossary/buddhist_terms_master_pi_en_vi.md` — bảng nguồn 802 dòng
+    cho chủ review (✅/⚠, cột MY chỉ đối chiếu hình);
+    `docs/glossary/audit_extract_pi_en_vi.md` — thống kê + 20 dòng ⚠ +
+    danh sách row thiếu PI (bổ sung tay).
+  - **Vấn đề đã biết của PDF** (không phải lỗi parser): ô PI/MY mất text
+    (font hỏng: 'Visuddhi', '8', '25'...); ô Pali truncate trong bản gốc
+    ('Ānāpānassat', 'Sat', 'Pīt', 'Sammāsat', 'Jāt', 'Gilāna').
+- **File:** thêm `tool/extract_meditation_vocab.py`,
+  `tool/generate_pali_en_vi_glossary.py`,
+  `assets/glossary/buddhist_pali_en_vi.json`,
+  `docs/glossary/buddhist_terms_master_pi_en_vi.md`,
+  `docs/glossary/audit_extract_pi_en_vi.md`; sửa `glossary_store.dart`
+  (3 seed assets).
+- **Bằng chứng:** JSON validate (schema v1, 0 dup key, 0 empty, 0 pi-giống-EN);
+  diff master v1 (754 dòng) → v2 (802 dòng): coverage bằng/hơn, các list
+  dày (wind 40, cetasika 52) gán ô đúng hơn. Sandbox KHÔNG có Flutter SDK
+  → chờ CI.
+- **Lịch sử:**
+  - 2026-08-31 | created | owner: "trích xuất bảng chuyên ngữ từ PDF để tạo
+    glossary Pali/EN→VI" | agent arena/01a02ffc-in4up
+  - 2026-08-31 | doing | agent arena/01a02ffc-in4up | parser v2 + 1070 entries
+    + store wiring (7e11ccb) + merge DEV 251e 74232c5 (b4b7bb3); chờ CI + review
+
+### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
+- **Trạng thái:** done (chờ nghiệm thu thiết bị)
+- **Nguồn:** người sở hữu (2026-08-30) — yt-dlp / Language Reactor; tư vấn
+  agent arena/01a01580-in4up (local-first, không VPS).
+- **Nội dung:** hoàn thiện học YouTube **trên máy**: iframe + phụ đề timestamp
+  + song ngữ (TranslationService/XLAT) + tap từ → WordList + tải audio → tab
+  Nghe (LRC/karaoke/shadowing). **Không** backend Node/Python chạy yt-dlp;
+  **không** tab thứ 6. `yt-dlp` chỉ sidecar desktop (WP-Z) nếu explode gãy.
+  Chi tiết + thứ tự WP0–WP4: PLAN-020.
+- **Nền đã có (đừng làm lại):** `youtube_explode_dart`, `YtService.fetchCaptions`
+  3 tầng + `fetchBilingualCaptions`, `YtDownloader`, `saveLrc`,
+  `yt_player_screen.dart` (IFrame API + Known/Learning phác), YouGlish,
+  tab Nghe REOPEN-001.
+- **Bằng chứng:** thâu hoạch 01a01580 19f6c3a → DEV a8d6170 (path-checkout 6 file,
+  dev == 03e7ea0 nên chỉ 19f6c3a mới): seek, lặp câu, tap từ → WordList,
+  song ngữ (timedtext `tlang` fallback + TranslationService/XLAT), lưu LRC
+  theo video id, Nghe, test `test/youtube_learning_test.dart`. Re-verify
+  2026-08-31: c301004 (docx raw-deflate) + cd8ee68 (Silero VAD 629KB + Piper
+  tự giải nén bundle + import .onnx) + 03e7ea0 (docs PLAN-020) ĐÃ có sẵn trong
+  DEV từ các đợt thâu hoạch trước (blob so khớp, chỉ lệch comment/fix 4.x).
+- **Lịch sử:**
+  - 2026-08-30 | created | owner via chat + agent arena/01a01580-in4up |
+    "tích hợp để app tùy biến youtube tải về / phụ đề / chạy luôn như langua reaction"
+  - 2026-08-31 | proposed→done | agent arena/01a0251e-in4up | nghiệm thu 01a01580:
+    19f6c3a thâu hoạch a8d6170; c301004/cd8ee68/03e7ea0 xác nhận đã có sẵn
+    (bỏ tail hỏng của c301004 trong library_screen.dart — bug nhánh nguồn)
+  - 2026-08-31 | done→done | agent arena/01a0251e-in4up | CI ĐỎ 33355151360 —
+    root cause: 19f6c3a gọi `_fetchTimedtextTranslated` trong
+    fetchBilingualCaptions nhưng phương thức KHÔNG ĐỊNH NGHĨA ở bất kỳ đâu
+    trong nhánh nguồn (nhánh 01a01580 compile lỗi ở tip). Bổ sung a3c8a1a
+    (timedtext API + tlang + srv3, theo style _fetchTimedtext) → CI XANH
+    33355331358. Chờ nghiệm thu thiết bị (mở video → Học video → phụ đề
+    song ngữ + lặp câu + tap từ + Mở trong tab Nghe)
+
+### HARVEST-1580-02 — Rà soát tổng thể 580 vs DEV (2026-08-30)
+- **Trạng thái:** done — 580 KHÔNG CÒN việc pending.
+- **Nội dung:** diff file-level toàn bộ 580 (tip 03e7ea0) vs DEV
+  (abd93f8), loại l10n/arb (DEV đã broad hơn qua wave 01a03033).
+  Kết luận từng nhóm:
+  - Đã harvest (trước đó): READ-630-06 (db5c6ed), 339aad6, docx
+    raw-deflate (c301004), VAD/Piper (cd8ee68), docs YT-LR/PLAN-020
+    (03e7ea0).
+  - DEV đã có bản MỚI HƠN (không harvest — tránh lùi phiên bản):
+    word_list TTS+repeat (DEV dùng WordlistPlaybackService thay state
+    inline của 580), web_reader batch (DEV: VocabBatchExtractor +
+    web_extraction_candidate refactored, regex/stopwords giống hệt),
+    smart_playback_bar (mode chips), listen_mode (_InlinePanel),
+    listen_library (FAB Thêm audio), main_shell
+    (_shouldShowShellMiniPlayer), word_entry (SkillReviewData trong file
+    riêng + ADR-0001), word_import (addWithAutoClassify),
+    read_mode (smart_playback_bar + progress), android (largeHeap đã có
+    ở DEV line 27; MainActivity DEV có MethodChannel audiolib P1 — bản
+    580 là template default; build.gradle DEV có CI-fix infra).
+  - Legacy/dead (bỏ qua): packages/in4up_core/sm2_algorithm.dart (bản
+    in2up cũ — DEV canonical là lib/models/sm2_algorithm.dart),
+    MainActivity template 580.
+- **Bằng chứng:** numstat diff 580↔DEV — mọi file có insert đáng kể
+  đều verify: DEV có feature tương đương hoặc mới hơn.
+- **Lịch sử:**
+  - 2026-08-30 | created→done | agent arena/01a0251e-in4up | owner yêu
+    cầu "cứ thâu hoạch tiếp 1580... nghiệm thu từng nhóm" — audit toàn
+    diện, không còn gì pending.
+
+### SHERPA-WP23-01 — WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9)
+- **Trạng thái:** done + CI xanh 33336160268 (tip 8c2e868)
+- **Nguồn:** commit 4cdaffb từ `arena/01a039e9-in4up` (cherry-pick -x → 01f5235).
+- **Nội dung:**
+  - **WP2 — speaker waveform:** parse timestamp LRC khi load →
+    `WaveformSegmentRef` (joinKey = ContentId.joinKey) + `SpeakerSidecar.loadSpeakerMap`
+    (sidecar .spk cạnh LRC — offline overlay, không re-run STT) → waveform tô màu
+    theo speaker (`kSpeakerColors`) + legend "Người N".
+  - **WP3 — voice commands:** `lib/features/voice_command/` (parser ngữ pháp VI/EN
+    thuần: phát/tạm dừng/tiếp theo/bài trước/nhanh hơn/chậm hơn/ẩn lời/dịch;
+    service dùng `SttServiceFacade.partialResultStream` + silence timer 1.5s +
+    max 6s; localizations en/vi/hi/zh/zh_TW/si). Nút mic + partial text trên
+    Stack waveform tab Nghe.
+  - **Fix scope (8c2e868):** 4cdaffb đặt voice button vào `GenerateLrcButton`
+    (StatelessWidget độc lập) nhưng dùng state của `_ListenModeScreenState`
+    → undefined name. Đã khôi phục nút Shadowing gốc + chuyển voice button
+    vào Stack waveform (top-right, ẩn khi isLoading).
+- **Chờ:** nghiệm thu máy (lệnh giọng nói "phát/tạm dừng/tiếp theo/nhanh hơn/
+  ẩn lời"; waveform nhiều speaker cần audio đã diarize — sidecar tạo tự động
+  khi chạy STT pipeline).
+- **Lịch sử:**
+  - 2026-08-30 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
+    4cdaffb (01f5235) + fix scope (8c2e868); CI xanh 33336160268

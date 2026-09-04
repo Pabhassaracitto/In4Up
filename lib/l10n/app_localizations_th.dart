@@ -1287,4 +1287,143 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get lhb_25 => 'Restore';
+
+  @override
+  String get audit_0 => 'Recent';
+
+  @override
+  String get audit_1 => 'Most recent';
+
+  @override
+  String get audit_2 => 'Library';
+
+  @override
+  String get audit_3 => 'Audio library';
+
+  @override
+  String get audit_4 => 'Listening library';
+
+  @override
+  String get audit_5 => 'Listen';
+
+  @override
+  String get audit_6 => 'Read';
+
+  @override
+  String get audit_7 => 'Listened notes';
+
+  @override
+  String get audit_8 => 'Recent';
+
+  @override
+  String get audit_9 => 'Cloud';
+
+  @override
+  String get audit_10 => 'Device';
+
+  @override
+  String get audit_11 => 'Unread';
+
+  @override
+  String get audit_12 => 'Reading Library';
+
+  @override
+  String get audit_13 => 'Writing';
+
+  @override
+  String get audit_14 => 'Speaking';
+
+  @override
+  String get audit_15 => 'Understanding';
+
+  @override
+  String get audit_16 => 'Memory';
+
+  @override
+  String get audit_17 => 'Shell interface';
+
+  @override
+  String get sound_0 => 'Score';
+
+  @override
+  String get sound_1 => 'Segment';
+
+  @override
+  String get sound_2 => 'Table of contents';
+
+  @override
+  String get sound_3 => 'Content';
+
+  @override
+  String get sound_4 => 'Chapter';
+
+  @override
+  String get sound_5 => 'Note';
+
+  @override
+  String get sound_6 => 'Chapter note';
+
+  @override
+  String get sound_7 => 'Bookmark';
+
+  @override
+  String get sound_8 => 'Search';
+
+  @override
+  String get sound_9 => 'Refresh';
+
+  @override
+  String get sound_10 => 'Play';
+
+  @override
+  String get sound_11 => 'Add';
+
+  @override
+  String get sound_12 => 'All';
+
+  @override
+  String get sound_13 => 'Manual';
+
+  @override
+  String get sound_14 => 'Save';
+
+  @override
+  String get sound_15 => 'Cancel';
+
+  @override
+  String get sound_16 => 'Delete';
+
+  @override
+  String get sound_17 => 'Rename';
+
+  @override
+  String get sound_18 => 'Soundlist';
+
+  @override
+  String get sound_19 => 'Soundlist is empty';
+
+  @override
+  String get sound_20 => 'Soundlist — Audio library';
+
+  @override
+  String get sound_21 => 'No table of contents yet.';
+
+  @override
+  String get sound_22 => 'No scores yet.';
+
+  @override
+  String get sound_23 => 'No segments yet.';
+
+  @override
+  String get sound_24 =>
+      'This file has no data — open it in Listen Mode and add bookmarks.';
+
+  @override
+  String get sound_25 => 'No results found for this keyword.';
+
+  @override
+  String get sound_26 => 'None in the observation list';
+
+  @override
+  String get soundRelated => 'Related';
 }

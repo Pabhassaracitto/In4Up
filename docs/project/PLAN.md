@@ -441,7 +441,7 @@
 - Lịch sử:
   - 2026-08-23 | created | owner via prompt | "I4U | READ Translate"
 
-### PLAN-020 — Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (XLAT-002)
+### PLAN-021 — Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (XLAT-002)
 - Nguồn: người sở hữu (2026-08-29, gửi file `reference/meditation
   vocabulary.pdf` + lệnh "tiến hành")
 - Trạng thái: proposed
@@ -459,3 +459,127 @@
   docs/glossary/{buddhist_terms_master,audit_extract}.md.
 - Lịch sử:
   - 2026-08-29 | created | owner via file PDF + chat | agent arena/01a02ffc-in4up
+
+### PLAN-020 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first)
+- Nguồn: người sở hữu (2026-08-30) — tham khảo yt-dlp + Language Reactor;
+  agent arena/01a01580-in4up tư vấn kiến trúc (không copy server Node/Python).
+- Trạng thái: proposed
+- Milestone đề xuất: ngoài M0–M3 (phạm vi Tools/YouTube + tab Nghe; không đụng
+  knowledge MVA, không tab thứ 6)
+- Chi tiết: xem mục dưới. Card KANBAN: YT-LR-001.
+- Lịch sử:
+  - 2026-08-30 | created | owner via chat + agent arena/01a01580-in4up |
+    "tùy biến youtube tải về / phụ đề / chạy luôn + công cụ sẵn có như langua reaction"
+
+#### 0. Quyết định kiến trúc (đọc trước khi code)
+
+**Không** dựng backend Node.js/Python trên cloud để chạy `yt-dlp`. In4Up là
+local-first: máy chủ cloud bị YouTube chặn IP; cookie/proxy trên server = rủi ro
+Tài khoản + ToS; CI GitHub Actions không phải máy học của user; dịch đã có
+`TranslationService` + glossary (XLAT-001), không thêm DeepL/Libre server.
+
+`yt-dlp` **không** phải trụ cột mặc định trên mobile. App **đã có**:
+
+| Nhu cầu LR | Đã có trên DEV | Ghi chú |
+|---|---|---|
+| Phát video | iframe + IFrame API (`yt_player_screen.dart`, WebView) | Đúng ToS hơn tải video |
+| Phụ đề + timestamp | `YtService.fetchCaptions` 3 tầng (explode / timedtext / HTML) | `youtube_explode_dart` |
+| Song ngữ | `fetchBilingualCaptions` + merge overlap + `TranslationService.translateBatch` | Nối XLAT glossary, đừng engine mới |
+| Tải audio | `YtDownloader` / `youtube_download_service` → `PlayerProvider.loadSong` | Tab Nghe karaoke/LRC sẵn |
+| Lưu lời | `YtService.saveLrc` từ tab Captions | Reopen LRC (REOPEN-001) |
+| Tra từ / POS | `word_analysis_sheet` + WordList / SM-2 | Player đã phác Known/Learning |
+| YouGlish | `lib/screens/tools/youglish/` | Giữ, không làm lại |
+| Shadowing | tab Nghe / Understand | Câu YouTube → clip audio đã tải |
+
+`yt-dlp` chỉ **WP-Z (tuỳ chọn, desktop)**: binary user tự cài, Process spawn,
+không đóng gói APK, không chạy trên GitHub Actions / VPS. Dùng khi explode
+gãy (YouTube đổi client). Mobile = explode + iframe.
+
+Pháp lý: học cá nhân, không redistributive video/audio, không cache YouTube
+trên server. UI nói rõ "tải audio để học offline trên máy bạn".
+
+Không tab thứ 6. Không player mp4 local first-class. Không HTTP lúc bootstrap.
+
+#### 1. Sư phạm (vì sao LR hiệu quả — giữ đúng, đừng làm "máy dịch phụ đề")
+
+Language Reactor thắng vì **i+1 trong dòng chảy**: nghe + chữ cùng lúc, bấm
+dừng đúng câu, nhìn L1 khi kẹt, lưu từ **trong ngữ cảnh video**.
+
+Bắt buộc:
+
+1. **Phụ đề gốc (L2) là nguồn sự thật** — thường EN (hoặc ngôn ngữ video).
+   Bản L1 (VI/HI/…) là lớp phủ, không thay lời gốc.
+2. **Một câu = một vòng lặp học**: phát lại câu, chậm 0.75–0.9, shadow,
+   rồi mới câu sau. Timestamp caption = AB loop, không cắt video.
+3. **Từ phải về WordList có ngữ cảnh** (title video, dòng, offset thời gian)
+   — Known/Learning/Ignored trong player = view lên vocabulary, không hộp
+   đếm riêng chết.
+4. **Không auto-play dịch TTS đè tiếng gốc** trừ khi user bật (cabin ≠ LR).
+   LR = đọc chữ + nghe gốc. Cabin STS là PLAN-008, kênh khác.
+5. **Pali/Phật học**: glossary XLAT protect-tokens nếu dịch caption — không
+   để ML Kit dịch *sati/nibbāna*.
+
+#### 2. Việc còn thiếu (không viết lại explorer)
+
+`yt_player_screen.dart` (~1216 dòng) đã: iframe sync `getCurrentTime`,
+subtitle lớn + translation, tab văn bản, Known/Learning/Ignored **phác**.
+Khe cần đóng:
+
+- A. Đồng bộ ổn: poll IFrame API + highlight câu; seek khi bấm dòng;
+  pause-on-click từ (LR).
+- B. Known/Learning **ghi WordList** (`VocabularyBridge` / `addWithAutoClassify`)
+  + `VocabContext.sourceRef = youtube:<id>`, `textStartOffset` thời gian.
+- C. Dịch caption đi `TranslationService` (glossary + ML Kit + cache MD5),
+  không `translateBatch` tách pipeline.
+- D. "Học offline": audio đã tải + LRC đã lưu → mở tab Nghe (karaoke,
+  AB, shadowing) — một nút, không pipeline thứ hai.
+- E. Loop câu / câu kế từ timestamp caption (LISTEN-630-01 đã có nút
+  "lặp câu tiếp" cho LRC — tái dùng, đừng viết AB YouTube riêng nếu audio
+  path có LRC).
+- F. Gộp `youtube_download_service.dart` vs `YtDownloader` (hai stack).
+- G. YouTube Data API key đang `''` — explorer kênh/list phụ thuộc key;
+  dán link video phải **chạy không cần key** (oEmbed + explode đã có).
+
+#### 3. Work package (mỗi WP 1 commit xanh + AT; harvest riêng)
+
+**WP0 — Kiểm kê (không code):** bảng file × hành vi trên thiết bị
+(explode captions EN/VI, tải audio, iframe sync, save LRC → Nghe).
+Báo SHA + lỗ hổng thật. Không thêm package.
+
+**WP1 — Player LR dùng được:** seek dòng, highlight câu theo
+`getCurrentTime`, pause khi tap từ, hiện L2 + L1. AT: 1 video có CC EN,
+bấm dòng nhảy đúng ±0.4s.
+
+**WP2 — Từ → WordList:** tap từ mở sheet có sẵn; Known/Learning/Ignored
+persist Hive; ngữ cảnh = câu + `youtube:<id>` + ms. AT: lưu từ, tắt app,
+mở WordList còn context.
+
+**WP3 — Dịch caption = XLAT:** `fetchBilingualCaptions` gọi
+`TranslationService` (protect-tokens). Thiếu model ML Kit → failure rõ,
+không rơi từ điển 670 từ im lặng. AT: câu có *sati* không bị dịch bậy.
+
+**WP4 — Một nút "Học trong tab Nghe":** nếu đã có audio path + LRC,
+`loadSong` + áp LRC. Chưa có audio → tải (YtDownloader) rồi mở Nghe.
+AT: từ player YouTube sang Nghe, karaoke khớp timestamp.
+
+**WP-Z — (tuỳ chọn, desktop) yt-dlp sidecar:** `Process` gọi `yt-dlp`
+nếu user đã cài (`yt-dlp --version`); `--write-sub --write-auto-sub
+--skip-download` hoặc `-x --audio-format m4a`. Không binary trong APK;
+Android/iOS không hiện. Cập nhật yt-dlp = việc của user, không `pip`
+trong CI.
+
+Thứ tự: WP0 → WP1 → WP2 → WP3 → WP4. WP-Z sau cùng, có thể không làm.
+
+#### 4. Cấm
+
+- Server/VPS/`yt-dlp` trong GitHub Actions để lấy YouTube.
+- Tab thứ 6; player mp4 local như nguồn hạng nhất.
+- Tải full video 1080p mặc định (chỉ audio khi user bấm, chất lượng chọn được — đã có).
+- LLM chat GGUF dịch phụ đề (không gọi Gemma là dịch giả).
+- Embedding/vector DB / RAG.
+- HTTP lúc `main()` / `ensureModel`.
+
+#### 5. Prompt topic
+
+Copy `PROMPT_AGENT_YOUTUBE_LANGUA.md` (gốc repo) cho agent topic **nhánh mới
+từ tip DEV**. Không merge 580. Path-checkout file YouTube + test nhỏ vào DEV.

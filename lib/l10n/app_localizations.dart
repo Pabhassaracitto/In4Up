@@ -2592,6 +2592,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restore'**
   String get lhb_25;
+
+  /// No description provided for @audit_0.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get audit_0;
+
+  /// No description provided for @audit_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Most recent'**
+  String get audit_1;
+
+  /// No description provided for @audit_2.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get audit_2;
+
+  /// No description provided for @audit_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio library'**
+  String get audit_3;
+
+  /// No description provided for @audit_4.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening library'**
+  String get audit_4;
+
+  /// No description provided for @audit_5.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen'**
+  String get audit_5;
+
+  /// No description provided for @audit_6.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get audit_6;
+
+  /// No description provided for @audit_7.
+  ///
+  /// In en, this message translates to:
+  /// **'Listened notes'**
+  String get audit_7;
+
+  /// No description provided for @audit_8.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get audit_8;
+
+  /// No description provided for @audit_9.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud'**
+  String get audit_9;
+
+  /// No description provided for @audit_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get audit_10;
+
+  /// No description provided for @audit_11.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get audit_11;
+
+  /// No description provided for @audit_12.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading Library'**
+  String get audit_12;
+
+  /// No description provided for @audit_13.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing'**
+  String get audit_13;
+
+  /// No description provided for @audit_14.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking'**
+  String get audit_14;
+
+  /// No description provided for @audit_15.
+  ///
+  /// In en, this message translates to:
+  /// **'Understanding'**
+  String get audit_15;
+
+  /// No description provided for @audit_16.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get audit_16;
+
+  /// No description provided for @audit_17.
+  ///
+  /// In en, this message translates to:
+  /// **'Shell interface'**
+  String get audit_17;
+
+  /// No description provided for @sound_0.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get sound_0;
+
+  /// No description provided for @sound_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment'**
+  String get sound_1;
+
+  /// No description provided for @sound_2.
+  ///
+  /// In en, this message translates to:
+  /// **'Table of contents'**
+  String get sound_2;
+
+  /// No description provided for @sound_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get sound_3;
+
+  /// No description provided for @sound_4.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get sound_4;
+
+  /// No description provided for @sound_5.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get sound_5;
+
+  /// No description provided for @sound_6.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter note'**
+  String get sound_6;
+
+  /// No description provided for @sound_7.
+  ///
+  /// In en, this message translates to:
+  /// **'Bookmark'**
+  String get sound_7;
+
+  /// No description provided for @sound_8.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get sound_8;
+
+  /// No description provided for @sound_9.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get sound_9;
+
+  /// No description provided for @sound_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get sound_10;
+
+  /// No description provided for @sound_11.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get sound_11;
+
+  /// No description provided for @sound_12.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get sound_12;
+
+  /// No description provided for @sound_13.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get sound_13;
+
+  /// No description provided for @sound_14.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get sound_14;
+
+  /// No description provided for @sound_15.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get sound_15;
+
+  /// No description provided for @sound_16.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get sound_16;
+
+  /// No description provided for @sound_17.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get sound_17;
+
+  /// No description provided for @sound_18.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist'**
+  String get sound_18;
+
+  /// No description provided for @sound_19.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist is empty'**
+  String get sound_19;
+
+  /// No description provided for @sound_20.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist — Audio library'**
+  String get sound_20;
+
+  /// No description provided for @sound_21.
+  ///
+  /// In en, this message translates to:
+  /// **'No table of contents yet.'**
+  String get sound_21;
+
+  /// No description provided for @sound_22.
+  ///
+  /// In en, this message translates to:
+  /// **'No scores yet.'**
+  String get sound_22;
+
+  /// No description provided for @sound_23.
+  ///
+  /// In en, this message translates to:
+  /// **'No segments yet.'**
+  String get sound_23;
+
+  /// No description provided for @sound_24.
+  ///
+  /// In en, this message translates to:
+  /// **'This file has no data — open it in Listen Mode and add bookmarks.'**
+  String get sound_24;
+
+  /// No description provided for @sound_25.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found for this keyword.'**
+  String get sound_25;
+
+  /// No description provided for @sound_26.
+  ///
+  /// In en, this message translates to:
+  /// **'None in the observation list'**
+  String get sound_26;
+
+  /// No description provided for @soundRelated.
+  ///
+  /// In en, this message translates to:
+  /// **'Related'**
+  String get soundRelated;
 }
 
 class _AppLocalizationsDelegate

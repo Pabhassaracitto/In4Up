@@ -8,6 +8,8 @@ import 'package:in4up_stt/in4up_stt.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
+import 'package:in4up_stt/diarization/diarization_service.dart';
+import 'package:in4up_stt/diarization/speaker_sidecar.dart';
 import '../../features/vad/pipeline/vad_whisper_pipeline.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../../services/source_artifact_store.dart';
@@ -220,6 +222,17 @@ mixin PlayerSttMixin on ChangeNotifier {
           debugPrint('✅ VAD Pipeline loaded ${lrcLines.length} LRC lines');
         }
         _lrcJustGenerated = true;
+        // Diarization is an offline overlay: persist it beside the LRC so
+        // reopening the audio does not require running STT again.
+        if (output.lrcFilePath != null) {
+          final annotations = await const HeuristicDiarizationService()
+              .diarize(output.result);
+          await SpeakerSidecar.save(
+            lrcPath: output.lrcFilePath!,
+            audioFingerprint: output.result.audioFingerprint,
+            annotations: annotations,
+          );
+        }
         await _rememberGeneratedLrc(path, output.lrcFilePath);
       }
 

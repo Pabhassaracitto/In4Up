@@ -153,3 +153,7 @@ setup-env.ps1
 dev_models/**
 !dev_models/README.md
 !dev_models/**/.gitkeep
+reference/english_tipitaka_translation_data-2026-04-28.db
+reference/tipitaka-roman-pali.db
+reference/vietnamese_tipitaka_translation_data-2026-04-29.db
+reference/__MACOSX/._tipitaka-roman-pali.db

@@ -12,6 +12,8 @@ import 'engines/google_free_engine.dart';
 import 'engines/libre_engine.dart';
 import 'engines/mymemory_engine.dart';
 import 'engines/offline_engine.dart';
+import 'engines/hymt_engine.dart';
+import 'engines/hymt_prompts.dart';
 import 'engines/mlkit_engine.dart';
 import 'engines/translation_engine.dart';
 import 'glossary/glossary_store.dart';
@@ -26,7 +28,7 @@ import 'glossary/translation_glossary.dart';
 ///   1. TranslationCache (MD5, key ổn định)
 ///   2. GLOSSARY longest-match + protect-tokens (thay thuật ngữ bằng
 ///      `__G{n}__`) — TẦNG CHUYÊN NGỮ, chạy TRƯỚC mọi engine
-///   3. Engine câu offline — ML Kit On-Device (Android/iOS, model đã tải)
+///   3. Engine câu offline — Hy-MT GGUF (nếu chọn/có model) rồi ML Kit
 ///   4. Online engines (DeepLX/Google Free/MyMemory/Libre) nếu có mạng và
 ///      user KHÔNG khóa offline-only
 ///   5. OfflineEngine từ điển từ (last resort, chỉ EN → VI)
@@ -44,6 +46,7 @@ class TranslationService {
         _engines = onlineEngines ?? <TranslationEngine>[],
         _offlineEngine = offlineEngine ?? OfflineEngine(),
         _mlkit = mlkitEngine ?? MlKitEngine(),
+        _hymt = onlineEngines == null ? HyMtEngine.instance : null,
         _glossary = glossary ?? const Glossary(const <GlossaryEntry>[]),
         _glossaryStore = glossary == null ? GlossaryStore() : null,
         _injectedNetwork = networkAvailable {
@@ -86,6 +89,7 @@ class TranslationService {
   final List<TranslationEngine> _engines;
   final TranslationEngine _offlineEngine;
   final TranslationEngine _mlkit;
+  final HyMtEngine? _hymt;
   Glossary _glossary;
   final GlossaryStore? _glossaryStore;
   final bool? _injectedNetwork;
@@ -104,6 +108,7 @@ class TranslationService {
 
   /// "Chỉ offline": bỏ qua online engines (vòng 3).
   bool _offlineOnly = false;
+  HyMtOfflinePreference _offlineEnginePref = HyMtOfflinePreference.auto;
 
   static const String _offlineOnlyPrefKey = 'translation_offline_only';
 
@@ -131,6 +136,14 @@ class TranslationService {
   /// (Instance forTest có thể inject engine giả — UI chỉ dùng singleton.)
   MlKitEngine get mlkit => _mlkit as MlKitEngine;
 
+  HyMtEngine? get hymt => _hymt;
+
+  HyMtOfflinePreference get offlineEnginePref => _offlineEnginePref;
+  set offlineEnginePref(HyMtOfflinePreference value) {
+    _offlineEnginePref = value;
+    unawaited(HyMtEngine.savePreference(value));
+  }
+
   /// Glossary hiện tại (snapshot) — UI + test.
   Glossary get glossary => _glossary;
 
@@ -144,6 +157,13 @@ class TranslationService {
   set offlineOnly(bool value) {
     _offlineOnly = value;
     _persistOfflineOnly(value);
+  }
+
+  /// Tag pipeline hiện tại — cache/UI dùng để không dính bản Hy-MT cũ
+  /// khi đổi engine hoặc tắt "chỉ offline".
+  String get pipelineTag {
+    final pref = _offlineEnginePref.name;
+    return '$pref|${_offlineOnly ? 'off' : 'on'}';
   }
 
   List<String> get activeEngines => [
@@ -218,6 +238,7 @@ class TranslationService {
     String text, {
     String? sourceLang,
     String? targetLang,
+    bool skipCache = false,
   }) async {
     _totalRequests++;
 
@@ -251,21 +272,24 @@ class TranslationService {
       );
     }
 
-    final cached = await _cache.get(
-      text: text,
-      sourceLang: source.translationCode,
-      targetLang: target.translationCode,
-    );
-    if (cached != null) {
-      _cacheHits++;
-      _lastUsedEngine = '💾 Cache';
-      return TranslationResult.success(
-        original: text,
-        translated: cached,
-        engine: 'cache',
-        detectedLang: source.translationCode,
+    if (!skipCache) {
+      final cached = await _cache.get(
+        text: text,
+        sourceLang: source.translationCode,
         targetLang: target.translationCode,
+        engine: pipelineTag,
       );
+      if (cached != null) {
+        _cacheHits++;
+        _lastUsedEngine = '💾 Cache';
+        return TranslationResult.success(
+          original: text,
+          translated: cached,
+          engine: 'cache',
+          detectedLang: source.translationCode,
+          targetLang: target.translationCode,
+        );
+      }
     }
 
     await _ensureGlossary();
@@ -341,6 +365,7 @@ class TranslationService {
         sourceLang: sourceCode,
         targetLang: targetCode,
         translation: current,
+        engine: pipelineTag,
       );
     }
     _lastUsedEngine = glossaryHits > 0
@@ -356,6 +381,14 @@ class TranslationService {
     String sourceCode,
     String targetCode,
   ) async {
+    final hymt = _hymt;
+    if (hymt != null &&
+        _offlineEnginePref != HyMtOfflinePreference.mlkit &&
+        await hymt.hasModel &&
+        HyMtPrompts.supports(sourceCode) &&
+        HyMtPrompts.supports(targetCode)) {
+      return <(String, String)>[(sourceCode, targetCode)];
+    }
     const pivotPairs = <String, String>{'HI': 'VI', 'VI': 'HI'};
     if (pivotPairs[sourceCode] == targetCode) {
       final pivotSteps = <(String, String)>[
@@ -394,20 +427,55 @@ class TranslationService {
   }
 
   /// Engine chain của MỘT bước:
-  ///   1) ML Kit (offline câu, Android/iOS, model đã tải)
-  ///   2) Online engines (nếu có mạng + không khóa offline-only)
-  ///   3) OfflineEngine từ điển từ (last resort)
+  ///   1) Hy-MT GGUF (nếu chọn / auto + đã có model)
+  ///   2) ML Kit (offline câu, Android/iOS)
+  ///   3) Online engines (nếu có mạng + không khóa offline-only)
+  ///   4) OfflineEngine từ điển từ (last resort)
   Future<TranslationResult> _runEngineChain({
     required String text,
     required String sourceCode,
     required String targetCode,
     required bool hasNetwork,
   }) async {
-    // 1) Engine câu offline.
-    //    Gọi translate cả khi model CHƯA tải: engine tự trả failure RÕ
-    //    ("Chưa tải gói dịch Hindi") thay vì im lặng rơi về ráp từ.
-    TranslationResult? mlkitFailure;
-    if (await _mlkit.isAvailable()) {
+    TranslationResult? sentenceFailure;
+    final hymt = _hymt;
+    final pref = _offlineEnginePref;
+    if (hymt != null && pref != HyMtOfflinePreference.mlkit) {
+      try {
+        final result = await hymt
+            .translate(
+              text: text,
+              targetLang: targetCode,
+              sourceLang: sourceCode,
+            )
+            .timeout(
+              const Duration(minutes: 2),
+              onTimeout: () => TranslationResult.failure(
+                original: text,
+                error: 'Timeout Hy-MT',
+                engine: hymt.name,
+              ),
+            );
+        if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+          return result;
+        }
+        sentenceFailure = result;
+        debugPrint('❌ ${hymt.name}: ${result.error}');
+      } catch (error) {
+        debugPrint('❌ ${hymt.name} exception: $error');
+      }
+      if (pref == HyMtOfflinePreference.hymt && _offlineOnly) {
+        return sentenceFailure ??
+            TranslationResult.failure(
+              original: text,
+              error: 'Hy-MT chưa sẵn sàng',
+              engine: hymt.name,
+            );
+      }
+    }
+
+    TranslationResult? mlkitFailure = sentenceFailure;
+    if (pref != HyMtOfflinePreference.hymt && await _mlkit.isAvailable()) {
       try {
         final result = await _mlkit
             .translate(
@@ -581,6 +649,7 @@ class TranslationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       _offlineOnly = prefs.getBool(_offlineOnlyPrefKey) ?? false;
+      _offlineEnginePref = await HyMtEngine.loadPreference();
     } catch (_) {}
   }
 

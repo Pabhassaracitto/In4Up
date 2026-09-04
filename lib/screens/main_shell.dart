@@ -3,13 +3,15 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/features/youtube/youtube_explorer_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
-import '../features/youtube/youtube_explorer_screen.dart';
+import '../features/tipitaka/tipitaka.dart';
+import '../features/youtube/youtube_sheet.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
@@ -492,6 +494,13 @@ class _MainShellState extends State<MainShell> {
           ),
           shellSettingsTool,
           ...contentTools,
+                    tools.ToolItem(
+            id: 'tipitaka',
+            title: 'Tipiṭaka',
+            subtitle: 'Đọc Tam Tạng, tra cứu kinh điển',
+            icon: Icons.menu_book_rounded,
+            color: const Color(0xFFFF9800),
+          ),
           ...rememberTools,
         ],
       _PrimaryTab.listen => [
@@ -572,6 +581,7 @@ class _MainShellState extends State<MainShell> {
       'pdf_reader': 87,
       'review': 86,
       'word_list': 85,
+      'tipitaka': 91,
     };
     const listen = {
       'speak_mode': 100,
@@ -674,10 +684,12 @@ class _MainShellState extends State<MainShell> {
         );
         return;
       case 'youtube_downloader':
+  await YoutubeSheet.show(context);
+  break;
         nav.push(
           MaterialPageRoute(
             builder: (_) => const YoutubeExplorerScreen(
-              apiKey: 'AIzaSy...YOUR_KEY_HERE',
+              apiKey: 'AIzaSyCpGdv7ESAJkH5-FYIC8-x0R0EWGgvK0Lg',
             ),
           ),
         );
@@ -726,6 +738,18 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'review':
         pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
+        return;
+              case 'tipitaka':
+        // Adaptive: build with DB = open directly; without DB = show download
+        try {
+          nav.push(
+            MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()),
+          );
+        } catch (_) {
+          nav.push(
+            MaterialPageRoute(builder: (_) => const TipitakaDownloadScreen()),
+          );
+        }
         return;
       case 'shell_ui_settings':
         await _openShellUiSettings();

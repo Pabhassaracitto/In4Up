@@ -220,11 +220,49 @@ class AiAnalysis {
           : map['inputText'] as String? ?? '';
       return AiAnalysis.fromJson(map, resolved);
     } catch (_) {
+      // FIX AI-CHAT-01 (bổ sung, chủ báo 2026-08-29: sau generate lâu chat
+      // trả "Mình chưa tạo được câu trả lời..."): model nhỏ (gemma-3-1B QAT)
+      // hay CẮT JSON giữa chừng (hết maxTokens) hoặc viết lệch schema ⇒
+      // jsonDecode fail. Cứu vớt trường "summary" (phần trả lời hữu ích
+      // nhất, model thường viết trước) thay vì trả lời chung chung.
+      final rescued = _rescueSummary(rawJson);
+      if (rescued != null && rescued.trim().isNotEmpty) {
+        return AiAnalysis(
+          inputText: inputText ?? '',
+          analysisType: analysisType,
+          summary: rescued,
+          topics: const [],
+          terms: const [],
+          success: true,
+          isPartial: true,
+          source: AiAnalysisSource.gemma,
+          generatedAt: DateTime.now(),
+          language: 'vi',
+        );
+      }
       return AiAnalysis.fallback(
         inputText ?? '',
         errorReason: 'Invalid Gemma JSON',
         analysisType: analysisType,
       );
+    }
+  }
+
+  /// Trích giá trị `"summary": "..."` từ JSON hỏng/bị cắt (dùng khi
+  /// `jsonDecode` fail). Regex cho phép STRING KHÔNG KÍN (còn thiếu dấu
+  /// đóng ở cuối output — đúng trường hợp model bị cắt giữa câu).
+  /// Trả về `null` nếu không tìm thấy.
+  static String? _rescueSummary(String raw) {
+    final m =
+        RegExp(r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)').firstMatch(raw);
+    if (m == null) return null;
+    final captured = m.group(1);
+    if (captured == null) return null;
+    try {
+      // Unescape (\" \\ \n ...) đúng chuẩn bằng JSON decoder.
+      return jsonDecode('"$captured"') as String;
+    } catch (_) {
+      return captured;
     }
   }
 

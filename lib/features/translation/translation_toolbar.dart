@@ -1,10 +1,12 @@
 // lib/features/translation/translation_toolbar.dart
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/hymt_engine.dart';
 import 'engines/mlkit_engine.dart';
 import 'glossary/glossary_sheet.dart';
 import 'translation_display_mode.dart';
@@ -50,6 +52,7 @@ class TranslationToolbar extends StatelessWidget {
                   final translateButton = _TranslateButton(
                     isTranslating: isTranslating,
                     hasTranslations: hasTranslations,
+                    pipelineStale: textProvider.translationPipelineStale,
                     primaryColor: primaryColor,
                     progress: progress,
                     totalLines: textProvider.lines.length,
@@ -61,7 +64,10 @@ class TranslationToolbar extends StatelessWidget {
                       } else if (sameLanguage) {
                         await _selectTargetLanguage(context, textProvider);
                       } else {
-                        await textProvider.translateAll();
+                        await textProvider.translateAll(
+                          forceRetranslate:
+                              textProvider.translationPipelineStale,
+                        );
                       }
                     },
                     onLongPress: () =>
@@ -75,7 +81,8 @@ class TranslationToolbar extends StatelessWidget {
                         _applyTargetLanguage(context, textProvider, language),
                   );
                   final settingsButton = IconButton(
-                    onPressed: () => _showServerSettings(context),
+                    onPressed: () =>
+                        _showServerSettings(context, textProvider),
                     icon: const Icon(Icons.settings_outlined, size: 16),
                     color: Colors.grey[500],
                     tooltip: context.uiText('Cài đặt engine dịch'),
@@ -243,7 +250,10 @@ class TranslationToolbar extends StatelessWidget {
     );
   }
 
-  void _showServerSettings(BuildContext context) {
+  void _showServerSettings(
+    BuildContext context,
+    TextProvider textProvider,
+  ) {
     // ★ SỬA 1: Tạo instance, không dùng static
     final service = TranslationService();
 
@@ -259,7 +269,7 @@ class TranslationToolbar extends StatelessWidget {
         service: service,
         accentColor: primaryColor,
       ),
-    );
+    ).whenComplete(textProvider.refreshTranslationChrome);
   }
 }
 
@@ -280,10 +290,8 @@ class _TranslationEngineSettings extends StatefulWidget {
 }
 
 class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> {
-  // KHÔNG dùng `late final _urlController = TextEditingController(text:
-  // widget.service.deeplxUrl ?? '')` — initializer late field tham chiếu
-  // `widget` không có trong codebase (rủi ro compile); init trong initState.
-  late final TextEditingController _urlController;
+  late final TextEditingController _urlController =
+      TextEditingController(text: widget.service.deeplxUrl ?? '');
 
   // Ngôn ngữ có thể tải model ML Kit cho pipeline hiện tại:
   // EN ↔ VI, EN ↔ HI; HI ↔ VI pivot qua EN.
@@ -291,12 +299,16 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   final Map<String, bool> _modelDownloaded = <String, bool>{};
   final Map<String, bool> _downloading = <String, bool>{};
   bool? _offlineOnly;
+  HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
+  bool _hymtHas = false;
+  bool _hymtBusy = false;
+  double _hymtProgress = 0;
 
   @override
   void initState() {
     super.initState();
-    _urlController = TextEditingController(text: widget.service.deeplxUrl ?? '');
     _offlineOnly = widget.service.offlineOnly;
+    _enginePref = widget.service.offlineEnginePref;
     _loadModels();
   }
 
@@ -307,26 +319,31 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   }
 
   Future<void> _loadModels() async {
+    final hymt = widget.service.hymt;
+    if (hymt != null) {
+      _hymtHas = await hymt.hasModel;
+    }
     final mlkit = widget.service.mlkit;
     if (MlKitEngine.platformSupported) {
       for (final code in _mlkitCodes) {
-        final bcp = MlKitEngine.bcpCodeFor(code);
-        if (bcp == null) {
+        final language = MlKitEngine.languageForCode(code);
+        if (language == null) {
           _modelDownloaded[code] = false;
           continue;
         }
-        _modelDownloaded[code] = await mlkit.isModelDownloaded(bcp);
+        _modelDownloaded[code] = await mlkit.isModelDownloaded(language.bcpCode);
       }
     }
+    if (mounted) setState(() {});
   }
 
   Future<void> _downloadModel(String code) async {
-    final bcp = MlKitEngine.bcpCodeFor(code);
-    if (bcp == null) return;
+    final language = MlKitEngine.languageForCode(code);
+    if (language == null) return;
     setState(() => _downloading[code] = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final ok = await widget.service.mlkit.downloadModel(bcp);
+      final ok = await widget.service.mlkit.downloadModel(language.bcpCode);
       _modelDownloaded[code] = ok;
       if (!ok) {
         messenger.showSnackBar(
@@ -360,9 +377,9 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   }
 
   Future<void> _deleteModel(String code) async {
-    final bcp = MlKitEngine.bcpCodeFor(code);
-    if (bcp == null) return;
-    final ok = await widget.service.mlkit.deleteModel(bcp);
+    final language = MlKitEngine.languageForCode(code);
+    if (language == null) return;
+    final ok = await widget.service.mlkit.deleteModel(language.bcpCode);
     if (!mounted) return;
     setState(() => _modelDownloaded[code] = !ok);
   }
@@ -446,6 +463,78 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
+            const SizedBox(height: 16),
+            Text(
+              context.uiText('Hy-MT 1.5 (GGUF ~600MB, 33 ngôn ngữ)'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _hymtHas
+                  ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
+                  : context.uiText('Import file .gguf đã tải, hoặc bấm Tải về (~600MB, Wi-Fi). Không tự tải lúc mở app.'),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Tự chọn'),
+                  selected: _enginePref == HyMtOfflinePreference.auto,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.auto);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.auto;
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Hy-MT'),
+                  selected: _enginePref == HyMtOfflinePreference.hymt,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.hymt);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.hymt;
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('ML Kit'),
+                  selected: _enginePref == HyMtOfflinePreference.mlkit,
+                  onSelected: (_) {
+                    setState(() => _enginePref = HyMtOfflinePreference.mlkit);
+                    widget.service.offlineEnginePref = HyMtOfflinePreference.mlkit;
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_hymtBusy)
+              LinearProgressIndicator(
+                value: _hymtProgress > 0 ? _hymtProgress : null,
+                minHeight: 4,
+              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _hymtBusy ? null : _importHymt,
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Import .gguf'),
+                ),
+                TextButton.icon(
+                  onPressed: _hymtBusy ? null : _downloadHymt,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Tải về'),
+                ),
+                if (_hymtHas)
+                  IconButton(
+                    onPressed: _hymtBusy ? null : _deleteHymt,
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    color: Colors.grey,
+                  ),
+              ],
+            ),
             const SizedBox(height: 12),
             // ── Chỉ offline ────────────────────────────────────────────
             SwitchListTile(
@@ -456,7 +545,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
               ),
               subtitle: Text(
                 context.uiText(
-                  'Bỏ qua engine online (ML Kit + từ điển offline).',
+                  'Bỏ qua engine online (Hy-MT / ML Kit + từ điển).',
                 ),
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
@@ -509,6 +598,50 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
         ),
       ),
     );
+  }
+
+
+  Future<void> _importHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    setState(() => _hymtBusy = true);
+    final err = await hymt.importFromUser();
+    if (!mounted) return;
+    _hymtHas = await hymt.hasModel;
+    setState(() => _hymtBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(err ?? 'Đã import Hy-MT')),
+      backgroundColor: err == null ? null : Colors.redAccent,
+    ));
+  }
+
+  Future<void> _downloadHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    setState(() {
+      _hymtBusy = true;
+      _hymtProgress = 0;
+    });
+    final timer = Stream.periodic(const Duration(milliseconds: 400), (_) {
+      if (mounted) setState(() => _hymtProgress = hymt.downloadProgress);
+    }).listen((_) {});
+    final err = await hymt.downloadModel();
+    await timer.cancel();
+    if (!mounted) return;
+    _hymtHas = await hymt.hasModel;
+    setState(() => _hymtBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(err ?? 'Đã tải Hy-MT')),
+      backgroundColor: err == null ? null : Colors.redAccent,
+    ));
+  }
+
+  Future<void> _deleteHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    await hymt.deleteModel();
+    if (!mounted) return;
+    setState(() => _hymtHas = false);
   }
 
   Widget _modelRow(String code) {
@@ -582,6 +715,7 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
 class _TranslateButton extends StatelessWidget {
   final bool isTranslating;
   final bool hasTranslations;
+  final bool pipelineStale;
   final Color primaryColor;
   final double progress;
   final int totalLines;
@@ -593,6 +727,7 @@ class _TranslateButton extends StatelessWidget {
   const _TranslateButton({
     required this.isTranslating,
     required this.hasTranslations,
+    required this.pipelineStale,
     required this.primaryColor,
     required this.progress,
     required this.totalLines,
@@ -616,6 +751,10 @@ class _TranslateButton extends StatelessWidget {
       label = 'Chọn đích';
       icon = Icons.language_rounded;
       color = Colors.amber;
+    } else if (pipelineStale) {
+      label = 'Dịch lại';
+      icon = Icons.refresh;
+      color = Colors.orange;
     } else if (isComplete) {
       label = 'Đã dịch';
       icon = Icons.check_circle_outline;

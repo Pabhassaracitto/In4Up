@@ -57,7 +57,15 @@ class AiServiceFacade extends ChangeNotifier {
       !_useMock && _loader.hasModel && isReady && _modelLoaded;
   String? _lastError;
   String? get lastError => _lastError;
-  bool get isReady => _initialized && (_engine?.state == AiEngineState.ready);
+  /// "Ready" = engine đã khởi động và không hỏng — cả `ready` lẫn
+  /// `processing`. FIX AI-CHAT-01 (chủ báo 2026-08-29): lúc đang sinh câu
+  /// trả lời, engine ở trạng thái `processing` 30s–2 phút; bản cũ `isReady`
+  /// chỉ nhận `ready` ⇒ `hasModel` bật FALSE giữa chừng generate ⇒ banner
+  /// chat nhảy sang "Chưa nạp model AI — import file .gguf (Gemma ~1.5GB)"
+  /// ngay sau khi bấm gửi (dù model ĐÃ nạp thật — banner xanh là đúng).
+  bool get isReady => _initialized &&
+      (_engine?.state == AiEngineState.ready ||
+          _engine?.state == AiEngineState.processing);
   bool get useMock => _useMock;
 
   // Model loader for source label
@@ -168,10 +176,20 @@ class AiServiceFacade extends ChangeNotifier {
     _lastError = null;
     notifyListeners();
 
-    final history = _chatMessages.map((m) => '${m.role.name.toUpperCase()}: ${m.text}').join('\n');
+    // FIX AI-CHAT-01: chỉ gửi 10 tin gần nhất làm context — context native
+    // cố định 2048 tokens (in4up_ai_create), prompt dài hơn khiến
+    // llama_decode fail và model trả về RỖNG (hội thoại càng dài càng dễ
+    // dính, kể cả khi model chạy hoàn hảo).
+    final history = _chatMessages
+        .take(10)
+        .map((m) => '${m.role.name.toUpperCase()}: ${m.text}')
+        .join('\n');
 
     try {
-      if (_engine == null || _engine!.state != AiEngineState.ready) {
+      final engineState = _engine?.state;
+      if (_engine == null ||
+          (engineState != AiEngineState.ready &&
+              engineState != AiEngineState.processing)) {
         _chatMessages.add(ChatMessage(
           id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
           role: ChatRole.assistant,
@@ -179,6 +197,14 @@ class AiServiceFacade extends ChangeNotifier {
           isError: true,
         ));
       } else {
+        // FIX AI-CHAT-01: engine đang bận sinh câu trả lời cho request khác
+        // (tab Viết/Nghe) — isolate xử lý tuần tự, chờ nó rảnh (tối đa ~60s)
+        // thay vì báo sai "chưa sẵn sàng".
+        var waitedSec = 0;
+        while (_engine?.state == AiEngineState.processing && waitedSec < 60) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          waitedSec += 1;
+        }
         // Model native còn đang nạp (app tự nạp lúc khởi động) thì chờ xong
         // trước — message của user không bị trả lời bằng mock "chui".
         if (!_useMock && !_modelLoaded) {
@@ -188,7 +214,11 @@ class AiServiceFacade extends ChangeNotifier {
             // native load fail → mock fallback bên dưới (kèm disclaimer).
           }
         }
-        final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2).first;
+        // FIX AI-CHAT-01: chat KHÔNG có timeout (các API khác có 30–60s) —
+        // native generate treo ⇒ nút gửi xoay vòng VÔ HẠN. 3 phút = trần
+        // an toàn cho máy yếu; schema JSON chat cần > 256 tokens nên
+        // maxTokens 512 (256 cũ hay cắt JSON giữa chừng ⇒ "Invalid Gemma JSON").
+        final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2, maxTokens: 512).first.timeout(const Duration(minutes: 3));
         final answer = result.success && result.summary.isNotEmpty
             ? result.summary
             : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
@@ -202,6 +232,17 @@ class AiServiceFacade extends ChangeNotifier {
           isError: !result.success,
         ));
       }
+    } on TimeoutException {
+      // FIX AI-CHAT-01: generate quá 3 phút (máy yếu / native treo) — trả lời
+      // rõ + về trạng thái bình thường; nút gửi không xoay vòng vô hạn.
+      // (Isolate vẫn tự thoát sau watchdog 5 phút trong AiEngineGemma.)
+      _lastError = 'Chat timeout sau 3 phút';
+      _chatMessages.add(ChatMessage(
+        id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+        role: ChatRole.assistant,
+        text: 'AI xử lý quá lâu (model lớn trên máy yếu). Vui lòng thử lại sau vài giây.',
+        isError: true,
+      ));
     } catch (e) {
       _lastError = e.toString();
       _chatMessages.add(ChatMessage(id: 'assistant-${DateTime.now().microsecondsSinceEpoch}', role: ChatRole.assistant, text: 'Có lỗi khi xử lý. Vui lòng thử lại.', isError: true));
@@ -304,7 +345,10 @@ class AiServiceFacade extends ChangeNotifier {
 
     try {
       AiAnalysis result;
-      if (!isReady) {
+      // Busy (đang generate cho chat) ⇒ dùng từ điển local ngay — không
+      // chen request vào (AI-CHAT-01: isReady giờ bao gồm processing).
+      final engineBusy = _engine?.state == AiEngineState.processing;
+      if (!isReady || engineBusy) {
         result = buildFromLocalDict(word, localDictEntry);
       } else {
         result = await _engine!.analyze(text: word, type: AiAnalysisType.wordLookup, context: sentenceContext).first.timeout(const Duration(seconds: 30));
@@ -462,7 +506,8 @@ class AiServiceFacade extends ChangeNotifier {
       return '/${phonemes.join('')}/';
     });
 
-    if (isReady) {
+    // Busy (AI-CHAT-01): không chen request — giữ kết quả local tier 1.
+    if (isReady && _engine?.state != AiEngineState.processing) {
       try {
         final result = await lookupWord(word, sentenceContext: sentenceContext, localDictEntry: localMeaning != null ? {'meaning': localMeaning} : null);
         _currentAnalysis = result;

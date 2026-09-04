@@ -3,14 +3,20 @@
 
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import 'models/yt_video.dart';
+import 'services/yt_service.dart';
 import 'yt_player_screen.dart';
 
 const _kYtApi = 'https://www.googleapis.com/youtube/v3';
 const _kDefaultApiKey = '';
+
+/// Giữ tên cũ cho test / chỗ gọi — uỷ quyền `YtVideo.isUsableDataApiKey`.
+bool ytApiKeyIsUsable(String? key) => YtVideo.isUsableDataApiKey(key);
 
 class YtExChannel {
   final String id;
@@ -110,6 +116,11 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   double _rankMin = 0;
   double _rankMax = 100000;
   final _scrollCtrl = ScrollController();
+  final _urlCtrl = TextEditingController();
+  bool _openingUrl = false;
+  String? _urlError;
+
+  bool get _hasApiKey => YtVideo.isUsableDataApiKey(widget.apiKey);
 
   @override
   void initState() {
@@ -128,6 +139,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _urlCtrl.dispose();
     super.dispose();
   }
 
@@ -138,7 +150,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ..addAll(
             _kDefaultChannels.map((e) => YtExChannel(id: e.$1, title: e.$2)));
     });
-    if (widget.apiKey.isNotEmpty) await _enrichChannels();
+    if (_hasApiKey) await _enrichChannels();
     await _loadVideos();
   }
 
@@ -148,7 +160,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     try {
       final res = await http
           .get(Uri.parse(
-              '$_kYtApi/channels?part=snippet,statistics&id=$ids&key=${widget.apiKey}'))
+              '$_kYtApi/channels?part=snippet,statistics&id=$ids&key=${widget.apiKey.trim()}'))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200 || !mounted) return;
       final data = jsonDecode(res.body) as Map;
@@ -199,11 +211,11 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   }
 
   Future<(List<YtExVideo>, String?)> _fetch(String? pageToken) async {
-    if (widget.apiKey.isEmpty) return (_mock(), null);
+    if (!_hasApiKey) return (<YtExVideo>[], null);
     final order = _sortMode == YtSortMode.viewCount ? 'viewCount' : 'date';
     final chanParam = _selChannelId != null ? '&channelId=$_selChannelId' : '';
     final url = '$_kYtApi/search?part=snippet&type=video$chanParam&order=$order'
-        '&maxResults=20&relevanceLanguage=en&key=${widget.apiKey}'
+        '&maxResults=20&relevanceLanguage=en&key=${widget.apiKey.trim()}'
         '${pageToken != null ? '&pageToken=$pageToken' : ''}';
     final res =
         await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
@@ -242,7 +254,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     try {
       final res = await http
           .get(Uri.parse(
-              '$_kYtApi/videos?part=statistics,contentDetails&id=${ids.join(',')}&key=${widget.apiKey}'))
+              '$_kYtApi/videos?part=statistics,contentDetails&id=${ids.join(',')}&key=${widget.apiKey.trim()}'))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return {};
       final data = jsonDecode(res.body) as Map;
@@ -263,55 +275,28 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         hours: int.parse(h), minutes: int.parse(m), seconds: int.parse(s));
   }
 
-  List<YtExVideo> _mock() {
-    final ch = _selChannelId ?? 'UCVd9ExaFGD8VEmWDKDCMa2Q';
-    return [
-      YtExVideo(
-          id: 'v1',
-          title: 'Last Day to Get 50 PDF Lessons for FREE!',
-          channelId: ch,
-          channelTitle: "Rachel's English",
-          publishedAt: DateTime(2025, 12, 25),
-          viewCount: 3000,
-          langRank: 1870,
-          duration: const Duration(minutes: 1, seconds: 10)),
-      YtExVideo(
-          id: 'v2',
-          title: 'American English Conversation Practice',
-          channelId: ch,
-          channelTitle: "Rachel's English",
-          publishedAt: DateTime(2024, 3, 2),
-          viewCount: 20000,
-          langRank: 910,
-          duration: const Duration(minutes: 1, seconds: 24)),
-      YtExVideo(
-          id: 'v3',
-          title: 'Animal Emojis (Vocabulary)',
-          channelId: ch,
-          channelTitle: "Rachel's English",
-          publishedAt: DateTime(2024, 2, 21),
-          viewCount: 10000,
-          langRank: 2410,
-          duration: const Duration(seconds: 46)),
-      YtExVideo(
-          id: 'v4',
-          title: 'Words that Lower Expectations',
-          channelId: ch,
-          channelTitle: "Rachel's English",
-          publishedAt: DateTime(2024, 2, 10),
-          viewCount: 10000,
-          langRank: 1720,
-          duration: const Duration(seconds: 54)),
-      YtExVideo(
-          id: 'v5',
-          title: 'Darlene Love: All Alone on Christmas',
-          channelId: ch,
-          channelTitle: "Rachel's English",
-          publishedAt: DateTime(2025, 12, 19),
-          viewCount: 50000,
-          langRank: 1590,
-          duration: const Duration(minutes: 4, seconds: 31)),
-    ];
+  Future<void> _openFromUrl([String? raw]) async {
+    final input = (raw ?? _urlCtrl.text).trim();
+    if (input.isEmpty) return;
+    final id = YtVideo.extractId(input);
+    if (id == null) {
+      setState(() => _urlError = 'URL không hợp lệ');
+      return;
+    }
+    setState(() {
+      _urlError = null;
+      _openingUrl = true;
+    });
+    final info = await YtService.instance.fetchInfo(id);
+    if (!mounted) return;
+    setState(() => _openingUrl = false);
+    _openVideo(YtExVideo(
+      id: id,
+      title: (info != null && info.title.isNotEmpty) ? info.title : id,
+      channelId: '',
+      channelTitle: info?.channel ?? '',
+      thumb: info?.thumb,
+    ));
   }
 
   void _openVideo(YtExVideo v) => Navigator.push(
@@ -344,27 +329,123 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   }
 
   Widget _topBar() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
         color: const Color(0xFF161B22),
-        child: Row(
+        child: Column(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new,
-                  color: Colors.white, size: 18),
-              onPressed: () => Navigator.pop(context),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new,
+                      color: Colors.white, size: 18),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.play_circle_filled,
+                    color: Color(0xFFFF0000), size: 20),
+                const SizedBox(width: 8),
+                const Text('YouTube',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text(
+                  _hasApiKey ? 'API' : 'Dán URL',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.play_circle_filled,
-                color: Color(0xFFFF0000), size: 20),
-            const SizedBox(width: 8),
-            const Text('YouTube',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold)),
-            const Spacer(),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _urlError != null
+                            ? Colors.red.withValues(alpha: 0.5)
+                            : Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 10),
+                        const Icon(Icons.link, color: Colors.grey, size: 16),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: TextField(
+                            controller: _urlCtrl,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: context.uiText('Dán URL YouTube...'),
+                              hintStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 13),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            onSubmitted: (_) => _openFromUrl(),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.content_paste,
+                              color: Colors.grey, size: 16),
+                          onPressed: () async {
+                            final d = await Clipboard.getData('text/plain');
+                            if (d?.text != null) {
+                              _urlCtrl.text = d!.text!.trim();
+                              if (mounted) _openFromUrl();
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 32, minHeight: 32),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _openingUrl ? null : _openFromUrl,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9C27B0).withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: _openingUrl
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation(Colors.white)),
+                          )
+                        : const Icon(Icons.school,
+                            color: Colors.white, size: 18),
+                  ),
+                ),
+              ],
+            ),
+            if (_urlError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(_urlError!,
+                      style:
+                          const TextStyle(color: Colors.redAccent, fontSize: 11)),
+                ),
+              ),
           ],
         ),
       );
@@ -784,29 +865,30 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.video_library_outlined,
-                size: 44, color: Colors.grey[700]),
+            Icon(Icons.school_outlined, size: 44, color: Colors.grey[700]),
             const SizedBox(height: 10),
-            Text('Không có video',
-                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-            if (widget.apiKey.isEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: Colors.amber.withValues(alpha: 0.25)),
-                ),
-                child: Text(
-                  'Đang dùng dữ liệu mẫu.\nĐặt YouTube Data API v3 key để lấy video thật.',
-                  style: TextStyle(color: Colors.amber[300], fontSize: 11),
-                  textAlign: TextAlign.center,
-                ),
+            Text(
+              'Dán URL YouTube ở thanh trên',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF9C27B0).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: const Color(0xFF9C27B0).withValues(alpha: 0.25)),
               ),
-            ],
+              child: Text(
+                _hasApiKey
+                    ? 'Không có video cho bộ lọc này.'
+                    : 'Học video không cần Data API key. Khám phá kênh cần key thật — không dùng YOUR_KEY_HERE.',
+                style: TextStyle(color: Colors.purple[100], fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ],
         ),
       );
@@ -846,7 +928,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     : input;
                 setState(() => _channels.add(YtExChannel(id: id, title: id)));
                 Navigator.pop(context);
-                if (widget.apiKey.isNotEmpty) _enrichChannels();
+                if (_hasApiKey) _enrichChannels();
               }
             },
             style: ElevatedButton.styleFrom(

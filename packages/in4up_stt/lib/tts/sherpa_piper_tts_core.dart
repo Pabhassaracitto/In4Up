@@ -107,13 +107,18 @@ class SherpaPiperTtsCore {
     try {
       final dir = await _modelsDir();
       final dataDir = p.join(dir.path, espeakDataFolder);
-      final dataOk = Directory(dataDir).existsSync();
+      final phontab = File(p.join(dataDir, 'phontab'));
+      final dataOk = phontab.existsSync() && phontab.lengthSync() > 64;
 
-      final files = dir.listSync(followLinks: false);
-      final onnxFiles = files
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.onnx'))
-          .toList();
+      final files = dir.listSync(followLinks: true);
+      final onnxFiles = <File>[];
+      for (final entity in files) {
+        final lower = entity.path.toLowerCase();
+        if (lower.endsWith('.onnx') && !lower.endsWith('.onnx.json')) {
+          final f = File(entity.path);
+          if (f.existsSync()) onnxFiles.add(f);
+        }
+      }
       // tokens.txt dùng chung chỉ hợp lệ khi có ĐÚNG MỘT onnx
       // (tránh gán nhầm tokens của giọng khác).
       final sharedTokens = File(p.join(dir.path, 'tokens.txt'));

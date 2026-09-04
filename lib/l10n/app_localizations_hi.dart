@@ -1286,4 +1286,143 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get lhb_25 => 'पुनर्स्थापित करें';
+
+  @override
+  String get audit_0 => 'हाल का';
+
+  @override
+  String get audit_1 => 'सबसे हाल का';
+
+  @override
+  String get audit_2 => 'पुस्तकालय';
+
+  @override
+  String get audit_3 => 'ऑडियो पुस्तकालय';
+
+  @override
+  String get audit_4 => 'सुनने का पुस्तकालय';
+
+  @override
+  String get audit_5 => 'सुनें';
+
+  @override
+  String get audit_6 => 'पढ़ें';
+
+  @override
+  String get audit_7 => 'सुने गए नोट्स';
+
+  @override
+  String get audit_8 => 'हाल का';
+
+  @override
+  String get audit_9 => 'क्लाउड';
+
+  @override
+  String get audit_10 => 'डिवाइस';
+
+  @override
+  String get audit_11 => 'अपठित';
+
+  @override
+  String get audit_12 => 'पठन पुस्तकालय';
+
+  @override
+  String get audit_13 => 'लेखन';
+
+  @override
+  String get audit_14 => 'बोलना';
+
+  @override
+  String get audit_15 => 'समझना';
+
+  @override
+  String get audit_16 => 'स्मृति';
+
+  @override
+  String get audit_17 => 'शेल इंटरफ़ेस';
+
+  @override
+  String get sound_0 => 'स्कोर';
+
+  @override
+  String get sound_1 => 'खंड';
+
+  @override
+  String get sound_2 => 'विषय-सूची';
+
+  @override
+  String get sound_3 => 'सामग्री';
+
+  @override
+  String get sound_4 => 'अध्याय';
+
+  @override
+  String get sound_5 => 'नोट';
+
+  @override
+  String get sound_6 => 'अध्याय नोट';
+
+  @override
+  String get sound_7 => 'बुकमार्क';
+
+  @override
+  String get sound_8 => 'खोजें';
+
+  @override
+  String get sound_9 => 'ताज़ा करें';
+
+  @override
+  String get sound_10 => 'चलाएँ';
+
+  @override
+  String get sound_11 => 'जोड़ें';
+
+  @override
+  String get sound_12 => 'सभी';
+
+  @override
+  String get sound_13 => 'मैन्युअल';
+
+  @override
+  String get sound_14 => 'सहेजें';
+
+  @override
+  String get sound_15 => 'रद्द करें';
+
+  @override
+  String get sound_16 => 'हटाएँ';
+
+  @override
+  String get sound_17 => 'नाम बदलें';
+
+  @override
+  String get sound_18 => 'ध्वनि सूची';
+
+  @override
+  String get sound_19 => 'ध्वनि सूची खाली है';
+
+  @override
+  String get sound_20 => 'ध्वनि सूची — ऑडियो पुस्तकालय';
+
+  @override
+  String get sound_21 => 'अभी कोई विषय-सूची नहीं है।';
+
+  @override
+  String get sound_22 => 'अभी कोई स्कोर नहीं है।';
+
+  @override
+  String get sound_23 => 'अभी कोई खंड नहीं है।';
+
+  @override
+  String get sound_24 =>
+      'इस फ़ाइल में डेटा नहीं है — इसे सुनने के मोड में खोलें और बुकमार्क जोड़ें।';
+
+  @override
+  String get sound_25 => 'इस कीवर्ड के लिए कोई परिणाम नहीं मिला।';
+
+  @override
+  String get sound_26 => 'अवलोकन सूची में कुछ नहीं';
+
+  @override
+  String get soundRelated => 'सम्बंधित';
 }

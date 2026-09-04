@@ -38,9 +38,12 @@ class GlossaryStore {
   static const String boxName = 'translation_glossary';
 
   /// Seed assets, nạp theo thứ tự (entry cùng id: bản NẢM TRƯỚC thắng —
-  /// file 226 entry đã review của chủ đứng trước file sinh từ PDF).
+  /// file 226 entry đã review của chủ đứng trước file trích xuất PDF).
+  /// `buddhist_pali_en_vi.json` (trích xuất v2, 2026-08-31) đứng trước
+  /// `buddhist_multilang.json` (v1) để pair pi/en→vi mới thắng khi trùng id.
   static const List<String> _assetPaths = <String>[
     'assets/glossary/buddhist_pi_en_vi.json',
+    'assets/glossary/buddhist_pali_en_vi.json',
     'assets/glossary/buddhist_multilang.json',
   ];
 

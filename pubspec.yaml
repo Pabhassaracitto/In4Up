@@ -17,6 +17,8 @@ dependencies:
     path: ./packages/in4up_core
   in4up_ai:
     path: ./packages/in4up_ai
+  # Tipitaka integration
+  sqflite: ^2.3.3
   # UI
   flutter_localizations:
     sdk: flutter
@@ -67,7 +69,10 @@ dependencies:
 
   # Dịch offline on-device (Android/iOS) — model CHỈ tải khi user bấm
   # (màn Cài đặt engine dịch), không auto-download lúc mở app.
-  google_mlkit_translation: ^0.15.1
+  # PIN 0.14.x: bản 0.15.1 yêu cầu Dart SDK ^3.12.0 — CI + máy chủ là
+  # Flutter 3.44.1 (Dart 3.11.5) → version solving fail. API 0.14.0 ==
+  # 0.15.1 (đã đối chiếu source flutter-ml/google_ml_kit_flutter).
+  google_mlkit_translation: ^0.14.0
 # Firebase core (bắt buộc)
   firebase_core: ^3.15.2 #4.7.0 #change from 4.0.0
   

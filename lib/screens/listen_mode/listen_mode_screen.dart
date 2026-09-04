@@ -15,6 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/diarization/speaker_sidecar.dart';
+import 'package:in4up_stt/models/content_id.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
@@ -32,11 +34,15 @@ import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
+import '../listen_mode/widgets/rolling_waveform_painter.dart';
 import '../understand_mode/services/lrc_translation_resolver.dart';
 import 'widgets/generate_lrc_actions.dart';
 import 'widgets/listen_library_screen.dart';
 import 'widgets/quick_audio_sheet.dart';
 import 'widgets/soundlist_panel.dart';
+import '../../features/voice_command/voice_command_service.dart';
+import '../../features/voice_command/voice_command_parser.dart';
+import '../../features/voice_command/voice_command_localizations.dart';
 
 enum _InlinePanel { repeat, speed, sleep, ab }
 
@@ -74,10 +80,14 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   bool _isAppVisible = true;
   bool _isUserSeeking = false;
   bool _isCurrentRoute = true;
+  late final VoiceCommandService _voiceCommandService;
+  bool _voiceListening = false;
+  String _lastVoiceText = '';
 
   // ★ LRC state - curtain style
   List<String> _lrcLines = [];
   bool _showLrcOnMain = false;
+  Map<String, int> _speakerColorMap = const {};
   bool _lrcAutoScroll = true;
   double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
   static const double _lrcMinHeight = 64.0; // when collapsed, show handle
@@ -106,6 +116,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _waveformController = RollingWaveformController();
+    _voiceCommandService = VoiceCommandService();
     _lrcScrollController =
         ScrollController(); // Initialize LRC scroll controller
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -190,6 +201,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     // Load LRC nếu đã có
     if (player.lastGeneratedLrcPath != null) {
+      _loadLrcFile(player.lastGeneratedLrcPath!);
       final understandProvider = context.read<UnderstandProvider>();
       if (understandProvider!.lrcLines.isNotEmpty) {
         _showLrcOnMain = true;
@@ -271,8 +283,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     try {
       context.read<UnderstandProvider>().removeListener(_onUnderstandChange);
     } catch (_) {}
-    _waveformController.setWaveformData(null);
+    // FIX (Nghe→Viết màn đỏ): dispose TRƯỚC — setWaveformData sau dispose
+    // là no-op nhờ guard _disposed của controller. Gọi setWaveformData
+    // TRƯỚC dispose (như cũ) = notifyListeners() giữa pha unmount →
+    // AnimatedBuilder còn sống gọi setState during build → màn đỏ vài giây.
     _waveformController.dispose();
+    _voiceCommandService.dispose();
     _lrcScrollController.dispose(); // Cleanup LRC scroll controller
     _sheetController.dispose();
     _aiSheetController.dispose();
@@ -452,6 +468,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
       final content = await file.readAsString();
       final lines = <String>[];
+      final segments = <WaveformSegmentRef>[];
 
       for (final line in content.split('\n')) {
         final trimmed = line.trim();
@@ -464,6 +481,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           final text = match.group(4)?.trim() ?? '';
           if (text.isNotEmpty) {
             lines.add(text);
+            final min = int.parse(match.group(1)!);
+            final sec = int.parse(match.group(2)!);
+            final fraction = match.group(3)!;
+            final ms = min * 60000 + sec * 1000 +
+                int.parse(fraction) * (fraction.length == 2 ? 10 : 1);
+            segments.add(WaveformSegmentRef(
+              uid: '',
+              joinKey: ContentId.joinKey(startMs: ms, text: text),
+              startMs: ms,
+              endSeconds: (ms + 3000) / 1000.0,
+            ));
           }
         } else if (!trimmed.startsWith('[')) {
           // Plain text line
@@ -471,15 +499,73 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         }
       }
 
+      final speakerMap = await SpeakerSidecar.loadSpeakerMap(lrcPath);
       if (mounted && lines.isNotEmpty) {
         setState(() {
           _lrcLines = lines;
+          _speakerColorMap = speakerMap;
           _showLrcOnMain = true;
         });
+        final data = _waveformController.waveformData;
+        if (data != null && segments.isNotEmpty) {
+          _waveformController.setWaveformData(data.withSegments(segments));
+        }
       }
     } catch (e) {
       debugPrint('Error loading LRC: $e');
     }
+  }
+
+  Widget _buildSpeakerLegend() {
+    final speakers = _speakerColorMap.values.where((id) => id > 0).toSet().toList()
+      ..sort();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: speakers.map((id) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(
+                color: kSpeakerColors[id], shape: BoxShape.circle,
+              )),
+              const SizedBox(width: 4),
+              Text('Người $id', style: const TextStyle(color: Colors.white, fontSize: 10)),
+            ]),
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceCommandButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _voiceListening ? null : _startVoiceCommands,
+          icon: Icon(_voiceListening ? Icons.mic : Icons.mic_none, size: 14),
+          label: Text(
+            _voiceListening
+                ? voiceCommandLabel('en', 'listening')
+                : 'Voice commands',
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        if (_lastVoiceText.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Text(
+            '${voiceCommandLabel('en', 'received')}: $_lastVoiceText',
+            style: const TextStyle(color: Colors.white, fontSize: 10),
+          ),
+        ],
+      ],
+    );
   }
 
   void _openSheet() {
@@ -665,6 +751,32 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  Future<void> _startVoiceCommands() async {
+    if (_voiceListening) return;
+    setState(() => _voiceListening = true);
+    final player = context.read<PlayerProvider>();
+    final started = await _voiceCommandService.start(
+      language: 'vi-VN',
+      onPartial: (text) { if (mounted) setState(() => _lastVoiceText = text); },
+      onCommand: (command) async {
+        switch (command.type) {
+          case VoiceCommandType.play:
+          case VoiceCommandType.pause: await player.togglePlayPause(); break;
+          case VoiceCommandType.next: player.playNextSegment(); break;
+          case VoiceCommandType.previous: await player.playPreviousSegment(); break;
+          case VoiceCommandType.faster: await player.increaseSpeed(); break;
+          case VoiceCommandType.slower: await player.decreaseSpeed(); break;
+          case VoiceCommandType.toggleLyrics:
+            if (mounted) setState(() => _showLrcOnMain = !_showLrcOnMain); break;
+          case VoiceCommandType.translate: break;
+        }
+      },
+    );
+    if (!started && mounted) ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(voiceCommandLabel('en', 'noModel'))));
+    if (mounted) setState(() => _voiceListening = false);
   }
 
   @override
@@ -1351,6 +1463,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   onPointerCancel: (_) => _isUserSeeking = false,
                   child: RollingWaveformView(
                     controller: _waveformController,
+                    speakerColorMap: _speakerColorMap,
                     onSeekUpdate: (pos) {
                       _isUserSeeking = true;
                     },
@@ -1376,6 +1489,19 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 ),
               ),
             ),
+            if (_speakerColorMap.isNotEmpty)
+              Positioned(
+                top: 6,
+                left: 18,
+                child: _buildSpeakerLegend(),
+              ),
+
+            if (!_voiceListening && !isLoading)
+              Positioned(
+                top: 6,
+                right: 18,
+                child: _buildVoiceCommandButton(),
+              ),
 
             // Zoom controls
             Positioned(

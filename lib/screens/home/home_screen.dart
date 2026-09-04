@@ -286,7 +286,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
+          context.uiText(
+            'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.',
+          ),
           style: TextStyle(
             color: Colors.grey[400],
             fontSize: 12,
@@ -342,28 +344,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 _BentoCard(
                   icon: Icons.headphones,
                   title: l10n.listen,
-                  subtitle: 'Nghe · Nói',
+                  subtitle: context.uiText('Nghe · Nói'),
                   color: const Color(0xFF6C63FF),
                   onTap: widget.onNavigateToListen,
                 ),
                 _BentoCard(
                   icon: Icons.menu_book,
                   title: l10n.read,
-                  subtitle: 'Đọc · Viết',
+                  subtitle: context.uiText('Đọc · Viết'),
                   color: const Color(0xFF2196F3),
                   onTap: widget.onNavigateToRead,
                 ),
                 _BentoCard(
                   icon: Icons.lightbulb,
                   title: l10n.understand,
-                  subtitle: 'Đồng bộ · Hiểu sâu',
+                  subtitle: context.uiText('Đồng bộ · Hiểu sâu'),
                   color: const Color(0xFFFFB300),
                   onTap: widget.onNavigateToUnderstand,
                 ),
                 _BentoCard(
                   icon: Icons.psychology,
                   title: l10n.remember,
-                  subtitle: 'Ôn tập · SRS',
+                  subtitle: context.uiText('Ôn tập · SRS'),
                   color: const Color(0xFF4CAF50),
                   onTap: widget.onNavigateToMemory,
                 ),

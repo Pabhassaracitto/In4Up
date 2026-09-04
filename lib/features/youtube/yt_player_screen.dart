@@ -7,11 +7,22 @@
 // • Tab TỪ: Known 36 / Learning 3 / Ignored 7, rank filter
 
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../word_lookup/word_analysis_sheet.dart';
 
+import '../../features/translation/translation_service.dart';
+import '../../models/vocab_context.dart';
+import '../../models/word_analysis.dart';
+import '../../providers/player_provider.dart';
+import '../../providers/text_provider.dart';
+import '../../providers/vocabulary_bridge.dart';
+import '../../services/syntax_highlighter_service.dart';
+import '../word_lookup/word_analysis_sheet.dart';
+import 'models/yt_video.dart';
 import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
 
@@ -95,7 +106,8 @@ class SubtitleLine {
 // ══════════════════════════════════════════════════════════
 class YtPlayerScreen extends StatefulWidget {
   final YtExVideo video;
-  const YtPlayerScreen({super.key, required this.video});
+  final String? audioPath;
+  const YtPlayerScreen({super.key, required this.video, this.audioPath});
 
   @override
   State<YtPlayerScreen> createState() => _YtPlayerScreenState();
@@ -115,13 +127,16 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   // ── Word knowledge ────────────────────────────────────────
   final Map<String, WordState> _wordStates = {};
+  bool _looping = false;
+  static const _kWordBox = 'yt_lr_word_states';
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     _initWebView();
-    _loadRealSubtitles();
+    unawaited(_loadWordStates());
+    unawaited(_loadRealSubtitles());
     _startTimer();
   }
 
@@ -151,73 +166,146 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         },
       )
       ..loadRequest(Uri.parse(
-          'https://www.youtube.com/embed/${widget.video.id}?enablejsapi=1&cc_load_policy=0&rel=0&autoplay=1'));
+          'https://www.youtube.com/embed/${widget.video.id}'
+          '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1&origin=https://www.youtube.com'));
   }
 
   void _injectSyncScript() {
-    const js = """
-      var tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      var firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-      var player;
-      function onYouTubeIframeAPIReady() {
-        player = new YT.Player(document.querySelector('iframe') || window, {
-          events: {
-            'onReady': onPlayerReady
-          }
-        });
-      }
-
-      function onPlayerReady(event) {
-        setInterval(function() {
-          if (player && player.getCurrentTime) {
-            YtSync.postMessage(player.getCurrentTime().toString());
-          }
-        }, 500);
-      }
-      
-      // Fallback nếu api không ready
-      setInterval(function() {
-        var video = document.querySelector('video');
-        if (video) {
-          YtSync.postMessage(video.currentTime.toString());
+    const js = r'''
+      (function() {
+        function videoEl() { return document.querySelector('video'); }
+        window._in4upSeek = function(s) {
+          try { var v = videoEl(); if (v) { v.currentTime = s; return; } } catch (e) {}
+          try {
+            document.querySelectorAll('iframe').forEach(function(f) {
+              f.contentWindow.postMessage(JSON.stringify({
+                event: 'command', func: 'seekTo', args: [s, true]
+              }), '*');
+            });
+          } catch (e) {}
+        };
+        window._in4upPause = function() {
+          try { var v = videoEl(); if (v) { v.pause(); return; } } catch (e) {}
+          try {
+            document.querySelectorAll('iframe').forEach(function(f) {
+              f.contentWindow.postMessage(JSON.stringify({
+                event: 'command', func: 'pauseVideo', args: []
+              }), '*');
+            });
+          } catch (e) {}
+        };
+        window._in4upPlay = function() {
+          try { var v = videoEl(); if (v) { v.play(); return; } } catch (e) {}
+          try {
+            document.querySelectorAll('iframe').forEach(function(f) {
+              f.contentWindow.postMessage(JSON.stringify({
+                event: 'command', func: 'playVideo', args: []
+              }), '*');
+            });
+          } catch (e) {}
+        };
+        function tick() {
+          try {
+            var v = videoEl();
+            if (v && window.YtSync) YtSync.postMessage(String(v.currentTime));
+          } catch (e) {}
         }
-      }, 500);
-    """;
+        setInterval(tick, 250);
+      })();
+    ''';
     _ytCtrl.runJavaScript(js);
   }
 
   void _updateTime(double time) {
     if (!mounted) return;
-    setState(() {
-      _currentTime = time;
-      // Find current line
-      final ms = (time * 1000).round();
-      final idx = _lines.indexWhere(
-          (l) => ms >= l.start.inMilliseconds && ms <= l.end.inMilliseconds);
-      if (idx != -1 && idx != _currentLineIdx) {
-        _currentLineIdx = idx;
+    if (_looping && _lines.isNotEmpty) {
+      final line = _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
+      if (time * 1000 >= line.end.inMilliseconds - 60) {
+        _seekTo(line.start.inMilliseconds / 1000.0);
+        return;
       }
-    });
+    }
+    final ms = (time * 1000).round();
+    var idx = _currentLineIdx;
+    for (var i = 0; i < _lines.length; i++) {
+      final l = _lines[i];
+      if (ms >= l.start.inMilliseconds && ms < l.end.inMilliseconds) {
+        idx = i;
+        break;
+      }
+      if (ms >= l.start.inMilliseconds) idx = i;
+    }
+    if (idx != _currentLineIdx || (time - _currentTime).abs() > 0.45) {
+      setState(() {
+        _currentTime = time;
+        _currentLineIdx = idx;
+      });
+    } else {
+      _currentTime = time;
+    }
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      // Script injection fallback if needed
-      _ytCtrl.runJavaScript(
-          "if(document.querySelector('video')) YtSync.postMessage(document.querySelector('video').currentTime.toString())");
+    _timer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      _ytCtrl.runJavaScript('''
+        (function(){
+          var v = document.querySelector('video');
+          if (v && window.YtSync) YtSync.postMessage(String(v.currentTime));
+        })();
+      ''');
     });
+  }
+
+  Future<void> _loadWordStates() async {
+    try {
+      if (!Hive.isBoxOpen(_kWordBox)) {
+        await Hive.openBox<String>(_kWordBox);
+      }
+      final raw = Hive.box<String>(_kWordBox).get('map');
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      decoded.forEach((key, value) {
+        final k = key.toString().toLowerCase();
+        final label = value.toString();
+        if (label == 'known') {
+          _wordStates[k] = WordState.known;
+        } else if (label == 'learning') {
+          _wordStates[k] = WordState.learning;
+        } else if (label == 'ignored') {
+          _wordStates[k] = WordState.ignored;
+        }
+      });
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('yt_lr load word states: $e');
+    }
+  }
+
+  Future<void> _persistWordStates() async {
+    try {
+      if (!Hive.isBoxOpen(_kWordBox)) {
+        await Hive.openBox<String>(_kWordBox);
+      }
+      final map = <String, String>{};
+      _wordStates.forEach((k, v) {
+        if (v != WordState.unknown) map[k] = v.name;
+      });
+      await Hive.box<String>(_kWordBox).put('map', jsonEncode(map));
+    } catch (e) {
+      debugPrint('yt_lr persist word states: $e');
+    }
   }
 
   Future<void> _loadRealSubtitles() async {
     setState(() => _isLoading = true);
     try {
+      final target = TranslationService().targetLang.toLowerCase();
+      final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
       final captions = await YtService.instance.fetchBilingualCaptions(
         widget.video.id,
         lang1: 'en',
-        lang2: 'vi',
+        lang2: lang2,
       );
 
       if (!mounted) return;
@@ -242,90 +330,73 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   List<LrWord> _parseWords(String text) {
-    // Simple word type assignment (simplified)
-    const verbWords = {
-      'need',
-      'grab',
-      'working',
-      'means',
-      'shifts',
-      'know',
-      'go',
-      'said',
-      'make',
-      'take',
-      'get',
-      'see',
-      'come',
-      'think'
-    };
-    const nounWords = {
-      'school',
-      'noun',
-      'double',
-      'shift',
-      'row',
-      'verb',
-      'day',
-      'time'
-    };
-    const adjWords = {'little', 'proper', 'another', 'two'};
-    const prepWords = {'in', 'after', 'because', 'a', 'an', 'the'};
-    const conjWords = {'and', 'but', 'or', 'so', 'because', 'if'};
-    const properNames = {'liam', "rachel's"};
-
+    final analyzed = SyntaxHighlighterService.analyzeLine(text);
     final words = <LrWord>[];
-    final tokens = text
-        .replaceAll("'", "'")
-        .split(RegExp(r"[\s,;.!?]+"))
-        .where((w) => w.isNotEmpty);
-
-    int rank = 100;
-    for (final token in tokens) {
-      final lower = token.toLowerCase().replaceAll("'", '');
-      if (lower.isEmpty) continue;
-
-      String type = 'other';
-      if (properNames.contains(lower)) {
-        type = 'proper';
-      } else if (verbWords.contains(lower)) {
-        type = 'verb';
-      } else if (nounWords.contains(lower)) {
-        type = 'noun';
-      } else if (adjWords.contains(lower)) {
-        type = 'adj';
-      } else if (prepWords.contains(lower)) {
-        type = 'prep';
-      } else if (conjWords.contains(lower)) {
-        type = 'conj';
-      } else if (lower.length > 3) {
-        type = 'noun';
+    var rank = 100;
+    for (final w in analyzed) {
+      final token = w.originalWord.trim();
+      if (token.isEmpty) continue;
+      if (w.wordType == WordType.punctuation) continue;
+      final lower = token.toLowerCase();
+      final type = switch (w.wordType) {
+        WordType.verb => 'verb',
+        WordType.noun => 'noun',
+        WordType.adjective => 'adj',
+        WordType.adverb => 'adv',
+        WordType.preposition => 'prep',
+        WordType.conjunction => 'conj',
+        _ => 'other',
+      };
+      var state = _wordStates[lower] ?? WordState.unknown;
+      if (state == WordState.unknown && VocabularyBridge.hasWord(lower)) {
+        state = WordState.learning;
       }
-
       words.add(LrWord(
         text: token,
         type: type,
         langRank: rank,
-        state: _wordStates[lower] ?? WordState.unknown,
+        state: state,
       ));
-      rank += 50;
+      rank += 40;
     }
     return words;
   }
 
   // ─── Word actions ─────────────────────────────────────────
   void _setWordState(String word, WordState state) {
+    final lower = word.toLowerCase();
     setState(() {
-      _wordStates[word.toLowerCase()] = state;
-      // Update in all lines
+      _wordStates[lower] = state;
       for (final line in _lines) {
         for (final w in line.words) {
-          if (w.text.toLowerCase() == word.toLowerCase()) {
+          if (w.text.toLowerCase() == lower) {
             w.state = state;
           }
         }
       }
     });
+    unawaited(_persistWordStates());
+    if (state == WordState.learning) {
+      final line = _lines.isEmpty
+          ? null
+          : _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
+      VocabularyBridge.addContextual(
+        text: word,
+        example: line?.text,
+        context: VocabContext.fromStory(
+          storyTitle: widget.video.title,
+          lineIndex: _currentLineIdx,
+          surroundingText: line?.text ?? word,
+          sourceRef: 'youtube:${widget.video.id}',
+          sourceRefType: 'youtube',
+          anchorText: word,
+          textStartOffset: line?.start.inMilliseconds,
+          textEndOffset: line?.end.inMilliseconds,
+        ),
+        language: 'en',
+        topic: 'YouTube',
+      );
+    }
   }
 
   int get _knownCount =>
@@ -377,6 +448,17 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              IconButton(
+                tooltip: 'Học trong tab Nghe',
+                icon: Icon(
+                  Icons.headphones,
+                  color: widget.audioPath == null
+                      ? Colors.white24
+                      : const Color(0xFF4CAF50),
+                  size: 20,
+                ),
+                onPressed: _openInListen,
               ),
             ],
           ),
@@ -486,7 +568,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Action buttons row
-          Row(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
             children: [
               _ActionBtn(
                 icon: Icons.check,
@@ -508,6 +592,20 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                     if (w.state == WordState.unknown) {
                       _setWordState(w.text, WordState.learning);
                     }
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              _ActionBtn(
+                icon: _looping ? Icons.repeat_on : Icons.repeat,
+                label: _looping ? 'Lặp câu' : 'Lặp câu',
+                color: _looping
+                    ? const Color(0xFFFF9800)
+                    : const Color(0xFF607D8B),
+                onTap: () {
+                  setState(() => _looping = !_looping);
+                  if (_looping) {
+                    _seekTo(line.start.inMilliseconds / 1000.0);
                   }
                 },
               ),
@@ -540,6 +638,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 ),
               ]),
             ],
+          ),
           ),
           const SizedBox(height: 12),
           // Colored words subtitle
@@ -586,12 +685,54 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   void _seekTo(double seconds) {
     if (seconds < 0) seconds = 0;
-    _ytCtrl.runJavaScript(
-        "if(player && player.seekTo) player.seekTo($seconds, true); else if(document.querySelector('video')) document.querySelector('video').currentTime = $seconds;");
+    _ytCtrl.runJavaScript('window._in4upSeek && window._in4upSeek($seconds);');
+  }
+
+  void _pauseVideo() {
+    _ytCtrl.runJavaScript('window._in4upPause && window._in4upPause();');
+  }
+
+  Future<void> _openInListen() async {
+    final audio = widget.audioPath;
+    if (audio == null || audio.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(
+            'Tải audio ở YouTube → tab Audio, rồi mở lại Học video.',
+          )),
+        ),
+      );
+      return;
+    }
+    final asYt = YtVideo(
+      id: widget.video.id,
+      title: widget.video.title,
+      channel: widget.video.channelTitle,
+      thumb: widget.video.thumb,
+    );
+    final captions = _lines
+        .map((l) => YtCaptionLine(l.start, l.end, l.text,
+            translation: l.translation))
+        .toList();
+    final lrcPath = captions.isEmpty
+        ? null
+        : await YtService.instance.saveLrc(captions, asYt);
+    if (!mounted) return;
+    await context.read<PlayerProvider>().loadSong(
+          path: audio,
+          title: widget.video.title,
+          artist: widget.video.channelTitle,
+          autoPlay: true,
+        );
+    if (lrcPath != null && mounted) {
+      await context.read<TextProvider>().loadTextFile(lrcPath);
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   void _showWordPopup(LrWord word) {
-    // Lấy context câu từ subtitle đang phát
+    _pauseVideo();
     String? contextSentence;
     if (_lines.isNotEmpty && _currentLineIdx < _lines.length) {
       contextSentence = _lines[_currentLineIdx].text;
@@ -664,7 +805,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         final line = _lines[i];
         final isActive = i == _currentLineIdx;
         return GestureDetector(
-          onTap: () => setState(() => _currentLineIdx = i),
+          onTap: () {
+            setState(() => _currentLineIdx = i);
+            _seekTo(line.start.inMilliseconds / 1000.0);
+          },
           child: Container(
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
             decoration: BoxDecoration(

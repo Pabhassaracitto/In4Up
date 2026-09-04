@@ -740,16 +740,12 @@ class _MainShellState extends State<MainShell> {
         pushVocab(l10n.review, const Color(0xFF66BB6A), const ReviewTab());
         return;
               case 'tipitaka':
-        // Adaptive: build with DB = open directly; without DB = show download
-        try {
-          nav.push(
-            MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()),
-          );
-        } catch (_) {
-          nav.push(
-            MaterialPageRoute(builder: (_) => const TipitakaDownloadScreen()),
-          );
-        }
+        // The library resolves the bundled/installed DB and shows the data
+        // manager when neither is available. Navigator.push itself cannot
+        // catch an async database-open failure, so do not use try/catch here.
+        nav.push(
+          MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()),
+        );
         return;
       case 'shell_ui_settings':
         await _openShellUiSettings();

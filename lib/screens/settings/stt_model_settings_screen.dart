@@ -1,7 +1,7 @@
 // lib/screens/settings/stt_model_settings_screen.dart
-// NOTE: fix trong packages/ (in4up_ai/in4up_stt) không trigger app_analyze
-// (paths chỉ có lib/test/pubspec) — đi kèm dòng này để trigger CI root.
-// 2026-08-30: fix archive 4.x ArchiveFile API (f25611c) — trigger cho CI root.
+// 2026-09-03: trigger CI root cho fix STT SIGSEGV crash 2 —
+// ensurePluginModelFile align ggml-<level>.bin với model manager đã verify
+// (packages/in4up_stt — ngoài paths của app_analyze.yml).
 
 import 'dart:typed_data';
 
@@ -170,7 +170,7 @@ class _ModelCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            level.description,
+                            context.uiText(level.description),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -287,12 +287,16 @@ class _ModelCard extends StatelessWidget {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: Text('Tải Whisper ${level.name.toUpperCase()}?'),
+          title: Text(
+            context.uiText('Tải Whisper ${level.name.toUpperCase()}?'),
+          ),
           content: Text(
-            'Dung lượng khoảng ${level.sizeInMB}MB.\n\n'
-            'Nên dùng Wi-Fi và giữ app mở trong lúc tải. '
-            'Nếu mạng đứt, bấm Tải về lại — app thử HuggingFace rồi GitHub.\n\n'
-            'Hoặc Import nếu bạn đã có file ${level.fileName}.',
+            context.uiText(
+              'Dung lượng khoảng ${level.sizeInMB}MB.\n\n'
+              'Nên dùng Wi-Fi và giữ app mở trong lúc tải. '
+              'Nếu mạng đứt, bấm Tải về lại — app thử HuggingFace rồi GitHub.\n\n'
+              'Hoặc Import nếu bạn đã có file ${level.fileName}.',
+            ),
           ),
           actions: [
             TextButton(
@@ -654,9 +658,9 @@ class _SileroVadCardState extends State<_SileroVadCard> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok
+        content: Text(context.uiText(ok
             ? '✅ Import Silero VAD thành công!'
-            : '❌ Import thất bại — cần silero_vad.onnx (k2-fsa ~629KB)'),
+            : '❌ Import thất bại — cần silero_vad.onnx (k2-fsa ~629KB)')),
       ),
     );
   }
@@ -786,7 +790,9 @@ class _PiperModelCardState extends State<_PiperModelCard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Đang tải bundle Piper… ${(info.downloadProgress * 100).toStringAsFixed(1)}%',
+                    context.uiText(
+                      'Đang tải bundle Piper… ${(info.downloadProgress * 100).toStringAsFixed(1)}%',
+                    ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -921,7 +927,9 @@ class _PiperModelCardState extends State<_PiperModelCard> {
       msg = 'Không đọc được file (SAF). Thử chọn lại hoặc Tải phonemizer.';
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.uiText(msg))),
+    );
   }
 
   Future<void> _downloadEspeak(BuildContext context) async {
@@ -971,7 +979,9 @@ class _PiperModelCardState extends State<_PiperModelCard> {
     if (installedDir != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Đã cài giọng $voice — dùng được ngay.'),
+          content: Text(
+            context.uiText('Đã cài giọng $voice — dùng được ngay.'),
+          ),
         ),
       );
     }
@@ -1009,7 +1019,7 @@ class _PiperBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final ready = info.isReady;
     final (label, color) = ready
-        ? ('${info.voices.length} giọng', Colors.green)
+        ? (context.uiText('${info.voices.length} giọng'), Colors.green)
         : ('Chưa cài', Colors.grey);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1091,7 +1101,7 @@ class _PiperVoiceRow extends StatelessWidget {
                 Text(voice.name,
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
-                  'language: ${lang.isEmpty ? 'auto' : lang} · '
+                  'Ngôn ngữ: ${lang.isEmpty ? 'Tự do / Mặc định' : lang} · '
                   '${voice.sampleRate}Hz',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
@@ -1165,8 +1175,12 @@ class _GemmaChatModelCard extends StatelessWidget {
                           ),
                           Text(
                             hasModel
-                                ? 'Model: $name${sizeMb != null ? ' · ${sizeMb}MB' : ''} · ${facade.modelSourceLabel}'
-                                : 'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
+                                ? context.uiText(
+                                    'Model: $name${sizeMb != null ? ' · ${sizeMb}MB' : ''} · ${facade.modelSourceLabel}',
+                                  )
+                                : context.uiText(
+                                    'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
+                                  ),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -1187,13 +1201,15 @@ class _GemmaChatModelCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    facade.importStage == AiImportStage.copying
-                        ? 'Đang copy model… '
-                            '${(facade.importProgress * 100).toStringAsFixed(0)}%'
-                        : facade.importStage == AiImportStage.downloading
-                            ? 'Đang tải model… '
-                                '${(facade.importProgress * 100).toStringAsFixed(0)}%'
-                            : 'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút',
+                    context.uiText(
+                      facade.importStage == AiImportStage.copying
+                          ? 'Đang copy model… '
+                              '${(facade.importProgress * 100).toStringAsFixed(0)}%'
+                          : facade.importStage == AiImportStage.downloading
+                              ? 'Đang tải model… '
+                                  '${(facade.importProgress * 100).toStringAsFixed(0)}%'
+                              : 'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút',
+                    ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -1266,10 +1282,12 @@ class _GemmaChatModelCard extends StatelessWidget {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          ok
-              ? 'AI local đã sẵn sàng'
-                  '${facade.modelFileName != null ? " — ${facade.modelFileName}" : ''}'
-              : (facade.importError ?? 'Chưa import được model .gguf.'),
+          context.uiText(
+            ok
+                ? 'AI local đã sẵn sàng'
+                    '${facade.modelFileName != null ? " — ${facade.modelFileName}" : ''}'
+                : (facade.importError ?? 'Chưa import được model .gguf.'),
+          ),
         ),
       ),
     );
@@ -1286,10 +1304,11 @@ class _GemmaChatModelCard extends StatelessWidget {
         title: const Text('Tải model Gemma từ URL'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'https://.../*.gguf',
-            helperText:
-                'Mặc định: Gemma-2-2B-it Q4_K_M từ HuggingFace (~1.5GB). Chỉ tải trên WiFi.',
+            helperText: context.uiText(
+              'Mặc định: Gemma-2-2B-it Q4_K_M từ HuggingFace (~1.5GB). Chỉ tải trên WiFi.',
+            ),
           ),
         ),
         actions: [

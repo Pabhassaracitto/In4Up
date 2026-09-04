@@ -28,10 +28,10 @@ import 'glossary/translation_glossary.dart';
 ///   1. TranslationCache (MD5, key ổn định)
 ///   2. GLOSSARY longest-match + protect-tokens (thay thuật ngữ bằng
 ///      `__G{n}__`) — TẦNG CHUYÊN NGỮ, chạy TRƯỚC mọi engine
-///   3. Engine câu offline — Hy-MT GGUF (nếu chọn/có model) rồi ML Kit
-///   4. Online engines (DeepLX/Google Free/MyMemory/Libre) nếu có mạng và
-///      user KHÔNG khóa offline-only
-///   5. OfflineEngine từ điển từ (last resort, chỉ EN → VI)
+///   3. Engine câu — mặc định THÔNG MINH: ONLINE trước (Google Free/
+///      DeepLX/MyMemory/Libre, nếu có mạng + không khóa "chỉ offline"),
+///      fallback OFFLINE: Hy-MT GGUF (nếu chọn/có model) → ML Kit
+///   4. OfflineEngine từ điển từ (last resort, chỉ EN → VI)
 ///   → restore placeholder → cache lưu CÂU ĐÃ RESTORE.
 ///
 /// HI ↔ VI: pivot qua EN (2 bước + glossary hai đầu) khi đủ model ML Kit.
@@ -58,8 +58,6 @@ class TranslationService {
     if (store != null) {
       // Fire-and-forget: không block UI; translateText sẽ ensureInit lại.
       unawaited(store.ensureInit());
-      // Stream<void>.listen yêu cầu callback 1-arg — tear-off void Function()
-      // KHÔNG khả gán (argument_type_not_assignable, lỗi #4 qua CI oracle).
       _glossarySub = store.changes.listen((_) => _onGlossaryChanged());
     }
   }
@@ -183,8 +181,9 @@ class TranslationService {
       ..add(LibreEngine());
 
     debugPrint(
-      '🔧 Translation engines: ML Kit → '
-      '${_engines.map((e) => e.name).join(" → ")} → Offline',
+      '🔧 Translation engines — online trước: '
+      '${_engines.map((e) => e.name).join(" → ")}'
+      ' | offline fallback: Hy-MT → ML Kit → Offline',
     );
   }
 
@@ -409,9 +408,8 @@ class TranslationService {
 
   Future<bool> _sentenceEngineReady(String sourceCode, String targetCode) async {
     try {
-      // Bản địa copy: Dart KHÔNG promote instance field sau is-check
-      // (chỉ promote local variable) — không copy thì `mlkit.isPairReady`
-      // báo undefined method trên TranslationEngine.
+      // Local (không dùng field trực tiếp): promotion qua `is` chỉ chắc
+      // chắn trên local variable — field _mlkit không được promote.
       final mlkit = _mlkit;
       if (!await mlkit.isAvailable()) return false;
       if (mlkit is MlKitEngine) {
@@ -426,17 +424,56 @@ class TranslationService {
     }
   }
 
-  /// Engine chain của MỘT bước:
-  ///   1) Hy-MT GGUF (nếu chọn / auto + đã có model)
-  ///   2) ML Kit (offline câu, Android/iOS)
-  ///   3) Online engines (nếu có mạng + không khóa offline-only)
-  ///   4) OfflineEngine từ điển từ (last resort)
+  /// Engine chain của MỘT bước — mặc định THÔNG MINH:
+  ///   1) ONLINE engines (có mạng + không khóa "chỉ offline") — thử trước;
+  ///      online luôn tốt hơn về chất lượng cặp ngôn ngữ mà model offline
+  ///      không phủ (vd EN→HI, HI→VI...).
+  ///   2) OFFLINE fallback khi hết mạng hoặc mọi online engine fail:
+  ///      Hy-MT GGUF (nếu chọn/auto + có model) → ML Kit → từ điển.
+  ///
+  /// Lịch sử: chain cũ chạy Hy-MT/ML Kit TRƯỚC online — user có model Hy-MT
+  /// thì MỌI câu đều dịch offline (online không bao giờ chạm đến) dù đang
+  /// có mạng và đã tắt "chỉ offline" (báo cáo owner 2026-09-03).
   Future<TranslationResult> _runEngineChain({
     required String text,
     required String sourceCode,
     required String targetCode,
     required bool hasNetwork,
   }) async {
+    // 1) ONLINE first (smart default).
+    if (hasNetwork && !_offlineOnly) {
+      for (final engine in _engines) {
+        try {
+          final result = await engine
+              .translate(
+                text: text,
+                targetLang: targetCode,
+                sourceLang: sourceCode,
+              )
+              .timeout(
+                const Duration(seconds: 12),
+                onTimeout: () => TranslationResult.failure(
+                  original: text,
+                  error: 'Timeout sau 12 giây',
+                  engine: engine.name,
+                  detectedLang: sourceCode,
+                  targetLang: targetCode,
+                ),
+              );
+
+          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+            return result;
+          }
+          debugPrint('❌ ${engine.name}: ${result.error}');
+        } catch (error) {
+          debugPrint('❌ ${engine.name} exception: $error');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      // Mọi online engine fail (mạng chết, rate-limit...) → rơi xuống offline.
+    }
+
+    // 2) OFFLINE fallback — Hy-MT GGUF.
     TranslationResult? sentenceFailure;
     final hymt = _hymt;
     final pref = _offlineEnginePref;
@@ -474,6 +511,7 @@ class TranslationService {
       }
     }
 
+    // 3) OFFLINE fallback — ML Kit (câu, Android/iOS).
     TranslationResult? mlkitFailure = sentenceFailure;
     if (pref != HyMtOfflinePreference.hymt && await _mlkit.isAvailable()) {
       try {
@@ -501,39 +539,7 @@ class TranslationService {
       }
     }
 
-    // 2) Online engines.
-    if (hasNetwork && !_offlineOnly) {
-      for (final engine in _engines) {
-        try {
-          final result = await engine
-              .translate(
-                text: text,
-                targetLang: targetCode,
-                sourceLang: sourceCode,
-              )
-              .timeout(
-                const Duration(seconds: 12),
-                onTimeout: () => TranslationResult.failure(
-                  original: text,
-                  error: 'Timeout sau 12 giây',
-                  engine: engine.name,
-                  detectedLang: sourceCode,
-                  targetLang: targetCode,
-                ),
-              );
-
-          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-            return result;
-          }
-          debugPrint('❌ ${engine.name}: ${result.error}');
-        } catch (error) {
-          debugPrint('❌ ${engine.name} exception: $error');
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      }
-    }
-
-    // 3) Từ điển offline (last resort — placeholder __G{n}__ không có trong
+    // 4) Từ điển offline (last resort — placeholder __G{n}__ không có trong
     //    từ điển nên được giữ nguyên → restore sau).
     final dictResult = await _offlineEngine.translate(
       text: text,

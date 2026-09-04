@@ -93,12 +93,12 @@ class ChunkingFlowController extends ChangeNotifier {
       description: 'Đọc trọn vẹn bài kinh và đánh giá chu kỳ ôn tập',
       lineRange: item.lineTimestamps.isNotEmpty
           ? item.lineTimestamps.map((t) => t.line).toList()
-          : List.generate(item.vietnameseLines.length, (i) => i + 1),
+          : List.generate(item.memorizeLines.length, (i) => i + 1),
     ));
   }
 
   List<Chunk> _fallbackChunks() {
-    final lineCount = item.vietnameseLines.isNotEmpty ? item.vietnameseLines.length : 4;
+    final lineCount = item.memorizeLines.isNotEmpty ? item.memorizeLines.length : 4;
     final half = (lineCount / 2).ceil();
     return [
       Chunk(index: 1, label: 'Đoạn 1', lineRange: List.generate(half, (i) => i + 1)),

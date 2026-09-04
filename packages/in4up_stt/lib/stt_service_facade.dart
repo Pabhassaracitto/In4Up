@@ -559,6 +559,15 @@ class SttServiceFacade extends ChangeNotifier {
     // cho desktop.
     if (SttEngineWhisper.isMobilePluginSupported) {
       try {
+        // Align model file cho plugin (STT-CRASH-001): plugin hard-code
+        // ggml-<level>.bin, manager có thể verify quantized variant —
+        // file cũ từ phiên bản app trước (chưa xóa app) có thể hỏng →
+        // whisper_init_from_file NULL → SIGSEGV.
+        SttEngineWhisper.ensurePluginModelFile(
+          modelDir: _modelManager.modelDirectoryPath,
+          level: config.whisperModel,
+          verifiedModelPath: modelPath,
+        );
         return await SttEngineWhisper.transcribeMobileChunked(
           audioPath: convertedPath ?? audioPath,
           modelDir: _modelManager.modelDirectoryPath,
@@ -900,7 +909,9 @@ class SttServiceFacade extends ChangeNotifier {
   // ── Live STT ──────────────────────────────────────────────────────────────
 
   Future<bool> startListening({String language = 'en-US'}) async {
-    _ensureInitialized();
+    if (!_initialized) {
+      await initialize();
+    }
     return _nativeEngine.startListening(language: language);
   }
 

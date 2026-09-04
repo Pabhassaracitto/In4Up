@@ -1677,4 +1677,6 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Khóa — engine không được đè': 'Locked — engine cannot override',
   'Xóa thuật ngữ này?': 'Delete this term?',
   'Đã lưu thuật ngữ': 'Term saved',
+  'Quét lại': 'Rescan',
+  '🔍  Tìm trong thư viện máy…': '🔍  Search device library…',
 };

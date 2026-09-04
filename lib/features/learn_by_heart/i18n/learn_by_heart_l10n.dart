@@ -401,4 +401,67 @@ class LearnByHeartL10n {
         'zh_TW': '所有狀態',
         'si': 'සියලු තත්වයන්',
       });
+
+  String get sourceLanguage => _get({
+        'vi': 'Ngôn ngữ nguyên văn',
+        'en': 'Source language',
+        'hi': 'मूल भाषा',
+        'zh': '原文语言',
+        'zh_TW': '原文語言',
+        'si': 'මූල භාෂාව',
+      });
+
+  String get translationLanguage => _get({
+        'vi': 'Ngôn ngữ bản dịch / nghĩa',
+        'en': 'Translation language',
+        'hi': 'अनुवाद भाषा',
+        'zh': '译文语言',
+        'zh_TW': '譯文語言',
+        'si': 'පරිවර්තන භාෂාව',
+      });
+
+  String get memorizeWhichSide => _get({
+        'vi': 'Học thuộc mặt nào?',
+        'en': 'Which side to memorize?',
+        'hi': 'कौन-सा पक्ष कंठस्थ करें?',
+        'zh': '背诵哪一面？',
+        'zh_TW': '背誦哪一面？',
+        'si': 'කුමන පැත්ත මතක තබා ගන්නද?',
+      });
+
+  String get memorizeSource => _get({
+        'vi': 'Nguyên văn',
+        'en': 'Source',
+        'hi': 'मूल पाठ',
+        'zh': '原文',
+        'zh_TW': '原文',
+        'si': 'මූල පෙළ',
+      });
+
+  String get memorizeTranslation => _get({
+        'vi': 'Bản dịch',
+        'en': 'Translation',
+        'hi': 'अनुवाद',
+        'zh': '译文',
+        'zh_TW': '譯文',
+        'si': 'පරිවර්තනය',
+      });
+
+  String get repeatItem => _get({
+        'vi': 'Bài',
+        'en': 'Piece',
+        'hi': 'पूरा पाठ',
+        'zh': '整篇',
+        'zh_TW': '整篇',
+        'si': 'සම්පූර්ණය',
+      });
+
+  String get repeatLine => _get({
+        'vi': 'Câu',
+        'en': 'Line',
+        'hi': 'पंक्ति',
+        'zh': '一句',
+        'zh_TW': '一句',
+        'si': 'පේළිය',
+      });
 }

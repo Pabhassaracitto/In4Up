@@ -6,7 +6,10 @@
 // phát content://) + cập nhật RecentAudio.
 
 // ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, avoid_unnecessary_containers, sized_box_for_whitespace, use_build_context_synchronously, avoid_print
-import 'package:flutter/material.dart';
+// localized_material export material (hide Text) + Text localized + uiText
+// (rule 5: chrome không tiếng Việt khi locale ≠ vi) — KHÔNG import material
+// trực tiếp (conflict tên Text).
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -99,7 +102,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
             style: const TextStyle(color: Colors.white, fontSize: 13.5),
             onChanged: (v) => setState(() => _query = v),
             decoration: InputDecoration(
-              hintText: '🔍  Tìm trong thư viện máy…',
+              hintText: context.uiText('🔍  Tìm trong thư viện máy…'),
               hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
               filled: true,
               fillColor: const Color(0xFF1A2235),
@@ -182,7 +185,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
               OutlinedButton.icon(
                 onPressed: () => provider.scan(),
                 icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Quét lại'),
+                label: Text(context.uiText('Quét lại')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF6C63FF),
                   side: const BorderSide(color: Color(0xFF6C63FF)),

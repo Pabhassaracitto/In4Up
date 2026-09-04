@@ -66,14 +66,146 @@ class SherpaPiperTtsCore {
 
   static const int defaultPiperSampleRate = 22050;
 
-  /// Language từ tên file giọng (quy ước Piper `xx_XX-...`);
-  /// '' = không có locale (universal). Ví dụ: `en_US-lessac-medium` →
-  /// `en-US`, `vi_VN-vais1000-medium` → `vi-VN`, `calmwoman3688` → ''.
+  /// Language từ tên file giọng (quy ước Piper `xx_XX-...` hoặc prefix `vits-piper-xx_XX-...`);
+  /// Tự động bóc tách prefix và nhận diện cả các tên model phổ biến (vi_VN, 25hours, vais1000, libritts...).
+  /// Trả về BCP-47 chuẩn (e.g. `vi-VN`, `en-US`) hoặc `''` nếu không nhận diện được.
   static String langFromVoiceName(String name) {
-    final m =
-        RegExp(r'^([a-z]{2})[_-]([A-Za-z]{2})(?:[-_].*)?$').firstMatch(name);
-    if (m == null) return '';
-    return '${m.group(1)}-${m.group(2)!.toUpperCase()}';
+    var clean = name.trim();
+    if (clean.toLowerCase().endsWith('.onnx')) {
+      clean = clean.substring(0, clean.length - '.onnx'.length);
+    }
+
+    // Bóc tách prefix thường gặp trong sherpa-onnx / piper bundles
+    const prefixes = [
+      'sherpa-onnx-vits-piper-',
+      'sherpa_onnx_vits_piper_',
+      'sherpa-onnx-vits-',
+      'sherpa_onnx_vits_',
+      'sherpa-onnx-',
+      'sherpa_onnx_',
+      'vits-piper-',
+      'vits_piper_',
+      'vits-vits-piper-',
+      'vits-',
+      'vits_',
+      'piper-',
+      'piper_',
+    ];
+    for (final pfx in prefixes) {
+      if (clean.toLowerCase().startsWith(pfx)) {
+        clean = clean.substring(pfx.length);
+        break;
+      }
+    }
+
+    // 1. Chuẩn xx_XX hoặc xx-XX ở đầu tên (e.g. `vi_VN-25hours`, `en_US-libritts`)
+    final mStandard =
+        RegExp(r'^([a-z]{2})[_-]([A-Za-z]{2})(?:[-_].*)?$', caseSensitive: false)
+            .firstMatch(clean);
+    if (mStandard != null) {
+      return '${mStandard.group(1)!.toLowerCase()}-${mStandard.group(2)!.toUpperCase()}';
+    }
+
+    // 2. Chuẩn xx_... hoặc xx-... ở đầu tên (e.g. `vi_25hours`, `vi_vais1000`, `en_libritts`)
+    final mBare = RegExp(r'^([a-z]{2})[-_].*$', caseSensitive: false).firstMatch(clean);
+    if (mBare != null) {
+      final code = mBare.group(1)!.toLowerCase();
+      switch (code) {
+        case 'vi':
+          return 'vi-VN';
+        case 'en':
+          return 'en-US';
+        case 'zh':
+          return 'zh-CN';
+        case 'fr':
+          return 'fr-FR';
+        case 'de':
+          return 'de-DE';
+        case 'es':
+          return 'es-ES';
+        case 'hi':
+          return 'hi-IN';
+        case 'ja':
+          return 'ja-JP';
+        case 'ko':
+          return 'ko-KR';
+        case 'th':
+          return 'th-TH';
+        case 'my':
+          return 'my-MM';
+        case 'km':
+          return 'km-KH';
+        case 'lo':
+          return 'lo-LA';
+        case 'si':
+          return 'si-LK';
+        case 'pi':
+          return 'pi-IN';
+        case 'sa':
+          return 'sa-IN';
+        case 'ta':
+          return 'ta-IN';
+        case 'bn':
+          return 'bn-IN';
+      }
+    }
+
+    // 3. Quét từ khóa ngôn ngữ / tên model phổ biến trong toàn bộ tên
+    final lower = clean.toLowerCase();
+    if (lower.contains('vietnamese') ||
+        lower.contains('viettts') ||
+        lower.contains('vais1000') ||
+        lower.contains('25hours') ||
+        lower.contains('vipsound') ||
+        lower.contains('vi_vn') ||
+        lower.contains('vi-vn')) {
+      return 'vi-VN';
+    }
+    if (lower.contains('en_gb') || lower.contains('en-gb') || lower.contains('british')) {
+      return 'en-GB';
+    }
+    if (lower.contains('english') ||
+        lower.contains('libritts') ||
+        lower.contains('lessac') ||
+        lower.contains('alan') ||
+        lower.contains('amy') ||
+        lower.contains('ryan') ||
+        lower.contains('en_us') ||
+        lower.contains('en-us')) {
+      return 'en-US';
+    }
+    if (lower.contains('french') || lower.contains('francais') || lower.contains('fr_fr') || lower.contains('fr-fr')) {
+      return 'fr-FR';
+    }
+    if (lower.contains('german') || lower.contains('deutsch') || lower.contains('de_de') || lower.contains('de-de')) {
+      return 'de-DE';
+    }
+    if (lower.contains('spanish') || lower.contains('espanol') || lower.contains('es_es') || lower.contains('es-es')) {
+      return 'es-ES';
+    }
+    if (lower.contains('hindi') || lower.contains('hi_in') || lower.contains('hi-in')) {
+      return 'hi-IN';
+    }
+    if (lower.contains('chinese') || lower.contains('mandarin') || lower.contains('zh_cn') || lower.contains('zh-cn') || lower.contains('cmn')) {
+      return 'zh-CN';
+    }
+    if (lower.contains('japanese') || lower.contains('nihongo') || lower.contains('ja_jp') || lower.contains('ja-jp')) {
+      return 'ja-JP';
+    }
+    if (lower.contains('korean') || lower.contains('ko_kr') || lower.contains('ko-kr')) {
+      return 'ko-KR';
+    }
+    if (lower.contains('thai') || lower.contains('th_th') || lower.contains('th-th')) {
+      return 'th-TH';
+    }
+    if (lower.contains('pali') || lower.contains('pli')) {
+      return 'pi-IN';
+    }
+    if (lower.contains('sanskrit') || lower.contains('san')) {
+      return 'sa-IN';
+    }
+
+    return '';
   }
 
   sherpa.OfflineTts? _tts;

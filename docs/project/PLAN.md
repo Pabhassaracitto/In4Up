@@ -441,25 +441,6 @@
 - Lịch sử:
   - 2026-08-23 | created | owner via prompt | "I4U | READ Translate"
 
-### PLAN-021 — Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (XLAT-002)
-- Nguồn: người sở hữu (2026-08-29, gửi file `reference/meditation
-  vocabulary.pdf` + lệnh "tiến hành")
-- Trạng thái: proposed
-- Milestone đề xuất: ngoài M0–M3 (phạm vi Đọc/Dịch)
-- Chi tiết:
-  - Trích xuất bảng chuyên ngữ 5 ngôn ngữ (巴利－中文－英文－缅文, 121 trang)
-    → master table MD + **10.247 glossary entries** (6 mã pi/en/vi/zh-tw/zh/my,
-    mọi cặp src/tgt) merge với seed 226.
-  - Boundary rule cho CJK/Myanmar (khớp substring, chặn Latin-embedded).
-  - UI glossary: 8 ngôn ngữ. hi/si chờ nguồn mới của chủ; Burmese 117/567
-    cells sạch (450 cells OCR-junk → không vào JSON, chờ nguồn sạch).
-  - Pipeline: XLAT-002 KHÔNG sửa pipeline engine — chỉ mở rộng dữ liệu +
-    normalize + UI; protect/restore giữ nguyên (đã verify 12/12 case Python).
-- Bằng chứng: card XLAT-002 (KANBAN) + test group XLAT-002 +
-  docs/glossary/{buddhist_terms_master,audit_extract}.md.
-- Lịch sử:
-  - 2026-08-29 | created | owner via file PDF + chat | agent arena/01a02ffc-in4up
-
 ### PLAN-020 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first)
 - Nguồn: người sở hữu (2026-08-30) — tham khảo yt-dlp + Language Reactor;
   agent arena/01a01580-in4up tư vấn kiến trúc (không copy server Node/Python).
@@ -583,3 +564,155 @@ Thứ tự: WP0 → WP1 → WP2 → WP3 → WP4. WP-Z sau cùng, có thể khôn
 
 Copy `PROMPT_AGENT_YOUTUBE_LANGUA.md` (gốc repo) cho agent topic **nhánh mới
 từ tip DEV**. Không merge 580. Path-checkout file YouTube + test nhỏ vào DEV.
+
+### PLAN-021 — Tipiṭaka (OpenTipitaka Pa-Auk): nối tiếp module kinh điển
+- **Nguồn:** owner (2026-09-03), triển khai trên session
+  `arena/019ff2f6-in4up` (workspace Linux + worktree Windows).
+- **Trạng thái:** doing — DEMO đã nằm trong DEV (commit `18813d6`),
+  các bước production làm trên **nhánh mới từ tip DEV**.
+- **Tài liệu bàn giao (BẮT BUỘC đọc trước khi giao việc):**
+  - `docs/Bangiao/bangiao_tipitaka.md` — gom đủ INTEGRATION_GUIDE + README
+    module + AGENT_PROMPT_TIPITAKA + TIPITAKA_HANDOFF (ngữ cảnh, 4 bước
+    F/C/B/D, ràng buộc, nguồn DB).
+  - `lib/features/tipitaka/models/README.md` — schema DB chuẩn hóa.
+  - KANBAN card `TIPITAKA-001`.
+
+#### 1. Đã làm (đang chạy trong DEV)
+- Module `lib/features/tipitaka/`: models (Collection/Book/Segment —
+  Equatable), `services/db_service.dart` (sqflite, schema chuẩn, tìm
+  kiếm LIKE + index), screens (Library 2 cột theo Piṭaka → sách;
+  Reader song ngữ Pāli/Việt/Anh + bookmark/ghi chú; Search toàn văn;
+  Download; Language Pack 26 ngôn ngữ), `tipitaka.dart` barrel.
+- Tích hợp app: `main_shell.dart` — quick-action bolt "tipitaka"
+  (Home → ⚡ → Tipiṭaka).
+- `pubspec.yaml`: +`sqflite`, +`path`.
+- Dữ liệu DEMO: `assets/db/tipitaka.sqlite` (~1.69MB, ~10k đoạn, import
+  từ 3 file nguồn Pali-roman + Vi + En) + `scripts/import_tipitaka.py`
+  (Windows/Linux, dynamic repo_root).
+- i18n: `language_pack_screen.dart` fallback vi/en; 26 gói tải từ nguồn
+  Pa-Auk (chỉ khi user bấm — quy tắc model, không auto lúc mở app).
+
+#### 2. Phải làm (production — MỖI NHÁNH MỚI chọn 1 bước, đừng làm tất)
+- **Bước F — Full DB import:** cập nhật `scripts/import_tipitaka.py`
+  nhập TẤT CẢ bảng nguồn (`vin01t_tik`, `e0101n_mul`, …) thay vì chỉ
+  `e0703n_nrf` + LIMIT 10000 (hoặc adapter đọc trực tiếp 2 file `.db`
+  nguồn). Kết quả: `tipitaka.sqlite` ~500MB đầy đủ.
+- **Bước D — Production/Offline/Citation:** DB KHÔNG bundle assets
+  production — download về `getApplicationDocumentsDirectory` khi user
+  mở lần đầu (hoặc ADB/file manager với bản test); hoàn thiện
+  bookmark/note persistence qua restart (`tipitaka_user_notes`); nút
+  "Copy Citation" (format `DN 1.1` / `Dīgha Nikāya 1.1`).
+- **Bước B — Spaced repetition/học thuộc:** bảng `tipitaka_learning_items`
+  (đã có trong schema, chưa dùng) ↔ `memory_mode`; nút "Thêm vào bộ
+  nhớ" trên đoạn kinh; SM-2 hoặc `next_review_at` + `memory_strength`.
+- **Bước C — AI-RAG với citation:** `TipitakaRAGService` (đặt trong
+  `in4up_ai` hoặc module tipitaka): câu hỏi → tìm đoạn kinh qua
+  `tipitaka_fts`/LIKE → trả lời DUY NHẤT từ đoạn đã lấy + citation chuẩn
+  (`Dīgha Nikāya 1.1, paragraph N` + link `read/:segmentId`).
+  **Không có citation từ DB → KHÔNG trả lời như kinh điển.**
+
+#### 3. Sẽ làm (sau F/D/B/C)
+- FTS5 thay LIKE (typo-tolerant, nhanh) — yêu cầu SQLite build có FTS5.
+- Ngôn ngữ nguồn thêm: Miến, Thái (schema đã để chỗ đa ngôn ngữ).
+- Nối Reader tipitaka với tab Đọc (mở đoạn kinh trong TextProvider).
+
+#### 4. Cấm / ràng buộc
+- Không trả lời giáo pháp tùy tiện — AI layer phải có trích dẫn.
+- Tôn trọng giấy phép OpenTipiṭaka / Pa-Auk khi đóng gói data.
+- Không commit DB 500MB vào `assets/` (production) — chỉ bản DEMO 1.69MB
+  được phép bundle; file nguồn tải từ
+  `https://dhamma.paauksociety.org/Root/Tipitaka/SqlLite%20Database`
+  (server chỉ cho browser — sandbox TLS bị chặn, tải bằng trình duyệt).
+
+#### 5. Mở nhánh mới để giao việc
+- Branch mới **từ tip DEV** (`arena/01a0251e-in4up`). Code module đã có
+  sẵn trong DEV (`18813d6`) — KHÔNG copy lại từ workspace 019ff2f6.
+- Prompt topic: trỏ vào `docs/Bangiao/bangiao_tipitaka.md` + "chọn bước
+  F/D/B/C duy nhất" + quy trình harvest/CI như PLAN-020 mục 5.
+- Nghiệm thu: Home → ⚡ → Tipiṭaka → Library → Reader; DB thiếu →
+  `python scripts\import_tipitaka.py`.
+
+- **Lịch sử:**
+  - 2026-09-03 | created | owner via session arena/019ff2f6-in4up | module
+    tipitaka + DB DEMO + quick-action; bàn giao qua
+    docs/Bangiao/bangiao_tipitaka.md (commit 5374214)
+  - 2026-09-03 | doing | agent arena/01a0251e-in4up | module đã nằm trong
+    DEV từ 18813d6; PLAN-021 ghi rõ đã làm/phải làm/sẽ làm cho các
+    branch tiếp theo
+
+### PLAN-022 — Sherpa WP2/WP3: nối tiếp speaker waveform + voice commands
+- **Nguồn:** owner (2026-09-03), session `arena/01a039e9-in4up`; code đã
+  thâu hoạch vào DEV (KANBAN `SHERPA-WP23-01`: cherry-pick `-x` 4cdaffb
+  → 01f5235 + fix scope 8c2e868; CI xanh 33336160268).
+- **Trạng thái:** code done + CI xanh — **chờ nghiệm thu thiết bị**; các
+  việc còn lại làm trên **nhánh mới từ tip DEV**.
+- **Tài liệu bàn giao (BẮT BUỘC đọc):** `docs/Bangiao/bangiao_sherpa.md`
+  (prompt handoff WP3: nhiệm vụ, bẫy không được lặp lại, checklist báo
+  cáo), PLAN-008/009 (lộ trình sherpa/cabin), `lib/features/vad/README_VAD_TTS_STREAMING.md`,
+  KANBAN SHERPA-001/002/003 + SHERPA-WP23-01.
+
+#### 1. Đã làm (đang chạy trong DEV)
+- **SHERPA-001:** Silero VAD (sherpa_onnx) thay EnergyVad fallback
+  (4a50a77 + cd9cccf).
+- **SHERPA-002:** TTS Piper offline (sherpa_onnx): core + engine trong
+  TtsService (CI 32524455212; model push vào thiết bị của owner).
+- **SHERPA-003:** VAD pipeline 30p: cắt chunk FFmpegKit (Android) +
+  quét async + guard (43c3545, CI 32617775840).
+- **SHERPA-WP23-01 — WP2:** parse timestamp LRC khi load →
+  `WaveformSegmentRef` + `SpeakerSidecar.loadSpeakerMap` (sidecar `.spk`
+  cạnh LRC — offline overlay, không re-run STT) → waveform tô màu theo
+  speaker + legend "Người N"; file cũ fallback mono.
+- **SHERPA-WP23-01 — WP3:** `lib/features/voice_command/` — parser thuần
+  8 nhóm lệnh VI/EN (+ không dấu): phát/tạm dừng/tiếp theo/bài trước/
+  nhanh hơn/chậm hơn/ẩn lời/dịch; `VoiceCommandService` dùng DUY NHẤT
+  `SttServiceFacade.startListening()` + `partialResultStream`, một mic
+  session, first-match debounce, silence 1.5s/max 6s; UI mic button +
+  indicator + partial preview trên Stack waveform tab Nghe; i18n
+  en/vi/hi/zh/zh_TW/si.
+- **Fix scope (8c2e868):** nút voice không đặt trong StatelessWidget
+  độc lập dùng state màn hình; khôi phục nút Shadowing gốc.
+
+#### 2. Phải làm (nghiệm thu thiết bị trước khi code tiếp)
+- Lệnh giọng nói: "phát/tạm dừng/tiếp theo/nhanh hơn/chậm hơn/ẩn lời"
+  trên audio có LRC; thiếu model STT phải hiện "No speech model
+  available" (không crash, không im lặng).
+- WP2: waveform nhiều speaker cần audio đã qua STT pipeline (sidecar
+  `.spk` tạo tự động) — kiểm tra file cũ không sidecar không crash.
+- SHERPA-002: build + push model Piper vào thiết bị, nghiệm thu TTS.
+
+#### 3. Sẽ làm (nhánh mới, sau khi nghiệm thu xanh)
+- **WP3 action `translate`:** nối lệnh "dịch" vào provider toggle
+  translation — CHỈ nối sau khi owner xác nhận API; không giả lập
+  hành vi (known limitation bàn giao).
+- **WP-Z (có thể không làm):** sidecar desktop `yt-dlp` khi explode gãy
+  — chỉ khi user đã cài, không binary trong APK, không chạy trong CI.
+- Meetily Rust/Zipformer: KHÔNG chờ — pipeline hiện dùng
+  `SttServiceFacade`; nếu có sẽ là engine bổ sung, không thay kiến trúc.
+- Diarization heuristic nâng cấp (sidecar chất lượng hơn) khi có model
+  thật (pyannote v.v.) — thay `HeuristicDiarizationService`.
+
+#### 4. Cấm / bẫy (từ bàn giao — không được lặp lại)
+- Không khai báo trùng `_voiceCommandService`, `_voiceListening`,
+  `_lastVoiceText`, `_startVoiceCommands` — tất cả field/method nằm
+  trong `_ListenModeScreenState`.
+- Không chèn snippet vào file bằng mắt khi đã có conflict — kiểm tra
+  `git diff`.
+- Không sửa `.github/workflows/`; docs bị ignore thì `git add -f`.
+- Không bịa URL/model Zipformer; không auto-download model.
+- Một phiên voice chỉ fire command đầu tiên; dispose
+  subscription/timer/mic sạch.
+- CI là oracle (skill `docs/skills/ci-red-debugging/SKILL.md`); chạm
+  path app để paths-filter trigger đúng workflow.
+
+#### 5. Mở nhánh mới để giao việc
+- Branch mới **từ tip DEV**; code WP2/WP3 đã có sẵn trong DEV —
+  KHÔNG cherry-pick lại từ 01a039e9.
+- Prompt topic: trỏ `docs/Bangiao/bangiao_sherpa.md` + mục 3 PLAN-022
+  (chọn 1 việc duy nhất) + checklist báo cáo "WP DONE" trong file bàn giao.
+
+- **Lịch sử:**
+  - 2026-09-03 | created | owner via session arena/01a039e9-in4up |
+    bàn giao WP2/WP3 (docs/Bangiao/bangiao_sherpa.md, commit 5374214)
+  - 2026-09-03 | doing | agent arena/01a0251e-in4up | PLAN-022 ghi rõ
+    đã làm/phải làm/sẽ làm + bẫy; chờ nghiệm thu thiết bị trước khi
+    mở nhánh code tiếp

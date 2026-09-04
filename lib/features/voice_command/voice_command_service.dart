@@ -12,28 +12,66 @@ class VoiceCommandService {
 
   VoiceCommandService({SttServiceFacade? stt}) : stt = stt ?? SttServiceFacade();
 
-  Future<bool> start({String language = 'vi-VN', Duration maxDuration = const Duration(seconds: 6),
-      Duration silence = const Duration(milliseconds: 1500),
-      required void Function(VoiceCommand command) onCommand,
-      void Function(String partial)? onPartial,
-      void Function(Object error)? onError}) async {
+  Future<bool> start({
+    String language = 'vi-VN',
+    Duration maxDuration = const Duration(seconds: 8),
+    Duration silence = const Duration(milliseconds: 1800),
+    required void Function(VoiceCommand command) onCommand,
+    void Function(String partial)? onPartial,
+    void Function(Object error)? onError,
+  }) async {
     if (_running) return false;
-    _running = await stt.startListening(language: language);
-    if (!_running) return false;
-    var fired = false;
-    void finish() { if (_running) { _running = false; _silenceTimer?.cancel(); _subscription?.cancel(); stt.stopListening(); } }
-    _subscription = stt.partialResultStream.listen((result) {
-      final text = result.fullText.trim();
-      if (text.isEmpty) return;
-      onPartial?.call(text);
-      _silenceTimer?.cancel();
-      _silenceTimer = Timer(silence, finish);
-      if (!fired) { final command = parseVoiceCommand(text); if (command != null) { fired = true; onCommand(command); } }
-    }, onError: (Object e) { onError?.call(e); finish(); });
-    Timer(maxDuration, finish);
-    return true;
+    try {
+      _running = await stt.startListening(language: language);
+      if (!_running) return false;
+
+      var fired = false;
+      void finish() {
+        if (_running) {
+          _running = false;
+          _silenceTimer?.cancel();
+          _subscription?.cancel();
+          stt.stopListening();
+        }
+      }
+
+      _subscription = stt.liveResultStream.listen(
+        (result) {
+          final text = result.fullText.trim();
+          if (text.isEmpty) return;
+          onPartial?.call(text);
+          _silenceTimer?.cancel();
+          _silenceTimer = Timer(silence, finish);
+          if (!fired) {
+            final command = parseVoiceCommand(text);
+            if (command != null) {
+              fired = true;
+              onCommand(command);
+            }
+          }
+        },
+        onError: (Object e) {
+          onError?.call(e);
+          finish();
+        },
+      );
+
+      Timer(maxDuration, finish);
+      return true;
+    } catch (e) {
+      onError?.call(e);
+      _running = false;
+      return false;
+    }
   }
 
-  Future<void> stop() async { _running = false; _silenceTimer?.cancel(); await _subscription?.cancel(); _subscription = null; await stt.stopListening(); }
+  Future<void> stop() async {
+    _running = false;
+    _silenceTimer?.cancel();
+    await _subscription?.cancel();
+    _subscription = null;
+    await stt.stopListening();
+  }
+
   Future<void> dispose() => stop();
 }

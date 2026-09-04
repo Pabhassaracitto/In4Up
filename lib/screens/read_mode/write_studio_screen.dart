@@ -11,6 +11,7 @@ import '../../features/writing/models/writing_source_request.dart';
 import '../../features/writing/services/document_summary_signal_service.dart';
 import '../../features/writing/services/writing_draft_store.dart';
 import '../../models/text_item.dart';
+import '../../models/word_analysis.dart';
 import '../../providers/text_provider.dart';
 
 enum _WriteExerciseType {
@@ -299,26 +300,31 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
       if (matchIndex >= 0) {
         final match = analyzedWords[matchIndex];
         if (!match.isStopWord) score += 4;
-        switch (match.wordType.name) {
-          case 'noun':
-          case 'verb':
-          case 'adjective':
-          case 'adverb':
+        // So sánh trực tiếp với enum (KHÔNG dùng `.name`): trên binary
+        // hot-reload lẫn phiên bản cũ, object có thể là class WordType/
+        // CEFRLevel cũ không có getter `name` → `.name` ném
+        // NoSuchMethodError GIỮA BUILD (tab Đọc ở chế độ Viết, màn hình
+        // đỏ chữ vàng chớp rồi mất). Switch enum + default an toàn.
+        switch (match.wordType) {
+          case WordType.noun:
+          case WordType.verb:
+          case WordType.adjective:
+          case WordType.adverb:
             score += 3;
             break;
           default:
             score += 0.5;
         }
-        switch (match.cefrLevel.name) {
-          case 'b2':
-          case 'c1':
-          case 'c2':
+        switch (match.cefrLevel) {
+          case CEFRLevel.b2:
+          case CEFRLevel.c1:
+          case CEFRLevel.c2:
             score += 2.5;
             break;
-          case 'b1':
+          case CEFRLevel.b1:
             score += 1.5;
             break;
-          case 'a2':
+          case CEFRLevel.a2:
             score += 0.5;
             break;
           default:
@@ -567,11 +573,11 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
     for (final word in analyzedWords) {
       final normalized = _normalizeWord(word.originalWord);
       if (normalized.length < 3 || word.isStopWord) continue;
-      switch (word.wordType.name) {
-        case 'noun':
-        case 'verb':
-        case 'adjective':
-        case 'adverb':
+      switch (word.wordType) {
+        case WordType.noun:
+        case WordType.verb:
+        case WordType.adjective:
+        case WordType.adverb:
           keywords.add(normalized);
           break;
         default:
@@ -599,7 +605,7 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
         : const [];
 
     final verbs = analyzedWords
-        .where((word) => word.wordType.name == 'verb')
+        .where((word) => word.wordType == WordType.verb)
         .map((word) => _normalizeWord(word.originalWord))
         .where((word) => word.isNotEmpty)
         .toSet()

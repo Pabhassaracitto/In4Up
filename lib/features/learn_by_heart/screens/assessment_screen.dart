@@ -235,10 +235,9 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Pali Section
-                            if (item.paliText.isNotEmpty) ...[
+                            if (item.sourceText.isNotEmpty) ...[
                               Text(
-                                'Nguyên văn Pali:',
+                                'Nguyên văn (${item.sourceLanguage.displayName('vi')}):',
                                 style: TextStyle(
                                   color: const Color(0xFFFFD54F),
                                   fontSize: 12,
@@ -254,7 +253,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  item.paliText,
+                                  item.sourceText,
                                   style: const TextStyle(
                                     color: Color(0xFFFFE082),
                                     fontSize: 15,
@@ -266,9 +265,9 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                               const SizedBox(height: 16),
                             ],
 
-                            // Vietnamese Section
+                            if (item.targetText.isNotEmpty) ...[
                             Text(
-                              'Bản dịch Tiếng Việt:',
+                              'Bản dịch (${item.targetLanguage.displayName('vi')}):',
                               style: TextStyle(
                                 color: const Color(0xFF81C784),
                                 fontSize: 12,
@@ -284,7 +283,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                item.vietnameseText,
+                                item.targetText,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,
@@ -292,6 +291,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                                 ),
                               ),
                             ),
+                            ],
                           ],
                         ),
                       ),

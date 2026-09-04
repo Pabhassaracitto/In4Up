@@ -25,7 +25,17 @@ class HyMtEngine extends TranslationEngine {
 
   static const fileName = 'Hy-MT1.5-1.8B-2bit.gguf';
   static const folderName = 'in4up_hymt';
-  static const minBytes = 80 * 1024 * 1024; // 80MB (file thật ~601MB)
+  static const minBytes = 80 * 1024 * 1024; // 80MB — ngưỡng tuyệt đối thấp
+  /// Size file thật trên HF (tencent/Hy-MT1.5-1.8B-2bit-GGUF, xác minh
+  /// 2026-09-03): 601MB. File nhỏ hơn rõ ràng ngưỡng này = download/import
+  /// BỊ CẮT → llama_model_load_from_file fail trả NULL → lỗi
+  /// "Hy-MT native không load được" dù file vẫn nằm đó.
+  static const expectedBytes = 601 * 1024 * 1024;
+
+  /// File < ~80% expected coi là cắt (chấp nhận file LỚN hơn — có thể là
+  /// quant khác của cùng model). 481MB ≈ 80% × 601MB.
+  static const int minPlausibleBytes = 481 * 1024 * 1024;
+
   static const downloadUrl =
       'https://huggingface.co/tencent/Hy-MT1.5-1.8B-2bit-GGUF/resolve/main/'
       'Hy-MT1.5-1.8B-2bit.gguf?download=true';
@@ -68,27 +78,77 @@ class HyMtEngine extends TranslationEngine {
     return p.join(dir.path, fileName);
   }
 
-  static bool looksLikeGguf(List<int> head, int size) {
-    if (size < minBytes) return false;
-    if (head.length < 4) return false;
-    return head[0] == 0x47 && head[1] == 0x47 && head[2] == 0x55 && head[3] == 0x46; // GGUF
+  static bool _isGgufMagic(List<int> head) {
+    return head.length >= 4 &&
+        head[0] == 0x47 &&
+        head[1] == 0x47 &&
+        head[2] == 0x55 &&
+        head[3] == 0x46; // GGUF
   }
 
+  static bool looksLikeGguf(List<int> head, int size) {
+    // Từ 2026-09-03: yêu cầu size ≥ minPlausible (~480MB) — file 80-100MB
+    // đầu magic GGUF mà thiếu phần thân là file CẮT (vẫn qua kiểm tra cũ
+    // → llama load fail → "không load được" triền miên).
+    if (size < minPlausibleBytes) return false;
+    return _isGgufMagic(head);
+  }
+
+  static Future<bool> _headIsGguf(String path) async {
+    try {
+      // openRead(0, 4).first — pattern đã proof trong file này
+      // (importFromUser dùng openRead(0, 8)); chỉ đọc 4 byte đầu.
+      final head = await File(path).openRead(0, 4).first;
+      return _isGgufMagic(head);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Path model HỢP LỆ (tồn tại + size đủ + magic GGUF ở đầu). Trả null
+  /// nếu file bị cắt/hỏng — coi như chưa có model (fallback engine khác).
   Future<String?> resolvedModelPath() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefPath);
     if (saved != null && await File(saved).exists()) {
       final n = File(saved).lengthSync();
-      if (n >= minBytes) return saved;
+      if (n >= minPlausibleBytes && await _headIsGguf(saved)) return saved;
     }
     final def = await defaultSavePath();
-    if (await File(def).exists() && File(def).lengthSync() >= minBytes) {
+    if (await File(def).exists() &&
+        File(def).lengthSync() >= minPlausibleBytes &&
+        await _headIsGguf(def)) {
       return def;
     }
     return null;
   }
 
   Future<bool> get hasModel async => (await resolvedModelPath()) != null;
+
+
+  /// null = model OK; text = lý do cụ thể (cho message lỗi + UI).
+  /// Phân biệt "chưa có" với "có file nhưng bị cắt/hỏng" — trường hợp
+  /// user hay gặp: đã tải/import model nhưng llama vẫn không load được.
+  Future<String?> modelIssue() async {
+    if (await hasModel) return null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_prefPath);
+      final def = await defaultSavePath();
+      final candidates = <String?>[saved, def];
+      for (final path in candidates) {
+        if (path == null) continue;
+        final f = File(path);
+        if (await f.exists()) {
+          final mb = (f.lengthSync() / 1048576).toStringAsFixed(0);
+          return 'File Hy-MT bị cắt/hỏng (${mb}MB/~601MB) — '
+              'bấm "Tải về" để tải lại file đầy đủ.';
+        }
+      }
+    } catch (_) {}
+    return 'Chưa có model Hy-MT. Cài đặt dịch → Hy-MT → '
+        'Import .gguf hoặc Tải về (~600MB).';
+  }
 
   @override
   Future<bool> isAvailable() async {
@@ -212,6 +272,11 @@ class HyMtEngine extends TranslationEngine {
     await prefs.remove(_prefPath);
   }
 
+  /// Lý do create() fail ở lần load gần nhất (null = chưa load/chưa fail).
+  String? _lastLoadError;
+
+  String? get lastLoadError => _lastLoadError;
+
   Future<bool> ensureLoaded() async {
     final path = await resolvedModelPath();
     if (path == null) return false;
@@ -227,11 +292,29 @@ class HyMtEngine extends TranslationEngine {
         debugName: 'HyMtIsolate',
       );
       final ready = Completer<SendPort>();
+      final loadDone = Completer<bool>();
+      _lastLoadError = null;
       _receivePort!.listen((msg) {
         if (msg is SendPort && !ready.isCompleted) ready.complete(msg);
+        if (msg is _LoadResult && !loadDone.isCompleted) {
+          if (!msg.ready) _lastLoadError = msg.error;
+          loadDone.complete(msg.ready);
+        }
       });
       _sendPort = await ready.future.timeout(const Duration(seconds: 45));
+      // FIX 2026-09-03: phải ĐỢI kết quả create() THẬT từ isolate (load
+      // model ~600MB mất vài giây) — bản cũ chỉ đợi handshake rồi trả
+      // true, nên create() fail vẫn được coi là "đã sẵn sàng"; lỗi chỉ lộ
+      // ở request đầu tiên ("Hy-MT native không load được") và isolate
+      // chết im, không bao giờ retry.
+      final ok = await loadDone.future.timeout(const Duration(minutes: 2));
+      if (!ok) {
+        debugPrint('Hy-MT create failed: ${_lastLoadError}');
+        await disposeRuntime();
+        return false;
+      }
       _loadedPath = path;
+      debugPrint('✅ Hy-MT GGUF loaded: $path');
       return true;
     } catch (e) {
       debugPrint('Hy-MT load failed: $e');
@@ -271,7 +354,8 @@ class HyMtEngine extends TranslationEngine {
     if (!await hasModel) {
       return TranslationResult.failure(
         original: text,
-        error: 'Chưa có model Hy-MT. Cài đặt engine dịch → Import .gguf hoặc Tải về (~600MB).',
+        // Cụ thể: "chưa có" hay "có file nhưng bị cắt/hỏng (tải lại)".
+        error: (await modelIssue()) ?? 'Chưa có model Hy-MT.',
         engine: name,
         detectedLang: src,
         targetLang: tgt,
@@ -289,9 +373,14 @@ class HyMtEngine extends TranslationEngine {
     }
     final ok = await ensureLoaded();
     if (!ok || _sendPort == null) {
+      // _lastLoadError = lý do create() fail THẬT từ isolate (file hỏng,
+      // quant, RAM, thiếu native lib...). Lần sau bấm lại sẽ RETRY create
+      // (isolate đã bị dispose sau lần fail) — vd sau khi tải lại model.
+      final loadErr = _lastLoadError ?? 'thiếu RAM hoặc llama.cpp không hỗ trợ.';
       return TranslationResult.failure(
         original: text,
-        error: 'Không nạp được Hy-MT GGUF (thiếu RAM hoặc kiến trúc llama.cpp chưa hỗ trợ).',
+        error: 'Không nạp được Hy-MT GGUF: $loadErr. '
+            'Thử "Tải về" lại model rồi dịch lại.',
         engine: name,
         detectedLang: src,
         targetLang: tgt,
@@ -350,15 +439,27 @@ class HyMtEngine extends TranslationEngine {
     init.main.send(port.sendPort);
     final native = AiNativeBindings.tryLoad();
     ffi.Pointer<ffi.Void>? handle;
-    if (native != null) {
+    String? loadError;
+    if (native == null) {
+      loadError = 'Build chưa có llama.cpp (in4up_ai_native) — cần bản app '
+          'có AI native.';
+    } else {
       handle = native.create(init.modelPath, contextSize: 2048, threads: 4);
-      if (handle == ffi.nullptr) handle = null;
+      if (handle == ffi.nullptr) {
+        handle = null;
+        loadError = 'llama_model_load_from_file thất bại: file GGUF '
+            'hỏng/cắt, quant không được llama.cpp hỗ trợ, hoặc thiếu RAM.';
+      }
     }
+    // FIX 2026-09-03: báo kết quả create() THẬT cho main side (trước đây
+    // main không biết create fail → ensureLoaded trả true → request đầu
+    // trả "không load được" và không bao giờ retry).
+    init.main.send(_LoadResult(ready: handle != null, error: loadError));
     await for (final msg in port) {
       if (msg is _Req) {
         try {
           if (native == null || handle == null) {
-            msg.reply.send('Hy-MT native không load được');
+            msg.reply.send(loadError ?? 'Hy-MT native không load được');
             continue;
           }
           final out = native.generate(
@@ -381,6 +482,14 @@ class _Init {
   final String modelPath;
   final SendPort main;
   _Init(this.modelPath, this.main);
+}
+
+
+/// Kết quả create() thật từ isolate (gửi SAU khi create hoàn tất).
+class _LoadResult {
+  final bool ready;
+  final String? error;
+  _LoadResult({required this.ready, this.error});
 }
 
 class _Req {

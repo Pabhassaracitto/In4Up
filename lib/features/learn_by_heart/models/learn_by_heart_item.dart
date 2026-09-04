@@ -4,6 +4,7 @@ import 'chunk.dart';
 import 'fsrs_models.dart';
 import 'line_timestamp.dart';
 import 'recitation_category.dart';
+import 'recitation_language.dart';
 import 'review_state.dart';
 
 /// Model chính đại diện cho một bài học thuộc lòng (Kệ Pháp Cú, Kinh Tụng, Sutta...)
@@ -13,10 +14,18 @@ class LearnByHeartItem {
   final String title;
   final String subtitle;
   final RecitationCategory category;
+  /// Canonical/source text. JSON key stays `paliText` for old items.
   final String paliText;
+  /// Translation/meaning text. JSON key stays `vietnameseText` for old items.
   final String vietnameseText;
   final String? audioUrl;
   final String ttsLanguage;
+  /// Language of [paliText] (`pi`, `en`, …). Default Pali.
+  final String sourceLang;
+  /// Language of [vietnameseText] (`vi`, `en`, …). Default Vietnamese.
+  final String targetLang;
+  /// Which side cloze / voice / chunking recites.
+  final MemorizeSide memorizeSide;
   final List<LineTimestamp> lineTimestamps;
   final List<Chunk> chunkList;
 
@@ -50,6 +59,9 @@ class LearnByHeartItem {
     required this.vietnameseText,
     this.audioUrl,
     this.ttsLanguage = 'vi',
+    this.sourceLang = 'pi',
+    this.targetLang = 'vi',
+    this.memorizeSide = MemorizeSide.target,
     this.lineTimestamps = const [],
     this.chunkList = const [],
     this.keywords = const [],
@@ -91,18 +103,34 @@ class LearnByHeartItem {
     return fsrsParams.stability >= 21.0 && reviewState == ReviewState.review;
   }
 
-  /// Số dòng văn bản tiếng Việt
-  List<String> get vietnameseLines {
-    return vietnameseText
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
-        .toList();
-  }
+  List<String> get vietnameseLines => _splitLines(vietnameseText);
 
-  /// Số dòng văn bản Pali
-  List<String> get paliLines {
-    return paliText
+  List<String> get paliLines => _splitLines(paliText);
+
+  String get sourceText => paliText;
+  String get targetText => vietnameseText;
+
+  String get memorizeText =>
+      memorizeSide == MemorizeSide.source ? paliText : vietnameseText;
+
+  String get supportText =>
+      memorizeSide == MemorizeSide.source ? vietnameseText : paliText;
+
+  List<String> get memorizeLines => _splitLines(memorizeText);
+
+  List<String> get supportLines => _splitLines(supportText);
+
+  String get memorizeLang =>
+      memorizeSide == MemorizeSide.source ? sourceLang : targetLang;
+
+  RecitationLanguage get sourceLanguage =>
+      RecitationLanguage.fromCode(sourceLang);
+
+  RecitationLanguage get targetLanguage =>
+      RecitationLanguage.fromCode(targetLang);
+
+  static List<String> _splitLines(String text) {
+    return text
         .split('\n')
         .map((l) => l.trim())
         .where((l) => l.isNotEmpty)
@@ -120,6 +148,9 @@ class LearnByHeartItem {
     String? vietnameseText,
     String? audioUrl,
     String? ttsLanguage,
+    String? sourceLang,
+    String? targetLang,
+    MemorizeSide? memorizeSide,
     List<LineTimestamp>? lineTimestamps,
     List<Chunk>? chunkList,
     List<String>? keywords,
@@ -149,6 +180,9 @@ class LearnByHeartItem {
       vietnameseText: vietnameseText ?? this.vietnameseText,
       audioUrl: audioUrl ?? this.audioUrl,
       ttsLanguage: ttsLanguage ?? this.ttsLanguage,
+      sourceLang: sourceLang ?? this.sourceLang,
+      targetLang: targetLang ?? this.targetLang,
+      memorizeSide: memorizeSide ?? this.memorizeSide,
       lineTimestamps: lineTimestamps ?? this.lineTimestamps,
       chunkList: chunkList ?? this.chunkList,
       keywords: keywords ?? this.keywords,
@@ -183,6 +217,9 @@ class LearnByHeartItem {
       'vietnameseText': vietnameseText,
       'audioUrl': audioUrl,
       'ttsLanguage': ttsLanguage,
+      'sourceLang': sourceLang,
+      'targetLang': targetLang,
+      'memorizeSide': memorizeSide.name,
       'lineTimestamps': lineTimestamps.map((t) => t.toJson()).toList(),
       'chunkList': chunkList.map((c) => c.toJson()).toList(),
       'keywords': keywords,
@@ -218,6 +255,12 @@ class LearnByHeartItem {
       vietnameseText: json['vietnameseText'] as String? ?? '',
       audioUrl: json['audioUrl'] as String?,
       ttsLanguage: json['ttsLanguage'] as String? ?? 'vi',
+      sourceLang: json['sourceLang'] as String? ?? 'pi',
+      targetLang: json['targetLang'] as String? ?? 'vi',
+      memorizeSide: MemorizeSide.values.firstWhere(
+        (s) => s.name == json['memorizeSide'],
+        orElse: () => MemorizeSide.target,
+      ),
       lineTimestamps: (json['lineTimestamps'] as List<dynamic>?)
               ?.map((t) => LineTimestamp.fromJson(t as Map<String, dynamic>))
               .toList() ??

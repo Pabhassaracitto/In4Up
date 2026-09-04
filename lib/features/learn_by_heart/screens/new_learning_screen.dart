@@ -156,6 +156,7 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
                     AudioControlBar(
                       audioService: _audioService,
                       onPlayPause: _handlePlayPause,
+                      item: item,
                     ),
                     const SizedBox(height: 16),
 
@@ -167,6 +168,7 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
                           lineTimestamps: item.lineTimestamps,
                           activeLine: _audioService.currentLineIndex,
                           languageMode: _audioService.langMode,
+                          audioService: _audioService,
                           onLineTap: (lineTs) {
                             _audioService.playSingleLine(lineTs, item);
                           },

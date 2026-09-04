@@ -19,6 +19,7 @@
 // │     whisper_full() hoàn thành.                                    │
 // └────────────────────────────────────────────────────────────────────┘
 
+import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
@@ -565,6 +566,115 @@ class SttEngineWhisper {
   static bool get isMobilePluginSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
+  // ── CHỐNG RACE REQUEST NATIVE — fix crash SIGSEGV "request+740" ──────────
+  //
+  // Mỗi whisper.transcribe() = plugin chạy Isolate.run() gọi C++ request()
+  // → whisper_init_from_file(MODEL) + whisper_full + whisper_free. Code C++
+  // của plugin KHÔNG check NULL sau whisper_init_from_file: nếu init fail
+  // (OOM RAM — thường khi HAI init chạy song song vì user cancel LRC rồi
+  // bấm tạo lại ngay; hoặc model file mất giữa job) thì whisper_full(NULL)
+  // → SIGSEGV SEGV_MAPERR addr ~0x180, crash TOÀN BỘ process. Dart
+  // try/catch KHÔNG bắt được signal native — chỉ có thể phòng ngừa.
+  //
+  // Guard: mọi request transcribe phải ĐỢI request native trước đó kết thúc
+  // THẬT SỰ — kể cả request "bị bỏ rơi" khi cancel (future của nó vẫn tiếp
+  // tục chạy trong isolate của plugin dù app đã dừng await). Kết quả:
+  // không bao giờ có 2 whisper_init_from_file chạy song song.
+  // Lưu ý: giữ Completer (không Future) để check được isCompleted —
+  // Future KHÔNG có getter isCompleted (chỉ Completer mới có).
+  static Completer<void>? _nativeInflight;
+
+  static Future<T> _withExclusiveNative<T>(Future<T> Function() start) async {
+    final prev = _nativeInflight;
+    final done = Completer<void>();
+    _nativeInflight = done;
+    try {
+      if (prev != null && !prev.isCompleted) {
+        debugPrint(
+          '[Whisper] Request native trước đó chưa xong (bị bỏ dở khi cancel?) '
+          '— đợi kết thúc trước để tránh 2 whisper_init_from_file song song '
+          '(nguyên nhân OOM → init NULL → SIGSEGV)',
+        );
+        // 10 phút: chunk 15s trên máy yếu + model base cũng khó quá mức này.
+        // Timeout vẫn cho chạy tiếp — hung request nghĩa là process đã gần chết.
+        await prev.future.timeout(const Duration(minutes: 10), onTimeout: () {});
+      }
+      return await start();
+    } finally {
+      if (!done.isCompleted) done.complete();
+      if (identical(_nativeInflight, done)) {
+        _nativeInflight = null;
+      }
+    }
+  }
+
+  /// Đảm bảo file model mà plugin sẽ load — plugin HARD CODE
+  /// `<modelDir>/ggml-<model>.bin` (WhisperModel.getPath) — trùng với model
+  /// app đã verify.
+  ///
+  /// TẠI SAO CẦN (STT-CRASH-001, crash 2 — single request):
+  /// C++ của plugin KHÔNG check NULL sau whisper_init_from_file. Nếu file
+  /// plugin load bị thiếu/hỏng/sai bản thì init trả NULL → whisper_full(NULL)
+  /// → SIGSEGV SEGV_MAPERR 0x180. Tình huống thực tế trên máy user:
+  /// model manager verify `ggml-tiny-q5_1.bin` (32MB) nhưng plugin load
+  /// `ggml-tiny.bin` — file CŨ từ phiên bản app trước (user chỉ build lại,
+  /// không xóa app) có thể bị truncate/sai định dạng → init fail → crash
+  /// ngay chunk đầu, không cần race.
+  ///
+  /// Copy model đã verify (hoặc candidate hợp lệ lớn nhất) sang tên file
+  /// của plugin. Lặp lại mỗi lần transcribe — copySync no-op nếu size khớp.
+  static void ensurePluginModelFile({
+    required String modelDir,
+    required WhisperModelLevel level,
+    String? verifiedModelPath,
+  }) {
+    try {
+      final pluginName = 'ggml-${_mapToPluginModel(level).modelName}.bin';
+      final pluginFile = File(path.join(modelDir, pluginName));
+
+      File? preferred;
+      if (verifiedModelPath != null && verifiedModelPath.isNotEmpty) {
+        final v = File(verifiedModelPath);
+        if (v.existsSync() && v.lengthSync() > 1000000) preferred = v;
+      }
+      if (preferred == null) {
+        // Fallback: quét candidates (f32 trước, rồi quantized variants),
+        // chọn file hợp lệ đầu tiên.
+        final base = 'ggml-${_mapToPluginModel(level).modelName}';
+        final candidates = <String>[
+          pluginName,
+          ...['q5_1', 'q4_0', 'q5_0', 'q8_0'].map((q) => '$base-$q.bin'),
+        ];
+        for (final name in candidates) {
+          final f = File(path.join(modelDir, name));
+          if (f.existsSync() && f.lengthSync() > 1000000) {
+            preferred = f;
+            break;
+          }
+        }
+      }
+      if (preferred == null) return;
+
+      if (pluginFile.existsSync()) {
+        if (pluginFile.lengthSync() == preferred!.lengthSync()) return;
+        debugPrint(
+          '[Whisper] ⚠️ File plugin $pluginName '
+          '(size=${pluginFile.lengthSync()}) khác model đã verify '
+          '(${preferred.path}, size=${preferred.lengthSync()}) — copy đè để '
+          'tránh whisper_init_from_file trả NULL (SIGSEGV)',
+        );
+      } else {
+        debugPrint(
+            '[Whisper] File plugin $pluginName thiếu — copy từ ${preferred.path}');
+      }
+      preferred.copySync(pluginFile.path);
+      debugPrint(
+          '[Whisper] ✅ Model cho plugin: ${pluginFile.path} (size=${pluginFile.lengthSync()})');
+    } catch (e) {
+      debugPrint('[Whisper] ⚠️ Không align được model cho plugin: $e');
+    }
+  }
+
   /// Transcribe file trên Mobile (Main Thread) bằng plugin whisper_flutter_new.
   static Future<SttResult> transcribeMobile({
     required String audioPath,
@@ -586,14 +696,18 @@ class SttEngineWhisper {
     );
 
     debugPrint('🎙️ Whisper (mobile plugin) đang transcribe: $wavPath');
-    final transcribeResult = await whisper.transcribe(
-      transcribeRequest: TranscribeRequest(
-        audio: wavPath,
-        isTranslate: false,
-        isNoTimestamps: false,
-        splitOnWord: wordTimestamps,
-        diarize: false,
-        language: language,
+    // Serialize request native (chống 2 whisper_init song song → xem
+    // _withExclusiveNative).
+    final transcribeResult = await _withExclusiveNative(
+      () => whisper.transcribe(
+        transcribeRequest: TranscribeRequest(
+          audio: wavPath,
+          isTranslate: false,
+          isNoTimestamps: false,
+          splitOnWord: wordTimestamps,
+          diarize: false,
+          language: language,
+        ),
       ),
     );
 
@@ -736,17 +850,55 @@ class SttEngineWhisper {
           continue;
         }
 
+        // ── Pre-flight TRƯỚC khi vào C++ (fix crash SIGSEGV) ──────────────
+        // (a) Chunk WAV hỏng/0 byte (FFmpeg "thành công" nhưng không ghi
+        //     đủ) → bỏ qua chunk thay vì ném file rác vào dr_wav.
+        final chunkFile = File(chunkPath);
+        int chunkBytes = 0;
+        try {
+          chunkBytes = await chunkFile.length();
+        } catch (_) {}
+        if (!await chunkFile.exists() || chunkBytes < 44) {
+          debugPrint(
+              '[Whisper] Chunk $i hong (size=$chunkBytes <44B) — bo qua');
+          chunkMsOffset += effectiveChunkDuration * 1000;
+          continue;
+        }
+        // (b) Model file bi mat/hong GIUA job (Android thuong xoa file app
+        //     khi thieu storage; user co the xoa model trong Settings trong
+        //     khi job dai van chay) → C++ whisper_init_from_file se tra NULL
+        //     va plugin KHONG check NULL → whisper_full(NULL) → SIGSEGV.
+        //     Fail sớm bên Dart với lỗi rõ ràng.
+        final modelBin = File(
+          path.join(
+            modelDir,
+            'ggml-${_mapToPluginModel(effectiveLevel).modelName}.bin',
+          ),
+        );
+        final modelBytes = modelBin.existsSync() ? modelBin.lengthSync() : 0;
+        if (modelBytes <= 1000000) {
+          throw StateError(
+            'Model Whisper bi mat/hong GIUA job: ${modelBin.path} '
+            '(size=$modelBytes). Tai lai model (Settings → STT Model) '
+            'rồi tạo lời lại.',
+          );
+        }
+
         debugPrint('🎙️ Chunk $i/$effectiveTotal: $chunkPath (bat dau transcribe)');
 
         try {
-          final chunkResult = await whisper.transcribe(
-            transcribeRequest: TranscribeRequest(
-              audio: chunkPath,
-              isTranslate: false,
-              isNoTimestamps: false,
-              splitOnWord: wordTimestamps,
-              diarize: false,
-              language: language,
+          // Serialize request native — KHÔNG BAO GIỜ 2 whisper_init_from_file
+          // chạy song song (xem _withExclusiveNative).
+          final chunkResult = await _withExclusiveNative(
+            () => whisper.transcribe(
+              transcribeRequest: TranscribeRequest(
+                audio: chunkPath,
+                isTranslate: false,
+                isNoTimestamps: false,
+                splitOnWord: wordTimestamps,
+                diarize: false,
+                language: language,
+              ),
             ),
           );
 

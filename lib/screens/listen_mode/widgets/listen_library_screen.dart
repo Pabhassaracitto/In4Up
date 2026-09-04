@@ -257,8 +257,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ListTile(
               leading: const Icon(Icons.play_circle_outline,
                   color: Color(0xFF6C63FF)),
-              title: const Text('Phát audio',
-                  style: TextStyle(color: Colors.white)),
+              title: Text(context.uiText('Phát audio'),
+                  style: const TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 _openAudio(audio);
@@ -266,8 +266,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Xóa khỏi danh sách',
-                  style: TextStyle(color: Colors.red)),
+              title: Text(context.uiText('Xóa khỏi danh sách'),
+                  style: const TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(context);
                 HapticFeedback.heavyImpact();
@@ -378,9 +378,11 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
         unselectedLabelColor: Colors.white38,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(fontSize: 13),
-        tabs: const [
-          Tab(text: 'Gần đây'),
-          Tab(text: 'Thư viện'),
+        tabs: [
+          // i18n (rule 5): tab chrome phải localize — locale ≠ vi hiện
+          // bản dịch/English, không để tiếng Việt trần.
+          Tab(text: context.uiText('Gần đây')),
+          Tab(text: context.uiText('Thư viện')),
         ],
       ),
     );
@@ -480,7 +482,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_inProgress.isNotEmpty) ...[
             _SectionHeader(
               emoji: '🎵',
-              title: 'Đang nghe',
+              title: context.uiText('Đang nghe'),
               count: _inProgress.length,
             ),
             ..._inProgress.map((a) => RecentAudioCard(
@@ -495,7 +497,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_newFiles.isNotEmpty) ...[
             _SectionHeader(
               emoji: '🆕',
-              title: 'Chưa nghe',
+              title: context.uiText('Chưa nghe'),
               count: _newFiles.length,
             ),
             ..._newFiles.map((a) => RecentAudioCard(
@@ -510,7 +512,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_completed.isNotEmpty) ...[
             _SectionHeader(
               emoji: '✅',
-              title: 'Đã nghe xong',
+              title: context.uiText('Đã nghe xong'),
               count: _completed.length,
             ),
             ..._completed.map((a) => RecentAudioCard(

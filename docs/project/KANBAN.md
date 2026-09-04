@@ -50,11 +50,16 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
+| I18N-001 | i18n backlog: 354 chrome literals chưa phân loại UI/content (generator legacy fallbacks không chạy được) + raw strings player tab Nghe | 📋 proposed | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5) |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
+| XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
+| HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
+| AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
-| XLAT-002 | Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (pi/vi/en/zh/zh-tw/my) + CJK boundary + UI 8 ngôn ngữ | ✅ done | 10.247 entries (2.1MB JSON) + master MD + audit (sandbox không có Flutter SDK → chờ CI) |
-| XLAT-003 | Glossary Pali/EN→VI trích xuất v2 (parser x-column clustering) từ cùng PDF | 🔄 doing | 1070 entries (712 pi→vi, 489 en→vi) + master 802 dòng + audit; chờ CI + review chủ |
+| STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
+| TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
+| SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
 
 ---
 
@@ -1008,6 +1013,37 @@
   - 2026-08-25 | created→done | agent arena/01a0251e-in4up | ff-merge
     01a0018e (70c4efc, nhánh đã merge sẵn 251e 2cfb53b) + cleanup import;
     CI xanh 33037686097/33037686068
+### I18N-001 — i18n backlog: 354 literals chưa phân loại + raw strings player tab Nghe
+- **Trạng thái:** proposed (cần branch i18n riêng — KHÔNG trộn vào branch feature)
+- **Phát hiện (2026-09-03, khi fix rule-5 cho tab Nghe "Gần đây"/"Thư viện"):**
+  chạy `python3 tool/generate_legacy_ui_fallbacks.py` báo
+  **"354 accented presentation literals need UI/content classification"** —
+  repo đã drift từ lần regenerate catalog cuối: 354 chuỗi chrome tiếng Việt
+  mới chưa được review (UI → thêm override / content → thêm exclusion).
+  Generator là ratchet chặt — không sửa đủ 354 thì không regenerate được.
+- **Drift đã dọn trong lúc fix lẻ:** 14 override stale (9 bị ARB shadow,
+  5 đã mất khỏi code sau harvest YouTube LR) + 1 content exclusion stale
+  (JS IFrame cũ thay bằng JS mới 19f6c3a) — generator giờ chỉ còn chặn
+  đúng 354 literals thật sự chưa review.
+- **Raw strings player tab Nghe (listen_mode_screen.dart — chưa fix):**
+  hàng chục chuỗi chrome trần ('Đặt điểm A/B', 'Nhảy đến đây', 'Lặp lại',
+  'Hẹn giờ ngủ', 'Theo câu/Theo cụm', 'Đang phân tích...', 'Hủy', …) —
+  cùng class bug như tab "Gần đây"/"Thư viện" (đã fix: 9 strings
+  ListenLibraryScreen + 2 strings AudioLibraryView qua uiText + fallback).
+- **Làm gì (branch mới từ tip DEV):**
+  1. Chạy generator, lấy danh sách 354; rà từng chuỗi: chrome UI →
+     `tool/legacy_ui_english_overrides.json` (keep-English T3 theo ADR-0002)
+     hoặc ARB nếu T1/T2; content (user/vocab/AI) →
+     `tool/legacy_ui_content_exclusions.json` kèm lý do.
+  2. i18n player tab Nghe (listen_mode_screen.dart) theo skill
+     `docs/skills/i18n-localization/SKILL.md`: uiText + ARB parity +
+     hi/zh/zh_TW/si, không fallback về Việt.
+  3. Regenerate + CI App Analyze + Locale xanh + nghiệm thu locale ≠ vi.
+- **Lịch sử:**
+  - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
+    rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
+    ListenLibraryScreen/AudioLibraryView (chờ CI)
+
 ### LANG-03033-01 — Chrome i18n Soundlist/LHB/shell (thâu hoạch 01a03033) + 3 fix nghiệm thu
 - **Trạng thái:** done (CI xanh; chờ owner nghiệm thu: mở app locale ≠ vi →
   chrome Soundlist/LHB/shell hiện bản dịch hi/zh/zh_TW/si/EN, không Việt)
@@ -1214,116 +1250,82 @@
     tự ẩn ✓, không trùng tên ✓. Hết cách static — cần oracle + đọc
     log analyze (artifact app-analyze-log) khi token hoạt động lại. Bài học: code 02ffc chưa từng qua
     compiler — mọi harvest tương tự phải coi "chưa compile" là mặc định
-  - 2026-08-29 | merge 251e (d16745b) vao topic 02ffc + fix loi #4 | agent
-    arena/01a02ffc-in4up | merge DEV vao branch topic (nguoi chua yeu cau):
-    lay 3 fix compile cua 251e (initialValue→value, import protect_tokens,
-    box.put thay putIfAbsent + duong dan WordEntry) + 4 file XLAT cua topic
-    (service pipeline day du, toolbar, vocab hook, test). Loi #4 (bisect tren
-    251e): `_mlkit is MlKitEngine` roi goi `_mlkit.isPairReady` — Dart KHONG
-    promote instance field → undefined method; fix eef319c (ban dia local
-    `final mlkit = _mlkit`). Chan CI tren topic de confirm xanh/đỏ.  - 2026-08-29 | fix loi #5 + #6 (toolbar) — CI XANH | agent arena/02ffc
-    (01a02ffc-in4up) | Sau merge 251e, CI topic van do — tiep tu bisect
-    oracle (log/artifact blob bi chan, khong doc duoc loi): (5) toolbar dung
-    `language.bcpCode` — extension BCP47Code CHIN trong file import truc tiep
-    package google_mlkit_translation (Dart khong re-export extension qua
-    import transit) → them static `MlKitEngine.bcpCodeFor`, toolbar khong
-    chan type TranslateLanguage nua (f1622f6); (6) `const Divider(color:
-    Colors.grey.shade800)` — shade800 la getter goi Map.[] → INVALID
-    CONSTANT VALUE (duy nhat trong codebase, khac la shade khong const) →
-    bo const (f3c0f73). Chuoi probe: dbd3066 (base toolbar = xanh → pipeline
-    sach) → T1 a0f8a2a (do) → T3 8a7ea8a (do → build) → T4 394e3a1 (xanh →
-    nua duoi build) → f3c0f73 XANH (analyze + locale test). Ton 50a377c
-    (B1) → E3 (251e) cho biet loi trong toolbar tu dau (B10+D14service
-    xanh, +toolbar do). CHU Y: `late final _x = TextEditingController(text:
-    widget...)` khong phai loi (1f04be3) — da chuyen ve initState cho an
-    toan. Soundlist tests do tren topic = code soundlist cua chinh 251e
-    (workflow chua bao gio chay tren 251e — merge thay doi path soundlist
-    nen bat trigger); khong lien quan XLAT — 251e tu xuat xuc.
 
-### XLAT-002 — Glossary đa ngữ Phật học từ bảng chuyên ngữ PDF (XLAT)
-- **Trạng thái:** done (code + test thuần + dữ liệu; chờ CI + review của chủ)
-- **Nguồn dữ liệu:** `reference/meditation vocabulary.pdf` (巴利－中文－英文－缅文,
-  121 trang, 2026.05.30) — chủ commit lên 251e (commit 13d271f). PDF bị lỗi font
-  OCR (ti→"4", tt→"h", tính→"pnh", cluster Burmese→junk) — đã repair + đánh dấu.
-- **Nội dung:**
-  - Trích xuất 754 entry × 5 ngôn ngữ (pi/vn/en/zh/my) bằng parser 2 tầng
-    (layout 2 cột, danh sách đánh số, pool ánh xạ zh/en theo thứ tự trang).
-  - **10.247 glossary entries** (10.139 locked) trong
-    `assets/glossary/buddhist_multilang.json` — mọi cặp (src,tgt) trong 6 mã
-    pi/en/vi/zh-tw/zh/my (zh 简 sinh ra từ 繁 bằng opencc t2s — deterministic,
-    không phải dịch máy). Merge với seed 226 (id trùng: seed thắng + audit).
-  - `GlossaryStore`: nạp LIST seed assets (226 trước, multilang sau).
-  - `GlossaryLang.normalize`: nhận zh/zh-tw/si/my + alias.
-  - **Boundary rule mới** (`protect_tokens`): word-char = CHỈ Latin ASCII + số
-    — CJK/Myanmar được phép khớp substring (chữ Hán không có khoảng trắng);
-    "sati" vẫn bị chặn trong "satisfaction". Test phủ cả 2 chiều.
-  - UI glossary sheet: dropdown 8 ngôn ngữ (pi/en/vi/hi/zh/zh-tw/si/my).
-  - `docs/glossary/buddhist_terms_master.md` — bảng nguồn 754 dòng cho chủ
-    sửa (dấu ✅/🔧/⚠); `docs/glossary/audit_extract.md` — 699 cells ⚠ +
-    438 conflict ngữ cảnh + thống kê.
-  - **Cột hi/si: TRỐNG** — PDF này không có Hindi/Sinhala; chờ nguồn mới.
-  - **Burmese: 117/567 cells sạch** — 450 cells cluster-junk → locked=false,
-    KHÔNG vào JSON glossary (hình thức junk không khớp text thật) — chủ cần
-    nguồn Burmese sạch nếu muốn khóa my.
-- **File:** thêm `assets/glossary/buddhist_multilang.json`,
-  `docs/glossary/buddhist_terms_master.md`, `docs/glossary/audit_extract.md`;
-  sửa `glossary_store.dart` (multi-asset), `translation_glossary.dart`
-  (normalize 8 mã), `glossary_sheet.dart` (dropdown 8 ngôn ngữ),
-  `protect_tokens.dart` (boundary ASCII-only), test (8 test mới).
-- **Bằng chứng:** test/translation_glossary_test.dart (XLAT-002 group: CJK
-  boundary, longest-match CJK, zh vs zh-tw, pi trong CJK, Burmese, regression
-  Latin). Sandbox KHÔNG có Flutter SDK — chưa chạy flutter test; algorithm
-  verify bằng port Python (12/12 case).
+### XLAT-002 — Dịch online-first (smart default) + offline fallback
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** tab Đọc — dù bật/tắt "chỉ offline"
+  trong cài đặt dịch, app LUÔN dịch offline Hy-MT.
+- **Root cause:** `_runEngineChain` chạy offline (Hy-MT → ML Kit) TRƯỚC
+  online engines — user đã có model Hy-MT thì mọi câu chạm offline
+  trước, online không bao giờ được thử dù có mạng.
+- **Fix (ce4945a):** chain mới = (1) ONLINE engines (Google Free/
+  DeepLX/MyMemory/Libre) khi có mạng + không khóa "chỉ offline" →
+  (2) OFFLINE fallback: Hy-MT (chọn/auto + có model) → ML Kit → từ điển.
+  Toggle "chỉ offline" + engine pref (auto/hymt/mlkit) giữ nguyên —
+  mặc định thông minh, vẫn đổi được trong Cài đặt dịch.
 - **Lịch sử:**
-  - 2026-08-29 | created | owner gửi file PDF + lệnh "tiến hành" | agent
-    arena/01a02ffc-in4up
-  - 2026-08-29 | doing→done | agent arena/01a02ffc-in4up | parser 2 tầng +
-    10.247 entries + code 8 ngôn ngữ + test; chờ CI + chủ review master table
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | owner báo
+    "dù tắt hay bật trong cài đặt dịch thì vẫn dịch offline HY-MT";
+    sửa ce4945a (chờ CI + nghiệm thu: có mạng → engine badge hiện
+    Google/MyMemory...; rút mạng → tự rơi Hy-MT/ML Kit)
 
-### XLAT-003 — Glossary Pali/EN→VI, trích xuất v2 từ PDF (parser x-column clustering)
-- **Trạng thái:** doing (code + dữ liệu; chờ CI + review của chủ)
-- **Nguồn:** cùng `reference/meditation vocabulary.pdf` (2022.05.30) — owner
-  yêu cầu tập trung 3 cột Pali/English/Vietnamese (glossary Pali/EN→VI).
-- **Vì sao làm lại (khác XLAT-002):** khảo sát span-level cho thấy
-  (1) cột Burmese SAI CODEPOINT trong PDF (font NotoSansMyanmar map glyph sai:
-  'Đ'→U+1012, 'N'→U+1014...) → không dùng MY làm source nữa; (2) parser v1 (2 tầng
-  heuristic) gộp/mất ô ở các list dày (wind 40, cetasika 52, kasiṇa...).
-- **Nội dung:**
-  - Parser v2 (`tool/extract_meditation_vocab.py`, PyMuPDF span-level):
-    gom line theo y±4pt + x overlap/≤25pt; PI-anchor + slot scoring
-    (PI/VI ±48.9 tới 69, MY +18.2, EN +24.4; ZH/EN khối phải lệch trên
-    anchor tới -24.5/-48.9 ở list dày); giáng cấp VI không dấu ("Da");
-    direct-rule EN-sau-VI (heading pattern); cross-page merge; detect drift
-    khối phải (⚠ en→vi).
-  - **1070 entries** (712 pi→vi, 489 en→vi; 1050 locked, 20 ⚠) trong
-    `assets/glossary/buddhist_pali_en_vi.json`. 819 dòng bảng
-    (780 term, 22 cùm, 11 heading, 6 prose).
-  - `GlossaryStore._assetPaths`: thêm file v2 GIỮA seed 226 và v1
-    (id trùng: 226 > v2 > v1).
-  - `tool/generate_pali_en_vi_glossary.py`: sinh lại JSON + master + audit
-    từ PDF (deterministic).
-  - `docs/glossary/buddhist_terms_master_pi_en_vi.md` — bảng nguồn 802 dòng
-    cho chủ review (✅/⚠, cột MY chỉ đối chiếu hình);
-    `docs/glossary/audit_extract_pi_en_vi.md` — thống kê + 20 dòng ⚠ +
-    danh sách row thiếu PI (bổ sung tay).
-  - **Vấn đề đã biết của PDF** (không phải lỗi parser): ô PI/MY mất text
-    (font hỏng: 'Visuddhi', '8', '25'...); ô Pali truncate trong bản gốc
-    ('Ānāpānassat', 'Sat', 'Pīt', 'Sammāsat', 'Jāt', 'Gilāna').
-- **File:** thêm `tool/extract_meditation_vocab.py`,
-  `tool/generate_pali_en_vi_glossary.py`,
-  `assets/glossary/buddhist_pali_en_vi.json`,
-  `docs/glossary/buddhist_terms_master_pi_en_vi.md`,
-  `docs/glossary/audit_extract_pi_en_vi.md`; sửa `glossary_store.dart`
-  (3 seed assets).
-- **Bằng chứng:** JSON validate (schema v1, 0 dup key, 0 empty, 0 pi-giống-EN);
-  diff master v1 (754 dòng) → v2 (802 dòng): coverage bằng/hơn, các list
-  dày (wind 40, cetasika 52) gán ô đúng hơn. Sandbox KHÔNG có Flutter SDK
-  → chờ CI.
+### HYMT-001 — Hy-MT "native không load được" dù đã có model
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** đã có model Hy-MT nhưng dịch vẫn báo
+  "hy-mt native không load được".
+- **Root cause (3 lớp):**
+  1. Handshake dối: isolate gửi "ready" trước khi `create()` chạy
+     (~600MB model, vài giây) — `ensureLoaded()` trả true dù create fail;
+     lỗi lộ ở request đầu, isolate chết im, không retry.
+  2. File cắt vẫn được coi là model: check cũ chỉ size ≥80MB + magic
+     đầu — file 100MB (download cắt của file 601MB) vẫn qua →
+     `llama_model_load_from_file` fail → NULL.
+  3. Lỗi chung chung, không nói được file hỏng hay thiếu RAM.
+- **Fix (cuối cùng 1677da3):** (1) `_LoadResult` gửi SAU khi create hoàn tất
+  (ready + error thật); ensureLoaded chờ nó (2 phút), fail → dispose +
+  `_lastLoadError` → lần sau RETRY. (2) `minPlausibleBytes` = 481MB (80% ×
+  601MB, size thật xác minh trên HF) + check magic GGUF đầu khi resolve;
+  file hỏng = chưa có model (fallback engine khác). (3) `modelIssue()`
+  + lỗi hiển thị nguyên nhân thật từ isolate.
+- **Ghi chú kỹ thuật quan trọng:** `_headIsGguf` KHÔNG dùng được
+  `File.openSync()`/`readBytesSync`/`closeSync` (RandomAccessFile sync
+  API) — analyzer CI (Flutter 3.44.1) từ chối compile (8 vòng bisect
+  33694449146 → 33697327206: T2 bỏ I/O xanh, T3 positional đỏ, T4
+  `openRead(0, 4).first` xanh). Dùng pattern `openRead(0, N).first`
+  (đã proof trong chính file: importFromUser dùng `openRead(0, 8)`) —
+  async, chỉ đọc 4 byte đầu, không load file 600MB vào RAM.
 - **Lịch sử:**
-  - 2026-08-31 | created | owner: "trích xuất bảng chuyên ngữ từ PDF để tạo
-    glossary Pali/EN→VI" | agent arena/01a02ffc-in4up
-  - 2026-08-31 | doing | agent arena/01a02ffc-in4up | parser v2 + 1070 entries
-    + store wiring (7e11ccb) + merge DEV 251e 74232c5 (b4b7bb3); chờ CI + review
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | xác minh
+    size file thật 601MB (HF tencent/Hy-MT1.5-1.8B-2bit-GGUF); fix
+    (ban dau — da squash vao 1677da3). Nghiệm thu: Import/Tải lại model → dịch → nếu vẫn lỗi,
+    message giờ nói nguyên nhân (file cắt / quant / RAM / thiếu native)
+  - 2026-09-03 | done→done | agent arena/01a0251e-in4up | CI đỏ triền
+    miên do RandomAccessFile sync API + 1 lỗi `error:` null-safety; 8
+    vòng bisect 1-bit xác định openSync/readBytesSync là thủ phạm (log
+    không đọc được). Đổi sang openRead → fix hoàn chỉnh 1677da3,
+    CI XANH 33697490397
+
+### AI-CHAT-02 — Chat "cứ xoay vòng" — engine queue đúng
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Báo cáo (owner 2026-09-03):** AI chat cứ bị xoay vòng khi chat.
+- **Root cause:**
+  1. `analyze()` yield fallback "Engine not ready" NGAY khi
+     state=processing (request trước còn chạy) → sau 1 lần chat chậm/
+     timeout 3 phút, mọi message kế tiếp trong ~2 phút chết yểu.
+  2. `.first.timeout(3 phút)` KHÔNG cancel được stream — generator cũ
+     vẫn treo trong `await for`; state processing chỉ reset khi isolate
+     trả lời hay watchdog 5 phút → cửa sổ "kẹt" ~2 phút sau mỗi timeout.
+  3. Facade busy-wait 60s rồi vẫn gọi analyze → fallback yểu mạng.
+- **Fix (5134f06):** (1) `analyze()`: state=processing → ĐỢI request cũ
+  xong ≤90s (isolate tuần tự = queue đúng) rồi mới fallback với lý do
+  rõ. (2) `_inFlight` counter: generator CUỐI CÙNG thoát mới đặt state
+  về ready — state không kẹt dù caller bỏ rơi stream. (3) bỏ busy-wait
+  60s ở facade (một nguồn sự thật).
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | fix 5134f06.
+    Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
+    trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
+    tin kế tiếp vẫn hoạt động bình thường
 
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)
@@ -1359,6 +1361,68 @@
     33355331358. Chờ nghiệm thu thiết bị (mở video → Học video → phụ đề
     song ngữ + lặp câu + tap từ + Mở trong tab Nghe)
 
+### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
+- **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK
+  (`LS75_chunk_0_*.wav`) → log "Use existing model tiny" → crash
+  `libwhisper.so request+740` trên thread DartWorker,
+  `SEGV_MAPERR fault addr 0x180` (null pointer).
+- **Root cause (xác minh từ source plugin whisper_flutter_new 1.0.1):**
+  - Mỗi chunk = `Isolate.run()` gọi C++ `request()` →
+    `whisper_init_from_file()` **KHÔNG check NULL** → `whisper_full()`.
+    Init fail (OOM RAM — thường khi 2 init chạy song song: user CANCEL
+    LRC rồi tạo lại ngay → request cũ bị bỏ rơi vẫn chạy trong isolate
+    plugin; hoặc model file mất giữa job) → `whisper_full(NULL)` → SEGV
+    ở offset struct context (~0x180).
+  - Log "Use existing model tiny" = chỉ check file `.bin` tồn tại
+    (`_initModel`), KHÔNG phải tái dùng context.
+  - Gợi ý isolate (Gemini #3) không giải quyết: isolate là thread cùng
+    process — SIGSEGV giết cả process; và plugin VẪN chạy Isolate.run
+    (DartWorker trong log = isolate đó).
+- **Fix (app-side, plugin GPL không sửa):** `stt_engine_whisper.dart`
+  (af65675): (1) `_withExclusiveNative` — mọi transcribe ĐỢI request
+  native trước (kể cả orphan sau cancel) kết thúc thật sự → không bao
+  giờ 2 `whisper_init_from_file` song song; (2) pre-flight mỗi chunk:
+  chunk WAV ≥44B, model `ggml-*.bin` còn tồn tại >1MB (mất giữa job →
+  lỗi Dart rõ ràng thay vì SIGSEGV); (3) bọc cả đường transcribeMobile.
+- **Rủi ro còn lại + đề xuất dài hạn:** OOM-init-NULL khi MỘT request
+  đơn tự OOM vẫn có thể crash (chỉ patch plugin mới chặn triệt để: NULL
+  check + dùng MỘT context cho cả job thay vì init/free mỗi chunk —
+  còn giảm RAM + tăng tốc). Cân nhắc fork plugin hoặc chuyển đường LRC
+  mobile sang engine Sherpa (lifecycle tự quản trong app).
+- **Crash 2 (single request — build 4a671c2, Samsung Tab S9 FE):**
+  - Log: crash NGAY chunk 0/5, request đầu tiên của process (uptime
+    338s, không có transcription nào trước đó) → **loại trừ** race 2
+    init song song (fix af65675 không đủ).
+  - Chìa khóa trong log: manager verify
+    `ggml-tiny-q5_1.bin` (32,152,673 B) nhưng plugin HARD-CODE load
+    `ggml-tiny.bin`; "Use existing model tiny" → `ggml-tiny.bin` tồn
+    tại nhưng là **file cũ từ phiên bản app trước** (user chỉ build lại,
+    chưa xóa app) → khả năng truncate/sai định dạng →
+    `whisper_init_from_file` trả NULL → `whisper_full(NULL)` →
+    SEGV_MAPERR 0x180 (plugin không check NULL).
+  - Fix 9ad6f85: `ensurePluginModelFile()` trước mỗi transcribe mobile
+    (facade + strategy) — copy model đã verify (hoặc candidate hợp lệ
+    trong modelDir) sang tên file plugin khi thiếu/khác size. Trên máy
+    user plugin sẽ load q5_1 32MB (whisper.cpp của plugin hỗ trợ Q5_1 —
+    xác minh `GGML_TYPE_Q5_1` trong ggml.h repo plugin) thay vì file cũ,
+    đồng thời giảm ~50% RAM model so với f32 75MB.
+- **Lịch sử:**
+  - 2026-09-03 | created→done | agent arena/01a0251e-in4up | owner dán log
+    crash + phân tích Gemini; xác minh source plugin qua GitHub; fix
+    af65675; CI đỏ 33677183078 do lỗi của chính guard cũ (gọi
+    `isCompleted` trên Future — chỉ Completer mới có) → bisect 1-bit
+    (xanh 33677984108) → guard mới (Completer-based) → CI XANH
+    33678279101
+  - 2026-09-03 | done→doing | owner via chat | crash 2 trên build
+    4a671c2 (single request, không race) — dán log full + native
+    backtrace
+  - 2026-09-03 | doing→done | agent arena/01a0251e-in4up | xác định
+    mismatch ggml-tiny.bin (plugin, file cũ) vs ggml-tiny-q5_1.bin
+    (manager verify); fix 9ad6f85 ensurePluginModelFile; CI XANH
+    33687604868. Chờ nghiệm thu: build mới → tạo lời file dài → nếu vẫn
+    crash thì Gỡ cài đặt app cũ + cài lại (xóa sạch app_flutter)
+
 ### HARVEST-1580-02 — Rà soát tổng thể 580 vs DEV (2026-08-30)
 - **Trạng thái:** done — 580 KHÔNG CÒN việc pending.
 - **Nội dung:** diff file-level toàn bộ 580 (tip 03e7ea0) vs DEV
@@ -1388,6 +1452,38 @@
     cầu "cứ thâu hoạch tiếp 1580... nghiệm thu từng nhóm" — audit toàn
     diện, không còn gì pending.
 
+### TIPITAKA-001 — Tipiṭaka (OpenTipitaka Pa-Auk): module kinh điển
+- **Trạng thái:** doing — DEMO trong DEV (18813d6); production trên nhánh mới
+- **Nguồn:** session `arena/019ff2f6-in4up` (workspace Linux + worktree
+  Windows `E:\PROJECTS\in4up.worktree\DEV`), bàn giao 2026-09-03.
+- **Đã làm (đang chạy trong DEV — commit 18813d6):**
+  - Module `lib/features/tipitaka/`: models (Collection/Book/Segment
+    Equatable), `db_service.dart` (sqflite, schema chuẩn, LIKE + index),
+    screens (Library 2 cột; Reader song ngữ Pāli/Việt/Anh + bookmark/ghi
+    chú; Search toàn văn; Download; Language Pack 26 ngôn ngữ).
+  - `main_shell.dart`: quick-action bolt "tipitaka" (Home → ⚡ → Tipiṭaka).
+  - `pubspec.yaml`: +sqflite +path; `assets/db/tipitaka.sqlite` DEMO
+    (~1.69MB, ~10k đoạn từ 3 file nguồn) + `scripts/import_tipitaka.py`.
+- **Phải làm (mỗi nhánh mới chọn 1 — chi tiết PLAN-021 mục 2):**
+  - **F** Full DB import (26 DB nguồn → ~500MB, hết LIMIT 10000)
+  - **D** Production: download DB về documents (KHÔNG bundle 500MB
+    assets) + bookmark/note persistence + Copy Citation (DN 1.1)
+  - **B** Spaced repetition: `tipitaka_learning_items` ↔ memory_mode
+  - **C** AI-RAG với citation bắt buộc (không citation → không trả lời)
+- **Sẽ làm (sau F/D/B/C):** FTS5; ngôn ngữ Miến/Thai; nối Reader với
+  tab Đọc.
+- **Tài liệu bàn giao (đọc trước khi giao việc):**
+  `docs/Bangiao/bangiao_tipitaka.md` (INTEGRATION_GUIDE + README module
+  + AGENT_PROMPT_TIPITAKA + TIPITAKA_HANDOFF — 4 bước F/C/B/D, ràng
+  buộc, nguồn DB Pa-Auk) + `lib/features/tipitaka/models/README.md` +
+  PLAN-021.
+- **Lịch sử:**
+  - 2026-09-03 | created | owner via session arena/019ff2f6-in4up |
+    module + DB DEMO + quick-action; code nằm trong DEV từ 18813d6
+  - 2026-09-03 | doing | agent arena/01a0251e-in4up | card + PLAN-021
+    ghi rõ đã làm/phải làm/sẽ làm; file bàn giao vào
+    docs/Bangiao/bangiao_tipitaka.md (5374214)
+
 ### SHERPA-WP23-01 — WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9)
 - **Trạng thái:** done + CI xanh 33336160268 (tip 8c2e868)
 - **Nguồn:** commit 4cdaffb từ `arena/01a039e9-in4up` (cherry-pick -x → 01f5235).
@@ -1408,6 +1504,20 @@
 - **Chờ:** nghiệm thu máy (lệnh giọng nói "phát/tạm dừng/tiếp theo/nhanh hơn/
   ẩn lời"; waveform nhiều speaker cần audio đã diarize — sidecar tạo tự động
   khi chạy STT pipeline).
+- **Việc tiếp theo (nhánh MỚI từ tip DEV sau khi nghiệm thu xanh —
+  chi tiết PLAN-022 mục 3, bàn giao docs/Bangiao/bangiao_sherpa.md):**
+  - WP3 action `translate` — nối lệnh "dịch" vào provider toggle
+    translation CHỈ sau khi owner xác nhận API (known limitation bàn
+    giao; không giả lập hành vi).
+  - WP-Z (có thể không làm): sidecar desktop yt-dlp khi explode gãy.
+  - Nâng cấp diarization khi có model thật (thay heuristic).
+  - Bẫy KHÔNG lặp lại: không khai báo trùng `_voiceCommandService`/
+    `_voiceListening`/`_lastVoiceText`/`_startVoiceCommands`; không
+    chèn snippet bằng mắt khi có conflict; không sửa `.github/workflows/`;
+    không bịa URL/model Zipformer; không auto-download.
 - **Lịch sử:**
   - 2026-08-30 | created→done | agent arena/01a0251e-in4up | cherry-pick -x
     4cdaffb (01f5235) + fix scope (8c2e868); CI xanh 33336160268
+  - 2026-09-03 | done→doing | agent arena/01a0251e-in4up | bàn giao
+    docs/Bangiao/bangiao_sherpa.md (5374214) + PLAN-022; card bổ sung
+    mục "Việc tiếp theo" + row tổng quan trỏ PLAN-022

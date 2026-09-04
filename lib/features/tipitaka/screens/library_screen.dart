@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/core/language/localized_material.dart';
+
 import 'package:in4up/features/tipitaka/models/book.dart';
-import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/screens/reader_screen.dart';
+import 'package:in4up/features/tipitaka/screens/search_screen.dart';
+import 'package:in4up/features/tipitaka/services/db_service.dart';
 
 class TipitakaLibraryScreen extends StatefulWidget {
   const TipitakaLibraryScreen({super.key});
@@ -16,6 +19,7 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   TipitakaCollection? selectedCollection;
   List<TipitakaBook> books = [];
   bool loading = true;
+  String? error;
 
   @override
   void initState() {
@@ -24,96 +28,188 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => loading = true);
-    // In production, get DB instance from provider or singleton
-    // Here we assume DB is already initialized via TipitakaDb.init(path)
+    if (mounted) setState(() {
+      loading = true;
+      error = null;
+    });
     try {
-      final db = await TipitakaDb.init('/data/user/0/com.in2up/databases');
+      final db = await TipitakaDb.openReady();
       final cols = await TipitakaDb.getCollections(db);
-      setState(() => collections = cols);
-    } catch (e) {
-      // DB not ready; show placeholder
+      if (!mounted) return;
       setState(() {
-        collections = [
-          const TipitakaCollection(id: 1, namePali: 'Vinaya Piṭaka', nameEn: 'Vinaya Pitaka', nameVi: 'Tạng Luật', orderIndex: 1),
-          const TipitakaCollection(id: 2, namePali: 'Sutta Piṭaka', nameEn: 'Sutta Pitaka', nameVi: 'Tạng Kinh', orderIndex: 2),
-          const TipitakaCollection(id: 3, namePali: 'Abhidhamma Piṭaka', nameEn: 'Abhidhamma Pitaka', nameVi: 'Tạng Vi Diệu Pháp', orderIndex: 3),
-        ];
+        collections = cols;
+        loading = false;
+        selectedCollection = cols.isEmpty ? null : cols.first;
       });
-    } finally {
-      setState(() => loading = false);
+      if (cols.isNotEmpty) await _selectCollection(cols.first);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        collections = [];
+        books = [];
+        error = e.toString();
+      });
     }
   }
 
-  Future<void> _selectCollection(TipitakaCollection col) async {
-    setState(() => selectedCollection = col);
+  Future<void> _selectCollection(TipitakaCollection collection) async {
+    if (!mounted) return;
+    setState(() {
+      selectedCollection = collection;
+      books = [];
+    });
     try {
-      final db = await TipitakaDb.init('/data/user/0/com.in2up/databases');
-      final bs = await TipitakaDb.getBooksByCollection(db, col.id);
-      setState(() => books = bs);
-    } catch (_) {
-      // Fallback placeholder books for DN, MN, SN, AN, Khuddaka
-      setState(() {
-        books = [
-          TipitakaBook(id: 1, collectionId: col.id, code: 'DN', namePali: 'Dīgha Nikāya', nameEn: 'Long Discourses', nameVi: 'Trường A-hàm', orderIndex: 1),
-          TipitakaBook(id: 2, collectionId: col.id, code: 'MN', namePali: 'Majjhima Nikāya', nameEn: 'Middle Discourses', nameVi: 'Trung A-hàm', orderIndex: 2),
-          TipitakaBook(id: 3, collectionId: col.id, code: 'SN', namePali: 'Saṃyutta Nikāya', nameEn: 'Connected Discourses', nameVi: 'Tương Ưng A-hàm', orderIndex: 3),
-          TipitakaBook(id: 4, collectionId: col.id, code: 'AN', namePali: 'Aṅguttara Nikāya', nameEn: 'Numerical Discourses', nameVi: 'Tăng Chi A-hàm', orderIndex: 4),
-        ];
-      });
+      final db = await TipitakaDb.openReady();
+      final loadedBooks = await TipitakaDb.getBooksByCollection(db, collection.id);
+      if (mounted) setState(() => books = loadedBooks);
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
     }
+  }
+
+  Future<void> _openDataManager() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TipitakaDownloadScreen()),
+    );
+    _load();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isVietnamese = Localizations.localeOf(context).languageCode == 'vi';
     return Scaffold(
-      appBar: AppBar(title: const Text('Tipiṭaka Library')),
+      appBar: AppBar(
+        title: const Text('Tipiṭaka Library'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: context.uiText('Tìm kiếm'),
+            onPressed: error == null
+                ? () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TipitakaSearchScreen(),
+                      ),
+                    )
+                : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.storage),
+            tooltip: context.uiText('Quản lý dữ liệu'),
+            onPressed: _openDataManager,
+          ),
+        ],
+      ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: ListView.builder(
-                    itemCount: collections.length,
-                    itemBuilder: (ctx, i) {
-                      final c = collections[i];
-                      final isSel = selectedCollection?.id == c.id;
-                      return ListTile(
-                        selected: isSel,
-                        title: Text(c.nameEn.isNotEmpty ? c.nameEn : c.namePali),
-                        subtitle: Text(c.nameVi),
-                        onTap: () => _selectCollection(c),
-                      );
-                    },
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: books.isEmpty
-                      ? const Center(child: Text('Chọn Piṭaka để xem sách'))
-                      : ListView.builder(
-                          itemCount: books.length,
-                          itemBuilder: (ctx, i) {
-                            final b = books[i];
-                            return ListTile(
-                              title: Text('${b.code} - ${b.nameVi.isNotEmpty ? b.nameVi : b.nameEn}'),
-                              subtitle: Text(b.namePali),
-                              onTap: () {
-                                // Push reader with first segment placeholder
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => TipitakaReaderScreen(bookId: b.id, bookCode: b.code),
+          : error != null
+              ? _MissingDatabaseView(
+                  onManage: _openDataManager,
+                  onRetry: _load,
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: ListView.builder(
+                        itemCount: collections.length,
+                        itemBuilder: (context, index) {
+                          final collection = collections[index];
+                          return ListTile(
+                            selected: selectedCollection?.id == collection.id,
+                            title: Text(
+                              collection.nameEn.isNotEmpty
+                                  ? collection.nameEn
+                                  : collection.namePali,
+                            ),
+                            subtitle: isVietnamese
+                                ? (collection.nameVi.isEmpty
+                                    ? null
+                                    : Text(collection.nameVi))
+                                : (collection.namePali.isEmpty
+                                    ? null
+                                    : Text(collection.namePali)),
+                            onTap: () => _selectCollection(collection),
+                          );
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: books.isEmpty
+                          ? const Center(child: Text('Chọn Piṭaka để xem sách'))
+                          : ListView.builder(
+                              itemCount: books.length,
+                              itemBuilder: (context, index) {
+                                final book = books[index];
+                                return ListTile(
+                                  title: Text(
+                                    '${book.code} — ${isVietnamese && book.nameVi.isNotEmpty ? book.nameVi : (book.nameEn.isNotEmpty ? book.nameEn : book.namePali)}',
+                                  ),
+                                  subtitle: Text(book.namePali),
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => TipitakaReaderScreen(
+                                        bookId: book.id,
+                                        bookCode: book.code,
+                                      ),
+                                    ),
                                   ),
                                 );
                               },
-                            );
-                          },
-                        ),
+                            ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+    );
+  }
+}
+
+class _MissingDatabaseView extends StatelessWidget {
+  final VoidCallback onManage;
+  final VoidCallback onRetry;
+
+  const _MissingDatabaseView({
+    required this.onManage,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.menu_book_outlined, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Tipiṭaka chưa có dữ liệu',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.uiText('Không thể mở cơ sở dữ liệu Tipiṭaka.'),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onManage,
+                icon: const Icon(Icons.storage),
+                label: const Text('Import hoặc tải dữ liệu'),
+              ),
+              TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

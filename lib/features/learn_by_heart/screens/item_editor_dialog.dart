@@ -7,6 +7,7 @@ import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/line_timestamp.dart';
 import '../models/recitation_category.dart';
+import '../models/recitation_language.dart';
 import '../models/review_state.dart';
 import '../services/anki_cloze_parser.dart';
 
@@ -31,6 +32,9 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
   late TextEditingController _lifeConnectionCtrl;
 
   RecitationCategory _category = RecitationCategory.dhammapada;
+  String _sourceLang = 'pi';
+  String _targetLang = 'vi';
+  MemorizeSide _memorizeSide = MemorizeSide.target;
 
   @override
   void initState() {
@@ -45,6 +49,9 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
     _lifeConnectionCtrl = TextEditingController(text: item?.lifeConnection ?? '');
     if (item != null) {
       _category = item.category;
+      _sourceLang = item.sourceLang;
+      _targetLang = item.targetLang;
+      _memorizeSide = item.memorizeSide;
     }
   }
 
@@ -64,21 +71,22 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     var viText = _viCtrl.text.trim();
-    final paliText = _paliCtrl.text.trim();
+    var paliText = _paliCtrl.text.trim();
 
     final extractedKeywords = <String>[];
 
-    // Tự động nhận diện cú pháp Anki Cloze {{c1::từ}}
-    if (AnkiClozeParser.hasAnkiCloze(viText)) {
-      final tokens = AnkiClozeParser.parseToTokens(viText);
-      for (final t in tokens) {
+    String stripCloze(String raw) {
+      if (!AnkiClozeParser.hasAnkiCloze(raw)) return raw;
+      for (final t in AnkiClozeParser.parseToTokens(raw)) {
         if (t.isKeyword && t.cleanWord.isNotEmpty) {
           extractedKeywords.add(t.text);
         }
       }
-      // Dọn sạch cú pháp Anki để lưu dạng text thuần túy cho hiển thị
-      viText = AnkiClozeParser.stripAnkiSyntax(viText);
+      return AnkiClozeParser.stripAnkiSyntax(raw);
     }
+
+    paliText = stripCloze(paliText);
+    viText = stripCloze(viText);
 
     final viLines = viText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
     final paliLines = paliText.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
@@ -132,6 +140,10 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
       category: _category,
       paliText: paliText,
       vietnameseText: viText,
+      sourceLang: _sourceLang,
+      targetLang: _targetLang,
+      memorizeSide: _memorizeSide,
+      ttsLanguage: _memorizeSide == MemorizeSide.source ? _sourceLang : _targetLang,
       shortMeaning: _shortMeaningCtrl.text.trim(),
       keywords: allKeywords,
       lifeConnection: _lifeConnectionCtrl.text.trim(),
@@ -241,22 +253,92 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Pali Text
+                      _buildLanguagePicker(
+                        label: 'Ngôn ngữ nguyên văn',
+                        selected: _sourceLang,
+                        onSelected: (code) => setState(() => _sourceLang = code),
+                      ),
+                      const SizedBox(height: 10),
                       _buildTextField(
                         controller: _paliCtrl,
-                        label: 'Nguyên văn Pali / Tiếng gốc (mỗi dòng một câu)',
+                        label:
+                            'Nguyên văn (${RecitationLanguage.fromCode(_sourceLang).displayName('vi')}) — mỗi dòng một câu',
                         hint: 'Manopubbaṅgamā dhammā,\nmanoseṭṭhā manomayā...',
                         maxLines: 4,
+                        required: _memorizeSide == MemorizeSide.source,
                       ),
                       const SizedBox(height: 12),
-
-                      // Vietnamese Text (Supports Anki Cloze {{c1::word}})
+                      _buildLanguagePicker(
+                        label: 'Ngôn ngữ bản dịch / nghĩa',
+                        selected: _targetLang,
+                        onSelected: (code) => setState(() => _targetLang = code),
+                      ),
+                      const SizedBox(height: 10),
                       _buildTextField(
                         controller: _viCtrl,
-                        label: 'Bản dịch Tiếng Việt (Hỗ trợ cú pháp Anki {{c1::từ_cần_ẩn}})',
+                        label:
+                            'Bản dịch (${RecitationLanguage.fromCode(_targetLang).displayName('vi')}) — Anki {{c1::từ}}',
                         hint: 'Ý dẫn đầu các {{c1::pháp}},\nÝ {{c2::làm chủ}}, ý tạo...',
                         maxLines: 4,
-                        required: true,
+                        required: _memorizeSide == MemorizeSide.target,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Học thuộc mặt nào?',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: Text(
+                              'Nguyên văn (${RecitationLanguage.fromCode(_sourceLang).displayName('vi')})',
+                            ),
+                            selected: _memorizeSide == MemorizeSide.source,
+                            selectedColor:
+                                const Color(0xFFFFD54F).withValues(alpha: 0.3),
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.05),
+                            labelStyle: TextStyle(
+                              color: _memorizeSide == MemorizeSide.source
+                                  ? const Color(0xFFFFD54F)
+                                  : Colors.white70,
+                              fontSize: 11,
+                              fontWeight: _memorizeSide == MemorizeSide.source
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                            onSelected: (_) => setState(
+                                () => _memorizeSide = MemorizeSide.source),
+                          ),
+                          ChoiceChip(
+                            label: Text(
+                              'Bản dịch (${RecitationLanguage.fromCode(_targetLang).displayName('vi')})',
+                            ),
+                            selected: _memorizeSide == MemorizeSide.target,
+                            selectedColor:
+                                const Color(0xFF81C784).withValues(alpha: 0.3),
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.05),
+                            labelStyle: TextStyle(
+                              color: _memorizeSide == MemorizeSide.target
+                                  ? const Color(0xFF81C784)
+                                  : Colors.white70,
+                              fontSize: 11,
+                              fontWeight: _memorizeSide == MemorizeSide.target
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                            onSelected: (_) => setState(
+                                () => _memorizeSide = MemorizeSide.target),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
 
@@ -312,6 +394,51 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLanguagePicker({
+    required String label,
+    required String selected,
+    required ValueChanged<String> onSelected,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: RecitationLanguage.pickerLanguages.map((lang) {
+              final isSelected = selected == lang.code;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text('${lang.flag} ${lang.displayName('vi')}'),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontSize: 11,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  onSelected: (_) => onSelected(lang.code),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 

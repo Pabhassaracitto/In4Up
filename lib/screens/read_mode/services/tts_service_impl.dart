@@ -1,142 +1,98 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../core/language/app_language.dart';
+import '../../../features/tts/tts_service.dart' as app_tts;
 import 'tts_service.dart';
 
+/// Triển khai TtsService cho PlaybackEngine dựa trên TtsService hợp nhất
+/// (Tự động ưu tiên Sherpa Piper neural TTS offline, fallback linh hoạt sang Offline máy / Online).
 class FlutterTtsServiceImpl implements TtsService {
-  final FlutterTts _tts;
-  Completer<void>? _completer;
-  Set<String>? _availableLanguages;
-  String? _activeLocale;
+  final app_tts.TtsService _appTts;
+  String _activeLocale = 'en-US';
+  double _activeSpeed = 1.0;
+  bool _stopped = false;
 
-  FlutterTtsServiceImpl() : _tts = FlutterTts() {
-    _tts.setCompletionHandler(() {
-      if (!(_completer?.isCompleted ?? true)) _completer?.complete();
-      _completer = null;
-    });
-    _tts.setErrorHandler((message) {
-      if (!(_completer?.isCompleted ?? true)) {
-        _completer?.completeError(message ?? 'TTS error');
-      }
-      _completer = null;
-    });
-  }
+  VoidCallback? _onStart;
+  VoidCallback? _onComplete;
+  void Function(String error)? _onError;
+
+  FlutterTtsServiceImpl({app_tts.TtsService? appTts})
+      : _appTts = appTts ?? app_tts.TtsService();
 
   @override
   Future<void> speak(String text) async {
     if (text.trim().isEmpty) return;
-    final previous = _completer;
-    if (previous != null && !previous.isCompleted) {
-      previous.completeError('stopped');
-    }
+    _stopped = false;
+    _onStart?.call();
 
-    final completer = Completer<void>();
-    _completer = completer;
-    final result = await _tts.speak(text);
-    if ((result == 0 || result == false) && !completer.isCompleted) {
-      completer.completeError('TTS không thể phát văn bản');
-    }
     try {
-      await completer.future;
+      _appTts.configure(
+        language: _activeLocale,
+        autoDetect: false,
+        speed: _activeSpeed,
+      );
+
+      await _appTts.speak(text);
+
+      // Chờ cho đến khi phát xong hoặc bị dừng
+      int waitLimit = 0;
+      while (_appTts.isSpeaking && !_stopped && waitLimit < 600) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        waitLimit++;
+      }
+
+      if (_appTts.error != null && _appTts.error!.isNotEmpty) {
+        _onError?.call(_appTts.error!);
+      } else {
+        _onComplete?.call();
+      }
     } catch (error) {
-      if (error.toString() != 'stopped') rethrow;
-    } finally {
-      if (identical(_completer, completer)) _completer = null;
+      if (!_stopped) {
+        _onError?.call(error.toString());
+        rethrow;
+      }
     }
   }
 
   @override
   void stop() {
-    _tts.stop();
-    final completer = _completer;
-    if (completer != null && !completer.isCompleted) {
-      completer.completeError('stopped');
-    }
-    _completer = null;
+    _stopped = true;
+    _appTts.stop();
   }
 
   @override
   Future<void> setSpeechRate(double rate) async {
-    final mapped = ((rate - 0.5) / 1.5).clamp(0.0, 1.0);
-    await _tts.setSpeechRate(mapped);
+    _activeSpeed = rate.clamp(0.25, 2.0);
+    _appTts.configure(speed: _activeSpeed);
   }
 
   @override
   Future<void> setLanguage(String locale) async {
     final requested = AppLanguageCatalog.fromCode(locale).ttsLocale;
-    final resolved = await _resolveSupportedLocale(requested);
-
-    if (_activeLocale == resolved) return;
-    final result = await _tts.setLanguage(resolved);
-    if (result == 0 || result == false) {
-      throw StateError('Thiết bị không có giọng đọc cho $requested');
-    }
-    _activeLocale = resolved;
-    debugPrint('[ReadTTS] language=$resolved (requested=$requested)');
+    _activeLocale = requested;
+    _appTts.configure(language: requested, autoDetect: false);
+    debugPrint('[ReadTTS] Language set to $requested');
   }
-
-  Future<String> _resolveSupportedLocale(String requested) async {
-    final normalizedRequested = _normalizeLocale(requested);
-    try {
-      _availableLanguages ??= await _loadAvailableLanguages();
-      final available = _availableLanguages!;
-      if (available.isEmpty || available.contains(normalizedRequested)) {
-        return requested;
-      }
-
-      final base = normalizedRequested.split('-').first;
-      final sameLanguage = available.where(
-        (candidate) => candidate.split('-').first == base,
-      );
-      if (sameLanguage.isNotEmpty) return sameLanguage.first;
-
-      throw StateError(
-        'Thiết bị chưa cài giọng ${AppLanguageCatalog.fromCode(requested).nativeName}',
-      );
-    } catch (error) {
-      if (error is StateError) rethrow;
-      // Some platforms do not expose getLanguages reliably. In that case we
-      // still call setLanguage and validate its return value.
-      return requested;
-    }
-  }
-
-  Future<Set<String>> _loadAvailableLanguages() async {
-    final raw = await _tts.getLanguages;
-    if (raw is! List) return <String>{};
-    return raw
-        .whereType<Object>()
-        .map((value) => _normalizeLocale(value.toString()))
-        .where((value) => value.isNotEmpty)
-        .toSet();
-  }
-
-  String _normalizeLocale(String value) =>
-      value.trim().replaceAll('_', '-').toLowerCase();
 
   @override
   set onStart(VoidCallback? callback) {
-    if (callback != null) _tts.setStartHandler(callback);
+    _onStart = callback;
   }
 
   @override
   set onComplete(VoidCallback? callback) {
-    if (callback != null) _tts.setCompletionHandler(callback);
+    _onComplete = callback;
   }
 
   @override
   set onError(void Function(String error)? callback) {
-    if (callback != null) {
-      _tts.setErrorHandler((message) => callback(message ?? 'unknown'));
-    }
+    _onError = callback;
   }
 
   @override
   Future<void> dispose() async {
     stop();
-    await _tts.stop();
   }
 }

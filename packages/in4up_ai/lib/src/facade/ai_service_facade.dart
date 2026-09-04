@@ -197,14 +197,10 @@ class AiServiceFacade extends ChangeNotifier {
           isError: true,
         ));
       } else {
-        // FIX AI-CHAT-01: engine đang bận sinh câu trả lời cho request khác
-        // (tab Viết/Nghe) — isolate xử lý tuần tự, chờ nó rảnh (tối đa ~60s)
-        // thay vì báo sai "chưa sẵn sàng".
-        var waitedSec = 0;
-        while (_engine?.state == AiEngineState.processing && waitedSec < 60) {
-          await Future<void>.delayed(const Duration(seconds: 1));
-          waitedSec += 1;
-        }
+        // FIX AI-CHAT-02: KHÔNG cần chờ ở đây nữa — engine tự queue:
+        // analyze() sẽ đợi request cũ (tab Viết/Nghe) xong tối đa 90s thay
+        // vì yield "Engine not ready" ngay (bản cũ: 1 chat timeout 3 phút
+        // ⇒ mọi message sau đó chết yểu ⇒ chat "xoay vòng").
         // Model native còn đang nạp (app tự nạp lúc khởi động) thì chờ xong
         // trước — message của user không bị trả lời bằng mock "chui".
         if (!_useMock && !_modelLoaded) {

@@ -54,6 +54,7 @@ Transform any audio file into a navigable "talking book":
 - YouTube Explorer: Search, download audio, and fetch multi‑language captions to convert into learning materials. [github](https://github.com/Pabhassaracitto/in4up)
 - Cloud & Local Library: Stream or play audio from Google Drive or local storage. [github](https://github.com/Pabhassaracitto/in4up)
 - Integrated Readers: Built‑in PDF Reader and Web Reader that extract text for instant analysis and “Text Studio” processing. [github](https://github.com/Pabhassaracitto/in4up)
+- Tipiṭaka: normalized SQLite reader with bundled-DB detection, device import, and explicit Pa-Auk language-pack downloads. See [docs/tipitaka_database.md](docs/tipitaka_database.md) for the database workflow.
 
 ### 3. Smart Sync & Offline‑First
 

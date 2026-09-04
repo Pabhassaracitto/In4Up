@@ -7,6 +7,7 @@ import '../controllers/learn_by_heart_provider.dart';
 import '../i18n/learn_by_heart_l10n.dart';
 import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
+import '../models/recitation_language.dart';
 import '../services/cloze_generator.dart';
 import '../services/multilingual_audio_service.dart';
 import '../widgets/chain_recitation_view.dart';
@@ -47,7 +48,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
 
   void _initTokens() {
     _tokens = ClozeGenerator.generate(
-      text: widget.item.vietnameseText,
+      text: widget.item.memorizeText,
       keywords: widget.item.keywords,
       maskRatio: 0.4,
     );
@@ -70,14 +71,19 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
   }
 
   Future<void> _playFirstHalfAudio() async {
-    final viLines = widget.item.vietnameseLines;
-    final halfCount = (viLines.length / 2).ceil();
-    final halfLines = viLines.take(halfCount).toList();
+    final primary = widget.item.memorizeLines;
+    if (primary.isEmpty) return;
+    final support = widget.item.supportLines;
+    final halfCount = (primary.length / 2).ceil().clamp(1, primary.length);
+    final halfPrimary = primary.take(halfCount).toList();
+    final halfSupport = support.take(halfCount).toList();
 
+    final isSource = widget.item.memorizeSide == MemorizeSide.source;
     await _audioService.playFullItem(
       widget.item.copyWith(
-        vietnameseText: halfLines.join('\n'),
-        paliText: widget.item.paliLines.take(halfCount).join('\n'),
+        paliText: isSource ? halfPrimary.join('\n') : halfSupport.join('\n'),
+        vietnameseText:
+            isSource ? halfSupport.join('\n') : halfPrimary.join('\n'),
       ),
     );
   }
@@ -462,10 +468,10 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
               ),
             ],
           ),
-          if (widget.item.paliText.isNotEmpty) ...[
+          if (widget.item.supportText.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              widget.item.paliText,
+              widget.item.supportText,
               style: const TextStyle(
                 color: Color(0xFFFFD54F),
                 fontSize: 14,
@@ -476,7 +482,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
           ],
           const SizedBox(height: 8),
           Text(
-            widget.item.vietnameseText,
+            widget.item.memorizeText,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 15,

@@ -64,6 +64,13 @@ class AiEngineGemma implements AiEngine {
     }
   }
 
+  /// Số request đang chờ isolate (mỗi generator analyze = 1). Dùng để
+  /// khôi phục state processing → ready DETERMINISTIC khi generator thoát
+  /// (kể cả khi caller timeout bỏ rơi stream — .first.timeout KHÔNG cancel
+  /// được stream, generator vẫn treo trong await for cho tới khi isolate
+  /// trả lời hoặc watchdog 5 phút).
+  int _inFlight = 0;
+
   @override
   Stream<AiAnalysis> analyze({
     required String text,
@@ -72,7 +79,7 @@ class AiEngineGemma implements AiEngine {
     double temperature = 0.1,
     int maxTokens = 256,
   }) async* {
-    if (_disposed || _state != AiEngineState.ready || _sendPort == null) {
+    if (_disposed || _sendPort == null) {
       yield AiAnalysis.fallback(
         text,
         errorReason: 'Engine not ready',
@@ -81,7 +88,34 @@ class AiEngineGemma implements AiEngine {
       return;
     }
 
+    // FIX AI-CHAT-02 (chủ báo 2026-09-03: chat "cứ xoay vòng"): bản cũ
+    // yield fallback "Engine not ready" NGAY khi state=processing — tức là
+    // sau MỘT lần chat chậm/timeout (3 phút), mọi message kế tiếp trong
+    // ~2 phút (đến khi watchdog 5 phút hay isolate trả lời request cũ) đều
+    // chết yểu, user gửi liên tục là thấy chat treo/lỗi. Isolate xử lý
+    // TUẦN TỰ nên cách đúng là ĐỢI request cũ xong (message của mình sẽ
+    // vào hàng đợi port) — tối đa 90s.
+    if (_state == AiEngineState.processing) {
+      final waitSw = Stopwatch()..start();
+      while (_state == AiEngineState.processing &&
+          waitSw.elapsed < const Duration(seconds: 90)) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    }
+
+    if (_disposed || _state != AiEngineState.ready || _sendPort == null) {
+      yield AiAnalysis.fallback(
+        text,
+        errorReason: _state == AiEngineState.processing
+            ? 'Engine vẫn đang kẹt với request trước (đã chờ 90s) — thử lại sau vài giây'
+            : 'Engine not ready',
+        analysisType: type,
+      );
+      return;
+    }
+
     _state = AiEngineState.processing;
+    _inFlight++;
     final prompt = _buildPrompt(type, text, context);
     final responsePort = ReceivePort();
     final weakEngine = WeakReference(this);
@@ -133,6 +167,16 @@ class AiEngineGemma implements AiEngine {
       watchdog.cancel();
       _pendingReplyPorts.remove(responsePort);
       responsePort.close();
+      // FIX AI-CHAT-02: caller timeout (3 phút) bỏ rơi stream ⇒ generator
+      // thoát ở đây mà request chưa có kết cục — KHÔNG được để state kẹt
+      // ở processing. Generator CUỐI CÙNG thoát mới được đặt về ready.
+      _inFlight--;
+      if (_inFlight <= 0) {
+        _inFlight = 0;
+        if (!_disposed && _state == AiEngineState.processing) {
+          _state = AiEngineState.ready;
+        }
+      }
     }
   }
 

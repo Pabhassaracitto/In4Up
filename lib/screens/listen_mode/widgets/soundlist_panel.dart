@@ -259,11 +259,11 @@ class _SoundlistPanelState extends State<SoundlistPanel>
               unselectedLabelColor: Colors.white38,
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               unselectedLabelStyle: const TextStyle(fontSize: 13),
-              tabs: const [
-                Tab(text: 'Mục lục'),
-                Tab(text: 'Điểm'),
-                Tab(text: 'Đoạn'),
-                Tab(text: 'Tìm kiếm'),
+              tabs: [
+                Tab(text: context.uiText('Mục lục')),
+                Tab(text: context.uiText('Điểm')),
+                Tab(text: context.uiText('Đoạn')),
+                Tab(text: context.uiText('Tìm kiếm')),
               ],
             ),
           ),
@@ -298,9 +298,9 @@ class _SoundlistPanelState extends State<SoundlistPanel>
           controller: controller,
           autofocus: true,
           style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: const InputDecoration(
-            hintText: 'Tên chương (VD: "Bài 1 – Tứ niệm xứ")',
-            hintStyle: TextStyle(color: Colors.white30),
+          decoration: InputDecoration(
+            hintText: context.uiText('Tên chương (VD: "Bài 1 – Tứ niệm xứ")'),
+            hintStyle: const TextStyle(color: Colors.white30),
           ),
         ),
         actions: [
@@ -1098,7 +1098,7 @@ class _SearchTabState extends State<_SearchTab> {
             style: const TextStyle(color: Colors.white, fontSize: 13.5),
             onChanged: (v) => setState(() => _query = v),
             decoration: InputDecoration(
-              hintText: '🔍  Tìm chữ trong audio…',
+              hintText: context.uiText('🔍  Tìm chữ trong audio…'),
               hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
               filled: true,
               fillColor: const Color(0xFF232841),
@@ -1223,7 +1223,7 @@ class _EmptyHint extends StatelessWidget {
             Icon(icon, size: 40, color: Colors.white24),
             const SizedBox(height: 12),
             Text(
-              text,
+              context.uiText(text),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white38, fontSize: 13, height: 1.5),
             ),

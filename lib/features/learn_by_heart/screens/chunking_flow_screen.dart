@@ -192,6 +192,7 @@ class _ChunkingFlowScreenState extends State<ChunkingFlowScreen> {
       children: [
         AudioControlBar(
           audioService: _audioService,
+          item: widget.item,
           onPlayPause: () {
             if (_audioService.isPlaying) {
               _audioService.stop();
@@ -205,13 +206,17 @@ class _ChunkingFlowScreenState extends State<ChunkingFlowScreen> {
           lineTimestamps: relevantTimestamps,
           activeLine: _audioService.currentLineIndex,
           languageMode: _audioService.langMode,
+          audioService: _audioService,
+          onLineTap: (lineTs) {
+            _audioService.playSingleLine(lineTs, widget.item);
+          },
         ),
       ],
     );
   }
 
   Widget _buildClozeStep(ChunkFlowStep step) {
-    final lines = widget.item.vietnameseLines;
+    final lines = widget.item.memorizeLines;
     final chunkText = step.lineRange
         .where((l) => l - 1 < lines.length)
         .map((l) => lines[l - 1])
@@ -261,6 +266,7 @@ class _ChunkingFlowScreenState extends State<ChunkingFlowScreen> {
           BilingualVerseView(
             lineTimestamps: widget.item.lineTimestamps,
             activeLine: _audioService.currentLineIndex,
+            audioService: _audioService,
           ),
         ],
       ),

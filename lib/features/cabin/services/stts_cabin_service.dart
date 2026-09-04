@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:in4up_stt/models/stt_result.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -212,7 +213,7 @@ class SttsCabinService extends ChangeNotifier {
     if (textToSpeak.trim().isEmpty) return;
 
     try {
-      await _tts.setLanguage(langToSpeak);
+      _tts.updateSettings(language: langToSpeak);
       await _tts.speak(textToSpeak);
     } catch (e) {
       debugPrint('⚠️ Replay caption TTS error: $e');
@@ -221,8 +222,8 @@ class SttsCabinService extends ChangeNotifier {
 
   // ── Pipeline Logic ────────────────────────────────────────────────────────
 
-  void _onLiveSttResult(dynamic sttResult) {
-    final rawText = (sttResult.fullText as String?)?.trim() ?? '';
+  void _onLiveSttResult(SttResult sttResult) {
+    final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
     final captionId = 'cap_${DateTime.now().millisecondsSinceEpoch}';
@@ -262,8 +263,8 @@ class SttsCabinService extends ChangeNotifier {
         sourceLang: _sourceLanguage,
         targetLang: _targetLanguage,
       );
-      translated = result.text.trim();
-      engine = result.engineUsed;
+      translated = result.translatedText.trim();
+      engine = result.engineName;
     } catch (e) {
       debugPrint('⚠️ SttsCabinService translation error: $e');
       translated = text; // Fallback to source
@@ -289,7 +290,7 @@ class SttsCabinService extends ChangeNotifier {
       _state = CabinState.speaking;
       notifyListeners();
       try {
-        await _tts.setLanguage(_targetLanguage);
+        _tts.updateSettings(language: _targetLanguage);
         await _tts.speak(translated);
       } catch (e) {
         debugPrint('⚠️ SttsCabinService Dubbing TTS error: $e');

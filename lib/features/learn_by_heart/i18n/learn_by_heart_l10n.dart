@@ -464,40 +464,4 @@ class LearnByHeartL10n {
         'zh_TW': '一句',
         'si': 'පේළිය',
       });
-
-  String get repeatLineCountTitle => _get({
-        'vi': 'Số lần phát câu này',
-        'en': 'Repeats for this line',
-        'hi': 'इस पंक्ति के लिए पुनरावृत्ति',
-        'zh': '这句话的播放次数',
-        'zh_TW': '這句話的播放次數',
-        'si': 'මෙම පේළිය සඳහා පුනරාවර්තන',
-      });
-
-  String get repeatLinePlus => _get({
-        'vi': 'Tăng số lần lặp câu này',
-        'en': 'Repeat this line more times',
-        'hi': 'इस पंक्ति को और बार पढ़ाएँ',
-        'zh': '这句话多播几次',
-        'zh_TW': '這句話多播幾次',
-        'si': 'මෙම පේළිය වැඩි වේලාවක්',
-      });
-
-  String get repeatLineMinus => _get({
-        'vi': 'Giảm số lần lặp câu này',
-        'en': 'Repeat this line fewer times',
-        'hi': 'इस पंक्ति को कम बार पढ़ाएँ',
-        'zh': '这句话少播几次',
-        'zh_TW': '這句話少播幾次',
-        'si': 'මෙම පේළිය අඩු වේලාවක්',
-      });
-
-  String get resetLineRepeat => _get({
-        'vi': 'Quay về mặc định (nhấn giữ)',
-        'en': 'Reset to default (long-press)',
-        'hi': 'डिफ़ॉल्ट पर लौटाएँ (लंबे दबाएँ)',
-        'zh': '恢复默认（长按）',
-        'zh_TW': '恢復預設（長按）',
-        'si': 'පෙරනිමි අගයට (දිගු ඔබීම)',
-      });
 }

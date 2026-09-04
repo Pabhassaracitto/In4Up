@@ -7,55 +7,12 @@ import 'package:in4up/features/learn_by_heart/models/fsrs_models.dart';
 import 'package:in4up/features/learn_by_heart/models/learn_by_heart_item.dart';
 import 'package:in4up/features/learn_by_heart/models/line_timestamp.dart';
 import 'package:in4up/features/learn_by_heart/models/recitation_category.dart';
-import 'package:in4up/features/learn_by_heart/models/recitation_repeat.dart';
 import 'package:in4up/features/learn_by_heart/models/review_state.dart';
 import 'package:in4up/features/learn_by_heart/services/cloze_generator.dart';
 import 'package:in4up/features/learn_by_heart/services/fsrs_engine.dart';
 import 'package:in4up/features/learn_by_heart/controllers/chunking_flow_controller.dart';
 
 void main() {
-  group('Learn By Heart - Per-line TTS repeat overrides', () {
-    test('JSON roundtrip preserves per-line repeats', () {
-      final items = DhammapadaSeedData.getInitialItems();
-      final item = items.first.copyWith(
-        lineRepeatOverrides: const {1: 5, 3: 2, 7: 999},
-      );
-      final restored =
-          LearnByHeartItem.fromJson(item.toJson() as Map<String, dynamic>);
-      expect(restored.lineRepeatOverrides, {1: 5, 3: 2, 7: 999});
-
-      // Item không có override (item cũ) → rỗng, không crash.
-      final plain = LearnByHeartItem.fromJson(item.toJson());
-      expect(plain.lineRepeatOverrides, isEmpty);
-    });
-
-    test('fromJson tolerates string keys, bad keys and out-of-range counts',
-        () {
-      final item = DhammapadaSeedData.getInitialItems().first;
-      final json = item.toJson();
-      json['lineRepeatOverrides'] = {
-        '2': 3,
-        'abc': 4, // key rác → bỏ
-        '9': 0, // count < 1 → bỏ
-        '10': 9999, // count > 999 → bỏ
-        '11': '7', // value string → parse
-      };
-      final restored = LearnByHeartItem.fromJson(json);
-      expect(restored.lineRepeatOverrides, {2: 3, 11: 7});
-    });
-
-    test('RecitationRepeat.forLine: override thắng default, clamp 1..999',
-        () {
-      const overrides = {2: 5};
-      expect(RecitationRepeat.forLine(1, defaultCount: 3, overrides: overrides),
-          3);
-      expect(RecitationRepeat.forLine(2, defaultCount: 3, overrides: overrides),
-          5);
-      expect(RecitationRepeat.clampLine(0), 1);
-      expect(RecitationRepeat.clampLine(9999), 999);
-    });
-  });
-
   group('Learn By Heart - Seed Data & Models Test', () {
     test('Initial seed items are valid and structured according to Spec v4.1', () {
       final items = DhammapadaSeedData.getInitialItems();

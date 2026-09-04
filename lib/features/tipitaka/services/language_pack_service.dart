@@ -11,8 +11,8 @@ import 'package:in4up/features/tipitaka/models/language_pack.dart';
 /// Downloads and extracts Pa-Auk Tipiṭaka language packages.
 ///
 /// Downloads are explicit user actions; this service is never called during
-/// app startup. The extracted file is kept as a source DB so it can be merged
-/// together with Pāli and other translations by the repository importer.
+/// app startup. The extracted source DB is handed to the in-app database
+/// importer by the screen, where it is normalized or merged directly.
 class TipitakaLanguagePackService {
   const TipitakaLanguagePackService();
 
@@ -85,8 +85,8 @@ class TipitakaLanguagePackService {
     final firstBytes = await header.read(4);
     await header.close();
 
-    // SQLite files begin with "SQLite format 3\0". A raw DB is useful to
-    // the command-line importer even if the URL has a .zip suffix.
+    // SQLite files begin with "SQLite format 3\0". A raw DB can be sent
+    // straight to the in-app importer even if the URL has a .zip suffix.
     final isZip = firstBytes.length >= 4 &&
         firstBytes[0] == 0x50 &&
         firstBytes[1] == 0x4b &&

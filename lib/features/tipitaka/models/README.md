@@ -43,7 +43,8 @@ instead.
    asset is declared in `pubspec.yaml`, so adding/replacing it no longer
    requires another Dart code change.
 
-The Flutter data manager can import an already normalized `.db`/`.sqlite`
-file. Raw language databases are intentionally rejected until they have been
-merged by the Python importer. This avoids opening a source DB as a new empty
-app DB and losing the user's expectation that the library is ready.
+The Flutter data manager accepts both an already normalized `.db`/`.sqlite`
+file and a raw Pa-Auk `.db`/`.sqlite`/`.zip` source package. Raw source tables
+are detected and normalized in Dart before installation, so Python is not
+required on a user device. The Python importer remains available for
+developer/release builds and very large offline imports.

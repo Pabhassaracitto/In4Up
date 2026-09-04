@@ -2,6 +2,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:in4up/features/tipitaka/models/language_pack.dart';
+import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/features/tipitaka/services/language_pack_service.dart';
 
 class TipitakaLanguagePackCatalog {
@@ -77,17 +78,25 @@ class _TipsLanguagePackScreenState extends State<TipsLanguagePackScreen> {
           });
         },
       );
+      final databasePath = result.databasePath;
+      if (databasePath == null) {
+        throw const TipitakaDatabaseException(
+          'Không tìm thấy file SQLite bên trong gói tải xuống.',
+        );
+      }
+      await TipitakaDb.importSourceDatabase(
+        databasePath,
+        languageCode: pack.languageCode,
+      );
       if (!mounted) return;
-      final location = result.databasePath ?? result.archivePath;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             context.uiText(
-              'Đã tải ${pack.name}. File nguồn: $location. '
-              'Hãy hợp nhất bằng scripts/import_tipitaka.py trước khi đọc.',
+              'Đã tải và import ${pack.name} trực tiếp vào thư viện Tipiṭaka.',
             ),
           ),
-          duration: const Duration(seconds: 8),
+          duration: const Duration(seconds: 6),
         ),
       );
     } catch (error) {
@@ -131,9 +140,8 @@ class _TipsLanguagePackScreenState extends State<TipsLanguagePackScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: const Text(
-              'Gói tải xuống là SQLite nguồn của Pa-Auk. Sau khi tải, hãy dùng '
-              'scripts/import_tipitaka.py để tạo tipitaka.sqlite chuẩn; không mở '
-              'trực tiếp file nguồn bằng Reader.',
+              'Gói tải xuống là SQLite nguồn của Pa-Auk. Ứng dụng sẽ tự nhận diện '
+              'và chuẩn hóa ngay sau khi tải; hãy import Pāli trước khi thêm bản dịch.',
             ),
           ),
           Expanded(

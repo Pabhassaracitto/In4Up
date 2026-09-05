@@ -60,6 +60,10 @@
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
+| HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done (chờ CI) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
+| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done (chờ CI + nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart |
+| LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done (chờ CI + nghiệm thu máy) | cherry-pick lại b631395 → 1665d53 (stepper [−][+]/menu trên câu đang phát, long-press reset, saveItem) |
+| WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 
 ---
 
@@ -1522,3 +1526,129 @@
   - 2026-09-03 | done→doing | agent arena/01a0251e-in4up | bàn giao
     docs/Bangiao/bangiao_sherpa.md (5374214) + PLAN-022; card bổ sung
     mục "Việc tiếp theo" + row tổng quan trỏ PLAN-022
+
+### HOME-001 — Bỏ phần "xác nhận nỗ lực" ở tab Home
+- **Trạng thái:** done (chờ CI)
+- **Nguồn:** yêu cầu owner: "Loại bỏ phần xác nhận nỗ lực ở tab Home. Vì thấy nó có phần dư thừa."
+- **Fix:** `lib/screens/home/widgets/focus_streak_card.dart` — xóa prompt
+  "Hôm nay bạn nỗ lực bao nhiêu? (1-10)" + `_EffortSlider` (slider 1-10 +
+  nút "Xác nhận nỗ lực") + dòng "Đánh giá nỗ lực hoàn tất". Thẻ còn lại
+  đúng phần cốt lõi: icon lửa + "NHỊP ĐIỆU HỌC TẬP" + "X ngày liên tiếp".
+- **Ghi chú:** `FocusProvider` giữ nguyên (streak vẫn hiện giá trị đã lưu).
+  Streak KHÔNG tự tăng nữa vì logic tăng streak gắn với action xác nhận
+  (saveEffort) đã bị bỏ. Nếu owner muốn streak theo hoạt động thật
+  (mở app/học bài) → đăng ký việc mới.
+- **Lịch sử:**
+  - 2026-09-05 | created→done | agent arena/01a0251e-in4up | xóa UI +
+    class _EffortSlider; chờ CI + nghiệm thu
+
+### READ-DEV-001 — Thư viện đọc: quét + hiển thị file trên máy (như thư viện nhạc)
+- **Trạng thái:** done (chờ CI + nghiệm thu máy)
+- **Nguồn:** yêu cầu owner: "Thư viện nhạc đã có thể quét từ máy, vậy hãy làm
+  cho thư viện đọc cũng có thể quét và hiển thị từ máy thay vì phải mở sâu vào
+  trong hệ thống bất tiện cho người dùng."
+- **Kiến trúc (ghép theo AUDLIB-001):**
+  - **Native** `MainActivity.kt` — MethodChannel `in4up/textlib`:
+    `scanTree(treeUri)` liệt kê ĐỆ QUY DocumentsContract từ tree URI (SAF),
+    lọc extension đọc (txt/lrc/srt/md/markdown/json/docx/pdf), trả
+    {uri, name, sizeBytes, dateModifiedMs, ext}; `keepTreePermission`
+    (takePersistableUriPermission — chọn 1 lần, mở app sau vẫn quét);
+    `copyContentToCache` (content:// → file thật trong cache).
+    Giới hạn: depth ≤ 12, ≤ 5000 file — không quét hang.
+  - **Dart:** `models/text_device_entry.dart` (model + label) ·
+    `services/text_device_channel.dart` (channel wrapper, an toàn
+    MissingPluginException trên iOS/Linux) · `providers/text_device_provider.dart`
+    (pickFolder qua FilePicker.getDirectoryPath + persist URI vào prefs +
+    scan/search/forget) · đăng ký trong `main.dart`.
+  - **UI** tab "Thiết bị" (`library_screen.dart`): chưa chọn folder →
+    nút "Chọn thư mục & quét"; đã chọn → header folder (tên + số tài liệu
+    + nút quét lại + menu quét lại/đổi/bỏ chọn) + danh sách file
+    (icon theo loại, tên, kích thước · ngày · ext), tìm kiếm dùng thanh
+    search chung, chạm → mở (copy cache → persist app docs → loadTextFile /
+    PdfReaderScreen, thêm vào Gần đây). 2 nút chọn file riêng lẻ GIỮ NGUYÊN
+    (file ngoài thư mục + nền tảng không hỗ trợ quét như iOS).
+- **Vì sao SAF thay vì MediaStore:** file văn bản KHÔNG có trong
+  MediaStore; scoped storage (targetSdk 35) không cho quyền đọc tùy ý
+  (MANAGE_EXTERNAL_STORAGE = quyền đặc biệt, Play Store hạn chế).
+  Chọn thư mục 1 lần qua hệ thống = cách chuẩn của app đọc sách.
+- **Lịch sử:**
+  - 2026-09-05 | created→done | agent arena/01a0251e-in4up | 4 file mới +
+    sửa library_screen/main/MainActivity; chờ CI + nghiệm thu máy
+    (chọn folder → thấy danh sách → mở file → mở lại app vẫn còn folder)
+
+### LHB-004 — Lặp TTS RIÊNG từng câu (số lần tùy ý/câu) + persist theo bài
+- **Trạng thái:** done (chờ CI + nghiệm thu máy)
+- **Nguồn:** yêu cầu owner: "khi chọn x3 là tất cả đều phát 3 lần mỗi câu
+  rất tốt, nhưng tôi muốn chỉnh chi tiết thêm để có thể chỉnh đặc biệt cho
+  câu mình muốn phát số lần tùy ý (câu khó nghe nhiều lần, câu dễ 1 lần)".
+- **Bối cảnh:** commit `b631395` đã implement đúng tính năng này (ngày
+  2026-09-04) nhưng bị REVERT (`f782cd6`) 5 phút sau, không có lý do trong
+  message. Owner yêu cầu lại → re-apply.
+- **Fix:** `git cherry-pick b631395` → commit `1665d53` (apply sạch, không
+  conflict vì không commit nào sau revert đụng vào file LHB):
+  - `LearnByHeartItem.lineRepeatOverrides` (Map<int,int> line→count 1..999)
+    + toJson key stringified + fromJson tolerant + copyWith — persist
+    qua restart (Hive).
+  - `MultilingualAudioService`: restoreLineOverrides (khi mở bài),
+    lineRepeatOverride(line), clearLineRepeatOverride (về mặc định),
+    lineRepeatOverridesSnapshot (để persist).
+  - `AudioControlBar`: khi có câu đang phát → bộ [−] [Câu N: 3×] [+]:
+    bấm chip = menu số lần (1/2/3/4/5/7/10/tùy chỉnh), NHẤN GIỮ chip =
+    về mặc định; callback onLineRepeatChanged cho màn hình persist.
+  - `BilingualVerseView`: chip lặp từng câu có onLongPress reset + persist.
+  - `new_learning_screen` + `chunking_flow_screen`: restore khi mở bài +
+    persist qua LearnByHeartProvider.saveItem.
+  - i18n +4 getter (repeatLineCountTitle/Plus/Minus/ResetLineRepeat)
+    đủ vi/en/hi/zh/zh_TW/si; +3 test trong learn_by_heart_test.dart.
+- **Lưu ý cho owner:** nếu revert trước là do lỗi cụ thể (không phải UX)
+  → báo lại triệu chứng, DEV điều tra riêng.
+- **Lịch sử:**
+  - 2026-09-04 | (nhánh nguồn) b631395 created → f782cd6 reverted (owner)
+  - 2026-09-05 | created→done | agent arena/01a0251e-in4up | cherry-pick
+    lại (1665d53); chờ CI + nghiệm thu máy
+
+### WORDLIST-002 — Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán
+- **Trạng thái:** done (chờ CI)
+- **Nguồn:** yêu cầu owner: "Trong worklist chỗ Định dạng hỗ trợ: theo
+  hướng dẫn .csv/.txt bằng cột (cần dòng header): word, meaning, ipa,
+  topic, example, example_simple, example_complex, language → Hãy đảm bảo
+  chắc chắn rằng khi tôi dán vào như hướng dẫn thì từ vựng được nạp chính
+  xác. Vì trước đây tôi thử nhờ gemini tạo danh sách từ vựng theo hướng dẫn
+  trên thì nó hiện chưa chính xác hoàn toàn, còn nhiều chỗ chưa đúng."
+- **Root cause (3 bug cộng dồn):**
+  1. **Header `example_simple`/`example_complex` bị BỎ SÓT:** key alias
+     trong map có gạch dưới (`'example_simple'`) nhưng header được
+     normalize BỎ gạch dưới (`examplesimple`) → tra map không thấy → 2
+     cột đó bị drop im lặng (mapped = null → skip).
+  2. **Phẩy KHÔNG bọc nháy trong meaning/example (Gemini hay sinh vậy):**
+     hàng có NHIỀU ô hơn header → mapping theo vị trí → cột bị LỆCH PHẢI
+     (language nhận rác, meaning bị cắt) → "nhiều chỗ chưa đúng".
+  3. **Header tiếng Việt có dấu map sai:** regex strip ký tự ngoài
+     U+00C0-024F chạy TRƯỚC khi bỏ dấu → các chữ U+1E00+ (ừ ự ấ ể ổ...)
+     bị XÓA HOÀN TOÀN (không map về chữ thường): "từ vựng" → "tvng",
+     "chủ đề" → "chd" → alias không bao giờ khớp.
+- **Fix:** `word_import_sheet.dart` — tách parser thuần
+  `WordTableParser` (public static, test được; widget chỉ gọi):
+  - `normKey`: bảng bỏ dấu tiếng Việt ĐẦY ĐỦ 64 ký tự (escape \uXXXX,
+    chạy TRƯỚC bước strip) → "từ vựng" ≡ "tu_vung" ≡ "tuvung"; thêm alias
+    `phienam` (phiên âm), `tiengviet/tienganh` (ngôn ngữ).
+  - `_normAliases`: alias map đã normalize key → `example_simple`/
+    `example_complex` map ĐÚNG.
+  - `alignRow(parts, fields)`: hàng ≤ cột → 1-1 + xử lý hàng thiếu cột
+    (thiếu IPA → các cột sau trượt trái khi ô cuối giống mã ngôn ngữ;
+    ô cuối là mã ngôn ngữ bị đẩy vào cột text → chuyển về cột language);
+    hàng > cột → **căn neo**: word = ô đầu, language = ô cuối,
+    ipa = ô `/.../` đầu tiên; ô trước ipa gộp vào meaning (", ");
+    ô sau ipa chia vào topic/example/exampleSimple/exampleComplex —
+    cột HẤP THỤ ô dư được CHỌN THÔNG MINH (cột nào khiến ít cột tự do
+    nào đó bị "cụt" thành ô 1 từ nhất — phẩy ở example_simple không bị
+    đổ nhầm sang example).
+  - Header lạ (không đủ mỏ neo) → giữ hành vi vị trí cũ (best-effort).
+  - `splitCsvLine` giữ nguyên (đã hiểu nháy kép + escape `""`).
+- **Test:** `test/word_import_parser_test.dart` — 15 test phủ: header
+  8 cột (EN + VN), hàng chuẩn, nháy kép, phẩy không nháy (meaning/
+  example/example_simple/cả hai), thiếu ipa (7-8 ô), thiếu cột cuối,
+  tab/semicolon, hàng 2 ô, ipa trống, không-gộp-lầm.
+- **Lịch sử:**
+  - 2026-09-05 | created→done | agent arena/01a0251e-in4up | WordTableParser
+    + 15 test; chờ CI (flutter test chạy trong pipeline)

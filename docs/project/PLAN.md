@@ -830,3 +830,55 @@ lib/features/dictionary/
 - **Lịch sử:**
   - 2026-09-05 | created | owner via agent arena/01a07234-in4up | "tích hợp từ điển dạng mdd mdx vào dự án"
   - 2026-09-05 | doing | agent arena/01a07234-in4up | bàn giao + PLAN + code WP0
+
+### PLAN-025 — Video Player local: xem video + phụ đề + học từ (VID-001)
+- **Nguồn:** owner (2026-09-05) — "làm phần video kết hợp A+B"
+- **Trạng thái:** doing — triển khai trên session arena/01a07234-in4up
+- **Milestone đề xuất:** ngoài M0–M3 (phạm vi Tools/Video; không đụng knowledge MVA)
+- **Chi tiết:** xem mục dưới. Card KANBAN: VID-001.
+- **Tài liệu bàn giao:** `docs/Bangiao/bangiao_video.md`
+
+#### 1. Mục tiêu
+
+Xem video local với phụ đề + học từ vựng:
+- **A:** Sub-tab "Xem" trong tab Nghe (Nghe | Nói | Xem)
+- **B:** Quick-action "Video" trong ⚡ menu
+- Phụ đề SRT overlay + tap từ → tra từ điển
+- Tốc độ phát + A-B loop per subtitle line
+
+#### 2. Kiến trúc
+
+```
+lib/features/video/
+├── models/video_info.dart
+├── services/video_library_service.dart
+├── widgets/video_player_screen.dart
+└── widgets/video_library_screen.dart
+```
+
+Package: `video_player: ^2.8.0` (Flutter official)
+
+#### 3. Work packages
+
+**WP0:** Models + video library service (quét thiết bị)
+**WP1:** Video player screen (play + controls + speed)
+**WP2:** SRT subtitle parser + overlay
+**WP3:** Sub-tab "Xem" trong Listen mode + quick-action
+**WP4:** Tích hợp từ điển (tap subtitle → lookup)
+**WP5:** A-B loop per subtitle line + i18n
+
+#### 4. Quy tắc ngôn ngữ
+
+- Chrome UI: rule #5 (locale ≠ vi → English, dùng uiText)
+- Nội dung phụ đề: giữ nguyên gốc
+- Tên file: giữ nguyên
+
+#### 5. Cấm
+
+- Không auto-download subtitle từ mạng
+- Không đụng vùng bảo vệ UltraTimeStretch FFI
+- Không parse video binary format (dùng video_player package)
+
+- **Lịch sử:**
+  - 2026-09-05 | created | owner via agent arena/01a07234-in4up | "làm phần video kết hợp A+B"
+  - 2026-09-05 | doing | agent arena/01a07234-in4up | bàn giao + PLAN + code WP0-WP3

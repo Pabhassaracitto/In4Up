@@ -65,6 +65,7 @@
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 | DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
+| VID-001 | Video Player local: xem video + phụ đề + học từ (PLAN-025) | 🔄 doing | bàn giao + PLAN + code WP0-WP3 (models + library + player + sub-tab) |
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
@@ -1775,3 +1776,27 @@
 - **Bằng chứng:** code trên branch arena/01a07234-in4up
 - **Lịch sử:**
   - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-024 + bàn giao + WP0
+
+### VID-001 — Video Player local: xem video + phụ đề + học từ (PLAN-025)
+- **Trạng thái:** 🔄 doing — WP0-WP3 code, đang push
+- **Nguồn:** owner (2026-09-05) — "làm phần video kết hợp A+B"
+- **Chi tiết:** xem PLAN-025 + `docs/Bangiao/bangiao_video.md`
+- **Nội dung:**
+  - Sub-tab "Xem" trong tab Nghe (Nghe | Nói | Xem) — approach A
+  - Quick-action "Video" trong ⚡ menu — approach B
+  - Video player screen (video_player package) + controls + speed
+  - SRT subtitle parser + overlay
+  - Video library screen (browse/search files from device)
+  - Tap subtitle → tra từ điển + lưu WordList
+  - A-B loop per subtitle line
+  - i18n chrome UI (rule #5)
+- **Work packages:**
+  - WP0: Models + video library service ✅
+  - WP1: Video player screen ✅
+  - WP2: SRT subtitle parser ✅
+  - WP3: Sub-tab "Xem" + quick-action ✅
+  - WP4: Tích hợp từ điển (tap subtitle → lookup)
+  - WP5: A-B loop per subtitle line + i18n
+- **Bằng chứng:** code trên branch arena/01a07234-in4up
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-025 + bàn giao + WP0-WP3

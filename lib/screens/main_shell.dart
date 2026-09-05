@@ -10,6 +10,8 @@ import 'package:in4up/l10n/app_localizations.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/video/widgets/video_player_screen.dart';
+import '../features/video/widgets/video_library_screen.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -102,7 +104,9 @@ class _MainShellState extends State<MainShell> {
 
   String get _currentModeLabel {
     if (_showListenModes) {
-      return _listenModeIndex == 0 ? 'Nghe' : 'Nói';
+      if (_listenModeIndex == 0) return 'Nghe';
+      if (_listenModeIndex == 1) return 'Nói';
+      return 'Xem';
     }
     if (_showReadModes) {
       return _readModeIndex == 0 ? 'Đọc' : 'Viết';
@@ -112,7 +116,9 @@ class _MainShellState extends State<MainShell> {
 
   String get _alternateModeLabel {
     if (_showListenModes) {
-      return _listenModeIndex == 0 ? 'Nói' : 'Nghe';
+      if (_listenModeIndex == 0) return 'Nói';
+      if (_listenModeIndex == 1) return 'Xem';
+      return 'Nghe';
     }
     if (_showReadModes) {
       return _readModeIndex == 0 ? 'Viết' : 'Đọc';
@@ -127,7 +133,7 @@ class _MainShellState extends State<MainShell> {
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
     _listenModeIndex =
         ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0)
-                .clamp(0, 1))
+                .clamp(0, 2))
             .toInt();
     _readModeIndex =
         ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0)
@@ -214,7 +220,7 @@ class _MainShellState extends State<MainShell> {
   void _toggleCurrentSecondaryMode() {
     HapticFeedback.selectionClick();
     if (_showListenModes) {
-      _setListenMode(_listenModeIndex == 0 ? 1 : 0);
+      _setListenMode((_listenModeIndex + 1) % 3); // Cycle: 0→1→2→0
     } else if (_showReadModes) {
       _setReadMode(_readModeIndex == 0 ? 1 : 0);
     }
@@ -250,9 +256,9 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return Colors.white;
       case _PrimaryTab.listen:
-        return _listenModeIndex == 0
-            ? const Color(0xFF6C63FF)
-            : const Color(0xFFB388FF);
+        if (_listenModeIndex == 0) return const Color(0xFF6C63FF);
+        if (_listenModeIndex == 1) return const Color(0xFFB388FF);
+        return const Color(0xFFFFB300); // Xem = amber
       case _PrimaryTab.read:
         return _readModeIndex == 0
             ? const Color(0xFF2196F3)
@@ -269,7 +275,9 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return 'In4Up';
       case _PrimaryTab.listen:
-        return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
+        if (_listenModeIndex == 0) return '🎧 Nghe';
+        if (_listenModeIndex == 1) return '🎙️ Nói';
+        return '📹 Xem';
       case _PrimaryTab.read:
         return _readModeIndex == 0 ? '📖 Đọc' : '✍️ Viết';
       case _PrimaryTab.understand:
@@ -505,6 +513,13 @@ class _MainShellState extends State<MainShell> {
           shellSettingsTool,
           ...contentTools,
                     tools.ToolItem(
+            id: 'video_player',
+            title: 'Video',
+            subtitle: 'Xem video local + phụ đề',
+            icon: Icons.videocam,
+            color: const Color(0xFFFFB300),
+          ),
+      tools.ToolItem(
             id: 'dictionary',
             title: 'Từ điển',
             subtitle: 'Quản lý từ điển MDX đa ngữ',
@@ -602,6 +617,7 @@ class _MainShellState extends State<MainShell> {
     };
     const listen = {
       'speak_mode': 100,
+      'video_player': 98,
       'youtube_downloader': 96,
       'youglish': 95,
       'understand_tab': 92,
@@ -763,6 +779,11 @@ class _MainShellState extends State<MainShell> {
           MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()),
         );
         return;
+      case 'video_player':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+        );
+        return;
       case 'dictionary':
         nav.push(
           MaterialPageRoute(builder: (_) => const DictManagerScreen()),
@@ -798,6 +819,7 @@ class _MainShellState extends State<MainShell> {
               onOpenQuickActions: _openQuickActions,
               onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
             ),
+            const VideoLibraryScreen(),
           ],
         );
       case _PrimaryTab.read:
@@ -1076,7 +1098,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildModeSwitch(BuildContext context) {
     final isListen = _showListenModes;
-    final labels = isListen ? const ['Nghe', 'Nói'] : const ['Đọc', 'Viết'];
+    final labels = isListen ? const ['Nghe', 'Nói', 'Xem'] : const ['Đọc', 'Viết'];
     final selectedIndex = isListen ? _listenModeIndex : _readModeIndex;
     final accent = _currentAccent;
 

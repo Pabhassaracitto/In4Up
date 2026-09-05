@@ -137,8 +137,6 @@ class SttsCabinService extends ChangeNotifier {
   Future<void> stopCabin() async {
     _silenceTimer?.cancel();
     _silenceTimer = null;
-    _stopKeepAlive();
-    _consecutiveStartFails = 0;
     await _sttSubscription?.cancel();
     _sttSubscription = null;
 

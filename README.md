@@ -171,5 +171,3 @@ flutter run
 ```
 
 > Lưu ý: Cần cấu hình Firebase (google‑services.json / GoogleService‑Info.plist) và build thư viện native bằng CMake trên Windows. [github](https://github.com/Pabhassaracitto/in4up)
-
-<!-- trigger re-analyze -->

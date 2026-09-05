@@ -4,14 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
+import '../../../features/dictionary/services/dictionary_service.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/selection_save_sheet.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
-// XÓA: import 'package:in4up_core/vocab_level_difficulty.dart';
-// XÓA: import '../../../models/segment.dart';
 
 void _openFullSave(
   BuildContext context, {
@@ -79,7 +78,7 @@ class WordActionsSheet {
   }
 }
 
-class _WordActionsContent extends StatelessWidget {
+class _WordActionsContent extends StatefulWidget {
   final AnalyzedWord word;
   final int lineIndex;
   final int wordIndex;
@@ -91,9 +90,43 @@ class _WordActionsContent extends StatelessWidget {
   });
 
   @override
+  State<_WordActionsContent> createState() => _WordActionsContentState();
+}
+
+class _WordActionsContentState extends State<_WordActionsContent> {
+  List<dynamic> _dictEntries = [];
+  bool _dictLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _lookupDict();
+  }
+
+  Future<void> _lookupDict() async {
+    try {
+      final entries = await DictionaryService.instance.lookup(widget.word.word);
+      if (mounted) {
+        setState(() {
+          _dictEntries = entries;
+          _dictLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _dictLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tp = context.read<TextProvider>();
-    final existingWord = context.read<VocabularyProvider>().findByWord(word.word);
+    final existingWord = context.read<VocabularyProvider>().findByWord(widget.word.word);
+
+    // Lấy nghĩa ưu tiên: MDX dict → OfflineDict → null
+    String? bestMeaning = widget.word.meaning;
+    if (_dictEntries.isNotEmpty) {
+      bestMeaning = _dictEntries.first.plainDefinition;
+    }
 
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -118,18 +151,18 @@ class _WordActionsContent extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: word.wordType.color.withValues(alpha: 0.15),
+                  color: widget.word.wordType.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: word.wordType.color.withValues(alpha: 0.3),
+                    color: widget.word.wordType.color.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
-                  word.word,
+                  widget.word.word,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: word.wordType.color,
+                    color: widget.word.wordType.color,
                   ),
                 ),
               ),
@@ -143,24 +176,24 @@ class _WordActionsContent extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         _Badge(
-                          label: word.wordType.labelVi,
-                          color: word.wordType.color,
+                          label: widget.word.wordType.labelVi,
+                          color: widget.word.wordType.color,
                         ),
                         _Badge(
-                          label: word.cefrLevel.shortLabel,
-                          color: word.cefrLevel.color,
+                          label: widget.word.cefrLevel.shortLabel,
+                          color: widget.word.cefrLevel.color,
                         ),
-                        if (word.userDifficulty != null)
+                        if (widget.word.userDifficulty != null)
                           _Badge(
-                            label: word.userDifficulty!.label,
-                            color: word.userDifficulty!.color,
+                            label: widget.word.userDifficulty!.label,
+                            color: widget.word.userDifficulty!.color,
                           ),
                       ],
                     ),
-                    if (word.meaning != null) ...[
+                    if (bestMeaning != null) ...[
                       const SizedBox(height: 8),
                       Text(
-                        word.meaning!,
+                        bestMeaning,
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 14,
@@ -177,7 +210,7 @@ class _WordActionsContent extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  tp.speak(word.word);
+                  tp.speak(widget.word.word);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -197,8 +230,84 @@ class _WordActionsContent extends StatelessWidget {
 
           const SizedBox(height: 24),
 
+          // ===== DICTIONARY RESULTS (MDX) =====
+          if (_dictEntries.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.menu_book,
+                          size: 14, color: const Color(0xFF2196F3)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Từ điển MDX (${_dictEntries.length} kết quả)',
+                        style: const TextStyle(
+                          color: Color(0xFF2196F3),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...(_dictEntries.take(3).map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          e.plainDefinition,
+                          style: TextStyle(
+                            color: Colors.grey[300],
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ))),
+                  if (_dictEntries.length > 3)
+                    Text(
+                      '+ ${_dictEntries.length - 3} kết quả khác...',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ] else if (_dictLoading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Đang tra từ điển...',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+
           // ===== PHONETIC / EXAMPLE =====
-          if (word.phonetic != null || word.example != null)
+          if (widget.word.phonetic != null || widget.word.example != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -213,14 +322,14 @@ class _WordActionsContent extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (word.phonetic != null) ...[
+                  if (widget.word.phonetic != null) ...[
                     Row(
                       children: [
                         Icon(Icons.record_voice_over,
                             size: 14, color: Colors.grey[500]),
                         const SizedBox(width: 6),
                         Text(
-                          word.phonetic!,
+                          widget.word.phonetic!,
                           style: TextStyle(
                             color: Colors.grey[400],
                             fontSize: 14,
@@ -230,9 +339,9 @@ class _WordActionsContent extends StatelessWidget {
                       ],
                     ),
                   ],
-                  if (word.phonetic != null && word.example != null)
+                  if (widget.word.phonetic != null && widget.word.example != null)
                     const SizedBox(height: 8),
-                  if (word.example != null) ...[
+                  if (widget.word.example != null) ...[
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -241,7 +350,7 @@ class _WordActionsContent extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            word.example!,
+                            widget.word.example!,
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 13,
@@ -262,7 +371,7 @@ class _WordActionsContent extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  UnifiedKnowledgeSheet.show(context, word: existingWord);
+                  UnifiedKnowledgeSheet.show(context, word: existingWord!);
                 },
                 icon: const Icon(Icons.hub_outlined, size: 18),
                 label: const Text('Mở hồ sơ tri thức hợp nhất'),
@@ -299,7 +408,7 @@ class _WordActionsContent extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: DifficultyLevel.values.map((level) {
-              final isSelected = word.userDifficulty == level;
+              final isSelected = widget.word.userDifficulty == level;
               return GestureDetector(
                 onTap: () {
                   HapticFeedback.selectionClick();
@@ -314,7 +423,7 @@ class _WordActionsContent extends StatelessWidget {
                               color: level.color, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '"${word.word}" → ${context.uiText(level.label)} (${level.repeatCount}x)',
+                            '"${widget.word.word}" → ${context.uiText(level.label)} (${level.repeatCount}x)',
                           ),
                         ],
                       ),
@@ -376,7 +485,7 @@ class _WordActionsContent extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: word.word));
+                    Clipboard.setData(ClipboardData(text: widget.word.word));
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -421,7 +530,7 @@ class _WordActionsContent extends StatelessWidget {
                               const Icon(Icons.bookmark_added,
                                   color: Color(0xFF4CAF50), size: 18),
                               const SizedBox(width: 8),
-                              Text(context.uiText('"${word.word}" đã lưu')),
+                              Text(context.uiText('"${widget.word.word}" đã lưu')),
                             ],
                           ),
                           behavior: SnackBarBehavior.floating,
@@ -456,7 +565,7 @@ class _WordActionsContent extends StatelessWidget {
               onPressed: () {
                 _openFullSave(
                   context,
-                  text: word.word,
+                  text: widget.word.word,
                   lineIndex: lineIndex,
                 );
               },
@@ -481,7 +590,7 @@ class _WordActionsContent extends StatelessWidget {
               onPressed: () {
                 final line = lineIndex < tp.lines.length
                     ? tp.lines[lineIndex].content
-                    : word.word;
+                    : widget.word.word;
                 _openFullSave(
                   context,
                   text: line,
@@ -517,7 +626,7 @@ class _WordActionsContent extends StatelessWidget {
               children: [
                 _StatItem(
                   label: 'Xuất hiện',
-                  value: '${word.frequency ?? 1}x',
+                  value: '${widget.word.frequency ?? 1}x',
                   icon: Icons.repeat,
                 ),
                 Container(
@@ -537,7 +646,7 @@ class _WordActionsContent extends StatelessWidget {
                 ),
                 _StatItem(
                   label: 'Ký tự',
-                  value: '${word.word.length}',
+                  value: '${widget.word.word.length}',
                   icon: Icons.text_fields,
                 ),
               ],

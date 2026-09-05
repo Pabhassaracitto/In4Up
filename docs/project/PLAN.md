@@ -763,3 +763,70 @@ mode, không phụ thuộc speech service hệ thống:
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao docs/Bangiao/bangiao_sherpa_wp4_live_stt.md +
     KANBAN SHERPA-WP4-01; chờ owner mở nhánh sherpa
+
+### PLAN-024 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
+- **Nguồn:** owner (2026-09-05) — "tích hợp từ điển dạng mdd mdx vào dự án"
+- **Trạng thái:** doing — triển khai trên session arena/01a07234-in4up
+- **Milestone đề xuất:** ngoài M0–M3 (phạm vi Tools/Dictionary; không đụng knowledge MVA)
+- **Chi tiết:** xem mục dưới. Card KANBAN: DICT-001.
+- **Tài liệu bàn giao (BẮT BUỘC đọc):** `docs/Bangiao/bangiao_dictionary.md`
+
+#### 1. Mục tiêu
+
+Tích hợp từ điển MDX/MDD đa ngôn ngữ vào In4Up:
+- Tra từ tức thì khi đọc PDF, TXT, Web, YouTube (tap từ → hiện nghĩa)
+- Quản lý đa từ điển: import `.mdx` (+`.mdd`), xóa, bật/tắt
+- Đa ngôn ngữ: EN↔VI, EN↔ZH, JA↔EN, Pali↔VI…
+- Lưu vào WordList: auto-fill meaning/IPA từ kết quả từ điển
+- Offline-first: tra từ không cần mạng
+
+#### 2. Kiến trúc (Approach C: MDX → SQLite)
+
+```
+User import .mdx → MdxParser.parse() [isolate] → SQLite dict_entries
+  → DictionaryService.registerDb(dictId, dbPath)
+  → lookup(word) → List<DictEntry> (multi-dict, không phân biệt hoa/thường)
+```
+
+File structure:
+```
+lib/features/dictionary/
+├── models/       (dict_entry.dart, dict_info.dart)
+├── services/     (mdx_parser.dart, dict_db_service.dart, dictionary_service.dart, dict_import_service.dart)
+├── widgets/      (dict_result_sheet.dart, dict_entry_card.dart, dict_manager_screen.dart)
+└── dictionary.dart
+```
+
+#### 3. Tích hợp
+
+- **Read mode:** WordActionsSheet → DictionaryService.lookup() → hiển thị nghĩa từ từ điển
+- **YouTube:** WordAnalysisSheet → DictionaryService.lookup() → hiển thị
+- **WordList:** auto-fill meaning khi lưu từ (addWithAutoClassify)
+- **Quick-action:** ⚡ → "Từ điển" → DictManagerScreen (quản lý import/xóa)
+
+#### 4. Quy tắc ngôn ngữ
+
+- Chrome UI: rule #5 AGENTS.md (locale ≠ vi → English, không bao giờ vi)
+- Nội dung từ điển: giữ nguyên ngôn ngữ gốc (KHÔNG dịch)
+- Import UI: mô tả i18n, tên file giữ nguyên
+
+#### 5. Work packages
+
+**WP0 — Models + DB service:** DictEntry, DictInfo, DictDbService (SQLite CRUD)
+**WP1 — MDX parser:** Dart parser trong isolate, parse header + index + records
+**WP2 — Dictionary service facade:** lookup multi-dict, register/unregister
+**WP3 — Import flow:** file_picker → parse → SQLite, progress, error handling
+**WP4 — Dict manager screen:** list, delete, toggle, entry count
+**WP5 — Tích hợp Read mode:** WordActionsSheet + auto-fill meaning
+**WP6 — Tích hợp YouTube + i18n:** WordAnalysisSheet + ARB keys
+
+#### 6. Cấm
+
+- Không auto-download từ điển (quy tắc MODELS.md)
+- Không đụng vùng bảo vệ UltraTimeStretch FFI
+- Không render HTML unsafe (sanitize trước khi hiển thị)
+- Không parse MDX runtime (convert 1 lần → SQLite)
+
+- **Lịch sử:**
+  - 2026-09-05 | created | owner via agent arena/01a07234-in4up | "tích hợp từ điển dạng mdd mdx vào dự án"
+  - 2026-09-05 | doing | agent arena/01a07234-in4up | bàn giao + PLAN + code WP0

@@ -64,6 +64,7 @@
 | READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
+| DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
@@ -1750,3 +1751,27 @@
 - **Lịch sử:**
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
+
+### DICT-001 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
+- **Trạng thái:** 🔄 doing — WP0 models + DB, đang code
+- **Nguồn:** owner (2026-09-05) — "tích hợp từ điển dạng mdd mdx vào dự án"
+- **Chi tiết:** xem PLAN-024 + `docs/Bangiao/bangiao_dictionary.md`
+- **Nội dung:**
+  - MDX parser (Dart, pure, isolate) → SQLite dict_entries
+  - Dictionary service facade: lookup multi-dict, register/unregister
+  - Import flow: file_picker → parse → SQLite, progress, error handling
+  - Dict manager screen: list, delete, toggle, entry count
+  - Tích hợp WordActionsSheet (Read mode) + WordAnalysisSheet (YouTube)
+  - Auto-fill meaning khi lưu từ (addWithAutoClassify)
+  - i18n chrome UI (rule #5 AGENTS.md)
+- **Work packages:**
+  - WP0: Models + DB service (DictEntry, DictInfo, DictDbService)
+  - WP1: MDX parser (Dart, isolate)
+  - WP2: Dictionary service facade
+  - WP3: Import flow
+  - WP4: Dict manager screen
+  - WP5: Tích hợp Read mode
+  - WP6: Tích hợp YouTube + i18n
+- **Bằng chứng:** code trên branch arena/01a07234-in4up
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-024 + bàn giao + WP0

@@ -9,6 +9,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
+import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -504,6 +505,13 @@ class _MainShellState extends State<MainShell> {
           shellSettingsTool,
           ...contentTools,
                     tools.ToolItem(
+            id: 'dictionary',
+            title: 'Từ điển',
+            subtitle: 'Quản lý từ điển MDX đa ngữ',
+            icon: Icons.auto_stories_rounded,
+            color: const Color(0xFF2196F3),
+          ),
+      tools.ToolItem(
             id: 'tipitaka',
             title: 'Tipiṭaka',
             subtitle: 'Đọc Tam Tạng, tra cứu kinh điển',
@@ -753,6 +761,11 @@ class _MainShellState extends State<MainShell> {
         // catch an async database-open failure, so do not use try/catch here.
         nav.push(
           MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()),
+        );
+        return;
+      case 'dictionary':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const DictManagerScreen()),
         );
         return;
       case 'shell_ui_settings':

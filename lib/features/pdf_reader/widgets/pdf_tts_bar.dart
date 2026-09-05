@@ -6,7 +6,9 @@
 //     không tự lật trang, không resume.
 // Giờ: đọc THEO CÂU, câu đang đọc được tô sáng bởi PdfWordOverlay, tới cuối
 // trang thì tự sang trang kế (tắt được), và Pause/Resume thật.
-import 'package:flutter/material.dart';
+// localized_material EXPORT material (chỉ hide `Text` để thay bằng shim dịch
+// nhãn) — import thẳng material ở đây sẽ làm `Text` thành ambiguous và còn bỏ
+// qua catalog, nên chỉ import shim.
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 

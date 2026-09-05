@@ -13,10 +13,16 @@ final RegExp _viDiacritics = RegExp(
   caseSensitive: false,
 );
 
-/// `uiText('...')` và `Text('...')` một dòng, không nội suy — chỉ những chuỗi
-/// này mới tra được trong catalog theo key đúng.
-final RegExp _label =
-    RegExp(r"""(?:uiText\(|\bText\()['']([^'\\\n$]{3,})['']\)""");
+/// Các chỗ một nhãn Việt đi thẳng vào UI: `uiText('...')`, `Text('...')` và mấy
+/// tham số chuỗi của widget (`tooltip:`/`message:`/`labelText:`/…). Chỉ chuỗi
+/// nguyên văn một dòng, không nội suy — vì đó mới là thứ tra được trong catalog
+/// theo key đúng.
+final List<RegExp> _labels = [
+  RegExp(r"""(?:uiText\(|\bText\()['']([^'\\\n$]{3,})['']\)"""),
+  RegExp(
+    r"""(?:tooltip|labelText|helperText|hintText|semanticLabel|message|alt):\s*['']([^'\\\n$]{3,})['']""",
+  ),
+];
 
 const List<String> _catalogs = [
   'lib/core/language/generated_ui_translations.dart',
@@ -47,15 +53,20 @@ void main() {
 
     final missing = <String>[];
     for (final file in files) {
-      for (final match in _label.allMatches(file.readAsStringSync())) {
-        final label = match.group(1)!;
-        if (!_viDiacritics.hasMatch(label)) continue;
-        final registered =
-            catalogText.contains("'$label':") || catalogText.contains('"$label":');
-        if (registered) continue;
-        final english = AppUITranslations.translate(label, 'en');
-        if (english != label) continue; // resolve được qua cơ chế khác
-        missing.add('${file.path}: $label');
+      // Bỏ comment một dòng: nhắc tới `Text('...')` trong comment không phải nhãn.
+      final src =
+          file.readAsStringSync().replaceAll(RegExp(r'//[^\n]*'), '');
+      for (final pattern in _labels) {
+        for (final match in pattern.allMatches(src)) {
+          final label = match.group(1)!;
+          if (!_viDiacritics.hasMatch(label)) continue;
+          final registered = catalogText.contains("'$label':") ||
+              catalogText.contains('"$label":');
+          if (registered) continue;
+          final english = AppUITranslations.translate(label, 'en');
+          if (english != label) continue; // resolve được qua cơ chế khác
+          missing.add('${file.path}: $label');
+        }
       }
     }
 

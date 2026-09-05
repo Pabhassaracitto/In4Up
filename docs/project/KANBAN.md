@@ -60,9 +60,9 @@
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
-| HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done (chờ CI) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
-| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done (chờ CI + nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart |
-| LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done (chờ CI + nghiệm thu máy) | cherry-pick lại b631395 → 1665d53 (stepper [−][+]/menu trên câu đang phát, long-press reset, saveItem) |
+| HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done + CI xanh (chờ nghiệm thu) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
+| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart |
+| LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 
 ---
@@ -1528,7 +1528,7 @@
     mục "Việc tiếp theo" + row tổng quan trỏ PLAN-022
 
 ### HOME-001 — Bỏ phần "xác nhận nỗ lực" ở tab Home
-- **Trạng thái:** done (chờ CI)
+- **Trạng thái:** done + CI xanh 33944392085 (chờ nghiệm thu)
 - **Nguồn:** yêu cầu owner: "Loại bỏ phần xác nhận nỗ lực ở tab Home. Vì thấy nó có phần dư thừa."
 - **Fix:** `lib/screens/home/widgets/focus_streak_card.dart` — xóa prompt
   "Hôm nay bạn nỗ lực bao nhiêu? (1-10)" + `_EffortSlider` (slider 1-10 +
@@ -1543,7 +1543,7 @@
     class _EffortSlider; chờ CI + nghiệm thu
 
 ### READ-DEV-001 — Thư viện đọc: quét + hiển thị file trên máy (như thư viện nhạc)
-- **Trạng thái:** done (chờ CI + nghiệm thu máy)
+- **Trạng thái:** done + CI xanh 33944392085 (chờ nghiệm thu máy)
 - **Nguồn:** yêu cầu owner: "Thư viện nhạc đã có thể quét từ máy, vậy hãy làm
   cho thư viện đọc cũng có thể quét và hiển thị từ máy thay vì phải mở sâu vào
   trong hệ thống bất tiện cho người dùng."
@@ -1600,15 +1600,30 @@
     persist qua LearnByHeartProvider.saveItem.
   - i18n +4 getter (repeatLineCountTitle/Plus/Minus/ResetLineRepeat)
     đủ vi/en/hi/zh/zh_TW/si; +3 test trong learn_by_heart_test.dart.
-- **Lưu ý cho owner:** nếu revert trước là do lỗi cụ thể (không phải UX)
-  → báo lại triệu chứng, DEV điều tra riêng.
+- **3 bug trong code gốc b631395 (tìm ra bằng CI bisect — code gốc chưa
+  bao giờ chạy CI xanh, cả 2 run b631395/f782cd6 đều đỏ do bug tipitaka
+  liền trước chìm mất lỗi):**
+  1. COMPILE: `fromJson` dùng `Map.map()` (trả `Iterable<MapEntry>`,
+     không phải Map) rồi gọi `.entries` → getter không tồn tại.
+  2. ANALYZE: chuỗi `?.map(...).where(...).toMap() ?? const {}` lỗi
+     (bị bắt khi bisect state-by-state) → thay bằng helper
+     `_parseLineRepeatOverrides(dynamic raw)` (forEach + clamp, tolerant
+     như cũ).
+  3. RUNTIME: `toJson` dùng `lineRepeatOverrides.map(...)` (Iterable) →
+     jsonEncode thành mảng {key,value} → fromJson cast fail → thay bằng
+     map-collection `{'\${k}': v}`.
+- **Lưu ý cho owner:** revert f782cd6 (chỉ 5 phút sau b631395) rất có thể
+  là do CI đỏ — root cause bây giờ đã rõ. Nếu còn lỗi UX cụ thể → báo lại.
 - **Lịch sử:**
   - 2026-09-04 | (nhánh nguồn) b631395 created → f782cd6 reverted (owner)
   - 2026-09-05 | created→done | agent arena/01a0251e-in4up | cherry-pick
-    lại (1665d53); chờ CI + nghiệm thu máy
+    lại + CI bisect (8 run, log CI không đọc được — chỉ có oracle 1-bit
+    xanh/đỏ) + 3 bug fix → CI xanh 33944392085 (chờ nghiệm thu máy)
 
 ### WORDLIST-002 — Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán
-- **Trạng thái:** done (chờ CI)
+- **Trạng thái:** done + CI xanh 33944392085 (chờ nghiệm thu máy)
+- **Fix CI:** `_normAliases` — `Map.map()` trả `Iterable<MapEntry>`,
+  không phải Map (chạy vào 5409728; phát hiện qua CI analyze đỏ).
 - **Nguồn:** yêu cầu owner: "Trong worklist chỗ Định dạng hỗ trợ: theo
   hướng dẫn .csv/.txt bằng cột (cần dòng header): word, meaning, ipa,
   topic, example, example_simple, example_complex, language → Hãy đảm bảo

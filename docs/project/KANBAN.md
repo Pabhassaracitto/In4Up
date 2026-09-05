@@ -67,7 +67,7 @@
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
-| SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | 📋 proposed (prompt bàn giao sẵn, chờ mở nhánh) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; model đã verify (vi-30M-int8 ~32MB + en-20M streaming int8) |
+| SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
 
 ## Card chi tiết
 
@@ -1725,8 +1725,7 @@
     cuối + nghiệm thu
 
 ### SHERPA-WP4-01 — Live STT offline qua sherpa Zipformer (WP4)
-- **Trạng thái:** 📋 proposed — prompt bàn giao đã sẵn sàng, chờ owner
-  mở **nhánh mới từ tip DEV** (arena/01a0251e-in4up).
+- **Trạng thái:** ✅ done (chờ CI + nghiệm thu máy)
 - **Nguồn:** owner (2026-09-05) — tiếp nối CABIN-001: cabin chạy bằng
   speech service hệ thống → máy không có Google/Speech Services thì
   không khởi động được mic; WP4 cho cabin live STT OFFLINE qua
@@ -1750,3 +1749,4 @@
 - **Lịch sử:**
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
+  - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).

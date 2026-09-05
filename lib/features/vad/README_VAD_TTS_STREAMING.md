@@ -83,7 +83,7 @@ Trạng thái: whisper.cpp offline GGML .bin ~37/75MB đã chạy, VAD pipeline 
 |---|---|---|---|
 | STT File / Bóc băng | whisper.cpp | .bin (GGML/GGUF) q4_0 | Offline chính xác cao, xử lý từng Chunk qua VAD |
 | Silence Detection (VAD) | sherpa-onnx | .onnx (Silero VAD ~2-5MB) | Quét mốc im lặng/tiếng nói hỗ trợ Whisper cắt file |
-| Live Streaming STT | sherpa-onnx | .onnx (Zipformer/RNN-T) | Mic trực tiếp <100ms latency cho assistant |
+| Live Streaming STT | sherpa-onnx | .onnx (Zipformer RNN-T ~20-32MB) | Mic trực tiếp <100ms latency cho cabin STS & shadowing |
 | Text-to-Speech (TTS) | sherpa-onnx | .onnx (VITS / Piper) | Đọc văn bản Việt/Anh offline |
 
 **Lưu ý tránh xung đột Native khi nâng cấp (Section 3 — đã áp dụng Singleton):**

@@ -153,6 +153,7 @@ class SttResult {
   final String language;
   final Duration processingTime;
   final bool hasWordTimestamps;
+  final bool isFinal;
 
   /// Audio fingerprint — cần để tạo UID cross-file
   final String audioFingerprint;
@@ -165,6 +166,7 @@ class SttResult {
     required this.processingTime,
     required this.audioFingerprint,
     this.hasWordTimestamps = false,
+    this.isFinal = true,
   });
 
   List<SttWord> get allWords => segments.expand((s) => s.words).toList();
@@ -176,11 +178,12 @@ class SttResult {
         language: 'en',
         processingTime: Duration.zero,
         audioFingerprint: '',
+        isFinal: true,
       );
 
   @override
   String toString() =>
-      'SttResult(engine=$engineUsed, segments=${segments.length}, '
+      'SttResult(engine=$engineUsed, isFinal=$isFinal, segments=${segments.length}, '
       'words=${allWords.length}, fp=$audioFingerprint)';
 }
 

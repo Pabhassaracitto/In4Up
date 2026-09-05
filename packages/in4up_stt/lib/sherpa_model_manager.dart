@@ -1,17 +1,17 @@
 // packages/in4up_stt/lib/sherpa_model_manager.dart
 //
-// SherpaModelManager — quản lý model Silero VAD + Piper TTS (MODELS-001).
+// SherpaModelManager — quản lý model Silero VAD, Piper TTS và Zipformer ASR (MODELS-001 / PLAN-023).
 //
 // TẤT CẢ chỉ chạy khi user bấm — không auto-download.
 //
-// Folder:
+// Folders:
 //   <documents>/sherpa_vad_models/silero_vad.onnx
 //   <documents>/sherpa_piper_models/
 //     espeak-ng-data/
 //     <voice>.onnx + <voice>_tokens.txt [+ <voice>.onnx.json]
-//
-// Silero VAD k2-fsa (2026): silero_vad.onnx ~629KB — KHÔNG được đòi >1MB
-// (ngưỡng cũ làm tải thành công rồi báo "mạng?").
+//   <documents>/sherpa_asr_models/
+//     asr-vi-30M-int8/ (tokens.txt, encoder.int8.onnx, decoder.onnx, joiner.int8.onnx)
+//     asr-en-20M-streaming-int8/ (tokens.txt, encoder*.onnx, decoder*.onnx, joiner*.onnx)
 
 import 'dart:async';
 import 'dart:io';
@@ -24,12 +24,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
 import 'tts/sherpa_piper_tts_core.dart';
 
 enum SherpaModelStatus { notInstalled, downloading, ready, error }
 
-/// Trạng thái 1 model đơn lẻ (Silero VAD).
+/// Trạng thái 1 model đơn lẻ (Silero VAD, hoặc 1 profile Zipformer ASR).
 class SherpaModelInfo {
   final SherpaModelStatus status;
   final double downloadProgress;
@@ -99,6 +100,49 @@ class SherpaPiperInfo {
   }
 }
 
+/// Định nghĩa profile của model Zipformer ASR.
+class SherpaAsrProfile {
+  final String id;
+  final String name;
+  final String language;
+  final bool isStreaming;
+  final int approxSizeMB;
+  final String downloadUrl;
+  final String archiveName;
+
+  const SherpaAsrProfile({
+    required this.id,
+    required this.name,
+    required this.language,
+    required this.isStreaming,
+    required this.approxSizeMB,
+    required this.downloadUrl,
+    required this.archiveName,
+  });
+}
+
+/// Trạng thái tổng thể của các profile Zipformer ASR.
+class SherpaAsrInfo {
+  final Map<String, SherpaModelInfo> profileStates;
+
+  const SherpaAsrInfo({
+    this.profileStates = const {},
+  });
+
+  SherpaModelInfo stateFor(String profileId) =>
+      profileStates[profileId] ?? const SherpaModelInfo();
+
+  bool isReady(String profileId) => stateFor(profileId).isReady;
+
+  SherpaAsrInfo copyWith({
+    Map<String, SherpaModelInfo>? profileStates,
+  }) {
+    return SherpaAsrInfo(
+      profileStates: profileStates ?? this.profileStates,
+    );
+  }
+}
+
 class SherpaModelManager {
   static SherpaModelManager? _instance;
   factory SherpaModelManager() => _instance ??= SherpaModelManager._internal();
@@ -106,6 +150,7 @@ class SherpaModelManager {
 
   static const String vadFolderName = 'sherpa_vad_models';
   static const String vadFileName = 'silero_vad.onnx';
+  static const String asrFolderName = 'sherpa_asr_models';
 
   /// k2-fsa silero_vad.onnx ~629KB; int8 ~208KB. HTML lỗi GitHub thường <80KB.
   static const int vadMinBytes = 80 * 1024;
@@ -134,6 +179,32 @@ class SherpaModelManager {
         'espeak-ng-data.tar.bz2',
   ];
 
+  /// Danh sách các profile Zipformer ASR được hỗ trợ sẵn.
+  static const List<SherpaAsrProfile> predefinedAsrProfiles = [
+    SherpaAsrProfile(
+      id: 'asr-vi-30M-int8',
+      name: 'Tiếng Việt (Zipformer 30M int8)',
+      language: 'vi',
+      isStreaming: false,
+      approxSizeMB: 32,
+      downloadUrl:
+          'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
+          'sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2',
+      archiveName: 'sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2',
+    ),
+    SherpaAsrProfile(
+      id: 'asr-en-20M-streaming-int8',
+      name: 'English (Zipformer 20M int8 streaming)',
+      language: 'en',
+      isStreaming: true,
+      approxSizeMB: 20,
+      downloadUrl:
+          'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
+          'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2',
+      archiveName: 'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2',
+    ),
+  ];
+
   static const String safEmptyPrefix = 'SAF_EMPTY:';
 
   final Dio _dio = Dio(
@@ -153,9 +224,12 @@ class SherpaModelManager {
       BehaviorSubject<SherpaModelInfo>.seeded(const SherpaModelInfo());
   final _piperState =
       BehaviorSubject<SherpaPiperInfo>.seeded(const SherpaPiperInfo());
+  final _asrState =
+      BehaviorSubject<SherpaAsrInfo>.seeded(const SherpaAsrInfo());
 
   CancelToken? _vadToken;
   CancelToken? _piperToken;
+  final Map<String, CancelToken> _asrTokens = {};
   bool _initialized = false;
   String? _documentsDir;
 
@@ -177,6 +251,12 @@ class SherpaModelManager {
     return dir.path;
   }
 
+  Future<String> _asrDir() async {
+    final dir = Directory(p.join(await _documents(), asrFolderName));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir.path;
+  }
+
   Future<void> initialize() async {
     if (!_initialized) {
       await _documents();
@@ -190,6 +270,9 @@ class SherpaModelManager {
 
   Stream<SherpaPiperInfo> watchPiper() => _piperState.stream;
   SherpaPiperInfo get piperInfo => _piperState.value;
+
+  Stream<SherpaAsrInfo> watchAsr() => _asrState.stream;
+  SherpaAsrInfo get asrInfo => _asrState.value;
 
   static bool isPlausibleVadFile(int size, {List<int>? head}) {
     if (size < vadMinBytes || size > vadMaxBytes) return false;
@@ -219,6 +302,7 @@ class SherpaModelManager {
 
   Future<void> rescan() async {
     try {
+      // 1. Rescan VAD
       final vadFile = File(p.join(await _vadDir(), vadFileName));
       List<int>? head;
       if (vadFile.existsSync()) {
@@ -236,6 +320,7 @@ class SherpaModelManager {
               status: SherpaModelStatus.ready, localPath: vadFile.path)
           : const SherpaModelInfo(status: SherpaModelStatus.notInstalled));
 
+      // 2. Rescan Piper
       final voices = await SherpaPiperTtsCore.discoverVoices();
       final piperDir = Directory(
           p.join(await _documents(), SherpaPiperTtsCore.modelsFolderName));
@@ -247,9 +332,322 @@ class SherpaModelManager {
             ? SherpaModelStatus.notInstalled
             : SherpaModelStatus.ready,
       ));
+
+      // 3. Rescan Zipformer ASR
+      final asrStates = <String, SherpaModelInfo>{};
+      final docs = await _documents();
+      for (final profile in predefinedAsrProfiles) {
+        final profileDir = p.join(docs, asrFolderName, profile.id);
+        final paths = _findAsrModelInDirSync(profileDir, isStreaming: profile.isStreaming);
+        if (paths != null) {
+          asrStates[profile.id] = SherpaModelInfo(
+            status: SherpaModelStatus.ready,
+            localPath: profileDir,
+          );
+        } else {
+          // Giữ trạng thái đang tải nếu đang download
+          final current = _asrState.value.stateFor(profile.id);
+          if (current.isDownloading) {
+            asrStates[profile.id] = current;
+          } else {
+            asrStates[profile.id] = const SherpaModelInfo(
+              status: SherpaModelStatus.notInstalled,
+            );
+          }
+        }
+      }
+      _asrState.add(SherpaAsrInfo(profileStates: asrStates));
     } catch (e) {
       debugPrint('⚠️ SherpaModelManager.rescan error: $e');
     }
+  }
+
+  // ── ZIPFORMER ASR ──────────────────────────────────────────────────────
+
+  SherpaModelPaths? _findAsrModelInDirSync(String dirPath, {bool? isStreaming}) {
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) return null;
+
+    final files = <String>[];
+    try {
+      for (final entity in dir.listSync(recursive: true, followLinks: true)) {
+        if (entity is File) files.add(entity.path);
+      }
+    } catch (_) {}
+
+    String? encoder;
+    String? decoder;
+    String? joiner;
+    String? tokens;
+
+    for (final f in files) {
+      final name = p.basename(f).toLowerCase();
+      final file = File(f);
+      if (!file.existsSync() || file.lengthSync() < 1000) continue;
+
+      if (name == 'tokens.txt' ||
+          name.endsWith('_tokens.txt') ||
+          (name.contains('tokens') && name.endsWith('.txt'))) {
+        tokens ??= f;
+      } else if (name.endsWith('.onnx')) {
+        if (name.contains('encoder')) {
+          if (name.contains('int8') || encoder == null) {
+            encoder = f;
+          }
+        } else if (name.contains('decoder')) {
+          decoder ??= f;
+        } else if (name.contains('joiner')) {
+          if (name.contains('int8') || joiner == null) {
+            joiner = f;
+          }
+        }
+      }
+    }
+
+    if (encoder != null && decoder != null && joiner != null && tokens != null) {
+      return SherpaModelPaths(
+        encoder: encoder,
+        decoder: decoder,
+        joiner: joiner,
+        tokens: tokens,
+        isStreaming: isStreaming ?? false,
+      );
+    }
+    return null;
+  }
+
+  /// Lấy model paths cho một ngôn ngữ hoặc profile ID.
+  SherpaModelPaths? getAsrModelPaths(String languageOrProfileId) {
+    final docs = _documentsDir;
+    if (docs == null) return null;
+
+    final langNorm = languageOrProfileId.toLowerCase().trim();
+    final profile = predefinedAsrProfiles.firstWhere(
+      (p) =>
+          p.id.toLowerCase() == langNorm ||
+          p.language.toLowerCase() == langNorm ||
+          langNorm.startsWith(p.language.toLowerCase()),
+      orElse: () => predefinedAsrProfiles.first,
+    );
+
+    final profileDir = p.join(docs, asrFolderName, profile.id);
+    return _findAsrModelInDirSync(profileDir, isStreaming: profile.isStreaming);
+  }
+
+  /// Kiểm tra xem đã có model Zipformer ASR cho ngôn ngữ/profile này chưa.
+  bool hasAsrModel(String languageOrProfileId) =>
+      getAsrModelPaths(languageOrProfileId) != null;
+
+  /// Tải về bundle Zipformer ASR theo profileId.
+  Future<String?> downloadAsrModel(String profileId) async {
+    final profile = predefinedAsrProfiles.firstWhere(
+      (p) => p.id == profileId,
+      orElse: () => throw ArgumentError('Unknown profile: $profileId'),
+    );
+
+    final currentInfo = asrInfo.stateFor(profileId);
+    if (currentInfo.isDownloading) return null;
+
+    final token = CancelToken();
+    _asrTokens[profileId] = token;
+
+    final states = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+    states[profileId] = const SherpaModelInfo(status: SherpaModelStatus.downloading);
+    _asrState.add(_asrState.value.copyWith(profileStates: states));
+
+    try {
+      final docs = await _documents();
+      final downloadsDir = Directory(p.join(docs, 'downloads'));
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      final savePath = p.join(downloadsDir.path, profile.archiveName);
+      final tmpPath = '$savePath.tmp';
+
+      debugPrint('📥 Download Zipformer ASR $profileId từ: ${profile.downloadUrl}');
+      await _dio.download(
+        profile.downloadUrl,
+        tmpPath,
+        cancelToken: token,
+        deleteOnError: true,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+            cur[profileId] = SherpaModelInfo(
+              status: SherpaModelStatus.downloading,
+              downloadProgress: received / total,
+            );
+            _asrState.add(_asrState.value.copyWith(profileStates: cur));
+          }
+        },
+      );
+
+      final tmp = File(tmpPath);
+      if (!await tmp.exists() || tmp.lengthSync() < 1000000) {
+        throw Exception(
+          'File tải về quá nhỏ (${tmp.existsSync() ? tmp.lengthSync() : 0} bytes)',
+        );
+      }
+      await _replaceFile(tmpPath, savePath);
+
+      final targetDir = p.join(docs, asrFolderName, profile.id);
+      final target = Directory(targetDir);
+      if (await target.exists()) {
+        await target.delete(recursive: true);
+      }
+      await target.create(recursive: true);
+
+      await _extractTarBz2(savePath, targetDir);
+
+      try { await File(savePath).delete(); } catch (_) {}
+
+      await rescan();
+      debugPrint('✅ ASR $profileId đã cài vào $targetDir');
+      return targetDir;
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+        cur[profileId] = const SherpaModelInfo(status: SherpaModelStatus.notInstalled);
+        _asrState.add(_asrState.value.copyWith(profileStates: cur));
+        return null;
+      }
+      final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+      cur[profileId] = SherpaModelInfo(
+        status: SherpaModelStatus.error,
+        errorMessage: 'HTTP ${e.response?.statusCode ?? '-'} ${e.message}',
+      );
+      _asrState.add(_asrState.value.copyWith(profileStates: cur));
+      return null;
+    } catch (e) {
+      final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+      cur[profileId] = SherpaModelInfo(
+        status: SherpaModelStatus.error,
+        errorMessage: 'Lỗi tải ASR: $e',
+      );
+      _asrState.add(_asrState.value.copyWith(profileStates: cur));
+      return null;
+    } finally {
+      _asrTokens.remove(profileId);
+      await rescan();
+    }
+  }
+
+  void cancelAsrDownload(String profileId) {
+    _asrTokens[profileId]?.cancel('User cancelled');
+    _asrTokens.remove(profileId);
+    final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+    cur[profileId] = const SherpaModelInfo(status: SherpaModelStatus.notInstalled);
+    _asrState.add(_asrState.value.copyWith(profileStates: cur));
+  }
+
+  Future<void> deleteAsrModel(String profileId) async {
+    try {
+      final docs = await _documents();
+      final dir = Directory(p.join(docs, asrFolderName, profileId));
+      if (await dir.exists()) await dir.delete(recursive: true);
+      await rescan();
+      debugPrint('🗑️ Deleted ASR model: $profileId');
+    } catch (e) {
+      debugPrint('⚠️ Delete ASR model error: $e');
+    }
+  }
+
+  Future<String> importAsrFolder(String folderPath, {String? targetProfileId}) async {
+    final dir = Directory(folderPath);
+    if (!await dir.exists()) return 'Thư mục không tồn tại';
+
+    final targetId = targetProfileId ??
+        (folderPath.toLowerCase().contains('vi')
+            ? 'asr-vi-30M-int8'
+            : 'asr-en-20M-streaming-int8');
+
+    final docs = await _documents();
+    final destDir = p.join(docs, asrFolderName, targetId);
+    await Directory(destDir).create(recursive: true);
+
+    final listing = await _walkPaths(dir.path);
+    var copied = 0;
+    var archivePath = '';
+
+    for (final path in listing) {
+      final name = p.basename(path).toLowerCase();
+      if (name.endsWith('.tar.bz2') || name.endsWith('.zip')) {
+        archivePath = path;
+        continue;
+      }
+      if (name == 'tokens.txt' ||
+          name.endsWith('_tokens.txt') ||
+          (name.contains('tokens') && name.endsWith('.txt')) ||
+          name.endsWith('.onnx')) {
+        final dest = p.join(destDir, p.basename(path));
+        if (await _tryCopyFile(path, dest)) copied++;
+      }
+    }
+
+    if (copied == 0 && archivePath.isNotEmpty) {
+      try {
+        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
+          await _extractTarBz2(archivePath, destDir);
+        }
+      } catch (e) {
+        return 'Giải nén archive thất bại: $e';
+      }
+    }
+
+    await rescan();
+    final paths = _findAsrModelInDirSync(destDir);
+    if (paths != null) {
+      return '✅ Đã import model Zipformer ASR ($targetId)';
+    }
+    return 'Import thất bại: thiếu file encoder/decoder/joiner/tokens trong $folderPath';
+  }
+
+  Future<String> importAsrFiles(List<String> filePaths, {String? targetProfileId}) async {
+    if (filePaths.isEmpty) return 'Chưa chọn file nào';
+
+    final targetId = targetProfileId ??
+        (filePaths.any((f) => f.toLowerCase().contains('vi'))
+            ? 'asr-vi-30M-int8'
+            : 'asr-en-20M-streaming-int8');
+
+    final docs = await _documents();
+    final destDir = p.join(docs, asrFolderName, targetId);
+    await Directory(destDir).create(recursive: true);
+
+    var copied = 0;
+    var archivePath = '';
+
+    for (final path in filePaths) {
+      final name = p.basename(path).toLowerCase();
+      if (name.endsWith('.tar.bz2') || name.endsWith('.zip')) {
+        archivePath = path;
+        continue;
+      }
+      if (name == 'tokens.txt' ||
+          name.endsWith('_tokens.txt') ||
+          (name.contains('tokens') && name.endsWith('.txt')) ||
+          name.endsWith('.onnx')) {
+        final dest = p.join(destDir, p.basename(path));
+        if (await _tryCopyFile(path, dest)) copied++;
+      }
+    }
+
+    if (copied == 0 && archivePath.isNotEmpty) {
+      try {
+        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
+          await _extractTarBz2(archivePath, destDir);
+        }
+      } catch (e) {
+        return 'Giải nén archive thất bại: $e';
+      }
+    }
+
+    await rescan();
+    final paths = _findAsrModelInDirSync(destDir);
+    if (paths != null) {
+      return '✅ Đã import model Zipformer ASR ($targetId)';
+    }
+    return 'Import thất bại: Cần đủ 4 file (.onnx: encoder, decoder, joiner và tokens.txt)';
   }
 
   // ── SILERO VAD ─────────────────────────────────────────────────────────
@@ -476,7 +874,6 @@ class SherpaModelManager {
       for (var i = 0; i < 5; i++) {
         final direct =
             Directory(p.join(dir.path, PiperImportPaths.espeakFolder));
-        // Do not gate on existsSync — OneDrive/SAF often returns false.
         if (await _copyEspeakTree(direct) > 0) return true;
         try {
           for (final entity in dir.listSync()) {
@@ -996,8 +1393,13 @@ class SherpaModelManager {
   void dispose() {
     _vadToken?.cancel('Disposed');
     _piperToken?.cancel('Disposed');
+    for (final token in _asrTokens.values) {
+      token.cancel('Disposed');
+    }
+    _asrTokens.clear();
     _vadState.close();
     _piperState.close();
+    _asrState.close();
     _instance = null;
   }
 }

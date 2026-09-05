@@ -721,8 +721,7 @@ từ tip DEV**. Không merge 580. Path-checkout file YouTube + test nhỏ vào D
 - **Nguồn:** owner (2026-09-05, qua session DEV arena/01a0251e-in4up —
   tiếp nối CABIN-001: cabin hiện chạy bằng speech service hệ thống,
   máy không có Google/Speech Services thì không khởi động được mic).
-- **Trạng thái:** 📋 proposed — prompt bàn giao đã sẵn sàng, chờ mở
-  **nhánh mới từ tip DEV**.
+- **Trạng thái:** ✅ done (chờ CI + nghiệm thu máy)
 - **Tài liệu bàn giao (BẮT BUỘC đọc):** `docs/Bangiao/bangiao_sherpa_wp4_live_stt.md`
   (nhiệm vụ N1-N4, thực tế model đã verify, bẫy, AT thiết bị, format
   báo cáo "WP DONE").
@@ -763,3 +762,4 @@ mode, không phụ thuộc speech service hệ thống:
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao docs/Bangiao/bangiao_sherpa_wp4_live_stt.md +
     KANBAN SHERPA-WP4-01; chờ owner mở nhánh sherpa
+  - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).

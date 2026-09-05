@@ -29,6 +29,9 @@ class SttsCabinService extends ChangeNotifier {
 
   StreamSubscription? _sttSubscription;
   Timer? _silenceTimer;
+  Timer? _keepAliveTimer;
+  int _consecutiveStartFails = 0;
+  bool _starting = false;
 
   CabinState _state = CabinState.idle;
   String _sourceLanguage = 'en';
@@ -78,7 +81,8 @@ class SttsCabinService extends ChangeNotifier {
         final result = await Permission.microphone.request();
         if (!result.isGranted) {
           _state = CabinState.error;
-          _lastError = 'Chưa cấp quyền microphone.';
+          _lastError = 'Chưa cấp quyền microphone. Vào Cài đặt → Ứng dụng → '
+              'In4Up → Quyền → cho phép "Microphone" rồi thử lại.';
           notifyListeners();
           return false;
         }
@@ -94,46 +98,142 @@ class SttsCabinService extends ChangeNotifier {
       debugPrint('⚠️ SttsCabinService STT init warning: $e');
     }
 
-    // Map source language to locale ID for STT
-    final sttLocale = _mapToSttLocale(_sourceLanguage);
+    // 3. Dọn phiên nghe còn treo: flow khác (vd nút Shadowing tab Nghe)
+    //    có thể đã start mic mà chưa stop — plugin native sẽ TỪ CHỐI
+    //    start phiên mới nếu còn "isListening" → đúng lỗi "Không thể
+    //    khởi động micro". Hủy sạch trước.
+    try {
+      await _stt.stopListening();
+    } catch (_) {}
 
     _state = CabinState.listening;
     notifyListeners();
 
-    try {
-      final started = await _stt.startListening(language: sttLocale);
-      if (!started) {
-        _state = CabinState.error;
-        _lastError = 'Không thể khởi động micro / nhận diện giọng nói.';
-        notifyListeners();
-        return false;
-      }
-
-      await _sttSubscription?.cancel();
-      _sttSubscription = _stt.liveResultStream.listen(
-        _onLiveSttResult,
-        onError: (e) {
-          debugPrint('❌ SttsCabinService STT stream error: $e');
-          _lastError = '$e';
-          _state = CabinState.error;
-          notifyListeners();
-        },
-      );
-
-      debugPrint('🎙️ SttsCabinService started ($sttLocale ➔ $_targetLanguage)');
-      return true;
-    } catch (e) {
-      debugPrint('❌ SttsCabinService start error: $e');
+    // Nếu keep-alive đang restart dở → đợi nó xong (tránh báo lỗi sớm).
+    for (int i = 0; i < 5 && _starting; i++) {
+      await Future.delayed(const Duration(milliseconds: 400));
+    }
+    var started = await _tryStartEngine();
+    if (!started && _stt.isLiveListening) started = true; // keep-alive thắng
+    if (!started) {
       _state = CabinState.error;
-      _lastError = '$e';
+      _lastError = await _buildStartFailureMessage();
       notifyListeners();
       return false;
     }
+
+    _consecutiveStartFails = 0;
+    _startKeepAlive();
+    debugPrint(
+        '🎙️ SttsCabinService started ($_sourceLanguage ➔ $_targetLanguage)');
+    return true;
+  }
+
+  /// Start engine chế độ hội thoại (không cap 2 phút, dictation).
+  /// Thất bại → cancel một lần nữa rồi RETRY (chữa trạng thái "mic bị
+  /// chiếm" / session plugin kẹt).
+  Future<bool> _tryStartEngine() async {
+    if (_starting) return false;
+    _starting = true;
+    try {
+      final sttLocale = _mapToSttLocale(_sourceLanguage);
+      bool started = false;
+      try {
+        started = await _stt.startConversation(language: sttLocale);
+      } catch (e) {
+        debugPrint('❌ SttsCabinService start error: $e');
+      }
+      if (!started) {
+        try {
+          await _stt.stopListening();
+        } catch (_) {}
+        try {
+          started = await _stt.startConversation(language: sttLocale);
+        } catch (e) {
+          debugPrint('❌ SttsCabinService retry error: $e');
+        }
+      }
+      if (started) {
+        await _sttSubscription?.cancel();
+        _sttSubscription = _stt.liveResultStream.listen(
+          _onLiveSttResult,
+          onError: (e) {
+            debugPrint('❌ SttsCabinService STT stream error: $e');
+            _lastError = '$e';
+            _state = CabinState.error;
+            notifyListeners();
+          },
+        );
+      }
+      return started;
+    } finally {
+      _starting = false;
+    }
+  }
+
+  /// Keep-alive: session hệ thống tự chết (im lặng quá lâu / service
+  /// restart) trong khi cabin vẫn "đang nghe" → tự restart im lặng.
+  /// Fail liên tiếp 3 lần → báo lỗi (tránh vòng lặp vô hạn).
+  void _startKeepAlive() {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), () {
+      _keepAliveTick();
+    });
+  }
+
+  void _stopKeepAlive() {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = null;
+  }
+
+  Future<void> _keepAliveTick() async {
+    if (_state != CabinState.listening &&
+        _state != CabinState.translating &&
+        _state != CabinState.speaking) {
+      return; // paused/stopped/error — không tự restart
+    }
+    if (_stt.isLiveListening) return; // session vẫn sống
+    if (_starting) return;
+
+    debugPrint('♻️ SttsCabinService: STT session chết — tự khởi động lại');
+    final ok = await _tryStartEngine();
+    if (ok) {
+      _consecutiveStartFails = 0;
+      _state = CabinState.listening;
+    } else {
+      _consecutiveStartFails++;
+      if (_consecutiveStartFails >= 3) {
+        _state = CabinState.error;
+        _lastError = await _buildStartFailureMessage();
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Thông báo lỗi KHỞI ĐỘNG mic/STT có thể hành động (tách biệt: thiếu
+  /// quyền vs không có dịch vụ nhận diện giọng nói của hệ thống).
+  Future<String> _buildStartFailureMessage() async {
+    final detail = _stt.liveLastError ?? '';
+    bool micOk = true;
+    try {
+      micOk = await _stt.checkLiveMicPermission();
+    } catch (_) {}
+    if (!micOk) {
+      return 'Chưa có quyền microphone. Vào Cài đặt → Ứng dụng → In4Up → '
+          'Quyền → cho phép "Microphone" rồi thử lại.';
+    }
+    return 'Không khởi động được nhận diện giọng nói${detail.isEmpty ? '' : ' — $detail'}.\n'
+        'Máy có thể KHÔNG có sẵn dịch vụ Speech Recognition (vd đã tắt/'
+        'gỡ Google app). Kiểm tra: Cài đặt → Ứng dụng → Google Keyboard / '
+        'Speech Services → bật "Nhận diện giọng nói". (Engine Whisper offline '
+        'chỉ dùng cho file/LRC, chưa hỗ trợ mic live.)';
   }
 
   Future<void> stopCabin() async {
     _silenceTimer?.cancel();
     _silenceTimer = null;
+    _stopKeepAlive();
+    _consecutiveStartFails = 0;
     await _sttSubscription?.cancel();
     _sttSubscription = null;
 

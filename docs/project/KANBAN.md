@@ -64,6 +64,7 @@
 | READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
+| STT-LRC-LANG-01 | Tạo lời (LRC) bằng Whisper đa ngữ: chip chọn ngôn ngữ + 'auto' tự nhận diện (hết hardcode 'en') | 🔄 doing (chờ CI + nghiệm thu máy) | _LrcModelSelector + 14 ngôn ngữ (mặc định auto); 3 call sites hardcode 'en' → language param; VAD pipeline + transcribeAuto + transcribeFile đều nhận language |
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
@@ -1750,3 +1751,38 @@
 - **Lịch sử:**
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
+
+### STT-LRC-LANG-01 — Tạo lời (LRC) bằng Whisper: đa ngữ, hết hardcode 'en'
+- **Trạng thái:** 🔄 doing (chờ CI + nghiệm thu máy)
+- **Nguồn:** owner (2026-09-05): "Đảm bảo với file âm thanh khả năng tạo lời
+  bằng AI có thể dùng cho đa ngữ chứ không riêng tiếng Anh."
+- **Root cause:** `PlayerSttMixin.generateLrcForCurrentAudio` HARDCODE
+  `language: 'en'` ở cả 3 đường transcribe (VAD pipeline >5MB,
+  transcribeAuto khi AUTO, transcribeFile khi chọn model) → file tiếng
+  Việt/Bất kỳ ngôn ngữ nào khác bị ép transcribe bằng tiếng Anh → lời
+  thoại sai. UI `_LrcModelSelector` chỉ chọn model + grouping, không
+  có chọn ngôn ngữ.
+- **Fix:**
+  - `player_stt_mixin.dart`: `generateLrcForCurrentAudio({..., String
+    language = 'auto'})` + 3 call sites nhận `language`;
+    `generateLrcWithVadPipeline` default 'vi' → 'auto'.
+  - `generate_lrc_actions.dart`: `confirmAndGenerateLrc(..., {String
+    language = 'auto'})` chuyển xuống mixin.
+  - `listen_mode_screen.dart`: `_LrcModelSelector` thêm hàng chip ngôn
+    ngữ (14 mã: auto/vi/en/zh/ja/ko/th/es/fr/de/ru/id/hi/pi), mặc định
+    'Tự động'; `onGenerate(level, grouping, language)`; nút LRC hiện
+    ngôn ngữ đang chọn.
+  - 'auto' đã verify hoạt động trên CẢ 3 đường Whisper: plugin
+    whisper_flutter_new (C++: `params.language = "auto"` qua
+    whisper_lang_id, default của plugin cũng là "auto"), FFI desktop
+    (whisper.cpp xử lý "auto" = auto-detect), CLI (`-l auto`).
+  - Cache key đã gồm language (mỗi ngôn ngữ 1 cache — không trộn).
+- **AT nghiệm thu máy:** (1) file tiếng Việt + chip "Tự động" → lời
+  tiếng Việt đúng; (2) file tiếng Anh + "Tự động" → lời Anh đúng;
+  (3) ép chip "Tiếng Việt" cho file Việt → đúng; (4) file dài >5MB
+  (đường VAD pipeline) + "Tự động" → đúng ngôn ngữ; (5) "Tạo lại" sau
+  khi đổi ngôn ngữ → LRC mới theo ngôn ngữ mới.
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a0251e-in4up | fix 3 file
+    (mixin + generate_lrc_actions + listen_mode_screen); chờ CI +
+    nghiệm thu

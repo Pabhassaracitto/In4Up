@@ -274,21 +274,6 @@ class SttsCabinService extends ChangeNotifier {
   }
 
 
-  void _startKeepAlive() {
-    _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), () {
-      _keepAliveTick();
-    });
-  }
-
-  void _stopKeepAlive() {
-    _keepAliveTimer?.cancel();
-    _keepAliveTimer = null;
-  }
-
-  Future<void> _keepAliveTick() async {
-    // (bisect stub)
-  }
 
   // ── Pipeline Logic ────────────────────────────────────────────────────────
 

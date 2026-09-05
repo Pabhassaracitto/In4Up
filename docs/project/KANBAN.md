@@ -26,6 +26,7 @@
 | READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | ✅ done | VocabEntryEditSheet (chờ nghiệm thu build) |
 | READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
+| PDF-W0 | Wave 0 PDF Reader: nối selection + TTS câu + định danh file + hệ toạ độ + i18n + test sàn | 🔨 doing | code xong 05-09-2026 trên `arena/01a07250-in4up`, CHỜ `flutter analyze`/CI + nghiệm thu thiết bị |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
 | LISTEN-823-01 | Tab Nghe: rèm LRC + AI sheet + dịch Hiểu + transcript đúng audio | ✅ done | 1d05ce9; CI run 32660616256 xanh (chờ QA đổi file nhanh) |
@@ -651,6 +652,41 @@
   WordEntry.contexts để so context mới/trùng. Chi tiết: PLAN-015.
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat (đề xuất tính năng sắp tới)
+
+### PDF-W0 — Wave 0 PDF Reader: sửa cho đúng cái đã có (không thêm tính năng)
+- **Trạng thái:** doing — code xong, chờ CI + nghiệm thu thiết bị
+- **Nguồn:** owner (2026-09-05): "Hãy phân tích thảo luận với tôi" → "Hãy tiến
+  hành!" sau khi đọc `docs/pdf_reader_readera_upgrade.md`. Đối chiếu ReadEra.
+- **Nội dung:** 5 wave được đề xuất; wave 0 = nối lại phần máy đang bị đứt, không
+  thêm tính năng. 12 mục 0.1→0.10 + 0.16/0.17/0.18 đã code:
+  - selection pdfrx → controller (`textSelectionParams.onTextSelectionChange`,
+    giữ mảnh chọn theo từng trang + offset → reopen đúng chỗ, rule vàng #3);
+  - xoá overlay `_WordTapDetector` (thủ phạm chặn pan/zoom), chuyển sang
+    `onGeneralTap`: chạm = sheet từ, long-press = chọn từ, handle = mở rộng;
+  - hit-test theo px + dung sai theo cao độ chữ (`pdf_word_hit_test.dart`);
+  - TTS theo CÂU (`extractSentences` + `PdfSentenceCue`), karaoke highlight,
+    prev/next trang + câu, pause/resume, auto-advance, speed; ẩn tuỳ chọn
+    "Song ngữ" thay vì hứa suông (`isBilingualTtsAvailable=false`);
+  - `PdfFileIdentity` (md5(size|mtime) + pathKey dự phòng + migrate 3 thế hệ key)
+    → đổi tên/chuyển file không mất highlight, không mất trang đọc;
+  - `Uuid` cho annotation id, `lineRects`, `canReopenToPosition`;
+  - bỏ auto-hide chrome 3 s; bookmark thật (dùng `AnnotationType.bookmark`);
+    basename 2 nền tảng (`pdfBaseName`/`pdfSourceMatches`) cho panel từ đã lưu;
+  - `services/pdf_geometry.dart` = nguồn sự thật duy nhất cho quy đổi toạ độ
+    (P0-18: rect PDF space có `top > bottom` → `height` âm, `contains` luôn false);
+  - 51 key i18n vào `priority_ui_overrides.dart` (không chạy generator — rule #5);
+  - 5 file test sàn trong `test/pdf_reader/` (geometry, hit-test bất biến zoom,
+    annotation round-trip/dữ liệu cũ, file identity với temp file thật, cleaning,
+    quét phủ i18n của feature).
+- **Kiến trúc:** ADR-0003 (giữ quy ước toạ độ đã lưu — chỉ đổi chỗ quy đổi;
+  khoá dữ liệu đọc là identity chứ không phải đường dẫn).
+- **Rủi ro còn lại:** sandbox không có Flutter SDK ⇒ CHƯA `flutter analyze`, CHƯA
+  `flutter test`; API pdfrx đã đối chiếu source tag `pdfrx-v2.2.24` từng cái nhưng
+  lỗi nhỏ kiểu unused-import/signature vẫn có thể đỏ CI. P0-11 (extract đa cột/isolate)
+  và P0-12 (reading order) còn mở — có ghi ở doc mục 4.0.3.
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07250-in4up | theo doc phân tích
+    `docs/pdf_reader_readera_upgrade.md`; chưa commit CI
 
 ### REOPEN-001 — Mở lại file cũ dùng LRC + bản dịch đã lưu (không tạo/dịch lại)
 - **Trạng thái:** done (chờ CI + nghiệm thu trên thiết bị)

@@ -213,6 +213,23 @@ class LearnByHeartItem {
 
   // ==================== SERIALIZATION ====================
 
+  /// Parse `lineRepeatOverrides` từ JSON (key stringified, value num/string)
+  /// — TOLERANT: bỏ entry rác (key không parse được / count ngoài 1…999).
+  /// Item cũ không có key → const {}.
+  static Map<int, int> _parseLineRepeatOverrides(dynamic raw) {
+    final map = raw as Map<dynamic, dynamic>?;
+    if (map == null) return const {};
+    final out = <int, int>{};
+    map.forEach((k, v) {
+      final line = int.tryParse('$k') ?? -1;
+      final count = (v is num ? v : int.tryParse('$v') ?? 0).toInt();
+      if (line >= 1 && line <= 999 && count >= 1 && count <= 999) {
+        out[line] = count;
+      }
+    });
+    return out;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -279,6 +296,10 @@ class LearnByHeartItem {
               ?.map((c) => Chunk.fromJson(c as Map<String, dynamic>))
               .toList() ??
           const [],
+      // Tolerant: key JSON là string; bỏ entry rác — item cũ không có
+      // key này → const {}.
+      lineRepeatOverrides:
+          _parseLineRepeatOverrides(json['lineRepeatOverrides']),
       keywords: (json['keywords'] as List<dynamic>?)
               ?.map((k) => k as String)
               .toList() ??

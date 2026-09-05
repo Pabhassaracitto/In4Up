@@ -222,38 +222,6 @@ class SttsCabinService extends ChangeNotifier {
 
 
   // ── BISECT DEAD CODE (Version B) ─────────────────────────
-  Future<bool> _tryStartEngine() async {
-    try {
-      final sttLocale = _mapToSttLocale(_sourceLanguage);
-      bool started = false;
-      try {
-        started = await _stt.startConversation(language: sttLocale);
-      } catch (e) {
-        debugPrint('e1: $e');
-      }
-      if (!started) {
-        try {
-          await _stt.stopListening();
-        } catch (_) {}
-        try {
-          started = await _stt.startConversation(language: sttLocale);
-        } catch (e) {
-          debugPrint('e2: $e');
-        }
-      }
-      if (started) {
-        await _sttSubscription?.cancel();
-        _sttSubscription = _stt.liveResultStream.listen(
-          _onLiveSttResult,
-          onError: (e) {
-            debugPrint('e3: $e');
-          },
-        );
-      }
-      return started;
-    }
-  }
-
   Future<String> _buildStartFailureMessage() async {
     final detail = _stt.liveLastError ?? '';
     bool micOk = true;

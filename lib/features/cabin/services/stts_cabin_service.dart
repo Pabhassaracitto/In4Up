@@ -29,6 +29,9 @@ class SttsCabinService extends ChangeNotifier {
 
   StreamSubscription? _sttSubscription;
   Timer? _silenceTimer;
+  Timer? _keepAliveTimer;
+  int _consecutiveStartFails = 0;
+  bool _starting = false;
 
   CabinState _state = CabinState.idle;
   String _sourceLanguage = 'en';
@@ -134,6 +137,8 @@ class SttsCabinService extends ChangeNotifier {
   Future<void> stopCabin() async {
     _silenceTimer?.cancel();
     _silenceTimer = null;
+    _stopKeepAlive();
+    _consecutiveStartFails = 0;
     await _sttSubscription?.cancel();
     _sttSubscription = null;
 
@@ -268,6 +273,41 @@ class SttsCabinService extends ChangeNotifier {
       debugPrint('e4: $e');
       return false;
     }
+  }
+
+
+  void _startKeepAlive() {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), () {
+      _keepAliveTick();
+    });
+  }
+
+  void _stopKeepAlive() {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = null;
+  }
+
+  Future<void> _keepAliveTick() async {
+    if (_state != CabinState.listening &&
+        _state != CabinState.translating &&
+        _state != CabinState.speaking) {
+      return;
+    }
+    if (_stt.isLiveListening) return;
+    if (_starting) return;
+    final ok = await _tryStartEngine();
+    if (ok) {
+      _consecutiveStartFails = 0;
+      _state = CabinState.listening;
+    } else {
+      _consecutiveStartFails++;
+      if (_consecutiveStartFails >= 3) {
+        _state = CabinState.error;
+        _lastError = await _buildStartFailureMessage();
+      }
+    }
+    notifyListeners();
   }
 
   // ── Pipeline Logic ────────────────────────────────────────────────────────

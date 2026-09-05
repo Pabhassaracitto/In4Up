@@ -228,6 +228,10 @@ class LearnByHeartItem {
       'memorizeSide': memorizeSide.name,
       'lineTimestamps': lineTimestamps.map((t) => t.toJson()).toList(),
       'chunkList': chunkList.map((c) => c.toJson()).toList(),
+      // JSON không có int key → stringified.
+      'lineRepeatOverrides': {
+        for (final e in lineRepeatOverrides.entries) '${e.key}': e.value,
+      },
       'keywords': keywords,
       'shortMeaning': shortMeaning,
       'lifeConnection': lifeConnection,

@@ -1382,14 +1382,6 @@ class _PdfAnnotationManager extends StatelessWidget {
                             horizontal: 4,
                             vertical: 6,
                           ),
-                          leading: Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: ann.color,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
                           leading: ann.type == AnnotationType.bookmark
                               ? const Icon(Icons.bookmark,
                                   color: Color(0xFF64B5F6), size: 18)

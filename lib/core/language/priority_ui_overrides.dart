@@ -1412,13 +1412,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '🇺🇸 English',
     'si': '🇺🇸 English',
   },
-  '🇻🇳 Tiếng Việt': {
-    'en': '🇻🇳 Vietnamese',
-    'hi': '🇻🇳 वियतनामी',
-    'zh': '🇻🇳 越南语',
-    'zh_TW': '🇻🇳 越南語',
-    'si': '🇻🇳 වියට්නාමි',
-  },
   'Từ loại chuyên sâu': {
     'en': 'Advanced word classes',
     'hi': 'शब्द-वर्ग विस्तृत',
@@ -1600,13 +1593,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '✅ 已在 Text Studio 打开所选内容',
     'zh_TW': '✅ 已在 Text Studio 開啟選取內容',
     'si': '✅ තේරීම Text Studio හි විවෘත කෙරිණි',
-  },
-  'Huỷ': {
-    'en': 'Cancel',
-    'hi': 'रद्द करें',
-    'zh': '取消',
-    'zh_TW': '取消',
-    'si': 'අවලංගු කරන්න',
   },
   'Lưu ghi chú': {
     'en': 'Save note',

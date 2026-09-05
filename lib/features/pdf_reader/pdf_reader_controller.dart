@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show Rect;
 
 import 'package:flutter/material.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';

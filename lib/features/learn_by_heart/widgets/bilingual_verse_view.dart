@@ -14,10 +14,6 @@ class BilingualVerseView extends StatelessWidget {
   final void Function(LineTimestamp line)? onLineTap;
   final MultilingualAudioService? audioService;
 
-  /// Persist số lần lặp TTS riêng của 1 câu (màn hình ghi vào item).
-  /// [count] null = bỏ override về mặc định (nhấn giữ chip).
-  final void Function(int line, int? count)? onLineRepeatChanged;
-
   const BilingualVerseView({
     super.key,
     required this.lineTimestamps,
@@ -26,7 +22,6 @@ class BilingualVerseView extends StatelessWidget {
     this.fontSize = 17.0,
     this.onLineTap,
     this.audioService,
-    this.onLineRepeatChanged,
   });
 
   @override
@@ -125,26 +120,15 @@ class BilingualVerseView extends StatelessWidget {
                   const SizedBox(width: 6),
                   _LineRepeatChip(
                     count: audioService!.lineRepeatFor(ts.line),
-                    hasOverride: audioService!.lineRepeatOverride(ts.line) != null,
                     playingCurrent: isActive ? audioService!.lineRepeatCurrent : 0,
                     onTap: () => showRepeatCountMenu(
                       context,
                       current: audioService!.lineRepeatFor(ts.line),
                       allowInfinite: false,
                       title: 'Số lần phát câu ${ts.line}',
-                      onChanged: (value) {
-                        audioService!.setLineRepeatOverride(ts.line, value);
-                        onLineRepeatChanged?.call(ts.line, value);
-                      },
+                      onChanged: (value) =>
+                          audioService!.setLineRepeatOverride(ts.line, value),
                     ),
-                    onLongPress: audioService!.lineRepeatOverride(ts.line) !=
-                            null &&
-                        onLineRepeatChanged != null
-                        ? () {
-                            audioService!.clearLineRepeatOverride(ts.line);
-                            onLineRepeatChanged!(ts.line, null);
-                          }
-                        : null,
                   ),
                 ],
                 if (isActive)
@@ -167,26 +151,21 @@ class BilingualVerseView extends StatelessWidget {
 
 class _LineRepeatChip extends StatelessWidget {
   final int count;
-  final bool hasOverride;
   final int playingCurrent;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
 
   const _LineRepeatChip({
     required this.count,
-    this.hasOverride = false,
     required this.playingCurrent,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
-    final active = count > 1 || playingCurrent > 0 || hasOverride;
+    final active = count > 1 || playingCurrent > 0;
     final color = active ? const Color(0xFFFFB300) : Colors.grey;
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(

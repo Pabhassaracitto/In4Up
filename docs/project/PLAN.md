@@ -882,3 +882,17 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - **Lịch sử:**
   - 2026-09-05 | created | owner via agent arena/01a07234-in4up | "làm phần video kết hợp A+B"
   - 2026-09-05 | doing | agent arena/01a07234-in4up | bàn giao + PLAN + code WP0-WP3
+
+### PLAN-026: Vocabulary Image Feature (IMG-001)
+- **Mục tiêu**: Thêm hình ảnh ghi nhớ cho từ vựng (dual-coding theory)
+- **Phạm vi**: 
+  - VocabImageService: pick từ gallery, lưu vào app documents, hash-based dedup
+  - VocabImagePicker: widget chọn ảnh với preview
+  - VocabImageThumbnail: thumbnail compact cho danh sách từ
+  - Tích hợp vào word_actions_sheet (Read mode) và word_list_screen (edit sheet)
+  - Hiển thị thumbnail trong compact list items
+  - Hiển thị preview lớn hơn trong expanded detail section
+  - Wire VocabImagePicker đến VocabularyProvider.updateImageUrl
+- **Trạng thái**: ✅ Hoàn thành
+- **Commit**: `c15b0b7` on `arena/01a07234-in4up`
+- **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức

@@ -1800,3 +1800,22 @@
 - **Bằng chứng:** code trên branch arena/01a07234-in4up
 - **Lịch sử:**
   - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-025 + bàn giao + WP0-WP3
+
+### IMG-001: Vocabulary Image Feature
+- **ID**: IMG-001
+- **Tiêu đề**: Thêm hình ảnh ghi nhớ cho từ vựng
+- **Mô tả**: Cho phép người dùng chọn/gán hình ảnh cho từ vựng khi lưu hoặc chỉnh sửa. Hình ảnh được lưu vào app documents với hash-based deduplication. Hiển thị thumbnail trong danh sách từ và preview lớn hơn khi mở rộng chi tiết.
+- **Ưu tiên**: Trung bình
+- **Trạng thái**: ✅ Done
+- **Ngày tạo**: 2026-09-05
+- **Ngày hoàn thành**: 2026-09-05
+- **Commit**: `c15b0b7` on `arena/01a07234-in4up`
+- **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
+- **Files**:
+  - `lib/features/vocab_image/vocab_image_service.dart`
+  - `lib/features/vocab_image/vocab_image_picker.dart`
+  - `lib/features/vocab_image/vocab_image_thumbnail.dart`
+  - `lib/features/vocab_image/vocab_image.dart`
+  - `lib/providers/vocabulary_provider.dart` (updateImageUrl method)
+  - `lib/screens/read_mode/sheets/word_actions_sheet.dart`
+  - `lib/screens/tools/word_list/word_list_screen.dart`

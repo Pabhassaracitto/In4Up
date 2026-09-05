@@ -735,6 +735,18 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Cập nhật hình ảnh cho từ vựng
+  /// [imageUrl] là relative path trong app documents (ví dụ: vocabulary_images/abc123.jpg)
+  void updateImageUrl(String id, String? imageUrl) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.imageUrl = imageUrl;
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
   void updateDifficulty(String id, DifficultyLevel? difficulty) {
     try {
       final w = _words.firstWhere((w) => w.id == id);

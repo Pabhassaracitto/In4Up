@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/dictionary/services/dictionary_service.dart';
+import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
@@ -478,6 +479,46 @@ class _WordActionsContentState extends State<_WordActionsContent> {
           ),
 
           const SizedBox(height: 20),
+
+          // ===== IMAGE PICKER =====
+          if (existingWord != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.uiText('Hình ảnh ghi nhớ:', 'Memory image:'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: VocabImagePicker(
+                wordId: existingWord.id,
+                currentImageUrl: existingWord.imageUrl,
+                onImageChanged: (path) {
+                  // Image already saved by VocabImagePicker via provider
+                },
+                size: 140,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.uiText(
+                'Chạm để chọn · Giữ để xóa',
+                'Tap to pick · Long press to remove',
+              ),
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+          ],
 
           // ===== QUICK ACTIONS =====
           Row(

@@ -29,9 +29,6 @@ class SttsCabinService extends ChangeNotifier {
 
   StreamSubscription? _sttSubscription;
   Timer? _silenceTimer;
-  Timer? _keepAliveTimer;
-  int _consecutiveStartFails = 0;
-  bool _starting = false;
 
   CabinState _state = CabinState.idle;
   String _sourceLanguage = 'en';
@@ -109,12 +106,7 @@ class SttsCabinService extends ChangeNotifier {
     _state = CabinState.listening;
     notifyListeners();
 
-    // Nếu keep-alive đang restart dở → đợi nó xong (tránh báo lỗi sớm).
-    for (int i = 0; i < 5 && _starting; i++) {
-      await Future.delayed(const Duration(milliseconds: 400));
-    }
     var started = await _tryStartEngine();
-    if (!started && _stt.isLiveListening) started = true; // keep-alive thắng
     if (!started) {
       _state = CabinState.error;
       _lastError = await _buildStartFailureMessage();
@@ -122,8 +114,6 @@ class SttsCabinService extends ChangeNotifier {
       return false;
     }
 
-    _consecutiveStartFails = 0;
-    _startKeepAlive();
     debugPrint(
         '🎙️ SttsCabinService started ($_sourceLanguage ➔ $_targetLanguage)');
     return true;
@@ -133,8 +123,6 @@ class SttsCabinService extends ChangeNotifier {
   /// Thất bại → cancel một lần nữa rồi RETRY (chữa trạng thái "mic bị
   /// chiếm" / session plugin kẹt).
   Future<bool> _tryStartEngine() async {
-    if (_starting) return false;
-    _starting = true;
     try {
       final sttLocale = _mapToSttLocale(_sourceLanguage);
       bool started = false;
@@ -166,48 +154,7 @@ class SttsCabinService extends ChangeNotifier {
         );
       }
       return started;
-    } finally {
-      _starting = false;
     }
-  }
-
-  /// Keep-alive: session hệ thống tự chết (im lặng quá lâu / service
-  /// restart) trong khi cabin vẫn "đang nghe" → tự restart im lặng.
-  /// Fail liên tiếp 3 lần → báo lỗi (tránh vòng lặp vô hạn).
-  void _startKeepAlive() {
-    _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), () {
-      _keepAliveTick();
-    });
-  }
-
-  void _stopKeepAlive() {
-    _keepAliveTimer?.cancel();
-    _keepAliveTimer = null;
-  }
-
-  Future<void> _keepAliveTick() async {
-    if (_state != CabinState.listening &&
-        _state != CabinState.translating &&
-        _state != CabinState.speaking) {
-      return; // paused/stopped/error — không tự restart
-    }
-    if (_stt.isLiveListening) return; // session vẫn sống
-    if (_starting) return;
-
-    debugPrint('♻️ SttsCabinService: STT session chết — tự khởi động lại');
-    final ok = await _tryStartEngine();
-    if (ok) {
-      _consecutiveStartFails = 0;
-      _state = CabinState.listening;
-    } else {
-      _consecutiveStartFails++;
-      if (_consecutiveStartFails >= 3) {
-        _state = CabinState.error;
-        _lastError = await _buildStartFailureMessage();
-      }
-    }
-    notifyListeners();
   }
 
   /// Thông báo lỗi KHỞI ĐỘNG mic/STT có thể hành động (tách biệt: thiếu
@@ -232,8 +179,6 @@ class SttsCabinService extends ChangeNotifier {
   Future<void> stopCabin() async {
     _silenceTimer?.cancel();
     _silenceTimer = null;
-    _stopKeepAlive();
-    _consecutiveStartFails = 0;
     await _sttSubscription?.cancel();
     _sttSubscription = null;
 

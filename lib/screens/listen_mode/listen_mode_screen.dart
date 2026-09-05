@@ -2897,11 +2897,36 @@ class GenerateLrcButton extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () =>
-                          context.read<SttServiceFacade>().startListening(),
-                      icon: const Icon(Icons.mic),
-                      label: const Text('Shadowing'),
+                    // Shadowing mic — TOGGLE. Trước đây chỉ startListening()
+                    // fire-and-forget: mic native chạy treo → CABIN/flow
+                    // khác bấm mic bị plugin từ chối ("Không thể khởi động
+                    // micro"). Giờ: đang nghe → bấm = dừng; + dùng chế độ
+                    // hội thoại (không tự chết sau 2 phút).
+                    // SttServiceFacade là SINGLETON (factory) — không
+                    // register làm Provider, nên KHÔNG dùng context.read
+                    // (gặp thì crash ProviderNotFoundException).
+                    AnimatedBuilder(
+                      animation: SttServiceFacade(),
+                      builder: (context, _) {
+                        final facade = SttServiceFacade();
+                        final micOn = facade.isLiveListening;
+                        return ElevatedButton.icon(
+                          onPressed: () async {
+                            if (micOn) {
+                              await facade.stopListening();
+                            } else {
+                              await facade.startConversation();
+                            }
+                          },
+                          icon: Icon(micOn ? Icons.stop_circle : Icons.mic),
+                          label: Text(micOn ? 'Dừng mic' : 'Shadowing'),
+                          style: micOn
+                              ? ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  )
+                              : null,
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -66,6 +66,7 @@
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 
 ---
+| CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | 🔄 doing (chờ CI xanh cuối + nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 
 ## Card chi tiết
 
@@ -1667,3 +1668,57 @@
 - **Lịch sử:**
   - 2026-09-05 | created→done | agent arena/01a0251e-in4up | WordTableParser
     + 15 test; chờ CI (flutter test chạy trong pipeline)
+
+### CABIN-001 — Cabin dịch: không khởi động được mic / nhận diện giọng nói
+- **Trạng thái:** doing (chờ CI xanh cuối + nghiệm thu máy)
+- **Triệu chứng (owner):** vào tool Dịch Live Cabin → bấm mic → banner
+  "Không thể khởi động micro / nhận diện giọng nói."
+- **Định vị (code + source plugin speech_to_text 7.x — SpeechToTextPlugin.kt):**
+  Lỗi này = `SttServiceFacade.startListening()` trả FALSE. Native plugin
+  trả false khi (a) phiên nghe CŨ CÒN TREO (`isListening` bên native) hoặc
+  (b) `initialize()` fail — máy Android 12+ KHÔNG có dịch vụ Speech
+  Recognition (`isRecognitionAvailable` && `isOnDeviceRecognitionAvailable`
+  đều false) hoặc (c) thiếu quyền mic (cabin đã tự xin quyền trước).
+  **Nghi chính đã xác nhận có bug thật:** nút "Shadowing" tab Nghe gọi
+  `startListening()` fire-and-forget (stateless, không bao giờ stop, và
+  `context.read<SttServiceFacade>()` vốn crash vì facade không register
+  làm Provider) → mic native chạy treo (tối đa 2 phút) → cabin bấm mic
+  bị plugin từ chối.
+  Lỗi tiềm ẩn thêm (kể cả khi start thành công): `listenFor` mặc định
+  **2 phút** → mic tự chết im lặng giữa phiên; `ListenMode.confirmation`
+  (dành cho lệnh ngắn) sai cho hội thoại; lỗi session bị swallow.
+- **Fix:**
+  - `stt_engine_native.dart`: SELF-HEAL (cancel session cũ trước khi
+    start thay vì return true giả) + `lastError` chẩn đoán (init/listen/
+    session) + `listenMode` parameter + `listenFor` nullable (bỏ cap 2
+    phút). (Lỗi CI lần 1: `e.errorType` không tồn tại trong
+    SpeechRecognitionError 7.x — chỉ có `errorMsg` + `permanent`.)
+  - `stt_service_facade.dart`: `startListening` forward listenFor/
+    pauseFor/listenMode; + `startConversation()` (dictation + không cap)
+    cho cabin/shadowing; + `isLiveListening` / `liveLastError` /
+    `checkLiveMicPermission()`.
+  - `stts_cabin_service.dart`: pre-start `stopListening()` dọn session
+    treo; fail → stop + RETRY 1 lần; **keep-alive** 4s (session chết mà
+    cabin vẫn "đang nghe" → tự restart im lặng; fail 3 lần liên tiếp →
+    lỗi); message lỗi HÀNH ĐỘNG ĐƯỢC (thiếu quyền → dẫn Settings; không
+    có speech service → dẫn kiểm tra Google/Samsung Speech Services + ghi
+    chú Whisper offline chưa hỗ trợ mic live); race-guard khi user bấm
+    mic đúng lúc keep-alive đang restart.
+  - `listen_mode_screen.dart`: nút Shadowing thành TOGGLE ("Dừng mic") +
+    `startConversation()` + sửa `context.read` → singleton (chặn crash +
+    chặn mic treo chiếm cabin).
+- **Quá trình debug:** log CI không đọc được → bisect bằng CI oracle
+  (~15 run xanh/đỏ) cô lập đúng khu vực lỗi; lần cuối: closure 0-arg
+  cho `Timer.periodic` (khác convention 1-arg `(_)` của toàn repo) —
+  đã đổi sang `(_)` theo convention, chờ xác nhận CI xanh.
+- **Chưa làm (WP2 theo PLAN-008):** live STT offline bằng sherpa
+  Zipformer streaming (không phụ thuộc speech service hệ thống) —
+  `SherpaSttEngine.startListening` hiện là PoC chưa nối mic.
+- **Nghiệm thu máy:** (1) tab Nghe: bấm Shadowing → mic chạy → bấm
+  "Dừng mic" → dừng thật; (2) Cabin bấm mic → nghe+dịch liên tục (không
+  chết sau 2 phút, tự sống lại sau im lặng); (3) nếu vẫn lỗi → banner
+  mới chỉ đúng nguyên nhân (quyền vs speech service).
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a0251e-in4up | chẩn đoán
+    qua source plugin + fix 4 file; CI bisect cô lập lỗi; chờ CI xanh
+    cuối + nghiệm thu

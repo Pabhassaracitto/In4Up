@@ -3,10 +3,12 @@
 > Bản thảo luận (chưa phải kế hoạch đã chốt). Mọi nhận định đều kèm `file:dòng`
 > để kiểm chứng. Ngày phân tích: 05-09-2026, branch `arena/01a07250-in4up`.
 >
-> **CẬP NHẬT 05-09-2026 — WAVE 0 ĐÃ CODE XONG** (mục 4.0). P0-1…P0-4, P0-6…P0-18
-> được xử lý ở tầng mã; P0-5 có migration; P0-11/12 còn mở (xem 4.0.3). Chưa chạy
-> `flutter analyze`/`flutter test` ở máy dev (không có Flutter SDK trong sandbox)
-> → nghiệm thu thật cần CI + thiết bị.
+> **CẬP NHẬT 05-09-2026 — WAVE 0 ĐÃ CODE XONG VÀ CI 🟢** (mục 4.0). P0-1…P0-4,
+> P0-6…P0-18 được xử lý ở tầng mã; P0-5 có migration; P0-11/12 còn mở (xem 4.0.3).
+> Máy dev không có Flutter SDK ⇒ nghiệm thu static dựa vào CI: workflow
+> `App analyze (wide oracle)` chạy `flutter analyze` (chỉ ERROR mới fatal) +
+> `test/locale_chrome_no_vietnamese_test.dart` — **xanh ở `370ff91`**
+> (run 33984585516, cả hai step). Còn lại: **nghiệm thu trên thiết bị** (mục 7).
 > Đối chiếu: ReadEra (Play Store `org.readera`, iOS `id1669188337`, changelog
 > 1.1.0 → 1.2.2 + Android 26.05.20) và tài liệu `pdfrx` (pub.dev, 2.6.1).
 
@@ -213,10 +215,28 @@ thư viện · multi-document · keyboard shortcuts · TTS chạy nền có noti
   Wave 1 hoặc xoá, hoặc dùng làm sheet màu cho highlight.
 - **Chưa có vàng test toạ độ** (golden) — cần máy có Flutter SDK; test hiện tại
   là unit thuần, chạy được bằng `flutter test test/pdf_reader`.
-- **Chưa `flutter analyze`**: sandbox không có SDK. Rủi ro CI đỏ nằm ở
-  unused-import/`unused_element` và các tham số named của `PdfViewer*Params`
-  (đã đối chiếu source `pdfrx-v2.2.24` từng cái: `textSelectionParams`,
-  `onGeneralTap`, `pageOverlaysBuilder`, `onDocumentChanged` đều optional).
+- ~~Chưa `flutter analyze`~~ → **đã đỏ rồi đã xanh**: CI bắt 6 error (xem 4.0.4).
+  Bài học lớn nhất: `flutter analyze` in ra `tail -n 300 analyze.log` nên lỗi
+  `lib/**` bị cuộn mất dưới ~300 dòng `info • Unused import` của `packages/**`.
+  Phải tạm tắt lint (`include: package:flutter_lints/flutter.yaml`) trong một commit
+  có sửa `lib/**` thì lỗi thật mới hiện; cách đọc chi tiết ở
+  `docs/skills/ci-red-debugging/SKILL.md` §6.1. **Không để probe đó sống** — đã revert
+  ngay trong commit sửa lỗi.
+- `flutter test test/pdf_reader` (5 file) **chưa từng chạy** — sandbox không có SDK và
+  CI của workflow này chỉ chạy đúng một file test rule #5. Chạy hộ ở máy dev:
+  `flutter test test/pdf_reader test/locale_chrome_no_vietnamese_test.dart`.
+
+#### 4.0.4 6 lỗi CI bắt được (đã sửa, `f02854c` + `c62e8bf`)
+
+| # | Chỗ | Lỗi | Because |
+|---|---|---|---|
+| 1 | `pdf_text_extractor.dart:168` | `RegExp(r'[.!?…]["\'”’)\]]*$')` → chuỗi raw một nháy **không thoát** được `\'`: literal cụt sau `\`, phần còn lại bị parser đọc thành mã nguồn ⇒ ~20 error dây chuyền (`expected_token`, `illegal_character`, `undefined_identifier`, `non_bool_operand`) | Sửa thành raw string 3 nháy `r'''…'''`, đưa pattern ra `PdfTextExtractor.sentenceEndPattern` + test khóa. **Không có `\'` trong `r'...'`** — dùng `r"…\'…"` hoặc `r'''…'''` |
+| 2 | `pdf_wordlist_panel.dart:36` | `argument_type_not_assignable`: `VocabContext.sourceName` là `String?` còn `pdfSourceMatches(String, …)` bắt `String` | Nới tham số thành `String?` (null = không khớp) thay vì `?? ''` ở caller — ai gọi sau cũng gặp lại đúng câu "null thì sao" |
+| 3 | `pdf_annotation_model_test.dart:135` | `const cue = PdfSentenceCue(speakText: 'a' * 100)` → `'a' * 100` không phải biểu thức hằng (`const_eval_type_num`) | Bỏ `const` |
+| 4-5 | `priority_ui_overrides.dart:1415, 1604` | `equal_keys_in_const_map`: khi append mảng key PDF đã ghi lại `'Huỷ'` và `'🇻🇳 Tiếng Việt'` mà map đã có sẵn (dòng 149, 1196) | Xoá bản trùng. Label vẫn resolve qua mục cũ, giá trị en/hi/zh của mục cũ sạch tiếng Việt nên test phủ i18n vẫn xanh |
+| 6 | `pdf_reader_screen.dart:1393` | `duplicate_named_argument`: `ListTile` có `leading:` hai lần (thêm icon bookmark mà quên bỏ ô màu cũ) | Bỏ `leading` đầu |
+
+Còn 1 `info • unnecessary_import` (`dart:ui show Rect` trong controller) cũng được dọn.
 
 
 ### WAVE 0 — "Sửa cho đúng cái đã có" (2–3 ngày dev) — **P0**

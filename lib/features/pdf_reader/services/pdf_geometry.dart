@@ -18,6 +18,9 @@
 //
 // `PdfRect(left, top, right, bottom)` của engine assert `top >= bottom` — cùng
 // quy ước, nên không cần chuyển đổi khi gọi `goToRectInsidePage`.
+//
+// (dòng này chỉ để commit probe chạm `lib/**` — xem 5.7 trong
+// docs/skills/ci-red-debugging: workflow chỉ chạy khi paths filter khớp)
 import 'dart:math' as math;
 import 'dart:ui' show Rect, Size;
 

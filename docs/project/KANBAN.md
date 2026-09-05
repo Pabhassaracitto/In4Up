@@ -66,6 +66,7 @@
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 
 ---
+| CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | 🔄 doing (chờ CI + nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể (quyền vs thiếu speech service) + bỏ cap 2 phút + dictation mode + Shadowing mic thành toggle |
 
 ## Card chi tiết
 
@@ -1667,3 +1668,51 @@
 - **Lịch sử:**
   - 2026-09-05 | created→done | agent arena/01a0251e-in4up | WordTableParser
     + 15 test; chờ CI (flutter test chạy trong pipeline)
+
+### CABIN-001 — Cabin dịch: không khởi động được mic / nhận diện giọng nói
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner):** vào tool Dịch Live Cabin → bấm mic → banner
+  "Không thể khởi động micro / nhận diện giọng nói."
+- **Định vị (code + source plugin speech_to_text 7.4.0):**
+  Lỗi này = `SttServiceFacade.startListening()` trả FALSE. Native plugin
+  (`SpeechToTextPlugin.kt#startListening`) trả false khi:
+  1. **`isListening()` = true — phiên nghe CŨ CÒN TREO**: nút "Shadowing"
+     ở tab Nghe (`listen_mode_screen.dart`) gọi `startListening()`
+     fire-and-forget (stateless, không stop) → mic native chạy treo
+     (tối đa 2 phút) → cabin bấm mic bị từ chối. Đây là nghi chính.
+  2. **`initialize()` fail**: Android 12+ plugin check
+     `SpeechRecognizer.isRecognitionAvailable() &&
+     isOnDeviceRecognitionAvailable()` — máy không có dịch vụ Speech
+     Recognition (gỡ/tắt Google app) → `recognizerNotAvailable`.
+  3. **Quyền mic chưa cấp** (khi đó cabin đã tự xin quyền trước).
+  - Lỗi tiềm ẩn thêm (kể cả khi start thành công): `listenFor` mặc định
+    **2 phút** → mic tự chết im lặng giữa phiên; `ListenMode.confirmation`
+    (dành cho lệnh ngắn) + `pauseFor 3s` → session dừng khi user nghỉ
+    giọng; lỗi session bị swallow (chỉ debugPrint) → user không thấy lý do.
+- **Fix:**
+  - `stt_engine_native.dart`: SELF-HEAL (cancel session cũ trước khi
+    start thay vì return true giả) + `lastError` chẩn đoán (init/listen/
+    session error) + `listenMode` parameter + `listenFor` nullable
+    (bỏ cap 2 phút).
+  - `stt_service_facade.dart`: `startListening` forward listenFor/
+    pauseFor/listenMode; thêm `startConversation()` (dictation + không
+    cap — cho cabin/shadowing), `isLiveListening`, `liveLastError`,
+    `checkLiveMicPermission()`.
+  - `stts_cabin_service.dart`: pre-start `stopListening()` dọn session
+    treo → start → fail thì cancel + RETRY 1 lần; **keep-alive** 4s
+    (session chết mà cabin vẫn "đang nghe" → tự restart; fail 3 lần
+    liên tiếp → lỗi); message lỗi HÀNH ĐỘNG ĐƯỢC: thiếu quyền → dẫn
+    đường Settings; không có speech service → dẫn đường kiểm tra dịch
+    vụ giọng nói + ghi chú Whisper offline chưa hỗ trợ mic live.
+  - `listen_mode_screen.dart`: nút Shadowing thành TOGGLE (đang nghe →
+    bấm = "Dừng mic") + dùng `startConversation()`.
+- **Chưa làm (WP2 theo PLAN-008):** live STT offline bằng sherpa
+  Zipformer streaming (không phụ thuộc speech service hệ thống) —
+  `SherpaSttEngine.startListening` hiện là PoC (chưa nối mic).
+- **Nghiệm thu máy:** (1) tab Nghe: bấm Shadowing → mic chạy → bấm
+  "Dừng mic" → dừng; (2) vào Cabin bấm mic → nghe trực tiếp + dịch
+  (không chết sau 2 phút, tự sống lại sau im lặng); (3) nếu vẫn lỗi →
+  banner mới chỉ đúng nguyên nhân (quyền vs speech service).
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a0251e-in4up | chẩn đoán
+    qua source plugin + fix 4 file; chờ CI + nghiệm thu

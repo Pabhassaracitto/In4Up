@@ -18,12 +18,16 @@ class SttEngineNative {
 
   bool _isInitialized = false;
   bool _isListening = false;
+  String? _lastError;
 
   final _resultController = StreamController<SttResult>.broadcast();
   Stream<SttResult> get resultStream => _resultController.stream;
 
   bool get isInitialized => _isInitialized;
   bool get isListening => _isListening;
+
+  /// Lý do gần nhất init/listen thất bại (để UI — vd cabin — chẩn đoán).
+  String? get lastError => _lastError;
 
   // ── Initialization ────────────────────────────────────────
 
@@ -32,12 +36,20 @@ class SttEngineNative {
 
     try {
       _isInitialized = await _stt.initialize(
-        onError: (e) => debugPrint('❌ Native STT error: ${e.errorMsg}'),
+        onError: (e) {
+          // Lỗi TRONG phiên (service bị kill, network drop...) — lưu lại
+          // để UI thấy lý do thay vì im lặng.
+          _lastError = e.errorMsg?.isNotEmpty == true
+              ? 'STT session: ${e.errorMsg}'
+              : 'STT session error (${e.errorType})';
+          debugPrint('❌ Native STT error: ${e.errorMsg}');
+        },
         onStatus: (s) => debugPrint('📢 Native STT status: $s'),
         debugLogging: kDebugMode,
       );
 
       if (_isInitialized) {
+        _lastError = null;
         debugPrint('✅ Native STT initialized');
         final locales = await _stt.locales();
         debugPrint(
@@ -45,11 +57,15 @@ class SttEngineNative {
           '${locales.map((l) => l.localeId).take(5).join(', ')}...',
         );
       } else {
+        _lastError =
+            'Native STT init thất bại — chưa cấp quyền microphone HOẶC máy '
+            'không có dịch vụ nhận diện giọng nói (Speech Recognition).';
         debugPrint('❌ Native STT init failed '
             '(microphone permission may be missing)');
       }
     } catch (e) {
       debugPrint('❌ Native STT init error: $e');
+      _lastError = 'Native STT init exception: $e';
       _isInitialized = false;
     }
 
@@ -62,12 +78,19 @@ class SttEngineNative {
     String language = 'en-US',
     Duration? listenTimeout,
     Duration pauseTimeout = const Duration(seconds: 3),
+    ListenMode listenMode = ListenMode.confirmation,
   }) async {
     if (!_isInitialized) {
       final ok = await initialize();
       if (!ok) return false;
     }
-    if (_isListening) return true;
+    // SELF-HEAL: phiên nghe cũ còn treo (flow khác start mà không stop,
+    // hoặc lần trước chưa dừng sạch) → plugin native sẽ trả FALSE cho
+    // listen mới ("isListening" bên native). Hủy sạch phiên cũ trước.
+    if (_isListening) {
+      debugPrint('🧹 Native STT: session cũ còn mở — cancel trước khi start');
+      await cancelListening();
+    }
 
     try {
       String? targetLocaleId = language;
@@ -96,31 +119,42 @@ class SttEngineNative {
 
       var started = await _stt.listen(
         localeId: targetLocaleId,
-        listenFor: listenTimeout ?? const Duration(minutes: 2),
+        // listenFor = null → KHÔNG có timer auto-stop 2 phút (live cabin
+        // cần nghe liên tục; session do hệ thống + pauseFor quản lý).
+        listenFor: listenTimeout,
         pauseFor: pauseTimeout,
         partialResults: true,
         onResult: (r) => _onNativeResult(r, language),
         cancelOnError: false,
-        listenMode: ListenMode.confirmation,
+        listenMode: listenMode,
       );
 
       if (!started && targetLocaleId != null) {
         debugPrint('⚠️ Native STT retry with default system locale');
         started = await _stt.listen(
-          listenFor: listenTimeout ?? const Duration(minutes: 2),
+          listenFor: listenTimeout,
           pauseFor: pauseTimeout,
           partialResults: true,
           onResult: (r) => _onNativeResult(r, language),
           cancelOnError: false,
-          listenMode: ListenMode.confirmation,
+          listenMode: listenMode,
         );
       }
 
       _isListening = started;
+      if (started) {
+        _lastError = null;
+      } else {
+        _lastError ??= 'Native STT listen thất bại cho "$language" và cả '
+            'default locale — kiểm tra dịch vụ nhận diện giọng nói của máy '
+            '(Cài đặt → Ứng dụng → Google/Samsung: Speech Services).';
+      }
       debugPrint('🎤 Native STT listening: $started');
       return started;
     } catch (e) {
       debugPrint('❌ Native STT startListening error: $e');
+      _lastError = 'Native STT startListening exception: $e';
+      _isListening = false;
       return false;
     }
   }

@@ -33,6 +33,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:speech_to_text/speech_to_text.dart' show ListenMode;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -908,16 +909,56 @@ class SttServiceFacade extends ChangeNotifier {
 
   // ── Live STT ──────────────────────────────────────────────────────────────
 
-  Future<bool> startListening({String language = 'en-US'}) async {
+  Future<bool> startListening({
+    String language = 'en-US',
+    Duration? listenFor,
+    Duration? pauseFor,
+    ListenMode listenMode = ListenMode.confirmation,
+  }) async {
     if (!_initialized) {
       await initialize();
     }
-    return _nativeEngine.startListening(language: language);
+    return _nativeEngine.startListening(
+      language: language,
+      listenTimeout: listenFor,
+      pauseTimeout: pauseFor ?? const Duration(seconds: 3),
+      listenMode: listenMode,
+    );
+  }
+
+  /// Khởi tạo phiên nghe LIÊN TỤC cho hội thoại (cabin STS / shadowing):
+  /// `listenFor = null` (không auto-stop 2 phút) + `ListenMode.dictation`
+  /// (nội dung dài, câu/đoạn — khác `confirmation` cho lệnh ngắn).
+  /// Hệ thống vẫn tự pause sau im lặng ≥ [pauseFor].
+  Future<bool> startConversation({
+    String language = 'en-US',
+    Duration pauseFor = const Duration(seconds: 4),
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    return _nativeEngine.startListening(
+      language: language,
+      listenTimeout: null,
+      pauseTimeout: pauseFor,
+      listenMode: ListenMode.dictation,
+    );
   }
 
   Future<void> stopListening() async => _nativeEngine.stopListening();
 
   Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
+
+  /// Phiên live mic có đang chạy ở engine native không (kể cả khi app
+  /// không biết — dùng để phát hiện "mic bị chiếm" bởi flow khác).
+  bool get isLiveListening => _nativeEngine.isListening;
+
+  /// Lý do gần nhất live STT thất bại (null = chưa có lỗi gần nhất).
+  String? get liveLastError => _nativeEngine.lastError;
+
+  /// Micro có quyền chưa (permission RECORD_AUDIO ở cấp hệ thống).
+  Future<bool> checkLiveMicPermission() =>
+      _nativeEngine.checkAvailability();
 
   // ── Config & Cache ────────────────────────────────────────────────────────
 

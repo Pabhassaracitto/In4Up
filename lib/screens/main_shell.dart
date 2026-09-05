@@ -13,6 +13,7 @@ import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
+import '../features/pic_anki/pic_anki.dart';
 import '../features/youtube/youtube_sheet.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
@@ -414,6 +415,13 @@ class _MainShellState extends State<MainShell> {
 
     final rememberTools = <tools.ToolItem>[
       tools.ToolItem(
+        id: 'pic_anki',
+        title: context.uiText('Pic Anki & Express'),
+        subtitle: context.uiText('Che hình để đố · nhìn hình miêu tả'),
+        icon: Icons.hide_image_outlined,
+        color: const Color(0xFF66BB6A),
+      ),
+      tools.ToolItem(
         id: 'learn_by_heart',
         title: context.uiText('Thuộc lòng (Learn by Heart)'),
         subtitle: context.uiText('Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa'),
@@ -588,6 +596,7 @@ class _MainShellState extends State<MainShell> {
       'youtube_downloader': 90,
       'web_reader': 88,
       'pdf_reader': 87,
+      'pic_anki': 89,
       'review': 86,
       'word_list': 85,
       'tipitaka': 91,

@@ -69,6 +69,7 @@
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | 📋 proposed (prompt bàn giao sẵn, chờ mở nhánh) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; model đã verify (vi-30M-int8 ~32MB + en-20M streaming int8) |
+| PIC-001 | Pic Anki occlusion + Pic Express describe/score | 🔄 doing (WP-A+B) | lib/features/pic_anki + test/pic_anki_test.dart |
 
 ## Card chi tiết
 
@@ -1753,7 +1754,7 @@
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
 
 ### PIC-001 — Pic Anki + Pic Express (tư vấn, chưa code)
-- **Trạng thái:** 📋 proposed
+- **Trạng thái:** 🔄 doing (WP-A + WP-B code)
 - **Nguồn:** owner (2026-09-05) — Anki che hình đố + Google nhìn hình miêu tả chấm điểm.
 - **Nội dung:** tư vấn kiến trúc để khi OK mới code. Chi tiết
   `docs/Bangiao/bangiao_pic_anki_express.md` + PLAN-024.
@@ -1761,9 +1762,13 @@
   - WP-B: describe-and-score viết (entity user + WriteStudio rubric).
   - WP-C: nói (STT) sau mic ổn.
   - WP-D: gợi ý nhãn ML Kit / VLM online (tuỳ chọn).
-- **Chờ owner:** chọn WP-A hay WP-B trước; ảnh local-only hay sync.
+- **Code (2026-09-05):** `lib/features/pic_anki/` + ⚡ Pic Anki & Express;
+  Hive `pic_anki_decks`; ảnh copy documents/pic_anki; SM-2 reading per mask;
+  Pic Express scorer entity (không GGUF vision). Test `test/pic_anki_test.dart`.
+- **Chờ:** CI + nghiệm thu máy (thêm ảnh, 3 mask, ôn độc lập, miêu tả coverage).
 - **Lịch sử:**
   - 2026-09-05 | created | agent arena/01a072a0-in4up | tư vấn only
+  - 2026-09-05 | proposed→doing | owner chọn lộ trình A rồi B | agent arena/01a072a0-in4up
 
 ### STT-LRC-LANG-01 — Tạo lời (LRC) bằng Whisper: đa ngữ, hết hardcode 'en'
 - **Trạng thái:** ✅ done + CI xanh run 33977299465 (chờ nghiệm thu máy)

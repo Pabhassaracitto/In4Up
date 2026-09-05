@@ -769,7 +769,7 @@ mode, không phụ thuộc speech service hệ thống:
   “anki có chức năng thêm hình rồi che một phần hình để đố rất hay, và
   google có trình nhìn hình và miêu tả và chấm điểm rất hay hãy tư vấn
   để khi ok có thể tích hợp vào dự án”
-- Trạng thái: proposed (tư vấn — chưa code)
+- Trạng thái: doing (WP-A + WP-B offline)
 - Milestone đề xuất: ngoài M0–M3 (Tools + Memory + tab Viết; không tab 6)
 - Chi tiết: `docs/Bangiao/bangiao_pic_anki_express.md`
   - Pic Anki = mask hình học trên ảnh gốc + 1 mask = 1 thẻ SM-2 **reading**;
@@ -784,3 +784,6 @@ mode, không phụ thuộc speech service hệ thống:
 - Lịch sử:
   - 2026-09-05 | created | owner via chat + agent arena/01a072a0-in4up |
     tư vấn only, chờ owner chọn WP-A hoặc WP-B
+  - 2026-09-05 | proposed→doing | owner “làm theo lộ trình hợp lý” |
+    agent arena/01a072a0-in4up | WP-A occlusion + WP-B entity score
+

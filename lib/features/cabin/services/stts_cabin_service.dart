@@ -176,7 +176,7 @@ class SttsCabinService extends ChangeNotifier {
   /// Fail liên tiếp 3 lần → báo lỗi (tránh vòng lặp vô hạn).
   void _startKeepAlive() {
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), () {
       _keepAliveTick();
     });
   }

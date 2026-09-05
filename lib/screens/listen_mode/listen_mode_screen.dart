@@ -2902,10 +2902,13 @@ class GenerateLrcButton extends StatelessWidget {
                     // khác bấm mic bị plugin từ chối ("Không thể khởi động
                     // micro"). Giờ: đang nghe → bấm = dừng; + dùng chế độ
                     // hội thoại (không tự chết sau 2 phút).
+                    // SttServiceFacade là SINGLETON (factory) — không
+                    // register làm Provider, nên KHÔNG dùng context.read
+                    // (gặp thì crash ProviderNotFoundException).
                     AnimatedBuilder(
-                      animation: context.read<SttServiceFacade>(),
+                      animation: SttServiceFacade(),
                       builder: (context, _) {
-                        final facade = context.read<SttServiceFacade>();
+                        final facade = SttServiceFacade();
                         final micOn = facade.isLiveListening;
                         return ElevatedButton.icon(
                           onPressed: () async {

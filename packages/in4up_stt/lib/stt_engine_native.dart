@@ -39,9 +39,10 @@ class SttEngineNative {
         onError: (e) {
           // Lỗi TRONG phiên (service bị kill, network drop...) — lưu lại
           // để UI thấy lý do thay vì im lặng.
-          _lastError = e.errorMsg?.isNotEmpty == true
+          _lastError = e.errorMsg.isNotEmpty
               ? 'STT session: ${e.errorMsg}'
-              : 'STT session error (${e.errorType})';
+              : 'STT session error '
+                  '(${e.permanent ? 'permanent' : 'transient'})';
           debugPrint('❌ Native STT error: ${e.errorMsg}');
         },
         onStatus: (s) => debugPrint('📢 Native STT status: $s'),

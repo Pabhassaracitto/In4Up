@@ -11,6 +11,7 @@
 //   • zoom 300% → 20 đơn vị PDF = 3-4 từ → chạm nhầm từ bên cạnh.
 //
 // Bản này quy đổi về PIXEL của trang đang thấy và lấy cao độ chữ làm đơn vị
+// (dòng probe: commit phải chạm lib/** để vượt paths-filter của workflow — 5.7)
 // dung sai → ổn định ở mọi mức zoom và mọi cỡ chữ.
 
 import 'dart:math' as math;

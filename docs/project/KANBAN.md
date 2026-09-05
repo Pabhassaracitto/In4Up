@@ -67,6 +67,7 @@
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
+| SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | 📋 proposed (prompt bàn giao sẵn, chờ mở nhánh) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; model đã verify (vi-30M-int8 ~32MB + en-20M streaming int8) |
 
 ## Card chi tiết
 
@@ -1722,3 +1723,30 @@
   - 2026-09-05 | created→doing | agent arena/01a0251e-in4up | chẩn đoán
     qua source plugin + fix 4 file; CI bisect cô lập lỗi; chờ CI xanh
     cuối + nghiệm thu
+
+### SHERPA-WP4-01 — Live STT offline qua sherpa Zipformer (WP4)
+- **Trạng thái:** 📋 proposed — prompt bàn giao đã sẵn sàng, chờ owner
+  mở **nhánh mới từ tip DEV** (arena/01a0251e-in4up).
+- **Nguồn:** owner (2026-09-05) — tiếp nối CABIN-001: cabin chạy bằng
+  speech service hệ thống → máy không có Google/Speech Services thì
+  không khởi động được mic; WP4 cho cabin live STT OFFLINE qua
+  sherpa-onnx Zipformer.
+- **Tài liệu bàn giao (BẮT BUỘC đọc):**
+  `docs/Bangiao/bangiao_sherpa_wp4_live_stt.md` — nhiệm vụ N1-N4,
+  thực tế model ĐÃ VERIFY từ docs k2-fsa (2026-09-05), kiến trúc
+  endpointing chốt (VI=simulated streaming + VAD; EN=streaming thật),
+  bẫy không lặp lại (từ CABIN-001/WP3), AT thiết bị 7 bước, format
+  báo cáo "WP DONE".
+- **Model (đã verify URL + layout + size từ docs chính thức):**
+  - VI (ưu tiên): `sherpa-onnx-zipformer-vi-30M-int8-2026-02-09`
+    (~32MB int8, 6000h VI, RTF ~0.011) — simulated streaming +
+    Silero VAD (đã có trong app).
+  - EN: `csukuangfj/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17`
+    (int8, streaming thật token-by-token) — endpoint rules tune.
+  - KHÔNG có Zipformer streaming-thật tiếng Việt (verify từ docs).
+- **Mở nhánh:** branch MỚI từ tip DEV; prompt topic = trỏ file bàn
+  giao + PLAN-023; sau khi CI xanh + nghiệm thu → leader DEV
+  cherry-pick `-x` harvest.
+- **Lịch sử:**
+  - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
+    prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa

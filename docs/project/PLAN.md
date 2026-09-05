@@ -716,3 +716,50 @@ từ tip DEV**. Không merge 580. Path-checkout file YouTube + test nhỏ vào D
   - 2026-09-03 | doing | agent arena/01a0251e-in4up | PLAN-022 ghi rõ
     đã làm/phải làm/sẽ làm + bẫy; chờ nghiệm thu thiết bị trước khi
     mở nhánh code tiếp
+
+### PLAN-023 — Sherpa WP4: Live STT offline qua Zipformer (cabin không phụ thuộc speech service)
+- **Nguồn:** owner (2026-09-05, qua session DEV arena/01a0251e-in4up —
+  tiếp nối CABIN-001: cabin hiện chạy bằng speech service hệ thống,
+  máy không có Google/Speech Services thì không khởi động được mic).
+- **Trạng thái:** 📋 proposed — prompt bàn giao đã sẵn sàng, chờ mở
+  **nhánh mới từ tip DEV**.
+- **Tài liệu bàn giao (BẮT BUỘC đọc):** `docs/Bangiao/bangiao_sherpa_wp4_live_stt.md`
+  (nhiệm vụ N1-N4, thực tế model đã verify, bẫy, AT thiết bị, format
+  báo cáo "WP DONE").
+
+#### 1. Mục tiêu
+Cabin dịch (và sau này shadowing/voice command nếu owner muốn) có live
+STT **offline** qua sherpa-onnx Zipformer — chạy mọi máy, airplane
+mode, không phụ thuộc speech service hệ thống:
+- **Source VI** → simulated streaming: OfflineRecognizer
+  (`sherpa-onnx-zipformer-vi-30M-int8-2026-02-09`, ~32MB, 6000h VI,
+  RTF ~0.011) + Silero VAD (đã có trong app) endpointing.
+- **Source EN** → streaming thật: OnlineRecognizer
+  (`csukuangfj/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17`
+  int8) + endpoint rules tune → partial token-by-token.
+- KHÔNG có Zipformer streaming-thật tiếng Việt (đã verify từ docs
+  k2-fsa) — VI phải simulated streaming; ghi rõ trade-off trong AT.
+
+#### 2. Scope (chốt trong bàn giao)
+- N1: hoàn thiện `SherpaSttEngine` trên PoC có sẵn (engine nhận PCM
+  stream, app pipe mic — không thêm `record` vào in4up_stt) + test unit.
+- N2: `SherpaModelManager` + UI "Quản lý Model AI" — import/tải/verify
+  2 profile model (vi-30M-int8, en-20M-streaming-int8), KHÔNG
+  auto-download, size guard, message thiếu model dẫn đường.
+- N3: facade live engine selection (system | sherpa-offline, persisted)
+  + chip đổi engine trong cabin; voice command/shadowing KHÔNG đổi
+  (scope không phình).
+- N4: docs (MODELS.md, README) + i18n rule #5 + KANBAN.
+
+#### 3. Bẫy (chi tiết trong bàn giao)
+- Không bịa URL/model; không auto-download (quy tắc MODELS.md).
+- Không duplicate dependency `sherpa_onnx` (đã có ^1.13.6).
+- Pointer C-struct: initBindings 1 lần, free đúng thứ tự (bẫy FFI).
+- `Timer.periodic` closure 1-arg `(_)`; `Map.map()` trả Iterable.
+- Một mic pipeline; stop sạch trước start lại (bẫy mic treo CABIN-001).
+- CI là oracle; chạm path app để trigger; không sửa workflows.
+
+- **Lịch sử:**
+  - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
+    prompt bàn giao docs/Bangiao/bangiao_sherpa_wp4_live_stt.md +
+    KANBAN SHERPA-WP4-01; chờ owner mở nhánh sherpa

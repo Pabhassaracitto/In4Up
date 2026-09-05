@@ -28,6 +28,11 @@ linter:
 # https://dart.dev/guides/language/analysis-options
 analyzer:
   exclude:
+    # [CI-PROBE tạm thời — arena/01a07250-in4up] workflow chỉ `tail -n 300
+    # analyze.log` nên lỗi của lib/** bị cuộn noise của packages/in4up_stt che mất
+    # (bẫy 5.15 trong docs/skills/ci-red-debugging). Tạm rút packages khỏi phạm vi
+    # analyze ĐỂ ĐỌC danh sách lỗi của lib, sẽ revert ngay sau khi đọc xong.
+    - "packages/**"
     - "backups/**"       # Bỏ qua toàn bộ file trong thư mục backups ở thư mục gốc
     - "**/backups/**"     # Bỏ qua mọi thư mục tên backups ở bất kỳ đâu trong dự án
 

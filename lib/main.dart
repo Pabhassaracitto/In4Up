@@ -24,6 +24,7 @@ import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
 import 'providers/audio_library_provider.dart';
+import 'providers/text_device_provider.dart';
 import 'providers/focus_provider.dart';
 import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
@@ -265,6 +266,8 @@ class _MyAppState extends State<MyApp> {
         ),
         // Thư viện âm thanh (P1): quét MediaStore, chỉ mục Hive
         ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
+        // Thư viện đọc (tab Thiết bị): quét thư mục trên máy (SAF tree, Android)
+        ChangeNotifierProvider(create: (_) => TextDeviceProvider()..init()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(

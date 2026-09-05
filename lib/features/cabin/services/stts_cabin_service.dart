@@ -289,25 +289,7 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   Future<void> _keepAliveTick() async {
-    if (_state != CabinState.listening &&
-        _state != CabinState.translating &&
-        _state != CabinState.speaking) {
-      return;
-    }
-    if (_stt.isLiveListening) return;
-    if (_starting) return;
-    final ok = await _tryStartEngine();
-    if (ok) {
-      _consecutiveStartFails = 0;
-      _state = CabinState.listening;
-    } else {
-      _consecutiveStartFails++;
-      if (_consecutiveStartFails >= 3) {
-        _state = CabinState.error;
-        _lastError = await _buildStartFailureMessage();
-      }
-    }
-    notifyListeners();
+    // (bisect stub)
   }
 
   // ── Pipeline Logic ────────────────────────────────────────────────────────

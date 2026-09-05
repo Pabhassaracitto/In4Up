@@ -259,42 +259,37 @@ class _RecallMarkersButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = controller.showRecallMarkers;
-    return GestureDetector(
-      onTap: () {
-        onUserInteraction?.call();
-        HapticFeedback.selectionClick();
-        controller.toggleRecallMarkers();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14),
-          border: isActive
-              ? Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.45))
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? Icons.visibility : Icons.visibility_outlined,
-              size: 13,
-              color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              context.uiText(isActive ? 'Đánh dấu: BẬT' : 'Đánh dấu: TẮT'),
-              style: TextStyle(
-                fontSize: 10,
-                color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+    return Tooltip(
+      message: context.uiText(
+        isActive
+            ? 'Đang hiện vòng tròn quanh từ đã lưu / có ghi chú / đến kỳ ôn'
+            : 'Hiện vòng tròn quanh từ đã lưu / có ghi chú / đến kỳ ôn',
+      ),
+      child: GestureDetector(
+        onTap: () {
+          onUserInteraction?.call();
+          HapticFeedback.selectionClick();
+          controller.toggleRecallMarkers();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(9),
+            border: isActive
+                ? Border.all(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.45))
+                : null,
+          ),
+          child: Icon(
+            isActive ? Icons.bookmark_added : Icons.bookmark_add_outlined,
+            size: 15,
+            color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
+          ),
         ),
       ),
     );
@@ -492,6 +487,41 @@ class _PdfOptionsSheet extends StatelessWidget {
               },
             ),
 
+          ListTile(
+            leading: Icon(
+              controller.hasBookmarkOnPage(controller.currentPage)
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+              color: const Color(0xFF64B5F6),
+            ),
+            title: Text(
+              context.uiText(controller.hasBookmarkOnPage(controller.currentPage)
+                  ? 'Bỏ đánh dấu trang này'
+                  : 'Đánh dấu trang này'),
+              style: const TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              context.uiText('Tìm lại nhanh trong danh sách Ghi chú & đánh dấu'),
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            onTap: () async {
+              final added = !controller.hasBookmarkOnPage(controller.currentPage);
+              await controller.toggleBookmark();
+              Navigator.pop(context);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(added
+                        ? context.uiText('Đã đánh dấu trang này')
+                        : context.uiText('Đã bỏ đánh dấu')),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+          ),
+
           // Annotations count
           ListTile(
             leading: const Icon(Icons.note_alt_outlined, color: Colors.amber),
@@ -533,10 +563,10 @@ class _TtsLanguageSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = [
-      ('en-US', '🇺🇸 Tiếng Anh'),
+    final options = <(String, String)>[
+      ('en-US', '🇺🇸 English'),
       ('vi-VN', '🇻🇳 Tiếng Việt'),
-      ('bilingual', '🔀 Song ngữ'),
+      if (controller.isBilingualTtsAvailable) ('bilingual', '🔀 Song ngữ'),
     ];
 
     return Wrap(

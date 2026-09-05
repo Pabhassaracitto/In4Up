@@ -1,14 +1,13 @@
-//lid/features/pdf_reader/pdf_reader_screen.dart
-// Màn hình đọc PDF với:
-//  - Render PDF gốc (pdfrx)
-//  - Overlay highlight theo CEFR / WordType / Difficulty
-//  - TTS đọc tiếng Anh / Việt / Song ngữ
-//  - Ghi chú per-đoạn văn
-//  - Tap từ → word detail + lưu vào Memory Garden
+// lid/features/pdf_reader/pdf_reader_screen.dart
+// Màn hình đọc PDF:
+//  - Render PDF gốc (pdfrx) + selection của viewer nối thẳng vào hành động học
+//  - Overlay highlight theo CEFR / WordType / Difficulty + recall marker
+//  - TTS đọc theo CÂU, tô sáng câu đang đọc, tự lật trang
+//  - Chạm một từ → sheet tra/lưu; giữ (long-press) → chọn từ rồi hành động trên
+//    vùng chọn (Ghi chú / WordList / TTS / Text Studio / Vườn Nhớ)
 //  - Text Mode: extract toàn bộ text → load vào Read Mode cũ
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
@@ -25,8 +24,10 @@ import '../../providers/vocabulary_provider.dart';
 import '../../widgets/selection_save_sheet.dart';
 import '../../widgets/unified_knowledge_sheet.dart';
 import 'models/pdf_annotation.dart';
-import 'models/pdf_word_info.dart';
 import 'pdf_reader_controller.dart';
+import 'services/pdf_file_identity.dart';
+import 'services/pdf_geometry.dart';
+import 'services/pdf_word_hit_test.dart';
 import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_annotation_sheet.dart';
 import 'widgets/pdf_toolbar.dart';
@@ -58,13 +59,10 @@ class PdfReaderScreen extends StatefulWidget {
 }
 
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
-  static const Duration _kPdfChromeAutoHideDelay = Duration(seconds: 3);
-
   late final PdfReaderController _controller;
   final PdfViewerController _pdfViewerController = PdfViewerController();
   bool _showWordlistPanel = false;
   bool _chromeVisible = true;
-  Timer? _chromeHideTimer;
 
   @override
   void initState() {
@@ -72,88 +70,99 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     _controller = PdfReaderController(pdfPath: widget.pdfPath);
     _controller.addListener(_onControllerUpdate);
 
-    // Đồng bộ vùng chọn từ PDF Viewer vào controller
-    _pdfViewerController.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduleChromeAutoHide();
-    });
+    // Controller không import pdfrx → nó lái viewer qua cầu nối này
+    // (lật trang khi TTS đọc sang trang khác, cua tới vùng đã lưu).
+    _controller.viewerCommands
+      ..goToPage = _goToPage
+      ..revealRect = _revealRect;
   }
 
-  bool get _isImmersivePdfMode =>
-      _controller.viewMode == PdfViewMode.pdfView && _controller.selectedText == null;
+  void _goToPage(int pageIndex) {
+    if (!_pdfViewerController.isReady) return;
+    final total = _pdfViewerController.pageCount;
+    if (total == 0) return;
+    unawaited(
+      _pdfViewerController.goToPage(
+        pageNumber: (pageIndex + 1).clamp(1, total),
+        duration: const Duration(milliseconds: 220),
+      ),
+    );
+  }
 
+  void _revealRect(int pageIndex, Rect rect) {
+    if (!_pdfViewerController.isReady || !isPaintablePdfRect(rect)) return;
+    final total = _pdfViewerController.pageCount;
+    // `PdfRect` của engine assert left <= right && top >= bottom (quy ước PDF
+    // y-up). Dữ liệu lưu cũ có thể bị đảo chiều y → đưa về đúng thứ tự trước
+    // khi gọi, nếu không là một vụ ném exception khi mở lại ghi chú.
+    final yTop = rect.top > rect.bottom ? rect.top : rect.bottom;
+    final yBottom = rect.top > rect.bottom ? rect.bottom : rect.top;
+    final xLeft = rect.left < rect.right ? rect.left : rect.right;
+    final xRight = rect.left < rect.right ? rect.right : rect.left;
+    unawaited(
+      _pdfViewerController.goToRectInsidePage(
+        pageNumber: (pageIndex + 1).clamp(1, total),
+        rect: PdfRect(xLeft, yTop, xRight, yBottom),
+      ),
+    );
+  }
+
+  // ── Chrome (toolbar + thanh TTS) ──────────────────────────
+  //
+  // Trước đây chrome tự ẩn sau 3 giây bằng timer, kể cả lúc đang gõ ghi chú
+  // hay đang nghe TTS. Reader thật ẩn/hiện theo Ý ĐỊNH của người dùng: một chạm
+  // vào nền tắt, chạm tiếp mở — nên ở đây bỏ hẳn timer.
   bool get _showTopChrome =>
-      _controller.viewMode != PdfViewMode.pdfView || _chromeVisible;
+      _controller.viewMode != PdfViewMode.pdfView ||
+      _chromeVisible ||
+      _controller.hasSelection;
 
-  bool get _showBottomChrome =>
-      _controller.viewMode != PdfViewMode.pdfView || _chromeVisible;
-
-  double get _selectionBottomOffset => _showBottomChrome ? 92 : 20;
+  bool get _showBottomChrome => _showTopChrome;
 
   void _onControllerUpdate() {
     if (!mounted) return;
-
-    if (_controller.selectedText != null ||
-        _controller.viewMode == PdfViewMode.textMode) {
-      _showChrome(autoHide: false);
-      return;
+    if (_controller.viewerSelectionShouldBeCleared) {
+      _controller.viewerSelectionShouldBeCleared = false;
+      _clearViewerSelection();
     }
-
+    final mustShowChrome = _controller.hasSelection ||
+        _controller.viewMode == PdfViewMode.textMode;
+    if (mustShowChrome && !_chromeVisible) _chromeVisible = true;
     setState(() {});
-    _scheduleChromeAutoHide();
   }
 
-  void _scheduleChromeAutoHide() {
-    _chromeHideTimer?.cancel();
-    if (!_isImmersivePdfMode) return;
-    _chromeHideTimer = Timer(_kPdfChromeAutoHideDelay, () {
-      if (!mounted || !_isImmersivePdfMode) return;
-      setState(() => _chromeVisible = false);
-    });
-  }
-
-  void _showChrome({bool autoHide = true}) {
-    _chromeHideTimer?.cancel();
+  void _showChrome() {
     if (!mounted) return;
-    if (!_chromeVisible) {
-      setState(() => _chromeVisible = true);
-    } else {
-      setState(() {});
-    }
-    if (autoHide) {
-      _scheduleChromeAutoHide();
+    if (_chromeVisible) return;
+    setState(() => _chromeVisible = true);
+  }
+
+  void _clearViewerSelection() {
+    if (!_pdfViewerController.isReady) return;
+    try {
+      unawaited(_pdfViewerController.textSelectionDelegate.clearTextSelection());
+    } catch (_) {
+      // viewer chưa attach xong — selection vốn đã không còn
     }
   }
 
   void _toggleChromeVisibility() {
     if (_controller.viewMode != PdfViewMode.pdfView) return;
-    if (_controller.selectedText != null) return;
-
-    _chromeHideTimer?.cancel();
-    setState(() => _chromeVisible = !_chromeVisible);
-    if (_chromeVisible) {
-      _scheduleChromeAutoHide();
+    if (_controller.hasSelection) {
+      _controller.clearSelection();
+      return;
     }
+    setState(() => _chromeVisible = !_chromeVisible);
   }
 
   @override
   void dispose() {
-    _chromeHideTimer?.cancel();
     _controller.removeListener(_onControllerUpdate);
     _controller.dispose();
     super.dispose();
   }
 
-  String get _title {
-    final parts = widget.pdfPath.split(Platform.pathSeparator);
-    final name = parts.last;
-    return name.length > 30 ? '${name.substring(0, 28)}...' : name;
-  }
+  String get _title => pdfDisplayName(widget.pdfPath);
 
   @override
   Widget build(BuildContext context) {
@@ -217,14 +226,18 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               ),
             ),
           ),
-          if (_controller.selectedText != null)
+          if (_controller.hasSelection)
             Positioned(
-              bottom: _selectionBottomOffset,
-              left: 20,
-              right: 20,
+              // Neo vào safe area + chiều cao thật của thanh chrome thay vì
+              // số đo cứng 92/20 (khi chrome ẩn, thanh chọn đè lên FAB).
+              bottom: MediaQuery.of(context).padding.bottom +
+                  (_showBottomChrome ? 84 : 16),
+              left: 16,
+              right: 16,
               child: _SelectionBar(
                 controller: _controller,
                 onSaveNote: _saveSelectionAsAnnotation,
+                onHighlight: _highlightSelection,
                 onOpenTextStudio: _openSelectedInTextStudio,
                 writingMode: widget.writingMode,
               ),
@@ -287,7 +300,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   Widget _buildSplitOrPdf() {
     if (!_showWordlistPanel) return _buildPdfMode();
 
-    final pdfName = widget.pdfPath.split(Platform.pathSeparator).last;
+    final pdfName = pdfBaseName(widget.pdfPath);
 
     return Row(
       children: [
@@ -313,7 +326,17 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       controller: _pdfViewerController,
       params: PdfViewerParams(
         backgroundColor: const Color(0xFF1A1A2E),
-        // Text selection được xử lý qua PdfViewerController hoặc gestures
+        // BÔI ĐEN CHỮ: trước đây selection của viewer KHÔNG hề được nối vào
+        // controller (`setSelection` chỉ được gọi ở Text Mode) → 6 hành động
+        // trên SelectionBar vô dụng ở chế độ PDF. Nay lấy trực tiếp từ pdfrx;
+        // callback đã được viewer debounce 300 ms nên kéo handle không gây bão
+        // rebuild.
+        textSelectionParams: PdfTextSelectionParams(
+          onTextSelectionChange: _onViewerTextSelection,
+        ),
+        // CHẠM: một chạm = tra từ, giữ (long-press) = chọn từ. Không còn
+        // GestureDetector phủ kín trang chặn pan/zoom/selection của viewer.
+        onGeneralTap: _onViewerTap,
         loadingBannerBuilder: (context, bytesDownloaded, totalBytes) {
           return const Center(
             child: Column(
@@ -329,24 +352,30 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           );
         },
 
-        // Callback khi document load xong
-        onDocumentChanged: (document) {
-          if (document != null) {
-            _controller.onDocumentLoaded(document);
-            final contextPage = widget.initialFocusContext?.pageIndexHint;
-            final targetPage = widget.initialPageIndex != null &&
-                    widget.initialPageIndex! >= 0 &&
-                    widget.initialPageIndex! < document.pages.length
-                ? widget.initialPageIndex!
-                : contextPage != null &&
-                        contextPage >= 0 &&
-                        contextPage < document.pages.length
-                    ? contextPage
-                    : _controller.currentPage;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (targetPage != _controller.currentPage) {
+        // Callback khi document load xong. `onDocumentLoaded` là Future: phải
+        // chờ nó đọc xong trang-của-phiên-trước (Hive) rồi mới quyết định nhảy
+        // trang, nếu không viewer vẽ trang 1 trong khi dữ liệu nói trang 87.
+        onDocumentChanged: (document) async {
+          if (document == null) return;
+          await _controller.onDocumentLoaded(document);
+          if (!mounted) return;
+          final pageCount = document.pages.length;
+          int? targetPage;
+          for (final candidate in <int?>[
+            widget.initialPageIndex,
+            widget.initialFocusContext?.pageIndexHint,
+            _controller.initialPageToRestore,
+          ]) {
+            if (candidate != null && candidate > 0 && candidate < pageCount) {
+              targetPage = candidate;
+              break;
+            }
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (targetPage != null && targetPage != _controller.currentPage) {
                 _pdfViewerController.goToPage(
                   pageNumber: targetPage + 1,
+                  duration: Duration.zero,
                 );
                 _controller.onPageChanged(targetPage);
               }
@@ -360,7 +389,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 _controller.showFocusCueForWord(widget.initialFocusWord!);
               }
             });
-          }
+          _showChrome();
         },
 
         // Per-page overlay builder
@@ -368,15 +397,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           final pageIndex = page.pageNumber - 1;
           final words = _controller.getWordsForPage(pageIndex);
           final annotations = _controller.annotationsForPage(pageIndex);
+          final cuePage = _controller.ttsCuePageIndex;
+          final ttsRects = (cuePage == null || cuePage == pageIndex)
+              ? _controller.ttsCueRects
+              : const <Rect>[];
 
           return [
-            // Layer 1: Word highlight / recall / focus cue
+            // Layer 1: Word highlight / recall / focus cue / câu đang đọc
             if ((_controller.colorMode != ColorMode.none ||
                     _controller.focusWordCue != null ||
                     _controller.focusRectCue != null ||
                     _controller.focusTextStartOffsetCue != null ||
-                    _controller.showRecallMarkers) &&
-                (words.isNotEmpty || _controller.focusRectCue != null))
+                    _controller.showRecallMarkers ||
+                    ttsRects.isNotEmpty) &&
+                (words.isNotEmpty ||
+                    _controller.focusRectCue != null ||
+                    ttsRects.isNotEmpty))
               Positioned.fill(
                 child: PdfWordOverlay(
                   words: words,
@@ -392,6 +428,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   focusTextStartOffsetCue: _controller.focusTextStartOffsetCue,
                   focusTextEndOffsetCue: _controller.focusTextEndOffsetCue,
                   showRecallMarkers: _controller.showRecallMarkers,
+                  ttsCueRects: ttsRects,
                 ),
               ),
 
@@ -406,16 +443,6 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 ),
               ),
 
-            // Layer 3: Tap detector for words
-            Positioned.fill(
-              child: _WordTapDetector(
-                page: page,
-                pageIndex: pageIndex,
-                controller: _controller,
-                onBackgroundTap: _toggleChromeVisibility,
-                onWordInteraction: () => _showChrome(),
-              ),
-            ),
           ];
         },
 
@@ -540,20 +567,52 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   letterSpacing: 0.2,
                 ),
                 onSelectionChanged: (selection, cause) {
-                  if (selection.baseOffset != selection.extentOffset) {
-                    final text = _controller.extractedFullText.substring(
-                      selection.baseOffset,
-                      selection.extentOffset,
+                  if (selection.baseOffset == selection.extentOffset) return;
+                  final base = selection.baseOffset < selection.extentOffset
+                      ? selection.baseOffset
+                      : selection.extentOffset;
+                  final extent = selection.baseOffset < selection.extentOffset
+                      ? selection.extentOffset
+                      : selection.baseOffset;
+                  final text = _controller.extractedFullText
+                      .substring(base, extent);
+                  if (text.trim().isNotEmpty) {
+                    // Rect.zero ở đây từng là nguồn gốc highlight "mở ra không
+                    // thấy gì": Text Mode chỉ có offset trong chuỗi gộp, nên
+                    // controller phải tự dò lại trang + rect (xem
+                    // resolveTextModeSelectionToPage).
+                    _controller.applyTextModeSelection(
+                      text: text,
+                      startOffset: base,
+                      endOffset: extent,
                     );
-                    if (text.trim().isNotEmpty) {
-                      _controller.setSelection(text, Rect.zero);
-                    }
                   }
                 },
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Tô sáng nhanh: một chạm, không dialog — rồi mới bật menu ghi chú nếu
+  /// người dùng muốn thêm lời bình (đúng thứ tự thao tác của ReadEra).
+  Future<void> _highlightSelection() async {
+    final annotation = await _controller.addAnnotationFromSelection(note: '');
+    if (!mounted || annotation == null) return;
+    HapticFeedback.lightImpact();
+    _controller.clearSelection();
+    _showChrome();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('🖍 Đã tô sáng · chạm để ghi chú thêm')),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: context.uiText('Ghi chú'),
+          onPressed: () => PdfAnnotationSheet.show(context, annotation, _controller),
+        ),
       ),
     );
   }
@@ -626,7 +685,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     if (shouldSave != true || !mounted) return;
     await _controller.addAnnotationFromSelection(note: noteCtrl.text);
     if (!mounted) return;
-    _showChrome(autoHide: false);
+    _controller.clearSelection();
+    _showChrome();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('📝 Đã lưu ghi chú cho đoạn chọn'),
@@ -667,7 +727,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 
   Future<void> _sendPdfToWriting() async {
-    _showChrome(autoHide: false);
+    _showChrome();
     await _controller.switchToTextMode();
     if (!mounted) return;
     _sendExtractedPdfToWriting();
@@ -712,7 +772,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
   /// READ-630-04: lưu hàng loạt từ trang hiện tại
   Future<void> _openBatchSaveFromPage() async {
-    _showChrome(autoHide: false);
+    _showChrome();
     final text = await _controller.extractCurrentPageText();
     if (!mounted) return;
     if (text.trim().isEmpty) {
@@ -730,7 +790,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       sourceLabel: _title,
       sourceDetail: 'trang ${_controller.currentPage + 1}',
       contextBuilder: (sample) => VocabContext.fromPdf(
-        fileName: widget.pdfPath.split(Platform.pathSeparator).last,
+        fileName: pdfBaseName(widget.pdfPath),
         page: _controller.currentPage + 1,
         pageIndexHint: _controller.currentPage,
         surroundingText: sample,
@@ -789,6 +849,117 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
+  // ── Viewer tương tác: chạm & chọn chữ ───────────────────
+  //
+  // Trước đây mọi tương tác đi qua một `GestureDetector` phủ kín TỪNG TRANG
+  // (layer 3 trong pageOverlaysBuilder). Hệ quả: nó ăn mất long-press mà pdfrx
+  // dùng để BẮT ĐẦU selection trên màn cảm ứng, và nó nằm trên viewer nên
+  // pan/zoom cũng nặng tay. pdfrx có `onGeneralTap` đúng cho việc này —
+  // chạm thì mình giữ, còn lại trả `false` để viewer xử lý như thiết kế.
+
+  /// Một chạm: vào từ → sheet tra cứu; vào nền → bật/tắt chrome; vào vùng đang
+  /// chọn → giữ nguyên menu để người dùng kịp bấm hành động.
+  bool _onViewerTap(
+    BuildContext context,
+    PdfViewerController controller,
+    PdfViewerGeneralTapHandlerDetails details,
+  ) {
+    if (details.type != PdfViewerGeneralTapType.tap) {
+      // double tap = zoom, long press = chọn từ: mặc cho viewer làm.
+      return false;
+    }
+    if (details.tapOn == PdfViewerPart.selectedText) return true;
+
+    final hit = _wordAtDocumentPoint(details.documentPosition);
+    if (hit != null && hit.word.text.trim().length > 1) {
+      _showChrome();
+      HapticFeedback.selectionClick();
+      PdfWordTapSheet.show(context, hit.word, _controller);
+      return true;
+    }
+    if (_controller.hasSelection) {
+      _controller.clearSelection();
+      return true;
+    }
+    _toggleChromeVisibility();
+    return true;
+  }
+
+  /// Điểm chạm trong không gian tài liệu → không gian nhìn của trang → hit-test
+  /// theo pixel (ổn định ở mọi mức zoom, không còn "20 đơn vị PDF").
+  PdfWordHit? _wordAtDocumentPoint(Offset documentPoint) {
+    final doc = _controller.document;
+    if (doc == null || !_pdfViewerController.isReady) return null;
+    PdfPageLayout layout;
+    try {
+      layout = _pdfViewerController.layout;
+    } catch (_) {
+      return null;
+    }
+    final count = layout.pageLayouts.length < doc.pages.length
+        ? layout.pageLayouts.length
+        : doc.pages.length;
+    for (int i = 0; i < count; i++) {
+      final pageRect = layout.pageLayouts[i];
+      if (!pageRect.contains(documentPoint)) continue;
+      final page = doc.pages[i];
+      return hitTestWord(
+        _controller.getWordsForPage(i),
+        point: documentPoint - pageRect.topLeft,
+        pageWidth: page.width,
+        pageHeight: page.height,
+        pageViewSize: pageRect.size,
+      );
+    }
+    return null;
+  }
+
+  void _onViewerTextSelection(PdfTextSelection selection) {
+    if (!selection.hasSelectedText) {
+      if (_controller.selectionSource == PdfSelectionSource.viewer) {
+        _controller.clearSelection(alsoClearViewer: false);
+      }
+      return;
+    }
+    unawaited(_syncViewerSelection(selection));
+  }
+
+  Future<void> _syncViewerSelection(PdfTextSelection selection) async {
+    try {
+      final text = await selection.getSelectedText();
+      final ranges = await selection.getSelectedTextRanges();
+      if (!mounted) return;
+      if (text.trim().isEmpty || ranges.isEmpty) {
+        _controller.clearSelection(alsoClearViewer: false);
+        return;
+      }
+      _controller.applyViewerSelection(
+        text: text,
+        fragments: [
+          for (final range in ranges)
+            if (range.text.trim().isNotEmpty)
+              PdfSelectionFragment(
+                pageIndex: range.pageNumber - 1,
+                startOffset: range.start,
+                endOffset: range.end,
+                // `PdfRect` (top > bottom) chép nguyên vào `Rect` — đúng quy
+                // ước dùng chung với `PdfWordInfo.bounds` và
+                // `VocabContext.rectHint`; việc lật trục chỉ xảy ra lúc vẽ.
+                bounds: Rect.fromLTRB(
+                  range.bounds.left,
+                  range.bounds.top,
+                  range.bounds.right,
+                  range.bounds.bottom,
+                ),
+              ),
+        ],
+      );
+      _showChrome();
+    } catch (e) {
+      debugPrint('PdfReaderScreen: selection sync error: $e');
+    }
+  }
+
   Widget _buildError(String message) {
     return Center(
       child: Padding(
@@ -824,106 +995,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 }
 
-// ── Word Tap Detector ─────────────────────────────────────
-
-/// GestureDetector trong suốt phủ lên PDF page, detect tap vào từ
-class _WordTapDetector extends StatelessWidget {
-  final PdfPage page;
-  final int pageIndex;
-  final PdfReaderController controller;
-  final VoidCallback onBackgroundTap;
-  final VoidCallback onWordInteraction;
-
-  const _WordTapDetector({
-    required this.page,
-    required this.pageIndex,
-    required this.controller,
-    required this.onBackgroundTap,
-    required this.onWordInteraction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final scaleX = page.width / constraints.maxWidth;
-      final scaleY = page.height / constraints.maxHeight;
-
-      return GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTapUp: (details) {
-          // Convert screen tap position → PDF coordinates
-          final tapX = details.localPosition.dx * scaleX;
-          // PDF Y: bottom-left origin
-          final tapY = page.height - details.localPosition.dy * scaleY;
-
-          final words = controller.getWordsForPage(pageIndex);
-          if (words.isEmpty) return;
-
-          // Tìm từ gần nhất với tap position
-          PdfWordInfo? tappedWord;
-          double minDist = double.infinity;
-
-          for (final word in words) {
-            if (word.bounds.contains(Offset(tapX, tapY))) {
-              tappedWord = word;
-              break;
-            }
-            // Fallback: tìm từ gần nhất trong radius
-            final center = word.bounds.center;
-            final dist = (center - Offset(tapX, tapY)).distance;
-            if (dist < minDist && dist < 20) {
-              minDist = dist;
-              tappedWord = word;
-            }
-          }
-
-          if (tappedWord != null && tappedWord.text.trim().length > 1) {
-            onWordInteraction();
-            HapticFeedback.selectionClick();
-            PdfWordTapSheet.show(context, tappedWord, controller);
-          } else {
-            onBackgroundTap();
-          }
-        },
-        onLongPressStart: (details) {
-          // Long press → Add annotation
-          final tapX = details.localPosition.dx * scaleX;
-          final tapY = page.height - details.localPosition.dy * scaleY;
-
-          // Tìm từ tại vị trí này
-          final words = controller.getWordsForPage(pageIndex);
-          for (final word in words) {
-            if (word.bounds.contains(Offset(tapX, tapY))) {
-              onWordInteraction();
-              HapticFeedback.mediumImpact();
-              PdfAnnotationSheet.showAdd(
-                context,
-                word.text,
-                word.bounds,
-                pageIndex,
-                controller,
-              );
-              break;
-            }
-          }
-        },
-        child: const SizedBox.expand(),
-      );
-    });
-  }
-}
-
 // ── Selection Action Bar ──────────────────────────────────
 
 class _SelectionBar extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback onSaveNote;
+  final VoidCallback onHighlight;
   final VoidCallback onOpenTextStudio;
   final bool writingMode;
 
   const _SelectionBar({
     required this.controller,
     required this.onSaveNote,
+    required this.onHighlight,
     required this.onOpenTextStudio,
     required this.writingMode,
   });
@@ -957,6 +1041,12 @@ class _SelectionBar extends StatelessWidget {
             ),
           if (existing != null) const SizedBox(width: 2),
           _SelectionIconButton(
+            icon: Icons.format_paint,
+            color: const Color(0xFFFFD54F),
+            tooltip: context.uiText('Tô sáng đoạn chọn'),
+            onTap: onHighlight,
+          ),
+          _SelectionIconButton(
             icon: Icons.note_add_outlined,
             color: Colors.amber,
             tooltip: context.uiText('Ghi chú đoạn chọn'),
@@ -980,9 +1070,7 @@ class _SelectionBar extends StatelessWidget {
               SelectionSaveSheet.show(
                 context,
                 text: text,
-                sourceLabel: controller.pdfPath
-                    .split(Platform.pathSeparator)
-                    .last,
+                sourceLabel: pdfBaseName(controller.pdfPath),
                 sourceDetail: 'trang ${controller.currentPage + 1}',
                 contextBuilder: (sample) =>
                     controller.buildSelectionContext(sample),
@@ -1302,6 +1390,17 @@ class _PdfAnnotationManager extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
+                          leading: ann.type == AnnotationType.bookmark
+                              ? const Icon(Icons.bookmark,
+                                  color: Color(0xFF64B5F6), size: 18)
+                              : Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: ann.color,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
                           title: Text(
                             context.uiText('Trang ${ann.pageIndex + 1}'),
                             style: const TextStyle(
@@ -1314,7 +1413,9 @@ class _PdfAnnotationManager extends StatelessWidget {
                             children: [
                               const SizedBox(height: 4),
                               Text(
-                                ann.selectedText,
+                                ann.selectedText.isEmpty
+                                    ? context.uiText('Đánh dấu trang')
+                                    : ann.selectedText,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1338,16 +1439,19 @@ class _PdfAnnotationManager extends StatelessWidget {
                             ],
                           ),
                           trailing: IconButton(
-                            icon: const Icon(Icons.chevron_right,
+                            icon: const Icon(Icons.edit_note_rounded,
                                 color: Colors.white54),
+                            tooltip: context.uiText('Sửa / xoá'),
                             onPressed: () {
                               Navigator.pop(context);
                               PdfAnnotationSheet.show(context, ann, controller);
                             },
                           ),
+                          // Chạm vào dòng = ĐẾN CHỖ NÓ (reader chuẩn: danh sách
+                          // ghi chú là mục lục để nhảy, không phải hộp thoại).
                           onTap: () {
                             Navigator.pop(context);
-                            PdfAnnotationSheet.show(context, ann, controller);
+                            controller.revealAnnotation(ann);
                           },
                         );
                       },

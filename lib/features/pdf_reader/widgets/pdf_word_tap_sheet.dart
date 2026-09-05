@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -170,7 +168,10 @@ class _WordSheet extends StatelessWidget {
             const SizedBox(height: 12),
             _SavedRecallCard(
               entry: existing,
-              pdfFileName: controller.pdfPath.split(Platform.pathSeparator).last,
+              // `controller.fileName` = basename đa nền tảng: phải KHỚP với
+              // `VocabContext.fileName` đã lưu, nếu không thẻ "từ đã lưu của
+              // file này" không tìm ra nhau trên Windows.
+              pdfFileName: controller.fileName,
               pageIndex: wordInfo.pageIndex,
               onAddContext: () {
                 provider.addContextToWord(
@@ -327,7 +328,10 @@ class _WordSheet extends StatelessWidget {
                 : (analyzed?.example?.trim().isNotEmpty ?? false)
                     ? analyzed!.example!.trim()
                     : displayWord,
-            pdfFileName: controller.pdfPath.split(Platform.pathSeparator).last,
+            // `controller.fileName` = basename đa nền tảng: phải KHỚP với
+              // `VocabContext.fileName` đã lưu, nếu không thẻ "từ đã lưu của
+              // file này" không tìm ra nhau trên Windows.
+              pdfFileName: controller.fileName,
             pageIndex: wordInfo.pageIndex,
           ),
             ],

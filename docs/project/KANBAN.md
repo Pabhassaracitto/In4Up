@@ -66,7 +66,7 @@
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 
 ---
-| CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | 🔄 doing (chờ CI xanh cuối + nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
+| CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 
 ## Card chi tiết
 
@@ -1670,7 +1670,7 @@
     + 15 test; chờ CI (flutter test chạy trong pipeline)
 
 ### CABIN-001 — Cabin dịch: không khởi động được mic / nhận diện giọng nói
-- **Trạng thái:** doing (chờ CI xanh cuối + nghiệm thu máy)
+- **Trạng thái:** done + CI xanh 33961600553 @ a1a36e5 (chờ nghiệm thu máy)
 - **Triệu chứng (owner):** vào tool Dịch Live Cabin → bấm mic → banner
   "Không thể khởi động micro / nhận diện giọng nói."
 - **Định vị (code + source plugin speech_to_text 7.x — SpeechToTextPlugin.kt):**
@@ -1710,7 +1710,7 @@
 - **Quá trình debug:** log CI không đọc được → bisect bằng CI oracle
   (~15 run xanh/đỏ) cô lập đúng khu vực lỗi; lần cuối: closure 0-arg
   cho `Timer.periodic` (khác convention 1-arg `(_)` của toàn repo) —
-  đã đổi sang `(_)` theo convention, chờ xác nhận CI xanh.
+  đã đổi sang `(_)` theo convention — CI xanh xác nhận (33961600553).
 - **Chưa làm (WP2 theo PLAN-008):** live STT offline bằng sherpa
   Zipformer streaming (không phụ thuộc speech service hệ thống) —
   `SherpaSttEngine.startListening` hiện là PoC chưa nối mic.

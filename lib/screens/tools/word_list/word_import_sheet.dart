@@ -1120,8 +1120,9 @@ class WordTableParser {
   };
 
   /// Alias đã normalize key (tra nhanh, tránh lệch do gạch dưới/dấu).
-  static final Map<String, String> _normAliases =
-      fieldAliases.map((k, v) => MapEntry(normKey(k), v));
+  static final Map<String, String> _normAliases = {
+    for (final e in fieldAliases.entries) normKey(e.key): e.value,
+  };
 
   /// Bảng bỏ dấu tiếng Việt ĐẦY ĐỦ (cả khối Latin Extended Additional
   /// U+1E00+ — nếu strip TRƯỚC khi map thì 'từ' mất cả chữ 'u' → 't').

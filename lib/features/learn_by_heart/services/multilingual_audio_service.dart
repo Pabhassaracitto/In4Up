@@ -50,27 +50,6 @@ class MultilingualAudioService extends ChangeNotifier {
         overrides: _lineRepeatOverrides,
       );
 
-  /// Override HIỆU LỰC của 1 dòng (null = chưa có override → dùng default).
-  int? lineRepeatOverride(int line) => _lineRepeatOverrides[line];
-
-  /// Snapshot (imutable copy) để màn hình persist vào item.
-  Map<int, int> get lineRepeatOverridesSnapshot =>
-      Map<int, int>.unmodifiable(_lineRepeatOverrides);
-
-  /// Khôi phục overrides đã lưu của item khi MỞ bài (persist qua restart —
-  /// "cây nào cần nước nhiều vẫn giữ số lần lặp cũ").
-  void restoreLineOverrides(Map<int, int> overrides) {
-    _lineRepeatOverrides
-      ..clear()
-      ..addAll(overrides);
-    notifyListeners();
-  }
-
-  /// Bỏ override của 1 dòng → về số lần lặp mặc định của trình phát.
-  void clearLineRepeatOverride(int line) {
-    if (_lineRepeatOverrides.remove(line) != null) notifyListeners();
-  }
-
   void setSpeed(double s) {
     _speed = s.clamp(0.5, 2.0);
     _tts.configure(speed: _speed);

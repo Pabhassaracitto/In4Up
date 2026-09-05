@@ -29,6 +29,9 @@ class LearnByHeartItem {
   final List<LineTimestamp> lineTimestamps;
   final List<Chunk> chunkList;
 
+  /// Số lần lặp TTS RIÊNG cho từng dòng (1-based line → count 1…999).
+  final Map<int, int> lineRepeatOverrides;
+
   // ===== ELABORATIVE FIELDS =====
   final List<String> keywords;
   final String shortMeaning;
@@ -64,6 +67,7 @@ class LearnByHeartItem {
     this.memorizeSide = MemorizeSide.target,
     this.lineTimestamps = const [],
     this.chunkList = const [],
+    this.lineRepeatOverrides = const {},
     this.keywords = const [],
     this.shortMeaning = '',
     this.lifeConnection = '',
@@ -153,6 +157,7 @@ class LearnByHeartItem {
     MemorizeSide? memorizeSide,
     List<LineTimestamp>? lineTimestamps,
     List<Chunk>? chunkList,
+    Map<int, int>? lineRepeatOverrides,
     List<String>? keywords,
     String? shortMeaning,
     String? lifeConnection,
@@ -185,6 +190,7 @@ class LearnByHeartItem {
       memorizeSide: memorizeSide ?? this.memorizeSide,
       lineTimestamps: lineTimestamps ?? this.lineTimestamps,
       chunkList: chunkList ?? this.chunkList,
+      lineRepeatOverrides: lineRepeatOverrides ?? this.lineRepeatOverrides,
       keywords: keywords ?? this.keywords,
       shortMeaning: shortMeaning ?? this.shortMeaning,
       lifeConnection: lifeConnection ?? this.lifeConnection,

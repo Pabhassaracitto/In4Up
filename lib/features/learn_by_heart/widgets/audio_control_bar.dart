@@ -13,17 +13,11 @@ class AudioControlBar extends StatelessWidget {
   final VoidCallback onPlayPause;
   final LearnByHeartItem? item;
 
-  /// Điều chỉnh số lần lặp TTS RIÊNG cho 1 dòng (tưới nước từng cây).
-  /// [count] null = bỏ override (về mặc định); >0 = đặt số lần (1…999).
-  /// Màn hình gọi để persist vào item (lineRepeatOverrides).
-  final void Function(int line, int? count)? onLineRepeatChanged;
-
   const AudioControlBar({
     super.key,
     required this.audioService,
     required this.onPlayPause,
     this.item,
-    this.onLineRepeatChanged,
   });
 
   @override
@@ -36,7 +30,6 @@ class AudioControlBar extends StatelessWidget {
         final langMode = audioService.langMode;
         final itemRepeats = audioService.itemRepeatCount;
         final lineRepeats = audioService.lineRepeatCount;
-        final currentLine = audioService.currentLineIndex;
         final l10n = LearnByHeartL10n.of(context);
 
         return Container(
@@ -124,69 +117,6 @@ class AudioControlBar extends StatelessWidget {
                   onChanged: audioService.setLineRepeatCount,
                 ),
               ),
-              // Lặp RIÊNG cho câu ĐANG PHÁT (tưới nước từng cây): câu khó
-              // nhớ tăng [＋], câu dễ giảm [－]; bấm chip = menu số lần,
-              // nhấn giữ chip = về mặc định. Override persist theo item.
-              if (currentLine != null && currentLine > 0) ...[
-                _StepperButton(
-                  icon: Icons.remove_rounded,
-                  tooltip: l10n.repeatLineMinus,
-                  enabled:
-                      audioService.lineRepeatFor(currentLine) > 1,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onLineRepeatChanged?.call(
-                      currentLine,
-                      RecitationRepeat.clampLine(
-                        audioService.lineRepeatFor(currentLine) - 1,
-                      ),
-                    );
-                  },
-                ),
-                _RepeatChip(
-                  icon: Icons.format_list_numbered_rounded,
-                  prefix: '${l10n.repeatLine} $currentLine',
-                  label: RecitationRepeat.lineLabel(
-                    audioService.lineRepeatFor(currentLine),
-                    current: isPlaying ? audioService.lineRepeatCurrent : 0,
-                  ),
-                  isActive: audioService
-                          .lineRepeatOverride(currentLine) !=
-                      null ||
-                      audioService.lineRepeatFor(currentLine) !=
-                          lineRepeats,
-                  onTap: () => showRepeatCountMenu(
-                    context,
-                    current: audioService.lineRepeatFor(currentLine),
-                    allowInfinite: false,
-                    title: l10n.repeatLineCountTitle,
-                    onChanged: (value) =>
-                        onLineRepeatChanged?.call(currentLine, value),
-                  ),
-                  onLongPress: audioService
-                          .lineRepeatOverride(currentLine) !=
-                      null
-                      ? () {
-                          HapticFeedback.selectionClick();
-                          onLineRepeatChanged?.call(currentLine, null);
-                        }
-                      : null,
-                ),
-                _StepperButton(
-                  icon: Icons.add_rounded,
-                  tooltip: l10n.repeatLinePlus,
-                  enabled: audioService.lineRepeatFor(currentLine) < 999,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onLineRepeatChanged?.call(
-                      currentLine,
-                      RecitationRepeat.clampLine(
-                        audioService.lineRepeatFor(currentLine) + 1,
-                      ),
-                    );
-                  },
-                ),
-              ],
                   ],
                 ),
               ),
@@ -284,7 +214,6 @@ class _RepeatChip extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
 
   const _RepeatChip({
     required this.icon,
@@ -292,7 +221,6 @@ class _RepeatChip extends StatelessWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
@@ -300,7 +228,6 @@ class _RepeatChip extends StatelessWidget {
     final color = isActive ? const Color(0xFFFFB300) : Colors.white70;
     return InkWell(
       onTap: onTap,
-      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
@@ -329,49 +256,6 @@ class _RepeatChip extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Nút tăng/giảm vuông nhỏ cho số lần lặp 1 dòng.
-class _StepperButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _StepperButton({
-    required this.icon,
-    required this.tooltip,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = enabled ? const Color(0xFF818CF8) : Colors.white24;
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 30,
-          height: 32,
-          decoration: BoxDecoration(
-            color: enabled
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: enabled
-                  ? const Color(0xFF6C63FF).withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.06),
-            ),
-          ),
-          child: Icon(icon, size: 15, color: color),
         ),
       ),
     );

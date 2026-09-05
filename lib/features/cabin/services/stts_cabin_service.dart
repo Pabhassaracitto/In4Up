@@ -29,6 +29,9 @@ class SttsCabinService extends ChangeNotifier {
 
   StreamSubscription? _sttSubscription;
   Timer? _silenceTimer;
+  Timer? _keepAliveTimer;
+  int _consecutiveStartFails = 0;
+  bool _starting = false;
 
   CabinState _state = CabinState.idle;
   String _sourceLanguage = 'en';
@@ -134,6 +137,8 @@ class SttsCabinService extends ChangeNotifier {
   Future<void> stopCabin() async {
     _silenceTimer?.cancel();
     _silenceTimer = null;
+    _stopKeepAlive();
+    _consecutiveStartFails = 0;
     await _sttSubscription?.cancel();
     _sttSubscription = null;
 
@@ -232,6 +237,77 @@ class SttsCabinService extends ChangeNotifier {
       return 'Chưa có quyền microphone.';
     }
     return 'Không khởi động được${detail.isEmpty ? '' : ' — $detail'}.';
+  }
+
+
+  Future<bool> _tryStartEngine() async {
+    if (_starting) return false;
+    _starting = true;
+    try {
+      final sttLocale = _mapToSttLocale(_sourceLanguage);
+      bool started = false;
+      try {
+        started = await _stt.startConversation(language: sttLocale);
+      } catch (e) {
+        debugPrint('e1: $e');
+      }
+      if (!started) {
+        try {
+          await _stt.stopListening();
+        } catch (_) {}
+        try {
+          started = await _stt.startConversation(language: sttLocale);
+        } catch (e) {
+          debugPrint('e2: $e');
+        }
+      }
+      if (started) {
+        await _sttSubscription?.cancel();
+        _sttSubscription = _stt.liveResultStream.listen(
+          _onLiveSttResult,
+          onError: (e) {
+            debugPrint('e3: $e');
+          },
+        );
+      }
+      return started;
+    } finally {
+      _starting = false;
+    }
+  }
+
+  void _startKeepAlive() {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), () {
+      _keepAliveTick();
+    });
+  }
+
+  void _stopKeepAlive() {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = null;
+  }
+
+  Future<void> _keepAliveTick() async {
+    if (_state != CabinState.listening &&
+        _state != CabinState.translating &&
+        _state != CabinState.speaking) {
+      return;
+    }
+    if (_stt.isLiveListening) return;
+    if (_starting) return;
+    final ok = await _tryStartEngine();
+    if (ok) {
+      _consecutiveStartFails = 0;
+      _state = CabinState.listening;
+    } else {
+      _consecutiveStartFails++;
+      if (_consecutiveStartFails >= 3) {
+        _state = CabinState.error;
+        _lastError = await _buildStartFailureMessage();
+      }
+    }
+    notifyListeners();
   }
 
   // ── Pipeline Logic ────────────────────────────────────────────────────────

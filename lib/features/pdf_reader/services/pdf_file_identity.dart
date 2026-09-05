@@ -159,8 +159,11 @@ String pdfDisplayName(String path, {int maxLength = 42}) {
 /// Cẩn thận: khớp theo basename nghĩa là hai file cùng tên ở hai thư mục được coi
 /// là một. Đó là đổi lại có chủ đích (đọc tiếp mạch lạc), và panel chỉ hiển thị
 /// danh sách từ nên mức hại là thấp.
-bool pdfSourceMatches(String storedSourceName, String currentPath) {
-  if (storedSourceName.isEmpty || currentPath.isEmpty) return false;
+bool pdfSourceMatches(String? storedSourceName, String currentPath) {
+  if (storedSourceName == null || storedSourceName.isEmpty ||
+      currentPath.isEmpty) {
+    return false;
+  }
   if (storedSourceName == currentPath) return true;
   if (PdfFileIdentity.normalizePath(storedSourceName) ==
       PdfFileIdentity.normalizePath(currentPath)) {

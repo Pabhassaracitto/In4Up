@@ -164,8 +164,10 @@ class PdfTextExtractor {
           buffer.write(line);
 
           final accumulated = buffer.toString().trim();
+          // Chuỗi raw 3 nháy: trong `r'...'` một `\'` KHÔNG thoát được nháy,
+          // nó kết thúc chuỗi sớm và làm cả biểu thức sai kiểu (lỗi CI thật).
           final endsWithPunctuation =
-              RegExp(r'[.!?…]["\'”’)\]]*$').hasMatch(line);
+              RegExp(r'''[.!?…]["'”’)\]]*$''').hasMatch(line);
           final isShortHeading = line.length <= 42 && !endsWithPunctuation;
           final tooLong = accumulated.length >= 300;
 

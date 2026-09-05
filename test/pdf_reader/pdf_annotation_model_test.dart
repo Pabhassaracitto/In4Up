@@ -128,7 +128,8 @@ void main() {
 
   group('PdfSentenceCue', () {
     test('bounds là hợp nhất các dòng, preview cắt 80 ký tự', () {
-      const cue = PdfSentenceCue(
+      // `'a' * 100` không phải hằng số → không được bọc `const`.
+      final cue = PdfSentenceCue(
         pageIndex: 3,
         startOffset: 10,
         endOffset: 90,

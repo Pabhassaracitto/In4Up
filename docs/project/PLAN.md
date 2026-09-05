@@ -763,3 +763,24 @@ mode, không phụ thuộc speech service hệ thống:
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao docs/Bangiao/bangiao_sherpa_wp4_live_stt.md +
     KANBAN SHERPA-WP4-01; chờ owner mở nhánh sherpa
+
+### PLAN-024 — Pic Anki (image occlusion) + Pic Express (look & describe + score)
+- Nguồn: người sở hữu (2026-09-05, qua agent arena/01a072a0-in4up) —
+  “anki có chức năng thêm hình rồi che một phần hình để đố rất hay, và
+  google có trình nhìn hình và miêu tả và chấm điểm rất hay hãy tư vấn
+  để khi ok có thể tích hợp vào dự án”
+- Trạng thái: proposed (tư vấn — chưa code)
+- Milestone đề xuất: ngoài M0–M3 (Tools + Memory + tab Viết; không tab 6)
+- Chi tiết: `docs/Bangiao/bangiao_pic_anki_express.md`
+  - Pic Anki = mask hình học trên ảnh gốc + 1 mask = 1 thẻ SM-2 **reading**;
+    reopen đúng file+vùng (Rule 3). Offline 100%, không cần LLM.
+  - Pic Express = ảnh → viết/nói miêu tả → rubric coverage/vocab/grammar
+    (tái WriteStudio). Gemma GGUF **không nhìn được ảnh** — chấm so với
+    entity user gắn lúc tạo (deterministic) + AI nhận xét câu. Multimodal
+    cloud / ML Kit labeling = tuỳ chọn sau.
+  - Lộ trình: WP-A occlusion → WP-B viết → WP-C nói (sau mic/Sherpa WP4)
+    → WP-D gợi ý nhãn online. Mỗi WP 1 nhánh.
+  - Cấm: gộp skill SM-2; lưu bitmap đã che mất ảnh gốc; auto-download VLM.
+- Lịch sử:
+  - 2026-09-05 | created | owner via chat + agent arena/01a072a0-in4up |
+    tư vấn only, chờ owner chọn WP-A hoặc WP-B

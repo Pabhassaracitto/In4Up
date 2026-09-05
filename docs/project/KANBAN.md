@@ -1752,6 +1752,19 @@
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
 
+### PIC-001 — Pic Anki + Pic Express (tư vấn, chưa code)
+- **Trạng thái:** 📋 proposed
+- **Nguồn:** owner (2026-09-05) — Anki che hình đố + Google nhìn hình miêu tả chấm điểm.
+- **Nội dung:** tư vấn kiến trúc để khi OK mới code. Chi tiết
+  `docs/Bangiao/bangiao_pic_anki_express.md` + PLAN-024.
+  - WP-A: image occlusion offline (mask JSON + SM-2 reading).
+  - WP-B: describe-and-score viết (entity user + WriteStudio rubric).
+  - WP-C: nói (STT) sau mic ổn.
+  - WP-D: gợi ý nhãn ML Kit / VLM online (tuỳ chọn).
+- **Chờ owner:** chọn WP-A hay WP-B trước; ảnh local-only hay sync.
+- **Lịch sử:**
+  - 2026-09-05 | created | agent arena/01a072a0-in4up | tư vấn only
+
 ### STT-LRC-LANG-01 — Tạo lời (LRC) bằng Whisper: đa ngữ, hết hardcode 'en'
 - **Trạng thái:** ✅ done + CI xanh run 33977299465 (chờ nghiệm thu máy)
 - **Nguồn:** owner (2026-09-05): "Đảm bảo với file âm thanh khả năng tạo lời

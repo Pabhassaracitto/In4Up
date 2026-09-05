@@ -33,4 +33,23 @@ void main() {
       expect(clean('\n\n'), '');
     });
   });
+
+  // `flutter analyze` của CI đã nổ ~20 error chỉ vì một dấu nháy đơn trong regex:
+  // `RegExp(r'[.!?…]["\'…]*$')` — `\'` không thoát nháy trong raw string một nháy,
+  // chuỗi cụt và parser đọc phần còn lại như mã nguồn. Pattern nằm trong
+  // `PdfTextExtractor.sentenceEndPattern` (raw string 3 nháy) để test được trực tiếp.
+  group('PdfTextExtractor.sentenceEndPattern', () {
+    test('nhận dấu kết thúc câu kể cả khi có nháy/ngoặc đóng phía sau', () {
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch('It is done.'), isTrue);
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch('He said "yes."'), isTrue);
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch('Đi (hết).'), isTrue);
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch('Vậy à?'), isTrue);
+    });
+
+    test('không nhận dòng chưa kết thúc (heading, câu dở)', () {
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch('Chapter 3'), isFalse);
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch('n = 1.5'), isFalse);
+      expect(PdfTextExtractor.sentenceEndPattern.hasMatch(''), isFalse);
+    });
+  });
 }

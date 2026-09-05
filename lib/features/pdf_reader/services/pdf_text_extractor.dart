@@ -14,6 +14,16 @@ import '../models/pdf_word_info.dart';
 ///  1) overlay tô màu theo từ (cần `bounds` từng từ),
 ///  2) TTS "karaoke" theo câu (cần `PdfSentenceCue` + rect theo dòng).
 class PdfTextExtractor {
+  /// Dòng kết thúc một câu khi tách câu cho TTS: dấu kết thúc, cho phép nháy
+  /// đóng/ngoặc đóng đứng sau.
+  ///
+  /// VIẾT BẰNG RAW STRING 3 NHÁY. Trong `r'...'` một nháy, `\'` **không** thoát
+  /// được nháy — chuỗi kết thúc ngay sau `\`, phần còn lại bị parser hiểu thành
+  /// mã nguồn → ~20 error dây chuyền trong `flutter analyze` của CI mà grep mã
+  /// thường không đọc ra. `test/pdf_reader/pdf_text_cleaning_test.dart` khóa
+  /// hành vi này lại.
+  static final RegExp sentenceEndPattern = RegExp(r'''[.!?…]["'”’)\]]*$''');
+
   // Cache per-page. Key phải tính tới CẢ colorMode lẫn nhu cầu phân tích từ,
   // vì với ColorMode.none code cũ bỏ qua `analyzeWord` → recall markers (vốn
   // đọc `analyzed`) vĩnh viễn không hiện khi người dùng tắt tô màu
@@ -164,10 +174,7 @@ class PdfTextExtractor {
           buffer.write(line);
 
           final accumulated = buffer.toString().trim();
-          // Chuỗi raw 3 nháy: trong `r'...'` một `\'` KHÔNG thoát được nháy,
-          // nó kết thúc chuỗi sớm và làm cả biểu thức sai kiểu (lỗi CI thật).
-          final endsWithPunctuation =
-              RegExp(r'''[.!?…]["'”’)\]]*$''').hasMatch(line);
+          final endsWithPunctuation = sentenceEndPattern.hasMatch(line);
           final isShortHeading = line.length <= 42 && !endsWithPunctuation;
           final tooLong = accumulated.length >= 300;
 

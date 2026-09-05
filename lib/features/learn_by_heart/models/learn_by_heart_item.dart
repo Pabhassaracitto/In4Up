@@ -231,8 +231,11 @@ class LearnByHeartItem {
       'memorizeSide': memorizeSide.name,
       'lineTimestamps': lineTimestamps.map((t) => t.toJson()).toList(),
       'chunkList': chunkList.map((c) => c.toJson()).toList(),
-      'lineRepeatOverrides':
-          lineRepeatOverrides.map((k, v) => MapEntry('$k', v)),
+      // JSON không có int key → stringified. (Không dùng Map.map() —
+      // nó trả Iterable, jsonEncode sai + fromJson cast fail.)
+      'lineRepeatOverrides': {
+        for (final e in lineRepeatOverrides.entries) '${e.key}': e.value,
+      },
       'keywords': keywords,
       'shortMeaning': shortMeaning,
       'lifeConnection': lifeConnection,
@@ -287,10 +290,8 @@ class LearnByHeartItem {
                     int.tryParse('$k') ?? -1,
                     (v is num ? v : int.tryParse('$v') ?? 0).toInt(),
                   ))
-              .entries
               .where((e) =>
                   e.key >= 1 && e.key <= 999 && e.value >= 1 && e.value <= 999)
-              .map((e) => MapEntry(e.key, e.value))
               .toMap() ??
           const {},
       keywords: (json['keywords'] as List<dynamic>?)

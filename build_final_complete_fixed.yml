@@ -537,7 +537,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # =============================================================================
-  # JOB 4: iOS IPA - sideload no codesign, deployment target 15.0
+  # JOB 4: iOS IPA - sideload no codesign, deployment target 15.5
   # =============================================================================
   build-ios:
     name: Build iOS IPA (sideload)
@@ -565,20 +565,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Pre-configure iOS Podfile Platform to 15.0
+      - name: Pre-configure iOS Podfile Platform to 15.5
         shell: bash
         run: |
           if [ -f ios/Podfile ]; then
-            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile || true
-            sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile || true
+            sed -i '' "s/platform :ios.*/platform :ios, '15.5'/g" ios/Podfile || true
+            sed -i '' "s/# platform :ios.*/platform :ios, '15.5'/g" ios/Podfile || true
           fi
 
-      - name: Force Upgrade Xcode Project Deployment Target to 15.0
+      - name: Force Upgrade Xcode Project Deployment Target to 15.5
         shell: bash
         run: |
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
-            echo "Xcode project forced to 15.0"
+            sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.5;/g' ios/Runner.xcodeproj/project.pbxproj
+            echo "Xcode project forced to 15.5"
           fi
 
       - name: Ensure auth file and keep firebase_options.dart with flavors
@@ -631,7 +631,7 @@ jobs:
       - name: Build iOS (no codesign) Release
         shell: bash
         run: |
-          export IPHONEOS_DEPLOYMENT_TARGET=15.0
+          export IPHONEOS_DEPLOYMENT_TARGET=15.5
           flutter build ios --release --no-codesign \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \

@@ -70,6 +70,7 @@
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
+| CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 
 ## Card chi tiết
 
@@ -1849,3 +1850,55 @@
     (mixin + generate_lrc_actions + listen_mode_screen); chờ CI +
     nghiệm thu
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
+
+### CI-IOS-01 — Action iOS đỏ: `pod install` fail vì deployment target thấp
+- **Trạng thái:** ✅ done (chờ run CI xác nhận)
+- **Nguồn:** owner (2026-09-06) — log job Build iOS IPA (sideload).
+- **Triệu chứng (log):**
+  ```
+  [!] CocoaPods could not find compatible versions for pod "google_mlkit_commons":
+      ... they required a higher minimum deployment target.
+  Error: The plugin "google_mlkit_commons" requires a higher minimum iOS
+         deployment version than your application is targeting.
+  To build, increase your application's deployment target to at least 15.5
+  Error running pod install / exit code 1
+  ```
+- **Root cause:** app target đang là **15.0** (workflow `sed` ép 15.0; repo còn
+  `ios/Podfile` = 14.0, `project.pbxproj` = 13.0, `AppFrameworkInfo.plist` = 13.0),
+  trong khi `google_mlkit_commons`/`google_mlkit_translation` (kéo theo
+  **MLKitVision**) khai báo `s.platform = :ios, '15.5'`. CocoaPods resolver
+  không có spec nào thoả → đỏ ngay bước phân giải phụ thuộc.
+  Thêm một mồi lửa nữa: `post_install` của Podfile **hạ** mọi pod về 14.0
+  (kể cả pod tự khai 15.5) → kể cả khi qua được resolver vẫn sai.
+- **Fix:**
+  - `ios/Podfile`: biến `$ios_deployment_target = '15.5'`; `platform :ios,
+    $ios_deployment_target`; `post_install` **chỉ nâng, không hạ**
+    (`Gem::Version` so sánh) và đồng bộ luôn target của project Runner.
+  - `ios/Runner.xcodeproj/project.pbxproj`: `IPHONEOS_DEPLOYMENT_TARGET = 15.5`
+    (3 configuration).
+  - `ios/Flutter/AppFrameworkInfo.plist`: `MinimumOSVersion` 13.0 → 15.5.
+  - `scripts/ci/ios_set_deployment_target.sh` (mới): 1 lệnh đồng bộ 3 file,
+    idempotent — thay 2 bước `sed` rời rạc, dễ lệch, trong workflow.
+  - **Workflow (CHƯA push được — xem "Việc còn lại"):** patch nằm ở
+    `scripts/ci/ios_ci_workflow.patch` cho `.github/workflows/build.yml` +
+    `build_final_complete.yml`: env chung `IOS_MIN_TARGET: '15.5'`, gọi script
+    thay 2 bước `sed`, `export IPHONEOS_DEPLOYMENT_TARGET="$IOS_MIN_TARGET"`,
+    thêm `flutter config --no-enable-swift-package-manager` (4 plugin
+    whisper_flutter_new / google_mlkit_* / flutter_tts đều KHÔNG hỗ trợ SPM —
+    log đã cảnh báo), `pod install --repo-update` chạy sớm để lỗi phụ thuộc hiện
+    ngay, và bước chẩn đoán `if: failure()` in Podfile + target + Podfile.lock.
+  - **Chống workflow cũ ghi đè:** `ios/Podfile` khai báo nền tảng dạng
+    `platform(:ios, $ios_deployment_target)` (CÓ NGOẶC) nên bước
+    `sed "s/platform :ios.*/... '15.0'/"` của workflow hiện tại KHÔNG khớp →
+    15.5 sống sót; bước sed ép `project.pbxproj` về 15.0 thì `post_install`
+    kéo lại 15.5. Nghĩa là CI xanh được ngay cả khi chưa vá workflow.
+- **Việc còn lại (cần owner):** GitHub App không có quyền `workflows` → push bị
+  từ chối (`refusing to allow a GitHub App to ... update workflow`). Owner áp
+  patch: `git apply scripts/ci/ios_ci_workflow.patch` rồi commit/push, hoặc sửa
+  tay 2 file workflow theo patch. Không bắt buộc để CI xanh, nhưng nên làm để
+  workflow hết chỗ ép 15.0 lỗi thời.
+- **Hệ quả cần biết:** app không còn cài được trên iOS < 15.5 (yêu cầu bắt buộc
+  của ML Kit — muốn hạ thì phải bỏ `google_mlkit_translation`).
+- **Lịch sử:**
+  - 2026-09-06 | created→done | agent arena/01a07860-in4up | nâng target 15.5 +
+    script đồng bộ + tắt SPM; chờ run CI xác nhận

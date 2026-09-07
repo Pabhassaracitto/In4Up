@@ -70,6 +70,9 @@
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
+| LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
+| TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
+| READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 
 ## Card chi tiết
@@ -1902,3 +1905,97 @@
 - **Lịch sử:**
   - 2026-09-06 | created→done | agent arena/01a07860-in4up | nâng target 15.5 +
     script đồng bộ + tắt SPM; chờ run CI xác nhận
+
+### LHB-005 — Bấm icon lặp 1× của câu không mở menu (chọn cả dòng luôn)
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-09-08):** "bấm vô 1x của từng câu để chỉnh thử
+  thì không được. Nhấn vào biểu tượng lặp ở dòng thì nó chọn cả dòng chứ
+  không phản ứng với icon lặp 1x."
+- **Root cause (2 lỗi cộng dồn ở `_LineRepeatChip`, BilingualVerseView):**
+  1. Chip là `GestureDetector` mặc định `HitTestBehavior.deferToChild` +
+     kích thước ~39×19px — vùng chạm rất nhỏ, chạm lệch một chút (padding/
+     khe icon-text) là mất hit test → tap rơi về `InkWell` của CẢ DÒNG
+     (onLineTap → playSingleLine) → "chọn cả dòng".
+  2. `showRepeatCountMenu` được gọi với context của BilingualVerseView
+     (= RenderViewport của CẢ ListView shrinkWrap) → `position` = rect của
+     cả danh sách câu (có thể dài hơn màn hình) → menu popup hiện Ở DƯỚI
+     CUỐI danh sách / ngoài màn hình → "như không phản ứng" dù tap đúng chip.
+- **Fix (`bilingual_verse_view.dart`):**
+  - `GestureDetector(behavior: HitTestBehavior.opaque)` — TOÀN bộ rect chip
+    (kể cả padding) bắt chạm → chip luôn thắng InkWell dòng trong gesture
+    arena (đúng ngữ nghĩa: bấm chip = chỉnh lặp, bấm chỗ khác dòng = phát câu).
+  - Vùng chạm min 44×32 (constraints) + icon/text nhích lên 12/11px — dễ
+    bấm trên điện thoại; hiển thị chip gần như giữ nguyên.
+  - Menu gọi với context CỦA CHIP (`_LineRepeatChip.build`) → menu neo sát
+    icon 1×, luôn hiện trên màn hình, bấm chọn số lần (1/2/3/4/5/7/10/
+    tùy chỉnh) xong là áp; NHẤN GIỮ chip = bỏ override về mặc định.
+- **AT nghiệm thu:** mở bài LHB (New Learning / Học cuốn chiếu) → bấm icon
+  1× ở góc phải trên của TỪNG CÂU → menu số lần hiện SÁT icon → chọn 3× →
+  chip đổi "3×" màu cam → phát bài → câu đó lặp 3 lần; nhấn giữ chip → về
+  mặc định; bấm phần KHÁC của dòng (văn bản) → vẫn phát riêng câu đó.
+- **Lịch sử:**
+  - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | fix chip
+    (opaque + target lớn + menu neo chip context); chờ CI + nghiệm thu
+
+### TTS-PIPER-001 — LHB phát tới câu tiếng Việt SẬPP app (Piper TTS)
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-09-08):** "tool học thuộc lòng khi nhấn phát
+  âm thanh, sau khi phát pali xong tới phần tiếng Việt thì nó bị dish out
+  app. Trong khi đã import vi_VN-25hours_single và en_US-lessac-medium rồi."
+- **Định vị (code):** LHB bilingual = `_speakText(Pali, 'pi')` →
+  `speakLocale` → Pali = `hi-IN` (không có giọng Piper hi-IN → fallback
+  giọng máy hệ thống — nên Pali vẫn phát) → rồi `_speakText(VI, 'vi-VN')`
+  → TtsService ưu tiên `piper_tts` → `_trySpeakPiper` →
+  `PiperTtsEngine.isAvailable()` CHỈ check `voices.isNotEmpty` (có file
+  .onnx) → `selectVoice` → `sherpa.OfflineTts(...)` = INIT NATIVE C++.
+  Sherpa-onnx đọc `espeak-ng-data` (phonemizer) khi init — **thiếu thư
+  mục này (hoặc model tải về bị cắt/già) thì init native SEGFAULT → app
+  chết hẳn, Dart try/catch KHÔNG BẮT ĐƯỢC** → đúng cảnh "phát xong Pali,
+  tới phần Việt là sập".
+- **Fix (pre-flight TRƯỚC init native):**
+  - `SherpaPiperTtsCore.isEspeakReady()` — check `phontab` (espeak-ng-data)
+    tồn tại và > 64 bytes.
+  - `SherpaPiperTtsCore.isVoiceFilesPlausible(voice)` — onnx ≥ 1MB +
+    tokens ≥ 1KB (bắt file tải về bị cắt giữa chừng).
+  - `selectVoice`: pre-flight 2 mục trên TRƯỚC khi `OfflineTts(...)` —
+    thiếu/hỏng → return false (TtsService fallback sang giọng máy — vẫn
+    đọc được tiếng Việt, không crash) + log lý do.
+  - `PiperTtsEngine.isAvailable()`: giờ = có giọng + espeak ready + ≥1
+    model nguyên vẹn → TtsService KHÔNG cố Piper vô nghĩa nữa.
+  - Log init native (tên giọng + size onnx/tokens + espeak=OK) — nếu crash
+    native vẫn xảy ra (vd OOM máy yếu), logcat dòng cuối cho biết đang
+    init model nào.
+- **Lưu ý cho owner:** nếu sau fix mà phát tiếng Việt BẰNG GIỌNG MÁY
+  (không neural) = máy thiếu `espeak-ng-data` → vào **Cài đặt → TTS /
+  Quản lý model** → bấm "Tải phonemizer (espeak-ng-data)" (~2MB, dùng
+  chung mọi giọng) → phát lại. Nếu VẪN sập sau khi có phonemizer → là
+  vấn đề bộ nhớ máy (model ~60MB) — báo lại để xử lý (numThreads/model
+  nhỏ hơn).
+- **Lịch sử:**
+  - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | pre-flight
+    espeak + model plausibility trước init native + isAvailable chuẩn +
+    log; chờ CI + nghiệm thu (Pali + VI liên tiếp không sập)
+
+### READ-FOCUS-001 — Tab Đọc Focus: thanh đáy vẫn chiếm không gian
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-09-08):** "khi nhấn Focus thì vùng bên dưới
+  bottom vẫn chưa ẩn, nó chỉ không hiện các icon chức năng chứ vẫn chiếm
+  không gian."
+- **Root cause:** `read_mode_screen.dart` — bottom bar (SmartPlaybackBar +
+  ReadBottomBar) trong Focus mode chỉ bị `AnimatedSlide(offset: 0, 1.2)`
+  (trượt ra khỏi màn hình) + `AnimatedOpacity(0)` (trong veo) — **layout
+  space vẫn nằm trong Column** → vùng đọc không được mở rộng, còn dải
+  trống đen phía dưới.
+- **Fix:** bọc bottom bar bằng `AnimatedSize` — Focus mode → child =
+  `SizedBox(height: 0)` → chiều cao GẬP về 0 có animation 260ms (trả
+  không gian cho vùng đọc, văn bản mở rộng hết chiều cao); ngoài Focus →
+  giữ nguyên AnimatedSlide/Opacity (smart-hide khi cuộn GIỮ NGUYÊN hành
+  vi cũ — chỉ slide, không gập — tránh văn bản nhảy giật khi đang đọc).
+  `ClipRect` bao AnimatedSlide để bar không tràn khi đang mở rộng lại.
+- **AT nghiệm thu:** tab Đọc → bấm Focus (hoặc double-tap) → thanh đáy
+  (playback + hàng icon) gập xuống mượt, vùng đọc MỞ RỘNG hết đáy màn
+  hình; bấm "Thoát Focus" (hoặc double-tap) → thanh đáy trồi lên lại
+  đúng vị trí cũ; cuộn lên/xuống lúc không Focus → smart-hide như trước.
+- **Lịch sử:**
+  - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | AnimatedSize
+    gập đáy về 0 trong Focus mode; chờ CI + nghiệm thu

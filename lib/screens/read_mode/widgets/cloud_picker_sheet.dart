@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
+import '../../../services/storage_service.dart';
 import '../../../services/text_library_service.dart';
 import '../models/recent_file.dart';
 import '../services/recent_files_service.dart';
@@ -58,22 +59,30 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
         category: entry.category,
       );
 
-      // Issue2: áp dụng translations đã lưu từ Cloud (nếu có)
+      // Issue2: áp dụng translations đã lưu từ Cloud (nếu có).
+      // Firestore cũ có thể chưa có trường translations, nên thử thêm cache
+      // Hive local — tuyệt đối không để lỗi khôi phục bản dịch chặn việc mở file.
       try {
         final targetLang = tp.translationTargetLanguage.translationCode;
         final saved = entry.getTranslationsForLang(targetLang);
         if (saved != null && saved.any((t) => t.trim().isNotEmpty)) {
           tp.applySavedTranslations(saved, targetLang);
         } else {
-          // Thử load từ Hive local cache (fallback khi Firestore chưa có translations field)
-          final storage = tp is dynamic ? null : null; // placeholder
-          // Load từ StorageService: translations_{id}_{lang}
-          final key = 'translations_${entry.id}_$targetLang';
-          final local = tp is dynamic ? null : null;
-          // Để tránh import cycle, dùng StorageService trực tiếp
-          try {
-            final storageSvc = await Future.value(null);
-          } catch (_) {}
+          final storage = StorageService();
+          if (storage.isInitialized) {
+            final raw = storage.getSetting<dynamic>(
+              'translations_${entry.id}_$targetLang',
+            );
+            if (raw is List) {
+              final localTranslations = raw
+                  .map((value) => value?.toString() ?? '')
+                  .toList();
+              if (localTranslations
+                  .any((translation) => translation.trim().isNotEmpty)) {
+                tp.applySavedTranslations(localTranslations, targetLang);
+              }
+            }
+          }
         }
       } catch (e) {
         debugPrint('⚠️ apply translations error: $e');

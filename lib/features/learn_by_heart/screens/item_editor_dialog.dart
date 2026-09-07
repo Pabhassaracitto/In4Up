@@ -10,6 +10,7 @@ import '../models/recitation_category.dart';
 import '../models/recitation_language.dart';
 import '../models/review_state.dart';
 import '../services/anki_cloze_parser.dart';
+import '../services/cloze_generator.dart';
 
 class ItemEditorDialog extends StatefulWidget {
   final LearnByHeartItem? initialItem;
@@ -47,6 +48,8 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
     _shortMeaningCtrl = TextEditingController(text: item?.shortMeaning ?? '');
     _keywordsCtrl = TextEditingController(text: item?.keywords.join(', ') ?? '');
     _lifeConnectionCtrl = TextEditingController(text: item?.lifeConnection ?? '');
+    _paliCtrl.addListener(() => setState(() {}));
+    _viCtrl.addListener(() => setState(() {}));
     if (item != null) {
       _category = item.category;
       _sourceLang = item.sourceLang;
@@ -277,11 +280,13 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                       _buildTextField(
                         controller: _viCtrl,
                         label:
-                            'Bản dịch (${RecitationLanguage.fromCode(_targetLang).displayName('vi')}) — Anki {{c1::từ}}',
-                        hint: 'Ý dẫn đầu các {{c1::pháp}},\nÝ {{c2::làm chủ}}, ý tạo...',
+                            'Bản dịch (${RecitationLanguage.fromCode(_targetLang).displayName('vi')}) — mỗi dòng một câu',
+                        hint: 'Ý dẫn đầu các pháp,\nÝ làm chủ, ý tạo...',
                         maxLines: 4,
                         required: _memorizeSide == MemorizeSide.target,
                       ),
+                      const SizedBox(height: 10),
+                      _buildKeywordTapBoard(),
                       const SizedBox(height: 12),
                       const Text(
                         'Học thuộc mặt nào?',
@@ -394,6 +399,124 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Set<String> get _selectedKeywords {
+    return _keywordsCtrl.text
+        .split(',')
+        .map((k) => k.trim())
+        .where((k) => k.isNotEmpty)
+        .toSet();
+  }
+
+  String get _clozeSourceText {
+    final memorize = _memorizeSide == MemorizeSide.source
+        ? _paliCtrl.text
+        : _viCtrl.text;
+    if (memorize.trim().isNotEmpty) return memorize;
+    return '${_viCtrl.text}\n${_paliCtrl.text}';
+  }
+
+  bool _isSelectedKeyword(String word) {
+    final key = word.trim().toLowerCase();
+    return _selectedKeywords.any((k) => k.toLowerCase() == key);
+  }
+
+  void _addKeyword(String word) {
+    final clean = word.trim();
+    if (clean.isEmpty || _isSelectedKeyword(clean)) return;
+    _keywordsCtrl.text = {..._selectedKeywords, clean}.join(', ');
+    setState(() {});
+  }
+
+  void _removeKeyword(String word) {
+    final key = word.trim().toLowerCase();
+    _keywordsCtrl.text = _selectedKeywords
+        .where((k) => k.toLowerCase() != key)
+        .join(', ');
+    setState(() {});
+  }
+
+  void _toggleKeyword(String word) {
+    if (_isSelectedKeyword(word)) {
+      _removeKeyword(word);
+    } else {
+      _addKeyword(word);
+    }
+  }
+
+  void _markSelectionAsKeyword() {
+    final ctrl =
+        _memorizeSide == MemorizeSide.source ? _paliCtrl : _viCtrl;
+    final sel = ctrl.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final start = sel.start < sel.end ? sel.start : sel.end;
+    final end = sel.start < sel.end ? sel.end : sel.start;
+    if (start < 0 || end > ctrl.text.length) return;
+    _addKeyword(ctrl.text.substring(start, end));
+  }
+
+  void _autoSuggestKeywords() {
+    for (final word in ClozeGenerator.suggestKeywords(_clozeSourceText)) {
+      _addKeyword(word);
+    }
+  }
+
+  Widget _buildKeywordTapBoard() {
+    final words = ClozeGenerator.wordsIn(_clozeSourceText);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Chỗ trống: chạm từ để ẩn khi ôn — không cần gõ {{c1::từ}}',
+          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            ActionChip(
+              avatar: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFFFD54F)),
+              label: const Text('Tự chọn từ khóa', style: TextStyle(fontSize: 11)),
+              backgroundColor: const Color(0xFF1E293B),
+              labelStyle: const TextStyle(color: Colors.white70),
+              onPressed: _autoSuggestKeywords,
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.highlight_alt, size: 14, color: Color(0xFF81C784)),
+              label: const Text('Đánh dấu đoạn đang chọn', style: TextStyle(fontSize: 11)),
+              backgroundColor: const Color(0xFF1E293B),
+              labelStyle: const TextStyle(color: Colors.white70),
+              onPressed: _markSelectionAsKeyword,
+            ),
+          ],
+        ),
+        if (words.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final word in words)
+                FilterChip(
+                  label: Text(word, style: const TextStyle(fontSize: 11)),
+                  selected: selected.contains(word),
+                  selectedColor: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                  checkmarkColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: selected.contains(word) ? Colors.white : Colors.white70,
+                    fontWeight:
+                        selected.contains(word) ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  onSelected: (_) => _toggleKeyword(word),
+                ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 

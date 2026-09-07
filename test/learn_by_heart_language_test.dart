@@ -4,10 +4,10 @@ import 'package:in4up/features/learn_by_heart/models/recitation_language.dart';
 
 void main() {
   group('RecitationLanguage', () {
-    test('maps Pali and Sanskrit to an English-capable TTS voice', () {
-      expect(RecitationLanguage.fromCode('pi').ttsLocale, 'en-US');
+    test('maps Pali and Sanskrit to Hindi TTS (closest Indic voice)', () {
+      expect(RecitationLanguage.fromCode('pi').ttsLocale, 'hi-IN');
       expect(RecitationLanguage.fromCode('pali').code, 'pi');
-      expect(RecitationLanguage.fromCode('sa').ttsLocale, 'en-US');
+      expect(RecitationLanguage.fromCode('sa').ttsLocale, 'hi-IN');
       expect(RecitationLanguage.fromCode('vi').ttsLocale, 'vi-VN');
       expect(RecitationLanguage.fromCode('en').ttsLocale, 'en-US');
     });
@@ -25,7 +25,14 @@ void main() {
           declaredCode: 'vi',
           text: 'Manopubbaṅgamā dhammā, manoseṭṭhā manomayā.',
         ),
-        'en-US',
+        'hi-IN',
+      );
+      expect(
+        RecitationLanguage.speakLocale(
+          declaredCode: 'pi',
+          text: 'Manopubbaṅgamā dhammā.',
+        ),
+        'hi-IN',
       );
     });
 

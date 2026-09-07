@@ -1,0 +1,72 @@
+# BẢN MẪU — chưa bật được bằng token của agent (GitHub từ chối push vào
+# `.github/workflows/**` khi GitHub App thiếu quyền `workflows`).
+# Owner bật bằng 2 lệnh (credential của bạn có quyền này):
+#
+#   copy docs\ci\pdf_reader_tests.yml .github\workflows\pdf_reader_tests.yml   (Windows)
+#   cp docs/ci/pdf_reader_tests.yml .github/workflows/                          (macOS/Linux)
+#   git add .github/workflows/pdf_reader_tests.yml && git commit -m "ci: bật job test PDF Reader" && git push
+#
+# Sau khi bật: mọi push chạm `lib/features/pdf_reader/**` hoặc `test/pdf_reader/**`
+# sẽ chạy `flutter analyze` + `flutter test test/pdf_reader` (134 test) trên
+# Flutter 3.44.1, log upload làm artifact. Đây là cách đóng lỗ hổng "test chưa
+# từng chạy" mà docs §4.3 đã nêu.
+name: PDF Reader Tests (Wave 0–2)
+
+# CI cho module PDF Reader. Lý do tồn tại: `test/pdf_reader` là 14 file test
+# thuần-Dart (134 test) viết trong sandbox **không có Flutter SDK**, nên chưa
+# từng được chạy ở đâu — `app_analyze.yml` chỉ analyze (ERROR mới fatal) và test
+# đúng 1 file rule #5. Job này chạy thật, trên 3.44.1 như build.yml.
+# Cùng khuôn với knowledge_tests.yml / soundlist_tests.yml (test theo module).
+#
+# Analyze ở đây dùng --no-fatal-infos/--no-fatal-warnings vì `lib/features/pdf_reader`
+# còn info-level lint do code cũ để lại (vd `withOpacity` deprecated trong
+# pdf_reader_screen.dart) — sửa hết là việc riêng, không phải gate của wave này.
+
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'lib/features/pdf_reader/**'
+      - 'test/pdf_reader/**'
+      - 'lib/core/language/priority_ui_overrides.dart'
+      - '.github/workflows/pdf_reader_tests.yml'
+  pull_request:
+    paths:
+      - 'lib/features/pdf_reader/**'
+      - 'test/pdf_reader/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml + app_analyze.yml — tránh lệch dependency
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze PDF Reader module (chỉ ERROR là fatal)
+        run: |
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings \
+            lib/features/pdf_reader test/pdf_reader
+
+      - name: Run PDF Reader tests
+        run: |
+          set +e
+          flutter test test/pdf_reader --reporter expanded 2>&1 | tee pdf_reader_test.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-reader-test-log
+          path: pdf_reader_test.log
+          if-no-files-found: ignore

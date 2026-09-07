@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up_ai/src/prompts/ai_prompts_library.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -49,6 +50,49 @@ void main() {
     } finally {
       await engine.dispose();
     }
+  });
+
+  test('conversation prompt is Gemma chat, not JSON analysis', () {
+    final prompt = AiPromptsLibrary.buildPrompt(
+      type: AiAnalysisType.conversation,
+      text: 'Hello',
+      context: 'user: hi',
+    );
+    expect(prompt, contains('<start_of_turn>user'));
+    expect(prompt, contains('<start_of_turn>model'));
+    expect(prompt, contains('Student: Hello'));
+    expect(prompt.toLowerCase(), isNot(contains('return only valid json')));
+    expect(prompt, isNot(contains('technical_terms')));
+  });
+
+  test('plain chat text becomes the reply instead of Invalid Gemma JSON', () {
+    final result = AiAnalysis.fromGemmaJson(
+      'Mình có thể giúp bạn luyện từ vựng.<end_of_turn>',
+      analysisType: AiAnalysisType.conversation,
+      inputText: 'Hello',
+    );
+    expect(result.success, isTrue);
+    expect(result.summary, contains('luyện từ vựng'));
+    expect(result.summary, isNot(contains('<end_of_turn>')));
+  });
+
+  test('recentChatContext uses last turns, not the first, and skips errors', () {
+    final messages = <ChatMessage>[
+      for (var i = 0; i < 12; i++)
+        ChatMessage(id: 'u$i', role: ChatRole.user, text: 'old-$i'),
+      ChatMessage(
+        id: 'err',
+        role: ChatRole.assistant,
+        text: 'AI xử lý quá lâu',
+        isError: true,
+      ),
+      ChatMessage(id: 'now', role: ChatRole.user, text: 'current question'),
+    ];
+    final ctx = AiServiceFacade.recentChatContext(messages, maxTurns: 6);
+    expect(ctx, isNot(contains('old-0')));
+    expect(ctx, isNot(contains('AI xử lý quá lâu')));
+    expect(ctx, isNot(contains('current question')));
+    expect(ctx, contains('old-11'));
   });
 
   test('facade reports hasModel=false in mock mode (truthful model status)',

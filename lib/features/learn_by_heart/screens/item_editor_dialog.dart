@@ -502,14 +502,15 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
               for (final word in words)
                 FilterChip(
                   label: Text(word, style: const TextStyle(fontSize: 11)),
-                  selected: selected.contains(word),
+                  selected: _isSelectedKeyword(word),
                   selectedColor: const Color(0xFF6C63FF).withValues(alpha: 0.35),
                   backgroundColor: Colors.white.withValues(alpha: 0.05),
                   checkmarkColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: selected.contains(word) ? Colors.white : Colors.white70,
-                    fontWeight:
-                        selected.contains(word) ? FontWeight.bold : FontWeight.normal,
+                    color: _isSelectedKeyword(word) ? Colors.white : Colors.white70,
+                    fontWeight: _isSelectedKeyword(word)
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   onSelected: (_) => _toggleKeyword(word),
                 ),

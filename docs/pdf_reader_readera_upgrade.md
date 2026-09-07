@@ -409,6 +409,23 @@ lặp. Run xanh: **34058736214**. Mẹo khi `analyze.log` bị artifact che: l�
 rồi revert ngay ở commit sau (commit chỉ đụng yaml/docs thì workflow bỏ qua ⇒ phải kèm
 một thay đổi trong `lib/**`).
 
+**Lỗ hổng kiểm chứng lớn nhất của đợt này — và cách đóng.** 134 test trong
+`test/pdf_reader` **chưa từng được chạy ở đâu cả**: sandbox không có Flutter SDK, còn
+CI (`app_analyze.yml`) chỉ analyze ở chế độ "chỉ ERROR mới fatal" + đúng 1 file test
+rule #5. Chủ nhật 06-09 owner chạy `flutter test test/pdf_reader` trong worktree DEV
+cũng không thấy gì — `test/pdf_reader/` chỉ tồn tại trên `arena/01a07250-in4up`
+(`main`/`arena/01a0251e-in4up` trả 404 khi đối chiếu Contents API). Hai đường đóng:
+(a) bật job module `docs/ci/pdf_reader_tests.yml` — copy vào `.github/workflows/` rồi
+push bằng credential của owner, vì **agent không được phép đụng `.github/workflows/**`**
+(GitHub từ chối: GitHub App thiếu quyền `workflows`); (b) chạy local trên đúng branch:
+
+```powershell
+git -C E:\PROJECTS\in4up fetch origin arena/01a07250-in4up
+git -C E:\PROJECTS\in4up worktree add --detach E:\PROJECTS\in4up.worktree\PDF FETCH_HEAD
+cd E:\PROJECTS\in4up.worktree\PDF ; flutter pub get ; flutter test test/pdf_reader
+# xong: git -C E:\PROJECTS\in4up worktree remove E:\PROJECTS\in4up.worktree\PDF
+```
+
 **Chưa làm trong mục 2.6 (cố ý để lại):** xuất Markdown/CSV cho quotes+notes+từ đã lưu,
 in qua `printing`, và "stamp highlight thành PDF" thật (sửa tệp gốc bằng pdfium) — cả ba
 đều cần quyết định về dependency chữ ký số/chỉnh sửa tệp, nằm ngoài B1+B2. **Nợ cũ vẫn còn:**

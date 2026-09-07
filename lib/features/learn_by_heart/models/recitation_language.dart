@@ -27,10 +27,12 @@ class RecitationLanguage {
   String displayName(String locale) =>
       locale.toLowerCase().startsWith('vi') ? labelVi : labelEn;
 
+  /// Pali has no dedicated device TTS. Hindi (`hi-IN`) is the closest
+  /// widely available Indic voice (Piper `hi_IN` / system Hindi).
   static const pali = RecitationLanguage(
     code: 'pi',
-    ttsLocale: 'en-US',
-    sttCode: 'en',
+    ttsLocale: 'hi-IN',
+    sttCode: 'hi',
     flag: '🪷',
     labelEn: 'Pali',
     labelVi: 'Pali',
@@ -38,8 +40,8 @@ class RecitationLanguage {
 
   static const sanskrit = RecitationLanguage(
     code: 'sa',
-    ttsLocale: 'en-US',
-    sttCode: 'en',
+    ttsLocale: 'hi-IN',
+    sttCode: 'hi',
     flag: '🕉️',
     labelEn: 'Sanskrit',
     labelVi: 'Sanskrit',
@@ -154,13 +156,14 @@ class RecitationLanguage {
 
   static bool _shouldOverride(String declared, String detected) {
     if (declared == detected) return false;
-    // Pali/Sanskrit are spoken with an English-capable voice.
-    if (_liturgicalLatin(declared) && _liturgicalLatin(detected)) return false;
+    // Pali/Sanskrit always take Hindi TTS, even if declared English.
+    if (detected == 'pi' || detected == 'sa') return true;
+    // Declared Pali/Sanskrit keep Hindi when Latin script is detected as English.
+    if ((declared == 'pi' || declared == 'sa') && detected == 'en') {
+      return false;
+    }
     return true;
   }
-
-  static bool _liturgicalLatin(String code) =>
-      code == 'pi' || code == 'sa' || code == 'en';
 
   static final _paliHints = RegExp(
     r'[āīūṃṁṅñṭḍṇḷĀĪŪṂṀṄÑṬḌṆḶ]|'

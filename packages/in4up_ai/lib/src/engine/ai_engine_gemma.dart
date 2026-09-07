@@ -335,7 +335,9 @@ class AiEngineGemma implements AiEngine {
       return _mockSummaryReview(prompt);
     }
     if (prompt.contains('TYPE: conversation') ||
-        prompt.contains('Analyze conversation:')) {
+        prompt.contains('Analyze conversation:') ||
+        prompt.contains('Student:') ||
+        prompt.contains('<start_of_turn>')) {
       return _mockConversation(prompt);
     }
 
@@ -369,12 +371,18 @@ class AiEngineGemma implements AiEngine {
         .where((line) => line.startsWith('Analyze conversation:'))
         .map((line) => line.substring('Analyze conversation:'.length).trim())
         .toList();
+    final studentLines = lines
+        .where((line) => line.startsWith('Student:'))
+        .map((line) => line.substring('Student:'.length).trim())
+        .toList();
     final input = inputLines.isEmpty ? '' : inputLines.last;
     final question = input.isNotEmpty
         ? input
-        : conversationLine.isEmpty
-            ? 'câu hỏi của bạn'
-            : conversationLine.last;
+        : studentLines.isNotEmpty
+            ? studentLines.last
+            : conversationLine.isEmpty
+                ? 'câu hỏi của bạn'
+                : conversationLine.last;
     return jsonEncode({
       'summary':
           'Mình đã nhận được: "$question". AI Chat đang ở bản beta offline; hãy hỏi mình về từ vựng, ngữ pháp hoặc cách luyện nghe.',

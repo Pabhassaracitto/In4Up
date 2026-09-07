@@ -57,6 +57,7 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
+| AI-CHAT-03 | Chat timeout 3 phút — không chat được thật (prompt JSON + 512 token + KV không xóa) | 🔄 doing (chờ build máy) | prompt Gemma-IT ngắn + maxTokens 96 + clear KV + n_batch 128 + abort native |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
@@ -1374,6 +1375,28 @@
     Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
     trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
     tin kế tiếp vẫn hoạt động bình thường
+
+### AI-CHAT-03 — Chat timeout 3 phút: không chat được thật
+- **Trạng thái:** doing (chờ owner rebuild APK + nghiệm thu máy)
+- **Nguồn:** owner 2026-09-07 — chat nhận "AI xử lý quá lâu (model lớn trên
+  máy yếu). Vui lòng thử lại sau vài giây." Dù đã sửa AI-CHAT-01/02 nhiều
+  lần. Rebuild không flutter clean, không xóa app cũ. Log IME không liên quan.
+- **Root cause (thật, không phải timeout UI):**
+  1. Prompt chat = "Analyze conversation + Return ONLY valid JSON" (schema
+     technical_terms). Gemma-3-1B-it-QAT không EOS → native loop hết maxTokens.
+  2. maxTokens 512 trên tablet CPU ~1–3 tok/s → 3–8 phút > Dart timeout 3 phút.
+  3. C++ không `llama_memory_clear` giữa 2 lần generate; `n_batch = n_ctx`
+     (2048) prefill một phát trên máy yếu.
+  4. `.take(10)` lấy 10 tin ĐẦU (lỗi timeout cũ), không phải 10 tin gần.
+  5. Timeout Dart không abort FFI → "thử lại sau vài giây" là nói dối.
+- **Fix:** prompt Gemma-IT ngắn (1–3 câu, cấm JSON); maxTokens 96; timeout
+  90s + `in4up_ai_abort`; n_batch/n_ubatch 128 + chunked prefill + clear KV;
+  n_ctx chat 1024; history last 6 non-error; plain text → summary.
+- **Nghiệm thu:** banner xanh → gửi "xin chào" → trả lời tiếng Việt trong
+  ~15–60s (không đợi 3 phút). Gửi lại ngay được. Không cần flutter clean /
+  xóa app — CẦN full rebuild (không hot reload) để ra libin4up_ai_native.so mới.
+- **Lịch sử:**
+  - 2026-09-07 | created→doing | agent arena/01a07d83-in4up | RCA + fix native/Dart
 
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)

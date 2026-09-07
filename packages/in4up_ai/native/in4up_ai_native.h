@@ -16,6 +16,7 @@ typedef void * in4up_ai_handle;
 
 IN4UP_AI_API in4up_ai_handle in4up_ai_create(const char * model_path, int n_ctx, int n_threads);
 IN4UP_AI_API int in4up_ai_generate(in4up_ai_handle handle, const char * prompt, int max_tokens, float temperature, char ** output);
+IN4UP_AI_API void in4up_ai_abort(void);
 IN4UP_AI_API void in4up_ai_free_string(char * value);
 IN4UP_AI_API void in4up_ai_destroy(in4up_ai_handle handle);
 
@@ -23,6 +24,7 @@ IN4UP_AI_API void in4up_ai_destroy(in4up_ai_handle handle);
 typedef in4up_ai_handle in2up_ai_handle;
 IN4UP_AI_API in4up_ai_handle in2up_ai_create(const char * model_path, int n_ctx, int n_threads);
 IN4UP_AI_API int in2up_ai_generate(in2up_ai_handle handle, const char * prompt, int max_tokens, float temperature, char ** output);
+IN4UP_AI_API void in2up_ai_abort(void);
 IN4UP_AI_API void in2up_ai_free_string(char * value);
 IN4UP_AI_API void in2up_ai_destroy(in2up_ai_handle handle);
 

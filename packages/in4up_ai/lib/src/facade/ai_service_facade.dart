@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
 import '../engine/ai_engine_mock.dart';
+import '../engine/ai_native_bindings.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
@@ -166,6 +167,24 @@ class AiServiceFacade extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Last N non-error turns, excluding the trailing user message (passed as
+  /// `text`). `.take(10)` previously kept the FIRST 10 — old timeout errors
+  /// — and dropped the message just typed.
+  @visibleForTesting
+  static String recentChatContext(List<ChatMessage> messages, {int maxTurns = 6}) {
+    final usable = messages
+        .where((m) => !m.isError && m.text.trim().isNotEmpty)
+        .toList();
+    if (usable.isNotEmpty && usable.last.role == ChatRole.user) {
+      usable.removeLast();
+    }
+    final start = usable.length > maxTurns ? usable.length - maxTurns : 0;
+    return usable
+        .sublist(start)
+        .map((m) => '${m.role.name}: ${m.text}')
+        .join('\n');
+  }
+
   Future<void> sendMessage(String message) async {
     final text = message.trim();
     if (text.isEmpty || isChatLoading) return;
@@ -176,14 +195,7 @@ class AiServiceFacade extends ChangeNotifier {
     _lastError = null;
     notifyListeners();
 
-    // FIX AI-CHAT-01: chỉ gửi 10 tin gần nhất làm context — context native
-    // cố định 2048 tokens (in4up_ai_create), prompt dài hơn khiến
-    // llama_decode fail và model trả về RỖNG (hội thoại càng dài càng dễ
-    // dính, kể cả khi model chạy hoàn hảo).
-    final history = _chatMessages
-        .take(10)
-        .map((m) => '${m.role.name.toUpperCase()}: ${m.text}')
-        .join('\n');
+    final history = recentChatContext(_chatMessages);
 
     try {
       final engineState = _engine?.state;
@@ -210,11 +222,25 @@ class AiServiceFacade extends ChangeNotifier {
             // native load fail → mock fallback bên dưới (kèm disclaimer).
           }
         }
-        // FIX AI-CHAT-01: chat KHÔNG có timeout (các API khác có 30–60s) —
-        // native generate treo ⇒ nút gửi xoay vòng VÔ HẠN. 3 phút = trần
-        // an toàn cho máy yếu; schema JSON chat cần > 256 tokens nên
-        // maxTokens 512 (256 cũ hay cắt JSON giữa chừng ⇒ "Invalid Gemma JSON").
-        final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2, maxTokens: 512).first.timeout(const Duration(minutes: 3));
+        // AI-CHAT-03: short chat reply (96 tokens), not 512-token JSON.
+        // 90s is enough on a weak tablet; on timeout abort native so retry
+        // is actually free (old code left FFI running after the UI failed).
+        final analysisFuture = _engine!
+            .analyze(
+              text: text,
+              type: AiAnalysisType.conversation,
+              context: history,
+              temperature: 0.3,
+              maxTokens: 96,
+            )
+            .first;
+        AiAnalysis result;
+        try {
+          result = await analysisFuture.timeout(const Duration(seconds: 90));
+        } on TimeoutException {
+          AiNativeBindings.abortCurrent();
+          result = await analysisFuture.timeout(const Duration(seconds: 20));
+        }
         final answer = result.success && result.summary.isNotEmpty
             ? result.summary
             : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
@@ -229,14 +255,12 @@ class AiServiceFacade extends ChangeNotifier {
         ));
       }
     } on TimeoutException {
-      // FIX AI-CHAT-01: generate quá 3 phút (máy yếu / native treo) — trả lời
-      // rõ + về trạng thái bình thường; nút gửi không xoay vòng vô hạn.
-      // (Isolate vẫn tự thoát sau watchdog 5 phút trong AiEngineGemma.)
-      _lastError = 'Chat timeout sau 3 phút';
+      AiNativeBindings.abortCurrent();
+      _lastError = 'Chat timeout';
       _chatMessages.add(ChatMessage(
         id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
         role: ChatRole.assistant,
-        text: 'AI xử lý quá lâu (model lớn trên máy yếu). Vui lòng thử lại sau vài giây.',
+        text: 'AI xử lý quá lâu (model lớn trên máy yếu). Đã dừng — gửi lại được ngay.',
         isError: true,
       ));
     } catch (e) {

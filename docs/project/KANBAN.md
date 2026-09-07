@@ -36,6 +36,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (in-repo fix CI-only — chờ oracle) | in4up_ci_fixes.gradle (CI=true): inject mock client + copy stable→tên không-flavor; oracle tag v1.4.0-ci-android-fix |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
+| CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
 | AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ CI + nghiệm thu) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
@@ -498,6 +499,44 @@
 - **Lịch sử:**
   - 2026-08-22 | created | agent arena/01a02a4a-in4up | phát hiện khi soi run oracle (job Linux đỏ mọi vòng)
   - 2026-08-22 | proposed→blocked | agent arena/01a02a4a-in4up | owner dán log Linux ⇒ root cause webkit2gtk (CMake plugin REQUIRED); fix = 1 apt package, chờ owner áp (token thiếu quyền workflows)
+### CI-WINDOWS-01 — Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây
+- **Trạng thái:** 🚫 blocked (chờ owner: token GitHub App của agent KHÔNG có
+  quyền `workflows` nên không push được sửa đổi `.github/workflows/*.yml` —
+  y hệt tình huống CI-LINUX-01. Patch đã viết xong và test logic kỹ, chỉ cần
+  owner tự áp hoặc cấp quyền `workflows` cho agent)
+- **Nguồn:** owner (2026-09-06) — hỏi vì sao release `in4up-Windows-1.7.0.zip`
+  chỉ nặng 9.63 KB thay vì hàng chục MB như app Flutter Windows thật.
+- **Patch sẵn sàng:** `docs/project/CI-WINDOWS-01-patch.diff` (áp bằng
+  `git apply docs/project/CI-WINDOWS-01-patch.diff` rồi commit + push) —
+  sửa cả `.github/workflows/build.yml` và `build_final_complete.yml`.
+- **Root cause (xác nhận qua GitHub Releases API + lịch sử git):** bước
+  "Zip Windows build" ở CẢ HAI `.github/workflows/build.yml` và
+  `build_final_complete.yml` (thêm từ ~2026-08-21, xem commit lịch sử
+  `755d928`→sau) dùng:
+  ```powershell
+  $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+  Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+  ```
+  Cây build CMake/MSBuild có RẤT NHIỀU thư mục con tên `Release` (VD:
+  `build/windows/x64/CMakeFiles/<target>.dir/Release/` chỉ chứa vài file
+  `.obj`/`.tlog` build tạm, vài trăm byte–vài KB) — không riêng
+  `runner/Release` (bundle thật: .exe + flutter_windows.dll + icudtl.dat +
+  data/flutter_assets, hàng chục MB). `Get-ChildItem -Recurse` duyệt theo
+  alphabet, `CMakeFiles` < `runner` nên `-First 1` gần như luôn vớ trúng thư
+  mục rác. `Compress-Archive` không báo lỗi vì thư mục nguồn hợp lệ (dù nhỏ)
+  → job Windows luôn "success" nhưng release rỗng.
+  Bằng chứng: mọi tag từ 21/8 trở đi (`v1.4.0-ai-native-test` 4.2KB,
+  `v1.4.0-bisect-a` 4.2KB, ..., `1.7.0` 9.6KB) đều nhỏ bất thường; bản
+  `1.5.0` (6/8, trước khi thêm đoạn "tự động quét") vẫn đúng ~33MB.
+- **Fix:** cả 2 workflow — bỏ "tự động quét", trỏ thẳng
+  `build/windows/x64/runner/Release` (đường dẫn output chuẩn của
+  `flutter build windows`), guard có `.exe`, và chặn CI (exit 1) nếu zip
+  ra < 5MB — thà đỏ CI còn hơn âm thầm phát hành bản lỗi lần nữa.
+- **Lịch sử:**
+  - 2026-09-06 | created→done | agent arena/01a07863-in4up | owner hỏi vì sao
+    release 1.7.0 chỉ 9.63KB; fix cả build.yml + build_final_complete.yml,
+    thêm guard chống tái diễn
+
 ### SHERPA-001 — Silero VAD (sherpa_onnx) thay EnergyVad fallback
 - **Trạng thái:** done (code; chờ nghiệm thu trên thiết bị)
 - **Nội dung:** `SherpaVadCore` (in4up_stt, API sherpa_onnx v1.13.4 verify

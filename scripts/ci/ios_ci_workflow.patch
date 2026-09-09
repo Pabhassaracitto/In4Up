@@ -1,0 +1,186 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 3d95add..55c3fec 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -1,6 +1,9 @@
+ name: Flutter Full Build - Android, iOS, Windows
+ env:
+   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
++  # iOS deployment target tối thiểu của app.
++  # 15.5 = mức MLKitVision (google_mlkit_commons/google_mlkit_translation) yêu cầu.
++  IOS_MIN_TARGET: '15.5'
+ on:
+   push:
+     tags:
+@@ -283,21 +286,14 @@ jobs:
+           channel: 'stable'
+           cache: true
+ 
+-      # BƯỚC 1: Ép cấu hình nền tảng trong file Podfile lên 15.0 cho các thư viện CocoaPods cũ
+-      - name: Pre-configure iOS Podfile Platform
+-        run: |
+-          if [ -f ios/Podfile ]; then
+-            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+-            sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+-          fi
+-
+-      # BƯỚC 2: Sửa file cấu hình Xcode của Runner, giải quyết lỗi Target 13.0 của SPM
+-      - name: Force Upgrade Xcode Project Deployment Target to 15.0
+-        run: |
+-          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+-            sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
+-            echo "Xcode project deployment target forced to 15.0 successfully."
+-          fi
++      # BƯỚC 1+2: Đồng bộ iOS deployment target = $IOS_MIN_TARGET (15.5)
++      # google_mlkit_commons/google_mlkit_translation (MLKitVision) yêu cầu >= 15.5.
++      # Nếu thấp hơn, `pod install` đỏ:
++      #   [!] CocoaPods could not find compatible versions for pod "google_mlkit_commons"
++      #   Error: The plugin "google_mlkit_commons" requires a higher minimum iOS
++      #          deployment version than your application is targeting.
++      - name: Sync iOS deployment target (Podfile + Xcode project + AppFrameworkInfo)
++        run: bash scripts/ci/ios_set_deployment_target.sh "$IOS_MIN_TARGET"
+       - name: Create Real Firebase & Auth Files for iOS Build
+         shell: bash
+         run: |
+@@ -326,9 +322,23 @@ jobs:
+           EOF
+           echo "Đã tạo firebase_options.dart và auth_service.dart cho iOS."
+ 
++      # 4 plugin của app (whisper_flutter_new, google_mlkit_*, flutter_tts) KHÔNG hỗ trợ
++      # Swift Package Manager -> tắt SPM để Flutter đi thuần CocoaPods, tránh bước
++      # "Adding Swift Package Manager integration" sửa .xcodeproj rồi vẫn phải pod install.
++      - name: Disable Swift Package Manager (plugins chỉ hỗ trợ CocoaPods)
++        run: flutter config --no-enable-swift-package-manager
++
+       - name: Get dependencies
+         run: flutter pub get
+ 
++      # Chạy pod install SỚM + --repo-update để lỗi phụ thuộc (nếu có) hiện ngay,
++      # thay vì chôn trong log của `flutter build ios`.
++      - name: CocoaPods install (chẩn đoán sớm)
++        working-directory: ios
++        run: |
++          pod --version
++          pod install --repo-update
++
+       - name: Decode GoogleService-Info.plist
+         env:
+           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
+@@ -348,13 +358,23 @@ jobs:
+           fi
+       - name: Build iOS (no codesign)
+         run: |
+-          export IPHONEOS_DEPLOYMENT_TARGET=15.0
++          export IPHONEOS_DEPLOYMENT_TARGET="$IOS_MIN_TARGET"
+           flutter build ios --release --no-codesign \
+             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+ 
++      - name: Chẩn đoán khi build iOS đỏ
++        if: failure()
++        run: |
++          echo "=== ios/Podfile ==="
++          cat ios/Podfile || true
++          echo "=== IPHONEOS_DEPLOYMENT_TARGET trong project.pbxproj ==="
++          grep -n "IPHONEOS_DEPLOYMENT_TARGET" ios/Runner.xcodeproj/project.pbxproj || true
++          echo "=== Podfile.lock (deployment target các pod) ==="
++          sed -n '1,80p' ios/Podfile.lock || true
++
+       - name: Create IPA
+         run: |
+           VERSION_NAME="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+diff --git a/.github/workflows/build_final_complete.yml b/.github/workflows/build_final_complete.yml
+index ca6256c..e0049e3 100644
+--- a/.github/workflows/build_final_complete.yml
++++ b/.github/workflows/build_final_complete.yml
+@@ -1,5 +1,7 @@
+ env:
+   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
++  # iOS deployment target tối thiểu (MLKitVision của google_mlkit_* yêu cầu >= 15.5)
++  IOS_MIN_TARGET: '15.5'
+ on:
+   push:
+     tags:
+@@ -465,7 +467,7 @@ jobs:
+           token: ${{ secrets.GITHUB_TOKEN }}
+ 
+   # =============================================================================
+-  # JOB 4: iOS IPA - sideload no codesign, deployment target 15.0
++  # JOB 4: iOS IPA - sideload no codesign, deployment target 15.5
+   # =============================================================================
+   build-ios:
+     name: Build iOS IPA (sideload)
+@@ -493,21 +495,11 @@ jobs:
+           channel: 'stable'
+           cache: true
+ 
+-      - name: Pre-configure iOS Podfile Platform to 15.0
++      # google_mlkit_commons/google_mlkit_translation (MLKitVision) yêu cầu iOS >= 15.5.
++      # Target thấp hơn -> pod install đỏ "could not find compatible versions".
++      - name: Sync iOS deployment target (Podfile + Xcode project + AppFrameworkInfo)
+         shell: bash
+-        run: |
+-          if [ -f ios/Podfile ]; then
+-            sed -i '' "s/platform :ios.*/platform :ios, '15.0'/g" ios/Podfile || true
+-            sed -i '' "s/# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile || true
+-          fi
+-
+-      - name: Force Upgrade Xcode Project Deployment Target to 15.0
+-        shell: bash
+-        run: |
+-          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+-            sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
+-            echo "Xcode project forced to 15.0"
+-          fi
++        run: bash scripts/ci/ios_set_deployment_target.sh "$IOS_MIN_TARGET"
+ 
+       - name: Ensure auth file and keep firebase_options.dart with flavors
+         shell: bash
+@@ -527,9 +519,19 @@ jobs:
+           touch assets/whisper_models/.gitkeep
+           grep -q "androidForFlavor" lib/firebase_options.dart && echo "firebase_options.dart has flavors" || echo "fallback"
+ 
++      # Các plugin (whisper_flutter_new, google_mlkit_*, flutter_tts) không hỗ trợ SPM
++      - name: Disable Swift Package Manager (plugins chỉ hỗ trợ CocoaPods)
++        run: flutter config --no-enable-swift-package-manager
++
+       - name: Get dependencies
+         run: flutter pub get
+ 
++      - name: CocoaPods install (chẩn đoán sớm)
++        working-directory: ios
++        run: |
++          pod --version
++          pod install --repo-update
++
+       - name: Decode GoogleService-Info.plist from secret
+         env:
+           GOOGLE_SERVICE_INFO: ${{ secrets.IOS_GOOGLE_SERVICE_INFO }}
+@@ -559,13 +561,24 @@ jobs:
+       - name: Build iOS (no codesign) Release
+         shell: bash
+         run: |
+-          export IPHONEOS_DEPLOYMENT_TARGET=15.0
++          export IPHONEOS_DEPLOYMENT_TARGET="$IOS_MIN_TARGET"
+           flutter build ios --release --no-codesign \
+             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+ 
++      - name: Chẩn đoán khi build iOS đỏ
++        if: failure()
++        shell: bash
++        run: |
++          echo "=== ios/Podfile ==="
++          cat ios/Podfile || true
++          echo "=== IPHONEOS_DEPLOYMENT_TARGET trong project.pbxproj ==="
++          grep -n "IPHONEOS_DEPLOYMENT_TARGET" ios/Runner.xcodeproj/project.pbxproj || true
++          echo "=== Podfile.lock ==="
++          sed -n '1,80p' ios/Podfile.lock || true
++
+       - name: Create IPA from Runner.app
+         shell: bash
+         run: |

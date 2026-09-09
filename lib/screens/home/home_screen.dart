@@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    context.uiText('I2U AI Chat'),
+                    context.uiText('I4U AI Chat'),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,

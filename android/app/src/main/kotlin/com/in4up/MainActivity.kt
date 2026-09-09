@@ -105,13 +105,45 @@ class MainActivity : FlutterActivity() {
         val out = mutableListOf<Map<String, Any?>>()
         try {
             val rootUri = Uri.parse(treeUri)
-            val rootDocId = DocumentsContract.getTreeDocumentId(rootUri)
+            val rootDocId = try {
+                DocumentsContract.getTreeDocumentId(rootUri)
+            } catch (e: Exception) {
+                // Tên thư mục chứa ký tự đặc biệt (vd dấu gạch chéo, dấu
+                // tiếng Việt) → getTreeDocumentId có thể lỗi percent-encoding.
+                // Fallback: lấy segment sau "/tree/" và DECODE an toàn
+                // (giữ nguyên % lỗi thay vì throw).
+                e.printStackTrace()
+                val idx = treeUri.lastIndexOf("/tree/")
+                if (idx >= 0) safeDecodePercent(treeUri.substring(idx + "/tree/".length)) else ""
+            }
+            if (rootDocId.isBlank()) return out
             scanTextFolder(rootUri, rootDocId, out, 0)
         } catch (e: Exception) {
             // Trả danh sách đã có (có thể rỗng) — không crash app.
             e.printStackTrace()
         }
         return out
+    }
+
+    /// Decode percent-encoding AN TOÀN: giữ nguyên % lỗi (không throw).
+    private fun safeDecodePercent(s: String): String {
+        val sb = StringBuilder()
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            if (c == '%' && i + 2 < s.length) {
+                val hex = s.substring(i + 1, i + 3)
+                val code = hex.toIntOrNull(16)
+                if (code != null) {
+                    sb.appendCodePoint(code)
+                    i += 3
+                    continue
+                }
+            }
+            sb.append(c)
+            i++
+        }
+        return sb.toString()
     }
 
     private fun scanTextFolder(
@@ -123,7 +155,19 @@ class MainActivity : FlutterActivity() {
         // Giới hạn: depth 12, 5000 file — đủ cho thư viện sách, tránh quét
         // hang trên tree khổng lồ.
         if (depth > 12 || out.size >= 5000) return
-        val childUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+        val childUri = try {
+            DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+        } catch (e: Exception) {
+            // docId chứa ký tự đặc biệt (vd dấu gạch chéo) → buildChild
+            // DocumentsUriUsingTree có thể lỗi percent-encoding. Fallback:
+            // encode docId thủ công an toàn (slash → %2F).
+            e.printStackTrace()
+            Uri.parse(treeUri.toString())
+                .buildUpon()
+                .appendPath("document")
+                .appendPath(android.net.Uri.encode(docId))
+                .build()
+        }
         val projection = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -157,9 +201,7 @@ class MainActivity : FlutterActivity() {
                     }
                     if (!textExtensions.contains(ext)) continue
 
-                    val docUri = ContentUris.withAppendedId(
-                        DocumentsContract.buildDocumentUriUsingTree(treeUri, id),
-                    )
+                    val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                     out.add(
                         mapOf(
                             "uri" to docUri.toString(),

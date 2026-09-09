@@ -239,5 +239,29 @@ void main() {
       expect(data['topic'], 'nature');
       expect(data['example'], 'ex');
     });
+
+    test(
+        'T6: 8 ô, ô ipa là MẢNH meaning 1 từ (không có IPA nào trong hàng) '
+        '→ gộp vào meaning, không để rác vào phonetic', () {
+      final data = parse(
+        'apple, to eat, fruits, , ex, exs, exc, en',
+      );
+      expect(data['meaning'], 'to eat, fruits');
+      expect(g(data, 'phonetic'), '');
+      expect(data['topic'], '');
+      expect(data['example'], 'ex');
+      expect(data['exampleSimple'], 'exs');
+      expect(data['exampleComplex'], 'exc');
+      expect(data['language'], 'en');
+    });
+
+    test('T7: ipa-trần có ký tự ngoài Latin (æpl) → GIỮ làm phonetic', () {
+      final data = parse(
+        'apple, to eat, æpl, nature, ex, exs, exc, en',
+      );
+      expect(data['phonetic'], 'æpl');
+      expect(data['meaning'], 'to eat');
+      expect(data['topic'], 'nature');
+    });
   });
 }

@@ -140,9 +140,11 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   /// Tạo LRC dùng VAD pipeline tối ưu (khuyên dùng cho file dài >60s)
   /// Pipeline: File Audio -> VAD -> Chunk Extractor -> Whisper Isolate -> Offset Corrector -> UI Stream
+  /// [language]: mã ngôn ngữ Whisper ('auto' = tự nhận diện đa ngữ;
+  /// 'vi', 'en', 'zh', 'ja', 'ko', 'pi'...). Mặc định 'auto' — đa ngữ.
   Future<SttTranscribeOutput?> generateLrcWithVadPipeline({
     WhisperModelLevel? level,
-    String language = 'vi',
+    String language = 'auto',
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     bool skipSilence = true,
   }) async {
@@ -247,10 +249,15 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
   }
 
+  /// [language]: mã ngôn ngữ Whisper — 'auto' (mặc định) = Whisper tự
+  /// nhận diện ngôn ngữ (đa ngữ: vi/en/zh/ja/ko/pi...); hoặc gán cụ thể
+  /// ('vi', 'en'...) khi muốn ép ngôn ngữ. Trước đây hardcode 'en' —
+  /// file tiếng Việt bị transcribe sai ngôn ngữ.
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     bool forceRegenerate = false,
+    String language = 'auto',
   }) async {
     final path = currentSongPath;
     if (path == null) {
@@ -283,7 +290,7 @@ mixin PlayerSttMixin on ChangeNotifier {
           debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
           return await generateLrcWithVadPipeline(
             level: level,
-            language: 'en',
+            language: language,
             grouping: grouping,
             skipSilence: true,
           );
@@ -337,7 +344,7 @@ mixin PlayerSttMixin on ChangeNotifier {
         if (level == null) {
           output = await stt.transcribeAuto(
             path,
-            language: 'en',
+            language: language,
             generateLrc: true,
             grouping: grouping,
           );
@@ -347,7 +354,7 @@ mixin PlayerSttMixin on ChangeNotifier {
             config: SttConfig.deepLearning.copyWith(
               preferredEngine: SttEngineType.whisper,
               whisperModel: level,
-              language: 'en',
+              language: language,
               generateLrc: true,
               grouping: grouping,
             ),

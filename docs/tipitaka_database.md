@@ -46,20 +46,19 @@ output outside `assets/` and deliver/install it separately; a full database
 may be hundreds of megabytes.
 
 The app's **Import DB** button accepts an already normalized `.db`/`.sqlite`
-file. It rejects a raw Pa-Auk source file and explains that it must first be
-merged with the importer. This is intentional: opening a raw file directly
-would cause sqflite to create an empty app schema and make the data appear to
-be missing.
+file as well as a raw Pa-Auk `.db`/`.sqlite`/`.zip` source package. Raw files
+are inspected, normalized, and installed by the Dart importer; the Python
+script remains useful for large developer/release builds. The app never opens
+a raw source as an empty application schema.
 
 ## Download language packages in the app
 
 The Language Packs screen has the Pa-Auk URLs from the integration handoff.
 Tapping download is explicit (never automatic at startup), streams the zip to
-application documents, extracts the DB, and reports the saved path. The
-extracted file is still a source DB and must be copied to the developer
-workspace and passed through `import_tipitaka.py` together with Pāli before it
-can become the app DB. This keeps downloaded source files separate and prevents an incompatible
-schema from being installed.
+application documents, extracts the DB, and immediately sends it through the
+same in-app importer. Import Pāli first; translation packs are then joined by
+source key/reference. The extracted source file is retained separately, while
+the reader opens only the normalized application DB.
 
 ## Release checklist
 

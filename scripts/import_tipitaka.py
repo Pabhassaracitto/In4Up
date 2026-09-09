@@ -220,6 +220,7 @@ def build_target_schema(conn: sqlite3.Connection) -> None:
           section_id INTEGER,
           reference TEXT NOT NULL DEFAULT '',
           paragraph_no INTEGER,
+          block_type TEXT NOT NULL DEFAULT 'paragraph',
           pali_text TEXT NOT NULL DEFAULT '',
           translation_en TEXT,
           translation_vi TEXT,
@@ -267,12 +268,38 @@ def collection_for_table(table: str) -> tuple[str, str, str]:
     return "sutta", "Sutta Piṭaka", "Tạng Kinh"
 
 
+def book_display_name(table: str) -> str:
+    """Give source table identifiers a useful catalogue title."""
+    name = table.lower()
+    prefixes = {
+        "vin": "Vinaya",
+        "dn": "Dīgha Nikāya",
+        "mn": "Majjhima Nikāya",
+        "sn": "Saṃyutta Nikāya",
+        "an": "Aṅguttara Nikāya",
+        "khp": "Khuddakapāṭha",
+        "dhp": "Dhammapada",
+    }
+    for prefix, title in prefixes.items():
+        match = re.match(rf"^{re.escape(prefix)}(\d+)", name)
+        if not match:
+            continue
+        suffix = re.sub(r"^[_-]", "", name[match.end():])
+        suffix = re.sub(r"^[mat]_", "", suffix)
+        suffix = re.sub(r"^m$", "Mūla", suffix)
+        suffix = re.sub(r"^a$", "Aṭṭhakathā", suffix)
+        suffix = re.sub(r"^t$", "Ṭīkā", suffix)
+        suffix = suffix.replace("mul", "Mūla").replace("att", "Aṭṭhakathā").replace("tik", "Ṭīkā")
+        return f"{title} {match.group(1)}{(' · ' + suffix) if suffix else ''}"
+    return " ".join(part.capitalize() for part in re.split(r"[_-]+", table) if part)
+
+
 def select_text_table(conn: sqlite3.Connection, language: str) -> Iterator[tuple[str, list[str], str]]:
     """Yield every likely text table; importantly, never apply a row LIMIT."""
     text_candidates = (
-        ("pali_text", "text", "content", "paragraph", "body", "html", "xml", "data")
+        ("pali_text", "pali", "roman", "text", "content", "paragraph", "body", "html", "xml", "data")
         if language == "pi"
-        else ("translation", "translated_text", "translation_text", "text", "content", "paragraph", "body", "html", "xml", "data")
+        else ("translation", "translated", "translated_text", "translation_text", "text", "content", "paragraph", "body", "html", "xml", "data")
     )
     for table in table_names(conn):
         columns = table_columns(conn, table)
@@ -292,6 +319,35 @@ def as_int(value: object, fallback: int) -> int:
         return int(value) if value is not None else fallback
     except (TypeError, ValueError):
         return fallback
+
+
+def block_type(value: object) -> str:
+    raw = str(value or '').lower()
+    if 'rend="book"' in raw or "rend='book'" in raw:
+        return 'book'
+    if 'rend="chapter"' in raw or "rend='chapter'" in raw:
+        return 'chapter'
+    if any(
+        marker in raw
+        for marker in (
+            'rend="subhead"',
+            'rend="heading"',
+            "rend='subhead'",
+            "rend='heading'",
+        )
+    ):
+        return 'heading'
+    if any(
+        marker in raw
+        for marker in (
+            'rend="centre"',
+            'rend="center"',
+            "rend='centre'",
+            "rend='center'",
+        )
+    ):
+        return 'center'
+    return 'paragraph'
 
 
 def import_pali(conn: sqlite3.Connection, source_path: Path) -> tuple[int, dict[tuple[str, str], int], dict[str, int]]:
@@ -314,10 +370,11 @@ def import_pali(conn: sqlite3.Connection, source_path: Path) -> tuple[int, dict[
                 )
                 collection_ids[collection_key] = int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
             if table not in book_ids:
-                code = re.sub(r"[^A-Za-z0-9]+", "_", table).upper()
+                code = re.sub(r"[^A-Za-z0-9]+", "_", table).strip("_").upper()
+                display_name = book_display_name(table)
                 conn.execute(
                     "INSERT INTO tipitaka_books(collection_id,code,name_pali,name_en,name_vi,order_index,metadata_json) VALUES(?,?,?,?,?,?,?)",
-                    (collection_ids[collection_key], code, table, table, table, len(book_ids) + 1, '{"source":"OpenTipitaka"}'),
+                    (collection_ids[collection_key], code, table, display_name, display_name, len(book_ids) + 1, '{"source":"OpenTipitaka"}'),
                 )
                 book_ids[table] = int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
 
@@ -329,6 +386,7 @@ def import_pali(conn: sqlite3.Connection, source_path: Path) -> tuple[int, dict[
             for key, reference, paragraph, text in source.execute(query):
                 row_key = str(key if key is not None else order_index + 1)
                 readable_text = clean_text(text)
+                kind = block_type(text)
                 # Keep structural/header rows too; the original markup often
                 # carries useful book and chapter boundaries.
                 ref = clean_text(reference) if reference is not None else ""
@@ -337,9 +395,9 @@ def import_pali(conn: sqlite3.Connection, source_path: Path) -> tuple[int, dict[
                 paragraph_number = as_int(paragraph, order_index + 1)
                 conn.execute(
                     """INSERT INTO tipitaka_segments
-                       (book_id,reference,paragraph_no,pali_text,order_index,source_table,source_row_key)
-                       VALUES(?,?,?,?,?,?,?)""",
-                    (book_ids[table], ref, paragraph_number, readable_text, order_index, table, row_key),
+                       (book_id,reference,paragraph_no,block_type,pali_text,order_index,source_table,source_row_key)
+                       VALUES(?,?,?,?,?,?,?,?)""",
+                    (book_ids[table], ref, paragraph_number, kind, readable_text, order_index, table, row_key),
                 )
                 segment_id = int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
                 target_key_to_id[(table, row_key)] = segment_id
@@ -369,21 +427,22 @@ def import_normalized(conn: sqlite3.Connection, path: Path) -> tuple[int, dict[t
         for row in source.execute("SELECT id,collection_id,code,name_pali,name_en,name_vi,order_index,metadata_json FROM tipitaka_books ORDER BY id"):
             conn.execute("INSERT OR IGNORE INTO tipitaka_books(id,collection_id,code,name_pali,name_en,name_vi,order_index,metadata_json) VALUES(?,?,?,?,?,?,?,?)", row)
         columns = {row[1] for row in source.execute("PRAGMA table_info(tipitaka_segments)")}
+        source_block = "block_type" if "block_type" in columns else "'paragraph'"
         source_table = "source_table" if "source_table" in columns else "NULL"
         source_row = "source_row_key" if "source_row_key" in columns else "NULL"
         rows = source.execute(
-            f"SELECT id,book_id,section_id,reference,paragraph_no,pali_text,translation_en,translation_vi,translation_my,translation_th,order_index,{source_table},{source_row} FROM tipitaka_segments ORDER BY id"
+            f"SELECT id,book_id,section_id,reference,paragraph_no,{source_block},pali_text,translation_en,translation_vi,translation_my,translation_th,order_index,{source_table},{source_row} FROM tipitaka_segments ORDER BY id"
         )
         for row in rows:
             conn.execute(
                 """INSERT OR REPLACE INTO tipitaka_segments
-                   (id,book_id,section_id,reference,paragraph_no,pali_text,translation_en,translation_vi,translation_my,translation_th,order_index,source_table,source_row_key)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (id,book_id,section_id,reference,paragraph_no,block_type,pali_text,translation_en,translation_vi,translation_my,translation_th,order_index,source_table,source_row_key)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 row,
             )
             segment_id = int(row[0])
-            if row[11] is not None and row[12] is not None:
-                key_to_id[(str(row[11]), str(row[12]))] = segment_id
+            if row[12] is not None and row[13] is not None:
+                key_to_id[(str(row[12]), str(row[13]))] = segment_id
             refs.setdefault(str(row[3]), segment_id)
             count += 1
         conn.commit()

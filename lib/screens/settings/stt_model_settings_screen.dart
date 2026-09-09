@@ -75,6 +75,10 @@ class SttModelSettingsScreen extends StatelessWidget {
           const _SectionLabel(
               '4. Chat — Gemma (LLM trả lời cho AI Chat — file .gguf)'),
           const _GemmaChatModelCard(),
+          const SizedBox(height: 16),
+          const _SectionLabel(
+              '5. STT Offline — Zipformer (nhận diện trực tiếp không cần mạng)'),
+          const _SherpaAsrCard(),
         ],
       ),
     );
@@ -1362,5 +1366,326 @@ class _GemmaChatModelCard extends StatelessWidget {
     );
     if (confirmed != true) return;
     await facade.removeModel();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ZIPFORMER ASR CARD — nhận diện giọng nói trực tiếp offline (PLAN-023 / WP4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SherpaAsrCard extends StatefulWidget {
+  const _SherpaAsrCard();
+
+  @override
+  State<_SherpaAsrCard> createState() => _SherpaAsrCardState();
+}
+
+class _SherpaAsrCardState extends State<_SherpaAsrCard> {
+  final _manager = SherpaModelManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _manager.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SherpaAsrInfo>(
+      stream: _manager.watchAsr(),
+      initialData: _manager.asrInfo,
+      builder: (context, snapshot) {
+        final asrInfo = snapshot.data!;
+
+        return Column(
+          children: SherpaModelManager.predefinedAsrProfiles.map((profile) {
+            final info = asrInfo.stateFor(profile.id);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Header ──────────────────────────────────────────
+                    Row(
+                      children: [
+                        Icon(
+                          info.isReady
+                              ? Icons.check_circle
+                              : info.isDownloading
+                                  ? Icons.sync
+                                  : Icons.keyboard_voice,
+                          color: info.isReady
+                              ? Colors.green
+                              : info.isDownloading
+                                  ? Colors.blue
+                                  : Colors.teal,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                profile.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                context.uiText(
+                                  profile.isStreaming
+                                      ? 'Nhận diện trực tiếp (streaming) — Zipformer 20M int8'
+                                      : 'Nhận diện offline kèm VAD — Zipformer 30M int8',
+                                ),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        _AsrBadge(info: info),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ── Progress ────────────────────────────────────────
+                    if (info.isDownloading) ...[
+                      LinearProgressIndicator(
+                        value: info.downloadProgress > 0
+                            ? info.downloadProgress
+                            : null,
+                        backgroundColor: Colors.grey.shade800,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${(info.downloadProgress * 100).toStringAsFixed(1)}% · '
+                        '${(info.downloadProgress * profile.approxSizeMB).toStringAsFixed(0)}/${profile.approxSizeMB}MB',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // ── Error message ────────────────────────────────────
+                    if (info.errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade900.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          info.errorMessage!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // ── Action buttons ───────────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (info.isDownloading)
+                          TextButton.icon(
+                            icon: const Icon(Icons.cancel, size: 16),
+                            label: const Text('Huỷ'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            onPressed: () =>
+                                _manager.cancelAsrDownload(profile.id),
+                          )
+                        else if (info.isReady) ...[
+                          TextButton.icon(
+                            icon: const Icon(Icons.folder_open, size: 16),
+                            label: const Text('Import thư mục'),
+                            onPressed: () =>
+                                _importFolder(context, profile),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.insert_drive_file, size: 16),
+                            label: const Text('Import file'),
+                            onPressed: () =>
+                                _importFiles(context, profile),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.delete, size: 16),
+                            label: Text(
+                              context.uiText('Xoá (${profile.approxSizeMB}MB)'),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            onPressed: () =>
+                                _confirmDelete(context, profile),
+                          ),
+                        ] else ...[
+                          TextButton.icon(
+                            icon: const Icon(Icons.folder_open, size: 16),
+                            label: const Text('Import thư mục'),
+                            onPressed: () =>
+                                _importFolder(context, profile),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.insert_drive_file, size: 16),
+                            label: const Text('Import file'),
+                            onPressed: () =>
+                                _importFiles(context, profile),
+                          ),
+                          Text(
+                            '${profile.approxSizeMB}MB',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.download, size: 16),
+                            label: const Text('Tải về'),
+                            onPressed: () =>
+                                _handleDownload(context, profile),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDownload(
+    BuildContext context,
+    SherpaAsrProfile profile,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          context.uiText('Tải model Zipformer ${profile.name}?'),
+        ),
+        content: Text(
+          context.uiText(
+            'Dung lượng khoảng ${profile.approxSizeMB}MB.\n\n'
+            'App tự động tải archive tar.bz2, giải nén và cấu hình model.\n\n'
+            'Nên dùng Wi-Fi trong khi tải.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Tải về'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    await _manager.downloadAsrModel(profile.id);
+  }
+
+  Future<void> _importFolder(
+    BuildContext context,
+    SherpaAsrProfile profile,
+  ) async {
+    final path = await fp.FilePicker.getDirectoryPath();
+    if (path == null || path.isEmpty) return;
+    final msg = await _manager.importAsrFolder(path, targetProfileId: profile.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.uiText(msg))),
+    );
+  }
+
+  Future<void> _importFiles(
+    BuildContext context,
+    SherpaAsrProfile profile,
+  ) async {
+    final result = await fp.FilePicker.pickFiles(
+      type: fp.FileType.custom,
+      allowedExtensions: ['onnx', 'txt', 'bz2', 'zip'],
+      allowMultiple: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final paths = result.files.map((f) => f.path).whereType<String>().toList();
+    if (paths.isEmpty) return;
+
+    final msg = await _manager.importAsrFiles(paths, targetProfileId: profile.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.uiText(msg))),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    SherpaAsrProfile profile,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(context.uiText('Xoá model ${profile.name}?')),
+        content: Text(
+          context.uiText(
+            'Sẽ giải phóng ${profile.approxSizeMB}MB. Cần tải lại để dùng nhận diện offline.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Xoá'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) await _manager.deleteAsrModel(profile.id);
+  }
+}
+
+class _AsrBadge extends StatelessWidget {
+  final SherpaModelInfo info;
+  const _AsrBadge({required this.info});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (info.status) {
+      SherpaModelStatus.ready => ('Sẵn sàng', Colors.green),
+      SherpaModelStatus.downloading => ('Đang tải', Colors.blue),
+      SherpaModelStatus.error => ('Lỗi file', Colors.red),
+      _ => ('Chưa tải', Colors.grey),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        context.uiText(label),
+        style: TextStyle(color: color, fontSize: 11),
+      ),
+    );
   }
 }

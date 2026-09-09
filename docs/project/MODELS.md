@@ -22,6 +22,27 @@ Windows: `documents = %LOCALAPPDATA%\<org>\<app>_documents/`
 | **Whisper STT** | `in4up_whisper_models/` | `ggml-tiny-q4_0.bin` (hoặc `ggml-tiny.bin`, `ggml-base.bin`…) | 37-75MB | Bóc băng audio → chữ (Tab Nghe, shadowing) | ✅ dùng STT |
 | **Silero VAD** | `sherpa_vad_models/` | `silero_vad.onnx` | 2-5MB | Loại khoảng lặng — tạo lời file 30p nhanh, không đơ | ✅ khuyến nghị (thiếu → fallback chậm, không skip silence thật) |
 | **Piper TTS** | `sherpa_piper_models/` | xem bảng giọng bên dưới | ~75MB/giọng | Đọc chữ offline (TTS cabin) | ✅ muốn TTS neural offline |
+| **Zipformer ASR** | `sherpa_asr_models/` | `tokens.txt` + `encoder*.onnx` + `decoder*.onnx` + `joiner*.onnx` | 20-32MB/profile | Nhận diện giọng nói trực tiếp offline (Live STT cabin) | ✅ muốn live STT offline không phụ thuộc Google Speech |
+
+## Zipformer ASR — Nhận diện giọng nói trực tiếp offline
+
+```
+<documents>/sherpa_asr_models/
+  asr-vi-30M-int8/
+    tokens.txt
+    encoder.int8.onnx
+    decoder.onnx
+    joiner.int8.onnx
+  asr-en-20M-streaming-int8/
+    tokens.txt
+    encoder-epoch-99-avg-1.int8.onnx
+    decoder-epoch-99-avg-1.onnx
+    joiner-epoch-99-avg-1.int8.onnx
+```
+
+**Tải model Zipformer ASR:**
+- Tiếng Việt (30M int8): `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2`
+- English (20M streaming int8): `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2`
 
 ## Piper TTS — 2 layout hợp lệ (app tự nhận cả hai)
 

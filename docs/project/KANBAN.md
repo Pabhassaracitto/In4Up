@@ -36,6 +36,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (in-repo fix CI-only — chờ oracle) | in4up_ci_fixes.gradle (CI=true): inject mock client + copy stable→tên không-flavor; oracle tag v1.4.0-ci-android-fix |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
+| CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
 | AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ CI + nghiệm thu) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
@@ -61,15 +62,21 @@
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
 | HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done + CI xanh (chờ nghiệm thu) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
-| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart |
+| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 | DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
 | VID-001 | Video Player local: xem video + phụ đề + học từ (PLAN-025) | 🔄 doing | bàn giao + PLAN + code WP0-WP3 (models + library + player + sub-tab) |
+| WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 17 test (T6/T7); _viBase ĐẦY ĐỦ 150 entries (khôi phục đ U+0111); căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột + mảnh meaning 1 từ gộp đúng |
+| STT-LRC-LANG-01 | Tạo lời (LRC) bằng Whisper đa ngữ: chip chọn ngôn ngữ + 'auto' tự nhận diện (hết hardcode 'en') | ✅ done + CI xanh (chờ nghiệm thu máy) | run 33977299465; chip 14 ngôn ngữ (mặc định auto) + 3 call sites hết hardcode 'en' + VAD/CLI/FFI/plugin đều hỗ trợ 'auto' | _LrcModelSelector + 14 ngôn ngữ (mặc định auto); 3 call sites hardcode 'en' → language param; VAD pipeline + transcribeAuto + transcribeFile đều nhận language |
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
-| SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | 📋 proposed (prompt bàn giao sẵn, chờ mở nhánh) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; model đã verify (vi-30M-int8 ~32MB + en-20M streaming int8) |
+| SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
+| LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
+| TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
+| READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
+| CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 
 ## Card chi tiết
 
@@ -499,6 +506,44 @@
 - **Lịch sử:**
   - 2026-08-22 | created | agent arena/01a02a4a-in4up | phát hiện khi soi run oracle (job Linux đỏ mọi vòng)
   - 2026-08-22 | proposed→blocked | agent arena/01a02a4a-in4up | owner dán log Linux ⇒ root cause webkit2gtk (CMake plugin REQUIRED); fix = 1 apt package, chờ owner áp (token thiếu quyền workflows)
+### CI-WINDOWS-01 — Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây
+- **Trạng thái:** 🚫 blocked (chờ owner: token GitHub App của agent KHÔNG có
+  quyền `workflows` nên không push được sửa đổi `.github/workflows/*.yml` —
+  y hệt tình huống CI-LINUX-01. Patch đã viết xong và test logic kỹ, chỉ cần
+  owner tự áp hoặc cấp quyền `workflows` cho agent)
+- **Nguồn:** owner (2026-09-06) — hỏi vì sao release `in4up-Windows-1.7.0.zip`
+  chỉ nặng 9.63 KB thay vì hàng chục MB như app Flutter Windows thật.
+- **Patch sẵn sàng:** `docs/project/CI-WINDOWS-01-patch.diff` (áp bằng
+  `git apply docs/project/CI-WINDOWS-01-patch.diff` rồi commit + push) —
+  sửa cả `.github/workflows/build.yml` và `build_final_complete.yml`.
+- **Root cause (xác nhận qua GitHub Releases API + lịch sử git):** bước
+  "Zip Windows build" ở CẢ HAI `.github/workflows/build.yml` và
+  `build_final_complete.yml` (thêm từ ~2026-08-21, xem commit lịch sử
+  `755d928`→sau) dùng:
+  ```powershell
+  $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+  Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+  ```
+  Cây build CMake/MSBuild có RẤT NHIỀU thư mục con tên `Release` (VD:
+  `build/windows/x64/CMakeFiles/<target>.dir/Release/` chỉ chứa vài file
+  `.obj`/`.tlog` build tạm, vài trăm byte–vài KB) — không riêng
+  `runner/Release` (bundle thật: .exe + flutter_windows.dll + icudtl.dat +
+  data/flutter_assets, hàng chục MB). `Get-ChildItem -Recurse` duyệt theo
+  alphabet, `CMakeFiles` < `runner` nên `-First 1` gần như luôn vớ trúng thư
+  mục rác. `Compress-Archive` không báo lỗi vì thư mục nguồn hợp lệ (dù nhỏ)
+  → job Windows luôn "success" nhưng release rỗng.
+  Bằng chứng: mọi tag từ 21/8 trở đi (`v1.4.0-ai-native-test` 4.2KB,
+  `v1.4.0-bisect-a` 4.2KB, ..., `1.7.0` 9.6KB) đều nhỏ bất thường; bản
+  `1.5.0` (6/8, trước khi thêm đoạn "tự động quét") vẫn đúng ~33MB.
+- **Fix:** cả 2 workflow — bỏ "tự động quét", trỏ thẳng
+  `build/windows/x64/runner/Release` (đường dẫn output chuẩn của
+  `flutter build windows`), guard có `.exe`, và chặn CI (exit 1) nếu zip
+  ra < 5MB — thà đỏ CI còn hơn âm thầm phát hành bản lỗi lần nữa.
+- **Lịch sử:**
+  - 2026-09-06 | created→done | agent arena/01a07863-in4up | owner hỏi vì sao
+    release 1.7.0 chỉ 9.63KB; fix cả build.yml + build_final_complete.yml,
+    thêm guard chống tái diễn
+
 ### SHERPA-001 — Silero VAD (sherpa_onnx) thay EnergyVad fallback
 - **Trạng thái:** done (code; chờ nghiệm thu trên thiết bị)
 - **Nội dung:** `SherpaVadCore` (in4up_stt, API sherpa_onnx v1.13.4 verify
@@ -1579,6 +1624,13 @@
   - 2026-09-05 | created→done | agent arena/01a0251e-in4up | 4 file mới +
     sửa library_screen/main/MainActivity; chờ CI + nghiệm thu máy
     (chọn folder → thấy danh sách → mở file → mở lại app vẫn còn folder)
+  - 2026-09-06 | hardening | agent arena/01a0251e-in4up | fix crash
+    "Illegal percent encoding in URI" (màn đỏ) khi TÊN THƯ MỤC chứa ký tự
+    đặc biệt: native `safeDecodePercent` (fallback `getTreeDocumentId` +
+    `buildChildDocumentsUriUsingTree` — chỉ encode lại % hợp lệ, slash →
+    %2F) + Dart `TextDeviceProvider.safeDecodeComponent` (folderLabel decode
+    an toàn, không throw); + màu tile theo ext (pdf đỏ / docx xanh / lrc-srt
+    cam / text xanh lá)
 
 ### LHB-004 — Lặp TTS RIÊNG từng câu (số lần tùy ý/câu) + persist theo bài
 - **Trạng thái:** done (chờ CI + nghiệm thu máy)
@@ -1671,6 +1723,23 @@
 - **Lịch sử:**
   - 2026-09-05 | created→done | agent arena/01a0251e-in4up | WordTableParser
     + 15 test; chờ CI (flutter test chạy trong pipeline)
+  - 2026-09-06 | hardening | agent arena/01a0251e-in4up |
+    (1) `_viBase` mở rộng ĐẦY ĐỦ 150 entries \uXXXX (mọi dấu Latin,
+    đả đủ khối U+1E00+ tiếng Việt — verify bằng Python unicodedata:
+    không thiếu ký tự VN nào, không key trùng — key trùng là lỗi COMPILE
+    Dart). Phát hiện + sửa regression: bản regenerate làm mất U+0111 (đ)
+    → "chủ đề" → "chue" ≠ "chude" → cột topic bị rơi (test header VN
+    sẽ fail CI) → đã khôi phục.
+    (2) Bồi hoàn alignRow m==n (T6): ô cột ipa là TỪ THÔNG THƯỜNG
+    (chỉ a-zA-Z — IPA-trần luôn có ký tự ngoài Latin ʃ θ ə ð ŋ...) +
+    không có /.../ nào trong hàng → coi là mảnh meaning bị xé → gộp
+    vào meaning (trước: chỉ gộp khi mảnh có khoảng trắng → hàng
+    "apple, to eat, fruits, , ex, exs, exc, en" để "fruits" làm
+    phonetic rác). IPA-trần có ký tự ngoài Latin ("æpl") vẫn GIỮ làm
+    phonetic — không gộp nhầm.
+    (3) +2 regression test T6/T7 (tổng 17 test); Python simulation
+    replicate đúng logic Dart cuối: 19/19 pass (17 test file + T6b +
+    T8-guard)
 
 ### CABIN-001 — Cabin dịch: không khởi động được mic / nhận diện giọng nói
 - **Trạng thái:** done + CI xanh 33961600553 @ a1a36e5 (chờ nghiệm thu máy)
@@ -1727,8 +1796,7 @@
     cuối + nghiệm thu
 
 ### SHERPA-WP4-01 — Live STT offline qua sherpa Zipformer (WP4)
-- **Trạng thái:** 📋 proposed — prompt bàn giao đã sẵn sàng, chờ owner
-  mở **nhánh mới từ tip DEV** (arena/01a0251e-in4up).
+- **Trạng thái:** ✅ done (chờ CI + nghiệm thu máy)
 - **Nguồn:** owner (2026-09-05) — tiếp nối CABIN-001: cabin chạy bằng
   speech service hệ thống → máy không có Google/Speech Services thì
   không khởi động được mic; WP4 cho cabin live STT OFFLINE qua
@@ -1819,3 +1887,184 @@
   - `lib/providers/vocabulary_provider.dart` (updateImageUrl method)
   - `lib/screens/read_mode/sheets/word_actions_sheet.dart`
   - `lib/screens/tools/word_list/word_list_screen.dart`
+### STT-LRC-LANG-01 — Tạo lời (LRC) bằng Whisper: đa ngữ, hết hardcode 'en'
+- **Trạng thái:** ✅ done + CI xanh run 33977299465 (chờ nghiệm thu máy)
+- **Nguồn:** owner (2026-09-05): "Đảm bảo với file âm thanh khả năng tạo lời
+  bằng AI có thể dùng cho đa ngữ chứ không riêng tiếng Anh."
+- **Root cause:** `PlayerSttMixin.generateLrcForCurrentAudio` HARDCODE
+  `language: 'en'` ở cả 3 đường transcribe (VAD pipeline >5MB,
+  transcribeAuto khi AUTO, transcribeFile khi chọn model) → file tiếng
+  Việt/Bất kỳ ngôn ngữ nào khác bị ép transcribe bằng tiếng Anh → lời
+  thoại sai. UI `_LrcModelSelector` chỉ chọn model + grouping, không
+  có chọn ngôn ngữ.
+- **Fix:**
+  - `player_stt_mixin.dart`: `generateLrcForCurrentAudio({..., String
+    language = 'auto'})` + 3 call sites nhận `language`;
+    `generateLrcWithVadPipeline` default 'vi' → 'auto'.
+  - `generate_lrc_actions.dart`: `confirmAndGenerateLrc(..., {String
+    language = 'auto'})` chuyển xuống mixin.
+  - `listen_mode_screen.dart`: `_LrcModelSelector` thêm hàng chip ngôn
+    ngữ (14 mã: auto/vi/en/zh/ja/ko/th/es/fr/de/ru/id/hi/pi), mặc định
+    'Tự động'; `onGenerate(level, grouping, language)`; nút LRC hiện
+    ngôn ngữ đang chọn.
+  - 'auto' đã verify hoạt động trên CẢ 3 đường Whisper: plugin
+    whisper_flutter_new (C++: `params.language = "auto"` qua
+    whisper_lang_id, default của plugin cũng là "auto"), FFI desktop
+    (whisper.cpp xử lý "auto" = auto-detect), CLI (`-l auto`).
+  - Cache key đã gồm language (mỗi ngôn ngữ 1 cache — không trộn).
+- **AT nghiệm thu máy:** (1) file tiếng Việt + chip "Tự động" → lời
+  tiếng Việt đúng; (2) file tiếng Anh + "Tự động" → lời Anh đúng;
+  (3) ép chip "Tiếng Việt" cho file Việt → đúng; (4) file dài >5MB
+  (đường VAD pipeline) + "Tự động" → đúng ngôn ngữ; (5) "Tạo lại" sau
+  khi đổi ngôn ngữ → LRC mới theo ngôn ngữ mới.
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a0251e-in4up | fix 3 file
+    (mixin + generate_lrc_actions + listen_mode_screen); chờ CI +
+    nghiệm thu
+  - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
+
+### CI-IOS-01 — Action iOS đỏ: `pod install` fail vì deployment target thấp
+- **Trạng thái:** ✅ done (chờ run CI xác nhận)
+- **Nguồn:** owner (2026-09-06) — log job Build iOS IPA (sideload).
+- **Triệu chứng (log):**
+  ```
+  [!] CocoaPods could not find compatible versions for pod "google_mlkit_commons":
+      ... they required a higher minimum deployment target.
+  Error: The plugin "google_mlkit_commons" requires a higher minimum iOS
+         deployment version than your application is targeting.
+  To build, increase your application's deployment target to at least 15.5
+  Error running pod install / exit code 1
+  ```
+- **Root cause:** app target đang là **15.0** (workflow `sed` ép 15.0; repo còn
+  `ios/Podfile` = 14.0, `project.pbxproj` = 13.0, `AppFrameworkInfo.plist` = 13.0),
+  trong khi `google_mlkit_commons`/`google_mlkit_translation` (kéo theo
+  **MLKitVision**) khai báo `s.platform = :ios, '15.5'`. CocoaPods resolver
+  không có spec nào thoả → đỏ ngay bước phân giải phụ thuộc.
+  Thêm một mồi lửa nữa: `post_install` của Podfile **hạ** mọi pod về 14.0
+  (kể cả pod tự khai 15.5) → kể cả khi qua được resolver vẫn sai.
+- **Fix:**
+  - `ios/Podfile`: biến `$ios_deployment_target = '15.5'`; `platform :ios,
+    $ios_deployment_target`; `post_install` **chỉ nâng, không hạ**
+    (`Gem::Version` so sánh) và đồng bộ luôn target của project Runner.
+  - `ios/Runner.xcodeproj/project.pbxproj`: `IPHONEOS_DEPLOYMENT_TARGET = 15.5`
+    (3 configuration).
+  - `ios/Flutter/AppFrameworkInfo.plist`: `MinimumOSVersion` 13.0 → 15.5.
+  - `scripts/ci/ios_set_deployment_target.sh` (mới): 1 lệnh đồng bộ 3 file,
+    idempotent — thay 2 bước `sed` rời rạc, dễ lệch, trong workflow.
+  - **Workflow (CHƯA push được — xem "Việc còn lại"):** patch nằm ở
+    `scripts/ci/ios_ci_workflow.patch` cho `.github/workflows/build.yml` +
+    `build_final_complete.yml`: env chung `IOS_MIN_TARGET: '15.5'`, gọi script
+    thay 2 bước `sed`, `export IPHONEOS_DEPLOYMENT_TARGET="$IOS_MIN_TARGET"`,
+    thêm `flutter config --no-enable-swift-package-manager` (4 plugin
+    whisper_flutter_new / google_mlkit_* / flutter_tts đều KHÔNG hỗ trợ SPM —
+    log đã cảnh báo), `pod install --repo-update` chạy sớm để lỗi phụ thuộc hiện
+    ngay, và bước chẩn đoán `if: failure()` in Podfile + target + Podfile.lock.
+  - **Chống workflow cũ ghi đè:** `ios/Podfile` khai báo nền tảng dạng
+    `platform(:ios, $ios_deployment_target)` (CÓ NGOẶC) nên bước
+    `sed "s/platform :ios.*/... '15.0'/"` của workflow hiện tại KHÔNG khớp →
+    15.5 sống sót; bước sed ép `project.pbxproj` về 15.0 thì `post_install`
+    kéo lại 15.5. Nghĩa là CI xanh được ngay cả khi chưa vá workflow.
+- **Việc còn lại (cần owner):** GitHub App không có quyền `workflows` → push bị
+  từ chối (`refusing to allow a GitHub App to ... update workflow`). Owner áp
+  patch: `git apply scripts/ci/ios_ci_workflow.patch` rồi commit/push, hoặc sửa
+  tay 2 file workflow theo patch. Không bắt buộc để CI xanh, nhưng nên làm để
+  workflow hết chỗ ép 15.0 lỗi thời.
+- **Hệ quả cần biết:** app không còn cài được trên iOS < 15.5 (yêu cầu bắt buộc
+  của ML Kit — muốn hạ thì phải bỏ `google_mlkit_translation`).
+- **Lịch sử:**
+  - 2026-09-06 | created→done | agent arena/01a07860-in4up | nâng target 15.5 +
+    script đồng bộ + tắt SPM; chờ run CI xác nhận
+
+### LHB-005 — Bấm icon lặp 1× của câu không mở menu (chọn cả dòng luôn)
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-09-08):** "bấm vô 1x của từng câu để chỉnh thử
+  thì không được. Nhấn vào biểu tượng lặp ở dòng thì nó chọn cả dòng chứ
+  không phản ứng với icon lặp 1x."
+- **Root cause (2 lỗi cộng dồn ở `_LineRepeatChip`, BilingualVerseView):**
+  1. Chip là `GestureDetector` mặc định `HitTestBehavior.deferToChild` +
+     kích thước ~39×19px — vùng chạm rất nhỏ, chạm lệch một chút (padding/
+     khe icon-text) là mất hit test → tap rơi về `InkWell` của CẢ DÒNG
+     (onLineTap → playSingleLine) → "chọn cả dòng".
+  2. `showRepeatCountMenu` được gọi với context của BilingualVerseView
+     (= RenderViewport của CẢ ListView shrinkWrap) → `position` = rect của
+     cả danh sách câu (có thể dài hơn màn hình) → menu popup hiện Ở DƯỚI
+     CUỐI danh sách / ngoài màn hình → "như không phản ứng" dù tap đúng chip.
+- **Fix (`bilingual_verse_view.dart`):**
+  - `GestureDetector(behavior: HitTestBehavior.opaque)` — TOÀN bộ rect chip
+    (kể cả padding) bắt chạm → chip luôn thắng InkWell dòng trong gesture
+    arena (đúng ngữ nghĩa: bấm chip = chỉnh lặp, bấm chỗ khác dòng = phát câu).
+  - Vùng chạm min 44×32 (constraints) + icon/text nhích lên 12/11px — dễ
+    bấm trên điện thoại; hiển thị chip gần như giữ nguyên.
+  - Menu gọi với context CỦA CHIP (`_LineRepeatChip.build`) → menu neo sát
+    icon 1×, luôn hiện trên màn hình, bấm chọn số lần (1/2/3/4/5/7/10/
+    tùy chỉnh) xong là áp; NHẤN GIỮ chip = bỏ override về mặc định.
+- **AT nghiệm thu:** mở bài LHB (New Learning / Học cuốn chiếu) → bấm icon
+  1× ở góc phải trên của TỪNG CÂU → menu số lần hiện SÁT icon → chọn 3× →
+  chip đổi "3×" màu cam → phát bài → câu đó lặp 3 lần; nhấn giữ chip → về
+  mặc định; bấm phần KHÁC của dòng (văn bản) → vẫn phát riêng câu đó.
+- **Lịch sử:**
+  - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | fix chip
+    (opaque + target lớn + menu neo chip context); chờ CI + nghiệm thu
+
+### TTS-PIPER-001 — LHB phát tới câu tiếng Việt SẬPP app (Piper TTS)
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-09-08):** "tool học thuộc lòng khi nhấn phát
+  âm thanh, sau khi phát pali xong tới phần tiếng Việt thì nó bị dish out
+  app. Trong khi đã import vi_VN-25hours_single và en_US-lessac-medium rồi."
+- **Định vị (code):** LHB bilingual = `_speakText(Pali, 'pi')` →
+  `speakLocale` → Pali = `hi-IN` (không có giọng Piper hi-IN → fallback
+  giọng máy hệ thống — nên Pali vẫn phát) → rồi `_speakText(VI, 'vi-VN')`
+  → TtsService ưu tiên `piper_tts` → `_trySpeakPiper` →
+  `PiperTtsEngine.isAvailable()` CHỈ check `voices.isNotEmpty` (có file
+  .onnx) → `selectVoice` → `sherpa.OfflineTts(...)` = INIT NATIVE C++.
+  Sherpa-onnx đọc `espeak-ng-data` (phonemizer) khi init — **thiếu thư
+  mục này (hoặc model tải về bị cắt/già) thì init native SEGFAULT → app
+  chết hẳn, Dart try/catch KHÔNG BẮT ĐƯỢC** → đúng cảnh "phát xong Pali,
+  tới phần Việt là sập".
+- **Fix (pre-flight TRƯỚC init native):**
+  - `SherpaPiperTtsCore.isEspeakReady()` — check `phontab` (espeak-ng-data)
+    tồn tại và > 64 bytes.
+  - `SherpaPiperTtsCore.isVoiceFilesPlausible(voice)` — onnx ≥ 1MB +
+    tokens ≥ 1KB (bắt file tải về bị cắt giữa chừng).
+  - `selectVoice`: pre-flight 2 mục trên TRƯỚC khi `OfflineTts(...)` —
+    thiếu/hỏng → return false (TtsService fallback sang giọng máy — vẫn
+    đọc được tiếng Việt, không crash) + log lý do.
+  - `PiperTtsEngine.isAvailable()`: giờ = có giọng + espeak ready + ≥1
+    model nguyên vẹn → TtsService KHÔNG cố Piper vô nghĩa nữa.
+  - Log init native (tên giọng + size onnx/tokens + espeak=OK) — nếu crash
+    native vẫn xảy ra (vd OOM máy yếu), logcat dòng cuối cho biết đang
+    init model nào.
+- **Lưu ý cho owner:** nếu sau fix mà phát tiếng Việt BẰNG GIỌNG MÁY
+  (không neural) = máy thiếu `espeak-ng-data` → vào **Cài đặt → TTS /
+  Quản lý model** → bấm "Tải phonemizer (espeak-ng-data)" (~2MB, dùng
+  chung mọi giọng) → phát lại. Nếu VẪN sập sau khi có phonemizer → là
+  vấn đề bộ nhớ máy (model ~60MB) — báo lại để xử lý (numThreads/model
+  nhỏ hơn).
+- **Lịch sử:**
+  - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | pre-flight
+    espeak + model plausibility trước init native + isAvailable chuẩn +
+    log; chờ CI + nghiệm thu (Pali + VI liên tiếp không sập)
+
+### READ-FOCUS-001 — Tab Đọc Focus: thanh đáy vẫn chiếm không gian
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-09-08):** "khi nhấn Focus thì vùng bên dưới
+  bottom vẫn chưa ẩn, nó chỉ không hiện các icon chức năng chứ vẫn chiếm
+  không gian."
+- **Root cause:** `read_mode_screen.dart` — bottom bar (SmartPlaybackBar +
+  ReadBottomBar) trong Focus mode chỉ bị `AnimatedSlide(offset: 0, 1.2)`
+  (trượt ra khỏi màn hình) + `AnimatedOpacity(0)` (trong veo) — **layout
+  space vẫn nằm trong Column** → vùng đọc không được mở rộng, còn dải
+  trống đen phía dưới.
+- **Fix:** bọc bottom bar bằng `AnimatedSize` — Focus mode → child =
+  `SizedBox(height: 0)` → chiều cao GẬP về 0 có animation 260ms (trả
+  không gian cho vùng đọc, văn bản mở rộng hết chiều cao); ngoài Focus →
+  giữ nguyên AnimatedSlide/Opacity (smart-hide khi cuộn GIỮ NGUYÊN hành
+  vi cũ — chỉ slide, không gập — tránh văn bản nhảy giật khi đang đọc).
+  `ClipRect` bao AnimatedSlide để bar không tràn khi đang mở rộng lại.
+- **AT nghiệm thu:** tab Đọc → bấm Focus (hoặc double-tap) → thanh đáy
+  (playback + hàng icon) gập xuống mượt, vùng đọc MỞ RỘNG hết đáy màn
+  hình; bấm "Thoát Focus" (hoặc double-tap) → thanh đáy trồi lên lại
+  đúng vị trí cũ; cuộn lên/xuống lúc không Focus → smart-hide như trước.
+- **Lịch sử:**
+  - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | AnimatedSize
+    gập đáy về 0 trong Focus mode; chờ CI + nghiệm thu

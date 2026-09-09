@@ -1128,19 +1128,19 @@ class WordTableParser {
   /// U+1E00+ — nếu strip TRƯỚC khi map thì 'từ' mất cả chữ 'u' → 't').
   static const Map<String, String> _viBase = {
     // a
-    '\u00E1': 'a', '\u00E0': 'a', '\u1EA3': 'a', '\u00E3': 'a', '\u1EA1': 'a', '\u0103': 'a', '\u1EAF': 'a', '\u1EB1': 'a', '\u1EB3': 'a', '\u1EB5': 'a', '\u1EA4': 'a', '\u00E2': 'a', '\u1EA5': 'a', '\u1EA7': 'a', '\u1EA9': 'a', '\u1EAB': 'a', '\u1EAD': 'a',
+    '\u00E0': 'a', '\u00E1': 'a', '\u00E2': 'a', '\u00E3': 'a', '\u00E4': 'a', '\u00E5': 'a', '\u0101': 'a', '\u0103': 'a', '\u0105': 'a', '\u01CE': 'a', '\u01DF': 'a', '\u01E1': 'a', '\u01FB': 'a', '\u0201': 'a', '\u0203': 'a', '\u0227': 'a', '\u1E01': 'a', '\u1EA1': 'a', '\u1EA3': 'a', '\u1EA5': 'a', '\u1EA7': 'a', '\u1EA9': 'a', '\u1EAB': 'a', '\u1EAD': 'a', '\u1EAF': 'a', '\u1EB1': 'a', '\u1EB3': 'a', '\u1EB5': 'a', '\u1EB7': 'a',
     // e
-    '\u00E9': 'e', '\u00E8': 'e', '\u1EBB': 'e', '\u1EBD': 'e', '\u00EA': 'e', '\u1EBF': 'e', '\u1EC1': 'e', '\u1EC3': 'e', '\u1EC5': 'e', '\u1EC7': 'e',
+    '\u00E8': 'e', '\u00E9': 'e', '\u00EA': 'e', '\u00EB': 'e', '\u0113': 'e', '\u0115': 'e', '\u0117': 'e', '\u0119': 'e', '\u011B': 'e', '\u0205': 'e', '\u0207': 'e', '\u0229': 'e', '\u1E15': 'e', '\u1E17': 'e', '\u1E19': 'e', '\u1E1B': 'e', '\u1E1D': 'e', '\u1EB9': 'e', '\u1EBB': 'e', '\u1EBD': 'e', '\u1EBF': 'e', '\u1EC1': 'e', '\u1EC3': 'e', '\u1EC5': 'e', '\u1EC7': 'e',
     // i
-    '\u00ED': 'i', '\u00EC': 'i', '\u1EC9': 'i', '\u0129': 'i', '\u1ECB': 'i',
+    '\u00EC': 'i', '\u00ED': 'i', '\u00EE': 'i', '\u00EF': 'i', '\u0129': 'i', '\u012B': 'i', '\u012D': 'i', '\u012F': 'i', '\u01D0': 'i', '\u0209': 'i', '\u020B': 'i', '\u1E2D': 'i', '\u1E2F': 'i', '\u1EC9': 'i', '\u1ECB': 'i',
     // o
-    '\u00F3': 'o', '\u00F2': 'o', '\u1ECF': 'o', '\u00F5': 'o', '\u1ECD': 'o', '\u01A1': 'o', '\u1EDB': 'o', '\u1EDD': 'o', '\u1EE3': 'o', '\u00F4': 'o', '\u1ED1': 'o', '\u1ED3': 'o', '\u1ED5': 'o', '\u1ED7': 'o', '\u1ED9': 'o',
+    '\u00F2': 'o', '\u00F3': 'o', '\u00F4': 'o', '\u00F5': 'o', '\u00F6': 'o', '\u014D': 'o', '\u014F': 'o', '\u0151': 'o', '\u01A1': 'o', '\u01D2': 'o', '\u01EB': 'o', '\u01ED': 'o', '\u020D': 'o', '\u020F': 'o', '\u022B': 'o', '\u022D': 'o', '\u022F': 'o', '\u0231': 'o', '\u1E4D': 'o', '\u1E4F': 'o', '\u1E51': 'o', '\u1E53': 'o', '\u1ECD': 'o', '\u1ECF': 'o', '\u1ED1': 'o', '\u1ED3': 'o', '\u1ED5': 'o', '\u1ED7': 'o', '\u1ED9': 'o', '\u1EDB': 'o', '\u1EDD': 'o', '\u1EDF': 'o', '\u1EE1': 'o', '\u1EE3': 'o',
     // u
-    '\u00FA': 'u', '\u00F9': 'u', '\u1EE7': 'u', '\u0169': 'u', '\u1EE5': 'u', '\u01B0': 'u', '\u1EE9': 'u', '\u1EEB': 'u', '\u1EED': 'u', '\u1EEF': 'u', '\u1EF1': 'u',
+    '\u00F9': 'u', '\u00FA': 'u', '\u00FB': 'u', '\u00FC': 'u', '\u0169': 'u', '\u016B': 'u', '\u016D': 'u', '\u016F': 'u', '\u0171': 'u', '\u0173': 'u', '\u01B0': 'u', '\u01D4': 'u', '\u01D6': 'u', '\u01D8': 'u', '\u01DA': 'u', '\u01DC': 'u', '\u0215': 'u', '\u0217': 'u', '\u1E73': 'u', '\u1E75': 'u', '\u1E77': 'u', '\u1E79': 'u', '\u1E7B': 'u', '\u1EE5': 'u', '\u1EE7': 'u', '\u1EE9': 'u', '\u1EEB': 'u', '\u1EED': 'u', '\u1EEF': 'u', '\u1EF1': 'u',
     // y
-    '\u00FD': 'y', '\u1EF3': 'y', '\u1EF7': 'y', '\u1EF9': 'y', '\u1EF5': 'y',
+    '\u00FD': 'y', '\u00FF': 'y', '\u0177': 'y', '\u0233': 'y', '\u1E8F': 'y', '\u1E99': 'y', '\u1EF3': 'y', '\u1EF5': 'y', '\u1EF7': 'y', '\u1EF9': 'y',
     // d
-    '\u0111': 'd',
+    '\u0111': 'd', '\u010F': 'd', '\u1E0B': 'd', '\u1E0D': 'd', '\u1E0F': 'd', '\u1E11': 'd', '\u1E13': 'd',
   };
 
   /// Chuẩn hóa tên cột header: hạ chữ thường → bỏ dấu tiếng Việt →
@@ -1260,9 +1260,13 @@ class WordTableParser {
             return _anchorAlign(parts, fields);
           }
           if (n == fields.length) {
-            // IPA trống + ô chứa khoảng trắng không phải IPA (IPA không
-            // bao giờ có khoảng trắng) → là phần meaning bị tách → gộp.
-            if (cell.contains(' ')) {
+            // IPA trống + ô ở cột ipa KHÔNG phải IPA → nghi là mảnh
+            // meaning bị xé (meaning chứa phẩy không bọc nháy) → gộp
+            // vào meaning, các ô còn lại khớp 1-1. IPA-trần (không bọc
+            // /.../) thường chứa ký tự ngoài bảng Latin (ə ʃ θ ð ŋ...)
+            // nên "từ thông thường" chỉ chứa a-z A-Z là mảnh text,
+            // KHÔNG phải IPA → gộp an toàn.
+            if (cell.contains(' ') || _isPlainWord(cell)) {
               return _mergeIntoMeaningNoIpa(parts, fields);
             }
           } else if (fields.last == 'language' &&
@@ -1323,6 +1327,12 @@ class WordTableParser {
   /// Giá trị "giống mã ngôn ngữ": en / vi / zh / pali... (2-4 chữ cái).
   static bool _looksLikeLangCode(String s) =>
       RegExp(r'^[a-z]{2,4}$').hasMatch(s.trim().toLowerCase());
+
+  /// Ô "từ thông thường" (chỉ chữ Latin a-z/A-Z + khoảng trắng/dấu
+  /// gạch) — nghi là mảnh meaning/example bị xé, KHÔNG phải IPA-trần
+  /// (IPA thường có ký tự ngoài bảng Latin: ə ʃ θ ð ŋ... hoặc bọc /.../).
+  static bool _isPlainWord(String s) =>
+      RegExp(r'^[a-zA-Z][a-zA-Z\- ]*$').hasMatch(s.trim());
 
   /// Index ô đầu tiên (trong [from]..[toInclusive]) có dạng IPA.
   static int _firstIpaIndex(List<String> parts, int from, int toInclusive) {

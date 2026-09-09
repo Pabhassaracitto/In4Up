@@ -7,14 +7,18 @@ import '../../../providers/player_provider.dart';
 
 /// If this audio already has a saved LRC, ask before running Whisper again.
 ///
+/// [language]: mã ngôn ngữ Whisper — 'auto' (mặc định) = Whisper tự nhận
+/// diện (đa ngữ); 'vi', 'en', 'zh', 'ja', 'ko', 'pi'... khi muốn ép.
+///
 /// Trả về [SttTranscribeOutput?] (null khi dùng bản đã lưu / hủy) — khớp
 /// kiểu closure `onGenerate` của _LrcModelSelector.
 Future<SttTranscribeOutput?> confirmAndGenerateLrc(
   BuildContext context,
   PlayerProvider provider,
   WhisperModelLevel? level,
-  SttSegmentGrouping grouping,
-) async {
+  SttSegmentGrouping grouping, {
+  String language = 'auto',
+}) async {
   final hit = await provider.peekCachedLrc();
   var force = false;
   if (hit != null && context.mounted) {
@@ -55,5 +59,6 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
     level: level,
     grouping: grouping,
     forceRegenerate: force,
+    language: language,
   );
 }

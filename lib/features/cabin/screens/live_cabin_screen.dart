@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up_stt/sherpa_model_manager.dart';
 
 import '../models/cabin_caption.dart';
 import '../services/stts_cabin_service.dart';
@@ -346,7 +347,84 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               _buildModeChip('Toàn bộ', CabinDisplayMode.fullTranscript),
             ],
           ),
+          const SizedBox(height: 8),
+
+          // STT Engine Switcher (System vs Offline Sherpa Zipformer)
+          Row(
+            children: [
+              _buildEngineChip('Hệ thống', CabinSttEngineType.system, Icons.phone_android_rounded),
+              const SizedBox(width: 8),
+              _buildEngineChip('Offline (sherpa)', CabinSttEngineType.sherpaOffline, Icons.offline_bolt_rounded),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEngineChip(String label, CabinSttEngineType type, IconData icon) {
+    final isSelected = _service.sttEngineType == type;
+    return Expanded(
+      child: InkWell(
+        onTap: () async {
+          HapticFeedback.selectionClick();
+          if (type == CabinSttEngineType.sherpaOffline) {
+            final hasModel = SherpaModelManager().hasAsrModel(_service.sourceLanguage);
+            if (!hasModel) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    context.uiText(
+                      'Chưa có model Zipformer cho ${_service.sourceLanguage.toUpperCase()}. Vào Quản lý Model AI để tải về.',
+                    ),
+                  ),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+          await _service.setSttEngineType(type);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.7)
+                  : Colors.white10,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? const Color(0xFF9E95FF) : Colors.white60,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  context.uiText(label),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? const Color(0xFF9E95FF) : Colors.white70,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

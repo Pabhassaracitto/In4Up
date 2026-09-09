@@ -1,6 +1,7 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
+import '../../features/dictionary/services/dictionary_service.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
 
@@ -20,6 +21,8 @@ class WordAnalysisSheet extends StatefulWidget {
 
 class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
   final _dict = OfflineDictionary();
+  List<dynamic> _mdxEntries = [];
+  bool _mdxLoading = true;
 
   @override
   void initState() {
@@ -27,7 +30,22 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
     // Trigger phân tích ngay khi sheet mở
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _triggerAnalysis();
+      _lookupMdx();
     });
+  }
+
+  Future<void> _lookupMdx() async {
+    try {
+      final entries = await DictionaryService.instance.lookup(widget.selectedWord);
+      if (mounted) {
+        setState(() {
+          _mdxEntries = entries;
+          _mdxLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _mdxLoading = false);
+    }
   }
 
   void _triggerAnalysis() {
@@ -71,6 +89,15 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                 children: [
                   // ── Tầng 1/2: Luôn hiển thị ngay ──
                   _buildMeaningCard(analysis, isLoading),
+
+                  // ── Tầng MDX Dictionary ──
+                  if (_mdxEntries.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _buildMdxCard(),
+                  ] else if (_mdxLoading) ...[
+                    const SizedBox(height: 8),
+                    _buildMdxLoading(),
+                  ],
 
                   // ── Tầng 3: Hiển thị khi Gemma xong ──
                   if (analysis?.isPartial == false) ...[
@@ -177,6 +204,65 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMdxCard() {
+    return Card(
+      color: const Color(0xFF2196F3).withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.menu_book,
+                    size: 16, color: Color(0xFF2196F3)),
+                const SizedBox(width: 6),
+                Text(
+                  'Từ điển MDX (${_mdxEntries.length})',
+                  style: const TextStyle(
+                    color: Color(0xFF2196F3),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...(_mdxEntries.take(3).map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    e.plainDefinition,
+                    style: const TextStyle(fontSize: 14),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMdxLoading() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 8),
+          Text(
+            'Đang tra từ điển...',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
       ),
     );
   }

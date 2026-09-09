@@ -17,12 +17,16 @@ import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
+import '../../vocab_image/vocab_image_picker.dart';
+import '../../vocab_image/vocab_image_thumbnail.dart';
 import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
 import 'youglish_mini_sheet.dart';
+
+import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -1613,6 +1617,18 @@ class _WordListScreenState extends State<WordListScreen> {
                     _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
                     _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
+                    const SizedBox(height: 12),
+                    // Image picker
+                    Center(
+                      child: VocabImagePicker(
+                        wordId: entry.id,
+                        currentImageUrl: entry.imageUrl,
+                        onImageChanged: (path) {
+                          // Image already saved by VocabImagePicker via provider
+                        },
+                        size: 120,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
@@ -1886,6 +1902,14 @@ class _CompactListItem extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Row(children: [
+                      // Image thumbnail (if available)
+                      if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+                        VocabImageThumbnail(
+                          imageUrl: entry.imageUrl,
+                          size: 36,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       if (settings.showWord)
                         Flexible(
                             child: Text(entry.word,
@@ -2103,6 +2127,18 @@ class _CompactListItem extends StatelessWidget {
         Divider(color: Colors.white.withValues(alpha: 0.06), height: 4),
         const SizedBox(height: 8),
 
+        // Vocab Image Thumbnail
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+          Center(
+            child: VocabImageThumbnail(
+              imageUrl: entry.imageUrl,
+              size: 80,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
         // Contexts
         if (entry.contexts.isNotEmpty) ...[
           _SectionHeader(
@@ -2173,6 +2209,37 @@ class _CompactListItem extends StatelessWidget {
                     .map((c) => _RelatedChip(entry: c, prefix: '▼'))
                     .toList()),
           ],
+          const SizedBox(height: 8),
+        ],
+
+        // Image (if exists)
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+          const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),
+          const SizedBox(height: 6),
+          Center(
+            child: VocabImageThumbnail(
+              imageUrl: entry.imageUrl,
+              size: 120,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        // Image picker (always show in expanded for adding/editing)
+        if (entry.imageUrl == null || entry.imageUrl!.isEmpty) ...[
+          const _SectionHeader(icon: Icons.add_photo_alternate_outlined, label: 'Thêm hình ảnh'),
+          const SizedBox(height: 6),
+          Center(
+            child: VocabImagePicker(
+              wordId: entry.id,
+              currentImageUrl: entry.imageUrl,
+              onImageChanged: (path) {
+                // Image already saved by VocabImagePicker via provider
+              },
+              size: 100,
+            ),
+          ),
           const SizedBox(height: 8),
         ],
 

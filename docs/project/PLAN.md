@@ -762,4 +762,137 @@ mode, không phụ thuộc speech service hệ thống:
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao docs/Bangiao/bangiao_sherpa_wp4_live_stt.md +
     KANBAN SHERPA-WP4-01; chờ owner mở nhánh sherpa
+
+### PLAN-024 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
+- **Nguồn:** owner (2026-09-05) — "tích hợp từ điển dạng mdd mdx vào dự án"
+- **Trạng thái:** doing — triển khai trên session arena/01a07234-in4up
+- **Milestone đề xuất:** ngoài M0–M3 (phạm vi Tools/Dictionary; không đụng knowledge MVA)
+- **Chi tiết:** xem mục dưới. Card KANBAN: DICT-001.
+- **Tài liệu bàn giao (BẮT BUỘC đọc):** `docs/Bangiao/bangiao_dictionary.md`
+
+#### 1. Mục tiêu
+
+Tích hợp từ điển MDX/MDD đa ngôn ngữ vào In4Up:
+- Tra từ tức thì khi đọc PDF, TXT, Web, YouTube (tap từ → hiện nghĩa)
+- Quản lý đa từ điển: import `.mdx` (+`.mdd`), xóa, bật/tắt
+- Đa ngôn ngữ: EN↔VI, EN↔ZH, JA↔EN, Pali↔VI…
+- Lưu vào WordList: auto-fill meaning/IPA từ kết quả từ điển
+- Offline-first: tra từ không cần mạng
+
+#### 2. Kiến trúc (Approach C: MDX → SQLite)
+
+```
+User import .mdx → MdxParser.parse() [isolate] → SQLite dict_entries
+  → DictionaryService.registerDb(dictId, dbPath)
+  → lookup(word) → List<DictEntry> (multi-dict, không phân biệt hoa/thường)
+```
+
+File structure:
+```
+lib/features/dictionary/
+├── models/       (dict_entry.dart, dict_info.dart)
+├── services/     (mdx_parser.dart, dict_db_service.dart, dictionary_service.dart, dict_import_service.dart)
+├── widgets/      (dict_result_sheet.dart, dict_entry_card.dart, dict_manager_screen.dart)
+└── dictionary.dart
+```
+
+#### 3. Tích hợp
+
+- **Read mode:** WordActionsSheet → DictionaryService.lookup() → hiển thị nghĩa từ từ điển
+- **YouTube:** WordAnalysisSheet → DictionaryService.lookup() → hiển thị
+- **WordList:** auto-fill meaning khi lưu từ (addWithAutoClassify)
+- **Quick-action:** ⚡ → "Từ điển" → DictManagerScreen (quản lý import/xóa)
+
+#### 4. Quy tắc ngôn ngữ
+
+- Chrome UI: rule #5 AGENTS.md (locale ≠ vi → English, không bao giờ vi)
+- Nội dung từ điển: giữ nguyên ngôn ngữ gốc (KHÔNG dịch)
+- Import UI: mô tả i18n, tên file giữ nguyên
+
+#### 5. Work packages
+
+**WP0 — Models + DB service:** DictEntry, DictInfo, DictDbService (SQLite CRUD)
+**WP1 — MDX parser:** Dart parser trong isolate, parse header + index + records
+**WP2 — Dictionary service facade:** lookup multi-dict, register/unregister
+**WP3 — Import flow:** file_picker → parse → SQLite, progress, error handling
+**WP4 — Dict manager screen:** list, delete, toggle, entry count
+**WP5 — Tích hợp Read mode:** WordActionsSheet + auto-fill meaning
+**WP6 — Tích hợp YouTube + i18n:** WordAnalysisSheet + ARB keys
+
+#### 6. Cấm
+
+- Không auto-download từ điển (quy tắc MODELS.md)
+- Không đụng vùng bảo vệ UltraTimeStretch FFI
+- Không render HTML unsafe (sanitize trước khi hiển thị)
+- Không parse MDX runtime (convert 1 lần → SQLite)
+
+- **Lịch sử:**
+  - 2026-09-05 | created | owner via agent arena/01a07234-in4up | "tích hợp từ điển dạng mdd mdx vào dự án"
+  - 2026-09-05 | doing | agent arena/01a07234-in4up | bàn giao + PLAN + code WP0
+
+### PLAN-025 — Video Player local: xem video + phụ đề + học từ (VID-001)
+- **Nguồn:** owner (2026-09-05) — "làm phần video kết hợp A+B"
+- **Trạng thái:** doing — triển khai trên session arena/01a07234-in4up
+- **Milestone đề xuất:** ngoài M0–M3 (phạm vi Tools/Video; không đụng knowledge MVA)
+- **Chi tiết:** xem mục dưới. Card KANBAN: VID-001.
+- **Tài liệu bàn giao:** `docs/Bangiao/bangiao_video.md`
+
+#### 1. Mục tiêu
+
+Xem video local với phụ đề + học từ vựng:
+- **A:** Sub-tab "Xem" trong tab Nghe (Nghe | Nói | Xem)
+- **B:** Quick-action "Video" trong ⚡ menu
+- Phụ đề SRT overlay + tap từ → tra từ điển
+- Tốc độ phát + A-B loop per subtitle line
+
+#### 2. Kiến trúc
+
+```
+lib/features/video/
+├── models/video_info.dart
+├── services/video_library_service.dart
+├── widgets/video_player_screen.dart
+└── widgets/video_library_screen.dart
+```
+
+Package: `video_player: ^2.8.0` (Flutter official)
+
+#### 3. Work packages
+
+**WP0:** Models + video library service (quét thiết bị)
+**WP1:** Video player screen (play + controls + speed)
+**WP2:** SRT subtitle parser + overlay
+**WP3:** Sub-tab "Xem" trong Listen mode + quick-action
+**WP4:** Tích hợp từ điển (tap subtitle → lookup)
+**WP5:** A-B loop per subtitle line + i18n
+
+#### 4. Quy tắc ngôn ngữ
+
+- Chrome UI: rule #5 (locale ≠ vi → English, dùng uiText)
+- Nội dung phụ đề: giữ nguyên gốc
+- Tên file: giữ nguyên
+
+#### 5. Cấm
+
+- Không auto-download subtitle từ mạng
+- Không đụng vùng bảo vệ UltraTimeStretch FFI
+- Không parse video binary format (dùng video_player package)
+
+- **Lịch sử:**
+  - 2026-09-05 | created | owner via agent arena/01a07234-in4up | "làm phần video kết hợp A+B"
+  - 2026-09-05 | doing | agent arena/01a07234-in4up | bàn giao + PLAN + code WP0-WP3
+
+### PLAN-026: Vocabulary Image Feature (IMG-001)
+- **Mục tiêu**: Thêm hình ảnh ghi nhớ cho từ vựng (dual-coding theory)
+- **Phạm vi**: 
+  - VocabImageService: pick từ gallery, lưu vào app documents, hash-based dedup
+  - VocabImagePicker: widget chọn ảnh với preview
+  - VocabImageThumbnail: thumbnail compact cho danh sách từ
+  - Tích hợp vào word_actions_sheet (Read mode) và word_list_screen (edit sheet)
+  - Hiển thị thumbnail trong compact list items
+  - Hiển thị preview lớn hơn trong expanded detail section
+  - Wire VocabImagePicker đến VocabularyProvider.updateImageUrl
+- **Trạng thái**: ✅ Hoàn thành
+- **Commit**: `c15b0b7` on `arena/01a07234-in4up`
+- **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).

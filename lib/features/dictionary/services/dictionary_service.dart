@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
 
+import '../models/dict_entry.dart';
 import '../models/dict_info.dart';
 import 'dict_db_service.dart';
 import 'mdx_parser.dart';
@@ -11,7 +12,8 @@ import 'mdx_parser.dart';
 /// Facade quản lý tất cả từ điển đã import
 class DictionaryService {
   static DictionaryService? _instance;
-  static DictionaryService get instance => _instance ??= DictionaryService._();
+  static DictionaryService get instance =>
+      _instance ??= DictionaryService._();
   DictionaryService._();
 
   final List<DictInfo> _dicts = [];
@@ -21,7 +23,6 @@ class DictionaryService {
   List<DictInfo> get enabledDictionaries =>
       _dicts.where((d) => d.enabled).toList();
 
-  /// Khởi tạo: đọc manifest + scan DB files
   Future<void> ensureInitialized() async {
     if (_initialized) return;
     _initialized = true;
@@ -36,15 +37,16 @@ class DictionaryService {
       try {
         final entries = await DictDbService.lookup(dict.dbPath, word);
         results.addAll(entries);
-      } catch (_) {
-        // DB lỗi → bỏ qua, không crash
+      } catch (e) {
+        // DB lỗi → bỏ qua
       }
     }
     return results;
   }
 
-  /// Tra prefix trên từ điển đầu tiên đang bật (autocomplete)
-  Future<List<DictEntry>> lookupPrefix(String prefix, {int limit = 10}) async {
+  /// Tra prefix (autocomplete)
+  Future<List<DictEntry>> lookupPrefix(String prefix,
+      {int limit = 10}) async {
     await ensureInitialized();
     for (final dict in enabledDictionaries) {
       try {
@@ -54,13 +56,14 @@ class DictionaryService {
           limit: limit,
         );
         if (entries.isNotEmpty) return entries;
-      } catch (_) {}
+      } catch (e) {
+        // skip
+      }
     }
     return [];
   }
 
-  /// Import file .mdx (+ .mdd tùy chọn)
-  /// Trả về DictInfo nếu thành công, null nếu lỗi
+  /// Import file .mdx
   Future<DictInfo?> importMdx(
     String mdxPath, {
     String? mddPath,
@@ -74,15 +77,14 @@ class DictionaryService {
         dictDir.createSync(recursive: true);
       }
 
-      // Tạo ID duy nhất từ tên file
       final fileName = mdxPath.split(Platform.pathSeparator).last;
-      final dictId = md5.convert(utf8.encode(fileName)).toString().substring(0, 12);
+      final dictId =
+          md5.convert(utf8.encode(fileName)).toString().substring(0, 12);
       final dbPath = '${dictDir.path}/$dictId.dict.sqlite';
       final resourceDir = '${dictDir.path}/$dictId.resources';
 
       onProgress?.call(0.1, 'Đang đọc file MDX...');
 
-      // Parse MDX → entries
       final entries = <Map<String, dynamic>>[];
       int entryCount = 0;
 
@@ -104,26 +106,23 @@ class DictionaryService {
 
       onProgress?.call(0.7, 'Đang lưu vào cơ sở dữ liệu...');
 
-      // Tạo DB + insert
       await DictDbService.createDb(dbPath);
       await DictDbService.insertBatch(dbPath, entries);
 
       onProgress?.call(0.85, 'Đang lưu resources...');
 
-      // Copy MDD resources nếu có
       String? resPath;
       if (mddPath != null && File(mddPath).existsSync()) {
         final resDir = Directory(resourceDir);
         if (!resDir.existsSync()) {
           resDir.createSync(recursive: true);
         }
-        // Copy MDD file vào resource dir
-        final mddDest = '$resourceDir/${mddPath.split(Platform.pathSeparator).last}';
+        final mddDest =
+            '$resourceDir/${mddPath.split(Platform.pathSeparator).last}';
         await File(mddPath).copy(mddDest);
         resPath = resourceDir;
       }
 
-      // Detect ngôn ngữ từ header MDX
       final langInfo = await MdxParser.detectLanguage(mdxPath);
 
       final info = DictInfo(
@@ -138,7 +137,6 @@ class DictionaryService {
         importedAt: DateTime.now(),
       );
 
-      // Thêm vào danh sách + lưu manifest
       _dicts.add(info);
       await _saveManifest();
 
@@ -150,7 +148,6 @@ class DictionaryService {
     }
   }
 
-  /// Bật/tắt từ điển
   Future<void> toggleDict(String dictId, bool enabled) async {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
     if (idx < 0) return;
@@ -158,35 +155,34 @@ class DictionaryService {
     await _saveManifest();
   }
 
-  /// Xóa từ điển
   Future<void> deleteDict(String dictId) async {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
     if (idx < 0) return;
     final dict = _dicts[idx];
 
-    // Xóa DB file
     try {
       await DictDbService.deleteDb(dict.dbPath);
-    } catch (_) {}
+    } catch (e) {
+      // skip
+    }
 
-    // Xóa resource dir
     if (dict.resourcePath != null) {
       try {
         await Directory(dict.resourcePath!).delete(recursive: true);
-      } catch (_) {}
+      } catch (e) {
+        // skip
+      }
     }
 
     _dicts.removeAt(idx);
     await _saveManifest();
   }
 
-  /// Lấy manifest path
   Future<String> get _manifestPath async {
     final appDir = await getApplicationDocumentsDirectory();
     return '${appDir.path}/dictionaries/manifest.json';
   }
 
-  /// Load manifest từ file
   Future<void> _loadManifest() async {
     try {
       final path = await _manifestPath;
@@ -198,15 +194,12 @@ class DictionaryService {
       for (final item in json) {
         _dicts.add(DictInfo.fromJson(item as Map<String, dynamic>));
       }
-      // Kiểm tra DB files còn tồn tại
       _dicts.removeWhere((d) => !File(d.dbPath).existsSync());
-    } catch (_) {
-      // Manifest hỏng → reset
+    } catch (e) {
       _dicts.clear();
     }
   }
 
-  /// Lưu manifest ra file
   Future<void> _saveManifest() async {
     try {
       final path = await _manifestPath;
@@ -216,8 +209,8 @@ class DictionaryService {
       }
       final json = _dicts.map((d) => d.toJson()).toList();
       await file.writeAsString(jsonEncode(json));
-    } catch (_) {
-      // Không crash nếu ghi lỗi
+    } catch (e) {
+      // skip
     }
   }
 }

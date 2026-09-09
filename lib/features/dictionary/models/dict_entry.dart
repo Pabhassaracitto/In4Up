@@ -1,11 +1,11 @@
 /// Model cho 1 entry trong từ điển MDX
 class DictEntry {
   final String headword;
-  final String definition; // HTML hoặc plain text
+  final String definition;
   final String? phonetic;
-  final String? audioPath; // đường dẫn file audio trong MDD
+  final String? audioPath;
   final String? partOfSpeech;
-  final String dictId; // ID của từ điển chứa entry này
+  final String dictId;
 
   const DictEntry({
     required this.headword,
@@ -16,7 +16,6 @@ class DictEntry {
     required this.dictId,
   });
 
-  /// Lấy text thuần từ definition HTML (strip tags cơ bản)
   String get plainDefinition {
     return definition
         .replaceAll(RegExp(r'<[^>]*>'), '')
@@ -24,7 +23,6 @@ class DictEntry {
         .trim();
   }
 
-  /// Có audio phát âm không
   bool get hasAudio => audioPath != null && audioPath!.isNotEmpty;
 
   Map<String, dynamic> toMap() => {

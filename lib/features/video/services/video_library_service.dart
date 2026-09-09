@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:path_provider/path_provider.dart';
 
 import '../models/video_info.dart';
 
-/// Service quét và quản lý video files trên thiết bị
+/// Service quản lý thư viện video
 class VideoLibraryService {
   static VideoLibraryService? _instance;
   static VideoLibraryService get instance =>
@@ -10,76 +13,76 @@ class VideoLibraryService {
   VideoLibraryService._();
 
   final List<VideoInfo> _videos = [];
-  bool _scanned = false;
+  bool _initialized = false;
 
   List<VideoInfo> get videos => List.unmodifiable(_videos);
-  bool get isScanned => _scanned;
 
-  /// Quét thư mục phổ biến để tìm video
-  Future<List<VideoInfo>> scanVideos({String? folderPath}) async {
-    final videos = <VideoInfo>[];
-    final dirs = <Directory>[];
+  Future<void> ensureInitialized() async {
+    if (_initialized) return;
+    _initialized = true;
+    await _loadManifest();
+  }
 
-    if (folderPath != null) {
-      dirs.add(Directory(folderPath));
-    } else {
-      // Quét các thư mục phổ biến
-      for (final path in [
-        '/storage/emulated/0/Movies',
-        '/storage/emulated/0/Download',
-        '/storage/emulated/0/DCIM',
-        '/storage/emulated/0/Video',
-        '${Platform.environment['HOME'] ?? ''}/Videos',
-        '${Platform.environment['HOME'] ?? ''}/Downloads',
-      ]) {
-        final dir = Directory(path);
-        if (dir.existsSync()) dirs.add(dir);
-      }
+  /// Thêm video vào thư viện
+  Future<void> addVideo(VideoInfo video) async {
+    await ensureInitialized();
+    if (_videos.any((v) => v.id == video.id)) return;
+    _videos.add(video);
+    await _saveManifest();
+  }
+
+  /// Xóa video khỏi thư viện
+  Future<void> removeVideo(String videoId) async {
+    await ensureInitialized();
+    _videos.removeWhere((v) => v.id == videoId);
+    await _saveManifest();
+  }
+
+  /// Tìm video theo ID
+  VideoInfo? findById(String id) {
+    try {
+      return _videos.firstWhere((v) => v.id == id);
+    } catch (e) {
+      return null;
     }
+  }
 
-    for (final dir in dirs) {
-      try {
-        await for (final entity in dir.list(recursive: true, followLinks: false)) {
-          if (entity is! File) continue;
-          final ext = entity.path.split('.').last.toLowerCase();
-          if (!VideoInfo.supportedExtensions.contains(ext)) continue;
+  Future<String> get _manifestPath async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/videos/manifest.json';
+  }
 
-          try {
-            final stat = await entity.stat();
-            videos.add(VideoInfo(
-              filePath: entity.path,
-              fileName: entity.path.split('/').last,
-              fileSizeBytes: stat.size,
-              lastModified: stat.modified,
-              extension: ext,
-            ));
-          } catch (_) {}
+  Future<void> _loadManifest() async {
+    try {
+      final path = await _manifestPath;
+      final file = File(path);
+      if (!file.existsSync()) return;
+      final content = await file.readAsString();
+      final List<dynamic> json = jsonDecode(content);
+      _videos.clear();
+      for (final item in json) {
+        try {
+          _videos.add(VideoInfo.fromJson(item as Map<String, dynamic>));
+        } catch (e) {
+          // Skip corrupt entries
         }
-      } catch (_) {}
+      }
+    } catch (e) {
+      _videos.clear();
     }
-
-    // Sắp xếp theo ngày sửa đổi (mới nhất trước)
-    videos.sort((a, b) => b.lastModified.compareTo(a.lastModified));
-
-    _videos
-      ..clear()
-      ..addAll(videos);
-    _scanned = true;
-    return videos;
   }
 
-  /// Tìm kiếm video theo tên
-  List<VideoInfo> search(String query) {
-    if (query.isEmpty) return videos;
-    final lower = query.toLowerCase();
-    return _videos
-        .where((v) => v.fileName.toLowerCase().contains(lower))
-        .toList();
-  }
-
-  /// Xóa video đã scan (reset)
-  void clear() {
-    _videos.clear();
-    _scanned = false;
+  Future<void> _saveManifest() async {
+    try {
+      final path = await _manifestPath;
+      final file = File(path);
+      if (!file.parent.existsSync()) {
+        file.parent.createSync(recursive: true);
+      }
+      final json = _videos.map((v) => v.toJson()).toList();
+      await file.writeAsString(jsonEncode(json));
+    } catch (e) {
+      // skip
+    }
   }
 }

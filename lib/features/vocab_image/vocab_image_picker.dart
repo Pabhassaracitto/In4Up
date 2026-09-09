@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../l10n/localized_material.dart';
 import '../../providers/vocabulary_provider.dart';
 import 'vocab_image_service.dart';
 
@@ -58,12 +57,10 @@ class _VocabImagePickerState extends State<VocabImagePicker> {
         setState(() => _localImagePath = null);
         widget.onImageChanged(path);
 
-        // Cập nhật provider nếu có wordId
         if (widget.wordId != null && mounted) {
           context.read<VocabularyProvider>().updateImageUrl(widget.wordId!, path);
         }
 
-        // Resolve path để hiển thị
         final resolved = await VocabImageService.instance.resolvePath(path);
         if (mounted) setState(() => _localImagePath = resolved);
       }
@@ -125,10 +122,9 @@ class _VocabImagePickerState extends State<VocabImagePicker> {
                         errorBuilder: (_, __, ___) => _buildPlaceholder(
                           context,
                           icon: Icons.broken_image,
-                          label: context.uiText('Lỗi ảnh', 'Image error'),
+                          label: 'Lỗi ảnh',
                         ),
                       ),
-                      // Nút xóa
                       Positioned(
                         top: 4,
                         right: 4,
@@ -153,7 +149,7 @@ class _VocabImagePickerState extends State<VocabImagePicker> {
                 : _buildPlaceholder(
                     context,
                     icon: Icons.add_photo_alternate_outlined,
-                    label: context.uiText('Thêm ảnh', 'Add image'),
+                    label: 'Thêm ảnh',
                   ),
       ),
     );

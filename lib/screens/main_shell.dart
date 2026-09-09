@@ -47,6 +47,9 @@ import 'tools/word_list/wordlist_bubble.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_workspace_screen.dart';
 
+import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/video/widgets/video_library_screen.dart';
+
 enum _PrimaryTab { home, listen, read, understand, remember }
 
 class MainShell extends StatefulWidget {
@@ -451,6 +454,20 @@ class _MainShellState extends State<MainShell> {
         color: const Color(0xFF26C6DA),
       ),
       tools.ToolItem(
+        id: 'dict_manager',
+        title: context.uiText('Từ điển MDX'),
+        subtitle: context.uiText('Quản lý & tra cứu từ điển MDX'),
+        icon: Icons.auto_stories,
+        color: const Color(0xFF7E57C2),
+      ),
+      tools.ToolItem(
+        id: 'video_library',
+        title: context.uiText('Thư viện video'),
+        subtitle: context.uiText('Quản lý & phát video học tập'),
+        icon: Icons.video_library_outlined,
+        color: const Color(0xFFE91E63),
+      ),
+      tools.ToolItem(
         id: 'timeline',
         title: l10n.timeline,
         subtitle: l10n.timelineSubtitle,
@@ -791,6 +808,16 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'shell_ui_settings':
         await _openShellUiSettings();
+        return;
+      case 'dict_manager':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+        );
+        return;
+      case 'video_library':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+        );
         return;
     }
   }

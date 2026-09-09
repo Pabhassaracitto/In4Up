@@ -1,47 +1,44 @@
-import 'dart:io';
-
-/// Model cho 1 file video trên thiết bị
+/// Model cho video trong thư viện
 class VideoInfo {
+  final String id;
+  final String title;
   final String filePath;
-  final String fileName;
-  final int fileSizeBytes;
-  final DateTime lastModified;
-  final String extension;
+  final String? thumbnailPath;
+  final Duration duration;
+  final DateTime addedAt;
 
   const VideoInfo({
+    required this.id,
+    required this.title,
     required this.filePath,
-    required this.fileName,
-    required this.fileSizeBytes,
-    required this.lastModified,
-    required this.extension,
+    this.thumbnailPath,
+    required this.duration,
+    required this.addedAt,
   });
 
-  String get fileSizeFormatted {
-    if (fileSizeBytes < 1024) return '$fileSizeBytes B';
-    if (fileSizeBytes < 1024 * 1024) {
-      return '${(fileSizeBytes / 1024).toStringAsFixed(1)} KB';
-    }
-    if (fileSizeBytes < 1024 * 1024 * 1024) {
-      return '${(fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(fileSizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  String get durationText {
+    final h = duration.inHours;
+    final m = duration.inMinutes.remainder(60);
+    final s = duration.inSeconds.remainder(60);
+    if (h > 0) return '${h}h ${m}m';
+    return '${m}:${s.toString().padLeft(2, '0')}';
   }
 
-  /// Tìm file phụ đề .srt/.ass/.vtt cạnh video
-  String? get subtitlePath {
-    final dir = Directory(filePath.substring(0, filePath.lastIndexOf('/')));
-    final baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'file_path': filePath,
+        'thumbnail_path': thumbnailPath,
+        'duration_ms': duration.inMilliseconds,
+        'added_at': addedAt.toIso8601String(),
+      };
 
-    for (final ext in ['srt', 'ass', 'vtt']) {
-      final subFile = File('${dir.path}/$baseName.$ext');
-      if (subFile.existsSync()) return subFile.path;
-    }
-    return null;
-  }
-
-  /// Có phụ đề cạnh video không
-  bool get hasSubtitle => subtitlePath != null;
-
-  static List<String> get supportedExtensions =>
-      ['mp4', 'mkv', 'webm', 'avi', 'mov', 'm4v', 'flv', '3gp', 'ts'];
+  factory VideoInfo.fromJson(Map<String, dynamic> json) => VideoInfo(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        filePath: json['file_path'] as String,
+        thumbnailPath: json['thumbnail_path'] as String?,
+        duration: Duration(milliseconds: json['duration_ms'] as int),
+        addedAt: DateTime.parse(json['added_at'] as String),
+      );
 }

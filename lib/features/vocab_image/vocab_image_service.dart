@@ -7,9 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Service quản lý hình ảnh cho từ vựng
-///
-/// Lưu ảnh vào app documents: vocabulary_images/<hash>.jpg
-/// Resize/compress để giảm dung lượng (~100-300KB mỗi ảnh)
 class VocabImageService {
   static VocabImageService? _instance;
   static VocabImageService get instance =>
@@ -21,33 +18,16 @@ class VocabImageService {
   /// Chọn ảnh từ gallery → copy vào app storage → trả về local path
   Future<String?> pickFromGallery() async {
     try {
-      final result = await fp.FilePicker.platform.pickFiles(
+      final result = await fp.FilePicker.pickFiles(
         type: fp.FileType.image,
         allowMultiple: false,
       );
       if (result == null || result.files.isEmpty) return null;
       final path = result.files.first.path;
       if (path == null) return null;
-
       return await _saveToAppStorage(File(path));
     } catch (e) {
       debugPrint('pickFromGallery error: $e');
-      return null;
-    }
-  }
-
-  /// Lưu ảnh từ URL (download từ Pixabay/Unsplash)
-  Future<String?> saveFromUrl(String url) async {
-    try {
-      final httpClient = HttpClient();
-      final request = await httpClient.getUrl(Uri.parse(url));
-      final response = await request.close();
-      final bytes = await consolidateHttpClientResponseBytes(response);
-      httpClient.close();
-
-      return await _saveBytesToAppStorage(bytes);
-    } catch (e) {
-      debugPrint('saveFromUrl error: $e');
       return null;
     }
   }
@@ -77,7 +57,7 @@ class VocabImageService {
       await File(filePath).writeAsBytes(bytes, flush: true);
     }
 
-    // Trả về relative path (không phụ thuộc appDir thay đổi)
+    // Trả về relative path
     return '$_imageDir/$fileName';
   }
 
@@ -106,25 +86,8 @@ class VocabImageService {
       final appDir = await getApplicationDocumentsDirectory();
       final file = File('${appDir.path}/$relativePath');
       if (file.existsSync()) await file.delete();
-    } catch (_) {}
-  }
-
-  /// Đếm tổng dung lượng ảnh đã lưu
-  Future<int> totalSizeBytes() async {
-    try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/$_imageDir');
-      if (!imageDir.existsSync()) return 0;
-
-      int total = 0;
-      await for (final entity in imageDir.list()) {
-        if (entity is File) {
-          total += await entity.length();
-        }
-      }
-      return total;
-    } catch (_) {
-      return 0;
+    } catch (e) {
+      debugPrint('deleteImage error: $e');
     }
   }
 

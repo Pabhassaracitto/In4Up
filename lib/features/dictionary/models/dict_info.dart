@@ -1,13 +1,13 @@
 /// Metadata cho 1 từ điển đã import
 class DictInfo {
-  final String id; // unique ID (hash of filename)
-  final String name; // tên hiển thị (từ MDX header hoặc filename)
-  final String? sourceLang; // ngôn ngữ nguồn (en, ja, zh, pali…)
-  final String? targetLang; // ngôn ngữ đích (vi, en…)
-  final int entryCount; // số entry
-  final String dbPath; // đường dẫn SQLite DB
-  final String? resourcePath; // đường dẫn MDD resources
-  final bool enabled; // bật/tắt
+  final String id;
+  final String name;
+  final String? sourceLang;
+  final String? targetLang;
+  final int entryCount;
+  final String dbPath;
+  final String? resourcePath;
+  final bool enabled;
   final DateTime importedAt;
 
   const DictInfo({
@@ -22,7 +22,6 @@ class DictInfo {
     required this.importedAt,
   });
 
-  /// Label ngôn ngữ hiển thị
   String get langPairLabel {
     final s = sourceLang?.toUpperCase() ?? '?';
     final t = targetLang?.toUpperCase() ?? '?';

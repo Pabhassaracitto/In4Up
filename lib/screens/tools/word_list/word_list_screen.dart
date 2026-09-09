@@ -26,6 +26,8 @@ import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
 import 'youglish_mini_sheet.dart';
 
+import '../../../features/vocab_image/vocab_image_thumbnail.dart';
+
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
 // ══════════════════════════════════════════════════════════
@@ -2124,6 +2126,18 @@ class _CompactListItem extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Divider(color: Colors.white.withValues(alpha: 0.06), height: 4),
         const SizedBox(height: 8),
+
+        // Vocab Image Thumbnail
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+          Center(
+            child: VocabImageThumbnail(
+              imageUrl: entry.imageUrl,
+              size: 80,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
 
         // Contexts
         if (entry.contexts.isNotEmpty) ...[

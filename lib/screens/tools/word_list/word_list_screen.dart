@@ -17,16 +17,14 @@ import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
-import '../../vocab_image/vocab_image_picker.dart';
-import '../../vocab_image/vocab_image_thumbnail.dart';
+import '../../../features/vocab_image/vocab_image_picker.dart';
+import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
 import 'youglish_mini_sheet.dart';
-
-import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN

@@ -64,6 +64,9 @@
 | HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done + CI xanh (chờ nghiệm thu) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
 | READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
+| WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
+| DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
+| VID-001 | Video Player local: xem video + phụ đề + học từ (PLAN-025) | 🔄 doing | bàn giao + PLAN + code WP0-WP3 (models + library + player + sub-tab) |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 17 test (T6/T7); _viBase ĐẦY ĐỦ 150 entries (khôi phục đ U+0111); căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột + mảnh meaning 1 từ gộp đúng |
 | STT-LRC-LANG-01 | Tạo lời (LRC) bằng Whisper đa ngữ: chip chọn ngôn ngữ + 'auto' tự nhận diện (hết hardcode 'en') | ✅ done + CI xanh (chờ nghiệm thu máy) | run 33977299465; chip 14 ngôn ngữ (mặc định auto) + 3 call sites hết hardcode 'en' + VAD/CLI/FFI/plugin đều hỗ trợ 'auto' | _LrcModelSelector + 14 ngôn ngữ (mặc định auto); 3 call sites hardcode 'en' → language param; VAD pipeline + transcribeAuto + transcribeFile đều nhận language |
 
@@ -1818,6 +1821,72 @@
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
 
+### DICT-001 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
+- **Trạng thái:** 🔄 doing — WP0 models + DB, đang code
+- **Nguồn:** owner (2026-09-05) — "tích hợp từ điển dạng mdd mdx vào dự án"
+- **Chi tiết:** xem PLAN-024 + `docs/Bangiao/bangiao_dictionary.md`
+- **Nội dung:**
+  - MDX parser (Dart, pure, isolate) → SQLite dict_entries
+  - Dictionary service facade: lookup multi-dict, register/unregister
+  - Import flow: file_picker → parse → SQLite, progress, error handling
+  - Dict manager screen: list, delete, toggle, entry count
+  - Tích hợp WordActionsSheet (Read mode) + WordAnalysisSheet (YouTube)
+  - Auto-fill meaning khi lưu từ (addWithAutoClassify)
+  - i18n chrome UI (rule #5 AGENTS.md)
+- **Work packages:**
+  - WP0: Models + DB service (DictEntry, DictInfo, DictDbService)
+  - WP1: MDX parser (Dart, isolate)
+  - WP2: Dictionary service facade
+  - WP3: Import flow
+  - WP4: Dict manager screen
+  - WP5: Tích hợp Read mode
+  - WP6: Tích hợp YouTube + i18n
+- **Bằng chứng:** code trên branch arena/01a07234-in4up
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-024 + bàn giao + WP0
+
+### VID-001 — Video Player local: xem video + phụ đề + học từ (PLAN-025)
+- **Trạng thái:** 🔄 doing — WP0-WP3 code, đang push
+- **Nguồn:** owner (2026-09-05) — "làm phần video kết hợp A+B"
+- **Chi tiết:** xem PLAN-025 + `docs/Bangiao/bangiao_video.md`
+- **Nội dung:**
+  - Sub-tab "Xem" trong tab Nghe (Nghe | Nói | Xem) — approach A
+  - Quick-action "Video" trong ⚡ menu — approach B
+  - Video player screen (video_player package) + controls + speed
+  - SRT subtitle parser + overlay
+  - Video library screen (browse/search files from device)
+  - Tap subtitle → tra từ điển + lưu WordList
+  - A-B loop per subtitle line
+  - i18n chrome UI (rule #5)
+- **Work packages:**
+  - WP0: Models + video library service ✅
+  - WP1: Video player screen ✅
+  - WP2: SRT subtitle parser ✅
+  - WP3: Sub-tab "Xem" + quick-action ✅
+  - WP4: Tích hợp từ điển (tap subtitle → lookup)
+  - WP5: A-B loop per subtitle line + i18n
+- **Bằng chứng:** code trên branch arena/01a07234-in4up
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-025 + bàn giao + WP0-WP3
+
+### IMG-001: Vocabulary Image Feature
+- **ID**: IMG-001
+- **Tiêu đề**: Thêm hình ảnh ghi nhớ cho từ vựng
+- **Mô tả**: Cho phép người dùng chọn/gán hình ảnh cho từ vựng khi lưu hoặc chỉnh sửa. Hình ảnh được lưu vào app documents với hash-based deduplication. Hiển thị thumbnail trong danh sách từ và preview lớn hơn khi mở rộng chi tiết.
+- **Ưu tiên**: Trung bình
+- **Trạng thái**: ✅ Done
+- **Ngày tạo**: 2026-09-05
+- **Ngày hoàn thành**: 2026-09-05
+- **Commit**: `c15b0b7` on `arena/01a07234-in4up`
+- **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
+- **Files**:
+  - `lib/features/vocab_image/vocab_image_service.dart`
+  - `lib/features/vocab_image/vocab_image_picker.dart`
+  - `lib/features/vocab_image/vocab_image_thumbnail.dart`
+  - `lib/features/vocab_image/vocab_image.dart`
+  - `lib/providers/vocabulary_provider.dart` (updateImageUrl method)
+  - `lib/screens/read_mode/sheets/word_actions_sheet.dart`
+  - `lib/screens/tools/word_list/word_list_screen.dart`
 ### STT-LRC-LANG-01 — Tạo lời (LRC) bằng Whisper: đa ngữ, hết hardcode 'en'
 - **Trạng thái:** ✅ done + CI xanh run 33977299465 (chờ nghiệm thu máy)
 - **Nguồn:** owner (2026-09-05): "Đảm bảo với file âm thanh khả năng tạo lời

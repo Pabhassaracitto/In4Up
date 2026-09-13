@@ -10,6 +10,7 @@
 // Nền tảng khác (iOS/Linux/Windows): supported = false → UI rơi về chọn
 // file thủ công (FilePicker) như trước.
 
+import 'dart:convert' show utf8;
 import 'dart:io' show Platform;
 
 import 'package:file_picker/file_picker.dart';
@@ -44,16 +45,51 @@ class TextDeviceProvider extends ChangeNotifier {
   bool get hasFolder => _treeUri != null && _treeUri!.isNotEmpty;
 
   /// Tên thư mục (segment cuối của tree URI) để hiện trên UI.
+  /// Giải mã %XX AN TOÀN: nếu URI có percent-encoding lỗi (vd tên thư mục
+  /// chứa ký tự đặc biệt làm file_picker encode sai), KHÔNG throw — chỉ
+  /// decode các cặp %XX hợp lệ, giữ nguyên phần còn lại (tránh màn đỏ
+  /// "Illegal percent encoding in URI").
   String get folderLabel {
     final uri = _treeUri;
     if (uri == null || uri.isEmpty) return '';
     final parts = uri.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.isEmpty) return uri;
     final last = parts.last;
-    // URI dạng .../tree/primary%3ADocuments — giải mã %3A → ':'
-    final decoded = Uri.decodeComponent(last);
+    // Decode %XX an toàn: chỉ decode cặp %XX hợp lệ, giữ nguyên % lỗi.
+    var decoded = safeDecodeComponent(last);
     final colon = decoded.lastIndexOf(':');
     return colon >= 0 ? decoded.substring(colon + 1) : decoded;
+  }
+
+  /// Uri.decodeComponent an toàn: decode %XX hợp lệ (UTF-8), giữ nguyên
+  /// % lỗi — KHÔNG throw "Illegal percent encoding in URI" (tránh màn đỏ
+  /// khi tên thư mục chứa ký tự làm file_picker encode sai).
+  static String safeDecodeComponent(String component) {
+    try {
+      return Uri.decodeComponent(component);
+    } catch (_) {
+      // Percent-encoding lỗi → decode thủ công: %XX hợp lệ → byte UTF-8,
+      // % lỗi → giữ nguyên ký tự. allowMalformed=true cho chuỗi UTF-8 gãy.
+      final bytes = <int>[];
+      var i = 0;
+      while (i < component.length) {
+        final c = component[i];
+        if (c == '%' && i + 2 < component.length) {
+          final code = int.tryParse(
+            component.substring(i + 1, i + 3),
+            radix: 16,
+          );
+          if (code != null) {
+            bytes.add(code);
+            i += 3;
+            continue;
+          }
+        }
+        bytes.addAll(utf8.encode(c));
+        i++;
+      }
+      return utf8.decode(bytes, allowMalformed: true);
+    }
   }
 
   /// Nạp tree URI đã lưu (gọi 1 lần lúc app khởi động — nhẹ, không quét).

@@ -1389,5 +1389,25 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '将释放 {value0}MB。若要使用离线识别需重新下载。',
     'zh_TW': '將釋放 {value0}MB。若要使用離線辨識需重新下載。',
     'si': '{value0}MB නිදහස් වනු ඇත. නොබැඳි හඳුනාගැනීම සඳහා නැවත බාගත කිරීමට සිදුවේ.',
+  'Tự chọn từ khóa': {
+    'en': 'Auto-pick keywords',
+    'hi': 'मुख्य शब्द खुद चुनें',
+    'zh': '自动选关键词',
+    'zh_TW': '自動選關鍵詞',
+    'si': 'මූල පද ස්වයං තෝරන්න',
+  },
+  'Đánh dấu đoạn đang chọn': {
+    'en': 'Mark the selected text',
+    'hi': 'चुने पाठ को चिह्नित करें',
+    'zh': '把选中文字标成填空',
+    'zh_TW': '把選取文字標成填空',
+    'si': 'තෝරාගත් පෙළ සලකුණු කරන්න',
+  },
+  'Chạm ô trống để mở · chạm từ thường để thêm chỗ trống': {
+    'en': 'Tap a blank to reveal · tap a normal word to add a blank',
+    'hi': 'खाली जगह टैप कर खोलें · सामान्य शब्द टैप कर जोड़ें',
+    'zh': '点空格揭晓 · 点普通词加成空格',
+    'zh_TW': '點空格揭曉 · 點普通詞加成空格',
+    'si': 'හිස්තැන තට්ටු කර පෙන්වන්න · සාමාන්‍ය වචනය තට්ටු කර එක් කරන්න',
   },
 };

@@ -1,7 +1,8 @@
 # Tipiṭaka database contract
 
-The Flutter module opens **only** the normalized database produced by
-`scripts/import_tipitaka.py`:
+The Flutter reader opens the normalized database contract below. A raw Pa-Auk
+file is detected and converted to this contract inside the app before it is
+installed; `scripts/import_tipitaka.py` remains an offline/developer option:
 
 ```text
 assets/db/tipitaka.sqlite                         # optional bundled/demo DB
@@ -12,8 +13,9 @@ assets/db/tipitaka.sqlite                         # optional bundled/demo DB
 
 - `tipitaka_collections`: the three Piṭaka collections.
 - `tipitaka_books`: books belonging to a collection.
-- `tipitaka_segments`: ordered Pāli paragraphs and fixed translations (`en`,
-  `vi`, `my`, `th`).
+- `tipitaka_segments`: ordered Pāli paragraphs, structural block type (`book`,
+  `chapter`, `heading`, `center`, or `paragraph`), and fixed translations
+  (`en`, `vi`, `my`, `th`).
 - `tipitaka_translations`: additional language packs, keyed by
   `(segment_id, language_code)`.
 - `tipitaka_user_notes` and `tipitaka_learning_items`: app-owned tables; they

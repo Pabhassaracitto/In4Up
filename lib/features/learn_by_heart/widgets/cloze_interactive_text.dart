@@ -58,7 +58,18 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
     widget.onLevelChanged?.call(level);
   }
 
+  void _markAsKeyword(ClozeToken token) {
+    if (token.cleanWord.isEmpty) return;
+    HapticFeedback.selectionClick();
+    setState(token.toggleKeyword);
+  }
+
   void _toggleToken(ClozeToken token) {
+    if (_currentLevel == ClozeLevel.keywords &&
+        !token.isMaskedAtLevel(_currentLevel)) {
+      _markAsKeyword(token);
+      return;
+    }
     if (!token.isMaskedAtLevel(_currentLevel)) return;
     HapticFeedback.selectionClick();
     setState(() {
@@ -257,12 +268,30 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
               // ═══ TRƯỜNG HỢP 1: TỪ BÌNH THƯỜNG (KHÔNG BỊ ẨN) ═══
               // Render dạng chữ thuần mượt mà, không đóng khung hộp, không có viền nút
               if (!isMaskedHere || isFullLevel) {
-                return Text(
-                  token.text,
-                  style: TextStyle(
-                    fontSize: widget.fontSize,
-                    color: Colors.white.withValues(alpha: 0.92),
-                    height: 1.5,
+                final canMark = _currentLevel == ClozeLevel.keywords &&
+                    token.cleanWord.isNotEmpty;
+                if (!canMark) {
+                  return Text(
+                    token.text,
+                    style: TextStyle(
+                      fontSize: widget.fontSize,
+                      color: Colors.white.withValues(alpha: 0.92),
+                      height: 1.5,
+                    ),
+                  );
+                }
+                return GestureDetector(
+                  onTap: () => _markAsKeyword(token),
+                  child: Text(
+                    token.text,
+                    style: TextStyle(
+                      fontSize: widget.fontSize,
+                      color: Colors.white.withValues(alpha: 0.92),
+                      height: 1.5,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white24,
+                      decorationStyle: TextDecorationStyle.dotted,
+                    ),
                   ),
                 );
               }
@@ -274,6 +303,9 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
 
               return GestureDetector(
                 onTap: () => _toggleToken(token),
+                onLongPress: _currentLevel == ClozeLevel.keywords
+                    ? () => _markAsKeyword(token)
+                    : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
@@ -320,7 +352,7 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
       case ClozeLevel.fullText:
         return l10n.level1Desc;
       case ClozeLevel.keywords:
-        return l10n.level2Desc;
+        return 'Chạm ô trống để mở · chạm từ thường để thêm chỗ trống';
       case ClozeLevel.firstLetter:
         return l10n.level3Desc;
       case ClozeLevel.ghost:

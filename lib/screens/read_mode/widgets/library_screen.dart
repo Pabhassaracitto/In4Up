@@ -1926,6 +1926,15 @@ class _DeviceEntryTile extends StatelessWidget {
 
   const _DeviceEntryTile({required this.entry, required this.onTap});
 
+  Color get _tileColor => switch (entry.ext) {
+      'pdf' => const Color(0xFFEF5350),
+      'docx' => const Color(0xFF2196F3),
+      'lrc' || 'srt' => const Color(0xFFFFB300),
+      _ => const Color(0xFF4CAF50),
+    };
+
+  Color get _tileIconBg => _tileColor.withValues(alpha: 0.15);
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1946,7 +1955,7 @@ class _DeviceEntryTile extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+                  color: _tileIconBg,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(

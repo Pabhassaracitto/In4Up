@@ -1389,6 +1389,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '将释放 {value0}MB。若要使用离线识别需重新下载。',
     'zh_TW': '將釋放 {value0}MB。若要使用離線辨識需重新下載。',
     'si': '{value0}MB නිදහස් වනු ඇත. නොබැඳි හඳුනාගැනීම සඳහා නැවත බාගත කිරීමට සිදුවේ.',
+  },
   'Tự chọn từ khóa': {
     'en': 'Auto-pick keywords',
     'hi': 'मुख्य शब्द खुद चुनें',

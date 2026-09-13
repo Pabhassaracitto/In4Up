@@ -789,7 +789,7 @@ class SttEngineWhisper {
     }
 
     if (isLongFile) {
-      debugPrint('[Whisper] File dai ${originalDurationMs! ~/ 1000}s >60s, CAT TRUC TIEP TU FILE GOC (skip full WAV) chunk=${effectiveChunkDuration}s level=$effectiveLevel');
+      debugPrint('[Whisper] File dai ${originalDurationMs ~/ 1000}s >60s, CAT TRUC TIEP TU FILE GOC (skip full WAV) chunk=${effectiveChunkDuration}s level=$effectiveLevel');
       wavPath = audioPath;
       baseName = path.basenameWithoutExtension(audioPath);
       isFullConverted = false;
@@ -1029,7 +1029,7 @@ class SttEngineWhisper {
       // Bước 1: thu thập tất cả word với timestamp.
       final words = <SttWord>[];
       for (final seg in rawSegments) {
-        final text = (seg.text ?? '').trim();
+        final text = seg.text.trim();
         if (text.isEmpty) continue;
         if (_isNoise(text)) continue;
 

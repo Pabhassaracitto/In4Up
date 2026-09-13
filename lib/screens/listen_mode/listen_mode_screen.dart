@@ -199,7 +199,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (player.lastGeneratedLrcPath != null) {
       _loadLrcFile(player.lastGeneratedLrcPath!);
       final understandProvider = context.read<UnderstandProvider>();
-      if (understandProvider!.lrcLines.isNotEmpty) {
+      if (understandProvider.lrcLines.isNotEmpty) {
         _showLrcOnMain = true;
       }
     }
@@ -838,7 +838,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   if (_showLrcOnMain)
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
-                        final hasLines = understand!.lrcLines.isNotEmpty;
+                        final hasLines = understand.lrcLines.isNotEmpty;
                         // LISTEN-630-01: budget chiều cao rèm LRC = màn hình
                         // trừ (song info + controls + panel inline đang mở +
                         // bottom padding + waveform tối thiểu) — hết bottom
@@ -1246,7 +1246,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   Consumer<UnderstandProvider>(
                     builder: (context, understand, _) {
                       if (_showLrcOnMain) return const SizedBox.shrink();
-                      if (understand!.lrcLines.isEmpty) {
+                      if (understand.lrcLines.isEmpty) {
                         return const SizedBox.shrink();
                       }
                       return Container(

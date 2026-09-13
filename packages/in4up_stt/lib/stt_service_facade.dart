@@ -479,7 +479,7 @@ class SttServiceFacade extends ChangeNotifier {
           dur != null &&
           dur > 60 * 1000;
       if (isLongForMobile) {
-        debugPrint('[Facade] File dai ${dur! ~/ 1000}s >60s tren mobile, SKIP pre-convert de tiet kiem RAM');
+        debugPrint('[Facade] File dai ${dur ~/ 1000}s >60s tren mobile, SKIP pre-convert de tiet kiem RAM');
         convertedPath = null;
       } else {
         convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);

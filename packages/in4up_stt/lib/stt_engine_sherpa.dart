@@ -256,9 +256,6 @@ class SherpaSttEngine implements SttEngine {
     _currentLanguage = language;
     _lastError = null;
 
-    final isVi = language.toLowerCase().startsWith('vi');
-    final isEn = language.toLowerCase().startsWith('en');
-
     var paths = modelPaths ?? SherpaModelManager().getAsrModelPaths(language);
     if (paths == null) {
       _lastError =
@@ -267,48 +264,49 @@ class SherpaSttEngine implements SttEngine {
       return false;
     }
 
-    if (isVi) {
-      // VI: OfflineRecognizer + Silero VAD simulated streaming
+    if (paths.isStreaming) {
+      // True live streaming token-by-token via OnlineRecognizer
+      try {
+        await _initOnline(paths);
+        if (_online == null) {
+          throw Exception('Không tạo được OnlineRecognizer');
+        }
+        _onlineStream?.free();
+        _onlineStream = _online!.createStream();
+        _lastEnPartialText = '';
+      } catch (e) {
+        _lastError = 'Khởi tạo Sherpa streaming STT thất bại: $e';
+        debugPrint('❌ SherpaSttEngine Online init error: $e');
+        return false;
+      }
+    } else {
+      // Non-streaming / Simulated streaming via OfflineRecognizer + Silero VAD
       final vadPath = vadModelPath ??
           SherpaModelManager().vadInfo.localPath ??
           (await _resolveDefaultVadPath());
 
       if (vadPath == null || !File(vadPath).existsSync()) {
         _lastError =
-            'Chưa có model Silero VAD (cần cho live STT tiếng Việt). Mở Quản lý Model AI để tải VAD.';
+            'Chưa có model Silero VAD (cần cho nhận diện offline). Mở Quản lý Model AI để tải VAD.';
         debugPrint('⚠️ SherpaSttEngine: $_lastError');
         return false;
       }
 
       try {
         await _initOffline(paths);
+        if (_offline == null) {
+          throw Exception('Không tạo được OfflineRecognizer');
+        }
         await _initVad(vadPath);
         _viSpeechSamples.clear();
         _vadRemainderSamples.clear();
         _lastViPartialSamplesCount = 0;
         _vad?.clear();
       } catch (e) {
-        _lastError = 'Khởi tạo Sherpa VI STT thất bại: $e';
-        debugPrint('❌ SherpaSttEngine VI init error: $e');
+        _lastError = 'Khởi tạo Sherpa offline STT thất bại: $e';
+        debugPrint('❌ SherpaSttEngine Offline init error: $e');
         return false;
       }
-    } else if (isEn || paths.isStreaming) {
-      // EN / Streaming: OnlineRecognizer
-      try {
-        await _initOnline(paths);
-        _onlineStream?.free();
-        _onlineStream = _online!.createStream();
-        _lastEnPartialText = '';
-      } catch (e) {
-        _lastError = 'Khởi tạo Sherpa EN STT thất bại: $e';
-        debugPrint('❌ SherpaSttEngine EN init error: $e');
-        return false;
-      }
-    } else {
-      // Các ngôn ngữ khác chưa có model
-      _lastError =
-          'Ngôn ngữ $language chưa hỗ trợ STT offline. Hãy chuyển sang Engine Hệ thống.';
-      return false;
     }
 
     _isListening = true;
@@ -331,7 +329,7 @@ class SherpaSttEngine implements SttEngine {
       cancelOnError: true,
     );
 
-    debugPrint('🎙️ SherpaSttEngine started live listening ($language)');
+    debugPrint('🎙️ SherpaSttEngine started live listening ($language, isStreaming=${paths.isStreaming})');
     return true;
   }
 
@@ -347,15 +345,14 @@ class SherpaSttEngine implements SttEngine {
   void acceptPcmSamples(Float32List samples) {
     if (!_isListening) return;
 
-    final isVi = _currentLanguage.toLowerCase().startsWith('vi');
-    if (isVi) {
-      _processViSamples(samples);
-    } else {
-      _processEnSamples(samples);
+    if (_online != null && _onlineStream != null) {
+      _processOnlineSamples(samples);
+    } else if (_offline != null && _vad != null) {
+      _processOfflineVadSamples(samples);
     }
   }
 
-  void _processViSamples(Float32List samples) {
+  void _processOfflineVadSamples(Float32List samples) {
     final vad = _vad;
     final offline = _offline;
     if (vad == null || offline == null) return;
@@ -377,7 +374,7 @@ class SherpaSttEngine implements SttEngine {
         // Nhận diện từng phần định kỳ khi buffer speech tăng thêm >= 0.5s (8000 mẫu)
         if (_viSpeechSamples.length - _lastViPartialSamplesCount >= 8000) {
           _lastViPartialSamplesCount = _viSpeechSamples.length;
-          _runViPartialDecode(offline);
+          _runOfflinePartialDecode(offline);
         }
       }
 
@@ -385,12 +382,12 @@ class SherpaSttEngine implements SttEngine {
       while (!vad.isEmpty()) {
         final seg = vad.front();
         vad.pop();
-        _runViSegmentDecode(offline, seg.samples);
+        _runOfflineSegmentDecode(offline, seg.samples);
       }
     }
   }
 
-  void _runViPartialDecode(sherpa.OfflineRecognizer offline) {
+  void _runOfflinePartialDecode(sherpa.OfflineRecognizer offline) {
     if (_viSpeechSamples.length < 4800) return; // < 0.3s -> bỏ qua
     try {
       final stream = offline.createStream();
@@ -415,11 +412,11 @@ class SherpaSttEngine implements SttEngine {
         stream.free();
       }
     } catch (e) {
-      debugPrint('⚠️ Sherpa VI partial decode error: $e');
+      debugPrint('⚠️ Sherpa offline partial decode error: $e');
     }
   }
 
-  void _runViSegmentDecode(sherpa.OfflineRecognizer offline, Float32List segSamples) {
+  void _runOfflineSegmentDecode(sherpa.OfflineRecognizer offline, Float32List segSamples) {
     if (segSamples.length < 3200) return; // Quá ngắn (<0.2s)
     try {
       final stream = offline.createStream();
@@ -455,11 +452,11 @@ class SherpaSttEngine implements SttEngine {
       _viSpeechSamples.clear();
       _lastViPartialSamplesCount = 0;
     } catch (e) {
-      debugPrint('⚠️ Sherpa VI segment decode error: $e');
+      debugPrint('⚠️ Sherpa offline segment decode error: $e');
     }
   }
 
-  void _processEnSamples(Float32List samples) {
+  void _processOnlineSamples(Float32List samples) {
     final online = _online;
     final stream = _onlineStream;
     if (online == null || stream == null) return;
@@ -511,7 +508,7 @@ class SherpaSttEngine implements SttEngine {
         _lastEnPartialText = '';
       }
     } catch (e) {
-      debugPrint('⚠️ Sherpa EN streaming decode error: $e');
+      debugPrint('⚠️ Sherpa streaming decode error: $e');
     }
   }
 
@@ -535,12 +532,12 @@ class SherpaSttEngine implements SttEngine {
     final models = SherpaModelPaths.fromOptions(options) ??
         SherpaModelManager().getAsrModelPaths(language);
     if (models == null) return false;
-    if (language.toLowerCase().startsWith('vi')) {
-      await _initOffline(models);
-      return _offline != null;
-    } else {
+    if (models.isStreaming) {
       await _initOnline(models);
       return _online != null;
+    } else {
+      await _initOffline(models);
+      return _offline != null;
     }
   }
 
@@ -550,24 +547,23 @@ class SherpaSttEngine implements SttEngine {
     _pcmSubscription = null;
 
     if (_isListening) {
-      final isVi = _currentLanguage.toLowerCase().startsWith('vi');
-      if (isVi && _offline != null) {
+      if (_offline != null && _vad != null) {
         if (_vad != null) {
           _vad!.flush();
           while (!_vad!.isEmpty()) {
             final seg = _vad!.front();
             _vad!.pop();
-            _runViSegmentDecode(_offline!, seg.samples);
+            _runOfflineSegmentDecode(_offline!, seg.samples);
           }
         }
         if (_viSpeechSamples.length >= 4800) {
-          _runViSegmentDecode(_offline!, Float32List.fromList(_viSpeechSamples));
+          _runOfflineSegmentDecode(_offline!, Float32List.fromList(_viSpeechSamples));
         }
         _viSpeechSamples.clear();
         _vadRemainderSamples.clear();
         _lastViPartialSamplesCount = 0;
         _vad?.clear();
-      } else if (!isVi && _online != null && _onlineStream != null) {
+      } else if (_online != null && _onlineStream != null) {
         final res = _online!.getResult(_onlineStream!);
         final finalText = (res.text ?? '').trim();
         if (finalText.isNotEmpty) {

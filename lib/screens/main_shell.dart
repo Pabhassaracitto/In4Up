@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
-import 'package:in4up/features/youtube/youtube_explorer_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
@@ -376,7 +374,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   List<tools.ToolItem> _buildQuickActions(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     final contentTools = <tools.ToolItem>[
       tools.ToolItem(
@@ -680,7 +678,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _handleTool(String toolId) async {
     final nav = Navigator.of(context);
     final vocabProvider = context.read<VocabularyProvider>();
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     void pushVocab(String title, Color color, Widget child) {
       nav.push(
@@ -1182,7 +1180,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       decoration: BoxDecoration(

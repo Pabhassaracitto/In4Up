@@ -2,7 +2,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/learn_by_heart/data/dhammapada_seed_data.dart';
-import 'package:in4up/features/learn_by_heart/models/chunk.dart';
 import 'package:in4up/features/learn_by_heart/models/fsrs_models.dart';
 import 'package:in4up/features/learn_by_heart/models/learn_by_heart_item.dart';
 import 'package:in4up/features/learn_by_heart/models/recitation_repeat.dart';

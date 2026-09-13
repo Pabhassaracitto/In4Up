@@ -46,7 +46,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   late TabController _tabController;
   late RollingWaveformController _waveformController;
   final ScrollController _textScrollController = ScrollController();
-  late UnderstandProvider _understandProvider;
   PlayerProvider? _playerProvider;
   late final VoidCallback _playerListener;
   final ScrollController _lrcScrollController = ScrollController();
@@ -66,7 +65,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
-      final player = _playerProvider!;
       _playerListener = () {
         if (!mounted || !context.mounted) return;
 
@@ -1106,21 +1104,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.uiText('Đã set loop cho dòng ${lineIndex + 1}')),
-        backgroundColor: const Color(0xFF4CAF50),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: context.uiText('Xóa'),
-          textColor: Colors.white,
-          onPressed: () => context.read<PlayerProvider>().clearLoop(),
-        ),
       ),
     );
   }

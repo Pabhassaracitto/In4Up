@@ -267,43 +267,6 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
     );
   }
 
-  Widget _buildIpaCard(String ipa) {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.volume_up),
-        title: Text(
-          ipa,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 18,
-            letterSpacing: 2,
-          ),
-        ),
-        subtitle: const Text('Phiên âm IPA'),
-      ),
-    );
-  }
-
-  Widget _buildAnalyzingBadge() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: 8),
-          Text(
-            'AI đang phân tích sâu...',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildVisualPromptCard(String visualPrompt) {
     return Card(
       color: Colors.amber.shade50,

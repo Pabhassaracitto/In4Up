@@ -197,7 +197,6 @@ class AudioConverter {
       debugPrint('[AudioConverter] File dai ${durationMs}ms ~ $chunkCount chunks, khuyen dung lazy chunking de tranh OOM');
     }
 
-    final dir = Directory.systemTemp.path;
     final baseName = path.basenameWithoutExtension(inputWavPath);
     final chunkPaths = <String>[];
 

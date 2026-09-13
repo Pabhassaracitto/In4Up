@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../../../providers/vocabulary_provider.dart';
 import '../models/dict_info.dart';
 import '../services/dict_import_service.dart';
 import '../services/dictionary_service.dart';

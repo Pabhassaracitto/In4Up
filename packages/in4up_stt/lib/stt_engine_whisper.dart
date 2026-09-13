@@ -539,14 +539,6 @@ class _WhisperLib {
         whisperFullNTokens = _lookupFullNTokens(dylib),
         whisperFullGetTokenData = _lookupGetTokenData(dylib),
         whisperFullGetTokenText = _lookupGetTokenText(dylib);
-
-  static _WhisperLib? tryCreate(ffi.DynamicLibrary dylib) {
-    try {
-      return _WhisperLib(dylib);
-    } catch (_) {
-      return null;
-    }
-  }
 }
 
 class SttEngineWhisper {
@@ -656,7 +648,7 @@ class SttEngineWhisper {
       if (preferred == null) return;
 
       if (pluginFile.existsSync()) {
-        if (pluginFile.lengthSync() == preferred!.lengthSync()) return;
+        if (pluginFile.lengthSync() == preferred.lengthSync()) return;
         debugPrint(
           '[Whisper] ⚠️ File plugin $pluginName '
           '(size=${pluginFile.lengthSync()}) khác model đã verify '
@@ -1749,15 +1741,4 @@ class SttEngineWhisper {
 
 // Dummy/Mock implementations needed to compile for this snippet
 Future<List<double>> _loadAudioAsPcm(String path) async => [];
-List<SttWord> _parseWordTokens(
-        {required _WhisperLib lib,
-        required ffi.Pointer<WhisperContext> ctx,
-        required int segmentIndex}) =>
-    [];
-String _quickFingerprint(String path) => '';
-Future<String> _writeLrcFile(
-        {required SttResult result,
-        required String audioPath,
-        required String outputDirectory}) async =>
-    '';
-SttIsolateResult? _validatePaths(SttIsolatePayload p) => null;
+

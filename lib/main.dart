@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:device_preview/device_preview.dart';
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -96,16 +95,7 @@ Future<void> main() async {
   }
 
   // ★ runApp ngay - không block
-  const bool useDevicePreview = false; // Thay đổi giá trị này thành true khi cần DevicePreview
-
-  runApp(
-    useDevicePreview
-        ? DevicePreview(
-            enabled: true,
-            builder: (context) => const MyApp(),
-          )
-        : const MyApp(),
-  );
+  runApp(const MyApp());
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();

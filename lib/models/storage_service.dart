@@ -208,7 +208,7 @@ class StorageService {
     if (raw is List) {
       return raw
           .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e as Map))
+          .map((e) => Map<String, dynamic>.from(e))
           .toList();
     }
     return const [];
@@ -586,7 +586,9 @@ class StorageService {
   Map<String, int> getAllSavedPositions() {
     final result = <String, int>{};
     for (final key in _positions.keys) {
-      result[key as String] = _positions.get(key)!;
+      final keyStr = key.toString();
+      final val = _positions.get(key);
+      if (val != null) result[keyStr] = val;
     }
     return result;
   }

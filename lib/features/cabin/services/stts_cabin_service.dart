@@ -1,17 +1,27 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:in4up_stt/in4up_stt.dart';
 import 'package:in4up_stt/models/stt_result.dart';
+import 'package:in4up_stt/sherpa_model_manager.dart';
+import 'package:in4up_stt/stt_engine_sherpa.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
 
 import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/tts/tts_service.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
 
+/// Lựa chọn Engine STT cho Dịch Live Cabin.
+enum CabinSttEngineType {
+  system,
+  sherpaOffline,
+}
+
 /// Service điều phối toàn bộ Pipeline Dịch Cabin Trực tiếp (Speech Translation - STS).
 ///
-/// **Luồng xử lý (theo PLAN-008 & WP1):**
-/// 1. Thu âm qua Mic $\rightarrow$ STT Live Streaming (đoạn tạm & đoạn chốt).
+/// **Luồng xử lý (theo PLAN-008 & WP1/WP4):**
+/// 1. Thu âm qua Mic $\rightarrow$ STT Live Streaming (đoạn tạm & đoạn chốt) qua System STT hoặc Sherpa Zipformer offline.
 /// 2. Debounce & chốt câu ngắn (1-3s).
 /// 3. Dịch tự động song song qua [TranslationService] (Offline ML Kit / Online Engine).
 /// 4. Phát âm bản dịch qua [TtsService] (Sherpa Piper TTS offline / System TTS) nếu bật Dubbing.
@@ -24,6 +34,9 @@ class SttsCabinService extends ChangeNotifier {
   SttsCabinService._internal();
 
   final SttServiceFacade _stt = SttServiceFacade();
+  final SherpaSttEngine _sherpaStt = SherpaSttEngine();
+  AudioRecorder? _audioRecorder;
+
   final TranslationService _translator = TranslationService();
   final TtsService _tts = TtsService();
 
@@ -34,6 +47,7 @@ class SttsCabinService extends ChangeNotifier {
   bool _starting = false;
 
   CabinState _state = CabinState.idle;
+  CabinSttEngineType _sttEngineType = CabinSttEngineType.system;
   String _sourceLanguage = 'en';
   String _targetLanguage = 'vi';
   bool _isDubbingEnabled = false;
@@ -47,7 +61,11 @@ class SttsCabinService extends ChangeNotifier {
 
   // ── Getters ───────────────────────────────────────────────────────────────
   CabinState get state => _state;
-  bool get isListening => _state == CabinState.listening || _state == CabinState.translating || _state == CabinState.speaking;
+  CabinSttEngineType get sttEngineType => _sttEngineType;
+  bool get isListening =>
+      _state == CabinState.listening ||
+      _state == CabinState.translating ||
+      _state == CabinState.speaking;
   bool get isPaused => _state == CabinState.paused;
   bool get isDubbingEnabled => _isDubbingEnabled;
   CabinDisplayMode get displayMode => _displayMode;
@@ -62,6 +80,17 @@ class SttsCabinService extends ChangeNotifier {
   bool get shouldShowBubble => isListening || isPaused;
 
   // ── Controls ──────────────────────────────────────────────────────────────
+
+  Future<void> setSttEngineType(CabinSttEngineType type) async {
+    if (_sttEngineType == type) return;
+    _sttEngineType = type;
+    if (isListening) {
+      await stopCabin();
+      await startCabin();
+    } else {
+      notifyListeners();
+    }
+  }
 
   Future<bool> startCabin({
     String? sourceLang,
@@ -91,28 +120,111 @@ class SttsCabinService extends ChangeNotifier {
       debugPrint('⚠️ SttsCabinService permission check error: $e');
     }
 
-    // 2. Initialize STT Facade
+    // Dọn các phiên nghe cũ
+    try {
+      await _stt.stopListening();
+    } catch (_) {}
+    try {
+      await _sherpaStt.stopListening();
+    } catch (_) {}
+    if (_audioRecorder != null) {
+      try {
+        if (await _audioRecorder!.isRecording()) {
+          await _audioRecorder!.stop();
+        }
+        await _audioRecorder!.dispose();
+      } catch (_) {}
+      _audioRecorder = null;
+    }
+
+    // 2. Chạy theo engine được chọn
+    if (_sttEngineType == CabinSttEngineType.sherpaOffline) {
+      final hasModel = SherpaModelManager().hasAsrModel(_sourceLanguage);
+      if (!hasModel) {
+        _state = CabinState.error;
+        _lastError =
+            'Chưa có model Zipformer cho $_sourceLanguage. Mở Quản lý Model AI để tải/import model.';
+        notifyListeners();
+        return false;
+      }
+
+      try {
+        final recorder = AudioRecorder();
+        _audioRecorder = recorder;
+        final pcmStream = await recorder.startStream(
+          const RecordConfig(
+            encoder: AudioEncoder.pcm16bits,
+            sampleRate: 16000,
+            numChannels: 1,
+          ),
+        );
+
+        final ok = await _sherpaStt.startLive(
+          language: _sourceLanguage,
+          pcmStream: pcmStream,
+        );
+
+        if (!ok) {
+          _state = CabinState.error;
+          _lastError = _sherpaStt.lastError ??
+              'Không khởi động được Zipformer ASR cho $_sourceLanguage.';
+          try {
+            await recorder.stop();
+            await recorder.dispose();
+          } catch (_) {}
+          _audioRecorder = null;
+          notifyListeners();
+          return false;
+        }
+
+        await _sttSubscription?.cancel();
+        _sttSubscription = _sherpaStt.liveResultStream.listen(
+          _onLiveSttResult,
+          onError: (e) {
+            debugPrint('❌ SttsCabinService Sherpa stream error: $e');
+            _lastError = '$e';
+            _state = CabinState.error;
+            notifyListeners();
+          },
+        );
+
+        _state = CabinState.listening;
+        _consecutiveStartFails = 0;
+        _startKeepAlive();
+        notifyListeners();
+        debugPrint(
+            '🎙️ SttsCabinService started with Sherpa Zipformer ($_sourceLanguage ➔ $_targetLanguage)');
+        return true;
+      } catch (e) {
+        _state = CabinState.error;
+        _lastError = 'Lỗi khởi động Sherpa STT: $e';
+        if (_audioRecorder != null) {
+          try {
+            await _audioRecorder!.stop();
+            await _audioRecorder!.dispose();
+          } catch (_) {}
+          _audioRecorder = null;
+        }
+        notifyListeners();
+        return false;
+      }
+    }
+
+    // Engine Hệ thống (Native STT)
     try {
       await _stt.initialize();
     } catch (e) {
       debugPrint('⚠️ SttsCabinService STT init warning: $e');
     }
 
-    // Dọn phiên nghe còn treo: flow khác (vd nút Shadowing tab Nghe) có thể
-    // đã start mic mà chưa stop — plugin native TỪ CHỐI start phiên mới nếu
-    // còn "isListening" (đúng lỗi "Không thể khởi động micro"). Hủy sạch.
-    try {
-      await _stt.stopListening();
-    } catch (_) {}
-
     _state = CabinState.listening;
     notifyListeners();
 
-    // Nếu keep-alive đang restart dở → đợi nó xong (tránh báo lỗi sớm).
+    // Nếu keep-alive đang restart dở → đợi nó xong
     for (int i = 0; i < 5 && _starting; i++) {
       await Future.delayed(const Duration(milliseconds: 400));
     }
-    var started = await _tryStartEngine();
+    var started = await _tryStartSystemEngine();
     if (!started && _stt.isLiveListening) started = true; // keep-alive thắng
     if (!started) {
       _state = CabinState.error;
@@ -124,13 +236,12 @@ class SttsCabinService extends ChangeNotifier {
     _consecutiveStartFails = 0;
     _startKeepAlive();
     debugPrint(
-        '🎙️ SttsCabinService started ($_sourceLanguage ➔ $_targetLanguage)');
+        '🎙️ SttsCabinService started with System STT ($_sourceLanguage ➔ $_targetLanguage)');
     return true;
   }
 
-  /// Start engine chế độ hội thoại (không cap 2 phút, ListenMode.dictation).
-  /// Thất bại → stop + RETRY 1 lần (chữa session plugin kẹt).
-  Future<bool> _tryStartEngine() async {
+  /// Start engine hệ thống chế độ hội thoại (không cap 2 phút, ListenMode.dictation).
+  Future<bool> _tryStartSystemEngine() async {
     if (_starting) return false;
     _starting = true;
     try {
@@ -169,10 +280,7 @@ class SttsCabinService extends ChangeNotifier {
     }
   }
 
-  /// Keep-alive: session hệ thống tự chết (im lặng/service restart) trong
-  /// khi cabin vẫn "đang nghe" → tự restart im lặng. Fail 3 lần liên tiếp
-  /// → báo lỗi (tránh vòng lặp vô hạn).
-  /// (Closure 1-arg `(_)` — convention toàn repo với Timer.periodic.)
+  /// Keep-alive: session hệ thống tự chết trong khi cabin vẫn "đang nghe" → tự restart.
   void _startKeepAlive() {
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), (_) {
@@ -191,11 +299,30 @@ class SttsCabinService extends ChangeNotifier {
         _state != CabinState.speaking) {
       return; // paused/stopped/error — không tự restart
     }
+
+    if (_sttEngineType == CabinSttEngineType.sherpaOffline) {
+      if (_sherpaStt.isListening) return;
+      if (_starting) return;
+      debugPrint('♻️ SttsCabinService: Sherpa STT session chết — tự khởi động lại');
+      final ok = await startCabin();
+      if (!ok) {
+        _consecutiveStartFails++;
+        if (_consecutiveStartFails >= 3) {
+          _state = CabinState.error;
+          _lastError = _sherpaStt.lastError ?? 'Sherpa STT gặp sự cố.';
+        }
+      } else {
+        _consecutiveStartFails = 0;
+      }
+      notifyListeners();
+      return;
+    }
+
     if (_stt.isLiveListening) return; // session vẫn sống
     if (_starting) return;
 
-    debugPrint('♻️ SttsCabinService: STT session chết — tự khởi động lại');
-    final ok = await _tryStartEngine();
+    debugPrint('♻️ SttsCabinService: System STT session chết — tự khởi động lại');
+    final ok = await _tryStartSystemEngine();
     if (ok) {
       _consecutiveStartFails = 0;
       _state = CabinState.listening;
@@ -209,8 +336,6 @@ class SttsCabinService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Thông báo lỗi KHỞI ĐỘNG mic/STT có thể hành động (tách biệt: thiếu
-  /// quyền vs không có dịch vụ nhận diện giọng nói của hệ thống).
   Future<String> _buildStartFailureMessage() async {
     final detail = _stt.liveLastError ?? '';
     bool micOk = true;
@@ -223,10 +348,8 @@ class SttsCabinService extends ChangeNotifier {
     }
     return 'Không khởi động được nhận diện giọng nói'
         '${detail.isEmpty ? '' : ' — $detail'}.'
-        'Máy có thể KHÔNG có sẵn dịch vụ Speech Recognition (vd đã tắt/'
-        'gỡ Google app). Kiểm tra: Cài đặt → Ứng dụng → Google Keyboard / '
-        'Speech Services → bật "Nhận diện giọng nói". (Engine Whisper offline '
-        'chỉ dùng cho file/LRC, chưa hỗ trợ mic live.)';
+        'Máy có thể KHÔNG có sẵn dịch vụ Speech Recognition. '
+        'Bạn có thể chuyển sang Engine "Offline (sherpa)" để nhận diện không cần dịch vụ hệ thống.';
   }
 
   Future<void> stopCabin() async {
@@ -236,6 +359,20 @@ class SttsCabinService extends ChangeNotifier {
     _consecutiveStartFails = 0;
     await _sttSubscription?.cancel();
     _sttSubscription = null;
+
+    if (_audioRecorder != null) {
+      try {
+        if (await _audioRecorder!.isRecording()) {
+          await _audioRecorder!.stop();
+        }
+        await _audioRecorder!.dispose();
+      } catch (_) {}
+      _audioRecorder = null;
+    }
+
+    try {
+      await _sherpaStt.stopListening();
+    } catch (_) {}
 
     try {
       await _stt.stopListening();
@@ -251,9 +388,26 @@ class SttsCabinService extends ChangeNotifier {
       await startCabin();
     } else if (isListening) {
       _silenceTimer?.cancel();
-      try {
-        await _stt.stopListening();
-      } catch (_) {}
+
+      if (_sttEngineType == CabinSttEngineType.sherpaOffline) {
+        if (_audioRecorder != null) {
+          try {
+            if (await _audioRecorder!.isRecording()) {
+              await _audioRecorder!.stop();
+            }
+            await _audioRecorder!.dispose();
+          } catch (_) {}
+          _audioRecorder = null;
+        }
+        try {
+          await _sherpaStt.stopListening();
+        } catch (_) {}
+      } else {
+        try {
+          await _stt.stopListening();
+        } catch (_) {}
+      }
+
       _state = CabinState.paused;
       notifyListeners();
     }
@@ -273,7 +427,6 @@ class SttsCabinService extends ChangeNotifier {
     if (_sourceLanguage == lang) return;
     _sourceLanguage = lang;
     if (isListening) {
-      // Restart with new source language
       startCabin();
     } else {
       notifyListeners();
@@ -336,15 +489,20 @@ class SttsCabinService extends ChangeNotifier {
       translatedText: _activeCaption?.translatedText ?? '',
       sourceLang: _sourceLanguage,
       targetLang: _targetLanguage,
-      isFinal: false,
+      isFinal: sttResult.isFinal,
     );
     notifyListeners();
 
-    // Reset silence timer for chunk finalization
-    _silenceTimer?.cancel();
-    _silenceTimer = Timer(const Duration(milliseconds: 1400), () {
+    if (sttResult.isFinal) {
+      _silenceTimer?.cancel();
       _finalizeCurrentChunk(rawText);
-    });
+    } else {
+      // Reset silence timer for chunk finalization
+      _silenceTimer?.cancel();
+      _silenceTimer = Timer(const Duration(milliseconds: 1400), () {
+        _finalizeCurrentChunk(rawText);
+      });
+    }
   }
 
   Future<void> _finalizeCurrentChunk(String text) async {
@@ -435,6 +593,7 @@ class SttsCabinService extends ChangeNotifier {
   @override
   void dispose() {
     stopCabin();
+    _sherpaStt.dispose();
     _captionStreamController.close();
     super.dispose();
   }

@@ -127,17 +127,12 @@ class BilingualVerseView extends StatelessWidget {
                     count: audioService!.lineRepeatFor(ts.line),
                     hasOverride: audioService!.lineRepeatOverride(ts.line) != null,
                     playingCurrent: isActive ? audioService!.lineRepeatCurrent : 0,
-                    onTap: () => showRepeatCountMenu(
-                      context,
-                      current: audioService!.lineRepeatFor(ts.line),
-                      allowInfinite: false,
-                      title: 'Số lần phát câu ${ts.line}',
-                      onChanged: (value) {
-                        audioService!.setLineRepeatOverride(ts.line, value);
-                        onLineRepeatChanged?.call(ts.line, value);
-                      },
-                    ),
-                    onLongPress: audioService!.lineRepeatOverride(ts.line) !=
+                    title: 'Số lần phát câu ${ts.line}',
+                    onChanged: (value) {
+                      audioService!.setLineRepeatOverride(ts.line, value);
+                      onLineRepeatChanged?.call(ts.line, value);
+                    },
+                    onReset: audioService!.lineRepeatOverride(ts.line) !=
                             null &&
                         onLineRepeatChanged != null
                         ? () {
@@ -169,15 +164,17 @@ class _LineRepeatChip extends StatelessWidget {
   final int count;
   final bool hasOverride;
   final int playingCurrent;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
+  final String title;
+  final ValueChanged<int> onChanged;
+  final VoidCallback? onReset;
 
   const _LineRepeatChip({
     required this.count,
     this.hasOverride = false,
     required this.playingCurrent,
-    required this.onTap,
-    this.onLongPress,
+    required this.title,
+    required this.onChanged,
+    this.onReset,
   });
 
   @override
@@ -185,10 +182,24 @@ class _LineRepeatChip extends StatelessWidget {
     final active = count > 1 || playingCurrent > 0 || hasOverride;
     final color = active ? const Color(0xFFFFB300) : Colors.grey;
     return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
+      // opaque = TOÀN bộ vùng chip (kể cả padding) đều bắt chạm —
+      // trước đây deferToChild + chip ~39×19px nhỏ quá: chạm lệch chút
+      // là rơi về InkWell của CẢ DÒNG (chọn/phát cả dòng thay vì mở menu).
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showRepeatCountMenu(
+        // context CỦA CHIP → menu neo sát chip (trước neo vào rect của
+        // cả ListView → menu hiện ngoài màn hình, "như không phản ứng").
+        context,
+        current: count,
+        allowInfinite: false,
+        title: title,
+        onChanged: onChanged,
+      ),
+      onLongPress: onReset,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        // Vùng chạm lớn hơn mắt thấy (min 44×32) — dễ bấm trên điện thoại.
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
         decoration: BoxDecoration(
           color: active
               ? const Color(0xFFFFB300).withValues(alpha: 0.16)
@@ -200,20 +211,22 @@ class _LineRepeatChip extends StatelessWidget {
                 : Colors.white.withValues(alpha: 0.08),
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.repeat, size: 11, color: color),
-            const SizedBox(width: 2),
-            Text(
-              RecitationRepeat.lineLabel(count, current: playingCurrent),
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.repeat, size: 12, color: color),
+              const SizedBox(width: 3),
+              Text(
+                RecitationRepeat.lineLabel(count, current: playingCurrent),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

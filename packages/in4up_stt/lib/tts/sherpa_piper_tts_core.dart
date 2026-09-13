@@ -213,6 +213,37 @@ class SherpaPiperTtsCore {
 
   PiperTtsVoice? get activeVoice => _activeVoice;
 
+  /// Phonemizer (espeak-ng-data) đã sẵn sàng.
+  ///
+  /// ★ BẮT BUỘC kiểm tra TRƯỚC khi tạo `OfflineTts`: sherpa-onnx (C++)
+  /// đọc espeak-ng-data lúc init — thiếu thư mục này thì init native có
+  /// thể SEGFAULT (crash luôn app, Dart try/catch không bắt được).
+  /// Trước đây app vẫn coi Piper "khả dụng" khi chỉ cần có file .onnx
+  /// → câu tiếng Việt đầu tiên chạm Piper là sập app.
+  static Future<bool> isEspeakReady() async {
+    try {
+      final dir = await _modelsDir();
+      final phontab = File(p.join(dir.path, espeakDataFolder, 'phontab'));
+      return phontab.existsSync() && phontab.lengthSync() > 64;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// File model còn "nguyên vẹn" đủ để native load (bắt tải về CẮT GIỮA:
+  /// onnx quá nhỏ = file hỏng — load ORT trên file hỏng cũng có thể crash).
+  static bool isVoiceFilesPlausible(PiperTtsVoice v) {
+    try {
+      final onnx = File(v.modelPath);
+      if (!onnx.existsSync() || onnx.lengthSync() < 1024 * 1024) return false;
+      final tokens = File(v.tokensPath);
+      if (!tokens.existsSync() || tokens.lengthSync() < 1024) return false;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<Directory> _modelsDir() async {
     Directory base;
     try {
@@ -329,6 +360,27 @@ class SherpaPiperTtsCore {
     }
     if (_activeVoice?.name == voiceName && _tts != null) return true;
 
+    // ★ PRE-FLIGHT: chặn native crash TRƯỚC khi tạo OfflineTts.
+    // Thiếu espeak-ng-data hoặc file model bị cắt/già → C++ segfault,
+    // app chết hẳn (Dart không catch được). Trả false để TtsService
+    // fallback sang giọng máy hệ thống (vẫn phát được, không crash).
+    if (!await isEspeakReady()) {
+      debugPrint(
+        '⚠️ SherpaPiperTtsCore: THIẾU espeak-ng-data (phontab) — không init '
+        'Piper (tránh crash native). Cài "phonemizer" trong Cài đặt TTS '
+        '(tự tải ~2MB, dùng chung mọi giọng).',
+      );
+      return false;
+    }
+    if (!isVoiceFilesPlausible(voice)) {
+      debugPrint(
+        '⚠️ SherpaPiperTtsCore: file model $voiceName bất thường '
+        '(onnx <1MB hoặc tokens <1KB — nghi tải về bị cắt) — bỏ qua giọng '
+        'này (tránh crash native).',
+      );
+      return false;
+    }
+
     // Đổi giọng → free bản cũ (pointer cũ không dùng nữa)
     try {
       _tts?.free();
@@ -336,6 +388,13 @@ class SherpaPiperTtsCore {
     _tts = null;
 
     try {
+      // Log đủ để định vị nếu crash native vẫn xảy ra (logcat dòng cuối).
+      debugPrint(
+        '🎙️ SherpaPiperTtsCore: init native "$voiceName" — '
+        'onnx=${File(voice.modelPath).lengthSync() ~/ 1024}KB, '
+        'tokens=${File(voice.tokensPath).lengthSync() ~/ 1024}KB, '
+        'espeak=OK, numThreads=2',
+      );
       ensureSherpaBindings();
       final modelConfig = sherpa.OfflineTtsModelConfig(
         vits: sherpa.OfflineTtsVitsModelConfig(

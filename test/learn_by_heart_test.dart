@@ -2,11 +2,8 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/learn_by_heart/data/dhammapada_seed_data.dart';
-import 'package:in4up/features/learn_by_heart/models/chunk.dart';
 import 'package:in4up/features/learn_by_heart/models/fsrs_models.dart';
 import 'package:in4up/features/learn_by_heart/models/learn_by_heart_item.dart';
-import 'package:in4up/features/learn_by_heart/models/line_timestamp.dart';
-import 'package:in4up/features/learn_by_heart/models/recitation_category.dart';
 import 'package:in4up/features/learn_by_heart/models/recitation_repeat.dart';
 import 'package:in4up/features/learn_by_heart/models/review_state.dart';
 import 'package:in4up/features/learn_by_heart/services/cloze_generator.dart';
@@ -20,8 +17,7 @@ void main() {
       final item = items.first.copyWith(
         lineRepeatOverrides: const {1: 5, 3: 2, 7: 999},
       );
-      final restored =
-          LearnByHeartItem.fromJson(item.toJson() as Map<String, dynamic>);
+      final restored = LearnByHeartItem.fromJson(item.toJson());
       expect(restored.lineRepeatOverrides, {1: 5, 3: 2, 7: 999});
 
       // Item không có override (item cũ) → rỗng, không crash.

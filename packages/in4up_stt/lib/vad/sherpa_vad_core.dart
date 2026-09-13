@@ -24,8 +24,6 @@
 //   vad.acceptWaveform(Float32List) / isDetected() / isEmpty() /
 //   front() -> SpeechSegment{samples, start} / pop() / flush() / free()
 
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 

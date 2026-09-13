@@ -18,7 +18,6 @@ class MdxParser {
     // Đọc header
     final header = reader.readHeader();
     final encoding = header['encoding'] as String? ?? 'UTF-8';
-    final keyType = header['key_type'] as int? ?? 0;
 
     // Đọc index blocks
     final entries = reader.readEntries(encoding: encoding, dictId: dictId);

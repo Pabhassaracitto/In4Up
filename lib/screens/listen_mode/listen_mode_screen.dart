@@ -79,7 +79,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   SoundlistProvider? _soundlistProvider;
   bool _prevAutoTocRunning = false;
 
-  bool _isAppVisible = true;
   bool _isUserSeeking = false;
   bool _isCurrentRoute = true;
   late final VoiceCommandService _voiceCommandService;
@@ -87,14 +86,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   String _lastVoiceText = '';
 
   // ★ LRC state - curtain style
-  List<String> _lrcLines = [];
   bool _showLrcOnMain = false;
   Map<String, int> _speakerColorMap = const {};
-  bool _lrcAutoScroll = true;
   double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
   static const double _lrcMinHeight = 64.0; // when collapsed, show handle
   static const double _lrcDefaultHeight = 220.0;
-  double _lrcDragStartHeight = 320.0;
 
   // LISTEN-630-01: panel inline (AB loop / tốc độ / AI) đang mở —
   // rèm LRC phải nhường chỗ để không bottom overflow che thanh điều hướng
@@ -141,9 +137,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    setState(() => _isAppVisible = state == AppLifecycleState.resumed);
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   /// Theo dõi job "Tự tạo mục lục" chạy nền → snackbar khi hoàn tất.
   void _onSoundlistChange() {
@@ -205,7 +199,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (player.lastGeneratedLrcPath != null) {
       _loadLrcFile(player.lastGeneratedLrcPath!);
       final understandProvider = context.read<UnderstandProvider>();
-      if (understandProvider!.lrcLines.isNotEmpty) {
+      if (understandProvider.lrcLines.isNotEmpty) {
         _showLrcOnMain = true;
       }
     }
@@ -504,7 +498,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       final speakerMap = await SpeakerSidecar.loadSpeakerMap(lrcPath);
       if (mounted && lines.isNotEmpty) {
         setState(() {
-          _lrcLines = lines;
           _speakerColorMap = speakerMap;
           _showLrcOnMain = true;
         });
@@ -845,7 +838,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   if (_showLrcOnMain)
                     Consumer<UnderstandProvider>(
                       builder: (context, understand, _) {
-                        final hasLines = understand!.lrcLines.isNotEmpty;
+                        final hasLines = understand.lrcLines.isNotEmpty;
                         // LISTEN-630-01: budget chiều cao rèm LRC = màn hình
                         // trừ (song info + controls + panel inline đang mở +
                         // bottom padding + waveform tối thiểu) — hết bottom
@@ -919,9 +912,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                               // Drag handle - curtain: kéo như rèm
                               GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onVerticalDragStart: (d) {
-                                  _lrcDragStartHeight = _lrcHeight;
-                                },
+                                onVerticalDragStart: (d) {},
                                 onVerticalDragUpdate: (d) {
                                   // Kéo lên => tăng height, kéo xuống => giảm
                                   // Dùng delta.dy: kéo lên delta âm, nên -delta => tăng
@@ -1255,7 +1246,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                   Consumer<UnderstandProvider>(
                     builder: (context, understand, _) {
                       if (_showLrcOnMain) return const SizedBox.shrink();
-                      if (understand!.lrcLines.isEmpty) {
+                      if (understand.lrcLines.isEmpty) {
                         return const SizedBox.shrink();
                       }
                       return Container(

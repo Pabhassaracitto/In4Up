@@ -763,6 +763,7 @@ mode, không phụ thuộc speech service hệ thống:
     prompt bàn giao docs/Bangiao/bangiao_sherpa_wp4_live_stt.md +
     KANBAN SHERPA-WP4-01; chờ owner mở nhánh sherpa
 
+
 ### PLAN-024 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
 - **Nguồn:** owner (2026-09-05) — "tích hợp từ điển dạng mdd mdx vào dự án"
 - **Trạng thái:** doing — triển khai trên session arena/01a07234-in4up
@@ -895,4 +896,5 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - **Trạng thái**: ✅ Hoàn thành
 - **Commit**: `c15b0b7` on `arena/01a07234-in4up`
 - **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
+
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).

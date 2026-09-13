@@ -1018,15 +1018,6 @@ class _WordListScreenState extends State<WordListScreen> {
     await _playbackService.playSingle(entry);
   }
 
-  Future<void> _speakWordLegacy(String text) async {
-    // For cases where only text is available
-    final vocab = context.read<VocabularyProvider>();
-    final match = vocab.allWords.where((w) => w.word == text).toList();
-    if (match.isNotEmpty) {
-      await _playbackService.playSingle(match.first);
-    }
-  }
-
   void _showAddMenu(VocabularyProvider provider) {
     showModalBottomSheet(
       context: context,

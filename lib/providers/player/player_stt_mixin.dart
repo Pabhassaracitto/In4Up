@@ -7,10 +7,9 @@ import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 
-import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import 'package:in4up_stt/diarization/diarization_service.dart';
 import 'package:in4up_stt/diarization/speaker_sidecar.dart';
-import '../../features/vad/pipeline/vad_whisper_pipeline.dart';
+import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../../services/source_artifact_store.dart';
 import '../../utils/audio_source_identity.dart';
@@ -108,15 +107,6 @@ mixin PlayerSttMixin on ChangeNotifier {
     return hit?.lrcPath;
   }
 
-  String _replaceExtension(String path, String newExt) {
-    final lastDot = path.lastIndexOf('.');
-    final lastSlash = path.lastIndexOf('/');
-    if (lastDot > lastSlash && lastDot >= 0) {
-      return '${path.substring(0, lastDot)}$newExt';
-    }
-    return '$path$newExt';
-  }
-
   Future<List<LrcLine>> parseLrcFile(String lrcPath) async {
     try {
       final file = File(lrcPath);
@@ -125,7 +115,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       final content = await file.readAsString();
       // Dùng SttLrcConverter để tách đúng: bỏ inline `<mm:ss.cs>` khỏi text
       // hiển thị và lưu vào words cho karaoke (tránh lộ timestamps ra chữ).
-      final lines = await SttLrcConverter().parseLrcContent(content);
+      final lines = SttLrcConverter().parseLrcContent(content);
       debugPrint('📄 Parsed ${lines.length} LRC lines from $lrcPath');
       return lines;
     } catch (e) {

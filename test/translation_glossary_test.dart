@@ -18,7 +18,6 @@ import 'package:in4up/features/translation/engines/translation_engine.dart';
 import 'package:in4up/features/translation/engines/mlkit_engine.dart';
 import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/translation/glossary/glossary_store.dart';
-import 'package:in4up/features/translation/glossary/protect_tokens.dart';
 import 'package:in4up/features/translation/glossary/translation_glossary.dart';
 import 'package:in4up/models/word_entry.dart';
 

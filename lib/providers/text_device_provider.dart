@@ -3,9 +3,18 @@
 //
 // Tương tự AudioLibraryProvider (thư viện nhạc quét MediaStore), nhưng văn
 // bản KHÔNG có trong MediaStore (scoped storage chặn quyền đọc tùy ý) nên
-// dùng cơ chế người dùng CHỌN THƯ MỤC (ACTION_OPEN_DOCUMENT_TREE qua
-// file_picker) + native DocumentsContract liệt kê đệ quy. Chỉ cần 1 lần
-// chọn → quyền persist (keepTreePermission) → lần sau tự quét lại.
+// dùng cơ chế người dùng CHỌN THƯ MỤC (ACTION_OPEN_DOCUMENT_TREE — mở
+// TRỰC TIẾP từ native qua TextDeviceChannel.pickFolder, xem bên dưới) +
+// native DocumentsContract liệt kê đệ quy. Chỉ cần 1 lần chọn → quyền
+// persist ngay trong onActivityResult → lần sau tự quét lại.
+//
+// ⚠️ Tại sao KHÔNG dùng FilePicker.getDirectoryPath cho luồng quét này:
+// plugin trả RAW FILE PATH (/storage/3033-3963/...) chứ không phải SAF
+// content:// tree URI → native DocumentsContract.getTreeDocumentId throw
+// "Invalid URI", takePersistableUriPermission throw SecurityException →
+// quét ra rỗng, UI báo "không tìm thấy file" dù thư mục có file.
+// Lịch sử: bản cũ từng lưu raw path vào prefs → _migrateLegacyFolder()
+// chuẩn hoá một lần và cố persist lại quyền.
 //
 // Nền tảng khác (iOS/Linux/Windows): supported = false → UI rơi về chọn
 // file thủ công (FilePicker) như trước.
@@ -15,6 +24,7 @@ import 'dart:io' show Platform;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/text_device_entry.dart';
@@ -44,11 +54,14 @@ class TextDeviceProvider extends ChangeNotifier {
   /// Đã chọn thư mục chưa?
   bool get hasFolder => _treeUri != null && _treeUri!.isNotEmpty;
 
-  /// Tên thư mục (segment cuối của tree URI) để hiện trên UI.
+  /// Tên thư mục hiện trên UI.
+  ///
+  /// Tree URI chuẩn (`content://.../tree/<volume>%3A<đường%2Fdẫn>`) hoặc
+  /// legacy raw path (`/storage/.../<tên thư mục>`) đều rút ra TÊN thư mục
+  /// (segment cuối) thay vì nguyên đường dẫn dài.
   /// Giải mã %XX AN TOÀN: nếu URI có percent-encoding lỗi (vd tên thư mục
-  /// chứa ký tự đặc biệt làm file_picker encode sai), KHÔNG throw — chỉ
-  /// decode các cặp %XX hợp lệ, giữ nguyên phần còn lại (tránh màn đỏ
-  /// "Illegal percent encoding in URI").
+  /// chứa ký tự đặc biệt), KHÔNG throw — chỉ decode các cặp %XX hợp lệ,
+  /// giữ nguyên phần còn lại (tránh màn đỏ "Illegal percent encoding").
   String get folderLabel {
     final uri = _treeUri;
     if (uri == null || uri.isEmpty) return '';
@@ -56,9 +69,16 @@ class TextDeviceProvider extends ChangeNotifier {
     if (parts.isEmpty) return uri;
     final last = parts.last;
     // Decode %XX an toàn: chỉ decode cặp %XX hợp lệ, giữ nguyên % lỗi.
-    var decoded = safeDecodeComponent(last);
+    final decoded = safeDecodeComponent(last);
+    // Tree URI chuẩn: "<volume>:<đường/dẫn/tới/thư mục>" → bỏ volume id,
+    // lấy segment cuối sau dấu "/".
     final colon = decoded.lastIndexOf(':');
-    return colon >= 0 ? decoded.substring(colon + 1) : decoded;
+    final tail = colon >= 0 ? decoded.substring(colon + 1) : decoded;
+    final segs = tail.split('/').where((s) => s.isNotEmpty).toList();
+    if (segs.isNotEmpty) return segs.last;
+    if (tail.isNotEmpty) return tail;
+    // Chọn ngay root của ổ (vd "3033-3963:") → hiện tên ổ.
+    return decoded.split(':').first;
   }
 
   /// Uri.decodeComponent an toàn: decode %XX hợp lệ (UTF-8), giữ nguyên
@@ -109,27 +129,50 @@ class TextDeviceProvider extends ChangeNotifier {
   /// Trả về true nếu user chọn (hủy → false).
   Future<bool> pickFolder() async {
     if (!supported) return false;
-    String? path;
+    String? uri;
     try {
-      path = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Chọn thư mục chứa tài liệu',
-      );
+      // Ưu tiên picker native (ACTION_OPEN_DOCUMENT_TREE mở trực tiếp từ
+      // MainActivity): trả CONTENT:// tree URI thật + đã persist quyền đọc
+      // ngay trong onActivityResult. KHÔNG dùng FilePicker.getDirectoryPath
+      // — hàm đó trả RAW PATH (/storage/...) khiến DocumentsContract không
+      // đọc được (bug "không tìm thấy file" dù thư mục có file).
+      uri = await TextDeviceChannel.pickFolder();
+    } on MissingPluginException {
+      // Native build bởi bản code cũ chưa có pickFolder → fallback
+      // file_picker; đoạn dưới sẽ normalize raw path → content:// và cố
+      // persist grant (grant tạm thời còn trong phiên ngay sau khi chọn).
+      debugPrint('[TextDevice] native pickFolder chưa có → dùng file_picker');
+      try {
+        uri = await FilePicker.getDirectoryPath(
+          dialogTitle: 'Chọn thư mục chứa tài liệu',
+        );
+      } catch (e) {
+        debugPrint('[TextDevice] getDirectoryPath error: $e');
+        return false;
+      }
     } catch (e) {
-      debugPrint('[TextDevice] getDirectoryPath error: $e');
+      debugPrint('[TextDevice] pickFolder error: $e');
+      _error = 'Không mở được trình chọn thư mục.';
+      notifyListeners();
       return false;
     }
-    if (path == null || path.isEmpty) return false;
+    if (uri == null || uri.isEmpty) return false; // user hủy
 
-    _treeUri = path;
+    // Chuẩn hoá về content:// tree URI (legacy raw path → SAF URI) rồi giữ
+    // persistable permission. Với URI từ native picker: đã persist sẵn —
+    // gọi lại vẫn an toàn (no-op).
+    final canonical = await TextDeviceChannel.normalizeTreeUri(uri);
+    if (canonical != null && canonical.isNotEmpty) uri = canonical;
+    await TextDeviceChannel.keepTreePermission(uri);
+
+    _treeUri = uri;
     _error = null;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_treeUriKey, path);
+      await prefs.setString(_treeUriKey, uri);
     } catch (e) {
       debugPrint('[TextDevice] save treeUri error: $e');
     }
-    // Giữ persistable permission (an toàn nếu file_picker chưa tự giữ).
-    await TextDeviceChannel.keepTreePermission(path);
     notifyListeners();
     await scan();
     return true;
@@ -152,6 +195,8 @@ class TextDeviceProvider extends ChangeNotifier {
         ..sort((a, b) => b.modified.compareTo(a.modified));
       _scannedOnce = true;
     } catch (e) {
+      // TextDeviceScanException (PERMISSION_LOST/BAD_URI): message tiếng
+      // Việt có hướng khắc phục — UI hiện lên + nút "Chọn thư mục khác".
       _error = e.toString();
     } finally {
       _scanning = false;
@@ -162,9 +207,35 @@ class TextDeviceProvider extends ChangeNotifier {
   /// Quét lần đầu khi mở tab (idempotent).
   Future<void> ensureScanned() async {
     await init();
+    await _migrateLegacyFolder();
     if (hasFolder && !_scannedOnce && !_scanning) {
       await scan();
     }
+  }
+
+  /// Bản cũ lưu RAW PATH (/storage/... từ file_picker) thay vì content://
+  /// tree URI → native không quét được ("không tìm thấy file" dù có file).
+  /// Chuẩn hoá một lần về SAF URI rồi cập nhật prefs; nếu grant từ lần chọn
+  /// cũ còn (persisted) → quét luôn được. Không còn grant → scan báo lỗi
+  /// PERMISSION_LOST rõ ràng, hướng user chọn lại thư mục (thay vì lặng
+  /// lặng hiện "thư mục trống" như trước).
+  Future<void> _migrateLegacyFolder() async {
+    final uri = _treeUri;
+    if (uri == null || uri.isEmpty || !supported) return;
+    if (uri.startsWith('content://')) return; // đã chuẩn
+    final canonical = await TextDeviceChannel.normalizeTreeUri(uri);
+    if (canonical == null || canonical.isEmpty || canonical == uri) return;
+    final kept = await TextDeviceChannel.keepTreePermission(canonical);
+    _treeUri = canonical;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_treeUriKey, canonical);
+    } catch (e) {
+      debugPrint('[TextDevice] migrate save error: $e');
+    }
+    debugPrint(
+      '[TextDevice] legacy folder → $canonical (keptPermission=$kept)',
+    );
   }
 
   /// Bỏ chọn thư mục (xóa quyền ghi nhớ + làm trống danh sách).

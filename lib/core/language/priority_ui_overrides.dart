@@ -2117,4 +2117,60 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '點空格揭曉 · 點普通詞加成空格',
     'si': 'හිස්තැන තට්ටු කර පෙන්වන්න · සාමාන්‍ය වචනය තට්ටු කර එක් කරන්න',
   },
+
+  // ── Tipiṭaka / Dictionary (rule #5) ──────────────────────────────────────
+  // 251e xoá 18 entry one-line khỏi file này ở `c738b85` (cloze/Pāli) nhưng các
+  // màn tipitaka VẪN gọi `context.uiText('Thư viện Tipiṭaka')` v.v. ⇒ với locale
+  // ≠ `vi` app hiện nguyên tiếng Việt, phạm quy tắc vàng #5. Đăng ký lại 15
+  // key mà mã nguồn đang tham chiếu (đối chiếu bằng
+  // test/tipitaka_dictionary_i18n_coverage_test.dart). Chỉ có `en`: đó là fallback
+  // có chủ đích theo rule #5 — không bịa bản dịch hi/zh/si chưa ai review.
+  'Thư viện Tipiṭaka': {
+    'en': 'Tipiṭaka Library',
+  },
+  'Đọc Tipiṭaka': {
+    'en': 'Read Tipiṭaka',
+  },
+  'sách đang chọn': {
+    'en': 'books in this collection',
+  },
+  'Chưa tìm thấy sách trong mục này.': {
+    'en': 'No books were found in this collection.',
+  },
+  'Cài đặt hiển thị': {
+    'en': 'Display settings',
+  },
+  'Pāli nguyên bản': {
+    'en': 'Pāli original',
+  },
+  'Thu nhỏ chữ': {
+    'en': 'Decrease text size',
+  },
+  'Phóng to chữ': {
+    'en': 'Increase text size',
+  },
+  'Về đầu sách': {
+    'en': 'Back to the top',
+  },
+  'Tải thêm đoạn': {
+    'en': 'Load more segments',
+  },
+  'Đoạn đã tải': {
+    'en': 'segments loaded',
+  },
+  'đoạn đã tải': {
+    'en': 'segments loaded',
+  },
+  'Đã hiển thị toàn bộ nội dung sách.': {
+    'en': 'The entire book is displayed.',
+  },
+  'Đoạn này chưa có nội dung văn bản.': {
+    'en': 'This segment has no text content.',
+  },
+  'Đoạn tiêu đề chưa có nội dung.': {
+    'en': 'This heading has no content.',
+  },
+  'Không thể mở nội dung sách.': {
+    'en': 'Could not open the book content.',
+  },
 };

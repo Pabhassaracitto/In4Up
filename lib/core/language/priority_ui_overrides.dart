@@ -688,6 +688,40 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '下載 Piper 音色（約 75MB，自動安裝）',
     'si': 'Piper හඬ බාගන්න (~75MB, ස්වයං ස්ථාපනය)',
   },
+  'Download Piper voice (~75MB, auto-install)': {
+    'en': 'Download Piper voice (~75MB, auto-install)',
+    'hi': 'Piper आवाज़ डाउनलोड (~75MB, खुद इंस्टॉल)',
+    'zh': '下载 Piper 音色（约 75MB，自动安装）',
+    'zh_TW': '下載 Piper 音色（約 75MB，自動安裝）',
+    'si': 'Piper හඬ බාගන්න (~75MB, ස්වයං ස්ථාපනය)',
+  },
+  'Show more languages': {
+    'en': 'Show more languages',
+    'hi': 'और भाषाएँ दिखाएँ',
+    'zh': '显示更多语言',
+    'zh_TW': '顯示更多語言',
+    'si': 'තවත් භාෂා පෙන්වන්න',
+  },
+  'Hide extra languages': {
+    'en': 'Hide extra languages',
+    'hi': 'अतिरिक्त भाषाएँ छिपाएँ',
+    'zh': '收起其他语言',
+    'zh_TW': '收起其他語言',
+    'si': 'අමතර භාෂා සඟවන්න',
+  },
+  'Priority: Vietnamese, English, Chinese, Hindi. More languages below. Source: HuggingFace rhasspy/piper-voices (k2-fsa bundle first). Sinhala is not in this catalog yet.':
+      {
+    'en':
+        'Priority: Vietnamese, English, Chinese, Hindi. More languages below. Source: HuggingFace rhasspy/piper-voices (k2-fsa bundle first). Sinhala is not in this catalog yet.',
+    'hi':
+        'प्राथमिकता: वियतनामी, अंग्रेज़ी, चीनी, हिंदी। और भाषाएँ नीचे। स्रोत: HuggingFace rhasspy/piper-voices। सिंहला अभी कैटलॉग में नहीं।',
+    'zh':
+        '优先：越南语、英语、中文、印地语。更多语言在下方。来源：HuggingFace rhasspy/piper-voices（先试 k2-fsa）。僧伽罗语暂未收录。',
+    'zh_TW':
+        '優先：越南語、英語、中文、印地語。更多語言在下方。來源：HuggingFace rhasspy/piper-voices（先試 k2-fsa）。僧伽羅語暫未收錄。',
+    'si':
+        'ප්‍රමුඛතාව: වියට්නාම, ඉංග්‍රීසි, චීන, හින්දි. තවත් භාෂා පහත. මූලාශ්‍රය: HuggingFace rhasspy/piper-voices. සිංහල තවම නැත.',
+  },
   'en_US-libritts_r-medium (Anh, nữ)': {
     'en': 'en_US-libritts_r-medium (English, female)',
     'hi': 'en_US-libritts_r-medium (अंग्रेज़ी, महिला)',

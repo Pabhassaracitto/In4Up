@@ -78,6 +78,8 @@
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
+| VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
+| TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 
 
@@ -2110,3 +2112,15 @@
 - **Lịch sử:**
   - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | AnimatedSize
     gập đáy về 0 trong Focus mode; chờ CI + nghiệm thu
+
+### VIENEU-001 — VieNeu-TTS (PLAN-027)
+- **Trạng thái:** proposed
+- **Nội dung:** ghi kế hoạch, chưa implement. Engine TTS Việt bổ sung qua sherpa OfflineTts nếu có ONNX verify.
+- **Lịch sử:**
+  - 2026-09-15 | created | owner via arena/01a08043-in4up | chỉ ghi plan
+
+### TTS-PIPER-002 — Catalog tải Piper (HuggingFace rhasspy/piper-voices)
+- **Trạng thái:** doing
+- **Nội dung:** sheet Tải giọng ưu tiên VI/EN/ZH/HI + Show more; k2-fsa tar trước, HF onnx+json fallback.
+- **Lịch sử:**
+  - 2026-09-15 | created→doing | agent arena/01a08043-in4up

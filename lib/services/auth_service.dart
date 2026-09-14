@@ -25,15 +25,6 @@ class AuthService {
     }
   }
 
-  bool get _hasAuth {
-    try {
-      FirebaseAuth.instance;
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   GoogleSignIn? _googleSignIn;
 
   // ─── Getters ──────────────────────────────────────────────
@@ -70,8 +61,6 @@ class AuthService {
   }
 
   // ─── OAuth Client IDs (vipsound-df903 project) ─────────────
-  static const String _defaultWebClientId =
-      '342774597309-tnje3k849jc42tmkukl8knl5jcvg13tc.apps.googleusercontent.com';
   static const String _envWebClientId =
       '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com';
 

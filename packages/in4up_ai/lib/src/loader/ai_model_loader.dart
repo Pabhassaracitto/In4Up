@@ -38,7 +38,6 @@ class AiModelConfig {
 
   /// Key lưu path model đã import (Tầng B)
   static const String _prefKeyModelPath = 'in4up_ai_model_path';
-  static const String _prefKeyModelSource = 'in4up_ai_model_source';
 
   /// URL download backup (Tầng C) - thay bằng server của bạn
   /// Không dùng Firebase Storage

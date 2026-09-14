@@ -27,7 +27,7 @@ extension AudioSourceX on AudioSource {
 }
 
 class AudioLibraryEntry {
-  /// Khóa ổn định: 'media_<id>' | 'folder_<uri>_<docId>' | 'picked_<hash>' | 'recent_<id>'
+  /// Khóa ổn định: `media_<id>` | `folder_<uri>_<docId>` | `picked_<hash>` | `recent_<id>`
   final String libraryId;
 
   /// Địa chỉ phát: content:// hoặc file path chuẩn hóa (\\ → /)

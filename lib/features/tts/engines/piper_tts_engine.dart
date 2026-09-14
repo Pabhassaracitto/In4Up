@@ -34,7 +34,14 @@ class PiperTtsEngine implements TtsEngine {
   @override
   Future<bool> isAvailable() async {
     final voices = await SherpaPiperTtsCore.discoverVoices();
-    return voices.isNotEmpty;
+    if (voices.isEmpty) return false;
+    // ★ Có .onnx nhưng THIẾU espeak-ng-data (phonemizer) thì native
+    // OfflineTts có thể SEGFAULT → coi Piper KHÔNG khả dụng để TtsService
+    // fallback ngay sang giọng máy (vẫn đọc được, không crash app).
+    // User vẫn thấy giọng trong "Quản lý model" và cài phonemizer được.
+    if (!await SherpaPiperTtsCore.isEspeakReady()) return false;
+    // Chỉ khả dụng nếu ÍT NHẤT 1 giọng có file model nguyên vẹn.
+    return voices.any(SherpaPiperTtsCore.isVoiceFilesPlausible);
   }
 
   @override

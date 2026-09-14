@@ -1,6 +1,5 @@
 // lib/providers/player/player_stats_mixin.dart
 
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../models/playback_state.dart';
 import '../../models/segment.dart';

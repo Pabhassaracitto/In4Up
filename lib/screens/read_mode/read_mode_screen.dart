@@ -173,31 +173,46 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                             child: _buildTextList(textProvider, isFocusMode),
                           ),
                   ),
-                  // Bottom controls with smart hide animation
-                  AnimatedSlide(
+                  // Bottom controls with smart hide animation.
+                  // FOCUS MODE: gập CHIỀU CAO về 0 (trả không gian cho
+                  // vùng đọc) — trước đây chỉ slide/opacity nên đáy vẫn
+                  // chiếm khoảng trống dù không hiện icon.
+                  // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi cũ: chỉ
+                  // slide, không gập — tránh văn bản nhảy khi đọc.)
+                  AnimatedSize(
                     duration: const Duration(milliseconds: 260),
                     curve: Curves.easeOutCubic,
-                    offset: _bottomControlsVisible && !isFocusMode
-                        ? Offset.zero
-                        : const Offset(0, 1.2),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _bottomControlsVisible && !isFocusMode ? 1 : 0,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SmartPlaybackBar(),
-                          ReadBottomBar(
-                            showWordlistPanel: _showWordlistPanel,
-                            onToggleWordlist: () {
-                              setState(() =>
-                                  _showWordlistPanel = !_showWordlistPanel);
-                              HapticFeedback.lightImpact();
-                            },
+                    alignment: Alignment.topCenter,
+                    child: isFocusMode
+                        ? const SizedBox(width: double.infinity, height: 0)
+                        : ClipRect(
+                            child: AnimatedSlide(
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                              offset: _bottomControlsVisible
+                                  ? Offset.zero
+                                  : const Offset(0, 1.2),
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: _bottomControlsVisible ? 1 : 0,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SmartPlaybackBar(),
+                                    ReadBottomBar(
+                                      showWordlistPanel: _showWordlistPanel,
+                                      onToggleWordlist: () {
+                                        setState(() =>
+                                            _showWordlistPanel =
+                                                !_showWordlistPanel);
+                                        HapticFeedback.lightImpact();
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
                   ),
                   if (isSmallScreen && !isFocusMode && !_bottomControlsVisible)
                     const SizedBox(height: 8),

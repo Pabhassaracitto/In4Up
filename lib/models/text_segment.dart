@@ -146,7 +146,7 @@ class TextSegment {
 
   /// Label tiếng Việt cho type
   String typeLabel(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     switch (type) {
       case TextSegmentType.vocabulary:
         return l10n.typeVocabulary;
@@ -165,7 +165,7 @@ class TextSegment {
 
   /// Label tiếng Việt cho difficulty
   String difficultyLabel(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     switch (difficulty) {
       case TextSegmentDifficulty.easy:
         return l10n.diffEasy;

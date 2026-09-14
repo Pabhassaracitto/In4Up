@@ -62,7 +62,7 @@
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
 | HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done + CI xanh (chờ nghiệm thu) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
-| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
+| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh + fix hậu nghiệm thu b08567a (chờ nghiệm thu lại máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 | DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
@@ -1594,7 +1594,7 @@
     class _EffortSlider; chờ CI + nghiệm thu
 
 ### READ-DEV-001 — Thư viện đọc: quét + hiển thị file trên máy (như thư viện nhạc)
-- **Trạng thái:** done + CI xanh 33944392085 (chờ nghiệm thu máy)
+- **Trạng thái:** done + CI xanh 33944392085 + fix hậu nghiệm thu b08567a (chờ nghiệm thu lại máy)
 - **Nguồn:** yêu cầu owner: "Thư viện nhạc đã có thể quét từ máy, vậy hãy làm
   cho thư viện đọc cũng có thể quét và hiển thị từ máy thay vì phải mở sâu vào
   trong hệ thống bất tiện cho người dùng."
@@ -1633,6 +1633,22 @@
     %2F) + Dart `TextDeviceProvider.safeDecodeComponent` (folderLabel decode
     an toàn, không throw); + màu tile theo ext (pdf đỏ / docx xanh / lrc-srt
     cam / text xanh lá)
+  - 2026-09-15 | fix hậu nghiệm thu máy | agent arena/01a07d68-in4up |
+    commit b08567a (+ merge 294a332 kéo 251e mới nhất) | BUG từ logcat
+    tablet (thẻ SD 3033-3963): chọn thư mục xong báo "Không tìm thấy
+    file văn bản/PDF" dù thư mục có file. Gốc:
+    FilePicker.getDirectoryPath trả RAW PATH (/storage/...) chứ không
+    phải SAF content:// tree URI → DocumentsContract.getTreeDocumentId
+    throw "Invalid URI: /storage/..." + takePersistableUriPermission
+    throw SecurityException; cả 2 bị try/catch nuốt lặng → scanTree
+    rỗng. FIX: native pickFolder mở ACTION_OPEN_DOCUMENT_TREE trực
+    tiếp + takePersistableUriPermission ngay trong onActivityResult
+    (trả content:// thật); normalizeTreeUri (legacy raw path →
+    <volume>:<path>, hỗ trợ /storage/emulated + thẻ SD/USB);
+    scanTree/keepTreePermission tự normalize + báo PERMISSION_LOST/
+    BAD_URI thay vì nuốt lặng; Dart _migrateLegacyFolder tự chuẩn hoá
+    raw path đã lưu trong prefs bản cũ. Nghiệm thu lại cần: chọn lại
+    thư mục 1 lần → hiện danh sách → restart app vẫn quét được.
 
 ### LHB-004 — Lặp TTS RIÊNG từng câu (số lần tùy ý/câu) + persist theo bài
 - **Trạng thái:** done (chờ CI + nghiệm thu máy)

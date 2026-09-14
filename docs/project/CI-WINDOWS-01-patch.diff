@@ -1,0 +1,111 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 3d95add..a0c2a21 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -226,18 +226,46 @@ jobs:
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+ 
+-      # Nén linh hoạt thư mục Release
++      # Nén thư mục Release THẬT (chứa .exe + DLL + data/flutter_assets)
++      #
++      # ⚠️ BUG CŨ (đã vá): dùng `Get-ChildItem -Recurse -Directory -Filter
++      # "Release" | Select-Object -First 1` để "tự động quét" — nhưng cây build
++      # của CMake/MSBuild có RẤT NHIỀU thư mục con tên "Release" (VD:
++      # build/windows/x64/CMakeFiles/<target>.dir/Release/ chỉ chứa vài file
++      # .obj/.tlog build tạm, vài trăm byte–vài KB). Get-ChildItem -Recurse
++      # duyệt theo thứ tự alphabet, "CMakeFiles" đứng trước "runner" (C < r)
++      # nên -First 1 gần như luôn vớ trúng thư mục rác đó thay vì bundle thật
++      # → zip release chỉ ~9-10 KB thay vì hàng chục MB, và job vẫn "success"
++      # vì Compress-Archive không báo lỗi khi nén thư mục hợp lệ (dù nhỏ).
++      # Fix: trỏ thẳng vào runner/Release (đường dẫn output chuẩn của
++      # `flutter build windows`), xác nhận có .exe, và CHẶN CI nếu zip ra
++      # bất thường nhỏ — thà đỏ CI còn hơn âm thầm phát hành bản lỗi.
+       - name: Zip Windows build
+         shell: pwsh
+         run: |
+           $VERSION_NAME = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+-          
+-          # Tự động quét thư mục Release thực tế của dự án
+-          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+-          if ($RELEASE_DIR) {
+-            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
+-          } else {
+-            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
++          $ReleaseDir = "build/windows/x64/runner/Release"
++
++          if (-not (Test-Path $ReleaseDir)) {
++            Write-Error "Không tìm thấy thư mục Release ($ReleaseDir) — flutter build windows có thể đã lỗi."
++            exit 1
++          }
++          $exe = Get-ChildItem -Path $ReleaseDir -Filter "*.exe"
++          if ($exe.Count -eq 0) {
++            Write-Error "Thư mục $ReleaseDir không có file .exe — build Windows không hoàn chỉnh."
++            exit 1
++          }
++
++          $zipPath = "in4up-Windows-$VERSION_NAME.zip"
++          Compress-Archive -Path "$ReleaseDir\*" -DestinationPath $zipPath -Force
++
++          # Đảm bảo zip không phải "rác" (release thật luôn tối thiểu vài MB
++          # vì kèm flutter_windows.dll + icudtl.dat + flutter_assets).
++          $zipSizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
++          Write-Host "Zip size: $zipSizeMB MB"
++          if ($zipSizeMB -lt 5) {
++            Write-Error "Zip Windows quá nhỏ ($zipSizeMB MB) — nghi ngờ thiếu file, chặn không phát hành."
++            exit 1
+           }
+           Get-ChildItem "in4up-Windows-*.zip"
+ 
+diff --git a/.github/workflows/build_final_complete.yml b/.github/workflows/build_final_complete.yml
+index ca6256c..8b28b1c 100644
+--- a/.github/workflows/build_final_complete.yml
++++ b/.github/workflows/build_final_complete.yml
+@@ -436,16 +436,41 @@ jobs:
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+ 
++      # ⚠️ BUG CŨ (đã vá): dùng `Get-ChildItem -Recurse -Directory -Filter
++      # "Release" | Select-Object -First 1` để "tự động quét" — nhưng cây build
++      # của CMake/MSBuild có RẤT NHIỀU thư mục con tên "Release" (VD:
++      # build/windows/x64/CMakeFiles/<target>.dir/Release/ chỉ chứa vài file
++      # .obj/.tlog build tạm, vài trăm byte–vài KB). Get-ChildItem -Recurse
++      # duyệt theo thứ tự alphabet, "CMakeFiles" đứng trước "runner" (C < r)
++      # nên -First 1 gần như luôn vớ trúng thư mục rác đó thay vì bundle thật
++      # → zip release chỉ ~9-10 KB thay vì hàng chục MB, và job vẫn "success"
++      # (đây là nguyên nhân release 1.7.0 chỉ có 9.63 KB). Fix: trỏ thẳng vào
++      # runner/Release (output chuẩn của `flutter build windows`), xác nhận
++      # có .exe, và CHẶN CI nếu zip ra bất thường nhỏ.
+       - name: Zip Windows build
+         shell: pwsh
+         run: |
+           $TAG = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+-          # Dùng wildcard để tương thích với cấu trúc output của cả Ninja và MSBuild
+-          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+-          if ($RELEASE_DIR) {
+-            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+-          } else {
+-            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
++          $ReleaseDir = "build/windows/x64/runner/Release"
++
++          if (-not (Test-Path $ReleaseDir)) {
++            Write-Error "Không tìm thấy thư mục Release ($ReleaseDir) — flutter build windows có thể đã lỗi."
++            exit 1
++          }
++          $exe = Get-ChildItem -Path $ReleaseDir -Filter "*.exe"
++          if ($exe.Count -eq 0) {
++            Write-Error "Thư mục $ReleaseDir không có file .exe — build Windows không hoàn chỉnh."
++            exit 1
++          }
++
++          $zipPath = "in4up-Windows-$TAG.zip"
++          Compress-Archive -Path "$ReleaseDir\*" -DestinationPath $zipPath -Force
++
++          $zipSizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
++          Write-Host "Zip size: $zipSizeMB MB"
++          if ($zipSizeMB -lt 5) {
++            Write-Error "Zip Windows quá nhỏ ($zipSizeMB MB) — nghi ngờ thiếu file, chặn không phát hành."
++            exit 1
+           }
+           Get-ChildItem "in4up-Windows-*.zip"
+ 

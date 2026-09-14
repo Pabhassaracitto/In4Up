@@ -556,8 +556,8 @@ class VocabularyProvider extends ChangeNotifier {
         existing.phonetic = phonetic!.trim();
         changed = true;
       }
-      if ((meaning ?? '').trim().isNotEmpty && existing.meaning.trim().isEmpty) {
-        existing.meaning = meaning!.trim();
+      if (meaning.trim().isNotEmpty && existing.meaning.trim().isEmpty) {
+        existing.meaning = meaning.trim();
         existing.isUnborn = false;
         changed = true;
       }
@@ -565,7 +565,7 @@ class VocabularyProvider extends ChangeNotifier {
         existing.addTopic(topic!.trim());
         changed = true;
       }
-      if ((language ?? '').trim().isNotEmpty) {
+      if (language.trim().isNotEmpty) {
         existing.addLanguage(language.trim());
         changed = true;
       }
@@ -729,6 +729,17 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       w.personalNotes = notes;
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// Cập nhật hình ảnh cho từ vựng
+  void updateImageUrl(String id, String? imageUrl) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.imageUrl = imageUrl;
       w.updatedAt = DateTime.now();
       _saveWord(w);
       notifyListeners();

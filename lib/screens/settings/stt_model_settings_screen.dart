@@ -15,7 +15,6 @@ import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
-import 'package:in4up_stt/stt_service_facade.dart' as modelManager;
 import 'package:in4up_stt/in4up_stt.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 

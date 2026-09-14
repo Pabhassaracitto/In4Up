@@ -22,8 +22,8 @@ class ClozeToken {
   final int id;
   final String text;
   final String cleanWord;
-  final bool isMasked;
-  final bool isKeyword;
+  bool isMasked;
+  bool isKeyword;
   final String firstLetterPrompt;
   final String ghostPrompt;
   bool isRevealed;
@@ -52,6 +52,13 @@ class ClozeToken {
       case ClozeLevel.ghost:
         return true;
     }
+  }
+
+  /// Chạm để đánh dấu / bỏ đánh dấu chỗ trống — không cần gõ `{{c1::}}`.
+  void toggleKeyword() {
+    isKeyword = !isKeyword;
+    isMasked = isKeyword;
+    isRevealed = false;
   }
 
   /// Hiển thị từ theo cấp độ bốc hơi chữ
@@ -139,6 +146,42 @@ class ClozeGenerator {
     }
 
     return tokens;
+  }
+
+  static final _wordPattern = RegExp(r'[\p{L}\p{N}]+', unicode: true);
+
+  static const _stopwords = {
+    'và', 'của', 'các', 'là', 'một', 'những', 'trong', 'với', 'cho',
+    'không', 'được', 'có', 'để', 'trên', 'này', 'đó', 'từ', 'về', 'như',
+    'thì', 'khi', 'đã', 'sẽ', 'hay', 'hoặc', 'nếu', 'vì', 'do', 'bởi',
+    'the', 'a', 'an', 'of', 'to', 'and', 'in', 'is', 'it', 'for', 'on',
+    'at', 'by', 'as', 'or', 'be', 'this', 'that', 'with', 'from',
+    'ca', 'va', 'kho', 'ti',
+  };
+
+  /// Tách từ (Unicode) — dùng cho chip chạm chọn chỗ trống.
+  static List<String> wordsIn(String text) {
+    return _wordPattern
+        .allMatches(text)
+        .map((m) => m.group(0)!)
+        .where((w) => w.trim().isNotEmpty)
+        .toList();
+  }
+
+  /// Gợi ý từ khóa: bỏ stopword, ưu tiên từ dài, không trùng.
+  static List<String> suggestKeywords(String text, {int max = 8}) {
+    final seen = <String>{};
+    final scored = <String>[];
+    for (final word in wordsIn(text)) {
+      final key = word.toLowerCase();
+      if (key.length < 4 || _stopwords.contains(key) || !seen.add(key)) {
+        continue;
+      }
+      scored.add(word);
+    }
+    scored.sort((a, b) => b.length.compareTo(a.length));
+    if (scored.length <= max) return scored;
+    return scored.take(max).toList();
   }
 
   /// Trích xuất ký tự đầu và tạo chuỗi [ d___, ] giữ nguyên dấu câu

@@ -282,8 +282,12 @@ class SttModelManager {
     final files = await _listLocalBinFiles();
     for (final file in files) {
       if (await _belongsToLevel(file, level)) {
-        await file.delete().catchError((_) {});
-        await File('${file.path}.level').delete().catchError((_) {});
+        try {
+          await file.delete();
+        } catch (_) {}
+        try {
+          await File('${file.path}.level').delete();
+        } catch (_) {}
         debugPrint('🗑️ Deleted model file: ${file.path}');
       }
     }
@@ -350,7 +354,9 @@ class SttModelManager {
       if (detectedLevel != null) {
         final valid = await _verifyFile(destPath, detectedLevel);
         if (!valid) {
-          await outFile.delete().catchError((_) {});
+          try {
+            await outFile.delete();
+          } catch (_) {}
           _emitState(detectedLevel, ModelStatus.corrupted);
           return false;
         }
@@ -761,13 +767,17 @@ class SttModelManager {
 
         final finalFile = File(savePath);
         if (await finalFile.exists()) {
-          await finalFile.delete().catchError((_) {});
+          try {
+            await finalFile.delete();
+          } catch (_) {}
         }
         await tmpFile.rename(savePath);
 
         final valid = await _verifyFile(savePath, level);
         if (!valid) {
-          await File(savePath).delete().catchError((_) {});
+          try {
+            await File(savePath).delete();
+          } catch (_) {}
           throw Exception('File verify failed: $savePath');
         }
 

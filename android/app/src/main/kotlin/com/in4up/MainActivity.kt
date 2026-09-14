@@ -1,8 +1,8 @@
 package com.in4up
 
+import android.app.Activity
 import android.content.ContentResolver
 import android.content.Intent
-import android.content.ContentUris
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -24,14 +24,25 @@ import java.io.FileOutputStream
  *    (VAD/waveform/ffmpeg dùng File-based, không đọc được content://).
  *
  * "in4up/textlib" (Thư viện đọc — quét thư mục trên máy):
- *  - scanTree(treeUri): quét TÙY DU YỆC một tree URI (SAF,
- *    ACTION_OPEN_DOCUMENT_TREE) → trả List<Map>:
+ *  - pickFolder(): mở SAF Picker (ACTION_OPEN_DOCUMENT_TREE) TRỰC TIẾP từ
+ *    native → trả CONTENT:// tree URI THẬT + đã takePersistableUriPermission
+ *    ngay trong onActivityResult. null = user hủy.
+ *    ⚠️ KHÔNG dùng FilePicker.getDirectoryPath(): plugin này trả RAW FILE
+ *    PATH (/storage/3033-3963/...) chứ không phải SAF URI → DocumentsContract
+ *    .getTreeDocumentId throw "Invalid URI" và takePersistableUriPermission
+ *    throw SecurityException → quét ra rỗng dù thư mục có file.
+ *  - normalizeTreeUri(raw): chuẩn hoá về SAF tree URI — legacy raw path
+ *    (/storage/emulated/0/... → primary:..., /storage/<uuid>/... → <uuid>:...)
+ *    → content://com.android.externalstorage.documents/tree/<docId>.
+ *    content:// sẵn → giữ nguyên. Không đổi được → null.
+ *  - scanTree(treeUri): quét ĐỆ QUY một tree URI (SAF) → trả List<Map>:
  *      { uri (content URI document), name, sizeBytes, dateModifiedMs, ext }
- *    Chỉ lấy file có extension thuộc danh sách định dạng đọc
- *    (txt/lrc/srt/md/markdown/json/docx/pdf). Không cần quyền đặc biệt —
- *    quyền do user cấp khi chọn thư mục (persistable URI permission).
- *  - keepTreePermission(treeUri): giữ persistable permission sau khi user
- *    chọn thư mục (an toàn kể cả khi plugin file_picker chưa tự giữ).
+ *    Tự normalize raw path legacy → SAF URI trước khi quét. Báo lỗi qua
+ *    PlatformException: PERMISSION_LOST (mất quyền — cần chọn lại thư mục),
+ *    BAD_URI (đường dẫn không hợp lệ) — KHÔNG nuốt lặng thành list rỗng
+ *    (tránh UI tưởng nhầm "thư mục trống").
+ *  - keepTreePermission(treeUri): giữ persistable permission (tự normalize
+ *    raw path → grant thật của tree URI tương ứng mới persist được).
  *  - copyContentToCache(contentUri): giống audiolib (đọc file text/PDF).
  *
  * Runtime permission (READ_MEDIA_AUDIO / READ_EXTERNAL_STORAGE) do phía Dart
@@ -40,6 +51,13 @@ import java.io.FileOutputStream
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
     private val textChannelName = "in4up/textlib"
+
+    // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
+    private val reqOpenTextTree = 0x2A11
+
+    // Result của MethodChannel đang chờ user chọn thư mục (1 picker tại 1
+    // thời điểm — SAF Picker là modal hệ thống).
+    private var pendingFolderPicker: MethodChannel.Result? = null
 
     // Định dạng đọc hỗ trợ bởi tab Thiết bị của Thư viện đọc.
     private val textExtensions = setOf(
@@ -62,12 +80,33 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, textChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "pickFolder" -> launchFolderPicker(result)
+                    "normalizeTreeUri" -> {
+                        val treeUri = call.argument<String>("treeUri")
+                        result.success(treeUri?.let { normalizeTreeUri(it) })
+                    }
                     "scanTree" -> {
                         val treeUri = call.argument<String>("treeUri")
-                        result.success(
-                            treeUri?.let { scanTextTree(it) }
-                                ?: emptyList<Map<String, Any?>>(),
-                        )
+                        if (treeUri.isNullOrBlank()) {
+                            result.success(emptyList<Map<String, Any?>>())
+                        } else {
+                            try {
+                                result.success(scanTextTree(treeUri))
+                            } catch (se: SecurityException) {
+                                // Mất persistable permission (gỡ/cập nhật app,
+                                // user thu hồi quyền) → phía Dart hiện lỗi +
+                                // hướng user CHỌN LẠI thư mục.
+                                result.error(
+                                    "PERMISSION_LOST",
+                                    "Mất quyền đọc thư mục: ${se.message}",
+                                    null,
+                                )
+                            } catch (iae: IllegalArgumentException) {
+                                result.error("BAD_URI", iae.message, null)
+                            } catch (e: Exception) {
+                                result.error("SCAN_FAILED", e.message, null)
+                            }
+                        }
                     }
                     "keepTreePermission" -> {
                         val treeUri = call.argument<String>("treeUri")
@@ -83,19 +122,123 @@ class MainActivity : FlutterActivity() {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // in4up/textlib — SAF folder picker (ACTION_OPEN_DOCUMENT_TREE)
+    // ═══════════════════════════════════════════════════════════
+
+    private fun launchFolderPicker(result: MethodChannel.Result) {
+        if (pendingFolderPicker != null) {
+            result.error("PICKER_BUSY", "Folder picker đang mở.", null)
+            return
+        }
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            // Cho phép truy cập cả thẻ SD/USB OTG trong DocumentsUI.
+            addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+        }
+        pendingFolderPicker = result
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, reqOpenTextTree)
+        } catch (e: Exception) {
+            pendingFolderPicker = null
+            result.error("PICKER_UNAVAILABLE", e.message, null)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != reqOpenTextTree) return
+        val pending = pendingFolderPicker
+        pendingFolderPicker = null
+        if (pending == null) return
+        val uri = data?.data
+        if (resultCode == Activity.RESULT_OK && uri != null) {
+            // Persist quyền đọc NGAY TẠI ĐÂY (grant từ SAF Picker chỉ tồn
+            // tại trong phiên nếu không persist) → lần mở app sau vẫn quét
+            // được, không cần chọn lại thư mục.
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            pending.success(uri.toString())
+        } else {
+            pending.success(null) // user hủy
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // in4up/textlib — quét thư mục (SAF tree) cho Thư viện đọc
     // ═══════════════════════════════════════════════════════════
 
+    /**
+     * Chuẩn hoá về SAF tree URI (content://):
+     * - content:// sẵn → giữ nguyên.
+     * - Legacy raw path (/storage/... — do file_picker trả về lúc trước) →
+     *   content://com.android.externalstorage.documents/tree/<docId>.
+     * - file:///storage/... → xử lý như raw path.
+     * - Không đổi được → null.
+     */
+    private fun normalizeTreeUri(raw: String): String? {
+        val parsed = Uri.parse(raw)
+        if (parsed.scheme == "content") return raw
+        val path = (if (parsed.scheme == "file") parsed.path else raw)
+            ?.trimEnd('/')
+            .orEmpty()
+        if (path.isEmpty()) return null
+        val docId = docIdFromStoragePath(path) ?: return null
+        return DocumentsContract.buildTreeDocumentUri(
+            "com.android.externalstorage.documents",
+            docId,
+        ).toString()
+    }
+
+    /**
+     * Raw storage path → SAF documentId:
+     *   /storage/emulated/0/a/b, /sdcard/a/b        → "primary:a/b"
+     *   /storage/emulated/<userId>/a/b              → "primary:a/b"
+     *   /storage/<volume-uuid>/a/b (thẻ SD/USB OTG) → "<volume-uuid>:a/b"
+     *     (vd /storage/3033-3963/2_DOI_SONG/... → "3033-3963:2_DOI_SONG/...")
+     */
+    private fun docIdFromStoragePath(path: String): String? {
+        if (!path.startsWith("/")) return null
+        // Alias của bộ nhớ trong chính.
+        for (prefix in listOf(
+            "/storage/emulated/0", "/sdcard", "/mnt/sdcard", "/storage/self/primary",
+        )) {
+            if (path == prefix) return "primary:"
+            if (path.startsWith("$prefix/")) {
+                return "primary:" + path.removePrefix("$prefix/")
+            }
+        }
+        // Multi-user: /storage/emulated/<userId>/<rel>
+        val emu = Regex("^/storage/emulated/\\d+(?:/(.*))?$").find(path)
+        if (emu != null) return "primary:" + emu.groupValues[1]
+        // Thẻ SD / USB OTG: /storage/<volume-uuid>/<rel>
+        val vol = Regex("^/storage/([^/]+)(?:/(.*))?$").find(path)
+        if (vol != null) return "${vol.groupValues[1]}:${vol.groupValues[2]}"
+        return null
+    }
+
     private fun keepTreePermission(treeUri: String): Boolean {
         return try {
-            val uri = Uri.parse(treeUri)
+            // Normalize TRƯỚC: raw path (/storage/...) không có grant nào →
+            // SecurityException; phải persist trên SAF URI tương ứng (grant
+            // từ picker — mới pick xong vẫn còn trong phiên → persist được).
+            val normalized = normalizeTreeUri(treeUri) ?: treeUri
             contentResolver.takePersistableUriPermission(
-                uri,
+                Uri.parse(normalized),
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
             true
         } catch (e: Exception) {
-            // Đã có quyền / URI không persistable — không nghiêm trọng.
+            // Không còn grant (đổi thiết bị/app reinstall từ lâu) — không
+            // nghiêm trọng: scan sẽ báo PERMISSION_LOST, user chọn lại.
             e.printStackTrace()
             false
         }
@@ -103,23 +246,30 @@ class MainActivity : FlutterActivity() {
 
     private fun scanTextTree(treeUri: String): List<Map<String, Any?>> {
         val out = mutableListOf<Map<String, Any?>>()
-        try {
-            val rootUri = Uri.parse(treeUri)
-            val rootDocId = try {
-                DocumentsContract.getTreeDocumentId(rootUri)
-            } catch (e: Exception) {
-                // Tên thư mục chứa ký tự đặc biệt (vd dấu gạch chéo, dấu
-                // tiếng Việt) → getTreeDocumentId có thể lỗi percent-encoding.
-                // Fallback: lấy segment sau "/tree/" và DECODE an toàn
-                // (giữ nguyên % lỗi thay vì throw).
-                e.printStackTrace()
-                val idx = treeUri.lastIndexOf("/tree/")
-                if (idx >= 0) safeDecodePercent(treeUri.substring(idx + "/tree/".length)) else ""
-            }
-            if (rootDocId.isBlank()) return out
-            scanTextFolder(rootUri, rootDocId, out, 0)
+        val normalized = normalizeTreeUri(treeUri)
+            ?: throw IllegalArgumentException(
+                "Không phải SAF tree URI / đường dẫn hợp lệ: $treeUri",
+            )
+        val rootUri = Uri.parse(normalized)
+        val rootDocId = try {
+            DocumentsContract.getTreeDocumentId(rootUri)
         } catch (e: Exception) {
-            // Trả danh sách đã có (có thể rỗng) — không crash app.
+            // Tên thư mục chứa ký tự đặc biệt (vd dấu gạch chéo, dấu
+            // tiếng Việt) → getTreeDocumentId có thể lỗi percent-encoding.
+            // Fallback: lấy segment sau "/tree/" và DECODE an toàn
+            // (giữ nguyên % lỗi thay vì throw).
+            e.printStackTrace()
+            val idx = normalized.lastIndexOf("/tree/")
+            if (idx >= 0) safeDecodePercent(normalized.substring(idx + "/tree/".length)) else ""
+        }
+        if (rootDocId.isBlank()) return out
+        try {
+            scanTextFolder(rootUri, rootDocId, out, 0)
+        } catch (e: SecurityException) {
+            // Mất quyền từ gốc (chưa quét được file nào) → ném lên để báo
+            // PERMISSION_LOST. Mất quyền giữa chừng (thư mục con) → trả
+            // phần đã quét được.
+            if (out.isEmpty()) throw e
             e.printStackTrace()
         }
         return out
@@ -165,7 +315,7 @@ class MainActivity : FlutterActivity() {
             Uri.parse(treeUri.toString())
                 .buildUpon()
                 .appendPath("document")
-                .appendPath(android.net.Uri.encode(docId))
+                .appendPath(Uri.encode(docId))
                 .build()
         }
         val projection = arrayOf(
@@ -213,8 +363,12 @@ class MainActivity : FlutterActivity() {
                     )
                 }
             }
+        } catch (e: SecurityException) {
+            // Mất quyền → KHÔNG nuốt (nuốt sẽ khiến UI tưởng nhầm "thư mục
+            // trống"), ném lên scanTextTree xử lý.
+            throw e
         } catch (e: Exception) {
-            // Thư mục con không truy cập được — bỏ qua, tiếp tục.
+            // Thư mục con không truy cập được (lỗi khác) — bỏ qua, tiếp tục.
             e.printStackTrace()
         }
     }

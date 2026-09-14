@@ -73,7 +73,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(
-        title: Text(context.uiText('I2U AI Chat')),
+        title: Text(context.uiText('I4U AI Chat')),
         backgroundColor: const Color(0xFF11162A),
         actions: [
           Consumer<AiServiceFacade>(

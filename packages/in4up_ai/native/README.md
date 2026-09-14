@@ -27,5 +27,5 @@ Dart FFI load `libin4up_ai_native.so` trên Android và `in4up_ai_native.dll`
 trên Windows. Native lib cũng export alias `in2up_ai_*` để tương thích ngược
 với các build cũ (harvested từ nhánh vipsound).
 
-Model KHÔNG commit vào Git. Import file `.gguf` từ màn hình I2U AI Chat;
+Model KHÔNG commit vào Git. Import file `.gguf` từ màn hình I4U AI Chat;
 loader kiểm tra magic header GGUF trước khi copy vào app storage.

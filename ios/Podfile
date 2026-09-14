@@ -19,8 +19,26 @@ end
 load File.join(find_flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
 # -------------------------------------
 $FirebaseSDKVersion = '11.15.0'
-# Đã nâng lên 14.0 để tương thích với ffmpeg_kit_flutter_new
-platform :ios, '14.0'
+# iOS 15.5 là mức tối thiểu bắt buộc: google_mlkit_commons / google_mlkit_translation
+# (MLKitVision) khai báo `s.platform = :ios, '15.5'`. Hạ thấp hơn -> CocoaPods báo
+# "could not find compatible versions ... required a higher minimum deployment target".
+$ios_deployment_target = '15.5'
+# CỐ Ý viết có ngoặc `platform(:ios, ...)`: workflow iOS cũ có bước sed ép mọi dòng
+# khai báo nền tảng (dạng không ngoặc) về '15.0' — chính là nguyên nhân lỗi
+# "google_mlkit_commons ... requires a higher minimum iOS deployment version".
+# Dạng có ngoặc không khớp sed đó nên 15.5 sống sót kể cả khi workflow chưa cập nhật.
+# Khi workflow đã dùng scripts/ci/ios_set_deployment_target.sh thì viết kiểu nào cũng được.
+platform(:ios, $ios_deployment_target)
+
+# Chỉ NÂNG deployment target, không bao giờ HẠ (pod tự khai cao hơn thì giữ nguyên).
+# Bỏ qua giá trị lạ như "$(inherited)" để không nổ Gem::Version.
+$in4up_bump_deployment_target = lambda do |config|
+  current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_s.strip
+  if current.empty? || current !~ /\A\d+(\.\d+)*\z/ ||
+     Gem::Version.new(current) < Gem::Version.new($ios_deployment_target)
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = $ios_deployment_target
+  end
+end
 
 install! 'cocoapods', :deterministic_uuids => false
 $FirebaseSDKVersion = '11.18.0'
@@ -37,11 +55,30 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # 1) Project Runner (app): đồng bộ target để không lệch với pods
+  installer.aggregate_targets.each do |aggregate_target|
+    user_project = aggregate_target.user_project
+    next if user_project.nil?
+
+    user_project.native_targets.each do |native_target|
+      native_target.build_configurations.each do |config|
+        $in4up_bump_deployment_target.call(config)
+      end
+    end
+    user_project.build_configurations.each do |config|
+      $in4up_bump_deployment_target.call(config)
+    end
+    user_project.save
+  end
+
+  # 2) Các pod: giữ nguyên pod nào yêu cầu cao hơn (vd MLKit 15.5+),
+  #    chỉ kéo pod thấp hơn lên $ios_deployment_target.
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      # Cưỡng ép deployment target lên 14.0 để đồng bộ, tránh lỗi biên dịch
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      $in4up_bump_deployment_target.call(config)
+      # Flutter.framework không có slice i386
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
     end
   end
 end

@@ -21,6 +21,8 @@ SttSegment _seg(int id, double startSec, double endSec, String text) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('SoundAutoTocService.buildChapters', () {
     test('slices + whisper → chapter per slice, title = first sentence', () {
       final slices = [

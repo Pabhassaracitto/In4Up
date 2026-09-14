@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:in4up/features/youtube/youtube_explorer_screen.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
+import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/video/widgets/video_player_screen.dart';
+import '../features/video/widgets/video_library_screen.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -43,6 +45,9 @@ import 'tools/word_list/word_list_screen.dart';
 import 'tools/word_list/wordlist_bubble.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/understand_workspace_screen.dart';
+
+import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/video/widgets/video_library_screen.dart';
 
 enum _PrimaryTab { home, listen, read, understand, remember }
 
@@ -101,7 +106,9 @@ class _MainShellState extends State<MainShell> {
 
   String get _currentModeLabel {
     if (_showListenModes) {
-      return _listenModeIndex == 0 ? 'Nghe' : 'Nói';
+      if (_listenModeIndex == 0) return 'Nghe';
+      if (_listenModeIndex == 1) return 'Nói';
+      return 'Xem';
     }
     if (_showReadModes) {
       return _readModeIndex == 0 ? 'Đọc' : 'Viết';
@@ -111,7 +118,9 @@ class _MainShellState extends State<MainShell> {
 
   String get _alternateModeLabel {
     if (_showListenModes) {
-      return _listenModeIndex == 0 ? 'Nói' : 'Nghe';
+      if (_listenModeIndex == 0) return 'Nói';
+      if (_listenModeIndex == 1) return 'Xem';
+      return 'Nghe';
     }
     if (_showReadModes) {
       return _readModeIndex == 0 ? 'Viết' : 'Đọc';
@@ -126,7 +135,7 @@ class _MainShellState extends State<MainShell> {
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
     _listenModeIndex =
         ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0)
-                .clamp(0, 1))
+                .clamp(0, 2))
             .toInt();
     _readModeIndex =
         ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0)
@@ -213,7 +222,7 @@ class _MainShellState extends State<MainShell> {
   void _toggleCurrentSecondaryMode() {
     HapticFeedback.selectionClick();
     if (_showListenModes) {
-      _setListenMode(_listenModeIndex == 0 ? 1 : 0);
+      _setListenMode((_listenModeIndex + 1) % 3); // Cycle: 0→1→2→0
     } else if (_showReadModes) {
       _setReadMode(_readModeIndex == 0 ? 1 : 0);
     }
@@ -249,9 +258,9 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return Colors.white;
       case _PrimaryTab.listen:
-        return _listenModeIndex == 0
-            ? const Color(0xFF6C63FF)
-            : const Color(0xFFB388FF);
+        if (_listenModeIndex == 0) return const Color(0xFF6C63FF);
+        if (_listenModeIndex == 1) return const Color(0xFFB388FF);
+        return const Color(0xFFFFB300); // Xem = amber
       case _PrimaryTab.read:
         return _readModeIndex == 0
             ? const Color(0xFF2196F3)
@@ -268,7 +277,9 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return 'In4Up';
       case _PrimaryTab.listen:
-        return _listenModeIndex == 0 ? '🎧 Nghe' : '🎙️ Nói';
+        if (_listenModeIndex == 0) return '🎧 Nghe';
+        if (_listenModeIndex == 1) return '🎙️ Nói';
+        return '📹 Xem';
       case _PrimaryTab.read:
         return _readModeIndex == 0 ? '📖 Đọc' : '✍️ Viết';
       case _PrimaryTab.understand:
@@ -364,7 +375,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   List<tools.ToolItem> _buildQuickActions(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     final contentTools = <tools.ToolItem>[
       tools.ToolItem(
@@ -442,6 +453,20 @@ class _MainShellState extends State<MainShell> {
         color: const Color(0xFF26C6DA),
       ),
       tools.ToolItem(
+        id: 'dict_manager',
+        title: context.uiText('Từ điển MDX'),
+        subtitle: context.uiText('Quản lý & tra cứu từ điển MDX'),
+        icon: Icons.auto_stories,
+        color: const Color(0xFF7E57C2),
+      ),
+      tools.ToolItem(
+        id: 'video_library',
+        title: context.uiText('Thư viện video'),
+        subtitle: context.uiText('Quản lý & phát video học tập'),
+        icon: Icons.video_library_outlined,
+        color: const Color(0xFFE91E63),
+      ),
+      tools.ToolItem(
         id: 'timeline',
         title: l10n.timeline,
         subtitle: l10n.timelineSubtitle,
@@ -504,6 +529,20 @@ class _MainShellState extends State<MainShell> {
           shellSettingsTool,
           ...contentTools,
                     tools.ToolItem(
+            id: 'video_player',
+            title: 'Video',
+            subtitle: 'Xem video local + phụ đề',
+            icon: Icons.videocam,
+            color: const Color(0xFFFFB300),
+          ),
+      tools.ToolItem(
+            id: 'dictionary',
+            title: 'Từ điển',
+            subtitle: 'Quản lý từ điển MDX đa ngữ',
+            icon: Icons.auto_stories_rounded,
+            color: const Color(0xFF2196F3),
+          ),
+      tools.ToolItem(
             id: 'tipitaka',
             title: 'Tipiṭaka',
             subtitle: 'Đọc Tam Tạng, tra cứu kinh điển',
@@ -594,6 +633,7 @@ class _MainShellState extends State<MainShell> {
     };
     const listen = {
       'speak_mode': 100,
+      'video_player': 98,
       'youtube_downloader': 96,
       'youglish': 95,
       'understand_tab': 92,
@@ -639,7 +679,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _handleTool(String toolId) async {
     final nav = Navigator.of(context);
     final vocabProvider = context.read<VocabularyProvider>();
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     void pushVocab(String title, Color color, Widget child) {
       nav.push(
@@ -755,8 +795,28 @@ class _MainShellState extends State<MainShell> {
           MaterialPageRoute(builder: (_) => const TipitakaLibraryScreen()),
         );
         return;
+      case 'video_player':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+        );
+        return;
+      case 'dictionary':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+        );
+        return;
       case 'shell_ui_settings':
         await _openShellUiSettings();
+        return;
+      case 'dict_manager':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+        );
+        return;
+      case 'video_library':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+        );
         return;
     }
   }
@@ -785,6 +845,7 @@ class _MainShellState extends State<MainShell> {
               onOpenQuickActions: _openQuickActions,
               onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
             ),
+            const VideoLibraryScreen(),
           ],
         );
       case _PrimaryTab.read:
@@ -1063,7 +1124,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildModeSwitch(BuildContext context) {
     final isListen = _showListenModes;
-    final labels = isListen ? const ['Nghe', 'Nói'] : const ['Đọc', 'Viết'];
+    final labels = isListen ? const ['Nghe', 'Nói', 'Xem'] : const ['Đọc', 'Viết'];
     final selectedIndex = isListen ? _listenModeIndex : _readModeIndex;
     final accent = _currentAccent;
 
@@ -1120,7 +1181,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       decoration: BoxDecoration(

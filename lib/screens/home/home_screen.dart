@@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    context.uiText('I2U AI Chat'),
+                    context.uiText('I4U AI Chat'),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -186,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildGlassHeader(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -300,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBentoModesGrid(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -533,7 +533,7 @@ class _GlobalMiniPlayer extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      AppLocalizations.of(context)!.nowPlaying,
+                      AppLocalizations.of(context).nowPlaying,
                       style: const TextStyle(color: Colors.grey, fontSize: 10),
                     ),
                   ],
@@ -559,7 +559,7 @@ class _SttDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
@@ -699,7 +699,7 @@ class _FirebaseAuthButton extends StatelessWidget {
       await AuthService().signInWithGoogle();
     } catch (e) {
       if (!context.mounted) return;
-      final l10n = AppLocalizations.of(context)!;
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.loginFailed(e.toString()))),
       );

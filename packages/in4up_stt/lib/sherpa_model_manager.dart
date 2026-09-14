@@ -26,6 +26,7 @@ import 'package:rxdart/rxdart.dart';
 
 import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
+import 'tts/piper_voice_catalog.dart';
 import 'tts/sherpa_piper_tts_core.dart';
 
 enum SherpaModelStatus { notInstalled, downloading, ready, error }
@@ -172,6 +173,12 @@ class SherpaModelManager {
   static String piperBundleUrl(String voice) =>
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/'
       'vits-piper-$voice.tar.bz2';
+
+  /// Shared Piper phoneme tokens (sherpa). Used when HuggingFace only
+  /// ships onnx+json (no tokens.txt).
+  static const String piperTokensFallbackUrl =
+      'https://huggingface.co/csukuangfj/vits-piper-en_US-lessac-medium/'
+      'resolve/main/tokens.txt?download=true';
 
   /// Shared by every Piper voice (k2-fsa). ~1–2MB — not a full voice bundle.
   static const List<String> espeakArchiveUrls = [
@@ -1339,7 +1346,7 @@ class SherpaModelManager {
   }
 
   /// Tải bundle + tự giải nén + cài vào sherpa_piper_models.
-  /// Trả về thư mục model khi sẵn sàng dùng (không phải file .tar.bz2).
+  /// Ưu tiên k2-fsa tar.bz2; nếu 404 thì HuggingFace rhasspy/piper-voices.
   Future<String?> downloadPiperBundle({
     required String voice,
   }) async {
@@ -1350,59 +1357,22 @@ class SherpaModelManager {
     _piperState.add(_piperState.value.copyWith(
         status: SherpaModelStatus.downloading, clearError: true));
 
-    final url = piperBundleUrl(voice);
-
     try {
-      final docs = await _documents();
-      final downloadsDir = Directory(p.join(docs, 'downloads'));
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-      final fileName = 'vits-piper-$voice.tar.bz2';
-      final savePath = p.join(downloadsDir.path, fileName);
-      final tmpPath = '$savePath.tmp';
+      final fromK2 = await _downloadPiperK2Fsa(voice, token);
+      if (fromK2 != null) return fromK2;
+      if (token.isCancelled) return null;
 
-      debugPrint('📥 Download Piper bundle $voice từ: $url');
-      await _dio.download(
-        url,
-        tmpPath,
-        cancelToken: token,
-        deleteOnError: true,
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            _piperState.add(_piperState.value
-                .copyWith(downloadProgress: received / total));
-          }
-        },
-      );
+      final fromHf = await _downloadPiperHuggingFace(voice, token);
+      if (fromHf != null) return fromHf;
 
-      final tmp = File(tmpPath);
-      if (!await tmp.exists() || tmp.lengthSync() < 1000000) {
-        throw Exception(
-            'Bundle tải về quá nhỏ (${tmp.existsSync() ? tmp.lengthSync() : 0} bytes)');
-      }
-      await _replaceFile(tmpPath, savePath);
-
-      final extractDir =
-          p.join(downloadsDir.path, 'vits-piper-$voice-extracted');
-      final extract = Directory(extractDir);
-      if (await extract.exists()) {
-        await extract.delete(recursive: true);
-      }
-      await extract.create(recursive: true);
-      await _extractTarBz2(savePath, extractDir);
-
-      final msg = await importPiperFolder(extractDir);
-      if (!msg.startsWith('✅')) {
-        throw Exception(msg);
-      }
-
-      try { await File(savePath).delete(); } catch (_) {}
-      try { await extract.delete(recursive: true); } catch (_) {}
-
-      await rescan();
-      debugPrint('✅ Piper $voice đã cài vào ${await _piperDir()}');
-      return await _piperDir();
+      _piperState.add(SherpaPiperInfo(
+        espeakInstalled: _piperState.value.espeakInstalled,
+        voices: _piperState.value.voices,
+        errorMessage:
+            'Could not download Piper $voice (k2-fsa + HuggingFace). '
+            'Use Wi-Fi and try again.',
+      ));
+      return null;
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         _piperState.add(_piperState.value
@@ -1413,15 +1383,15 @@ class SherpaModelManager {
         espeakInstalled: _piperState.value.espeakInstalled,
         voices: _piperState.value.voices,
         errorMessage:
-            'Không tải được bundle Piper (HTTP ${e.response?.statusCode ?? '-'}). '
-            'Thử Wi-Fi rồi Tải giọng lại.',
+            'Could not download Piper (HTTP ${e.response?.statusCode ?? '-'}). '
+            'Use Wi-Fi and try again.',
       ));
       return null;
     } catch (e) {
       _piperState.add(SherpaPiperInfo(
         espeakInstalled: _piperState.value.espeakInstalled,
         voices: _piperState.value.voices,
-        errorMessage: 'Lỗi tải/cài Piper: $e',
+        errorMessage: 'Piper download/install error: $e',
       ));
       return null;
     } finally {
@@ -1429,6 +1399,157 @@ class SherpaModelManager {
       if (_piperState.value.isDownloading) {
         await rescan();
       }
+    }
+  }
+
+  Future<String?> _downloadPiperK2Fsa(String voice, CancelToken token) async {
+    final url = piperBundleUrl(voice);
+    final docs = await _documents();
+    final downloadsDir = Directory(p.join(docs, 'downloads'));
+    if (!await downloadsDir.exists()) {
+      await downloadsDir.create(recursive: true);
+    }
+    final fileName = 'vits-piper-$voice.tar.bz2';
+    final savePath = p.join(downloadsDir.path, fileName);
+    final tmpPath = '$savePath.tmp';
+
+    debugPrint('📥 Piper k2-fsa $voice: $url');
+    try {
+      await _dio.download(
+        url,
+        tmpPath,
+        cancelToken: token,
+        deleteOnError: true,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            _piperState.add(_piperState.value
+                .copyWith(downloadProgress: received / total * 0.9));
+          }
+        },
+      );
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) rethrow;
+      debugPrint('⚠️ k2-fsa Piper miss: ${e.response?.statusCode}');
+      try {
+        await File(tmpPath).delete();
+      } catch (_) {}
+      return null;
+    }
+
+    final tmp = File(tmpPath);
+    if (!await tmp.exists() || tmp.lengthSync() < 1000000) {
+      try {
+        await tmp.delete();
+      } catch (_) {}
+      return null;
+    }
+    await _replaceFile(tmpPath, savePath);
+
+    final extractDir =
+        p.join(downloadsDir.path, 'vits-piper-$voice-extracted');
+    final extract = Directory(extractDir);
+    if (await extract.exists()) {
+      await extract.delete(recursive: true);
+    }
+    await extract.create(recursive: true);
+    await _extractTarBz2(savePath, extractDir);
+
+    final msg = await importPiperFolder(extractDir);
+    try {
+      await File(savePath).delete();
+    } catch (_) {}
+    try {
+      await extract.delete(recursive: true);
+    } catch (_) {}
+    if (!msg.startsWith('✅')) return null;
+    await rescan();
+    return await _piperDir();
+  }
+
+  Future<String?> _downloadPiperHuggingFace(
+    String voice,
+    CancelToken token,
+  ) async {
+    final offer = PiperVoiceCatalog.byId(voice);
+    if (offer == null) return null;
+
+    final destDir = await _piperDir();
+    final onnxDest = p.join(destDir, '${offer.id}.onnx');
+    final jsonDest = p.join(destDir, '${offer.id}.onnx.json');
+    final tmpOnnx = '$onnxDest.tmp';
+    final tmpJson = '$jsonDest.tmp';
+
+    debugPrint('📥 Piper HuggingFace ${offer.id}: ${offer.hfOnnxUrl}');
+    await _dio.download(
+      offer.hfOnnxUrl,
+      tmpOnnx,
+      cancelToken: token,
+      deleteOnError: true,
+      onReceiveProgress: (received, total) {
+        if (total > 0) {
+          _piperState.add(_piperState.value
+              .copyWith(downloadProgress: received / total));
+        }
+      },
+    );
+    final onnxFile = File(tmpOnnx);
+    if (!await onnxFile.exists() || onnxFile.lengthSync() < 1024 * 1024) {
+      try {
+        await onnxFile.delete();
+      } catch (_) {}
+      return null;
+    }
+    await _replaceFile(tmpOnnx, onnxDest);
+
+    try {
+      await _dio.download(
+        offer.hfJsonUrl,
+        tmpJson,
+        cancelToken: token,
+        deleteOnError: true,
+      );
+      final jf = File(tmpJson);
+      if (await jf.exists() && jf.lengthSync() > 64) {
+        await _replaceFile(tmpJson, jsonDest);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Piper json optional: $e');
+    }
+
+    await _ensurePiperTokens(destDir, offer.id);
+    await _ensureEspeakAfterImport('HF');
+    await rescan();
+    if (piperInfo.voices.any((v) => v.name == offer.id)) {
+      return destDir;
+    }
+    return destDir;
+  }
+
+  Future<void> _ensurePiperTokens(String destDir, String voiceId) async {
+    final named = File(p.join(destDir, '${voiceId}_tokens.txt'));
+    final shared = File(p.join(destDir, 'tokens.txt'));
+    if (named.existsSync() && named.lengthSync() > 1024) return;
+    if (shared.existsSync() && shared.lengthSync() > 1024) {
+      await shared.copy(named.path);
+      return;
+    }
+    for (final entity in Directory(destDir).listSync()) {
+      final n = p.basename(entity.path);
+      if (n.endsWith('_tokens.txt') && File(entity.path).lengthSync() > 1024) {
+        await File(entity.path).copy(named.path);
+        return;
+      }
+    }
+    try {
+      final tmp = p.join(destDir, 'tokens.txt.tmp');
+      await _dio.download(piperTokensFallbackUrl, tmp, deleteOnError: true);
+      final f = File(tmp);
+      if (await f.exists() && f.lengthSync() > 1024) {
+        await _replaceFile(tmp, named.path);
+        if (!shared.existsSync()) await named.copy(shared.path);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Piper tokens fallback: $e');
     }
   }
 

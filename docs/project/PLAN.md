@@ -898,3 +898,27 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
 
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
+
+### PLAN-027 — VieNeu-TTS (tùy chọn, sau này)
+- Nguồn: người sở hữu (2026-09-15, qua agent arena/01a08043-in4up)
+- Trạng thái: proposed — **chỉ ghi kế hoạch, chưa code**
+- Milestone đề xuất: sau khi Piper VI ổn + có bộ ONNX VieNeu đã verify
+- Chi tiết:
+  - Không thay Piper. Engine bổ sung cho tiếng Việt nếu chất lượng hơn vais1000.
+  - Dùng `OfflineTts` sherpa đã có; family phải verify (Matcha vs VITS) trước khi viết core.
+  - Không bundle APK; không auto-download; một pointer OfflineTts tại một thời điểm; generate trong isolate.
+  - Cần URL/tarball chính thức (onnx + vocoder/lexicon/tokens) — owner giữ local.
+  - A/B 5 câu VI (thanh hỏi/ngã, Pali, câu dài) trước khi implement.
+- Lịch sử:
+  - 2026-09-15 | created | owner via arena/01a08043-in4up | thảo luận VieNeu; chốt “sau này tiện thì làm”
+
+### PLAN-028 — Catalog tải Piper TTS trong Quản lý Model (HF rhasspy/piper-voices)
+- Nguồn: người sở hữu (2026-09-15, qua agent arena/01a08043-in4up)
+- Trạng thái: doing
+- Chi tiết:
+  - UI “Tải giọng”: ưu tiên VI / EN / ZH / HI, nút xem thêm ngôn ngữ khác.
+  - Nguồn catalog: https://huggingface.co/rhasspy/piper-voices/tree/main
+  - Cài: thử k2-fsa `vits-piper-*.tar.bz2` trước (có tokens+espeak), fallback HF onnx+json + tokens fallback.
+  - Sinhala: piper-voices chưa có giọng si — ghi rõ, không bịa model.
+- Lịch sử:
+  - 2026-09-15 | created→doing | agent arena/01a08043-in4up

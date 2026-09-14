@@ -16,6 +16,7 @@ import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/stt_model_manager.dart';
 import 'package:in4up_stt/in4up_stt.dart';
+import 'package:in4up_stt/tts/piper_voice_catalog.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
 import '../../features/tts/piper_voice_prefs.dart';
@@ -1011,6 +1012,111 @@ class _PiperModelCardState extends State<_PiperModelCard> {
       ),
     );
     if (confirm == true) _manager.deletePiperAll();
+  }
+}
+
+class _PiperVoiceDownloadSheet extends StatefulWidget {
+  const _PiperVoiceDownloadSheet();
+
+  @override
+  State<_PiperVoiceDownloadSheet> createState() =>
+      _PiperVoiceDownloadSheetState();
+}
+
+class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
+  bool _showMore = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final featured = PiperVoiceCatalog.featured();
+    final extra = PiperVoiceCatalog.more();
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.72,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (context, scroll) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: ListView(
+            controller: scroll,
+            children: [
+              Text(
+                context.uiText('Download Piper voice (~75MB, auto-install)'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.uiText(
+                  'Priority: Vietnamese, English, Chinese, Hindi. '
+                  'More languages below. Source: HuggingFace rhasspy/piper-voices '
+                  '(k2-fsa bundle first). Sinhala is not in this catalog yet.',
+                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              ),
+              const SizedBox(height: 12),
+              ..._groupTiles(context, featured),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => setState(() => _showMore = !_showMore),
+                icon: Icon(
+                  _showMore ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                ),
+                label: Text(
+                  context.uiText(
+                    _showMore ? 'Hide extra languages' : 'Show more languages',
+                  ),
+                ),
+              ),
+              if (_showMore) ..._groupTiles(context, extra),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _groupTiles(BuildContext context, List<PiperVoiceOffer> voices) {
+    final byLang = <String, List<PiperVoiceOffer>>{};
+    for (final v in voices) {
+      byLang.putIfAbsent(v.languageCode, () => []).add(v);
+    }
+    final out = <Widget>[];
+    for (final entry in byLang.entries) {
+      out.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: Text(
+            '${entry.value.first.languageLabelEn} (${entry.key})',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF80CBC4),
+            ),
+          ),
+        ),
+      );
+      for (final v in entry.value) {
+        out.add(
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(v.id, style: const TextStyle(fontSize: 13)),
+            subtitle: Text(
+              '${v.speaker} · ${v.quality} · ~${v.approxSizeMB}MB',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+            trailing: const Icon(Icons.download, size: 18),
+            onTap: () => Navigator.pop(context, v.id),
+          ),
+        );
+      }
+    }
+    return out;
   }
 }
 

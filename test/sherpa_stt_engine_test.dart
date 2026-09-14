@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up_stt/models/stt_result.dart';
@@ -110,6 +111,22 @@ void main() {
       expect(asrInfo.stateFor('asr-en-20M-streaming-int8').downloadProgress, 0.45);
 
       expect(asrInfo.isReady('unknown_profile'), isFalse);
+    });
+
+    test('isStreamingEncoderOnnx identifies streaming vs non-streaming metadata', () {
+      final tempDir = Directory.systemTemp.createTempSync('sherpa_test_');
+      try {
+        final streamingFile = File('${tempDir.path}/encoder_streaming.onnx');
+        streamingFile.writeAsStringSync('model_type=zipformer2;encoder_dims=192,256,384,512;query_head_dims=32');
+
+        final nonStreamingFile = File('${tempDir.path}/encoder_non_streaming.onnx');
+        nonStreamingFile.writeAsStringSync('comment=non-streaming zipformer2;model_type=zipformer2');
+
+        expect(SherpaModelManager.isStreamingEncoderOnnx(streamingFile.path), isTrue);
+        expect(SherpaModelManager.isStreamingEncoderOnnx(nonStreamingFile.path), isFalse);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
     });
   });
 

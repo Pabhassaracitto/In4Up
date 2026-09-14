@@ -62,19 +62,25 @@
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
 | HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done + CI xanh (chờ nghiệm thu) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
-| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh (chờ nghiệm thu máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
+| READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh + fix hậu nghiệm thu b08567a (chờ nghiệm thu lại máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
+| WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
+| DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
+| VID-001 | Video Player local: xem video + phụ đề + học từ (PLAN-025) | 🔄 doing | bàn giao + PLAN + code WP0-WP3 (models + library + player + sub-tab) |
+| IMG-001 | Hình ảnh ghi nhớ cho từ vựng | ✅ done | c15b0b7 vocab_image |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 17 test (T6/T7); _viBase ĐẦY ĐỦ 150 entries (khôi phục đ U+0111); căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột + mảnh meaning 1 từ gộp đúng |
 | STT-LRC-LANG-01 | Tạo lời (LRC) bằng Whisper đa ngữ: chip chọn ngôn ngữ + 'auto' tự nhận diện (hết hardcode 'en') | ✅ done + CI xanh (chờ nghiệm thu máy) | run 33977299465; chip 14 ngôn ngữ (mặc định auto) + 3 call sites hết hardcode 'en' + VAD/CLI/FFI/plugin đều hỗ trợ 'auto' | _LrcModelSelector + 14 ngôn ngữ (mặc định auto); 3 call sites hardcode 'en' → language param; VAD pipeline + transcribeAuto + transcribeFile đều nhận language |
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
+
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | PIC-001 | Pic Anki occlusion + Pic Express describe/score | 🔄 doing (WP-A+B) | lib/features/pic_anki + test/pic_anki_test.dart |
+
 
 ## Card chi tiết
 
@@ -1590,7 +1596,7 @@
     class _EffortSlider; chờ CI + nghiệm thu
 
 ### READ-DEV-001 — Thư viện đọc: quét + hiển thị file trên máy (như thư viện nhạc)
-- **Trạng thái:** done + CI xanh 33944392085 (chờ nghiệm thu máy)
+- **Trạng thái:** done + CI xanh 33944392085 + fix hậu nghiệm thu b08567a (chờ nghiệm thu lại máy)
 - **Nguồn:** yêu cầu owner: "Thư viện nhạc đã có thể quét từ máy, vậy hãy làm
   cho thư viện đọc cũng có thể quét và hiển thị từ máy thay vì phải mở sâu vào
   trong hệ thống bất tiện cho người dùng."
@@ -1629,6 +1635,22 @@
     %2F) + Dart `TextDeviceProvider.safeDecodeComponent` (folderLabel decode
     an toàn, không throw); + màu tile theo ext (pdf đỏ / docx xanh / lrc-srt
     cam / text xanh lá)
+  - 2026-09-15 | fix hậu nghiệm thu máy | agent arena/01a07d68-in4up |
+    commit b08567a (+ merge 294a332 kéo 251e mới nhất) | BUG từ logcat
+    tablet (thẻ SD 3033-3963): chọn thư mục xong báo "Không tìm thấy
+    file văn bản/PDF" dù thư mục có file. Gốc:
+    FilePicker.getDirectoryPath trả RAW PATH (/storage/...) chứ không
+    phải SAF content:// tree URI → DocumentsContract.getTreeDocumentId
+    throw "Invalid URI: /storage/..." + takePersistableUriPermission
+    throw SecurityException; cả 2 bị try/catch nuốt lặng → scanTree
+    rỗng. FIX: native pickFolder mở ACTION_OPEN_DOCUMENT_TREE trực
+    tiếp + takePersistableUriPermission ngay trong onActivityResult
+    (trả content:// thật); normalizeTreeUri (legacy raw path →
+    <volume>:<path>, hỗ trợ /storage/emulated + thẻ SD/USB);
+    scanTree/keepTreePermission tự normalize + báo PERMISSION_LOST/
+    BAD_URI thay vì nuốt lặng; Dart _migrateLegacyFolder tự chuẩn hoá
+    raw path đã lưu trong prefs bản cũ. Nghiệm thu lại cần: chọn lại
+    thư mục 1 lần → hiện danh sách → restart app vẫn quét được.
 
 ### LHB-004 — Lặp TTS RIÊNG từng câu (số lần tùy ý/câu) + persist theo bài
 - **Trạng thái:** done (chờ CI + nghiệm thu máy)
@@ -1818,12 +1840,14 @@
 - **Lịch sử:**
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
+  - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
 
 ### PIC-001 — Pic Anki + Pic Express (tư vấn, chưa code)
 - **Trạng thái:** 🔄 doing (WP-A + WP-B code)
 - **Nguồn:** owner (2026-09-05) — Anki che hình đố + Google nhìn hình miêu tả chấm điểm.
 - **Nội dung:** tư vấn kiến trúc để khi OK mới code. Chi tiết
-  `docs/Bangiao/bangiao_pic_anki_express.md` + PLAN-024.
+  `docs/Bangiao/bangiao_pic_anki_express.md` + PLAN-024 (Pic trên 072a0;
+  DEV 251e dùng PLAN-024 cho DICT-001).
   - WP-A: image occlusion offline (mask JSON + SM-2 reading).
   - WP-B: describe-and-score viết (entity user + WriteStudio rubric).
   - WP-C: nói (STT) sau mic ổn.
@@ -1837,6 +1861,75 @@
   - 2026-09-05 | proposed→doing | owner chọn lộ trình A rồi B | agent arena/01a072a0-in4up
   - 2026-09-13 | merge DEV 251e (6ba029a) | agent arena/01a072a0-in4up |
     kéo LHB-005/TTS-PIPER/READ-FOCUS/CI-IOS/SHERPA-WP4 done; giữ PIC-001
+  - 2026-09-15 | merge DEV 251e (85ba86b) | agent arena/01a072a0-in4up |
+    DICT-001 / VID-001 / IMG-001 / READ-DEV-001 SAF URI; giữ PIC-001
+
+### DICT-001 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
+- **Trạng thái:** 🔄 doing — WP0 models + DB, đang code
+- **Nguồn:** owner (2026-09-05) — "tích hợp từ điển dạng mdd mdx vào dự án"
+- **Chi tiết:** xem PLAN-024 + `docs/Bangiao/bangiao_dictionary.md`
+- **Nội dung:**
+  - MDX parser (Dart, pure, isolate) → SQLite dict_entries
+  - Dictionary service facade: lookup multi-dict, register/unregister
+  - Import flow: file_picker → parse → SQLite, progress, error handling
+  - Dict manager screen: list, delete, toggle, entry count
+  - Tích hợp WordActionsSheet (Read mode) + WordAnalysisSheet (YouTube)
+  - Auto-fill meaning khi lưu từ (addWithAutoClassify)
+  - i18n chrome UI (rule #5 AGENTS.md)
+- **Work packages:**
+  - WP0: Models + DB service (DictEntry, DictInfo, DictDbService)
+  - WP1: MDX parser (Dart, isolate)
+  - WP2: Dictionary service facade
+  - WP3: Import flow
+  - WP4: Dict manager screen
+  - WP5: Tích hợp Read mode
+  - WP6: Tích hợp YouTube + i18n
+- **Bằng chứng:** code trên branch arena/01a07234-in4up
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-024 + bàn giao + WP0
+
+### VID-001 — Video Player local: xem video + phụ đề + học từ (PLAN-025)
+- **Trạng thái:** 🔄 doing — WP0-WP3 code, đang push
+- **Nguồn:** owner (2026-09-05) — "làm phần video kết hợp A+B"
+- **Chi tiết:** xem PLAN-025 + `docs/Bangiao/bangiao_video.md`
+- **Nội dung:**
+  - Sub-tab "Xem" trong tab Nghe (Nghe | Nói | Xem) — approach A
+  - Quick-action "Video" trong ⚡ menu — approach B
+  - Video player screen (video_player package) + controls + speed
+  - SRT subtitle parser + overlay
+  - Video library screen (browse/search files from device)
+  - Tap subtitle → tra từ điển + lưu WordList
+  - A-B loop per subtitle line
+  - i18n chrome UI (rule #5)
+- **Work packages:**
+  - WP0: Models + video library service ✅
+  - WP1: Video player screen ✅
+  - WP2: SRT subtitle parser ✅
+  - WP3: Sub-tab "Xem" + quick-action ✅
+  - WP4: Tích hợp từ điển (tap subtitle → lookup)
+  - WP5: A-B loop per subtitle line + i18n
+- **Bằng chứng:** code trên branch arena/01a07234-in4up
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07234-in4up | PLAN-025 + bàn giao + WP0-WP3
+
+### IMG-001: Vocabulary Image Feature
+- **ID**: IMG-001
+- **Tiêu đề**: Thêm hình ảnh ghi nhớ cho từ vựng
+- **Mô tả**: Cho phép người dùng chọn/gán hình ảnh cho từ vựng khi lưu hoặc chỉnh sửa. Hình ảnh được lưu vào app documents với hash-based deduplication. Hiển thị thumbnail trong danh sách từ và preview lớn hơn khi mở rộng chi tiết.
+- **Ưu tiên**: Trung bình
+- **Trạng thái**: ✅ Done
+- **Ngày tạo**: 2026-09-05
+- **Ngày hoàn thành**: 2026-09-05
+- **Commit**: `c15b0b7` on `arena/01a07234-in4up`
+- **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
+- **Files**:
+  - `lib/features/vocab_image/vocab_image_service.dart`
+  - `lib/features/vocab_image/vocab_image_picker.dart`
+  - `lib/features/vocab_image/vocab_image_thumbnail.dart`
+  - `lib/features/vocab_image/vocab_image.dart`
+  - `lib/providers/vocabulary_provider.dart` (updateImageUrl method)
+  - `lib/screens/read_mode/sheets/word_actions_sheet.dart`
+  - `lib/screens/tools/word_list/word_list_screen.dart`
 
 ### STT-LRC-LANG-01 — Tạo lời (LRC) bằng Whisper: đa ngữ, hết hardcode 'en'
 - **Trạng thái:** ✅ done + CI xanh run 33977299465 (chờ nghiệm thu máy)

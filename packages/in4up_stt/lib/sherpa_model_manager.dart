@@ -364,6 +364,35 @@ class SherpaModelManager {
 
   // ── ZIPFORMER ASR ──────────────────────────────────────────────────────
 
+  /// Kiểm tra xem file ONNX encoder có metadata `encoder_dims` cho streaming hay không.
+  static bool isStreamingEncoderOnnx(String encoderPath) {
+    try {
+      final file = File(encoderPath);
+      if (!file.existsSync()) return false;
+      final raf = file.openSync();
+      try {
+        final length = file.lengthSync();
+        final readLen = length < 256 * 1024 ? length : 256 * 1024;
+        final bytes = raf.readSync(readLen);
+        final text = String.fromCharCodes(
+          bytes.where((b) => b >= 32 && b < 127),
+        );
+        if (text.contains('comment=non-streaming') ||
+            text.contains('non-streaming zipformer')) {
+          return false;
+        }
+        if (text.contains('encoder_dims') || text.contains('query_head_dims')) {
+          return true;
+        }
+        return false;
+      } finally {
+        raf.closeSync();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
   SherpaModelPaths? _findAsrModelInDirSync(String dirPath, {bool? isStreaming}) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) return null;
@@ -405,12 +434,13 @@ class SherpaModelManager {
     }
 
     if (encoder != null && decoder != null && joiner != null && tokens != null) {
+      final actualStreaming = isStreamingEncoderOnnx(encoder);
       return SherpaModelPaths(
         encoder: encoder,
         decoder: decoder,
         joiner: joiner,
         tokens: tokens,
-        isStreaming: isStreaming ?? false,
+        isStreaming: actualStreaming,
       );
     }
     return null;
@@ -556,16 +586,50 @@ class SherpaModelManager {
     final dir = Directory(folderPath);
     if (!await dir.exists()) return 'Thư mục không tồn tại';
 
-    final targetId = targetProfileId ??
-        (folderPath.toLowerCase().contains('vi')
-            ? 'asr-vi-30M-int8'
-            : 'asr-en-20M-streaming-int8');
+    final listing = await _walkPaths(dir.path);
+    if (listing.isEmpty) return 'Thư mục rỗng';
+
+    // 1. Phân tích nội dung để xác định profile chính xác
+    String? tokensPath;
+    String? encoderPath;
+    for (final path in listing) {
+      final name = p.basename(path).toLowerCase();
+      if (name.contains('tokens') && name.endsWith('.txt')) {
+        tokensPath = path;
+      } else if (name.contains('encoder') && name.endsWith('.onnx')) {
+        encoderPath = path;
+      }
+    }
+
+    bool isVietnamese = false;
+    if (tokensPath != null) {
+      try {
+        final content = File(tokensPath).readAsStringSync();
+        isVietnamese = content.contains(RegExp(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false));
+      } catch (_) {}
+    }
+
+    bool isStreaming = false;
+    if (encoderPath != null) {
+      isStreaming = isStreamingEncoderOnnx(encoderPath);
+    }
+
+    String targetId;
+    if (isVietnamese) {
+      targetId = 'asr-vi-30M-int8';
+    } else if (isStreaming) {
+      targetId = 'asr-en-20M-streaming-int8';
+    } else {
+      targetId = targetProfileId ??
+          (folderPath.toLowerCase().contains('vi')
+              ? 'asr-vi-30M-int8'
+              : 'asr-en-20M-streaming-int8');
+    }
 
     final docs = await _documents();
     final destDir = p.join(docs, asrFolderName, targetId);
     await Directory(destDir).create(recursive: true);
 
-    final listing = await _walkPaths(dir.path);
     var copied = 0;
     var archivePath = '';
 
@@ -597,7 +661,10 @@ class SherpaModelManager {
     await rescan();
     final paths = _findAsrModelInDirSync(destDir);
     if (paths != null) {
-      return '✅ Đã import model Zipformer ASR ($targetId)';
+      final profileName = targetId == 'asr-vi-30M-int8'
+          ? 'Tiếng Việt (Zipformer 30M int8)'
+          : 'English (Zipformer 20M int8 streaming)';
+      return '✅ Đã import model Zipformer ASR: $profileName';
     }
     return 'Import thất bại: thiếu file encoder/decoder/joiner/tokens trong $folderPath';
   }
@@ -605,10 +672,42 @@ class SherpaModelManager {
   Future<String> importAsrFiles(List<String> filePaths, {String? targetProfileId}) async {
     if (filePaths.isEmpty) return 'Chưa chọn file nào';
 
-    final targetId = targetProfileId ??
-        (filePaths.any((f) => f.toLowerCase().contains('vi'))
-            ? 'asr-vi-30M-int8'
-            : 'asr-en-20M-streaming-int8');
+    // 1. Phân tích nội dung các file để xác định profile chính xác
+    String? tokensPath;
+    String? encoderPath;
+    for (final path in filePaths) {
+      final name = p.basename(path).toLowerCase();
+      if (name.contains('tokens') && name.endsWith('.txt')) {
+        tokensPath = path;
+      } else if (name.contains('encoder') && name.endsWith('.onnx')) {
+        encoderPath = path;
+      }
+    }
+
+    bool isVietnamese = false;
+    if (tokensPath != null) {
+      try {
+        final content = File(tokensPath).readAsStringSync();
+        isVietnamese = content.contains(RegExp(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false));
+      } catch (_) {}
+    }
+
+    bool isStreaming = false;
+    if (encoderPath != null) {
+      isStreaming = isStreamingEncoderOnnx(encoderPath);
+    }
+
+    String targetId;
+    if (isVietnamese) {
+      targetId = 'asr-vi-30M-int8';
+    } else if (isStreaming) {
+      targetId = 'asr-en-20M-streaming-int8';
+    } else {
+      targetId = targetProfileId ??
+          (filePaths.any((f) => f.toLowerCase().contains('vi'))
+              ? 'asr-vi-30M-int8'
+              : 'asr-en-20M-streaming-int8');
+    }
 
     final docs = await _documents();
     final destDir = p.join(docs, asrFolderName, targetId);
@@ -645,7 +744,10 @@ class SherpaModelManager {
     await rescan();
     final paths = _findAsrModelInDirSync(destDir);
     if (paths != null) {
-      return '✅ Đã import model Zipformer ASR ($targetId)';
+      final profileName = targetId == 'asr-vi-30M-int8'
+          ? 'Tiếng Việt (Zipformer 30M int8)'
+          : 'English (Zipformer 20M int8 streaming)';
+      return '✅ Đã import model Zipformer ASR: $profileName';
     }
     return 'Import thất bại: Cần đủ 4 file (.onnx: encoder, decoder, joiner và tokens.txt)';
   }

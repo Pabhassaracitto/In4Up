@@ -404,6 +404,7 @@ class PlayerProvider extends ChangeNotifier
     await _audioService.play();
   }
 
+  @override
   Future<void> pause() async {
     await _audioService.pause();
     saveCurrentPosition();

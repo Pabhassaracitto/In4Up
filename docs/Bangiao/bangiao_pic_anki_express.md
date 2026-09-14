@@ -124,10 +124,11 @@ Viết rõ để khỏi thất vọng lúc tích hợp:
 
 Khi OK: nhánh mới từ tip DEV, 1 WP, AT trong card KANBAN PIC-001.
 
-## 9. Đồng bộ DEV 251e (2026-09-13)
+## 9. Đồng bộ DEV 251e
 
-- Merge `origin/arena/01a0251e-in4up` @ `6ba029a` vào `arena/01a072a0-in4up`.
-- KANBAN/PLAN: giữ card mới 251e (SHERPA-WP4 done, LHB-005, TTS-PIPER-001,
-  READ-FOCUS-001, CI-IOS-01) + PIC-001 / PLAN-024.
-- Harvest ngược 251e: cherry-pick `-x` các commit pic trên tip 251e mới;
-  không merge 072a0 nguyên nhánh nếu 251e đã đi tiếp.
+- 2026-09-13: merge @ `6ba029a` (LHB-005 / Piper / Focus / CI-IOS).
+- 2026-09-15: merge @ `85ba86b` (DICT-001 PLAN-024, VID-001 PLAN-025,
+  IMG-001 PLAN-026, READ-DEV-001 SAF URI, zipformer #19).
+- Pic trên 072a0 vẫn gọi PLAN-024 lịch sử; DEV dùng PLAN-024 cho từ điển.
+- Harvest ngược 251e: cherry-pick `-x` commit pic trên tip 251e mới;
+  không merge nguyên 072a0 nếu 251e đã đi tiếp.

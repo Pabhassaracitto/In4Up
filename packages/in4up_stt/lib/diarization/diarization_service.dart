@@ -81,9 +81,9 @@ class HeuristicDiarizationService implements DiarizationService {
 
 /// Sprint 2: Placeholder — drop-in khi flutter_rust_bridge sẵn sàng
 class MeetilyRustDiarizationService implements DiarizationService {
-  final dynamic _rustBridge; // MeetilyBridge từ Task 1
+  final dynamic rustBridge; // MeetilyBridge từ Task 1
 
-  const MeetilyRustDiarizationService(this._rustBridge);
+  const MeetilyRustDiarizationService([this.rustBridge]);
 
   @override
   Future<List<SpeakerAnnotation>> diarize(SttResult input) async {

@@ -2803,8 +2803,13 @@
   3. Tab Nghe → tạo lời (LRC) bằng sherpa khi model đang chọn là streaming
      → hiện lỗi "model streaming không dùng cho file" (không crash).
   4. LRC bằng model VI offline → vẫn tạo lời bình thường.
+- **CI (trạng thái):** fix code đã commit `d652ee1` (tip `827b35a`), NHƯNG
+  wide oracle `app_analyze.yml` KHÔNG chạy vì paths filter chưa có
+  `packages/**` (code fix nằm trong local package `in4up_stt`). GitHub
+  App KHÔNG có quyền `workflows` → agent không sửa được workflow file /
+  không trigger được workflow_dispatch (403). **Owner chọn 1:**
+  (a) trên GitHub: Actions → "App Analyze + Locale Test" → Run workflow
+  (branch `arena/01a0251e-in4up`) — verify fix `d652ee1`; hoặc
+  (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
+  (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
-  - 2026-09-16 | created→fix-done | agent arena/01a0251e-in4up | phân tích
-    log Gemini + verify code: false-negative `isStreamingEncoderOnnx` +
-    `transcribeFile` luôn offline; fix 4 điểm (detection 2 lớp + 3 guard);
-    chờ CI + nghiệm thu máy
